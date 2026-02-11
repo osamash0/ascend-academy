@@ -16,7 +16,12 @@
 | **Database** | Supabase (PostgreSQL) | Relational database and real-time features |
 | **Auth** | Supabase Auth | Identity and access management |
 
-## directory Structure
+## Environment Configuration
+The application relies on the following environment variables (stored in `backend/.env`):
+- `SUPABASE_URL`: API URL for the Supabase project.
+- `SUPABASE_KEY`: Service role or anon key for API access.
+
+## Directory Structure
 
 ### Frontend (`/src`)
 - **`components/`**: Reusable UI components. `ui/` contains Shadcn primitives.

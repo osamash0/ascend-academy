@@ -3,6 +3,13 @@ Seed Service - Generates sample data for analytics dashboard
 """
 import uuid
 import random
+import sys
+from pathlib import Path
+
+# Add project root to sys.path
+project_root = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(project_root))
+
 from datetime import datetime, timedelta
 from backend.core.database import supabase
 
@@ -171,16 +178,27 @@ def seed_analytics_data(demo_mode=True):
     # Original code for real users
     print("👤 Finding professor user...")
     try:
-        profiles = supabase.table("profiles").select("user_id").execute()
-        if profiles.data and len(profiles.data) > 0:
-            professor_id = profiles.data[0]["user_id"]
-            print(f"  ✓ Using existing user: {professor_id}")
+        # Try to find a user from the auth.users table (via Supabase Admin API if possible, or just use the first user found in user_roles)
+        # Since we can't easily query auth.users with the standard client service key unless we are admin,
+        # we will check the 'user_roles' table which we know the frontend populates.
+        
+        response = supabase.table("user_roles").select("user_id").eq("role", "professor").limit(1).execute()
+        
+        if response.data and len(response.data) > 0:
+            professor_id = response.data[0]["user_id"]
+            print(f"  ✓ Found professor: {professor_id}")
         else:
-            print("  ⚠️  No users found. Please sign up via the app first.")
-            print("  💡 Tip: Go to http://localhost:8080/auth")
-            return
+             # Fallback: try to find ANY user if no professor rule exists yet
+            response = supabase.table("user_roles").select("user_id").limit(1).execute()
+            if response.data:
+                 professor_id = response.data[0]["user_id"]
+                 print(f"  ✓ Found user (role unknown): {professor_id}")
+            else:
+                print("  ⚠️  No users found in 'user_roles'. Please sign up via the app first.")
+                print("  💡 Tip: Go to http://localhost:8080/auth")
+                return
     except Exception as e:
-        print(f"  ❌ Error: {e}")
+        print(f"  ❌ Error finding user: {e}")
         return
     
     # Rest of original code
@@ -215,4 +233,5 @@ def seed_analytics_data(demo_mode=True):
             print(f"   - {lecture_id}")
 
 if __name__ == "__main__":
-    seed_analytics_data()
+    # Disable demo mode to try and find a real user
+    seed_analytics_data(demo_mode=False)

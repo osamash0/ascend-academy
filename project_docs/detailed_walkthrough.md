@@ -35,6 +35,10 @@ The backend is built with **FastAPI** (Python). It serves data to the frontend.
 - **[backend/services/analytics_service.py](file:///c:/Users/Osama/ascend-academy/backend/services/analytics_service.py)**: The **Brain**.
   - This file contains the actual logic. For example, `get_lecture_overview(lecture_id)` requests data from Supabase and calculates averages.
   - It keeps logic _out_ of the API routes, making code cleaner.
+- **[backend/services/seed_service.py](file:///c:/Users/Osama/ascend-academy/backend/services/seed_service.py)**: The **Data Generator**.
+  - A utility script to populate the database with mock data.
+  - Runs with `python backend/services/seed_service.py`.
+  - Creates sample lectures, slides, and student engagement records linked to your user account.
 - **[backend/api/analytics.py](file:///c:/Users/Osama/ascend-academy/backend/api/analytics.py)**: The **Gatekeeper**.
   - Defines URLs like `/lecture/{id}/overview`.
   - It receives the request, calls the `analytics_service`, and returns the JSON response.
