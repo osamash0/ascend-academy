@@ -304,9 +304,9 @@ export default function LectureUpload() {
               />
             </div>
             {isUploading && (
-              <div className="flex items-center gap-2 text-muted-foreground mt-6">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Parsing slides…</span>
+              <div className="flex items-center gap-3 text-primary mt-6 bg-primary/5 px-4 py-3 rounded-xl border border-primary/20 animate-pulse">
+                <Sparkles className="h-5 w-5" />
+                <span className="text-sm font-medium">Local AI is structuring and enhancing your slides...</span>
               </div>
             )}
           </div>

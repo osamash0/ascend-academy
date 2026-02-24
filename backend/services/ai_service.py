@@ -2,8 +2,34 @@ import ollama
 import json
 import re
 
-OLLAMA_MODEL = "llama3"  # Change to whichever model you have pulled
+OLLAMA_MODEL = "llama3"  # Change to whichever model you have pulled (e.g., mistral, llama3)
 
+def enhance_slide_content(raw_text: str) -> str:
+    """
+    Transforms raw PDF text into structured, educational Markdown content using Ollama.
+    """
+    prompt = f"""You are an expert educational content designer. 
+Transform the following raw text from a lecture slide into a structured, engaging, and easy-to-read Markdown format for students.
+- Use clear headings.
+- Use bullet points for key concepts.
+- Bold important terms.
+- If there are steps or a sequence, use numbered lists.
+- Keep it concise but ensure all critical information is preserved.
+
+Raw Slide Text:
+{raw_text}
+
+Structured Markdown:"""
+
+    try:
+        response = ollama.chat(
+            model=OLLAMA_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response["message"]["content"].strip()
+    except Exception as e:
+        print(f"DEBUG: Ollama enhancement error: {e}")
+        return raw_text
 
 def generate_summary(slide_text: str) -> str:
     """
@@ -17,12 +43,15 @@ Slide content:
 
 Summary:"""
 
-    response = ollama.chat(
-        model=OLLAMA_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return response["message"]["content"].strip()
-
+    try:
+        response = ollama.chat(
+            model=OLLAMA_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response["message"]["content"].strip()
+    except Exception as e:
+        print(f"DEBUG: Ollama summary error: {e}")
+        return "Failed to generate summary."
 
 def generate_quiz(slide_text: str) -> dict:
     """
@@ -44,23 +73,24 @@ Return ONLY the JSON object, no extra text.
 Slide content:
 {slide_text}"""
 
-    response = ollama.chat(
-        model=OLLAMA_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    try:
+        response = ollama.chat(
+            model=OLLAMA_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        content = response["message"]["content"].strip()
 
-    content = response["message"]["content"].strip()
+        # Extract JSON even if there's extra text around it
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        if json_match:
+            content = json_match.group()
 
-    # Extract JSON even if there's extra text around it
-    json_match = re.search(r'\{.*\}', content, re.DOTALL)
-    if json_match:
-        content = json_match.group()
-
-    quiz = json.loads(content)
-
-    # Validate structure
-    assert "question" in quiz and "options" in quiz and "correctAnswer" in quiz
-    assert len(quiz["options"]) == 4
-    assert isinstance(quiz["correctAnswer"], int)
-
-    return quiz
+        quiz = json.loads(content)
+        return quiz
+    except Exception as e:
+        print(f"DEBUG: Ollama quiz error: {e}")
+        return {
+            "question": "Failed to generate quiz question.",
+            "options": ["Option A", "Option B", "Option C", "Option D"],
+            "correctAnswer": 0
+        }

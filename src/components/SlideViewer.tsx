@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, BookOpen, Lightbulb, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Document, Page, pdfjs } from 'react-pdf';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -107,44 +109,59 @@ export function SlideViewer({
       </div>
 
       {/* Content — PDF preview OR text fallback */}
+      {/* Content — Combined View */}
       <motion.div
         key={slideNumber}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="min-h-[400px]"
+        className="min-h-[400px] flex flex-col"
       >
-        {hasPdf ? (
-          /* ── PDF Page Preview ── */
-          <div className="flex justify-center bg-muted/30 p-4 overflow-auto max-h-[600px]">
-            <Document
-              file={pdfUrl}
-              loading={
-                <div className="flex items-center justify-center h-[400px]">
-                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                </div>
-              }
-              onLoadError={() => setPdfError(true)}
-            >
-              <Page
-                pageNumber={pageNumber ?? slideNumber}
-                scale={scale}
-                renderTextLayer={true}
-                renderAnnotationLayer={true}
-              />
-            </Document>
-          </div>
-        ) : (
-          /* ── Text fallback ── */
-          <div className="p-8">
-            <div className="prose prose-slate max-w-none">
-              <div className="text-foreground text-lg leading-relaxed whitespace-pre-wrap">
-                {content}
-              </div>
+        {/* PDF Slide Area (if available) */}
+        {hasPdf && (
+          <div className="flex flex-col border-b border-border bg-muted/10">
+            <div className="px-6 py-3 border-b border-border/50 flex items-center gap-2 text-muted-foreground">
+              <BookOpen className="w-4 h-4" />
+              <span className="text-xs font-semibold uppercase tracking-wider">Slide Preview</span>
+            </div>
+            <div className="flex justify-center p-4 overflow-auto max-h-[500px] custom-scrollbar">
+              <Document
+                file={pdfUrl}
+                loading={
+                  <div className="flex items-center justify-center h-[300px]">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                }
+                onLoadError={() => setPdfError(true)}
+              >
+                <Page
+                  pageNumber={pageNumber ?? slideNumber}
+                  scale={scale}
+                  renderTextLayer={true}
+                  renderAnnotationLayer={true}
+                />
+              </Document>
             </div>
           </div>
         )}
+
+        {/* AI Structured Content / Study Notes Area */}
+        <div className="flex flex-col flex-1">
+          {hasPdf && (
+            <div className="px-6 py-3 border-b border-border/50 flex items-center gap-2 text-primary">
+              <Lightbulb className="w-4 h-4" />
+              <span className="text-xs font-semibold uppercase tracking-wider">Study Notes & Key Concepts</span>
+            </div>
+          )}
+          <div className="p-8 h-full">
+            <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-primary prose-bullet:bg-primary prose-li:text-muted-foreground">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content || "_No content available for this slide._"}
+              </ReactMarkdown>
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {/* AI Summary */}

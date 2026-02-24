@@ -232,24 +232,35 @@ export default function LectureView() {
   };
 
   const currentSlide = slides[currentSlideIndex];
-  const currentSlideQuestions = questions.filter(
-    q => q.slide_id === currentSlide?.id ||
-      (questions.length > 0 && currentSlideIndex < questions.length)
-  );
-  const currentQuestion = currentSlideQuestions[currentQuestionIndex] || questions[currentSlideIndex];
+
+  // Refined: Only get questions for the REALLY current slide ID
+  const currentSlideQuestions = questions.filter(q => q.slide_id === currentSlide?.id);
+  const currentQuestion = currentSlideQuestions[0]; // Assuming 1 question per slide for now
 
   const handleNextSlide = () => {
+    // If we're not showing the quiz yet, and there IS a quiz for this slide, show it first
+    if (!showQuiz && currentQuestion) {
+      setShowQuiz(true);
+      return;
+    }
+
+    // If we already showed the quiz (or there wasn't one), then move forward
     if (currentSlideIndex < slides.length - 1) {
       setCurrentSlideIndex(prev => prev + 1);
-      setShowQuiz(true);
+      setShowQuiz(false); // Hide quiz for the NEW slide initially
       setCurrentQuestionIndex(0);
     } else {
-      // Lecture complete
+      // It was the last slide
       handleLectureComplete();
     }
   };
 
   const handlePreviousSlide = () => {
+    if (showQuiz) {
+      setShowQuiz(false);
+      return;
+    }
+
     if (currentSlideIndex > 0) {
       setCurrentSlideIndex(prev => prev - 1);
       setShowQuiz(false);
@@ -461,7 +472,7 @@ export default function LectureView() {
               {/* Main content - Slide viewer */}
               <div className="lg:col-span-2">
                 <AnimatePresence mode="wait">
-                  {!showQuiz && currentSlide && (
+                  {currentSlide && (
                     <motion.div
                       key={`slide-${currentSlideIndex}`}
                       initial={{ opacity: 0, x: -20 }}
