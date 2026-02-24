@@ -9,6 +9,7 @@ import { QuizCard } from '@/components/QuizCard';
 import { LevelUpModal } from '@/components/LevelUpModal';
 import { BadgeEarnedModal } from '@/components/BadgeEarnedModal';
 import { Button } from '@/components/ui/button';
+import { LectureSidebar } from '@/components/LectureSidebar';
 import { useToast } from '@/hooks/use-toast';
 
 interface Slide {
@@ -58,6 +59,7 @@ export default function LectureView() {
   // Realtime state
   const [isLive, setIsLive] = useState(false);
   const [channel, setChannel] = useState<any>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const { role } = useAuth(); // role is 'professor' or 'student'
 
   useEffect(() => {
@@ -404,160 +406,180 @@ export default function LectureView() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div>
-                <h1 className="font-semibold text-foreground">{lecture?.title || 'Lecture'}</h1>
-                <p className="text-sm text-muted-foreground">
-                  Slide {currentSlideIndex + 1} of {slides.length}
-                </p>
-              </div>
-            </div>
+    <div className="flex h-screen bg-background overflow-hidden">
+      {/* Sidebar */}
+      <LectureSidebar
+        slides={slides}
+        currentSlideIndex={currentSlideIndex}
+        onSelectSlide={(index) => {
+          if (!(role === 'student' && isLive)) {
+            setCurrentSlideIndex(index);
+            setShowQuiz(false);
+          }
+        }}
+        isCollapsed={isSidebarCollapsed}
+        onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        locked={role === 'student' && isLive}
+      />
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
-                <Zap className="w-4 h-4 text-xp" />
-                <span className="font-semibold text-foreground">+{xpEarned} XP</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
-                <Trophy className="w-4 h-4 text-success" />
-                <span className="font-semibold text-foreground">{correctAnswers}/{slides.length}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main content - Slide viewer */}
-          <div className="lg:col-span-2">
-            <AnimatePresence mode="wait">
-              {!showQuiz && currentSlide && (
-                <motion.div
-                  key={`slide-${currentSlideIndex}`}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                >
-                  <SlideViewer
-                    title={currentSlide.title || `Slide ${currentSlide.slide_number}`}
-                    content={currentSlide.content_text || ''}
-                    summary={currentSlide.summary || ''}
-                    slideNumber={currentSlideIndex + 1}
-                    totalSlides={slides.length}
-                    onPrevious={handlePreviousSlide}
-                    onNext={handleNextSlide}
-                    isFirst={currentSlideIndex === 0}
-                    isLast={currentSlideIndex === slides.length - 1}
-                    pdfUrl={lecture?.pdf_url}
-                    pageNumber={currentSlide.slide_number}
-                    isLive={isLive}
-                    locked={role === 'student' && isLive}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Sidebar - Quiz */}
-          <div>
-            <AnimatePresence mode="wait">
-              {showQuiz && currentQuestion ? (
-                <motion.div
-                  key={`quiz-${currentSlideIndex}`}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                >
-                  <QuizCard
-                    question={currentQuestion.question_text}
-                    options={currentQuestion.options}
-                    correctAnswer={currentQuestion.correct_answer}
-                    onAnswer={handleQuizAnswer}
-                    questionNumber={currentSlideIndex + 1}
-                    totalQuestions={slides.length}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="bg-card rounded-2xl border border-border p-6"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center">
-                        <BookOpen className="w-6 h-6 text-primary-foreground" />
-                      </div>
-                      <div>
-                        <h1 className="text-2xl font-bold text-foreground">{lecture?.title}</h1>
-                        <p className="text-muted-foreground">{slides.length} Slides</p>
-                      </div>
-                    </div>
-
-                    {/* Live Controls for Professor */}
-                    {role === 'professor' && (
-                      <Button
-                        variant={isLive ? "destructive" : "hero"}
-                        onClick={() => {
-                          const nextLive = !isLive;
-                          setIsLive(nextLive);
-                          if (!nextLive && channel) {
-                            channel.send({ type: 'broadcast', event: 'live-ended' });
-                          }
-                          toast({
-                            title: nextLive ? "You are now LIVE" : "Live mode ended",
-                            description: nextLive ? "Students will now follow your slide changes." : "Students can now navigate freely.",
-                          });
-                        }}
-                        className="gap-2"
-                      >
-                        {isLive ? <RadioTower className="w-4 h-4 animate-pulse" /> : <Radio className="w-4 h-4" />}
-                        {isLive ? "End Live Session" : "Go Live"}
-                      </Button>
-                    )}
-
-                    {/* Live Indicator for Student */}
-                    {role === 'student' && isLive && (
-                      <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded-full text-sm font-medium animate-pulse border border-destructive/20">
-                        <RadioTower className="w-4 h-4" />
-                        Professor is LIVE - Syncing Slides
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-4">
-                    Read through the slide and click "Next" to answer a quiz question about the content.
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* Header */}
+        <div className="border-b border-border bg-card">
+          <div className="w-full px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+                <div>
+                  <h1 className="font-semibold text-foreground">{lecture?.title || 'Lecture'}</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Slide {currentSlideIndex + 1} of {slides.length}
                   </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
+                  <Zap className="w-4 h-4 text-xp" />
+                  <span className="font-semibold text-foreground">+{xpEarned} XP</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
+                  <Trophy className="w-4 h-4 text-success" />
+                  <span className="font-semibold text-foreground">{correctAnswers}/{slides.length}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="w-full px-6 py-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Main content - Slide viewer */}
+              <div className="lg:col-span-2">
+                <AnimatePresence mode="wait">
+                  {!showQuiz && currentSlide && (
+                    <motion.div
+                      key={`slide-${currentSlideIndex}`}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                    >
+                      <SlideViewer
+                        title={currentSlide.title || `Slide ${currentSlide.slide_number}`}
+                        content={currentSlide.content_text || ''}
+                        summary={currentSlide.summary || ''}
+                        slideNumber={currentSlideIndex + 1}
+                        totalSlides={slides.length}
+                        onPrevious={handlePreviousSlide}
+                        onNext={handleNextSlide}
+                        isFirst={currentSlideIndex === 0}
+                        isLast={currentSlideIndex === slides.length - 1}
+                        pdfUrl={lecture?.pdf_url}
+                        pageNumber={currentSlide.slide_number}
+                        isLive={isLive}
+                        locked={role === 'student' && isLive}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Sidebar - Quiz */}
+              <div>
+                <AnimatePresence mode="wait">
+                  {showQuiz && currentQuestion ? (
+                    <motion.div
+                      key={`quiz-${currentSlideIndex}`}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                    >
+                      <QuizCard
+                        question={currentQuestion.question_text}
+                        options={currentQuestion.options}
+                        correctAnswer={currentQuestion.correct_answer}
+                        onAnswer={handleQuizAnswer}
+                        questionNumber={currentSlideIndex + 1}
+                        totalQuestions={slides.length}
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="bg-card rounded-2xl border border-border p-6"
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center">
+                            <BookOpen className="w-6 h-6 text-primary-foreground" />
+                          </div>
+                          <div>
+                            <h1 className="text-2xl font-bold text-foreground">{lecture?.title}</h1>
+                            <p className="text-muted-foreground">{slides.length} Slides</p>
+                          </div>
+                        </div>
+
+                        {/* Live Controls for Professor */}
+                        {role === 'professor' && (
+                          <Button
+                            variant={isLive ? "destructive" : "hero"}
+                            onClick={() => {
+                              const nextLive = !isLive;
+                              setIsLive(nextLive);
+                              if (!nextLive && channel) {
+                                channel.send({ type: 'broadcast', event: 'live-ended' });
+                              }
+                              toast({
+                                title: nextLive ? "You are now LIVE" : "Live mode ended",
+                                description: nextLive ? "Students will now follow your slide changes." : "Students can now navigate freely.",
+                              });
+                            }}
+                            className="gap-2"
+                          >
+                            {isLive ? <RadioTower className="w-4 h-4 animate-pulse" /> : <Radio className="w-4 h-4" />}
+                            {isLive ? "End Live Session" : "Go Live"}
+                          </Button>
+                        )}
+
+                        {/* Live Indicator for Student */}
+                        {role === 'student' && isLive && (
+                          <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded-full text-sm font-medium animate-pulse border border-destructive/20">
+                            <RadioTower className="w-4 h-4" />
+                            Professor is LIVE - Syncing Slides
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-4">
+                        Read through the slide and click "Next" to answer a quiz question about the content.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+
+          {/* Modals */}
+          <LevelUpModal
+            isOpen={showLevelUp}
+            onClose={() => setShowLevelUp(false)}
+            newLevel={newLevel}
+          />
+
+          <BadgeEarnedModal
+            isOpen={showBadge}
+            onClose={() => setShowBadge(false)}
+            badgeName={badgeInfo.name}
+            badgeDescription={badgeInfo.description}
+            badgeIcon={badgeInfo.icon}
+          />
+        </div>
       </div>
-
-      {/* Modals */}
-      <LevelUpModal
-        isOpen={showLevelUp}
-        onClose={() => setShowLevelUp(false)}
-        newLevel={newLevel}
-      />
-
-      <BadgeEarnedModal
-        isOpen={showBadge}
-        onClose={() => setShowBadge(false)}
-        badgeName={badgeInfo.name}
-        badgeDescription={badgeInfo.description}
-        badgeIcon={badgeInfo.icon}
-      />
     </div>
   );
 }
