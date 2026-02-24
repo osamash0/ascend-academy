@@ -15,6 +15,7 @@ import Achievements from "./pages/Achievements";
 import ProfessorDashboard from "./pages/ProfessorDashboard";
 import ProfessorAnalytics from "./pages/ProfessorAnalytics";
 import LectureUpload from "./pages/LectureUpload";
+import LectureEdit from "./pages/LectureEdit";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,11 +66,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function DashboardRouter() {
   const { role } = useAuth();
-  
+
   if (role === 'professor') {
     return <Navigate to="/professor/dashboard" replace />;
   }
-  
+
   return (
     <DashboardLayout>
       <StudentDashboard />
@@ -139,6 +140,16 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={['professor']}>
             <DashboardLayout>
               <LectureUpload />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/professor/lecture/:lectureId"
+        element={
+          <ProtectedRoute allowedRoles={['professor']}>
+            <DashboardLayout>
+              <LectureEdit />
             </DashboardLayout>
           </ProtectedRoute>
         }

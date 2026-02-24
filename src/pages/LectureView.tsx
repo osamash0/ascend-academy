@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookOpen, Zap, Trophy } from 'lucide-react';
+import { ArrowLeft, BookOpen, Zap, Trophy, Radio, RadioTower } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideViewer } from '@/components/SlideViewer';
@@ -32,6 +32,7 @@ interface Lecture {
   title: string;
   description: string | null;
   total_slides: number;
+  pdf_url?: string | null;
 }
 
 export default function LectureView() {
@@ -54,11 +55,64 @@ export default function LectureView() {
   const [showBadge, setShowBadge] = useState(false);
   const [badgeInfo, setBadgeInfo] = useState({ name: '', description: '', icon: '' });
 
+  // Realtime state
+  const [isLive, setIsLive] = useState(false);
+  const [channel, setChannel] = useState<any>(null);
+  const { role } = useAuth(); // role is 'professor' or 'student'
+
   useEffect(() => {
     if (lectureId && user) {
       fetchLectureData();
     }
   }, [lectureId, user]);
+
+  // Handle Realtime Subscription
+  useEffect(() => {
+    if (!lectureId || !user) return;
+
+    // Create channel
+    const newChannel = supabase.channel(`lecture-sync-${lectureId}`, {
+      config: {
+        broadcast: { self: false },
+      },
+    });
+
+    // Student: listen for slide changes
+    if (role === 'student') {
+      newChannel.on('broadcast', { event: 'slide-changed' }, (payload) => {
+        console.log('DEBUG: Received live slide change:', payload);
+        if (payload.slideIndex !== undefined) {
+          setCurrentSlideIndex(payload.slideIndex);
+          setIsLive(true);
+        }
+      }).on('broadcast', { event: 'live-ended' }, () => {
+        setIsLive(false);
+      });
+    }
+
+    newChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        setChannel(newChannel);
+      }
+    });
+
+    return () => {
+      if (newChannel) {
+        newChannel.unsubscribe();
+      }
+    };
+  }, [lectureId, user, role]);
+
+  // Professor: Broadcast slide change
+  useEffect(() => {
+    if (role === 'professor' && isLive && channel) {
+      channel.send({
+        type: 'broadcast',
+        event: 'slide-changed',
+        payload: { slideIndex: currentSlideIndex },
+      });
+    }
+  }, [currentSlideIndex, isLive, channel, role]);
 
   const fetchLectureData = async () => {
     setLoading(true);
@@ -66,11 +120,12 @@ export default function LectureView() {
     // Fetch lecture
     const { data: lectureData } = await supabase
       .from('lectures')
-      .select('*')
+      .select('*, pdf_url')
       .eq('id', lectureId)
       .single();
 
     if (lectureData) {
+      console.log('DEBUG: Fetched lecture data:', lectureData);
       setLecture(lectureData);
     }
 
@@ -176,8 +231,8 @@ export default function LectureView() {
 
   const currentSlide = slides[currentSlideIndex];
   const currentSlideQuestions = questions.filter(
-    q => q.slide_id === currentSlide?.id || 
-    (questions.length > 0 && currentSlideIndex < questions.length)
+    q => q.slide_id === currentSlide?.id ||
+      (questions.length > 0 && currentSlideIndex < questions.length)
   );
   const currentQuestion = currentSlideQuestions[currentQuestionIndex] || questions[currentSlideIndex];
 
@@ -403,6 +458,10 @@ export default function LectureView() {
                     onNext={handleNextSlide}
                     isFirst={currentSlideIndex === 0}
                     isLast={currentSlideIndex === slides.length - 1}
+                    pdfUrl={lecture?.pdf_url}
+                    pageNumber={currentSlide.slide_number}
+                    isLive={isLive}
+                    locked={role === 'student' && isLive}
                   />
                 </motion.div>
               )}
@@ -434,15 +493,50 @@ export default function LectureView() {
                   animate={{ opacity: 1 }}
                   className="bg-card rounded-2xl border border-border p-6"
                 >
-                  <div className="text-center">
-                    <div className="w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <BookOpen className="w-8 h-8 text-primary-foreground" />
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center">
+                        <BookOpen className="w-6 h-6 text-primary-foreground" />
+                      </div>
+                      <div>
+                        <h1 className="text-2xl font-bold text-foreground">{lecture?.title}</h1>
+                        <p className="text-muted-foreground">{slides.length} Slides</p>
+                      </div>
                     </div>
-                    <h3 className="font-semibold text-foreground mb-2">Quiz Time!</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Read through the slide and click "Next" to answer a quiz question about the content.
-                    </p>
+
+                    {/* Live Controls for Professor */}
+                    {role === 'professor' && (
+                      <Button
+                        variant={isLive ? "destructive" : "hero"}
+                        onClick={() => {
+                          const nextLive = !isLive;
+                          setIsLive(nextLive);
+                          if (!nextLive && channel) {
+                            channel.send({ type: 'broadcast', event: 'live-ended' });
+                          }
+                          toast({
+                            title: nextLive ? "You are now LIVE" : "Live mode ended",
+                            description: nextLive ? "Students will now follow your slide changes." : "Students can now navigate freely.",
+                          });
+                        }}
+                        className="gap-2"
+                      >
+                        {isLive ? <RadioTower className="w-4 h-4 animate-pulse" /> : <Radio className="w-4 h-4" />}
+                        {isLive ? "End Live Session" : "Go Live"}
+                      </Button>
+                    )}
+
+                    {/* Live Indicator for Student */}
+                    {role === 'student' && isLive && (
+                      <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded-full text-sm font-medium animate-pulse border border-destructive/20">
+                        <RadioTower className="w-4 h-4" />
+                        Professor is LIVE - Syncing Slides
+                      </div>
+                    )}
                   </div>
+                  <p className="text-sm text-muted-foreground mt-4">
+                    Read through the slide and click "Next" to answer a quiz question about the content.
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>

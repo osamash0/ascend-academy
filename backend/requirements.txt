@@ -5,3 +5,6 @@ supabase
 pydantic
 python-dotenv
 asyncpg
+pypdf
+python-multipart
+ollama

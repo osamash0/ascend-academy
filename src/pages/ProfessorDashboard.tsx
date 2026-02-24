@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, BookOpen, TrendingUp, BarChart3, Plus, Eye, Settings } from 'lucide-react';
+import { Users, BookOpen, TrendingUp, BarChart3, Plus, Eye, Settings, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { StatsCard } from '@/components/StatsCard';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface Lecture {
   id: string;
@@ -13,6 +14,7 @@ interface Lecture {
   description: string | null;
   total_slides: number;
   created_at: string;
+  pdf_url?: string | null;
 }
 
 interface StudentStats {
@@ -24,6 +26,7 @@ interface StudentStats {
 export default function ProfessorDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [stats, setStats] = useState<StudentStats>({
     totalStudents: 0,
@@ -71,6 +74,52 @@ export default function ProfessorDashboard() {
     }
 
     setLoading(false);
+  };
+
+  const deleteLecture = async (lectureId: string) => {
+    if (!window.confirm('Are you sure you want to delete this lecture? This cannot be undone.')) return;
+
+    try {
+      // 1. Get slide IDs for this lecture
+      const { data: slidesData } = await supabase
+        .from('slides')
+        .select('id')
+        .eq('lecture_id', lectureId);
+      const slideIds = slidesData?.map(s => s.id) || [];
+
+      // 2. Delete quiz questions
+      if (slideIds.length > 0) {
+        await supabase.from('quiz_questions').delete().in('slide_id', slideIds);
+      }
+
+      // 3. Delete student progress
+      await supabase.from('student_progress').delete().eq('lecture_id', lectureId);
+
+      // 4. Delete slides
+      await supabase.from('slides').delete().eq('lecture_id', lectureId);
+
+      // 5. Delete PDF from storage
+      const { data: lectureData } = await supabase
+        .from('lectures')
+        .select('pdf_url')
+        .eq('id', lectureId)
+        .single();
+      if (lectureData?.pdf_url) {
+        const pathMatch = lectureData.pdf_url.match(/lecture-pdfs\/(.+)$/);
+        if (pathMatch) {
+          await supabase.storage.from('lecture-pdfs').remove([pathMatch[1]]);
+        }
+      }
+
+      // 6. Delete the lecture itself
+      await supabase.from('lectures').delete().eq('id', lectureId);
+
+      setLectures(prev => prev.filter(l => l.id !== lectureId));
+      toast({ title: 'Deleted', description: 'Lecture deleted successfully.' });
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to delete lecture.', variant: 'destructive' });
+    }
   };
 
   if (loading) {
@@ -177,6 +226,9 @@ export default function ProfessorDashboard() {
                     <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
                       Created
                     </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+                      PDF Status
+                    </th>
                     <th className="px-6 py-4 text-right text-sm font-semibold text-foreground">
                       Actions
                     </th>
@@ -210,6 +262,11 @@ export default function ProfessorDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
+                        <span className={`text-xs px-2 py-1 rounded-full ${lecture.pdf_url ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}`}>
+                          {lecture.pdf_url ? 'PDF Attached' : 'No PDF'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
@@ -225,6 +282,14 @@ export default function ProfessorDashboard() {
                           >
                             <Settings className="w-4 h-4" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteLecture(lecture.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </td>
                     </motion.tr>
@@ -235,6 +300,6 @@ export default function ProfessorDashboard() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 }
