@@ -57,7 +57,7 @@ export default function LectureEdit() {
             // Fetch lecture
             const { data: lecture, error: lErr } = await supabase
                 .from('lectures')
-                .select('*')
+                .select('*, slug')
                 .eq('id', lectureId)
                 .single();
             if (lErr) throw lErr;
@@ -154,11 +154,19 @@ export default function LectureEdit() {
                 }
             }
 
-            // 2. Update lecture
+            // 2. Update lecture (regenerate slug from title if it changed, or keep existing)
+            const slug = title
+                .toLowerCase()
+                .trim()
+                .replace(/[^\w\s-]/g, '')
+                .replace(/[\s_-]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+
             const { error: lErr } = await supabase
                 .from('lectures')
                 .update({
                     title,
+                    slug,
                     description,
                     total_slides: slides.length,
                     pdf_url: finalPdfUrl
