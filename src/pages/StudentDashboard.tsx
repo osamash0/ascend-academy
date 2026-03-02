@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Trophy, Target, Flame, Zap, Star, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
-import { XPProgress } from '@/components/XPProgress';
 import { LectureCard } from '@/components/LectureCard';
 import { StatsCard } from '@/components/StatsCard';
 import { AchievementCard } from '@/components/AchievementCard';
@@ -188,67 +187,72 @@ export default function StudentDashboard() {
           transition={{ duration: 4, repeat: Infinity, delay: 1 }}
         />
 
-        <div className="relative p-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <motion.h1
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15 }}
-              className="text-3xl font-bold text-foreground"
+        <div className="relative p-7 flex flex-col gap-5">
+          {/* Top row: greeting + badges */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <motion.h1
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.15 }}
+                className="text-3xl font-bold text-foreground"
+              >
+                Welcome back, {displayName}! 👋
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.25 }}
+                className="text-muted-foreground mt-1"
+              >
+                Ready to level up your knowledge today?
+              </motion.p>
+            </div>
+
+            {/* Badges */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 }}
+              className="flex items-center gap-3 flex-wrap"
             >
-              Welcome back, {displayName}! 👋
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.25 }}
-              className="text-muted-foreground mt-1"
-            >
-              Ready to level up your knowledge today?
-            </motion.p>
+              <div className="flex items-center gap-2 bg-primary/20 border border-primary/30 rounded-full px-4 py-2">
+                <Star className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-primary">Level {level}</span>
+              </div>
+              <div className="flex items-center gap-2 bg-xp/20 border border-xp/30 rounded-full px-4 py-2">
+                <Zap className="w-4 h-4 text-xp" />
+                <span className="text-sm font-semibold text-xp">{profile?.total_xp || 0} XP</span>
+              </div>
+              {streak > 0 && (
+                <div className="flex items-center gap-2 bg-warning/20 border border-warning/30 rounded-full px-4 py-2">
+                  <Flame className="w-4 h-4 text-warning" />
+                  <span className="text-sm font-semibold text-warning">{streak} day streak</span>
+                </div>
+              )}
+            </motion.div>
           </div>
 
-          {/* Badges row */}
+          {/* XP Progress bar — embedded here, no separate component */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 }}
-            className="flex items-center gap-3 flex-wrap"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
           >
-            {/* Level badge */}
-            <div className="flex items-center gap-2 bg-primary/20 border border-primary/30 rounded-full px-4 py-2">
-              <Star className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold text-primary">Level {level}</span>
+            <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+              <span>Progress to Level {level + 1}</span>
+              <span>{(profile?.total_xp || 0) % 100} / 100 XP</span>
             </div>
-
-            {/* XP badge */}
-            <div className="flex items-center gap-2 bg-xp/20 border border-xp/30 rounded-full px-4 py-2">
-              <Zap className="w-4 h-4 text-xp" />
-              <span className="text-sm font-semibold text-xp">{profile?.total_xp || 0} XP</span>
+            <div className="h-2.5 bg-black/10 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full gradient-xp rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${((profile?.total_xp || 0) % 100)}%` }}
+                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.5 }}
+              />
             </div>
-
-            {/* Streak badge */}
-            {streak > 0 && (
-              <div className="flex items-center gap-2 bg-warning/20 border border-warning/30 rounded-full px-4 py-2">
-                <Flame className="w-4 h-4 text-warning" />
-                <span className="text-sm font-semibold text-warning">{streak} day streak</span>
-              </div>
-            )}
           </motion.div>
         </div>
-      </motion.div>
-
-      {/* ── XP Progress ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <XPProgress
-          currentXP={profile?.total_xp || 0}
-          currentLevel={profile?.current_level || 1}
-          streak={profile?.current_streak || 0}
-        />
       </motion.div>
 
       {/* ── Stats Grid ── */}
@@ -293,8 +297,8 @@ export default function StudentDashboard() {
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={`relative px-4 py-1.5 rounded-lg text-sm font-medium transition-colors z-10 ${activeTab === tab.key
-                      ? 'text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                     }`}
                 >
                   {activeTab === tab.key && (
