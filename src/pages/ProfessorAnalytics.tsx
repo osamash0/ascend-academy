@@ -1,11 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { BarChart3, Users, TrendingUp, TrendingDown, AlertTriangle, Clock, Target, Award } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  BarChart3, Users, TrendingUp, Clock, Target, Award,
+  Sparkles, Lightbulb, RefreshCw, CheckCircle2, AlertTriangle,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { StatsCard } from '@/components/StatsCard';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { Button } from '@/components/ui/button';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
+} from 'recharts';
 
 interface StudentProgress {
   user_id: string;
@@ -21,14 +28,24 @@ interface LearningEvent {
   created_at: string;
 }
 
-interface SlidePerformance {
-  slideId: string;
-  slideTitle: string;
-  correctRate: number;
-  avgDuration: number;
-  avgTimeToAnswer: number;
-  attempts: number;
+interface AIInsights {
+  summary: string;
+  suggestions: string[];
 }
+
+const COLORS = [
+  'hsl(234, 89%, 54%)',
+  'hsl(270, 70%, 60%)',
+  'hsl(158, 64%, 42%)',
+  'hsl(45, 93%, 47%)',
+  'hsl(346, 77%, 49%)',
+];
+
+const TOOLTIP_STYLE = {
+  backgroundColor: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: '8px',
+};
 
 export default function ProfessorAnalytics() {
   const { lectureId } = useParams<{ lectureId: string }>();
@@ -38,10 +55,12 @@ export default function ProfessorAnalytics() {
   const [lectureTitle, setLectureTitle] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
+  // AI Insights
+  const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
   useEffect(() => {
-    if (user) {
-      fetchAnalytics();
-    }
+    if (user) fetchAnalytics();
   }, [user, lectureId]);
 
   const fetchAnalytics = async () => {
@@ -52,15 +71,10 @@ export default function ProfessorAnalytics() {
 
     if (lectureId) {
       progressQuery = progressQuery.eq('lecture_id', lectureId);
-      // For events, we check inside event_data JSONB
       eventsQuery = eventsQuery.contains('event_data', { lectureId });
 
-      // Fetch lecture title
       const { data: lecture } = await supabase
-        .from('lectures')
-        .select('title')
-        .eq('id', lectureId)
-        .single();
+        .from('lectures').select('title').eq('id', lectureId).single();
       if (lecture) setLectureTitle(lecture.title);
     }
 
@@ -71,83 +85,126 @@ export default function ProfessorAnalytics() {
     if (eventData) {
       setEvents(eventData.map(e => ({
         ...e,
-        event_data: typeof e.event_data === 'object' ? e.event_data as Record<string, unknown> : {}
+        event_data: typeof e.event_data === 'object' ? e.event_data as Record<string, unknown> : {},
       })));
     }
 
     setLoading(false);
   };
 
-  // Calculate statistics
+  // ── Derived stats ────────────────────────────────────────────────────────
   const uniqueStudents = new Set(progressData.map(p => p.user_id)).size;
-  const totalAttempts = progressData.reduce((sum, p) => sum + (p.total_questions_answered || 0), 0);
-  const totalCorrect = progressData.reduce((sum, p) => sum + (p.correct_answers || 0), 0);
+  const totalAttempts = progressData.reduce((s, p) => s + (p.total_questions_answered || 0), 0);
+  const totalCorrect = progressData.reduce((s, p) => s + (p.correct_answers || 0), 0);
   const averageScore = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
 
-  // Score distribution
   const scoreDistribution = [
-    { range: '0-20%', count: progressData.filter(p => p.quiz_score <= 20).length },
-    { range: '21-40%', count: progressData.filter(p => p.quiz_score > 20 && p.quiz_score <= 40).length },
-    { range: '41-60%', count: progressData.filter(p => p.quiz_score > 40 && p.quiz_score <= 60).length },
-    { range: '61-80%', count: progressData.filter(p => p.quiz_score > 60 && p.quiz_score <= 80).length },
-    { range: '81-100%', count: progressData.filter(p => p.quiz_score > 80).length },
+    { range: '0–20%', count: progressData.filter(p => p.quiz_score <= 20).length },
+    { range: '21–40%', count: progressData.filter(p => p.quiz_score > 20 && p.quiz_score <= 40).length },
+    { range: '41–60%', count: progressData.filter(p => p.quiz_score > 40 && p.quiz_score <= 60).length },
+    { range: '61–80%', count: progressData.filter(p => p.quiz_score > 60 && p.quiz_score <= 80).length },
+    { range: '81–100%', count: progressData.filter(p => p.quiz_score > 80).length },
   ];
 
-  // Activity by day (last 7 days)
   const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    return date.toISOString().split('T')[0];
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().split('T')[0];
   });
-
   const activityByDay = last7Days.map(date => ({
     date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
-    attempts: events.filter(e =>
-      e.event_type === 'quiz_attempt' &&
-      e.created_at.startsWith(date)
-    ).length,
+    attempts: events.filter(e => e.event_type === 'quiz_attempt' && e.created_at.startsWith(date)).length,
   }));
 
-  // Slide-level analysis
+  // Slide stats
   const slideStats = events.reduce((acc, e) => {
-    const slideId = (e.event_data as any)?.slideId;
-    if (!slideId) return acc;
-
-    if (!acc[slideId]) {
-      acc[slideId] = { duration: 0, views: 0, quizCorrect: 0, quizAttempts: 0, timeToAnswer: 0, slideTitle: '' };
-    }
-
+    const sid = (e.event_data as any)?.slideId;
+    if (!sid) return acc;
+    if (!acc[sid]) acc[sid] = { duration: 0, views: 0, quizCorrect: 0, quizAttempts: 0, timeToAnswer: 0, slideTitle: '' };
     if (e.event_type === 'slide_view') {
-      acc[slideId].duration += (e.event_data as any).duration_seconds || 0;
-      acc[slideId].views += 1;
-      if ((e.event_data as any).slideTitle) acc[slideId].slideTitle = (e.event_data as any).slideTitle;
+      acc[sid].duration += (e.event_data as any).duration_seconds || 0;
+      acc[sid].views += 1;
+      if ((e.event_data as any).slideTitle) acc[sid].slideTitle = (e.event_data as any).slideTitle;
     } else if (e.event_type === 'quiz_attempt') {
-      acc[slideId].quizAttempts += 1;
-      if ((e.event_data as any).correct) acc[slideId].quizCorrect += 1;
-      acc[slideId].timeToAnswer += (e.event_data as any).time_to_answer_seconds || 0;
+      acc[sid].quizAttempts += 1;
+      if ((e.event_data as any).correct) acc[sid].quizCorrect += 1;
+      acc[sid].timeToAnswer += (e.event_data as any).time_to_answer_seconds || 0;
     }
     return acc;
   }, {} as Record<string, any>);
 
-  const slidePerformanceData = Object.entries(slideStats).map(([id, stats]: [string, any]) => ({
-    name: stats.slideTitle || `Slide ${id.slice(0, 4)}`, // Use slideTitle if available, else simplified name
-    avgDuration: stats.views > 0 ? Math.round(stats.duration / stats.views) : 0,
-    correctRate: stats.quizAttempts > 0 ? Math.round((stats.quizCorrect / stats.quizAttempts) * 100) : 0,
-    avgTimeToAnswer: stats.quizAttempts > 0 ? Math.round(stats.timeToAnswer / stats.quizAttempts) : 0,
+  const slidePerformanceData = Object.entries(slideStats).map(([id, s]: [string, any]) => ({
+    name: s.slideTitle || `Slide ${id.slice(0, 4)}`,
+    avgDuration: s.views > 0 ? Math.round(s.duration / s.views) : 0,
+    correctRate: s.quizAttempts > 0 ? Math.round((s.quizCorrect / s.quizAttempts) * 100) : 0,
+    avgTimeToAnswer: s.quizAttempts > 0 ? Math.round(s.timeToAnswer / s.quizAttempts) : 0,
   })).sort((a, b) => b.avgDuration - a.avgDuration).slice(0, 10);
 
-  // Event type distribution
   const eventTypeCounts = events.reduce((acc, e) => {
     acc[e.event_type] = (acc[e.event_type] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
-
   const eventTypeData = Object.entries(eventTypeCounts).map(([name, value]) => ({
-    name: name.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+    name: name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
     value,
   }));
 
-  const COLORS = ['hsl(234, 89%, 54%)', 'hsl(270, 70%, 60%)', 'hsl(158, 64%, 42%)', 'hsl(45, 93%, 47%)', 'hsl(346, 77%, 49%)'];
+  // Confidence ratings breakdown
+  const confidenceEvents = events.filter(e => e.event_type === 'confidence_rating');
+  const confCounts = { got_it: 0, unsure: 0, confused: 0 };
+  confidenceEvents.forEach(e => {
+    const r = (e.event_data as any)?.rating as string;
+    if (r in confCounts) confCounts[r as keyof typeof confCounts]++;
+  });
+
+  // ── AI Insights ──────────────────────────────────────────────────────────
+  const fetchAiInsights = useCallback(async () => {
+    setAiLoading(true);
+    setAiInsights(null);
+
+    const hardSlides = slidePerformanceData
+      .filter(s => s.correctRate < 60 && s.avgDuration > 0)
+      .slice(0, 3).map(s => `${s.name} (${s.correctRate}% correct)`).join(', ') || 'None identified';
+
+    const engagingSlides = slidePerformanceData
+      .slice(0, 3).map(s => `${s.name} (${s.avgDuration}s avg)`).join(', ') || 'None identified';
+
+    const weeklyTrend = activityByDay
+      .map(d => `${d.date}: ${d.attempts}`).join(', ');
+
+    const confSummary = `Got it: ${confCounts.got_it}, Unsure: ${confCounts.unsure}, Confused: ${confCounts.confused}`;
+
+    try {
+      const res = await fetch('/api/ai/analytics-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          total_students: uniqueStudents,
+          average_score: averageScore,
+          total_attempts: totalAttempts,
+          total_correct: totalCorrect,
+          hard_slides: hardSlides,
+          engaging_slides: engagingSlides,
+          weekly_trend: weeklyTrend,
+          confidence_summary: confSummary,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiInsights(data);
+      }
+    } catch {
+      setAiInsights({
+        summary: 'AI insights unavailable — make sure the backend is running.',
+        suggestions: [
+          'Check slides with low quiz correct rates and simplify the content.',
+          'Reach out to students who have not yet started the lecture.',
+          'Add more examples to slides where students spend very little time.',
+        ],
+      });
+    }
+    setAiLoading(false);
+  }, [uniqueStudents, averageScore, totalAttempts, totalCorrect, slidePerformanceData, activityByDay, confCounts]);
 
   if (loading) {
     return (
@@ -159,7 +216,7 @@ export default function ProfessorAnalytics() {
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
-      {/* Header */}
+      {/* Breadcrumb + Header */}
       <div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
           <Link to="/professor/dashboard" className="hover:text-primary transition-colors">Dashboard</Link>
@@ -172,88 +229,165 @@ export default function ProfessorAnalytics() {
             </>
           )}
         </div>
-        <motion.h1
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-3xl font-bold text-foreground flex items-center gap-3"
-        >
-          <BarChart3 className="w-8 h-8 text-primary" />
-          {lectureId ? `Analytics: ${lectureTitle}` : 'Global Analytics'}
-        </motion.h1>
-        <p className="text-muted-foreground mt-1">
-          {lectureId
-            ? `Detailed performance metrics for this specific lecture`
-            : 'Overview of student performance and engagement across all lectures'}
-        </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <motion.h1
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-3xl font-bold text-foreground flex items-center gap-3"
+            >
+              <BarChart3 className="w-8 h-8 text-primary" />
+              {lectureId ? `Analytics: ${lectureTitle}` : 'Analytics'}
+            </motion.h1>
+            <p className="text-muted-foreground mt-1">
+              {lectureId
+                ? 'Detailed performance metrics for this lecture'
+                : 'Student performance and engagement overview'}
+            </p>
+          </div>
+
+          <Button
+            onClick={fetchAiInsights}
+            disabled={aiLoading}
+            className="flex items-center gap-2"
+          >
+            {aiLoading ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            {aiLoading ? 'Analysing...' : 'Get AI Insights'}
+          </Button>
+        </div>
       </div>
+
+      {/* ── AI Insights Panel ── */}
+      <AnimatePresence>
+        {(aiInsights || aiLoading) && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -10, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="relative rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-xp/5 p-6">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-foreground">AI Insights</h2>
+                  <p className="text-xs text-muted-foreground">Generated by AI based on your analytics data</p>
+                </div>
+              </div>
+
+              {aiLoading ? (
+                <div className="flex items-center gap-3 py-4">
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <p className="text-muted-foreground text-sm">Analysing your student data...</p>
+                </div>
+              ) : aiInsights ? (
+                <div className="space-y-5">
+                  {/* Summary */}
+                  <div className="bg-secondary/60 rounded-xl p-4 border border-border">
+                    <div className="flex items-start gap-3">
+                      <Lightbulb className="w-5 h-5 text-xp mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-foreground leading-relaxed">{aiInsights.summary}</p>
+                    </div>
+                  </div>
+
+                  {/* Suggestions */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                      Suggestions
+                    </h3>
+                    <div className="space-y-2">
+                      {aiInsights.suggestions.map((s, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.1 }}
+                          className="flex items-start gap-3 p-3 bg-card rounded-xl border border-border"
+                        >
+                          <div className="w-6 h-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-[10px] font-bold text-primary-foreground">{i + 1}</span>
+                          </div>
+                          <p className="text-sm text-foreground">{s}</p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Total Students"
-          value={uniqueStudents}
-          icon={Users}
-          variant="primary"
-        />
-        <StatsCard
-          title="Average Score"
-          value={`${averageScore}%`}
-          icon={Target}
-          variant="success"
-        />
-        <StatsCard
-          title="Quiz Attempts"
-          value={totalAttempts}
-          icon={Award}
-          variant="xp"
-        />
-        <StatsCard
-          title="Correct Answers"
-          value={totalCorrect}
-          icon={TrendingUp}
-          variant="default"
-        />
+        <StatsCard title="Students Engaged" value={uniqueStudents} icon={Users} variant="primary" />
+        <StatsCard title="Average Score" value={`${averageScore}%`} icon={Target} variant="success" />
+        <StatsCard title="Quiz Attempts" value={totalAttempts} icon={Award} variant="xp" />
+        <StatsCard title="Correct Answers" value={totalCorrect} icon={TrendingUp} variant="default" />
       </div>
 
-      {/* Charts Row: Slide Engagement & Quiz Precision */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Slide Engagement (Duration) */}
+      {/* Confidence Rating Summary */}
+      {confidenceEvents.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          className="bg-card rounded-2xl border border-border p-6"
+        >
+          <h3 className="text-lg font-semibold text-foreground mb-4">Student Confidence Ratings</h3>
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { key: 'got_it', emoji: '✅', label: 'Got it', count: confCounts.got_it, color: 'text-success bg-success/10 border-success/20' },
+              { key: 'unsure', emoji: '🤔', label: 'Unsure', count: confCounts.unsure, color: 'text-warning bg-warning/10 border-warning/20' },
+              { key: 'confused', emoji: '❌', label: 'Confused', count: confCounts.confused, color: 'text-destructive bg-destructive/10 border-destructive/20' },
+            ].map(r => (
+              <div key={r.key} className={`rounded-xl border p-4 text-center ${r.color}`}>
+                <div className="text-3xl mb-1">{r.emoji}</div>
+                <div className="text-2xl font-bold">{r.count}</div>
+                <div className="text-sm font-medium">{r.label}</div>
+                <div className="text-xs opacity-70 mt-0.5">
+                  {confidenceEvents.length > 0
+                    ? `${Math.round((r.count / confidenceEvents.length) * 100)}%`
+                    : '0%'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Charts Row 1: Slide Engagement & Quiz Precision */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="bg-card rounded-2xl border border-border p-6"
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-foreground">Slide Engagement</h3>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="w-3 h-3" /> Average seconds per slide
+              <Clock className="w-3 h-3" /> Avg seconds per slide
             </span>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={slidePerformanceData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
                 <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                  }}
-                />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
                 <Bar dataKey="avgDuration" fill="hsl(234, 89%, 54%)" radius={[4, 4, 0, 0]} name="Avg Duration (s)" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Quiz Difficulty vs Duration */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
           className="bg-card rounded-2xl border border-border p-6"
         >
           <div className="flex items-center justify-between mb-6">
@@ -266,47 +400,21 @@ export default function ProfessorAnalytics() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={slidePerformanceData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
                 <YAxis yAxisId="left" tick={{ fill: 'hsl(var(--muted-foreground))' }} unit="%" />
                 <YAxis yAxisId="right" orientation="right" tick={{ fill: 'hsl(var(--muted-foreground))' }} unit="s" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                  }}
-                />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="correctRate"
-                  stroke="hsl(158, 64%, 42%)"
-                  strokeWidth={3}
-                  name="Correct Rate"
-                  dot={{ fill: 'hsl(158, 64%, 42%)' }}
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="avgTimeToAnswer"
-                  stroke="hsl(45, 93%, 47%)"
-                  strokeWidth={2}
-                  name="Time to Answer"
-                  strokeDasharray="5 5"
-                />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Line yAxisId="left" type="monotone" dataKey="correctRate" stroke="hsl(158, 64%, 42%)" strokeWidth={3} name="Correct Rate" dot={{ fill: 'hsl(158, 64%, 42%)' }} />
+                <Line yAxisId="right" type="monotone" dataKey="avgTimeToAnswer" stroke="hsl(45, 93%, 47%)" strokeWidth={2} name="Time to Answer" strokeDasharray="5 5" />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
       </div>
 
-      {/* Charts Row 1 */}
+      {/* Charts Row 2: Score Distribution & Weekly Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Score Distribution */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="bg-card rounded-2xl border border-border p-6"
         >
           <h3 className="text-lg font-semibold text-foreground mb-6">Score Distribution</h3>
@@ -316,24 +424,14 @@ export default function ProfessorAnalytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="range" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                  }}
-                />
-                <Bar dataKey="count" fill="hsl(234, 89%, 54%)" radius={[4, 4, 0, 0]} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Bar dataKey="count" fill="hsl(234, 89%, 54%)" radius={[4, 4, 0, 0]} name="Students" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Activity Trend */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
           className="bg-card rounded-2xl border border-border p-6"
         >
           <h3 className="text-lg font-semibold text-foreground mb-6">Weekly Activity</h3>
@@ -343,111 +441,72 @@ export default function ProfessorAnalytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="attempts"
-                  stroke="hsl(270, 70%, 60%)"
-                  strokeWidth={3}
-                  dot={{ fill: 'hsl(270, 70%, 60%)', strokeWidth: 2 }}
-                />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Line type="monotone" dataKey="attempts" stroke="hsl(270, 70%, 60%)" strokeWidth={3} dot={{ fill: 'hsl(270, 70%, 60%)', strokeWidth: 2 }} name="Quiz Attempts" />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
       </div>
 
-      {/* Charts Row 2 */}
+      {/* Charts Row 3: Event breakdown + Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Event Types */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="bg-card rounded-2xl border border-border p-6"
         >
           <h3 className="text-lg font-semibold text-foreground mb-6">Event Types</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={eventTypeData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name }) => name}
-                >
-                  {eventTypeData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
+                <Pie data={eventTypeData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" label={({ name }) => name}>
+                  {eventTypeData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                  }}
-                />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Recent Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
           className="bg-card rounded-2xl border border-border p-6 lg:col-span-2"
         >
           <h3 className="text-lg font-semibold text-foreground mb-6">Recent Activity</h3>
-          <div className="space-y-3 max-h-64 overflow-y-auto">
-            {events.slice(0, 10).map((event, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
-              >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${event.event_type === 'quiz_attempt'
-                  ? 'bg-primary/10 text-primary'
-                  : event.event_type === 'lecture_complete'
-                    ? 'bg-success/10 text-success'
-                    : 'bg-accent/10 text-accent'
+          <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
+            {events.slice(0, 10).map((event, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${event.event_type === 'quiz_attempt' ? 'bg-primary/10 text-primary'
+                    : event.event_type === 'lecture_complete' ? 'bg-success/10 text-success'
+                      : event.event_type === 'confidence_rating' ? 'bg-xp/10 text-xp'
+                        : 'bg-accent/10 text-accent'
                   }`}>
-                  {event.event_type === 'quiz_attempt' ? (
-                    <Target className="w-5 h-5" />
-                  ) : event.event_type === 'lecture_complete' ? (
-                    <Award className="w-5 h-5" />
-                  ) : (
-                    <Clock className="w-5 h-5" />
-                  )}
+                  {event.event_type === 'quiz_attempt' ? <Target className="w-5 h-5" />
+                    : event.event_type === 'lecture_complete' ? <Award className="w-5 h-5" />
+                      : event.event_type === 'confidence_rating' ? <CheckCircle2 className="w-5 h-5" />
+                        : <Clock className="w-5 h-5" />}
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground capitalize">
-                    {event.event_type.replace('_', ' ')}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground capitalize truncate">
+                    {event.event_type.replace(/_/g, ' ')}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(event.created_at).toLocaleString()}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{new Date(event.created_at).toLocaleString()}</p>
                 </div>
                 {event.event_type === 'quiz_attempt' && event.event_data?.correct !== undefined && (
-                  <span className={`text-xs font-medium px-2 py-1 rounded ${event.event_data.correct
-                    ? 'bg-success/10 text-success'
-                    : 'bg-destructive/10 text-destructive'
+                  <span className={`text-xs font-medium px-2 py-1 rounded flex-shrink-0 ${event.event_data.correct ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
                     }`}>
-                    {event.event_data.correct ? 'Correct' : 'Incorrect'}
+                    {event.event_data.correct ? '✓ Correct' : '✗ Wrong'}
+                  </span>
+                )}
+                {event.event_type === 'confidence_rating' && (
+                  <span className="text-lg flex-shrink-0">
+                    {(event.event_data as any)?.rating === 'got_it' ? '✅'
+                      : (event.event_data as any)?.rating === 'unsure' ? '🤔' : '❌'}
                   </span>
                 )}
               </div>
             ))}
+            {events.length === 0 && (
+              <p className="text-muted-foreground text-sm text-center py-8">No activity recorded yet.</p>
+            )}
           </div>
         </motion.div>
       </div>

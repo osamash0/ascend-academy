@@ -151,3 +151,55 @@ Title:"""
     except Exception as e:
         print(f"DEBUG: Ollama title error: {e}")
         return None
+
+
+def generate_analytics_insights(stats: dict) -> dict:
+    """
+    Given a statistics summary, returns AI-generated:
+    - A friendly, plain-English explanation of the data
+    - 3-5 actionable suggestions for the professor
+    """
+    prompt = f"""You are an expert educational data analyst and teaching coach.
+A professor has shared the following statistics about their students' performance:
+
+- Total students: {stats.get('total_students', 0)}
+- Average quiz score: {stats.get('average_score', 0)}%
+- Total quiz attempts: {stats.get('total_attempts', 0)}
+- Total correct answers: {stats.get('total_correct', 0)}
+- Hardest slides (lowest correct rate): {stats.get('hard_slides', 'N/A')}
+- Most engaging slides (longest avg time): {stats.get('engaging_slides', 'N/A')}
+- Weekly quiz activity trend: {stats.get('weekly_trend', 'N/A')}
+- Confidence ratings: {stats.get('confidence_summary', 'N/A')}
+
+Your task:
+1. Write a SHORT, friendly 2-3 sentence paragraph that summarises what is happening (use plain English, no jargon, as if talking to the professor directly).
+2. List exactly 3 concrete, actionable suggestions the professor can do to improve student outcomes, based on this data.
+
+Return ONLY valid JSON with this exact structure:
+{{
+  "summary": "...",
+  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
+}}
+No extra text outside the JSON."""
+
+    try:
+        response = ollama.chat(
+            model=OLLAMA_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        content = response["message"]["content"].strip()
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        if json_match:
+            content = json_match.group()
+        result = json.loads(content)
+        return result
+    except Exception as e:
+        print(f"DEBUG: Ollama analytics error: {e}")
+        return {
+            "summary": "We couldn't generate an AI summary at this time. Please check that Ollama is running.",
+            "suggestions": [
+                "Review slides with the lowest quiz correct rates and consider simplifying the content.",
+                "Engage students who haven't attempted any quizzes yet.",
+                "Consider adding more examples to slides where students spend less time."
+            ]
+        }
