@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookOpen, Zap, Trophy, Radio, RadioTower } from 'lucide-react';
+import { ArrowLeft, BookOpen, Zap, Trophy } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideViewer } from '@/components/SlideViewer';
@@ -55,10 +55,11 @@ export default function LectureView() {
   const [newLevel, setNewLevel] = useState(1);
   const [showBadge, setShowBadge] = useState(false);
   const [badgeInfo, setBadgeInfo] = useState({ name: '', description: '', icon: '' });
+  const [slideStartTime, setSlideStartTime] = useState<number>(Date.now());
+  const sessionStartRef = useRef<number>(Date.now());
+  const slideStartRef = useRef<number>(Date.now());
 
-  // Realtime state
-  const [isLive, setIsLive] = useState(false);
-  const [channel, setChannel] = useState<any>(null);
+  // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const { role } = useAuth(); // role is 'professor' or 'student'
 
@@ -68,53 +69,45 @@ export default function LectureView() {
     }
   }, [lectureId, user]);
 
-  // Handle Realtime Subscription
+
+
+  // Analytics: Track slide view duration
   useEffect(() => {
-    if (!lectureId || !user) return;
+    if (!slides.length || !user) return;
 
-    // Create channel
-    const newChannel = supabase.channel(`lecture-sync-${lectureId}`, {
-      config: {
-        broadcast: { self: false },
-      },
-    });
+    const currentSlideId = slides[currentSlideIndex]?.id;
+    const now = Date.now();
 
-    // Student: listen for slide changes
-    if (role === 'student') {
-      newChannel.on('broadcast', { event: 'slide-changed' }, (payload) => {
-        console.log('DEBUG: Received live slide change:', payload);
-        if (payload.slideIndex !== undefined) {
-          setCurrentSlideIndex(payload.slideIndex);
-          setIsLive(true);
-        }
-      }).on('broadcast', { event: 'live-ended' }, () => {
-        setIsLive(false);
+    // Logic to log previous slide duration
+    const logSlideView = async (slideId: string, title: string, startTime: number) => {
+      const duration = Math.round((Date.now() - startTime) / 1000); // seconds
+      if (duration < 1) return; // Ignore very short views
+
+      console.log(`DEBUG: Logging slide_view for ${slideId}, duration: ${duration}s`);
+      await supabase.from('learning_events').insert({
+        user_id: user.id,
+        event_type: 'slide_view',
+        event_data: {
+          lectureId,
+          slideId,
+          slideTitle: title,
+          duration_seconds: duration,
+          timestamp: new Date().toISOString()
+        },
       });
-    }
+    };
 
-    newChannel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        setChannel(newChannel);
-      }
-    });
+    // Update the state for other logic (like quiz answer timing)
+    setSlideStartTime(now);
+    slideStartRef.current = now;
 
+    // When slide changes, log the previous one
     return () => {
-      if (newChannel) {
-        newChannel.unsubscribe();
+      if (currentSlideId) {
+        logSlideView(currentSlideId, slides[currentSlideIndex]?.title || '', now);
       }
     };
-  }, [lectureId, user, role]);
-
-  // Professor: Broadcast slide change
-  useEffect(() => {
-    if (role === 'professor' && isLive && channel) {
-      channel.send({
-        type: 'broadcast',
-        event: 'slide-changed',
-        payload: { slideIndex: currentSlideIndex },
-      });
-    }
-  }, [currentSlideIndex, isLive, channel, role]);
+  }, [currentSlideIndex, slides, user, lectureId]);
 
   const fetchLectureData = async () => {
     setLoading(true);
@@ -269,13 +262,18 @@ export default function LectureView() {
 
   const handleQuizAnswer = async (isCorrect: boolean) => {
     // Log quiz attempt
+    const timeToAnswer = Math.round((Date.now() - slideStartTime) / 1000);
+
     await supabase.from('learning_events').insert({
       user_id: user?.id,
       event_type: 'quiz_attempt',
       event_data: {
         slideId: currentSlide?.id,
+        slideTitle: currentSlide?.title,
         questionId: currentQuestion?.id,
         correct: isCorrect,
+        time_to_answer_seconds: timeToAnswer,
+        timestamp: new Date().toISOString()
       },
     });
 
@@ -355,11 +353,19 @@ export default function LectureView() {
   };
 
   const handleLectureComplete = async () => {
+    const sessionDuration = Math.round((Date.now() - sessionStartRef.current) / 1000);
+
     // Log completion
     await supabase.from('learning_events').insert({
       user_id: user?.id,
       event_type: 'lecture_complete',
-      event_data: { lectureId, xpEarned, correctAnswers },
+      event_data: {
+        lectureId,
+        xpEarned,
+        correctAnswers,
+        total_duration_seconds: sessionDuration,
+        completed_at: new Date().toISOString()
+      },
     });
 
     // Update progress
@@ -423,14 +429,11 @@ export default function LectureView() {
         slides={slides}
         currentSlideIndex={currentSlideIndex}
         onSelectSlide={(index) => {
-          if (!(role === 'student' && isLive)) {
-            setCurrentSlideIndex(index);
-            setShowQuiz(false);
-          }
+          setCurrentSlideIndex(index);
+          setShowQuiz(false);
         }}
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        locked={role === 'student' && isLive}
       />
 
       {/* Main Content Area */}
@@ -491,8 +494,6 @@ export default function LectureView() {
                         isLast={currentSlideIndex === slides.length - 1}
                         pdfUrl={lecture?.pdf_url}
                         pageNumber={currentSlide.slide_number}
-                        isLive={isLive}
-                        locked={role === 'student' && isLive}
                       />
                     </motion.div>
                   )}
@@ -534,36 +535,6 @@ export default function LectureView() {
                             <p className="text-muted-foreground">{slides.length} Slides</p>
                           </div>
                         </div>
-
-                        {/* Live Controls for Professor */}
-                        {role === 'professor' && (
-                          <Button
-                            variant={isLive ? "destructive" : "hero"}
-                            onClick={() => {
-                              const nextLive = !isLive;
-                              setIsLive(nextLive);
-                              if (!nextLive && channel) {
-                                channel.send({ type: 'broadcast', event: 'live-ended' });
-                              }
-                              toast({
-                                title: nextLive ? "You are now LIVE" : "Live mode ended",
-                                description: nextLive ? "Students will now follow your slide changes." : "Students can now navigate freely.",
-                              });
-                            }}
-                            className="gap-2"
-                          >
-                            {isLive ? <RadioTower className="w-4 h-4 animate-pulse" /> : <Radio className="w-4 h-4" />}
-                            {isLive ? "End Live Session" : "Go Live"}
-                          </Button>
-                        )}
-
-                        {/* Live Indicator for Student */}
-                        {role === 'student' && isLive && (
-                          <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded-full text-sm font-medium animate-pulse border border-destructive/20">
-                            <RadioTower className="w-4 h-4" />
-                            Professor is LIVE - Syncing Slides
-                          </div>
-                        )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-4">
                         Read through the slide and click "Next" to answer a quiz question about the content.

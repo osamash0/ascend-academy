@@ -271,6 +271,15 @@ export default function ProfessorDashboard() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="text-primary hover:text-primary hover:bg-primary/10"
+                            onClick={() => navigate(`/professor/analytics/${lecture.id}`)}
+                            title="View Lecture Analytics"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => navigate(`/lecture/${lecture.id}`)}
                           >
                             <Eye className="w-4 h-4" />

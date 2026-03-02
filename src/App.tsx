@@ -135,6 +135,16 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/professor/analytics/:lectureId"
+        element={
+          <ProtectedRoute allowedRoles={['professor']}>
+            <DashboardLayout>
+              <ProfessorAnalytics />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/professor/upload"
         element={
           <ProtectedRoute allowedRoles={['professor']}>

@@ -14,7 +14,6 @@ interface LectureSidebarProps {
     onSelectSlide: (index: number) => void;
     isCollapsed: boolean;
     onToggle: () => void;
-    locked?: boolean;
 }
 
 export function LectureSidebar({
@@ -23,7 +22,6 @@ export function LectureSidebar({
     onSelectSlide,
     isCollapsed,
     onToggle,
-    locked = false,
 }: LectureSidebarProps) {
     return (
         <motion.div
@@ -60,12 +58,11 @@ export function LectureSidebar({
                     return (
                         <button
                             key={slide.id}
-                            disabled={locked}
                             onClick={() => onSelectSlide(index)}
                             className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 group ${isActive
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                                } ${locked ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                } cursor-pointer`}
                         >
                             <div className="flex-shrink-0">
                                 {isCompleted ? (

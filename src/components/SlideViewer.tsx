@@ -26,8 +26,6 @@ interface SlideViewerProps {
   isLast: boolean;
   pdfUrl?: string | null;
   pageNumber?: number;
-  isLive?: boolean;
-  locked?: boolean;
 }
 
 export function SlideViewer({
@@ -42,10 +40,8 @@ export function SlideViewer({
   isLast,
   pdfUrl,
   pageNumber,
-  isLive,
-  locked,
 }: SlideViewerProps) {
-  console.log('DEBUG: SlideViewer props:', { title, slideNumber, pdfUrl, pageNumber, isLive, locked });
+  console.log('DEBUG: SlideViewer props:', { title, slideNumber, pdfUrl, pageNumber });
   const [scale, setScale] = useState(1.2);
   const [pdfError, setPdfError] = useState(false);
 
@@ -55,7 +51,7 @@ export function SlideViewer({
   const hasPdf = pdfUrl && !pdfError;
 
   return (
-    <div className={`bg-card rounded-2xl border ${isLive ? 'border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]' : 'border-border'} shadow-lg overflow-hidden transition-all duration-500`}>
+    <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden transition-all duration-500">
       {/* Header */}
       <div className="bg-secondary/50 px-6 py-4 border-b border-border">
         <div className="flex items-center justify-between">
@@ -187,7 +183,7 @@ export function SlideViewer({
           <Button
             variant="outline"
             onClick={onPrevious}
-            disabled={isFirst || locked}
+            disabled={isFirst}
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Previous
@@ -209,7 +205,6 @@ export function SlideViewer({
           <Button
             variant={isLast ? 'success' : 'default'}
             onClick={onNext}
-            disabled={locked}
           >
             {isLast ? 'Complete' : 'Next'}
             <ChevronRight className="w-4 h-4 ml-1" />

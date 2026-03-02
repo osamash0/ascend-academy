@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BarChart3, Users, TrendingUp, TrendingDown, AlertTriangle, Clock, Target, Award } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -22,41 +23,51 @@ interface LearningEvent {
 
 interface SlidePerformance {
   slideId: string;
+  slideTitle: string;
   correctRate: number;
+  avgDuration: number;
+  avgTimeToAnswer: number;
   attempts: number;
 }
 
 export default function ProfessorAnalytics() {
+  const { lectureId } = useParams<{ lectureId: string }>();
   const { user } = useAuth();
   const [progressData, setProgressData] = useState<StudentProgress[]>([]);
   const [events, setEvents] = useState<LearningEvent[]>([]);
+  const [lectureTitle, setLectureTitle] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
       fetchAnalytics();
     }
-  }, [user]);
+  }, [user, lectureId]);
 
   const fetchAnalytics = async () => {
     setLoading(true);
 
-    // Fetch all student progress
-    const { data: progress } = await supabase
-      .from('student_progress')
-      .select('*');
+    let progressQuery = supabase.from('student_progress').select('*');
+    let eventsQuery = supabase.from('learning_events').select('*').order('created_at', { ascending: false });
 
-    if (progress) {
-      setProgressData(progress);
+    if (lectureId) {
+      progressQuery = progressQuery.eq('lecture_id', lectureId);
+      // For events, we check inside event_data JSONB
+      eventsQuery = eventsQuery.contains('event_data', { lectureId });
+
+      // Fetch lecture title
+      const { data: lecture } = await supabase
+        .from('lectures')
+        .select('title')
+        .eq('id', lectureId)
+        .single();
+      if (lecture) setLectureTitle(lecture.title);
     }
 
-    // Fetch recent learning events
-    const { data: eventData } = await supabase
-      .from('learning_events')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1000);
+    const { data: progress } = await progressQuery;
+    if (progress) setProgressData(progress);
 
+    const { data: eventData } = await eventsQuery.limit(1000);
     if (eventData) {
       setEvents(eventData.map(e => ({
         ...e,
@@ -91,24 +102,52 @@ export default function ProfessorAnalytics() {
 
   const activityByDay = last7Days.map(date => ({
     date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
-    attempts: events.filter(e => 
-      e.event_type === 'quiz_attempt' && 
+    attempts: events.filter(e =>
+      e.event_type === 'quiz_attempt' &&
       e.created_at.startsWith(date)
     ).length,
   }));
 
+  // Slide-level analysis
+  const slideStats = events.reduce((acc, e) => {
+    const slideId = (e.event_data as any)?.slideId;
+    if (!slideId) return acc;
+
+    if (!acc[slideId]) {
+      acc[slideId] = { duration: 0, views: 0, quizCorrect: 0, quizAttempts: 0, timeToAnswer: 0, slideTitle: '' };
+    }
+
+    if (e.event_type === 'slide_view') {
+      acc[slideId].duration += (e.event_data as any).duration_seconds || 0;
+      acc[slideId].views += 1;
+      if ((e.event_data as any).slideTitle) acc[slideId].slideTitle = (e.event_data as any).slideTitle;
+    } else if (e.event_type === 'quiz_attempt') {
+      acc[slideId].quizAttempts += 1;
+      if ((e.event_data as any).correct) acc[slideId].quizCorrect += 1;
+      acc[slideId].timeToAnswer += (e.event_data as any).time_to_answer_seconds || 0;
+    }
+    return acc;
+  }, {} as Record<string, any>);
+
+  const slidePerformanceData = Object.entries(slideStats).map(([id, stats]: [string, any]) => ({
+    name: stats.slideTitle || `Slide ${id.slice(0, 4)}`, // Use slideTitle if available, else simplified name
+    avgDuration: stats.views > 0 ? Math.round(stats.duration / stats.views) : 0,
+    correctRate: stats.quizAttempts > 0 ? Math.round((stats.quizCorrect / stats.quizAttempts) * 100) : 0,
+    avgTimeToAnswer: stats.quizAttempts > 0 ? Math.round(stats.timeToAnswer / stats.quizAttempts) : 0,
+  })).sort((a, b) => b.avgDuration - a.avgDuration).slice(0, 10);
+
   // Event type distribution
-  const eventTypes = events.reduce((acc, e) => {
+  const eventTypeCounts = events.reduce((acc, e) => {
     acc[e.event_type] = (acc[e.event_type] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const eventTypeData = Object.entries(eventTypes).map(([name, value]) => ({
-    name: name.replace('_', ' '),
+  const eventTypeData = Object.entries(eventTypeCounts).map(([name, value]) => ({
+    name: name.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
     value,
   }));
 
-  const COLORS = ['hsl(234, 89%, 54%)', 'hsl(270, 70%, 60%)', 'hsl(158, 64%, 42%)', 'hsl(45, 93%, 47%)'];
+  const COLORS = ['hsl(234, 89%, 54%)', 'hsl(270, 70%, 60%)', 'hsl(158, 64%, 42%)', 'hsl(45, 93%, 47%)', 'hsl(346, 77%, 49%)'];
 
   if (loading) {
     return (
@@ -122,16 +161,29 @@ export default function ProfessorAnalytics() {
     <div className="p-6 lg:p-8 space-y-8">
       {/* Header */}
       <div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+          <Link to="/professor/dashboard" className="hover:text-primary transition-colors">Dashboard</Link>
+          <span>/</span>
+          <Link to="/professor/analytics" className="hover:text-primary transition-colors">Analytics</Link>
+          {lectureId && (
+            <>
+              <span>/</span>
+              <span className="text-foreground">{lectureTitle || 'Lecture'}</span>
+            </>
+          )}
+        </div>
         <motion.h1
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-3xl font-bold text-foreground flex items-center gap-3"
         >
           <BarChart3 className="w-8 h-8 text-primary" />
-          Analytics Dashboard
+          {lectureId ? `Analytics: ${lectureTitle}` : 'Global Analytics'}
         </motion.h1>
         <p className="text-muted-foreground mt-1">
-          Insights into student performance and engagement
+          {lectureId
+            ? `Detailed performance metrics for this specific lecture`
+            : 'Overview of student performance and engagement across all lectures'}
         </p>
       </div>
 
@@ -161,6 +213,91 @@ export default function ProfessorAnalytics() {
           icon={TrendingUp}
           variant="default"
         />
+      </div>
+
+      {/* Charts Row: Slide Engagement & Quiz Precision */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Slide Engagement (Duration) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-card rounded-2xl border border-border p-6"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-foreground">Slide Engagement</h3>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3" /> Average seconds per slide
+            </span>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={slidePerformanceData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                  }}
+                />
+                <Bar dataKey="avgDuration" fill="hsl(234, 89%, 54%)" radius={[4, 4, 0, 0]} name="Avg Duration (s)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Quiz Difficulty vs Duration */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-card rounded-2xl border border-border p-6"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-foreground">Quiz Precision</h3>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Target className="w-3 h-3" /> Correct Rate vs Time to Answer
+            </span>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={slidePerformanceData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                <YAxis yAxisId="left" tick={{ fill: 'hsl(var(--muted-foreground))' }} unit="%" />
+                <YAxis yAxisId="right" orientation="right" tick={{ fill: 'hsl(var(--muted-foreground))' }} unit="s" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                  }}
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="correctRate"
+                  stroke="hsl(158, 64%, 42%)"
+                  strokeWidth={3}
+                  name="Correct Rate"
+                  dot={{ fill: 'hsl(158, 64%, 42%)' }}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="avgTimeToAnswer"
+                  stroke="hsl(45, 93%, 47%)"
+                  strokeWidth={2}
+                  name="Time to Answer"
+                  strokeDasharray="5 5"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
       </div>
 
       {/* Charts Row 1 */}
@@ -279,13 +416,12 @@ export default function ProfessorAnalytics() {
                 key={index}
                 className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
               >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  event.event_type === 'quiz_attempt'
-                    ? 'bg-primary/10 text-primary'
-                    : event.event_type === 'lecture_complete'
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${event.event_type === 'quiz_attempt'
+                  ? 'bg-primary/10 text-primary'
+                  : event.event_type === 'lecture_complete'
                     ? 'bg-success/10 text-success'
                     : 'bg-accent/10 text-accent'
-                }`}>
+                  }`}>
                   {event.event_type === 'quiz_attempt' ? (
                     <Target className="w-5 h-5" />
                   ) : event.event_type === 'lecture_complete' ? (
@@ -303,11 +439,10 @@ export default function ProfessorAnalytics() {
                   </p>
                 </div>
                 {event.event_type === 'quiz_attempt' && event.event_data?.correct !== undefined && (
-                  <span className={`text-xs font-medium px-2 py-1 rounded ${
-                    event.event_data.correct
-                      ? 'bg-success/10 text-success'
-                      : 'bg-destructive/10 text-destructive'
-                  }`}>
+                  <span className={`text-xs font-medium px-2 py-1 rounded ${event.event_data.correct
+                    ? 'bg-success/10 text-success'
+                    : 'bg-destructive/10 text-destructive'
+                    }`}>
                     {event.event_data.correct ? 'Correct' : 'Incorrect'}
                   </span>
                 )}
