@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart3, Users, TrendingUp, Clock, Target, Award,
@@ -131,8 +131,8 @@ export default function ProfessorAnalytics() {
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [lecturesLoading, setLecturesLoading] = useState(true);
 
-  // Selected lecture
-  const [selectedLectureId, setSelectedLectureId] = useState<string | null>(null);
+  // Selected lecture from URL
+  const { lectureId: selectedLectureId } = useParams();
   const [selectedTitle, setSelectedTitle] = useState('');
 
   // Analytics data
@@ -186,6 +186,14 @@ export default function ProfessorAnalytics() {
       setAnalyticsLoading(false);
     })();
   }, [selectedLectureId]);
+
+  // Sync title when lectureId changes
+  useEffect(() => {
+    if (selectedLectureId && lectures.length > 0) {
+      const lec = lectures.find(l => l.id === selectedLectureId);
+      if (lec) setSelectedTitle(lec.title);
+    }
+  }, [selectedLectureId, lectures]);
 
   // ── Derived stats ──────────────────────────────────────────────────────────
   const uniqueStudents = new Set(progressData.map(p => p.user_id)).size;
@@ -300,8 +308,7 @@ export default function ProfessorAnalytics() {
   // Step 1 — No lecture selected yet → show picker
   if (!selectedLectureId) {
     return <LecturePicker lectures={lectures} onSelect={(id) => {
-      setSelectedLectureId(id);
-      setSelectedTitle(lectures.find(l => l.id === id)?.title || 'Lecture');
+      navigate(`/professor/analytics/${id}`);
     }} />;
   }
 
@@ -313,8 +320,7 @@ export default function ProfessorAnalytics() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
           <Link to="/professor/dashboard" className="hover:text-primary transition-colors">Dashboard</Link>
           <span>/</span>
-          <button onClick={() => { setSelectedLectureId(null); setProgressData([]); setEvents([]); }}
-            className="hover:text-primary transition-colors">Analytics</button>
+          <Link to="/professor/analytics" className="hover:text-primary transition-colors">Analytics</Link>
           <span>/</span>
           <span className="text-foreground">{selectedTitle}</span>
         </div>
@@ -322,7 +328,7 @@ export default function ProfessorAnalytics() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { setSelectedLectureId(null); setProgressData([]); setEvents([]); }}
+              onClick={() => navigate('/professor/analytics')}
               className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-muted transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
