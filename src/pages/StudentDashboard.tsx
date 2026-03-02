@@ -334,7 +334,7 @@ export default function StudentDashboard() {
             </p>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             <AnimatePresence mode="popLayout">
               {filteredLectures.map((lecture, index) => {
                 const lectureProgress = getProgressForLecture(lecture.id);
@@ -355,6 +355,7 @@ export default function StudentDashboard() {
                       completedSlides={lectureProgress?.completed_slides?.length || 0}
                       quizScore={lectureProgress?.correct_answers || 0}
                       totalQuestions={lectureProgress?.total_questions_answered || 0}
+                      index={index}
                       onClick={() => navigate(`/lecture/${lecture.id}`)}
                     />
                   </motion.div>
