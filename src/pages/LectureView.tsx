@@ -495,6 +495,20 @@ export default function LectureView() {
                         isLast={currentSlideIndex === slides.length - 1}
                         pdfUrl={lecture?.pdf_url}
                         pageNumber={currentSlide.slide_number}
+                        onConfidenceRate={async (rating) => {
+                          if (!user || !currentSlide) return;
+                          await supabase.from('learning_events').insert({
+                            user_id: user.id,
+                            event_type: 'confidence_rating',
+                            event_data: {
+                              lectureId,
+                              slideId: currentSlide.id,
+                              slideTitle: currentSlide.title,
+                              rating,
+                              timestamp: new Date().toISOString(),
+                            },
+                          });
+                        }}
                       />
                     </motion.div>
                   )}
