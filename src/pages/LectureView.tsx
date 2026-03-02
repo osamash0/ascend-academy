@@ -428,6 +428,7 @@ export default function LectureView() {
       <LectureSidebar
         slides={slides}
         currentSlideIndex={currentSlideIndex}
+        completedSlides={slides.slice(0, currentSlideIndex).map(s => s.slide_number)}
         onSelectSlide={(index) => {
           setCurrentSlideIndex(index);
           setShowQuiz(false);
