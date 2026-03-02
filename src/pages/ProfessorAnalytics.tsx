@@ -138,6 +138,7 @@ export default function ProfessorAnalytics() {
   // Analytics data
   const [progressData, setProgressData] = useState<StudentProgress[]>([]);
   const [events, setEvents] = useState<LearningEvent[]>([]);
+  const [slides, setSlides] = useState<any[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // AI
@@ -164,18 +165,24 @@ export default function ProfessorAnalytics() {
     setAnalyticsLoading(true);
     setAiInsights(null);
     (async () => {
-      const [{ data: progress }, { data: eventData }] = await Promise.all([
+      const [
+        { data: progress },
+        { data: eventData },
+        { data: slidesData }
+      ] = await Promise.all([
         supabase.from('student_progress').select('*').eq('lecture_id', selectedLectureId),
         supabase.from('learning_events').select('*')
           .contains('event_data', { lectureId: selectedLectureId })
           .order('created_at', { ascending: false })
           .limit(1000),
+        supabase.from('slides').select('id, title, slide_number').eq('lecture_id', selectedLectureId)
       ]);
       setProgressData(progress || []);
       setEvents((eventData || []).map(e => ({
         ...e,
         event_data: typeof e.event_data === 'object' ? e.event_data as Record<string, unknown> : {},
       })));
+      setSlides(slidesData || []);
       setAnalyticsLoading(false);
     })();
   }, [selectedLectureId]);
@@ -219,12 +226,16 @@ export default function ProfessorAnalytics() {
     return acc;
   }, {} as Record<string, any>);
 
-  const slidePerformanceData = Object.entries(slideStats).map(([id, s]: [string, any]) => ({
-    name: s.slideTitle || `Slide ${id.slice(0, 4)}`,
-    avgDuration: s.views > 0 ? Math.round(s.duration / s.views) : 0,
-    correctRate: s.quizAttempts > 0 ? Math.round((s.quizCorrect / s.quizAttempts) * 100) : 0,
-    avgTimeToAnswer: s.quizAttempts > 0 ? Math.round(s.timeToAnswer / s.quizAttempts) : 0,
-  })).sort((a, b) => b.avgDuration - a.avgDuration).slice(0, 10);
+  const slidePerformanceData = Object.entries(slideStats).map(([id, s]: [string, any]) => {
+    const realSlide = slides.find(sl => sl.id === id);
+    const title = realSlide?.title || s.slideTitle || `Slide ${id.slice(0, 4)}`;
+    return {
+      name: title,
+      avgDuration: s.views > 0 ? Math.round(s.duration / s.views) : 0,
+      correctRate: s.quizAttempts > 0 ? Math.round((s.quizCorrect / s.quizAttempts) * 100) : 0,
+      avgTimeToAnswer: s.quizAttempts > 0 ? Math.round(s.timeToAnswer / s.quizAttempts) : 0,
+    };
+  }).sort((a, b) => b.avgDuration - a.avgDuration).slice(0, 10);
 
   const eventTypeCounts = events.reduce((acc, e) => {
     acc[e.event_type] = (acc[e.event_type] || 0) + 1;
@@ -530,9 +541,9 @@ export default function ProfessorAnalytics() {
                 {events.slice(0, 10).map((event, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${event.event_type === 'quiz_attempt' ? 'bg-primary/10 text-primary'
-                        : event.event_type === 'lecture_complete' ? 'bg-success/10 text-success'
-                          : event.event_type === 'confidence_rating' ? 'bg-xp/10 text-xp'
-                            : 'bg-accent/10 text-accent'}`}>
+                      : event.event_type === 'lecture_complete' ? 'bg-success/10 text-success'
+                        : event.event_type === 'confidence_rating' ? 'bg-xp/10 text-xp'
+                          : 'bg-accent/10 text-accent'}`}>
                       {event.event_type === 'quiz_attempt' ? <Target className="w-5 h-5" />
                         : event.event_type === 'lecture_complete' ? <Award className="w-5 h-5" />
                           : event.event_type === 'confidence_rating' ? <CheckCircle2 className="w-5 h-5" />
