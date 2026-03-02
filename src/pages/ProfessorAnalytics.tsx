@@ -13,7 +13,9 @@ import { Button } from '@/components/ui/button';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
+  AreaChart, Area
 } from 'recharts';
+import { CustomTooltip } from '@/components/charts/CustomTooltip';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -502,14 +504,20 @@ export default function ProfessorAnalytics() {
                   <Clock className="w-3 h-3" /> Avg seconds per slide
                 </span>
               </div>
-              <div className="h-64">
+              <div className="h-64 mt-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={slidePerformanceData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="avgDuration" fill="hsl(234, 89%, 54%)" radius={[4, 4, 0, 0]} name="Avg Duration (s)" />
+                  <BarChart data={slidePerformanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
+                    <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <Tooltip content={<CustomTooltip valueFormatter={(value) => `${value}s`} />} cursor={{ fill: 'hsl(var(--muted)/0.5)' }} />
+                    <Bar dataKey="avgDuration" fill="url(#colorAvgDuration)" radius={[6, 6, 0, 0]} name="Avg Duration (s)" maxBarSize={50} />
+                    <defs>
+                      <linearGradient id="colorAvgDuration" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(234, 89%, 54%)" stopOpacity={0.9} />
+                        <stop offset="95%" stopColor="hsl(234, 89%, 54%)" stopOpacity={0.4} />
+                      </linearGradient>
+                    </defs>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -524,15 +532,21 @@ export default function ProfessorAnalytics() {
                   <TrendingUp className="w-3 h-3" /> Quiz Attempts
                 </span>
               </div>
-              <div className="h-64">
+              <div className="h-64 mt-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={activityByDay}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Line type="monotone" dataKey="attempts" stroke="hsl(270, 70%, 60%)" strokeWidth={3} dot={{ fill: 'hsl(270, 70%, 60%)', strokeWidth: 2 }} name="Quiz Attempts" />
-                  </LineChart>
+                  <AreaChart data={activityByDay} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
+                    <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <defs>
+                      <linearGradient id="colorAttempts" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(270, 70%, 60%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(270, 70%, 60%)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="attempts" stroke="hsl(270, 70%, 60%)" strokeWidth={3} fillOpacity={1} fill="url(#colorAttempts)" name="Quiz Attempts" activeDot={{ r: 6, fill: "hsl(270, 70%, 60%)", stroke: "hsl(var(--background))", strokeWidth: 2 }} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </motion.div>
@@ -553,14 +567,20 @@ export default function ProfessorAnalytics() {
                   <Target className="w-3 h-3" /> Students by grade bracket
                 </span>
               </div>
-              <div className="h-64">
+              <div className="h-64 mt-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={scoreDistribution}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                    <XAxis dataKey="range" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="count" fill="hsl(158, 64%, 42%)" radius={[4, 4, 0, 0]} name="Students" />
+                  <BarChart data={scoreDistribution} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
+                    <XAxis dataKey="range" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.5)' }} />
+                    <defs>
+                      <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(158, 64%, 42%)" stopOpacity={0.9} />
+                        <stop offset="95%" stopColor="hsl(158, 64%, 42%)" stopOpacity={0.4} />
+                      </linearGradient>
+                    </defs>
+                    <Bar dataKey="count" fill="url(#colorScore)" radius={[6, 6, 0, 0]} name="Students" maxBarSize={50} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -574,17 +594,23 @@ export default function ProfessorAnalytics() {
                   <Target className="w-3 h-3" /> Correct Rate vs Time
                 </span>
               </div>
-              <div className="h-64">
+              <div className="h-64 mt-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={slidePerformanceData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                    <YAxis yAxisId="left" tick={{ fill: 'hsl(var(--muted-foreground))' }} unit="%" />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fill: 'hsl(var(--muted-foreground))' }} unit="s" />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Line yAxisId="left" type="monotone" dataKey="correctRate" stroke="hsl(158, 64%, 42%)" strokeWidth={3} name="Correct Rate" dot={{ fill: 'hsl(158, 64%, 42%)' }} />
-                    <Line yAxisId="right" type="monotone" dataKey="avgTimeToAnswer" stroke="hsl(45, 93%, 47%)" strokeWidth={2} name="Time to Answer" strokeDasharray="5 5" />
-                  </LineChart>
+                  <AreaChart data={slidePerformanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
+                    <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="left" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} axisLine={false} tickLine={false} unit="s" />
+                    <Tooltip content={<CustomTooltip />} />
+                    <defs>
+                      <linearGradient id="colorCorrectRate" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(158, 64%, 42%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(158, 64%, 42%)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area yAxisId="left" type="monotone" dataKey="correctRate" stroke="hsl(158, 64%, 42%)" strokeWidth={3} fillOpacity={1} fill="url(#colorCorrectRate)" name="Correct Rate" activeDot={{ r: 6, strokeWidth: 2 }} />
+                    <Line yAxisId="right" type="monotone" dataKey="avgTimeToAnswer" stroke="hsl(45, 93%, 47%)" strokeWidth={2} name="Time to Answer" strokeDasharray="5 5" dot={false} activeDot={{ r: 6 }} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </motion.div>
@@ -600,13 +626,13 @@ export default function ProfessorAnalytics() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
               className="bg-card rounded-2xl border border-border p-6">
               <h3 className="text-lg font-semibold text-foreground mb-6">Event Types</h3>
-              <div className="h-64">
+              <div className="h-64 mt-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={eventTypeData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" label={({ name }) => name}>
-                      {eventTypeData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    <Pie data={eventTypeData} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value" stroke="none" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {eventTypeData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))' }} />)}
                     </Pie>
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
