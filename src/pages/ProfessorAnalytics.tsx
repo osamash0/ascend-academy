@@ -385,51 +385,49 @@ export default function ProfessorAnalytics() {
 
       {!analyticsLoading && (
         <>
-          {/* AI Insights */}
+          {/* AI Insights - Executive Summary */}
           <AnimatePresence>
             {(aiInsights || aiLoading) && (
               <motion.div initial={{ opacity: 0, y: -10, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
-                exit={{ opacity: 0, y: -10, height: 0 }} className="overflow-hidden">
-                <div className="relative rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-xp/5 p-6">
-                  <div className="flex items-center gap-3 mb-5">
-                    <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Sparkles className="w-5 h-5 text-primary-foreground" />
+                exit={{ opacity: 0, y: -10, height: 0 }} className="overflow-hidden mb-8">
+                <div className="relative rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-xp/5 p-6 md:p-8">
+                  <div className="flex flex-col md:flex-row gap-6 items-start">
+                    <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <Sparkles className="w-6 h-6 text-primary-foreground" />
                     </div>
-                    <div>
-                      <h2 className="font-bold text-foreground">AI Insights</h2>
-                      <p className="text-xs text-muted-foreground">Generated based on analytics data for this lecture</p>
+                    <div className="flex-1 w-full flex flex-col justify-center min-h-[48px]">
+                      <h2 className="text-xl font-bold text-foreground">AI Executive Summary</h2>
+
+                      {aiLoading ? (
+                        <div className="mt-4 flex items-center gap-3 py-4">
+                          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                          <p className="text-muted-foreground text-sm">Analysing student data patterns...</p>
+                        </div>
+                      ) : aiInsights ? (
+                        <div className="mt-4 space-y-6">
+                          <p className="text-base text-foreground leading-relaxed">
+                            {aiInsights.summary}
+                          </p>
+
+                          <div>
+                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 border-b border-border/50 pb-2">Actionable Suggestions</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {aiInsights.suggestions.map((s, i) => (
+                                <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: i * 0.1 }}
+                                  className="flex items-start gap-3 p-4 bg-card/80 backdrop-blur-sm shadow-sm rounded-xl border border-primary/10">
+                                  <div className="w-6 h-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <span className="text-[10px] font-bold text-primary-foreground">{i + 1}</span>
+                                  </div>
+                                  <p className="text-sm text-foreground">{s}</p>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
-                  {aiLoading ? (
-                    <div className="flex items-center gap-3 py-4">
-                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                      <p className="text-muted-foreground text-sm">Analysing student data...</p>
-                    </div>
-                  ) : aiInsights ? (
-                    <div className="space-y-5">
-                      <div className="bg-secondary/60 rounded-xl p-4 border border-border">
-                        <div className="flex items-start gap-3">
-                          <Lightbulb className="w-5 h-5 text-xp mt-0.5 flex-shrink-0" />
-                          <p className="text-sm text-foreground leading-relaxed">{aiInsights.summary}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Suggestions</h3>
-                        <div className="space-y-2">
-                          {aiInsights.suggestions.map((s, i) => (
-                            <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: i * 0.1 }}
-                              className="flex items-start gap-3 p-3 bg-card rounded-xl border border-border">
-                              <div className="w-6 h-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span className="text-[10px] font-bold text-primary-foreground">{i + 1}</span>
-                              </div>
-                              <p className="text-sm text-foreground">{s}</p>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               </motion.div>
             )}
@@ -443,31 +441,58 @@ export default function ProfessorAnalytics() {
             <StatsCard title="Correct Answers" value={totalCorrect} icon={TrendingUp} variant="default" />
           </div>
 
-          {/* Confidence Ratings */}
+          {/* Confidence Ratings Segmented Bar */}
           {confidenceEvents.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-card rounded-2xl border border-border p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Student Confidence Ratings</h3>
+              className="bg-card rounded-2xl border border-border p-6 mt-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Student Confidence Overview</h3>
+                <span className="text-sm text-muted-foreground">{confidenceEvents.length} total ratings</span>
+              </div>
+
+              <div className="h-4 w-full rounded-full overflow-hidden flex mb-6 bg-muted">
+                {confCounts.got_it > 0 && (
+                  <div
+                    style={{ width: `${(confCounts.got_it / confidenceEvents.length) * 100}%` }}
+                    className="h-full bg-success transition-all duration-1000"
+                  />
+                )}
+                {confCounts.unsure > 0 && (
+                  <div
+                    style={{ width: `${(confCounts.unsure / confidenceEvents.length) * 100}%` }}
+                    className="h-full bg-warning transition-all duration-1000"
+                  />
+                )}
+                {confCounts.confused > 0 && (
+                  <div
+                    style={{ width: `${(confCounts.confused / confidenceEvents.length) * 100}%` }}
+                    className="h-full bg-destructive transition-all duration-1000"
+                  />
+                )}
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  { key: 'got_it', emoji: '✅', label: 'Got it', count: confCounts.got_it, color: 'text-success bg-success/10 border-success/20' },
-                  { key: 'unsure', emoji: '🤔', label: 'Unsure', count: confCounts.unsure, color: 'text-warning bg-warning/10 border-warning/20' },
-                  { key: 'confused', emoji: '❌', label: 'Confused', count: confCounts.confused, color: 'text-destructive bg-destructive/10 border-destructive/20' },
+                  { key: 'got_it', emoji: '✅', label: 'Got it', count: confCounts.got_it, color: 'text-success' },
+                  { key: 'unsure', emoji: '🤔', label: 'Unsure', count: confCounts.unsure, color: 'text-warning' },
+                  { key: 'confused', emoji: '❌', label: 'Confused', count: confCounts.confused, color: 'text-destructive' },
                 ].map(r => (
-                  <div key={r.key} className={`rounded-xl border p-4 text-center ${r.color}`}>
-                    <div className="text-3xl mb-1">{r.emoji}</div>
-                    <div className="text-2xl font-bold">{r.count}</div>
-                    <div className="text-sm font-medium">{r.label}</div>
-                    <div className="text-xs opacity-70 mt-0.5">
-                      {confidenceEvents.length > 0 ? `${Math.round((r.count / confidenceEvents.length) * 100)}%` : '0%'}
-                    </div>
+                  <div key={r.key} className="text-center rounded-xl p-3 bg-muted/30">
+                    <div className="text-2xl mb-1">{r.emoji}</div>
+                    <div className={`text-xl font-bold ${r.color}`}>{r.count}</div>
+                    <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{r.label}</div>
                   </div>
                 ))}
               </div>
             </motion.div>
           )}
 
-          {/* Charts Row 1 */}
+          {/* Section 1: Engagement */}
+          <div className="mt-12 mb-6">
+            <h2 className="text-2xl font-bold text-foreground">Student Engagement</h2>
+            <p className="text-muted-foreground mt-1">Activity over time and slide-level attention</p>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
               className="bg-card rounded-2xl border border-border p-6">
@@ -490,12 +515,63 @@ export default function ProfessorAnalytics() {
               </div>
             </motion.div>
 
+            {/* Replaced Quiz Precision here with Weekly Activity */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+              className="bg-card rounded-2xl border border-border p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-foreground">Weekly Activity</h3>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" /> Quiz Attempts
+                </span>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={activityByDay}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Line type="monotone" dataKey="attempts" stroke="hsl(270, 70%, 60%)" strokeWidth={3} dot={{ fill: 'hsl(270, 70%, 60%)', strokeWidth: 2 }} name="Quiz Attempts" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Section 2: Performance & Comprehension */}
+          <div className="mt-12 mb-6">
+            <h2 className="text-2xl font-bold text-foreground">Performance & Comprehension</h2>
+            <p className="text-muted-foreground mt-1">Score distributions and per-slide quiz accuracy</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+              className="bg-card rounded-2xl border border-border p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-foreground">Score Distribution</h3>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Target className="w-3 h-3" /> Students by grade bracket
+                </span>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={scoreDistribution}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="range" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Bar dataKey="count" fill="hsl(158, 64%, 42%)" radius={[4, 4, 0, 0]} name="Students" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
+
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
               className="bg-card rounded-2xl border border-border p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-foreground">Quiz Precision</h3>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Target className="w-3 h-3" /> Correct Rate vs Time to Answer
+                  <Target className="w-3 h-3" /> Correct Rate vs Time
                 </span>
               </div>
               <div className="h-64">
@@ -514,39 +590,9 @@ export default function ProfessorAnalytics() {
             </motion.div>
           </div>
 
-          {/* Charts Row 2 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="bg-card rounded-2xl border border-border p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-6">Score Distribution</h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={scoreDistribution}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="range" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="count" fill="hsl(234, 89%, 54%)" radius={[4, 4, 0, 0]} name="Students" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-              className="bg-card rounded-2xl border border-border p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-6">Weekly Activity</h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={activityByDay}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Line type="monotone" dataKey="attempts" stroke="hsl(270, 70%, 60%)" strokeWidth={3} dot={{ fill: 'hsl(270, 70%, 60%)', strokeWidth: 2 }} name="Quiz Attempts" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </motion.div>
+          {/* Section 3: Details */}
+          <div className="mt-12 mb-6">
+            <h2 className="text-2xl font-bold text-foreground">Activity Breakdown</h2>
           </div>
 
           {/* Charts Row 3 */}
