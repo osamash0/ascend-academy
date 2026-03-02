@@ -4,29 +4,61 @@ import re
 
 OLLAMA_MODEL = "llama3"  # Change to whichever model you have pulled (e.g., mistral, llama3)
 
+# Patterns that indicate the model added conversational filler
+_PREAMBLE_PATTERNS = [
+    r"^here'?s? .*?:\s*",
+    r"^sure[!,.].*?\n",
+    r"^of course[!,.].*?\n",
+    r"^certainly[!,.].*?\n",
+    r"^below is.*?:\s*",
+    r"^the following.*?:\s*",
+]
+_POSTAMBLE_PATTERNS = [
+    r"\n?let me know if.*$",
+    r"\n?feel free to.*$",
+    r"\n?i hope this helps.*$",
+    r"\n?please note.*conversational.*$",
+    r"\n?if you (need|want|have).*$",
+]
+
+def _strip_conversational_wrapper(text: str) -> str:
+    """Remove common preamble/postamble lines LLMs tend to add."""
+    for pattern in _PREAMBLE_PATTERNS:
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
+    for pattern in _POSTAMBLE_PATTERNS:
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE)
+    return text.strip()
+
 def enhance_slide_content(raw_text: str) -> str:
     """
     Transforms raw PDF text into structured, educational Markdown content using Ollama.
     """
-    prompt = f"""You are an expert educational content designer. 
-Transform the following raw text from a lecture slide into a structured, engaging, and easy-to-read Markdown format for students.
-- Use clear headings.
+    prompt = f"""You are an expert educational content designer.
+Transform the following raw lecture slide text into structured, educational Markdown for students.
+
+Rules:
+- Output ONLY the Markdown content. No preamble, no postamble.
+- Do NOT write things like "Here's the structured content" or "Let me know if you need changes".
+- Do NOT add any commentary, greetings, or sign-offs.
+- Use clear headings (##, ###).
 - Use bullet points for key concepts.
 - Bold important terms.
-- If there are steps or a sequence, use numbered lists.
-- Keep it concise but ensure all critical information is preserved.
+- Use numbered lists for steps or sequences.
+- Preserve all critical information.
 
 Raw Slide Text:
 {raw_text}
 
-Structured Markdown:"""
+Markdown Output:"""
 
     try:
         response = ollama.chat(
             model=OLLAMA_MODEL,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response["message"]["content"].strip()
+        result = response["message"]["content"].strip()
+        result = _strip_conversational_wrapper(result)
+        return result
     except Exception as e:
         print(f"DEBUG: Ollama enhancement error: {e}")
         return raw_text
