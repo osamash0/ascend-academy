@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 
 interface Lecture {
   id: string;
+  slug?: string | null;
   title: string;
   description: string | null;
   total_slides: number;
@@ -356,7 +357,7 @@ export default function StudentDashboard() {
                       quizScore={lectureProgress?.correct_answers || 0}
                       totalQuestions={lectureProgress?.total_questions_answered || 0}
                       index={index}
-                      onClick={() => navigate(`/lecture/${lecture.id}`)}
+                      onClick={() => navigate(`/lecture/${lecture.slug || lecture.id}`)}
                     />
                   </motion.div>
                 );
