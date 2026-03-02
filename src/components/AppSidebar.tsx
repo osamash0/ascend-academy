@@ -59,7 +59,10 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate(role === 'professor' ? '/professor/dashboard' : '/dashboard')}
+          className="flex items-center gap-3 w-full hover:opacity-80 transition-opacity cursor-pointer"
+        >
           <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center flex-shrink-0">
             <GraduationCap className="w-6 h-6 text-primary-foreground" />
           </div>
@@ -72,7 +75,7 @@ export function AppSidebar() {
               Learnstation
             </motion.span>
           )}
-        </div>
+        </button>
       </SidebarHeader>
 
       <SidebarContent>
