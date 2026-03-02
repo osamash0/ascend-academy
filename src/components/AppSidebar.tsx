@@ -34,12 +34,14 @@ import {
 const studentNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Achievements', url: '/achievements', icon: Trophy },
+  { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
 const professorNavItems = [
   { title: 'Dashboard', url: '/professor/dashboard', icon: LayoutDashboard },
   { title: 'Analytics', url: '/professor/analytics', icon: BarChart3 },
   { title: 'Upload Lecture', url: '/professor/upload', icon: Upload },
+  { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -134,13 +136,24 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
-        <div className="space-y-2">
+        <div className="space-y-4">
           {!isCollapsed && (
-            <div className="px-2 py-2">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {profile?.email}
-              </p>
-              <p className="text-xs text-muted-foreground capitalize">{role}</p>
+            <div className="flex items-center gap-3 px-2 py-1">
+              <div className="w-10 h-10 rounded-full border border-border shadow-sm overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-muted-foreground font-semibold text-sm">
+                    {profile?.full_name?.charAt(0)?.toUpperCase() || profile?.email?.charAt(0)?.toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col overflow-hidden">
+                <p className="text-sm font-semibold text-sidebar-foreground truncate">
+                  {profile?.full_name || profile?.email}
+                </p>
+                <p className="text-xs text-muted-foreground capitalize">{role}</p>
+              </div>
             </div>
           )}
           <Button

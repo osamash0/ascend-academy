@@ -16,6 +16,7 @@ import ProfessorDashboard from "./pages/ProfessorDashboard";
 import ProfessorAnalytics from "./pages/ProfessorAnalytics";
 import LectureUpload from "./pages/LectureUpload";
 import LectureEdit from "./pages/LectureEdit";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -108,6 +109,16 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={['student']}>
             <DashboardLayout>
               <Achievements />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Settings />
             </DashboardLayout>
           </ProtectedRoute>
         }
