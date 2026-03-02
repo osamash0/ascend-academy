@@ -15,6 +15,8 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts';
 
+const API_BASE = 'http://localhost:8000';
+
 interface Lecture {
   id: string;
   slug: string | null;
@@ -295,7 +297,7 @@ export default function ProfessorAnalytics() {
     const weeklyTrend = activityByDay.map(d => `${d.date}: ${d.attempts}`).join(', ');
     const confSummary = `Got it: ${confCounts.got_it}, Unsure: ${confCounts.unsure}, Confused: ${confCounts.confused}`;
     try {
-      const res = await fetch('/api/ai/analytics-insights', {
+      const res = await fetch(`${API_BASE}/api/ai/analytics-insights`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
