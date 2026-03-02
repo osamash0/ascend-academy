@@ -130,6 +130,13 @@ export default function StudentDashboard() {
     ? profile.full_name.split(' ')[0]
     : user?.email?.split('@')[0] || 'Student';
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   return (
     <div className="p-6 lg:p-8 space-y-8">
 
@@ -198,7 +205,7 @@ export default function StudentDashboard() {
                 transition={{ delay: 0.15 }}
                 className="text-3xl font-bold text-foreground"
               >
-                Welcome back, {displayName}! 👋
+                {getGreeting()}, {displayName}! 👋
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0 }}
