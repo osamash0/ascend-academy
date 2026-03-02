@@ -25,6 +25,7 @@ export function LectureCard({
 }: LectureCardProps) {
   const progress = totalSlides > 0 ? (completedSlides / totalSlides) * 100 : 0;
   const isCompleted = progress === 100;
+  const isNew = completedSlides === 0 && !isCompleted;
 
   return (
     <motion.div
@@ -36,9 +37,8 @@ export function LectureCard({
       <div className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              isCompleted ? 'gradient-success' : 'gradient-primary'
-            }`}>
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isCompleted ? 'gradient-success' : 'gradient-primary'
+              }`}>
               {isCompleted ? (
                 <CheckCircle2 className="w-6 h-6 text-success-foreground" />
               ) : (
@@ -85,7 +85,7 @@ export function LectureCard({
             className="w-full group-hover:shadow-md transition-shadow"
             onClick={onClick}
           >
-            {isCompleted ? 'Review Lecture' : 'Continue Learning'}
+            {isCompleted ? 'Review Lecture' : isNew ? 'Start Learning' : 'Continue Learning'}
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
