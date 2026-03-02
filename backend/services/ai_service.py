@@ -203,3 +203,68 @@ No extra text outside the JSON."""
                 "Consider adding more examples to slides where students spend less time."
             ]
         }
+
+def generate_real_world_relevance(slide_text: str, previous_examples: list) -> dict:
+    """
+    Generates a highly specific, realistic industry application for the concept in a slide.
+    Skips administrative/title slides by returning has_applicable_concept = False.
+    """
+    prev_examples_str = "\n".join([f"- {ex}" for ex in previous_examples]) if previous_examples else "None"
+    
+    prompt = f"""You are an expert Educational Content Strategist integrated into the Learnstation backend. Analyze the provided slide text and metadata to determine if a real-world application card should be generated.
+
+Step 1: Concept Evaluation (The Gatekeeper)
+Evaluate the slide content. If the slide is an introductory title page, an administrative announcement, or a table of raw statistics without a clear underlying theory, you MUST set has_applicable_concept to false and leave the rest of the fields null. Do not rely solely on word count; evaluate if a core academic/technical concept is present. Do not force an application where one does not naturally exist.
+
+Step 2: Generation (If applicable)
+If a core concept is present, generate a highly specific, realistic industry application. Avoid generic examples.
+- concept_identified: Name the exact theory/algorithm.
+- industry: Name the specific sector.
+- popular_app_example: If this concept is famously used by a widely recognized consumer app or tech giant (e.g., Spotify, Netflix, Uber, TikTok, Amazon), explicitly name the company and explain how they use it in one sentence. If no popular app fits perfectly, return null.
+- scenario: Write exactly one concise sentence explaining the broader industry use case or what fails without it.
+- career_role: State a specific job title that uses this concept.
+- confidence_score: Rate your confidence (1-10) that this concept directly maps to the provided real-world scenario.
+
+Step 3: Anti-Repetition
+Your generated scenario, industry, and popular_app_example MUST be fundamentally different from the following previously generated examples:
+{prev_examples_str}
+
+Return EXACTLY valid JSON with this structure (no other text, no markdown block markers outside the JSON):
+{{
+  "has_applicable_concept": true,
+  "confidence_score": 9,
+  "relevance_insight": {{
+    "concept_identified": "string",
+    "industry": "string",
+    "popular_app_example": "string or null",
+    "scenario": "string",
+    "career_role": "string"
+  }}
+}}
+
+Slide Content:
+{slide_text}
+"""
+
+    try:
+        response = ollama.chat(
+            model=OLLAMA_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        content = response["message"]["content"].strip()
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        if json_match:
+            content = json_match.group()
+        
+        result = json.loads(content)
+        # Ensure fallback defaults if LLM hallucinates structure
+        if "has_applicable_concept" not in result:
+             result["has_applicable_concept"] = False
+        return result
+    except Exception as e:
+        print(f"DEBUG: Ollama relevance generation error: {e}")
+        return {
+            "has_applicable_concept": False,
+            "confidence_score": 0,
+            "relevance_insight": None
+        }

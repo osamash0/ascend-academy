@@ -1,13 +1,17 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights
+from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, generate_real_world_relevance
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 
 class SlideTextRequest(BaseModel):
     slide_text: str
+
+class SlideRelevanceRequest(BaseModel):
+    slide_text: str
+    previous_examples: List[str] = []
 
 
 class AnalyticsStatsRequest(BaseModel):
@@ -53,4 +57,16 @@ async def analytics_insights_endpoint(body: AnalyticsStatsRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI insights failed: {str(e)}")
+
+
+@router.post("/generate-relevance")
+async def generate_relevance_endpoint(body: SlideRelevanceRequest):
+    """Generate a highly specific, realistic industry application for the concept in a slide."""
+    if not body.slide_text.strip():
+        raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
+    try:
+        relevance_data = generate_real_world_relevance(body.slide_text, body.previous_examples)
+        return relevance_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI relevance generation failed: {str(e)}")
 

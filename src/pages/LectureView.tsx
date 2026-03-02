@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookOpen, Zap, Trophy, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Zap, Trophy, X, Lightbulb, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideViewer } from '@/components/SlideViewer';
@@ -36,6 +36,20 @@ interface Lecture {
   pdf_url?: string | null;
 }
 
+interface RelevanceInsight {
+  concept_identified: string;
+  industry: string;
+  popular_app_example: string | null;
+  scenario: string;
+  career_role: string;
+}
+
+interface RelevanceResponse {
+  has_applicable_concept: boolean;
+  confidence_score: number;
+  relevance_insight: RelevanceInsight | null;
+}
+
 export default function LectureView() {
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
@@ -58,6 +72,12 @@ export default function LectureView() {
   const [slideStartTime, setSlideStartTime] = useState<number>(Date.now());
   const sessionStartRef = useRef<number>(Date.now());
   const slideStartRef = useRef<number>(Date.now());
+
+  // Relevance State
+  const [relevanceData, setRelevanceData] = useState<RelevanceResponse | null>(null);
+  const [isRelevanceLoading, setIsRelevanceLoading] = useState(false);
+  const [isRelevanceExpanded, setIsRelevanceExpanded] = useState(false);
+  const [previousExamples, setPreviousExamples] = useState<string[]>([]);
 
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -108,6 +128,55 @@ export default function LectureView() {
       }
     };
   }, [currentSlideIndex, slides, user, lectureId]);
+
+  // Fetch Relevance Data
+  useEffect(() => {
+    const fetchRelevance = async () => {
+      const currentSlide = slides[currentSlideIndex];
+      if (!currentSlide || !currentSlide.content_text) {
+        setRelevanceData(null);
+        return;
+      }
+
+      setIsRelevanceLoading(true);
+      setIsRelevanceExpanded(false); // Reset expansion on slide change
+
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/ai/generate-relevance`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.session?.access_token}`
+          },
+          body: JSON.stringify({
+            slide_text: currentSlide.content_text,
+            previous_examples: previousExamples
+          })
+        });
+
+        if (response.ok) {
+          const result: RelevanceResponse = await response.json();
+          setRelevanceData(result);
+
+          if (result.has_applicable_concept && result.confidence_score >= 8 && result.relevance_insight) {
+            // Store example to avoid repetition later
+            const exampleStr = `${result.relevance_insight.concept_identified} in ${result.relevance_insight.industry}`;
+            setPreviousExamples(prev => [...prev, exampleStr]);
+          }
+        } else {
+          setRelevanceData(null);
+        }
+      } catch (error) {
+        console.error("DEBUG: Failed to fetch relevance", error);
+        setRelevanceData(null);
+      } finally {
+        setIsRelevanceLoading(false);
+      }
+    };
+
+    fetchRelevance();
+  }, [currentSlideIndex, slides]); // removed user dependency to avoid refetch loops if user refreshes
 
   const fetchLectureData = async () => {
     setLoading(true);
@@ -494,20 +563,6 @@ export default function LectureView() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
-
-      {/* Absolute Exit Button (Top Left) */}
-      <div className="absolute top-4 left-4 z-50">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate('/dashboard')}
-          className="rounded-full bg-background/80 backdrop-blur-md border-border/50 text-muted-foreground hover:text-foreground shadow-sm px-4"
-        >
-          <X className="w-4 h-4 mr-2" />
-          Exit Lecture
-        </Button>
-      </div>
-
       {/* Sidebar */}
       <LectureSidebar
         slides={slides}
@@ -528,6 +583,15 @@ export default function LectureView() {
           <div className="w-full px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/dashboard')}
+                  className="rounded-full border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  title="Exit Lecture"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
                 <div>
                   <h1 className="font-semibold text-foreground">{lecture?.title || 'Lecture'}</h1>
                   <p className="text-sm text-muted-foreground">
@@ -591,6 +655,75 @@ export default function LectureView() {
                           });
                         }}
                       />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Relevance Card */}
+                <AnimatePresence>
+                  {relevanceData?.has_applicable_concept && relevanceData.confidence_score >= 8 && relevanceData.relevance_insight && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-6 border border-border bg-card rounded-2xl overflow-hidden shadow-sm"
+                    >
+                      <button
+                        onClick={async () => {
+                          const newExpanded = !isRelevanceExpanded;
+                          setIsRelevanceExpanded(newExpanded);
+                          if (newExpanded && user && currentSlide) {
+                            await supabase.from('learning_events').insert({
+                              user_id: user.id,
+                              event_type: 'relevance_card_view',
+                              event_data: {
+                                slideId: currentSlide.id,
+                                concept: relevanceData.relevance_insight?.concept_identified,
+                                timestamp: new Date().toISOString()
+                              }
+                            });
+                          }
+                        }}
+                        className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-[#fceba8]/20 flex items-center justify-center flex-shrink-0">
+                            <Lightbulb className="w-5 h-5 text-yellow-500" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">💡 Real-World Impact</h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">How is this used in the industry?</p>
+                          </div>
+                        </div>
+                        {isRelevanceExpanded ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
+                      </button>
+
+                      {isRelevanceExpanded && (
+                        <div className="p-4 pt-0 border-t border-border bg-muted/10">
+                          <div className="mt-4 space-y-4 text-sm text-foreground">
+                            <div>
+                              <span className="font-semibold text-primary">Concept: </span>
+                              {relevanceData.relevance_insight.concept_identified}
+                            </div>
+
+                            {relevanceData.relevance_insight.popular_app_example && (
+                              <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm font-medium leading-relaxed">
+                                {relevanceData.relevance_insight.popular_app_example}
+                              </div>
+                            )}
+
+                            <div className="text-muted-foreground">
+                              <span className="font-medium text-foreground">Industry Context ({relevanceData.relevance_insight.industry}):</span>{" "}
+                              {relevanceData.relevance_insight.scenario}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="font-medium text-muted-foreground bg-secondary px-2 py-1 rounded-md">
+                                Career Role: {relevanceData.relevance_insight.career_role}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
