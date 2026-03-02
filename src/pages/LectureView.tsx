@@ -494,20 +494,6 @@ export default function LectureView() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
-
-      {/* Absolute Exit Button (Top Left) */}
-      <div className="absolute top-4 left-4 z-50">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate('/dashboard')}
-          className="rounded-full bg-background/80 backdrop-blur-md border-border/50 text-muted-foreground hover:text-foreground shadow-sm px-4"
-        >
-          <X className="w-4 h-4 mr-2" />
-          Exit Lecture
-        </Button>
-      </div>
-
       {/* Sidebar */}
       <LectureSidebar
         slides={slides}
@@ -528,6 +514,15 @@ export default function LectureView() {
           <div className="w-full px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/dashboard')}
+                  className="rounded-full border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  title="Exit Lecture"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
                 <div>
                   <h1 className="font-semibold text-foreground">{lecture?.title || 'Lecture'}</h1>
                   <p className="text-sm text-muted-foreground">
