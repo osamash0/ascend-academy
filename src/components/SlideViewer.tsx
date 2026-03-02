@@ -139,6 +139,23 @@ export function SlideViewer({
           </div>
         )}
 
+        {/* AI Summary — shown before Study Notes */}
+        {summary && (
+          <div className="px-6 py-4 border-b border-border">
+            <div className="bg-secondary/50 rounded-xl p-4 border border-border">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 gradient-xp rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Lightbulb className="w-4 h-4 text-xp-foreground" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground mb-1">AI Summary</h4>
+                  <p className="text-sm text-muted-foreground">{summary}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* AI Structured Content / Study Notes Area */}
         <div className="flex flex-col flex-1">
           {hasPdf && (
@@ -156,23 +173,6 @@ export function SlideViewer({
           </div>
         </div>
       </motion.div>
-
-      {/* AI Summary */}
-      {summary && (
-        <div className="px-8 pb-6 pt-4">
-          <div className="bg-secondary/50 rounded-xl p-4 border border-border">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 gradient-xp rounded-lg flex items-center justify-center flex-shrink-0">
-                <Lightbulb className="w-4 h-4 text-xp-foreground" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-foreground mb-1">AI Summary</h4>
-                <p className="text-sm text-muted-foreground">{summary}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Navigation */}
       <div className="px-8 pb-6">
