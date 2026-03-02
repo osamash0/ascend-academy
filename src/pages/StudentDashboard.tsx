@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Trophy, Target, Flame, Zap, Star, X } from 'lucide-react';
+import { BookOpen, Trophy, Target, Flame, Zap, Star, X, PlayCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { LectureCard } from '@/components/LectureCard';
@@ -24,6 +24,8 @@ interface Progress {
   quiz_score: number;
   total_questions_answered: number;
   correct_answers: number;
+  last_slide_viewed?: number | null;
+  completed_at?: string | null;
 }
 
 interface Achievement {
@@ -114,6 +116,15 @@ export default function StudentDashboard() {
     if (activeTab === 'completed') return pct === 100;
     if (activeTab === 'inprogress') return pct > 0 && pct < 100;
     return true;
+  });
+
+  // Find in-progress lectures for the "Continue Learning" section
+  const continueLectures = lectures.filter(lecture => {
+    const lp = getProgressForLecture(lecture.id);
+    if (!lp || lp.completed_at) return false;
+    const completed = lp.completed_slides?.length || 0;
+    const total = lecture.total_slides;
+    return total > 0 && completed > 0 && completed < total;
   });
 
   if (loading) {
@@ -291,6 +302,77 @@ export default function StudentDashboard() {
           variant="xp"
         />
       </div>
+
+      {/* ── Continue Learning Section ── */}
+      {continueLectures.length > 0 && (
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-6">
+            <h2 className="text-xl font-semibold text-foreground">Continue Learning</h2>
+          </div>
+          <div className="flex overflow-x-auto pb-4 gap-5 custom-scrollbar" style={{ scrollSnapType: 'x mandatory' }}>
+            <AnimatePresence>
+              {continueLectures.map((lecture, index) => {
+                const p = getProgressForLecture(lecture.id);
+                const completed = p?.completed_slides?.length || 0;
+                const total = lecture.total_slides;
+                const pct = Math.min(100, Math.round((completed / total) * 100));
+
+                return (
+                  <motion.div
+                    key={`continue-${lecture.id}`}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="min-w-[300px] sm:min-w-[350px] flex-shrink-0"
+                    style={{ scrollSnapAlign: 'start' }}
+                  >
+                    <div
+                      onClick={() => navigate(`/lecture/${lecture.slug || lecture.id}`)}
+                      className="group cursor-pointer bg-card hover:bg-muted/50 transition-colors rounded-2xl border border-border overflow-hidden relative"
+                    >
+                      {/* Stylized background accent */}
+                      <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                          <div>
+                            <h3 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                              {lecture.title}
+                            </h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Resume from slide {p?.last_slide_viewed !== undefined && p?.last_slide_viewed !== null ? p.last_slide_viewed + 1 : completed + 1}
+                            </p>
+                          </div>
+                          <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center shadow-sm flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <PlayCircle className="w-5 h-5 text-primary-foreground fill-primary-foreground/20" />
+                          </div>
+                        </div>
+
+                        <div className="mt-4">
+                          <div className="flex justify-between text-xs text-muted-foreground mb-1.5 font-medium">
+                            <span>{pct}% Completed</span>
+                            <span>{completed} / {total} Slides</span>
+                          </div>
+                          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                            <motion.div
+                              className="h-full gradient-primary rounded-full relative"
+                              initial={{ width: 0 }}
+                              animate={{ width: `${pct}%` }}
+                              transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
+                            >
+                              <div className="absolute top-0 right-0 bottom-0 w-4 bg-white/20" />
+                            </motion.div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       {/* ── Lectures Section ── */}
       <div>

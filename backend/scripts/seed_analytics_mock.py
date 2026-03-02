@@ -50,13 +50,93 @@ def seed(user_id: str):
     professor_id = user_id
     print(f"👤  Using user   : {professor_id}")
 
-    # ── 2. Find existing lectures ─────────────────────────────────────
+    # ── 2. Find or create lectures ────────────────────────────────────
     lec_res = supabase.table("lectures").select("id, title, total_slides").execute()
     lectures = lec_res.data or []
 
     if not lectures:
-        print("❌  No lectures found. Please upload at least one lecture via the app first.")
-        return
+        print("📚  No lectures found — creating 3 sample lectures...")
+        MOCK_LECTURES = [
+            {
+                "title": "Introduction to Machine Learning",
+                "description": "Core concepts of supervised and unsupervised learning algorithms",
+                "slides": [
+                    "What is Machine Learning?",
+                    "Supervised vs Unsupervised Learning",
+                    "Linear Regression Fundamentals",
+                    "Decision Trees and Random Forests",
+                    "Neural Network Basics",
+                    "Model Training and Validation",
+                    "Overfitting and Regularisation",
+                    "Real-World ML Applications",
+                ],
+            },
+            {
+                "title": "Advanced Data Structures",
+                "description": "Graphs, trees, heaps, and algorithm complexity analysis",
+                "slides": [
+                    "Review: Arrays and Linked Lists",
+                    "Binary Search Trees",
+                    "Balanced Trees (AVL & Red-Black)",
+                    "Graph Representations",
+                    "BFS and DFS Traversal",
+                    "Heaps and Priority Queues",
+                    "Hash Tables and Collision Handling",
+                    "Complexity Analysis (Big-O)",
+                ],
+            },
+            {
+                "title": "Web Development Fundamentals",
+                "description": "HTML, CSS, JavaScript and the modern web stack",
+                "slides": [
+                    "How the Web Works",
+                    "HTML Structure and Semantics",
+                    "CSS Layout and Flexbox",
+                    "JavaScript Basics",
+                    "DOM Manipulation",
+                    "Fetch API and REST",
+                    "Intro to React",
+                    "Deploying a Web App",
+                ],
+            },
+        ]
+
+        for mock in MOCK_LECTURES:
+            n_slides = len(mock["slides"])
+            lec = supabase.table("lectures").insert({
+                "title": mock["title"],
+                "description": mock["description"],
+                "professor_id": professor_id,
+                "total_slides": n_slides,
+            }).execute()
+
+            if not lec.data:
+                print(f"  ⚠️  Failed to create lecture: {mock['title']}")
+                continue
+
+            lec_id = lec.data[0]["id"]
+            print(f"  ✓  Created: {mock['title']}")
+
+            for i, slide_title in enumerate(mock["slides"], start=1):
+                slide = supabase.table("slides").insert({
+                    "lecture_id": lec_id,
+                    "slide_number": i,
+                    "title": slide_title,
+                    "content_text": f"## {slide_title}\n\nKey concepts and detailed explanation for this topic. Students should review this section carefully before answering the quiz.",
+                    "summary": f"This slide covers {slide_title.lower()}, an important concept in this module.",
+                }).execute()
+
+                if slide.data:
+                    supabase.table("quiz_questions").insert({
+                        "slide_id": slide.data[0]["id"],
+                        "question_text": f"Which of the following best describes '{slide_title}'?",
+                        "options": ["The correct explanation", "An incorrect alternative", "A misleading option", "None of the above"],
+                        "correct_answer": 0,
+                    }).execute()
+
+        # Reload lectures
+        lec_res = supabase.table("lectures").select("id, title, total_slides").execute()
+        lectures = lec_res.data or []
 
     print(f"📚  Found {len(lectures)} lecture(s)")
 

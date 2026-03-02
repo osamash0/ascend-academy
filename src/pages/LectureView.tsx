@@ -122,7 +122,7 @@ export default function LectureView() {
       const { data: routeData } = await supabase
         .from('lectures')
         .select('id')
-        .eq('slug', currentLectureId)
+        .eq('slug' as any, currentLectureId)
         .single();
 
       if (routeData) {
@@ -236,11 +236,31 @@ export default function LectureView() {
       setQuestions(mockQuestions);
     }
 
+    // Fetch user progress
+    if (user?.id) {
+      const { data: progressData } = await supabase
+        .from('student_progress')
+        .select('*')
+        .eq('lecture_id', currentLectureId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (progressData) {
+        if (progressData.last_slide_viewed !== null && progressData.last_slide_viewed >= 0) {
+          const maxSlides = slidesData && slidesData.length > 0 ? slidesData.length : 4;
+          const lastIndex = Math.min(progressData.last_slide_viewed, maxSlides - 1);
+          setCurrentSlideIndex(lastIndex);
+        }
+        if (progressData.xp_earned) setXpEarned(progressData.xp_earned);
+        if (progressData.correct_answers) setCorrectAnswers(progressData.correct_answers);
+      }
+    }
+
     // Log lecture start event
     await supabase.from('learning_events').insert({
       user_id: user?.id,
       event_type: 'lecture_start',
-      event_data: { lectureId },
+      event_data: { lectureId: currentLectureId },
     });
 
     setLoading(false);
@@ -252,6 +272,21 @@ export default function LectureView() {
   const currentSlideQuestions = questions.filter(q => q.slide_id === currentSlide?.id);
   const currentQuestion = currentSlideQuestions[0]; // Assuming 1 question per slide for now
 
+  const saveProgress = async (newSlideIndex: number, newXp: number, newCorrectAnswers: number) => {
+    if (!user || !lectureId || !lecture) return;
+
+    await supabase.from('student_progress').upsert({
+      user_id: user.id,
+      lecture_id: lecture.id,
+      last_slide_viewed: newSlideIndex,
+      xp_earned: newXp,
+      correct_answers: newCorrectAnswers,
+      completed_slides: slides.slice(0, Math.max(0, newSlideIndex)).map(s => s.slide_number),
+    }, {
+      onConflict: 'user_id,lecture_id',
+    });
+  };
+
   const handleNextSlide = () => {
     // If we're not showing the quiz yet, and there IS a quiz for this slide, show it first
     if (!showQuiz && currentQuestion) {
@@ -261,12 +296,14 @@ export default function LectureView() {
 
     // If we already showed the quiz (or there wasn't one), then move forward
     if (currentSlideIndex < slides.length - 1) {
-      setCurrentSlideIndex(prev => prev + 1);
+      const nextIndex = currentSlideIndex + 1;
+      setCurrentSlideIndex(nextIndex);
       setShowQuiz(false); // Hide quiz for the NEW slide initially
       setCurrentQuestionIndex(0);
+      saveProgress(nextIndex, xpEarned, correctAnswers);
     } else {
       // It was the last slide
-      handleLectureComplete();
+      handleLectureComplete(xpEarned, correctAnswers);
     }
   };
 
@@ -277,8 +314,10 @@ export default function LectureView() {
     }
 
     if (currentSlideIndex > 0) {
-      setCurrentSlideIndex(prev => prev - 1);
+      const prevIndex = currentSlideIndex - 1;
+      setCurrentSlideIndex(prevIndex);
       setShowQuiz(false);
+      saveProgress(prevIndex, xpEarned, correctAnswers);
     }
   };
 
@@ -366,15 +405,24 @@ export default function LectureView() {
     // Move to next slide after quiz
     setTimeout(() => {
       setShowQuiz(false);
+
+      const isCorrectNow = isCorrect ? 1 : 0;
+      const currentFinalXp = isCorrect ? xpEarned + 10 : xpEarned;
+      const currentFinalCorrect = correctAnswers + isCorrectNow;
+
       if (currentSlideIndex < slides.length - 1) {
-        setCurrentSlideIndex(prev => prev + 1);
+        const nextIndex = currentSlideIndex + 1;
+        setCurrentSlideIndex(nextIndex);
+        saveProgress(nextIndex, currentFinalXp, currentFinalCorrect);
       } else {
-        handleLectureComplete();
+        handleLectureComplete(currentFinalXp, currentFinalCorrect);
       }
     }, 1500);
   };
 
-  const handleLectureComplete = async () => {
+  const handleLectureComplete = async (finalXp: number = xpEarned, finalCorrect: number = correctAnswers) => {
+    if (!lecture) return;
+
     const sessionDuration = Math.round((Date.now() - sessionStartRef.current) / 1000);
 
     // Log completion
@@ -382,9 +430,9 @@ export default function LectureView() {
       user_id: user?.id,
       event_type: 'lecture_complete',
       event_data: {
-        lectureId,
-        xpEarned,
-        correctAnswers,
+        lectureId: lecture.id,
+        xpEarned: finalXp,
+        correctAnswers: finalCorrect,
         total_duration_seconds: sessionDuration,
         completed_at: new Date().toISOString()
       },
@@ -393,12 +441,12 @@ export default function LectureView() {
     // Update progress
     await supabase.from('student_progress').upsert({
       user_id: user?.id,
-      lecture_id: lectureId,
-      xp_earned: xpEarned,
+      lecture_id: lecture.id,
+      xp_earned: finalXp,
       completed_slides: slides.map((_, i) => i + 1),
-      quiz_score: Math.round((correctAnswers / slides.length) * 100),
+      quiz_score: slides.length > 0 ? Math.round((finalCorrect / slides.length) * 100) : 0,
       total_questions_answered: slides.length,
-      correct_answers: correctAnswers,
+      correct_answers: finalCorrect,
       completed_at: new Date().toISOString(),
     }, {
       onConflict: 'user_id,lecture_id',
