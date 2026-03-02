@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface Lecture {
   id: string;
+  slug?: string | null;
   title: string;
   description: string | null;
   total_slides: number;
@@ -272,7 +273,7 @@ export default function ProfessorDashboard() {
                             variant="ghost"
                             size="sm"
                             className="text-primary hover:text-primary hover:bg-primary/10"
-                            onClick={() => navigate(`/professor/analytics/${lecture.id}`)}
+                            onClick={() => navigate(`/professor/analytics/${lecture.slug || lecture.id}`)}
                             title="View Lecture Analytics"
                           >
                             <BarChart3 className="w-4 h-4" />

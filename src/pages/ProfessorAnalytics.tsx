@@ -17,6 +17,7 @@ import {
 
 interface Lecture {
   id: string;
+  slug: string | null;
   title: string;
   description: string | null;
   total_slides: number | null;
@@ -151,7 +152,7 @@ export default function ProfessorAnalytics() {
     (async () => {
       const { data } = await supabase
         .from('lectures')
-        .select('id, title, description, total_slides, created_at')
+        .select('id, slug, title, description, total_slides, created_at')
         .eq('professor_id', user.id)
         .order('created_at', { ascending: false });
       setLectures(data || []);
@@ -165,17 +166,39 @@ export default function ProfessorAnalytics() {
     setAnalyticsLoading(true);
     setAiInsights(null);
     (async () => {
+      let lectureId = selectedLectureId;
+
+      // If the parameter is not a UUID, it's a slug. Resolve it to an ID first.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedLectureId);
+
+      if (!isUuid) {
+        const { data: routeData } = await supabase
+          .from('lectures')
+          .select('id')
+          .eq('slug', selectedLectureId)
+          .single();
+
+        if (routeData) {
+          lectureId = routeData.id;
+        } else {
+          // Slug not found, go back to picker
+          setAnalyticsLoading(false);
+          navigate('/professor/analytics');
+          return;
+        }
+      }
+
       const [
         { data: progress },
         { data: eventData },
         { data: slidesData }
       ] = await Promise.all([
-        supabase.from('student_progress').select('*').eq('lecture_id', selectedLectureId),
+        supabase.from('student_progress').select('*').eq('lecture_id', lectureId),
         supabase.from('learning_events').select('*')
-          .contains('event_data', { lectureId: selectedLectureId })
+          .contains('event_data', { lectureId: lectureId })
           .order('created_at', { ascending: false })
           .limit(1000),
-        supabase.from('slides').select('id, title, slide_number').eq('lecture_id', selectedLectureId)
+        supabase.from('slides').select('id, title, slide_number').eq('lecture_id', lectureId)
       ]);
       setProgressData(progress || []);
       setEvents((eventData || []).map(e => ({
@@ -190,7 +213,7 @@ export default function ProfessorAnalytics() {
   // Sync title when lectureId changes
   useEffect(() => {
     if (selectedLectureId && lectures.length > 0) {
-      const lec = lectures.find(l => l.id === selectedLectureId);
+      const lec = lectures.find(l => l.id === selectedLectureId || l.slug === selectedLectureId);
       if (lec) setSelectedTitle(lec.title);
     }
   }, [selectedLectureId, lectures]);
@@ -308,7 +331,8 @@ export default function ProfessorAnalytics() {
   // Step 1 — No lecture selected yet → show picker
   if (!selectedLectureId) {
     return <LecturePicker lectures={lectures} onSelect={(id) => {
-      navigate(`/professor/analytics/${id}`);
+      const lec = lectures.find(l => l.id === id);
+      navigate(`/professor/analytics/${lec?.slug || id}`);
     }} />;
   }
 

@@ -185,6 +185,13 @@ export default function LectureUpload() {
       return;
     }
 
+    const slug = title
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
     setLoading(true);
 
     try {
@@ -220,6 +227,7 @@ export default function LectureUpload() {
         .insert({
           id: lectureId,
           title,
+          slug,
           description,
           professor_id: user?.id,
           total_slides: slides.length,
