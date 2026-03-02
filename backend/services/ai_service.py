@@ -94,3 +94,28 @@ Slide content:
             "options": ["Option A", "Option B", "Option C", "Option D"],
             "correctAnswer": 0
         }
+
+def generate_slide_title(slide_text: str) -> str:
+    """
+    Generates a short, descriptive title (3-7 words) for a slide based on its content.
+    """
+    prompt = f"""You are an educational assistant. Given the following slide content, generate a concise, descriptive title of 3 to 7 words that captures the main topic.
+Return ONLY the title text, no quotes, no punctuation at the end, no extra explanation.
+
+Slide content:
+{slide_text[:1000]}
+
+Title:"""
+
+    try:
+        response = ollama.chat(
+            model=OLLAMA_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        title = response["message"]["content"].strip()
+        # Remove any surrounding quotes the model might add
+        title = title.strip('"\'')
+        return title if title else None
+    except Exception as e:
+        print(f"DEBUG: Ollama title error: {e}")
+        return None

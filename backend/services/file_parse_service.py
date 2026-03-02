@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 import io
 import asyncio
 from pypdf import PdfReader
-from backend.services.ai_service import enhance_slide_content, generate_summary, generate_quiz
+from backend.services.ai_service import enhance_slide_content, generate_summary, generate_quiz, generate_slide_title
 
 
 def parse_pdf(file_content: bytes) -> List[Dict[str, Any]]:
@@ -28,13 +28,10 @@ def parse_pdf(file_content: bytes) -> List[Dict[str, Any]]:
             enhanced_content = enhance_slide_content(raw_text)
             summary = generate_summary(enhanced_content)
             quiz_data = generate_quiz(enhanced_content)
-            
-            # Try to extract a title from the enhanced content (look for first heading)
-            title = f"Slide {i + 1}"
-            import re
-            title_match = re.search(r'^#\s+(.*)', enhanced_content, re.MULTILINE)
-            if title_match:
-                title = title_match.group(1).strip()
+
+            # Generate a meaningful AI title for the slide
+            ai_title = generate_slide_title(enhanced_content)
+            title = ai_title if ai_title else f"Slide {i + 1}"
         except Exception as e:
             print(f"DEBUG: AI Processing failed for slide {i+1}: {e}")
             enhanced_content = raw_text
