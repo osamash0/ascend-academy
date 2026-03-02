@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, BookOpen, Lightbulb, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Document, Page, pdfjs } from 'react-pdf';
 import ReactMarkdown from 'react-markdown';
@@ -42,11 +42,20 @@ export function SlideViewer({
   pageNumber,
 }: SlideViewerProps) {
   console.log('DEBUG: SlideViewer props:', { title, slideNumber, pdfUrl, pageNumber });
-  const [scale, setScale] = useState(1.2);
   const [pdfError, setPdfError] = useState(false);
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
 
-  const handleZoomIn = useCallback(() => setScale(s => Math.min(s + 0.2, 2.5)), []);
-  const handleZoomOut = useCallback(() => setScale(s => Math.max(s - 0.2, 0.5)), []);
+  useEffect(() => {
+    if (!pdfContainerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(pdfContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const hasPdf = pdfUrl && !pdfError;
 
@@ -68,18 +77,6 @@ export function SlideViewer({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Zoom controls (only when PDF is shown) */}
-            {hasPdf && (
-              <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-                <button onClick={handleZoomOut} className="p-1.5 rounded hover:bg-background transition-colors" title="Zoom out">
-                  <ZoomOut className="w-4 h-4 text-muted-foreground" />
-                </button>
-                <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(scale * 100)}%</span>
-                <button onClick={handleZoomIn} className="p-1.5 rounded hover:bg-background transition-colors" title="Zoom in">
-                  <ZoomIn className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </div>
-            )}
 
             {/* Progress dots */}
             <div className="flex gap-1.5">
@@ -121,11 +118,11 @@ export function SlideViewer({
               <BookOpen className="w-4 h-4" />
               <span className="text-xs font-semibold uppercase tracking-wider">Slide Preview</span>
             </div>
-            <div className="flex justify-center p-4 overflow-auto max-h-[500px] custom-scrollbar">
+            <div ref={pdfContainerRef} className="w-full overflow-y-auto custom-scrollbar bg-muted/5" style={{ maxHeight: '75vh' }}>
               <Document
                 file={pdfUrl}
                 loading={
-                  <div className="flex items-center justify-center h-[300px]">
+                  <div className="flex items-center justify-center h-[400px]">
                     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                   </div>
                 }
@@ -133,7 +130,7 @@ export function SlideViewer({
               >
                 <Page
                   pageNumber={pageNumber ?? slideNumber}
-                  scale={scale}
+                  width={containerWidth > 0 ? containerWidth - 2 : undefined}
                   renderTextLayer={true}
                   renderAnnotationLayer={true}
                 />
