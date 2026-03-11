@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('user_id', userId)
       .single();
-    
+
     if (profileData) {
       setProfile(profileData as Profile);
     }
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('role')
       .eq('user_id', userId)
       .single();
-    
+
     if (roleData) {
       setRole(roleData.role as UserRole);
     }
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Defer profile/role fetching with setTimeout
         if (session?.user) {
           setTimeout(() => {
@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
           setRole(null);
         }
-        
+
         setLoading(false);
       }
     );
@@ -93,12 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         fetchProfile(session.user.id);
         fetchRole(session.user.id);
       }
-      
+
       setLoading(false);
     });
 
@@ -107,12 +107,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, selectedRole: UserRole) => {
     const redirectUrl = `${window.location.origin}/`;
-    
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
+        data: {
+          role: selectedRole,
+        },
       },
     });
 
@@ -120,15 +123,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error };
     }
 
-    // Insert role after signup
+    // Role is now stored in user_metadata.role
+    // A Supabase database trigger (on_auth_user_created) should read
+    // raw_user_meta_data->>'role' and insert into user_roles.
+    // Fallback: insert from client if trigger is not yet set up.
     if (data.user && selectedRole) {
-      const { error: roleError } = await supabase
+      await supabase
         .from('user_roles')
-        .insert({ user_id: data.user.id, role: selectedRole });
-      
-      if (roleError) {
-        console.error('Error setting role:', roleError);
-      }
+        .upsert({ user_id: data.user.id, role: selectedRole }, { onConflict: 'user_id' });
     }
 
     return { error: null };
