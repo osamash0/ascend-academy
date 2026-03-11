@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { User, Mail, Camera, Save, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Mail, Camera, Save, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,8 @@ export default function Settings() {
     const [fullName, setFullName] = useState(profile?.full_name || '');
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+    const hasUnsavedChanges = fullName !== (profile?.full_name || '');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -141,6 +143,20 @@ export default function Settings() {
 
     return (
         <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-8">
+            {/* Unsaved Changes Banner */}
+            <AnimatePresence>
+                {hasUnsavedChanges && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        className="flex items-center gap-3 px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-sm text-yellow-700 dark:text-yellow-400"
+                    >
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>You have unsaved changes. Don't forget to click <strong>Save Changes</strong>.</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             <div>
                 <h1 className="text-3xl font-bold text-foreground">Settings</h1>
                 <p className="text-muted-foreground mt-1">Manage your account preferences and profile details</p>

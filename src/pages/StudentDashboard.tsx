@@ -129,8 +129,27 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+        {/* Stats skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl border border-border p-5 animate-pulse">
+              <div className="h-4 w-20 bg-muted rounded mb-3" />
+              <div className="h-8 w-14 bg-muted rounded" />
+            </div>
+          ))}
+        </div>
+        {/* Lecture cards skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl border border-border p-5 animate-pulse space-y-3">
+              <div className="h-5 w-3/4 bg-muted rounded" />
+              <div className="h-4 w-full bg-muted rounded" />
+              <div className="h-4 w-2/3 bg-muted rounded" />
+              <div className="h-2 w-full bg-muted rounded-full mt-4" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

@@ -524,7 +524,16 @@ export default function LectureView() {
                   <X className="w-4 h-4" />
                 </Button>
                 <div>
-                  <h1 className="font-semibold text-foreground">{lecture?.title || 'Lecture'}</h1>
+                  <nav className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
+                    <button
+                      onClick={() => navigate('/dashboard')}
+                      className="hover:text-foreground transition-colors"
+                    >
+                      Dashboard
+                    </button>
+                    <span>/</span>
+                    <span className="text-foreground truncate max-w-[180px]">{lecture?.title || 'Lecture'}</span>
+                  </nav>
                   <p className="text-sm text-muted-foreground">
                     Slide {currentSlideIndex + 1} of {slides.length}
                   </p>
