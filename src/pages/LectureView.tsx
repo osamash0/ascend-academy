@@ -365,6 +365,13 @@ export default function LectureView() {
       if (calculatedLevel > oldLevel) {
         setNewLevel(calculatedLevel);
         setShowLevelUp(true);
+        // Notification: level up
+        await (supabase as any).from('notifications').insert({
+          user_id: user?.id,
+          title: `Level ${calculatedLevel}!`,
+          message: `You leveled up to Level ${calculatedLevel}. Keep going!`,
+          type: 'level_up',
+        });
       }
 
       // Check for achievements
@@ -391,6 +398,13 @@ export default function LectureView() {
             icon: '🔥',
           });
           setTimeout(() => setShowBadge(true), 1000);
+          // Notification: streak badge
+          await (supabase as any).from('notifications').insert({
+            user_id: user?.id,
+            title: badgeName,
+            message: `Achieved a streak of ${newStreak.data} correct answers!`,
+            type: 'streak',
+          });
         }
       }
 
@@ -475,6 +489,13 @@ export default function LectureView() {
         icon: '🎯',
       });
       setShowBadge(true);
+      // Notification: first quiz badge
+      await (supabase as any).from('notifications').insert({
+        user_id: user?.id,
+        title: 'First Quiz Completed 🎯',
+        message: 'Completed your first lecture quiz!',
+        type: 'achievement',
+      });
     }
 
     toast({
