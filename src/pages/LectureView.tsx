@@ -343,17 +343,15 @@ export default function LectureView() {
       setXpEarned(newXp);
       setCorrectAnswers(prev => prev + 1);
 
-      // Add XP to user
+      // Add XP to user — RPC should use auth.uid() internally
       await supabase.rpc('add_xp_to_user', {
-        p_user_id: user?.id,
         p_xp: 10,
-      });
+      } as any);
 
-      // Update streak
+      // Update streak — RPC should use auth.uid() internally
       const newStreak = await supabase.rpc('update_user_streak', {
-        p_user_id: user?.id,
         p_correct: true,
-      });
+      } as any);
 
       // Check for level up
       const oldLevel = profile?.current_level || 1;
@@ -394,11 +392,10 @@ export default function LectureView() {
 
       await refreshProfile();
     } else {
-      // Reset streak
+      // Reset streak — RPC should use auth.uid() internally
       await supabase.rpc('update_user_streak', {
-        p_user_id: user?.id,
         p_correct: false,
-      });
+      } as any);
       await refreshProfile();
     }
 
