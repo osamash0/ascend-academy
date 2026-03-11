@@ -31,7 +31,8 @@ async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_
         summary = generate_summary(body.slide_text)
         return {"summary": summary}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI summary failed: {str(e)}")
+        print(f"DEBUG ai_content generate-summary error: {e}")
+        raise HTTPException(status_code=500, detail="AI summary generation failed. Please try again.")
 
 
 @router.post("/generate-quiz")
@@ -43,7 +44,8 @@ async def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_tok
         quiz = generate_quiz(body.slide_text)
         return quiz
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI quiz generation failed: {str(e)}")
+        print(f"DEBUG ai_content generate-quiz error: {e}")
+        raise HTTPException(status_code=500, detail="AI quiz generation failed. Please try again.")
 
 
 @router.post("/analytics-insights")
@@ -53,5 +55,6 @@ async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(
         result = generate_analytics_insights(body.dict())
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI insights failed: {str(e)}")
+        print(f"DEBUG ai_content analytics-insights error: {e}")
+        raise HTTPException(status_code=500, detail="AI insights generation failed. Please try again.")
 

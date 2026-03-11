@@ -18,4 +18,5 @@ async def parse_pdf_endpoint(file: UploadFile = File(...), user=Depends(verify_t
         slides = parse_pdf(content)
         return {"slides": slides, "total": len(slides)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse PDF: {str(e)}")
+        print(f"DEBUG upload parse-pdf error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to parse PDF. Please try again.")
