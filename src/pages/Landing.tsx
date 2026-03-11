@@ -61,7 +61,7 @@ export default function Landing() {
               transition={{ delay: 0.2 }}
               className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto"
             >
-              Upload your lecture slides, get AI-generated summaries and quizzes, 
+              Upload your lecture slides, get AI-generated summaries and quizzes,
               earn XP, level up, and track your progress. Learning has never been this fun.
             </motion.p>
 
@@ -236,6 +236,9 @@ export default function Landing() {
             <p className="text-sm text-muted-foreground">
               © 2024 Learnstation. Built for students, by students.
             </p>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <a href="/impressum" className="hover:text-foreground transition-colors">Impressum</a>
+            </div>
           </div>
         </div>
       </footer>

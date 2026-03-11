@@ -17,6 +17,7 @@ import ProfessorAnalytics from "./pages/ProfessorAnalytics";
 import LectureUpload from "./pages/LectureUpload";
 import LectureEdit from "./pages/LectureEdit";
 import Settings from "./pages/Settings";
+import Impressum from "./pages/Impressum";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -85,6 +86,7 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+      <Route path="/impressum" element={<Impressum />} />
 
       {/* Student routes */}
       <Route
