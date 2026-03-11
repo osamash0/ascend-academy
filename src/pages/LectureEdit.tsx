@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Save, Plus, Trash2, CheckCircle2, Loader2, Sparkles, ArrowLeft, FileText, Upload } from 'lucide-react';
+import { Save, Plus, Trash2, CheckCircle2, Loader2, Sparkles, ArrowLeft, FileText, Upload, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -307,6 +307,14 @@ export default function LectureEdit() {
     // ── Slide helpers ───────────────────────────────────────────────────────────
     const addSlide = () => setSlides([...slides, { title: '', content: '', summary: '', questions: [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }] }]);
 
+    const moveSlide = (index: number, direction: 'up' | 'down') => {
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= slides.length) return;
+        const newSlides = [...slides];
+        [newSlides[index], newSlides[newIndex]] = [newSlides[newIndex], newSlides[index]];
+        setSlides(newSlides);
+    };
+
     const removeSlide = async (index: number) => {
         if (slides.length <= 1) return;
         const slide = slides[index];
@@ -426,7 +434,34 @@ export default function LectureEdit() {
                         className="bg-card rounded-2xl border border-border p-6"
                     >
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-foreground">Slide {slideIndex + 1}</h2>
+                            <div className="flex items-center gap-2">
+                                <GripVertical className="w-4 h-4 text-muted-foreground" />
+                                <h2 className="text-lg font-semibold text-foreground">Slide {slideIndex + 1}</h2>
+                                <div className="flex items-center gap-0.5 ml-2">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => moveSlide(slideIndex, 'up')}
+                                        disabled={slideIndex === 0}
+                                        className="h-7 w-7 p-0"
+                                        title="Move slide up"
+                                    >
+                                        <ArrowUp className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => moveSlide(slideIndex, 'down')}
+                                        disabled={slideIndex === slides.length - 1}
+                                        className="h-7 w-7 p-0"
+                                        title="Move slide down"
+                                    >
+                                        <ArrowDown className="w-3.5 h-3.5" />
+                                    </Button>
+                                </div>
+                            </div>
                             {slides.length > 1 && (
                                 <Button type="button" variant="ghost" size="sm" onClick={() => removeSlide(slideIndex)} className="text-destructive hover:text-destructive">
                                     <Trash2 className="w-4 h-4" />
