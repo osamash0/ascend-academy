@@ -123,10 +123,10 @@ export default function LectureView() {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentLectureId);
 
     if (!isUuid) {
-      const { data: routeData } = await supabase
+      const { data: routeData } = await (supabase as any)
         .from('lectures')
         .select('id')
-        .eq('slug' as any, currentLectureId)
+        .eq('slug', currentLectureId)
         .single();
 
       if (routeData) {
