@@ -1,11 +1,12 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from backend.services.file_parse_service import parse_pdf
+from backend.core.auth_middleware import verify_token
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
 
 @router.post("/parse-pdf")
-async def parse_pdf_endpoint(file: UploadFile = File(...)):
+async def parse_pdf_endpoint(file: UploadFile = File(...), user=Depends(verify_token)):
     """
     Upload a PDF lecture file and receive extracted slide content.
     """

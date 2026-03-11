@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights
+from backend.core.auth_middleware import verify_token
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -22,7 +23,7 @@ class AnalyticsStatsRequest(BaseModel):
 
 
 @router.post("/generate-summary")
-async def generate_summary_endpoint(body: SlideTextRequest):
+async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     """Generate a concise summary for the given slide text using Ollama."""
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
@@ -34,7 +35,7 @@ async def generate_summary_endpoint(body: SlideTextRequest):
 
 
 @router.post("/generate-quiz")
-async def generate_quiz_endpoint(body: SlideTextRequest):
+async def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     """Generate a multiple-choice quiz question for the given slide text using Ollama."""
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
@@ -46,7 +47,7 @@ async def generate_quiz_endpoint(body: SlideTextRequest):
 
 
 @router.post("/analytics-insights")
-async def analytics_insights_endpoint(body: AnalyticsStatsRequest):
+async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify_token)):
     """Return AI-generated friendly summary and suggestions for the professor based on analytics data."""
     try:
         result = generate_analytics_insights(body.dict())
