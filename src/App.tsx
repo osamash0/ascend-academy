@@ -19,6 +19,7 @@ import LectureEdit from "./pages/LectureEdit";
 import Settings from "./pages/Settings";
 import Impressum from "./pages/Impressum";
 import Datenschutz from "./pages/Datenschutz";
+import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -113,6 +114,16 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={['student']}>
             <DashboardLayout>
               <Achievements />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/leaderboard"
+        element={
+          <ProtectedRoute allowedRoles={['student']}>
+            <DashboardLayout>
+              <Leaderboard />
             </DashboardLayout>
           </ProtectedRoute>
         }

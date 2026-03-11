@@ -23,6 +23,7 @@ export default function Settings() {
     const navigate = useNavigate();
 
     const [fullName, setFullName] = useState(profile?.full_name || '');
+    const [displayName, setDisplayName] = useState((profile as any)?.display_name || '');
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -34,14 +35,13 @@ export default function Settings() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-    const hasUnsavedChanges = fullName !== (profile?.full_name || '');
+    const hasUnsavedChanges = fullName !== (profile?.full_name || '') || displayName !== ((profile as any)?.display_name || '');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (profile?.full_name) {
-            setFullName(profile.full_name);
-        }
+        if (profile?.full_name) setFullName(profile.full_name);
+        if ((profile as any)?.display_name) setDisplayName((profile as any).display_name);
     }, [profile]);
 
     const handleSaveProfile = async () => {
@@ -51,7 +51,7 @@ export default function Settings() {
         try {
             const { error } = await supabase
                 .from('profiles')
-                .update({ full_name: fullName })
+                .update({ full_name: fullName, display_name: displayName || null })
                 .eq('user_id', user.id);
 
             if (error) throw error;
@@ -272,6 +272,20 @@ export default function Settings() {
                                 </div>
 
                                 <div className="space-y-2">
+                                    <label className="text-sm font-medium">Display Name (public)</label>
+                                    <div className="relative">
+                                        <User className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Anonymous (Avatar Only)"
+                                            className="pl-10"
+                                            value={displayName}
+                                            onChange={(e) => setDisplayName(e.target.value)}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">Shown on the leaderboard instead of your avatar only.</p>
+                                </div>
+
+                                <div className="space-y-2">
                                     <label className="text-sm font-medium">Email Address</label>
                                     <div className="relative">
                                         <Mail className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -288,7 +302,7 @@ export default function Settings() {
                         </div>
 
                         <div className="pt-4 border-t border-border flex justify-end">
-                            <Button onClick={handleSaveProfile} disabled={isSaving || fullName === profile?.full_name}>
+                            <Button onClick={handleSaveProfile} disabled={isSaving || !hasUnsavedChanges}>
                                 {isSaving ? (
                                     <>
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />

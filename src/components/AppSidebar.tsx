@@ -34,6 +34,7 @@ import {
 const studentNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Achievements', url: '/achievements', icon: Trophy },
+  { title: 'Leaderboard', url: '/leaderboard', icon: Users },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
