@@ -26,6 +26,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -55,6 +56,13 @@ export default function Auth() {
     if (!validateForm()) return;
 
     setLoading(true);
+
+    // Require privacy consent for signup
+    if (!isLogin && !privacyConsent) {
+      toast({ title: 'Privacy consent required', description: 'Please agree to the Datenschutzerklärung.', variant: 'destructive' });
+      setLoading(false);
+      return;
+    }
 
     try {
       if (isLogin) {
@@ -308,7 +316,7 @@ export default function Auth() {
               variant="hero"
               size="lg"
               className="w-full"
-              disabled={loading}
+              disabled={loading || (!isLogin && !privacyConsent)}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -324,12 +332,20 @@ export default function Auth() {
             </Button>
 
             {!isLogin && (
-              <p className="text-xs text-center text-muted-foreground">
-                By creating an account, you agree to our{' '}
-                <a href="/datenschutz" target="_blank" className="text-primary hover:underline">
-                  Datenschutzerklärung
-                </a>.
-              </p>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyConsent}
+                  onChange={(e) => setPrivacyConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+                />
+                <span className="text-xs text-muted-foreground">
+                  I have read and agree to the{' '}
+                  <a href="/datenschutz" target="_blank" className="text-primary hover:underline">
+                    Datenschutzerklärung
+                  </a>.
+                </span>
+              </label>
             )}
           </form>
 
