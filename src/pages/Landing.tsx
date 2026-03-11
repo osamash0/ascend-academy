@@ -238,6 +238,7 @@ export default function Landing() {
             </p>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <a href="/impressum" className="hover:text-foreground transition-colors">Impressum</a>
+              <a href="/datenschutz" className="hover:text-foreground transition-colors">Datenschutz</a>
             </div>
           </div>
         </div>

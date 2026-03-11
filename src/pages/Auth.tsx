@@ -227,8 +227,8 @@ export default function Auth() {
                     type="button"
                     onClick={() => setSelectedRole(role)}
                     className={`p-4 rounded-xl border-2 transition-all duration-200 ${selectedRole === role
-                        ? 'border-primary bg-secondary'
-                        : 'border-border hover:border-primary/50'
+                      ? 'border-primary bg-secondary'
+                      : 'border-border hover:border-primary/50'
                       }`}
                   >
                     <Icon className={`w-6 h-6 mx-auto mb-2 ${selectedRole === role ? 'text-primary' : 'text-muted-foreground'
@@ -318,10 +318,19 @@ export default function Auth() {
               ) : (
                 <>
                   {isLogin ? 'Log in' : 'Create account'}
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4 ml-2" />
                 </>
               )}
             </Button>
+
+            {!isLogin && (
+              <p className="text-xs text-center text-muted-foreground">
+                By creating an account, you agree to our{' '}
+                <a href="/datenschutz" target="_blank" className="text-primary hover:underline">
+                  Datenschutzerklärung
+                </a>.
+              </p>
+            )}
           </form>
 
           <div className="mt-6 text-center">

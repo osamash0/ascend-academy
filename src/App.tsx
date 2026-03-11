@@ -18,6 +18,7 @@ import LectureUpload from "./pages/LectureUpload";
 import LectureEdit from "./pages/LectureEdit";
 import Settings from "./pages/Settings";
 import Impressum from "./pages/Impressum";
+import Datenschutz from "./pages/Datenschutz";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,6 +88,7 @@ function AppRoutes() {
       <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
       <Route path="/impressum" element={<Impressum />} />
+      <Route path="/datenschutz" element={<Datenschutz />} />
 
       {/* Student routes */}
       <Route
