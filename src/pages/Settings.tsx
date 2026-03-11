@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Camera, Save, Loader2, AlertCircle } from 'lucide-react';
+import { User, Mail, Camera, Save, Loader2, AlertCircle, Trash2, Download } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -17,12 +18,16 @@ const PRESET_AVATARS = [
 ];
 
 export default function Settings() {
-    const { user, profile, refreshProfile } = useAuth();
+    const { user, profile, refreshProfile, signOut } = useAuth();
     const { toast } = useToast();
+    const navigate = useNavigate();
 
     const [fullName, setFullName] = useState(profile?.full_name || '');
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     const hasUnsavedChanges = fullName !== (profile?.full_name || '');
 
@@ -292,6 +297,105 @@ export default function Settings() {
                                 )}
                             </Button>
                         </div>
+                    </div>
+                </motion.div>
+
+                {/* Data & Privacy Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-card rounded-2xl border border-border p-6"
+                >
+                    <h2 className="text-xl font-semibold text-foreground mb-4">Data & Privacy</h2>
+
+                    {/* Export Data */}
+                    <div className="flex items-center justify-between py-4 border-b border-border">
+                        <div>
+                            <p className="font-medium text-foreground">Export My Data</p>
+                            <p className="text-sm text-muted-foreground">Download all your data as a JSON file (Art. 20 DSGVO)</p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            onClick={async () => {
+                                setIsExporting(true);
+                                try {
+                                    const [profileRes, progressRes, achievementsRes, eventsRes] = await Promise.all([
+                                        supabase.from('profiles').select('*').eq('user_id', user?.id).single(),
+                                        supabase.from('student_progress').select('*').eq('user_id', user?.id),
+                                        supabase.from('achievements').select('*').eq('user_id', user?.id),
+                                        supabase.from('learning_events').select('*').eq('user_id', user?.id),
+                                    ]);
+                                    const exportData = {
+                                        exported_at: new Date().toISOString(),
+                                        profile: profileRes.data,
+                                        progress: progressRes.data,
+                                        achievements: achievementsRes.data,
+                                        learning_events: eventsRes.data,
+                                    };
+                                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `learnstation-data-${new Date().toISOString().slice(0, 10)}.json`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                    toast({ title: 'Data exported!', description: 'Your data has been downloaded.' });
+                                } catch {
+                                    toast({ title: 'Export failed', description: 'Please try again.', variant: 'destructive' });
+                                }
+                                setIsExporting(false);
+                            }}
+                            disabled={isExporting}
+                        >
+                            {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                            {isExporting ? 'Exporting...' : 'Export'}
+                        </Button>
+                    </div>
+
+                    {/* Delete Account */}
+                    <div className="pt-4">
+                        <p className="font-medium text-destructive mb-1">Danger Zone</p>
+                        <p className="text-sm text-muted-foreground mb-3">
+                            Permanently delete your account and all associated data. This action cannot be undone.
+                        </p>
+                        {!showDeleteConfirm ? (
+                            <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete My Account
+                            </Button>
+                        ) : (
+                            <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30">
+                                <p className="text-sm text-destructive font-medium">Are you sure? All data will be permanently deleted.</p>
+                                <div className="flex gap-2 shrink-0">
+                                    <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        disabled={isDeleting}
+                                        onClick={async () => {
+                                            setIsDeleting(true);
+                                            try {
+                                                await supabase.from('learning_events').delete().eq('user_id', user?.id);
+                                                await supabase.from('student_progress').delete().eq('user_id', user?.id);
+                                                await supabase.from('achievements').delete().eq('user_id', user?.id);
+                                                await supabase.from('user_roles').delete().eq('user_id', user?.id);
+                                                await supabase.from('profiles').delete().eq('user_id', user?.id);
+                                                await signOut();
+                                                navigate('/');
+                                                toast({ title: 'Account deleted', description: 'Your account and all data have been removed.' });
+                                            } catch {
+                                                toast({ title: 'Deletion failed', description: 'Please contact support.', variant: 'destructive' });
+                                                setIsDeleting(false);
+                                            }
+                                        }}
+                                    >
+                                        {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                        {isDeleting ? 'Deleting...' : 'Yes, Delete Everything'}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </motion.div>
             </div>
