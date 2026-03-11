@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Camera, Save, Loader2, AlertCircle, Trash2, Download } from 'lucide-react';
+import { User, Mail, Camera, Save, Loader2, AlertCircle, Trash2, Download, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,11 @@ export default function Settings() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
     const hasUnsavedChanges = fullName !== (profile?.full_name || '');
 
@@ -297,6 +302,84 @@ export default function Settings() {
                                 )}
                             </Button>
                         </div>
+                    </div>
+                </motion.div>
+
+                {/* Security Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="bg-card rounded-2xl border border-border p-6"
+                >
+                    <h2 className="text-xl font-semibold text-foreground mb-4">Security</h2>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-sm font-medium text-foreground mb-1 block">New Password</label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input
+                                    type={showNewPassword ? 'text' : 'password'}
+                                    placeholder="Min. 6 characters"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    autoComplete="new-password"
+                                    className="pl-10 pr-10"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-foreground mb-1 block">Confirm Password</label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input
+                                    type={showConfirmPassword ? 'text' : 'password'}
+                                    placeholder="Re-enter your new password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    autoComplete="new-password"
+                                    className={`pl-10 pr-10 ${confirmPassword && confirmPassword !== newPassword ? 'border-destructive' : ''}`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            {confirmPassword && confirmPassword !== newPassword && (
+                                <p className="text-xs text-destructive mt-1">Passwords do not match</p>
+                            )}
+                        </div>
+                        <Button
+                            disabled={isChangingPassword || !newPassword || newPassword.length < 6 || newPassword !== confirmPassword}
+                            onClick={async () => {
+                                setIsChangingPassword(true);
+                                const { error } = await supabase.auth.updateUser({ password: newPassword });
+                                if (error) {
+                                    toast({ title: 'Password change failed', description: error.message, variant: 'destructive' });
+                                } else {
+                                    toast({ title: 'Password updated!', description: 'Your password has been changed successfully.' });
+                                    setNewPassword('');
+                                    setConfirmPassword('');
+                                }
+                                setIsChangingPassword(false);
+                            }}
+                        >
+                            {isChangingPassword ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Updating...</>
+                            ) : (
+                                <><Lock className="w-4 h-4 mr-2" />Change Password</>
+                            )}
+                        </Button>
                     </div>
                 </motion.div>
 
