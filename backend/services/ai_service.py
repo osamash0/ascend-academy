@@ -1,18 +1,21 @@
 import os
 import json
 import re
-import ollama
-from google import genai
-from google.genai import types
 from pydantic import BaseModel
 
 OLLAMA_MODEL = "llama3"
 GEMINI_MODEL = "gemini-2.5-flash"
-
-# Initialize Gemini Client
 try:
+    import ollama
+except ImportError:
+    ollama = None
+
+try:
+    from google import genai
+    from google.genai import types
     client = genai.Client()
 except Exception:
+    genai = None
     client = None
 
 # Ollama helper
@@ -75,6 +78,8 @@ Markdown Output:"""
             print(f"DEBUG Gemini error: {e}")
             return raw_text
     else:
+        if ollama is None:
+            return raw_text
         try:
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
             text = res["message"]["content"].strip()
@@ -100,6 +105,8 @@ Summary:"""
             print(f"DEBUG Gemini summary error: {e}")
             return "Failed to generate summary."
     else:
+        if ollama is None:
+            return "Failed to generate summary. Ollama SDK is not installed in the backend environment."
         try:
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
             return res["message"]["content"].strip()
@@ -124,6 +131,12 @@ Slide content:
         except Exception as e:
             print(f"DEBUG Gemini quiz error: {e}")
     else:
+        if ollama is None:
+            return {
+                "question": "Failed to generate quiz question. Ollama SDK not installed.",
+                "options": ["Option A", "Option B", "Option C", "Option D"],
+                "correctAnswer": 0
+            }
         prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options (A, B, C, D).
 
 Return your answer as valid JSON with this exact structure:
@@ -206,7 +219,14 @@ Your task:
         except Exception as e:
             print(f"DEBUG Gemini analytics error: {e}")
     else:
-        prompt += """\nReturn ONLY valid JSON with this exact structure:
+        if ollama is None:
+            return {
+                "summary": "We couldn't generate an AI summary at this time. Ollama SDK is missing.",
+                "suggestions": [
+                    "Wait for the backend administrator to install missing python dependencies."
+                ]
+            }
+        prompt += """\\nReturn ONLY valid JSON with this exact structure:
 {
   "summary": "...",
   "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
@@ -235,6 +255,9 @@ def chat_with_lecture(slide_text: str, user_message: str, chat_history: list = N
     """
     Acts as a personalized AI tutor answering a student's question based on the slide's context.
     """
+    with open("/tmp/chat_debug.log", "a") as f:
+        f.write(f"\\n--- NEW CALL ---\\nMODEL: {ai_model}\\nTEXT LEN: {len(slide_text)}\\nMSG: {user_message}\\n")
+
     if chat_history is None:
         chat_history = []
         
@@ -269,9 +292,19 @@ Tutor:"""
             print(f"DEBUG Gemini chat error: {e}")
             return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
     else:
+        if ollama is None:
+            return "Ollama SDK is not installed in the backend environment. Please restart the backend using: `pip install -r backend/requirements.txt && .venv/bin/python -m uvicorn backend.main:app --reload`"
         try:
+            with open("/tmp/chat_debug.log", "a") as f:
+                f.write(f"Calling Ollama...\\n")
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            with open("/tmp/chat_debug.log", "a") as f:
+                f.write(f"Ollama SUCCESS\\n")
             return res["message"]["content"].strip()
         except Exception as e:
+            import traceback
+            with open("/tmp/chat_debug.log", "a") as f:
+                f.write(f"Ollama EXCEPTION: {e}\\n")
+                traceback.print_exc(file=f)
             print(f"DEBUG Ollama chat error: {e}")
             return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"

@@ -74,5 +74,8 @@ async def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)
         )
         return {"reply": reply}
     except Exception as e:
+        import traceback
+        with open("/tmp/err.log", "w") as f:
+            traceback.print_exc(file=f)
         print(f"DEBUG ai_content chat error: {e}")
         raise HTTPException(status_code=500, detail="AI tutor failed to respond. Please try again.")
