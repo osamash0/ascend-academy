@@ -21,7 +21,6 @@ const API_BASE = 'http://localhost:8000';
 
 interface Lecture {
   id: string;
-  slug: string | null;
   title: string;
   description: string | null;
   total_slides: number | null;
@@ -156,7 +155,7 @@ export default function ProfessorAnalytics() {
     (async () => {
       const { data } = await supabase
         .from('lectures')
-        .select('id, slug, title, description, total_slides, created_at')
+        .select('id, title, description, total_slides, created_at')
         .eq('professor_id', user.id)
         .order('created_at', { ascending: false });
       setLectures(data || []);
@@ -170,27 +169,9 @@ export default function ProfessorAnalytics() {
     setAnalyticsLoading(true);
     setAiInsights(null);
     (async () => {
+      // Slug is no longer used, so if an old url provides a non-uuid slug, we simply assume it's an ID
+      // If it throws an error in fetch, they will be sent back. Here we just try to fetch by ID.
       let lectureId = selectedLectureId;
-
-      // If the parameter is not a UUID, it's a slug. Resolve it to an ID first.
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedLectureId);
-
-      if (!isUuid) {
-        const { data: routeData } = await supabase
-          .from('lectures')
-          .select('id')
-          .eq('slug', selectedLectureId)
-          .single();
-
-        if (routeData) {
-          lectureId = routeData.id;
-        } else {
-          // Slug not found, go back to picker
-          setAnalyticsLoading(false);
-          navigate('/professor/analytics');
-          return;
-        }
-      }
 
       const [
         { data: progress },
@@ -217,7 +198,7 @@ export default function ProfessorAnalytics() {
   // Sync title when lectureId changes
   useEffect(() => {
     if (selectedLectureId && lectures.length > 0) {
-      const lec = lectures.find(l => l.id === selectedLectureId || l.slug === selectedLectureId);
+      const lec = lectures.find(l => l.id === selectedLectureId);
       if (lec) setSelectedTitle(lec.title);
     }
   }, [selectedLectureId, lectures]);
@@ -307,6 +288,7 @@ export default function ProfessorAnalytics() {
           total_attempts: totalAttempts, total_correct: totalCorrect,
           hard_slides: hardSlides, engaging_slides: engagingSlides,
           weekly_trend: weeklyTrend, confidence_summary: confSummary,
+          ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3'
         }),
       });
       if (res.ok) setAiInsights(await res.json());
@@ -335,8 +317,7 @@ export default function ProfessorAnalytics() {
   // Step 1 — No lecture selected yet → show picker
   if (!selectedLectureId) {
     return <LecturePicker lectures={lectures} onSelect={(id) => {
-      const lec = lectures.find(l => l.id === id);
-      navigate(`/professor/analytics/${lec?.slug || id}`);
+      navigate(`/professor/analytics/${id}`);
     }} />;
   }
 

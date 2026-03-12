@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookOpen, Zap, Trophy, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { pseudonymizeId } from '@/lib/pseudonymize';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +11,7 @@ import { LevelUpModal } from '@/components/LevelUpModal';
 import { BadgeEarnedModal } from '@/components/BadgeEarnedModal';
 import { Button } from '@/components/ui/button';
 import { LectureSidebar } from '@/components/LectureSidebar';
+import { LectureChat } from '@/components/LectureChat';
 import { useToast } from '@/hooks/use-toast';
 
 interface Slide {
@@ -63,6 +64,7 @@ export default function LectureView() {
 
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const { role } = useAuth(); // role is 'professor' or 'student'
 
   useEffect(() => {
@@ -563,6 +565,14 @@ export default function LectureView() {
               </div>
 
               <div className="flex items-center gap-4">
+                <Button
+                  onClick={() => setIsChatOpen(!isChatOpen)}
+                  variant="default"
+                  className="gap-2 rounded-full px-4 shadow-sm"
+                >
+                  <Bot className="w-4 h-4" />
+                  <span className="hidden sm:inline">Ask AI Tutor</span>
+                </Button>
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
                   <Zap className="w-4 h-4 text-xp" />
                   <span className="font-semibold text-foreground">+{xpEarned} XP</span>
@@ -681,6 +691,13 @@ export default function LectureView() {
             badgeName={badgeInfo.name}
             badgeDescription={badgeInfo.description}
             badgeIcon={badgeInfo.icon}
+          />
+
+          <LectureChat
+            isOpen={isChatOpen}
+            onClose={() => setIsChatOpen(false)}
+            slideText={currentSlide?.content_text || ''}
+            slideTitle={currentSlide?.title || 'Lecture Slide'}
           />
         </div>
       </div>

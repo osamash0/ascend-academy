@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Camera, Save, Loader2, AlertCircle, Trash2, Download, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Camera, Save, Loader2, AlertCircle, Trash2, Download, Lock, Eye, EyeOff, BrainCircuit } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useAiModel } from '@/hooks/use-ai-model';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ export default function Settings() {
     const { user, profile, refreshProfile, signOut } = useAuth();
     const { toast } = useToast();
     const navigate = useNavigate();
+    const { aiModel, setAiModel } = useAiModel();
 
     const [fullName, setFullName] = useState(profile?.full_name || '');
     const [displayName, setDisplayName] = useState((profile as any)?.display_name || '');
@@ -493,6 +495,46 @@ export default function Settings() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </motion.div>
+
+                {/* AI Preferences Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                    className="md:col-span-3 bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20 p-6"
+                >
+                    <div className="flex items-center gap-3 mb-4">
+                        <BrainCircuit className="w-6 h-6 text-primary" />
+                        <h2 className="text-xl font-semibold text-foreground">AI Preferences</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-6">
+                        Choose which AI model powers your intelligent tutor, quizzes, and summaries.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div 
+                            onClick={() => setAiModel('llama3')}
+                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${aiModel === 'llama3' ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-card hover:border-primary/50'}`}
+                        >
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-semibold text-foreground">Llama 3 (Local)</h3>
+                                {aiModel === 'llama3' && <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Runs locally via Ollama. Completely private and offline, but may be slower depending on your hardware.</p>
+                        </div>
+                        
+                        <div 
+                            onClick={() => setAiModel('gemini-2.5-flash')}
+                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${aiModel === 'gemini-2.5-flash' ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-card hover:border-primary/50'}`}
+                        >
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-semibold text-foreground">Gemini 2.5 Flash</h3>
+                                {aiModel === 'gemini-2.5-flash' && <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Lightning-fast responses powered by Google. Requires an internet connection securely sent over API.</p>
+                        </div>
                     </div>
                 </motion.div>
             </div>

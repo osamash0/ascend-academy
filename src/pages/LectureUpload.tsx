@@ -100,7 +100,7 @@ export default function LectureUpload() {
       const res = await fetch(`${API_BASE}/api/ai/generate-summary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slide_text: content }),
+        body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -126,7 +126,7 @@ export default function LectureUpload() {
       const res = await fetch(`${API_BASE}/api/ai/generate-quiz`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slide_text: content }),
+        body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
       });
       if (!res.ok) throw new Error();
       const quiz = await res.json();
@@ -227,7 +227,6 @@ export default function LectureUpload() {
         .insert({
           id: lectureId,
           title,
-          slug,
           description,
           professor_id: user?.id,
           total_slides: slides.length,

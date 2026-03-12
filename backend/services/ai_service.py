@@ -1,10 +1,21 @@
-import ollama
+import os
 import json
 import re
+import ollama
+from google import genai
+from google.genai import types
+from pydantic import BaseModel
 
-OLLAMA_MODEL = "llama3"  # Change to whichever model you have pulled (e.g., mistral, llama3)
+OLLAMA_MODEL = "llama3"
+GEMINI_MODEL = "gemini-2.5-flash"
 
-# Patterns that indicate the model added conversational filler
+# Initialize Gemini Client
+try:
+    client = genai.Client()
+except Exception:
+    client = None
+
+# Ollama helper
 _PREAMBLE_PATTERNS = [
     r"^here'?s? .*?:\s*",
     r"^sure[!,.].*?\n",
@@ -20,25 +31,30 @@ _POSTAMBLE_PATTERNS = [
     r"\n?please note.*conversational.*$",
     r"\n?if you (need|want|have).*$",
 ]
-
 def _strip_conversational_wrapper(text: str) -> str:
-    """Remove common preamble/postamble lines LLMs tend to add."""
     for pattern in _PREAMBLE_PATTERNS:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
     for pattern in _POSTAMBLE_PATTERNS:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE)
     return text.strip()
 
-def enhance_slide_content(raw_text: str) -> str:
-    """
-    Transforms raw PDF text into structured, educational Markdown content using Ollama.
-    """
+# Gemini Schema
+class QuizQuestion(BaseModel):
+    question: str
+    options: list[str]
+    correctAnswer: int
+
+class AnalyticsInsights(BaseModel):
+    summary: str
+    suggestions: list[str]
+
+# --- Enhance Slide ---
+def enhance_slide_content(raw_text: str, ai_model: str = "llama3") -> str:
     prompt = f"""You are an expert educational content designer.
 Transform the following raw lecture slide text into structured, educational Markdown for students.
 
 Rules:
 - Output ONLY the Markdown content. No preamble, no postamble.
-- Do NOT write things like "Here's the structured content" or "Let me know if you need changes".
 - Do NOT add any commentary, greetings, or sign-offs.
 - Use clear headings (##, ###).
 - Use bullet points for key concepts.
@@ -51,22 +67,24 @@ Raw Slide Text:
 
 Markdown Output:"""
 
-    try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        result = response["message"]["content"].strip()
-        result = _strip_conversational_wrapper(result)
-        return result
-    except Exception as e:
-        print(f"DEBUG: Ollama enhancement error: {e}")
-        return raw_text
+    if ai_model == "gemini-2.5-flash" and client:
+        try:
+            res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+            return res.text.strip()
+        except Exception as e:
+            print(f"DEBUG Gemini error: {e}")
+            return raw_text
+    else:
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            text = res["message"]["content"].strip()
+            return _strip_conversational_wrapper(text)
+        except Exception as e:
+            print(f"DEBUG Ollama error: {e}")
+            return raw_text
 
-def generate_summary(slide_text: str) -> str:
-    """
-    Generates a concise 2-3 sentence summary for a slide's text content.
-    """
+# --- Summary ---
+def generate_summary(slide_text: str, ai_model: str = "llama3") -> str:
     prompt = f"""You are an educational assistant. Given the following slide content, write a concise 2-3 sentence summary suitable for a student. 
 Return ONLY the summary text, no preamble.
 
@@ -74,23 +92,39 @@ Slide content:
 {slide_text}
 
 Summary:"""
+    if ai_model == "gemini-2.5-flash" and client:
+        try:
+            res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+            return res.text.strip()
+        except Exception as e:
+            print(f"DEBUG Gemini summary error: {e}")
+            return "Failed to generate summary."
+    else:
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res["message"]["content"].strip()
+        except Exception as e:
+            print(f"DEBUG Ollama summary error: {e}")
+            return "Failed to generate summary."
 
-    try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response["message"]["content"].strip()
-    except Exception as e:
-        print(f"DEBUG: Ollama summary error: {e}")
-        return "Failed to generate summary."
+# --- Quiz ---
+def generate_quiz(slide_text: str, ai_model: str = "llama3") -> dict:
+    if ai_model == "gemini-2.5-flash" and client:
+        prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options. The options should be plausibly confusing except for the single correct answer.
 
-def generate_quiz(slide_text: str) -> dict:
-    """
-    Generates a multiple-choice quiz question based on slide content.
-    Returns { question, options: [A, B, C, D], correctAnswer: int (0-indexed) }
-    """
-    prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options (A, B, C, D).
+Slide content:
+{slide_text}"""
+        try:
+            res = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=QuizQuestion)
+            )
+            return json.loads(res.text)
+        except Exception as e:
+            print(f"DEBUG Gemini quiz error: {e}")
+    else:
+        prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options (A, B, C, D).
 
 Return your answer as valid JSON with this exact structure:
 {{
@@ -104,33 +138,23 @@ Return ONLY the JSON object, no extra text.
 
 Slide content:
 {slide_text}"""
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            content = res["message"]["content"].strip()
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match: content = json_match.group()
+            return json.loads(content)
+        except Exception as e:
+            print(f"DEBUG Ollama quiz error: {e}")
 
-    try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        content = response["message"]["content"].strip()
+    return {
+        "question": "Failed to generate quiz question.",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correctAnswer": 0
+    }
 
-        # Extract JSON even if there's extra text around it
-        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-        if json_match:
-            content = json_match.group()
-
-        quiz = json.loads(content)
-        return quiz
-    except Exception as e:
-        print(f"DEBUG: Ollama quiz error: {e}")
-        return {
-            "question": "Failed to generate quiz question.",
-            "options": ["Option A", "Option B", "Option C", "Option D"],
-            "correctAnswer": 0
-        }
-
-def generate_slide_title(slide_text: str) -> str:
-    """
-    Generates a short, descriptive title (3-7 words) for a slide based on its content.
-    """
+# --- Title ---
+def generate_slide_title(slide_text: str, ai_model: str = "llama3") -> str:
     prompt = f"""You are an educational assistant. Given the following slide content, generate a concise, descriptive title of 3 to 7 words that captures the main topic.
 Return ONLY the title text, no quotes, no punctuation at the end, no extra explanation.
 
@@ -138,27 +162,24 @@ Slide content:
 {slide_text[:1000]}
 
 Title:"""
+    if ai_model == "gemini-2.5-flash" and client:
+        try:
+            res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+            return res.text.strip().strip('"\'') or None
+        except Exception as e:
+            print(f"DEBUG Gemini title error: {e}")
+            return None
+    else:
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            title = res["message"]["content"].strip().strip('"\'')
+            return title if title else None
+        except Exception as e:
+            print(f"DEBUG Ollama title error: {e}")
+            return None
 
-    try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        title = response["message"]["content"].strip()
-        # Remove any surrounding quotes the model might add
-        title = title.strip('"\'')
-        return title if title else None
-    except Exception as e:
-        print(f"DEBUG: Ollama title error: {e}")
-        return None
-
-
-def generate_analytics_insights(stats: dict) -> dict:
-    """
-    Given a statistics summary, returns AI-generated:
-    - A friendly, plain-English explanation of the data
-    - 3-5 actionable suggestions for the professor
-    """
+# --- Analytics ---
+def generate_analytics_insights(stats: dict, ai_model: str = "llama3") -> dict:
     prompt = f"""You are an expert educational data analyst and teaching coach.
 A professor has shared the following statistics about their students' performance:
 
@@ -174,32 +195,83 @@ A professor has shared the following statistics about their students' performanc
 Your task:
 1. Write a SHORT, friendly 2-3 sentence paragraph that summarises what is happening (use plain English, no jargon, as if talking to the professor directly).
 2. List exactly 3 concrete, actionable suggestions the professor can do to improve student outcomes, based on this data.
-
-Return ONLY valid JSON with this exact structure:
-{{
+"""
+    if ai_model == "gemini-2.5-flash" and client:
+        try:
+            res = client.models.generate_content(
+                model=GEMINI_MODEL, contents=prompt,
+                config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=AnalyticsInsights)
+            )
+            return json.loads(res.text)
+        except Exception as e:
+            print(f"DEBUG Gemini analytics error: {e}")
+    else:
+        prompt += """\nReturn ONLY valid JSON with this exact structure:
+{
   "summary": "...",
   "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
-}}
+}
 No extra text outside the JSON."""
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            content = res["message"]["content"].strip()
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match: content = json_match.group()
+            return json.loads(content)
+        except Exception as e:
+            print(f"DEBUG Ollama analytics error: {e}")
 
-    try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        content = response["message"]["content"].strip()
-        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-        if json_match:
-            content = json_match.group()
-        result = json.loads(content)
-        return result
-    except Exception as e:
-        print(f"DEBUG: Ollama analytics error: {e}")
-        return {
-            "summary": "We couldn't generate an AI summary at this time. Please check that Ollama is running.",
-            "suggestions": [
-                "Review slides with the lowest quiz correct rates and consider simplifying the content.",
-                "Engage students who haven't attempted any quizzes yet.",
-                "Consider adding more examples to slides where students spend less time."
-            ]
-        }
+    return {
+        "summary": "We couldn't generate an AI summary at this time. Please check your AI model.",
+        "suggestions": [
+            "Review slides with the lowest quiz correct rates and consider simplifying the content.",
+            "Engage students who haven't attempted any quizzes yet.",
+            "Consider adding more examples to slides where students spend less time."
+        ]
+    }
+
+# --- Chat ---
+def chat_with_lecture(slide_text: str, user_message: str, chat_history: list = None, ai_model: str = "llama3") -> str:
+    """
+    Acts as a personalized AI tutor answering a student's question based on the slide's context.
+    """
+    if chat_history is None:
+        chat_history = []
+        
+    history_str = ""
+    if chat_history:
+        history_str = "\n--- Previous Conversation ---\n"
+        for msg in chat_history:
+            role = "Student" if msg.get("role") == "user" else "Tutor"
+            history_str += f"{role}: {msg.get('content')}\n"
+        history_str += "-----------------------------\n"
+
+    prompt = f"""You are an expert, encouraging, and highly knowledgeable interactive AI Tutor.
+A student is asking you a question about a specific lecture slide they are currently viewing.
+
+Rules:
+1. Answer the question using PRIMARILY the provided Slide Context.
+2. If the slide doesn't contain the answer, you can use your general knowledge, but keep it highly relevant to the topic.
+3. Be encouraging, concise, and easy to understand. Use markdown formatting (like bolding and bullet points) to make it readable.
+4. Do NOT hallucinate facts not related to the topic.
+
+--- Slide Context ---
+{slide_text}
+{history_str}
+Student: {user_message}
+Tutor:"""
+
+    if ai_model == "gemini-2.5-flash" and client:
+        try:
+            res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+            return res.text.strip()
+        except Exception as e:
+            print(f"DEBUG Gemini chat error: {e}")
+            return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
+    else:
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res["message"]["content"].strip()
+        except Exception as e:
+            print(f"DEBUG Ollama chat error: {e}")
+            return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"

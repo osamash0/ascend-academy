@@ -57,7 +57,7 @@ export default function LectureEdit() {
             // Fetch lecture
             const { data: lecture, error: lErr } = await supabase
                 .from('lectures')
-                .select('*, slug')
+                .select('*')
                 .eq('id', lectureId)
                 .single();
             if (lErr) throw lErr;
@@ -166,7 +166,6 @@ export default function LectureEdit() {
                 .from('lectures')
                 .update({
                     title,
-                    slug,
                     description,
                     total_slides: slides.length,
                     pdf_url: finalPdfUrl
@@ -258,7 +257,7 @@ export default function LectureEdit() {
             const res = await fetch(`${API_BASE}/api/ai/generate-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slide_text: content }),
+                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
             });
             if (!res.ok) throw new Error();
             const data = await res.json();
@@ -282,7 +281,7 @@ export default function LectureEdit() {
             const res = await fetch(`${API_BASE}/api/ai/generate-quiz`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slide_text: content }),
+                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
             });
             if (!res.ok) throw new Error();
             const quiz = await res.json();
