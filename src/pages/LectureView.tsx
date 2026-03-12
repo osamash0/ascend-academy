@@ -305,7 +305,7 @@ export default function LectureView() {
     if (currentSlideIndex < slides.length - 1) {
       const nextIndex = currentSlideIndex + 1;
       setCurrentSlideIndex(nextIndex);
-      setShowQuiz(false); // Hide quiz for the NEW slide initially
+      setShowQuiz(quizAnswers[nextIndex] !== undefined);
       setCurrentQuestionIndex(0);
       saveProgress(nextIndex, xpEarned, correctAnswers);
     } else {
@@ -323,7 +323,7 @@ export default function LectureView() {
     if (currentSlideIndex > 0) {
       const prevIndex = currentSlideIndex - 1;
       setCurrentSlideIndex(prevIndex);
-      setShowQuiz(false);
+      setShowQuiz(quizAnswers[prevIndex] !== undefined);
       saveProgress(prevIndex, xpEarned, correctAnswers);
     }
   };
@@ -425,8 +425,6 @@ export default function LectureView() {
 
     // Move to next slide after quiz
     setTimeout(() => {
-      setShowQuiz(false);
-
       const isCorrectNow = isCorrect ? 1 : 0;
       const currentFinalXp = isCorrect ? xpEarned + 10 : xpEarned;
       const currentFinalCorrect = correctAnswers + isCorrectNow;
@@ -434,8 +432,10 @@ export default function LectureView() {
       if (currentSlideIndex < slides.length - 1) {
         const nextIndex = currentSlideIndex + 1;
         setCurrentSlideIndex(nextIndex);
+        setShowQuiz(quizAnswers[nextIndex] !== undefined);
         saveProgress(nextIndex, currentFinalXp, currentFinalCorrect);
       } else {
+        setShowQuiz(false);
         handleLectureComplete(currentFinalXp, currentFinalCorrect);
       }
     }, 1500);
