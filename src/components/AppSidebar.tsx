@@ -139,8 +139,11 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="space-y-4">
           {!isCollapsed && (
-            <div className="flex items-center gap-3 px-2 py-1">
-              <div className="w-10 h-10 rounded-full border border-border shadow-sm overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+            <div 
+              onClick={() => navigate('/settings')}
+              className="flex items-center gap-3 px-2 py-1 cursor-pointer hover:bg-sidebar-accent rounded-lg transition-colors group"
+            >
+              <div className="w-10 h-10 rounded-full border border-border shadow-sm overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center group-hover:border-primary/50 transition-colors">
                 {profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -150,7 +153,7 @@ export function AppSidebar() {
                 )}
               </div>
               <div className="flex flex-col overflow-hidden">
-                <p className="text-sm font-semibold text-sidebar-foreground truncate">
+                <p className="text-sm font-semibold text-sidebar-foreground truncate group-hover:text-primary transition-colors">
                   {profile?.full_name || profile?.email}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">{role}</p>
