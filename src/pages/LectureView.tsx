@@ -63,6 +63,7 @@ export default function LectureView() {
   const sessionStartRef = useRef<number>(Date.now());
   const slideStartRef = useRef<number>(Date.now());
   const quizRef = useRef<HTMLDivElement>(null);
+  const answeredQuestionsRef = useRef<Set<string>>(new Set());
 
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -267,16 +268,20 @@ export default function LectureView() {
           const lastIndex = Math.min(progressData.last_slide_viewed, maxSlides - 1);
           setCurrentSlideIndex(lastIndex);
         }
-        if (progressData.xp_earned) setXpEarned(progressData.xp_earned);
-        if (progressData.correct_answers) setCorrectAnswers(progressData.correct_answers);
+        if (progressData.xp_earned) setXpEarned(Math.min(progressData.xp_earned, questionsData?.length ? questionsData.length * 10 : 0));
+        if (progressData.correct_answers) setCorrectAnswers(Math.min(progressData.correct_answers, questionsData?.length || 0));
 
-        // Restore locked state for previously answered slides
+        // Restore locked state for previously answered questions
         if (progressData.completed_slides && Array.isArray(progressData.completed_slides)) {
           const restoredAnswers: Record<number, number> = {};
           progressData.completed_slides.forEach((slideNum: number) => {
-            // Slide numbers are 1-based, index is 0-based. 
-            // We use -1 to signify the slide was answered in a previous session.
-            restoredAnswers[slideNum - 1] = -1;
+            const slideIndex = slideNum - 1;
+            restoredAnswers[slideIndex] = -1;
+            
+            // Map slide number to actual question ID if possible
+            const slideId = slidesData?.[slideIndex]?.id;
+            const qId = questionsData?.find(q => q.slide_id === slideId)?.id;
+            if (qId) answeredQuestionsRef.current.add(qId);
           });
           setQuizAnswers(restoredAnswers);
         }
@@ -302,13 +307,14 @@ export default function LectureView() {
   const saveProgress = async (newSlideIndex: number, newXp: number, newCorrectAnswers: number) => {
     if (!user || !lectureId || !lecture) return;
 
-    const cappedCorrect = slides.length > 0 ? Math.min(newCorrectAnswers, slides.length) : newCorrectAnswers;
+    const totalQuestions = questions.length || slides.length; // Fallback only if no questions
+    const cappedCorrect = Math.min(newCorrectAnswers, totalQuestions);
 
     await supabase.from('student_progress').upsert({
       user_id: user.id,
       lecture_id: lecture.id,
       last_slide_viewed: newSlideIndex,
-      xp_earned: Math.min(newXp, slides.length * 10),
+      xp_earned: Math.min(newXp, totalQuestions * 10),
       correct_answers: cappedCorrect,
       completed_slides: slides.slice(0, Math.max(0, newSlideIndex + 1)).map(s => s.slide_number),
     }, {
@@ -355,10 +361,15 @@ export default function LectureView() {
   };
 
   const handleQuizAnswer = async (isCorrect: boolean, selectedIndex: number) => {
-    // If we already answered this slide, don't award points again
-    if (quizAnswers[currentSlideIndex] !== undefined) return;
+    if (!currentQuestion) return;
 
-    // Record this selection so it stays locked if the user navigates back to this slide
+    // Strict guard: If we already answered this specific question instance, block immediately
+    if (answeredQuestionsRef.current.has(currentQuestion.id)) return;
+    
+    // Mark as answered in Ref (sync) to block rapid clicks
+    answeredQuestionsRef.current.add(currentQuestion.id);
+
+    // Record this selection for UI state (async update)
     setQuizAnswers(prev => ({ ...prev, [currentSlideIndex]: selectedIndex }));
 
     // Log quiz attempt
@@ -382,7 +393,8 @@ export default function LectureView() {
       setXpEarned(newXp);
       setCorrectAnswers(prev => {
         const next = prev + 1;
-        return slides.length > 0 ? Math.min(next, slides.length) : next;
+        const totalQ = questions.length || 1;
+        return Math.min(next, totalQ);
       });
 
       // Add XP to user — RPC should use auth.uid() internally
@@ -656,7 +668,7 @@ export default function LectureView() {
 
     toast({
       title: 'Lecture Complete! 🎉',
-      description: `You earned ${xpEarned} XP and got ${correctAnswers}/${slides.length} correct!`,
+      description: `You earned ${xpEarned} XP and got ${correctAnswers}/${questions.length || slides.length} correct!`,
     });
 
     setTimeout(() => navigate('/dashboard'), 2000);
@@ -744,7 +756,9 @@ export default function LectureView() {
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
                   <Trophy className="w-4 h-4 text-success" />
-                  <span className="font-semibold text-foreground">{correctAnswers}/{slides.length}</span>
+                  <span className="font-semibold text-foreground">
+                    {correctAnswers}/{questions.length || slides.length}
+                  </span>
                 </div>
               </div>
             </div>
