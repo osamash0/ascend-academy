@@ -170,3 +170,45 @@ Your task:
                 "Consider adding more examples to slides where students spend less time."
             ]
         }
+
+def chat_with_lecture(slide_text: str, user_message: str, chat_history: list[dict] = None) -> str:
+    """
+    Acts as a personalized AI tutor answering a student's question based on the slide's context.
+    chat_history format: [{"role": "user"|"model", "content": "..."}]
+    """
+    if chat_history is None:
+        chat_history = []
+        
+    # Format history manually for stateless prompt injection
+    history_str = ""
+    if chat_history:
+        history_str = "\n--- Previous Conversation ---\n"
+        for msg in chat_history:
+            role = "Student" if msg.get("role") == "user" else "Tutor"
+            history_str += f"{role}: {msg.get('content')}\n"
+        history_str += "-----------------------------\n"
+
+    prompt = f"""You are an expert, encouraging, and highly knowledgeable interactive AI Tutor.
+A student is asking you a question about a specific lecture slide they are currently viewing.
+
+Rules:
+1. Answer the question using PRIMARILY the provided Slide Context.
+2. If the slide doesn't contain the answer, you can use your general knowledge, but keep it highly relevant to the topic.
+3. Be encouraging, concise, and easy to understand. Use markdown formatting (like bolding and bullet points) to make it readable.
+4. Do NOT hallucinate facts not related to the topic.
+
+--- Slide Context ---
+{slide_text}
+{history_str}
+Student: {user_message}
+Tutor:"""
+
+    try:
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+        )
+        return response.text.strip()
+    except Exception as e:
+        print(f"DEBUG: Gemini chat error: {e}")
+        return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
