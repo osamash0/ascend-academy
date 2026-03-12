@@ -4,6 +4,9 @@ import { X, Send, Bot, User, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 // Define the API URL base
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -125,7 +128,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                         className="fixed inset-y-0 right-0 w-full md:w-[400px] border-l border-border bg-card shadow-2xl z-50 flex flex-col pt-4 pb-0 md:pt-0"
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between px-4 py-4 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+                        <div className="flex shrink-0 items-center justify-between px-4 py-4 border-b border-border bg-card z-10">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center">
                                     <Bot className="w-5 h-5 text-primary-foreground" />
@@ -146,7 +149,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                         </div>
 
                         {/* Chat Messages */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+                        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6 custom-scrollbar">
                             {messages.map((msg, idx) => (
                                 <div
                                     key={idx}
@@ -179,7 +182,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                                 <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
                                             ) : (
                                                 <div className="prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-pre:bg-background/50 prose-pre:p-3 prose-pre:rounded-xl max-w-none text-sm break-words">
-                                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown>
                                                 </div>
                                             )}
                                         </div>
@@ -203,7 +206,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                         </div>
 
                         {/* Input Area */}
-                        <div className="p-4 bg-card border-t border-border mt-auto">
+                        <div className="p-4 bg-card border-t border-border mt-auto shrink-0 z-10">
                             <form
                                 onSubmit={(e) => { e.preventDefault(); handleSend(); }}
                                 className="relative flex items-center"
