@@ -269,6 +269,17 @@ export default function LectureView() {
         }
         if (progressData.xp_earned) setXpEarned(progressData.xp_earned);
         if (progressData.correct_answers) setCorrectAnswers(progressData.correct_answers);
+
+        // Restore locked state for previously answered slides
+        if (progressData.completed_slides && Array.isArray(progressData.completed_slides)) {
+          const restoredAnswers: Record<number, number> = {};
+          progressData.completed_slides.forEach((slideNum: number) => {
+            // Slide numbers are 1-based, index is 0-based. 
+            // We use -1 to signify the slide was answered in a previous session.
+            restoredAnswers[slideNum - 1] = -1;
+          });
+          setQuizAnswers(restoredAnswers);
+        }
       }
     }
 
@@ -291,13 +302,15 @@ export default function LectureView() {
   const saveProgress = async (newSlideIndex: number, newXp: number, newCorrectAnswers: number) => {
     if (!user || !lectureId || !lecture) return;
 
+    const cappedCorrect = slides.length > 0 ? Math.min(newCorrectAnswers, slides.length) : newCorrectAnswers;
+
     await supabase.from('student_progress').upsert({
       user_id: user.id,
       lecture_id: lecture.id,
       last_slide_viewed: newSlideIndex,
-      xp_earned: newXp,
-      correct_answers: newCorrectAnswers,
-      completed_slides: slides.slice(0, Math.max(0, newSlideIndex)).map(s => s.slide_number),
+      xp_earned: Math.min(newXp, slides.length * 10),
+      correct_answers: cappedCorrect,
+      completed_slides: slides.slice(0, Math.max(0, newSlideIndex + 1)).map(s => s.slide_number),
     }, {
       onConflict: 'user_id,lecture_id',
     });
@@ -367,7 +380,10 @@ export default function LectureView() {
     if (isCorrect) {
       const newXp = xpEarned + 10;
       setXpEarned(newXp);
-      setCorrectAnswers(prev => prev + 1);
+      setCorrectAnswers(prev => {
+        const next = prev + 1;
+        return slides.length > 0 ? Math.min(next, slides.length) : next;
+      });
 
       // Add XP to user — RPC should use auth.uid() internally
       await supabase.rpc('add_xp_to_user', {
@@ -524,15 +540,18 @@ export default function LectureView() {
       },
     });
 
+    const cappedXp = slides.length > 0 ? Math.min(finalXp, slides.length * 10) : finalXp;
+    const cappedCorrect = slides.length > 0 ? Math.min(finalCorrect, slides.length) : finalCorrect;
+
     // Update progress
     await supabase.from('student_progress').upsert({
       user_id: user?.id,
       lecture_id: lecture.id,
-      xp_earned: finalXp,
+      xp_earned: cappedXp,
       completed_slides: slides.map((_, i) => i + 1),
-      quiz_score: slides.length > 0 ? Math.round((finalCorrect / slides.length) * 100) : 0,
+      quiz_score: slides.length > 0 ? Math.round((cappedCorrect / slides.length) * 100) : 0,
       total_questions_answered: slides.length,
-      correct_answers: finalCorrect,
+      correct_answers: cappedCorrect,
       completed_at: new Date().toISOString(),
     }, {
       onConflict: 'user_id,lecture_id',
