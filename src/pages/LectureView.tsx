@@ -315,7 +315,7 @@ export default function LectureView() {
   };
 
   const handlePreviousSlide = () => {
-    if (showQuiz) {
+    if (showQuiz && quizAnswers[currentSlideIndex] === undefined) {
       setShowQuiz(false);
       return;
     }
