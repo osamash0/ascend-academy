@@ -37,16 +37,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data: profileData } = await supabase
+  const fetchProfile = async (userId: string): Promise<boolean> => {
+    const { data: profileData, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
       .single();
 
-    if (profileData) {
-      setProfile(profileData as Profile);
+    if (error || !profileData) {
+      setProfile(null);
+      return false;
     }
+
+    setProfile(profileData as Profile);
+    return true;
   };
 
   const fetchRole = async (userId: string) => {
@@ -76,8 +80,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Defer profile/role fetching with setTimeout
         if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
+          setTimeout(async () => {
+            const hasProfile = await fetchProfile(session.user.id);
+            if (!hasProfile) {
+              // Account likely deleted but Auth session persists
+              console.warn("User has session but no profile. Signing out.");
+              await signOut();
+              return;
+            }
             fetchRole(session.user.id);
           }, 0);
         } else {
@@ -95,8 +105,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        fetchProfile(session.user.id);
-        fetchRole(session.user.id);
+        fetchProfile(session.user.id).then(hasProfile => {
+          if (!hasProfile) {
+            signOut();
+            return;
+          }
+          fetchRole(session.user.id);
+        });
       }
 
       setLoading(false);
@@ -137,12 +152,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    return { error };
+    if (error) return { error };
+
+    // After successful auth, check if profile exists
+    if (data.user) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', data.user.id)
+        .single();
+      
+      if (!profileData) {
+        await supabase.auth.signOut();
+        return { error: new Error('Your account appears to have been deleted. Please contact support if this is an error.') };
+      }
+    }
+
+    return { error: null };
   };
 
   const signOut = async () => {
