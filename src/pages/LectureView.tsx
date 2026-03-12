@@ -62,6 +62,7 @@ export default function LectureView() {
   const [slideStartTime, setSlideStartTime] = useState<number>(Date.now());
   const sessionStartRef = useRef<number>(Date.now());
   const slideStartRef = useRef<number>(Date.now());
+  const quizRef = useRef<HTMLDivElement>(null);
 
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -306,6 +307,10 @@ export default function LectureView() {
     // If we're not showing the quiz yet, and there IS a quiz for this slide, show it first
     if (!showQuiz && currentQuestion) {
       setShowQuiz(true);
+      // Auto-scroll to quiz on mobile/small screens if it's below the content
+      setTimeout(() => {
+        quizRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
       return;
     }
 
@@ -774,7 +779,7 @@ export default function LectureView() {
               </div>
 
               {/* Sidebar - Quiz */}
-              <div>
+              <div ref={quizRef}>
                 <AnimatePresence mode="wait">
                   {showQuiz && currentQuestion ? (
                     <motion.div
