@@ -379,6 +379,55 @@ export default function LectureView() {
           type: 'level_up',
         });
       }
+        // Badge: Level 5 Scholar
+        if (calculatedLevel >= 5) {
+          const { data: lvl5Badge } = await supabase
+            .from('achievements')
+            .select('id')
+            .eq('user_id', user?.id)
+            .eq('badge_name', 'Level 5 Scholar')
+            .single();
+
+          if (!lvl5Badge) {
+            await supabase.from('achievements').insert({
+              user_id: user?.id,
+              badge_name: 'Level 5 Scholar',
+              badge_description: 'Reached level 5!',
+              badge_icon: '⭐',
+            });
+            setBadgeInfo({
+              name: 'Level 5 Scholar',
+              description: 'Reached level 5!',
+              icon: '⭐',
+            });
+            setTimeout(() => setShowBadge(true), 500);
+          }
+        }
+
+        // Badge: Level 10 Expert
+        if (calculatedLevel >= 10) {
+          const { data: lvl10Badge } = await supabase
+            .from('achievements')
+            .select('id')
+            .eq('user_id', user?.id)
+            .eq('badge_name', 'Level 10 Expert')
+            .single();
+
+          if (!lvl10Badge) {
+            await supabase.from('achievements').insert({
+              user_id: user?.id,
+              badge_name: 'Level 10 Expert',
+              badge_description: 'Reached level 10!',
+              badge_icon: '🌟',
+            });
+            setBadgeInfo({
+              name: 'Level 10 Expert',
+              description: 'Reached level 10!',
+              icon: '🌟',
+            });
+            setTimeout(() => setShowBadge(true), 500);
+          }
+        }
 
       // Check for achievements
       if (newStreak.data === 5 || newStreak.data === 10) {
@@ -502,6 +551,72 @@ export default function LectureView() {
         message: 'Completed your first lecture quiz!',
         type: 'achievement',
       });
+    }
+
+    // Badge: Perfect Score
+    if (finalCorrect === slides.length && slides.length > 0) {
+      const { data: perfectScoreBadge } = await supabase
+        .from('achievements')
+        .select('id')
+        .eq('user_id', user?.id)
+        .eq('badge_name', 'Perfect Score')
+        .single();
+
+      if (!perfectScoreBadge) {
+        await supabase.from('achievements').insert({
+          user_id: user?.id,
+          badge_name: 'Perfect Score',
+          badge_description: 'Got 100% on a lecture quiz!',
+          badge_icon: '💯',
+        });
+
+        setBadgeInfo({
+          name: 'Perfect Score',
+          description: 'Got 100% on a lecture quiz!',
+          icon: '💯',
+        });
+        setTimeout(() => setShowBadge(true), 1500);
+      }
+    }
+
+    // Badge: Bookworm (5 lectures) & Graduate (10 lectures)
+    const { count } = await supabase
+      .from('student_progress')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user?.id);
+
+    if (count && (count >= 5 || count >= 10)) {
+      const badgesToCheck = [
+        { name: 'Bookworm', threshold: 5, description: 'Complete 5 lectures', icon: '📚' },
+        { name: 'Graduate', threshold: 10, description: 'Complete 10 lectures', icon: '🎓' }
+      ];
+
+      for (const badge of badgesToCheck) {
+        if (count >= badge.threshold) {
+          const { data: existingBadge } = await supabase
+            .from('achievements')
+            .select('id')
+            .eq('user_id', user?.id)
+            .eq('badge_name', badge.name)
+            .single();
+
+          if (!existingBadge) {
+            await supabase.from('achievements').insert({
+              user_id: user?.id,
+              badge_name: badge.name,
+              badge_description: badge.description,
+              badge_icon: badge.icon,
+            });
+
+            setBadgeInfo({
+              name: badge.name,
+              description: badge.description,
+              icon: badge.icon,
+            });
+            setTimeout(() => setShowBadge(true), 3000);
+          }
+        }
+      }
     }
 
     toast({
