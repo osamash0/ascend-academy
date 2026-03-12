@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink } from 'lucide-react';
+import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { pseudonymizeId } from '@/lib/pseudonymize';
 import { supabase } from '@/integrations/supabase/client';
@@ -674,8 +674,9 @@ export default function LectureView() {
                     >
                       Dashboard
                     </button>
-                    <span>/</span>
-                    <span className="text-foreground truncate max-w-[180px]">{lecture?.title || 'Lecture'}</span>
+                    <span className="text-foreground truncate max-w-[180px]">
+                      {currentSlide?.title || lecture?.title || 'Lecture'}
+                    </span>
                   </nav>
                   <p className="text-sm text-muted-foreground">
                     Slide {currentSlideIndex + 1} of {slides.length}
@@ -770,7 +771,19 @@ export default function LectureView() {
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
+                      className="space-y-4"
                     >
+                      <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
+                          <HelpCircle className="w-5 h-5 text-primary-foreground" />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-bold text-foreground truncate max-w-[200px]">
+                            {currentSlide?.title || 'Quiz'}
+                          </h2>
+                          <p className="text-xs text-muted-foreground">Knowledge Check</p>
+                        </div>
+                      </div>
                       <QuizCard
                         question={currentQuestion.question_text}
                         options={currentQuestion.options}
@@ -790,11 +803,12 @@ export default function LectureView() {
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center">
-                            <BookOpen className="w-6 h-6 text-primary-foreground" />
+                            <HelpCircle className="w-6 h-6 text-primary-foreground" />
                           </div>
                           <div>
-                            <h1 className="text-2xl font-bold text-foreground">{lecture?.title}</h1>
-                            <p className="text-muted-foreground">{slides.length} Slides</p>
+                            <h1 className="text-xl font-bold text-foreground">
+                              {currentSlide?.title || 'Lecture Slide'}
+                            </h1>
                           </div>
                         </div>
                       </div>
