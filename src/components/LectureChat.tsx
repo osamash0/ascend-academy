@@ -157,8 +157,8 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                     >
                                         <div
                                             className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${msg.role === 'user'
-                                                    ? 'bg-primary/20 text-primary'
-                                                    : 'bg-secondary text-secondary-foreground border border-border/50'
+                                                ? 'bg-primary/20 text-primary'
+                                                : 'bg-secondary text-secondary-foreground border border-border/50'
                                                 }`}
                                         >
                                             {msg.role === 'user' ? (
@@ -170,8 +170,8 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
 
                                         <div
                                             className={`px-4 py-3 rounded-2xl ${msg.role === 'user'
-                                                    ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                                                    : 'bg-secondary text-secondary-foreground border border-border/50 rounded-tl-sm'
+                                                ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                                                : 'bg-secondary text-secondary-foreground border border-border/50 rounded-tl-sm'
                                                 }`}
                                         >
                                             {msg.role === 'user' ? (
