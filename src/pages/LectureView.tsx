@@ -118,6 +118,14 @@ export default function LectureView() {
 
   const fetchLectureData = async () => {
     setLoading(true);
+    
+    // Reset session state for new lecture
+    setCurrentSlideIndex(0);
+    setCurrentQuestionIndex(0);
+    setShowQuiz(false);
+    setQuizAnswers({});
+    setXpEarned(0);
+    setCorrectAnswers(0);
 
     let currentLectureId = lectureId;
     if (!currentLectureId) return;
@@ -329,6 +337,9 @@ export default function LectureView() {
   };
 
   const handleQuizAnswer = async (isCorrect: boolean, selectedIndex: number) => {
+    // If we already answered this slide, don't award points again
+    if (quizAnswers[currentSlideIndex] !== undefined) return;
+
     // Record this selection so it stays locked if the user navigates back to this slide
     setQuizAnswers(prev => ({ ...prev, [currentSlideIndex]: selectedIndex }));
 
