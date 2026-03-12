@@ -9,6 +9,7 @@ interface StatsCardProps {
   icon: LucideIcon;
   trend?: number;
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'xp';
+  onClick?: () => void;
 }
 
 const variantStyles = {
@@ -58,6 +59,7 @@ export function StatsCard({
   icon: Icon,
   trend,
   variant = 'default',
+  onClick,
 }: StatsCardProps) {
   // Determine if value is a pure number or a percentage string
   const isPercent = typeof value === 'string' && value.endsWith('%');
@@ -69,10 +71,15 @@ export function StatsCard({
 
   return (
     <motion.div
-      className={`rounded-2xl border p-6 shadow-sm ${variantStyles[variant]}`}
+      onClick={onClick}
+      className={`rounded-2xl border p-6 shadow-sm transition-all ${variantStyles[variant]} ${onClick ? 'cursor-pointer' : ''}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+      whileHover={onClick ? { 
+        y: -4, 
+        boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
+        borderColor: 'var(--primary)'
+      } : { y: -2, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
     >
       <div className="flex items-start justify-between">
         <div>

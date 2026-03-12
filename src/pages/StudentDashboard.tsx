@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Trophy, Target, Flame, Zap, Star, X, PlayCircle } from 'lucide-react';
@@ -53,6 +53,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [showStreakBanner, setShowStreakBanner] = useState(false);
+  const lecturesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user) fetchData();
@@ -300,6 +301,9 @@ export default function StudentDashboard() {
           value={progress.length}
           icon={BookOpen}
           variant="primary"
+          onClick={() => {
+            lecturesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
         />
         <StatsCard
           title="Quiz Accuracy"
@@ -319,6 +323,7 @@ export default function StudentDashboard() {
           value={achievements.length}
           icon={Trophy}
           variant="xp"
+          onClick={() => navigate('/achievements')}
         />
       </div>
 
@@ -394,7 +399,7 @@ export default function StudentDashboard() {
       )}
 
       {/* ── Lectures Section ── */}
-      <div>
+      <div ref={lecturesRef} className="scroll-mt-6">
         {/* Header + Filter Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-xl font-semibold text-foreground">Your Lectures</h2>
