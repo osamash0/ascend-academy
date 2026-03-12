@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, XCircle, Zap } from 'lucide-react';
 
@@ -6,9 +6,10 @@ interface QuizCardProps {
   question: string;
   options: string[];
   correctAnswer: number;
-  onAnswer: (isCorrect: boolean) => void;
+  onAnswer: (isCorrect: boolean, selectedIndex: number) => void;
   questionNumber: number;
   totalQuestions: number;
+  initialSelectedAnswer?: number | null;
 }
 
 const shakeVariants = {
@@ -34,10 +35,17 @@ export function QuizCard({
   onAnswer,
   questionNumber,
   totalQuestions,
+  initialSelectedAnswer = null,
 }: QuizCardProps) {
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [showResult, setShowResult] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(initialSelectedAnswer);
+  const [showResult, setShowResult] = useState(initialSelectedAnswer !== null);
   const [showXP, setShowXP] = useState(false);
+
+  // Keep state synced if props change
+  useEffect(() => {
+    setSelectedAnswer(initialSelectedAnswer);
+    setShowResult(initialSelectedAnswer !== null);
+  }, [initialSelectedAnswer, question]);
 
   const handleAnswer = (index: number) => {
     if (showResult) return;
@@ -52,9 +60,7 @@ export function QuizCard({
     }
 
     setTimeout(() => {
-      onAnswer(correct);
-      setSelectedAnswer(null);
-      setShowResult(false);
+      onAnswer(correct, index);
     }, 1600);
   };
 

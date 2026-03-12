@@ -50,6 +50,7 @@ export default function LectureView() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [xpEarned, setXpEarned] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
@@ -327,7 +328,10 @@ export default function LectureView() {
     }
   };
 
-  const handleQuizAnswer = async (isCorrect: boolean) => {
+  const handleQuizAnswer = async (isCorrect: boolean, selectedIndex: number) => {
+    // Record this selection so it stays locked if the user navigates back to this slide
+    setQuizAnswers(prev => ({ ...prev, [currentSlideIndex]: selectedIndex }));
+
     // Log quiz attempt
     const timeToAnswer = Math.round((Date.now() - slideStartTime) / 1000);
 
@@ -649,6 +653,7 @@ export default function LectureView() {
                         onAnswer={handleQuizAnswer}
                         questionNumber={currentSlideIndex + 1}
                         totalQuestions={slides.length}
+                        initialSelectedAnswer={quizAnswers[currentSlideIndex]}
                       />
                     </motion.div>
                   ) : (
