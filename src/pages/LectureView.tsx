@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot } from 'lucide-react';
+import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { pseudonymizeId } from '@/lib/pseudonymize';
 import { supabase } from '@/integrations/supabase/client';
@@ -569,6 +569,16 @@ export default function LectureView() {
               </div>
 
               <div className="flex items-center gap-4">
+                {lecture?.pdf_url && (
+                  <Button
+                    onClick={() => window.open(lecture.pdf_url!, '_blank', 'noopener noreferrer')}
+                    variant="outline"
+                    className="gap-2 rounded-full px-4 shadow-sm"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span className="hidden sm:inline">Show Original Source</span>
+                  </Button>
+                )}
                 <Button
                   onClick={() => setIsChatOpen(!isChatOpen)}
                   variant="default"
