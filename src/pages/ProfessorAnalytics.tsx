@@ -21,7 +21,6 @@ const API_BASE = 'http://localhost:8000';
 
 interface Lecture {
   id: string;
-  slug: string | null;
   title: string;
   description: string | null;
   total_slides: number | null;
@@ -156,7 +155,7 @@ export default function ProfessorAnalytics() {
     (async () => {
       const { data } = await supabase
         .from('lectures')
-        .select('id, slug, title, description, total_slides, created_at')
+        .select('id, title, description, total_slides, created_at')
         .eq('professor_id', user.id)
         .order('created_at', { ascending: false });
       setLectures(data || []);
@@ -170,27 +169,7 @@ export default function ProfessorAnalytics() {
     setAnalyticsLoading(true);
     setAiInsights(null);
     (async () => {
-      let lectureId = selectedLectureId;
-
-      // If the parameter is not a UUID, it's a slug. Resolve it to an ID first.
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedLectureId);
-
-      if (!isUuid) {
-        const { data: routeData } = await supabase
-          .from('lectures')
-          .select('id')
-          .eq('slug', selectedLectureId)
-          .single();
-
-        if (routeData) {
-          lectureId = routeData.id;
-        } else {
-          // Slug not found, go back to picker
-          setAnalyticsLoading(false);
-          navigate('/professor/analytics');
-          return;
-        }
-      }
+      const lectureId = selectedLectureId;
 
       const [
         { data: progress },
@@ -217,7 +196,7 @@ export default function ProfessorAnalytics() {
   // Sync title when lectureId changes
   useEffect(() => {
     if (selectedLectureId && lectures.length > 0) {
-      const lec = lectures.find(l => l.id === selectedLectureId || l.slug === selectedLectureId);
+      const lec = lectures.find(l => l.id === selectedLectureId);
       if (lec) setSelectedTitle(lec.title);
     }
   }, [selectedLectureId, lectures]);
@@ -299,9 +278,15 @@ export default function ProfessorAnalytics() {
     const weeklyTrend = activityByDay.map(d => `${d.date}: ${d.attempts}`).join(', ');
     const confSummary = `Got it: ${confCounts.got_it}, Unsure: ${confCounts.unsure}, Confused: ${confCounts.confused}`;
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch(`${API_BASE}/api/ai/analytics-insights`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           total_students: uniqueStudents, average_score: averageScore,
           total_attempts: totalAttempts, total_correct: totalCorrect,
@@ -336,7 +321,7 @@ export default function ProfessorAnalytics() {
   if (!selectedLectureId) {
     return <LecturePicker lectures={lectures} onSelect={(id) => {
       const lec = lectures.find(l => l.id === id);
-      navigate(`/professor/analytics/${lec?.slug || id}`);
+      navigate(`/professor/analytics/${id}`);
     }} />;
   }
 

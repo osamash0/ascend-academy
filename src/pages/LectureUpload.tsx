@@ -62,7 +62,16 @@ export default function LectureUpload() {
     formData.append('file', file);
 
     try {
-      const res = await fetch(`${API_BASE}/api/upload/parse-pdf`, { method: 'POST', body: formData });
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch(`${API_BASE}/api/upload/parse-pdf`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
       if (!res.ok) throw new Error('Failed to parse PDF');
 
       const data = await res.json();
@@ -97,9 +106,15 @@ export default function LectureUpload() {
 
     setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: true }));
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch(`${API_BASE}/api/ai/generate-summary`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ slide_text: content }),
       });
       if (!res.ok) throw new Error();
@@ -123,9 +138,15 @@ export default function LectureUpload() {
 
     setAiQuizLoading(prev => ({ ...prev, [slideIndex]: true }));
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch(`${API_BASE}/api/ai/generate-quiz`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ slide_text: content }),
       });
       if (!res.ok) throw new Error();
@@ -185,13 +206,6 @@ export default function LectureUpload() {
       return;
     }
 
-    const slug = title
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
     setLoading(true);
 
     try {
@@ -227,7 +241,6 @@ export default function LectureUpload() {
         .insert({
           id: lectureId,
           title,
-          slug,
           description,
           professor_id: user?.id,
           total_slides: slides.length,

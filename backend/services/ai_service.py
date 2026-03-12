@@ -1,44 +1,24 @@
-import ollama
+import os
 import json
-import re
+from google import genai
+from google.genai import types
+from pydantic import BaseModel
 
-OLLAMA_MODEL = "llama3"  # Change to whichever model you have pulled (e.g., mistral, llama3)
+GEMINI_MODEL = "gemini-2.5-flash"
 
-# Patterns that indicate the model added conversational filler
-_PREAMBLE_PATTERNS = [
-    r"^here'?s? .*?:\s*",
-    r"^sure[!,.].*?\n",
-    r"^of course[!,.].*?\n",
-    r"^certainly[!,.].*?\n",
-    r"^below is.*?:\s*",
-    r"^the following.*?:\s*",
-]
-_POSTAMBLE_PATTERNS = [
-    r"\n?let me know if.*$",
-    r"\n?feel free to.*$",
-    r"\n?i hope this helps.*$",
-    r"\n?please note.*conversational.*$",
-    r"\n?if you (need|want|have).*$",
-]
-
-def _strip_conversational_wrapper(text: str) -> str:
-    """Remove common preamble/postamble lines LLMs tend to add."""
-    for pattern in _PREAMBLE_PATTERNS:
-        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
-    for pattern in _POSTAMBLE_PATTERNS:
-        text = re.sub(pattern, "", text, flags=re.IGNORECASE)
-    return text.strip()
+# Initialize the Gemini Client. 
+# It will automatically pick up GEMINI_API_KEY from the environment variables.
+client = genai.Client()
 
 def enhance_slide_content(raw_text: str) -> str:
     """
-    Transforms raw PDF text into structured, educational Markdown content using Ollama.
+    Transforms raw PDF text into structured, educational Markdown content using Gemini.
     """
     prompt = f"""You are an expert educational content designer.
 Transform the following raw lecture slide text into structured, educational Markdown for students.
 
 Rules:
 - Output ONLY the Markdown content. No preamble, no postamble.
-- Do NOT write things like "Here's the structured content" or "Let me know if you need changes".
 - Do NOT add any commentary, greetings, or sign-offs.
 - Use clear headings (##, ###).
 - Use bullet points for key concepts.
@@ -52,15 +32,13 @@ Raw Slide Text:
 Markdown Output:"""
 
     try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
         )
-        result = response["message"]["content"].strip()
-        result = _strip_conversational_wrapper(result)
-        return result
+        return response.text.strip()
     except Exception as e:
-        print(f"DEBUG: Ollama enhancement error: {e}")
+        print(f"DEBUG: Gemini enhancement error: {e}")
         return raw_text
 
 def generate_summary(slide_text: str) -> str:
@@ -76,51 +54,43 @@ Slide content:
 Summary:"""
 
     try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
         )
-        return response["message"]["content"].strip()
+        return response.text.strip()
     except Exception as e:
-        print(f"DEBUG: Ollama summary error: {e}")
+        print(f"DEBUG: Gemini summary error: {e}")
         return "Failed to generate summary."
+
+# Define Pydantic Schema for Quiz Generation
+class QuizQuestion(BaseModel):
+    question: str
+    options: list[str]
+    correctAnswer: int
 
 def generate_quiz(slide_text: str) -> dict:
     """
-    Generates a multiple-choice quiz question based on slide content.
-    Returns { question, options: [A, B, C, D], correctAnswer: int (0-indexed) }
+    Generates a multiple-choice quiz question based on slide content using Gemini's structured output.
+    Returns dict: { question, options: [A, B, C, D], correctAnswer: int (0-indexed) }
     """
-    prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options (A, B, C, D).
-
-Return your answer as valid JSON with this exact structure:
-{{
-  "question": "your question here",
-  "options": ["option A text", "option B text", "option C text", "option D text"],
-  "correctAnswer": 0
-}}
-
-The correctAnswer field must be the 0-indexed position of the correct option (0=A, 1=B, 2=C, 3=D).
-Return ONLY the JSON object, no extra text.
+    prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options. The options should be plausibly confusing except for the single correct answer.
 
 Slide content:
 {slide_text}"""
 
     try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=QuizQuestion,
+            )
         )
-        content = response["message"]["content"].strip()
-
-        # Extract JSON even if there's extra text around it
-        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-        if json_match:
-            content = json_match.group()
-
-        quiz = json.loads(content)
-        return quiz
+        return json.loads(response.text)
     except Exception as e:
-        print(f"DEBUG: Ollama quiz error: {e}")
+        print(f"DEBUG: Gemini quiz error: {e}")
         return {
             "question": "Failed to generate quiz question.",
             "options": ["Option A", "Option B", "Option C", "Option D"],
@@ -140,18 +110,22 @@ Slide content:
 Title:"""
 
     try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
         )
-        title = response["message"]["content"].strip()
+        title = response.text.strip()
         # Remove any surrounding quotes the model might add
         title = title.strip('"\'')
         return title if title else None
     except Exception as e:
-        print(f"DEBUG: Ollama title error: {e}")
+        print(f"DEBUG: Gemini title error: {e}")
         return None
 
+# Define Pydantic Schema for Analytics Insights
+class AnalyticsInsights(BaseModel):
+    summary: str
+    suggestions: list[str]
 
 def generate_analytics_insights(stats: dict) -> dict:
     """
@@ -174,29 +148,22 @@ A professor has shared the following statistics about their students' performanc
 Your task:
 1. Write a SHORT, friendly 2-3 sentence paragraph that summarises what is happening (use plain English, no jargon, as if talking to the professor directly).
 2. List exactly 3 concrete, actionable suggestions the professor can do to improve student outcomes, based on this data.
-
-Return ONLY valid JSON with this exact structure:
-{{
-  "summary": "...",
-  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
-}}
-No extra text outside the JSON."""
+"""
 
     try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=AnalyticsInsights,
+            )
         )
-        content = response["message"]["content"].strip()
-        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-        if json_match:
-            content = json_match.group()
-        result = json.loads(content)
-        return result
+        return json.loads(response.text)
     except Exception as e:
-        print(f"DEBUG: Ollama analytics error: {e}")
+        print(f"DEBUG: Gemini analytics error: {e}")
         return {
-            "summary": "We couldn't generate an AI summary at this time. Please check that Ollama is running.",
+            "summary": "We couldn't generate an AI summary at this time. Please check your Gemini AI integration.",
             "suggestions": [
                 "Review slides with the lowest quiz correct rates and consider simplifying the content.",
                 "Engage students who haven't attempted any quizzes yet.",

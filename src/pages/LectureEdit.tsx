@@ -57,7 +57,7 @@ export default function LectureEdit() {
             // Fetch lecture
             const { data: lecture, error: lErr } = await supabase
                 .from('lectures')
-                .select('*, slug')
+                .select('*')
                 .eq('id', lectureId)
                 .single();
             if (lErr) throw lErr;
@@ -154,19 +154,12 @@ export default function LectureEdit() {
                 }
             }
 
-            // 2. Update lecture (regenerate slug from title if it changed, or keep existing)
-            const slug = title
-                .toLowerCase()
-                .trim()
-                .replace(/[^\w\s-]/g, '')
-                .replace(/[\s_-]+/g, '-')
-                .replace(/^-+|-+$/g, '');
+            // 2. Update lecture
 
             const { error: lErr } = await supabase
                 .from('lectures')
                 .update({
                     title,
-                    slug,
                     description,
                     total_slides: slides.length,
                     pdf_url: finalPdfUrl
@@ -255,9 +248,15 @@ export default function LectureEdit() {
         }
         setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
             const res = await fetch(`${API_BASE}/api/ai/generate-summary`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ slide_text: content }),
             });
             if (!res.ok) throw new Error();
@@ -279,9 +278,15 @@ export default function LectureEdit() {
         }
         setAiQuizLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
             const res = await fetch(`${API_BASE}/api/ai/generate-quiz`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ slide_text: content }),
             });
             if (!res.ok) throw new Error();

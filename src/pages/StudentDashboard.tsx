@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 
 interface Lecture {
   id: string;
-  slug?: string | null;
   title: string;
   description: string | null;
   total_slides: number;
@@ -346,7 +345,7 @@ export default function StudentDashboard() {
                     style={{ scrollSnapAlign: 'start' }}
                   >
                     <div
-                      onClick={() => navigate(`/lecture/${lecture.slug || lecture.id}`)}
+                      onClick={() => navigate(`/lecture/${lecture.id}`)}
                       className="group cursor-pointer bg-card hover:bg-muted/50 transition-colors rounded-2xl border border-border overflow-hidden relative"
                     >
                       {/* Stylized background accent */}
@@ -465,7 +464,7 @@ export default function StudentDashboard() {
                       quizScore={lectureProgress?.correct_answers || 0}
                       totalQuestions={lectureProgress?.total_questions_answered || 0}
                       index={index}
-                      onClick={() => navigate(`/lecture/${lecture.slug || lecture.id}`)}
+                      onClick={() => navigate(`/lecture/${lecture.id}`)}
                     />
                   </motion.div>
                 );

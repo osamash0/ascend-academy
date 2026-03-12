@@ -119,24 +119,8 @@ export default function LectureView() {
     let currentLectureId = lectureId;
     if (!currentLectureId) return;
 
-    // Resolve slug to ID if necessary
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentLectureId);
+    // We now solely use ID instead of slug
 
-    if (!isUuid) {
-      const { data: routeData } = await (supabase as any)
-        .from('lectures')
-        .select('id')
-        .eq('slug', currentLectureId)
-        .single();
-
-      if (routeData) {
-        currentLectureId = routeData.id;
-      } else {
-        toast({ title: 'Not Found', description: 'Lecture not found.', variant: 'destructive' });
-        navigate('/dashboard');
-        return;
-      }
-    }
 
     // Fetch lecture
     const { data: lectureData } = await supabase
