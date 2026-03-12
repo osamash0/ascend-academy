@@ -14,18 +14,21 @@ interface QuizCardProps {
 
 const shakeVariants = {
   shake: {
+    opacity: 1,
     x: [0, -8, 8, -6, 6, -4, 4, 0],
     transition: { duration: 0.5 },
   },
-  idle: { x: 0 },
+  idle: { opacity: 1, x: 0 },
 };
 
 const bounceVariants = {
   bounce: {
+    opacity: 1,
+    x: 0,
     scale: [1, 1.08, 0.95, 1.04, 1],
     transition: { duration: 0.5 },
   },
-  idle: { scale: 1 },
+  idle: { opacity: 1, scale: 1, x: 0 },
 };
 
 export function QuizCard({
