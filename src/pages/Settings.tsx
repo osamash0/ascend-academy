@@ -82,7 +82,7 @@ export default function Settings() {
             setIsUploadingAvatar(true);
             const file = event.target.files[0];
             const fileExt = file.name.split('.').pop();
-            const filePath = `${user.id}-${Math.random()}.${fileExt}`;
+            const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
             // Upload image
             const { error: uploadError } = await supabase.storage
