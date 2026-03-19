@@ -72,50 +72,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+    // 1. Initial session check
+    const initSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         setUser(session?.user ?? null);
 
-        // Defer profile/role fetching with setTimeout
         if (session?.user) {
-          setTimeout(async () => {
-            const hasProfile = await fetchProfile(session.user.id);
-            if (!hasProfile) {
-              // Account likely deleted but Auth session persists
-              console.warn("User has session but no profile. Signing out.");
-              await signOut();
-              return;
-            }
-            fetchRole(session.user.id);
-          }, 0);
+          const hasProfile = await fetchProfile(session.user.id);
+          if (!hasProfile) {
+            await signOut();
+          } else {
+            await fetchRole(session.user.id);
+          }
+        }
+      } catch (error) {
+        console.error("Auth init error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initSession();
+
+    // 2. Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          const hasProfile = await fetchProfile(session.user.id);
+          if (!hasProfile) {
+            console.warn("User has session but no profile. Signing out.");
+            await signOut();
+          } else {
+            await fetchRole(session.user.id);
+          }
         } else {
           setProfile(null);
           setRole(null);
         }
-
+        
         setLoading(false);
       }
     );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        fetchProfile(session.user.id).then(hasProfile => {
-          if (!hasProfile) {
-            signOut();
-            return;
-          }
-          fetchRole(session.user.id);
-        });
-      }
-
-      setLoading(false);
-    });
 
     return () => subscription.unsubscribe();
   }, []);
