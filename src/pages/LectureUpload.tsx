@@ -62,8 +62,18 @@ export default function LectureUpload() {
     formData.append('file', file);
 
     try {
-      const res = await fetch(`${API_BASE}/api/upload/parse-pdf`, { method: 'POST', body: formData });
-      if (!res.ok) throw new Error('Failed to parse PDF');
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/api/upload/parse-pdf`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: formData
+      });
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('Unauthorized - Please log in again');
+        throw new Error('Failed to parse PDF');
+      }
 
       const data = await res.json();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,9 +107,13 @@ export default function LectureUpload() {
 
     setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: true }));
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${API_BASE}/api/ai/generate-summary`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
       });
       if (!res.ok) throw new Error();
@@ -123,9 +137,13 @@ export default function LectureUpload() {
 
     setAiQuizLoading(prev => ({ ...prev, [slideIndex]: true }));
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${API_BASE}/api/ai/generate-quiz`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
       });
       if (!res.ok) throw new Error();

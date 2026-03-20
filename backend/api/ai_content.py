@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture
+from backend.services.content_filter import is_metadata_slide
 from backend.core.auth_middleware import verify_token
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -31,6 +32,12 @@ class ChatRequest(BaseModel):
 async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
+
+    # Content filter: skip metadata slides
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "llama3")
+    if filter_result["is_metadata"]:
+        return {"summary": "This slide contains administrative information (e.g. instructor details, dates, logistics) and is not suitable for summarization."}
+
     try:
         summary = generate_summary(body.slide_text, ai_model=body.ai_model)
         return {"summary": summary}
@@ -42,6 +49,16 @@ async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_
 async def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
+
+    # Content filter: skip metadata slides
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "llama3")
+    if filter_result["is_metadata"]:
+        return {
+            "question": "This slide contains administrative information and is not suitable for quiz generation.",
+            "options": ["N/A", "N/A", "N/A", "N/A"],
+            "correctAnswer": 0
+        }
+
     try:
         quiz = generate_quiz(body.slide_text, ai_model=body.ai_model)
         return quiz
@@ -75,7 +92,6 @@ async def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)
         return {"reply": reply}
     except Exception as e:
         import traceback
-        with open("/tmp/err.log", "w") as f:
-            traceback.print_exc(file=f)
+        traceback.print_exc()
         print(f"DEBUG ai_content chat error: {e}")
         raise HTTPException(status_code=500, detail="AI tutor failed to respond. Please try again.")

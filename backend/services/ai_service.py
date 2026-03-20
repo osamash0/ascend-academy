@@ -1,7 +1,14 @@
 import os
 import json
 import re
+from pathlib import Path
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+# Ensure .env is loaded before initializing any clients
+_env_path = Path(__file__).parent.parent.parent / ".env"
+if _env_path.exists():
+    load_dotenv(dotenv_path=_env_path)
 
 OLLAMA_MODEL = "llama3"
 GEMINI_MODEL = "gemini-2.5-flash"
@@ -13,7 +20,11 @@ except ImportError:
 try:
     from google import genai
     from google.genai import types
-    client = genai.Client()
+    _api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if _api_key:
+        client = genai.Client(api_key=_api_key)
+    else:
+        client = genai.Client()
 except Exception:
     genai = None
     client = None
@@ -90,7 +101,9 @@ Markdown Output:"""
 
 # --- Summary ---
 def generate_summary(slide_text: str, ai_model: str = "llama3") -> str:
-    prompt = f"""You are an educational assistant. Given the following slide content, write a concise 2-3 sentence summary suitable for a student. 
+    prompt = f"""You are an educational assistant. Given the following slide content, write a concise 2-3 sentence summary suitable for a student.
+Focus ONLY on the educational/academic content (concepts, definitions, formulas, examples, algorithms).
+Completely ignore any administrative metadata such as instructor names, emails, contact info, office hours, dates, university names, department names, grading policies, or logistics.
 Return ONLY the summary text, no preamble.
 
 Slide content:
@@ -118,6 +131,8 @@ Summary:"""
 def generate_quiz(slide_text: str, ai_model: str = "llama3") -> dict:
     if ai_model == "gemini-2.5-flash" and client:
         prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options. The options should be plausibly confusing except for the single correct answer.
+Focus ONLY on the educational/academic content (concepts, definitions, formulas, examples, algorithms).
+Do NOT create questions about instructor names, emails, dates, university names, or any administrative/logistical information.
 
 Slide content:
 {slide_text}"""
@@ -138,6 +153,8 @@ Slide content:
                 "correctAnswer": 0
             }
         prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options (A, B, C, D).
+Focus ONLY on the educational/academic content (concepts, definitions, formulas, examples, algorithms).
+Do NOT create questions about instructor names, emails, dates, university names, or any administrative/logistical information.
 
 Return your answer as valid JSON with this exact structure:
 {{
@@ -255,8 +272,7 @@ def chat_with_lecture(slide_text: str, user_message: str, chat_history: list = N
     """
     Acts as a personalized AI tutor answering a student's question based on the slide's context.
     """
-    with open("/tmp/chat_debug.log", "a") as f:
-        f.write(f"\\n--- NEW CALL ---\\nMODEL: {ai_model}\\nTEXT LEN: {len(slide_text)}\\nMSG: {user_message}\\n")
+    print(f"DEBUG chat_with_lecture: MODEL={ai_model}, TEXT_LEN={len(slide_text)}, MSG={user_message[:50]}")
 
     if chat_history is None:
         chat_history = []
@@ -295,16 +311,12 @@ Tutor:"""
         if ollama is None:
             return "Ollama SDK is not installed in the backend environment. Please restart the backend using: `pip install -r backend/requirements.txt && .venv/bin/python -m uvicorn backend.main:app --reload`"
         try:
-            with open("/tmp/chat_debug.log", "a") as f:
-                f.write(f"Calling Ollama...\\n")
+            print("DEBUG: Calling Ollama for chat...")
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-            with open("/tmp/chat_debug.log", "a") as f:
-                f.write(f"Ollama SUCCESS\\n")
+            print("DEBUG: Ollama chat SUCCESS")
             return res["message"]["content"].strip()
         except Exception as e:
             import traceback
-            with open("/tmp/chat_debug.log", "a") as f:
-                f.write(f"Ollama EXCEPTION: {e}\\n")
-                traceback.print_exc(file=f)
+            traceback.print_exc()
             print(f"DEBUG Ollama chat error: {e}")
             return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"

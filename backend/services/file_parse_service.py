@@ -3,17 +3,20 @@ import io
 import asyncio
 from pypdf import PdfReader
 from backend.services.ai_service import enhance_slide_content, generate_summary, generate_quiz, generate_slide_title
+from backend.services.content_filter import is_metadata_slide
 
 
 def parse_pdf(file_content: bytes) -> List[Dict[str, Any]]:
     """
     Parses a PDF and extracts text content per page.
-    Enhances content with AI for better student experience.
+    Uses a 3-layer content filter to skip metadata slides, then
+    enhances educational content with AI for better student experience.
     """
     slides = []
 
     pdf_file = io.BytesIO(file_content)
     reader = PdfReader(pdf_file)
+    total_pages = len(reader.pages)
 
     for i, page in enumerate(reader.pages):
         raw_text = page.extract_text()
@@ -21,9 +24,28 @@ def parse_pdf(file_content: bytes) -> List[Dict[str, Any]]:
         if not raw_text or not raw_text.strip():
             raw_text = "[No extractable text on this page. It may be image-based.]"
 
-        # AI Enhancement
-        # Note: In a production environment, we might want to do this in parallel
-        # but for simplicity and reliability here, we'll do it sequentially.
+        # --- Content Filter: Skip metadata slides ---
+        filter_result = is_metadata_slide(
+            raw_text, slide_index=i, total_slides=total_pages
+        )
+
+        if filter_result["is_metadata"]:
+            print(
+                f"DEBUG: Slide {i+1} filtered as METADATA "
+                f"(layer={filter_result['layer']}, "
+                f"confidence={filter_result['confidence']:.2f}): "
+                f"{filter_result['reason']}"
+            )
+            slides.append({
+                "title": f"Slide {i + 1}",
+                "content": raw_text,
+                "summary": "",
+                "questions": [],
+                "is_metadata": True,
+            })
+            continue
+
+        # --- AI Enhancement for educational slides ---
         try:
             enhanced_content = enhance_slide_content(raw_text)
             summary = generate_summary(enhanced_content)

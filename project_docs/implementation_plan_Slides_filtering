@@ -1,0 +1,49 @@
+# Slide Content Filtering for AI Summary & Quiz
+
+The AI currently processes **every** PDF slide including title slides, professor contact info, exam date announcements, and other non-educational metadata. This results in useless summaries and quiz questions about instructor emails and lecture dates.
+
+## Proposed Changes
+
+### Backend AI Service
+
+#### [MODIFY] [ai_service.py](file:///c:/Users/Osama/ascend-academy/backend/services/ai_service.py)
+
+Add a new `is_metadata_slide(text) → bool` function that detects non-educational slides using a **two-layer** approach:
+
+**Layer 1 — Heuristic keyword detection** (fast, no API call):
+- Count matches against metadata-indicator patterns: email addresses, dates (`DD.MM.YYYY`, `MM/DD/YYYY`), keywords like `instructor`, `professor`, `contact`, `office hours`, `exam date`, `lecture \d+`, `fachbereich`, `universität`, `department`, etc.
+- Check if the slide text is **too short** (< 50 meaningful characters after stripping whitespace) — likely a title-only slide.
+- If the ratio of metadata keywords to total words is high (> 50%), classify as metadata.
+
+**Layer 2 — Structural analysis:**
+- If a slide is the **first or second page** of the PDF, and it matches common title-slide patterns (course name + lecture number + instructor), classify as metadata.
+- Slides consisting **only** of a heading + a list of names/emails/dates get classified as metadata.
+
+Also update [generate_summary](file:///c:/Users/Osama/ascend-academy/backend/services/ai_service.py#92-116) and [generate_quiz](file:///c:/Users/Osama/ascend-academy/backend/services/ai_service.py#118-168) prompts to include an explicit instruction: *"Ignore any administrative metadata such as instructor names, contact info, dates, or logistics."*
+
+---
+
+#### [MODIFY] [file_parse_service.py](file:///c:/Users/Osama/ascend-academy/backend/services/file_parse_service.py)
+
+In the [parse_pdf](file:///c:/Users/Osama/ascend-academy/backend/services/file_parse_service.py#8-60) loop, **after extracting raw text** but **before calling AI**:
+1. Call `is_metadata_slide(raw_text)`.
+2. If `True`: skip AI enhancement/summary/quiz generation entirely. Set `summary = ""` and `questions = []` (empty). Still keep the slide in the output so the student can see the original content, but mark it with an empty summary/quiz so the frontend knows it's a metadata slide.
+
+---
+
+#### [MODIFY] [ai_content.py](file:///c:/Users/Osama/ascend-academy/backend/api/ai_content.py)
+
+In the [generate_summary_endpoint](file:///c:/Users/Osama/ascend-academy/backend/api/ai_content.py#30-40) and [generate_quiz_endpoint](file:///c:/Users/Osama/ascend-academy/backend/api/ai_content.py#41-51), add a pre-check:
+1. Run `is_metadata_slide(body.slide_text)` on the incoming text.
+2. If `True`, return a specific response (`"summary": "This slide contains administrative information only."` / a fallback quiz with empty question) **without** calling the AI model. This saves API tokens and avoids bad output.
+
+## Verification Plan
+
+### Automated Tests
+- Restart the backend server and test manually with example content.
+
+### Manual Verification
+- Upload the same Linear Regression PDF and verify:
+  - The title slide (Machine Learning / Lecture 8 / Dr. Mühling / date) gets a placeholder summary instead of a real one.
+  - Educational content slides (linear regression concepts) get proper summaries and quiz questions.
+- Test the on-demand "AI Generate" buttons on a metadata slide to confirm it gracefully returns the fallback.
