@@ -74,7 +74,7 @@ export default function LectureView() {
     if (lectureId && user) {
       fetchLectureData();
     }
-  }, [lectureId, user]);
+  }, [lectureId, user?.id]);
 
 
 

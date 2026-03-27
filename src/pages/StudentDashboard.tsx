@@ -57,7 +57,7 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (user) fetchData();
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     const streak = profile?.current_streak || 0;

@@ -44,7 +44,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('user_id', userId)
       .single();
 
-    if (error || !profileData) {
+    if (error) {
+      if (error.code === 'PGRST116') {
+        setProfile(null);
+        return false;
+      }
+      console.error("fetchProfile error:", error);
+      // Keep session alive for transient errors
+      return true;
+    }
+
+    if (!profileData) {
       setProfile(null);
       return false;
     }
@@ -71,51 +81,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const withTimeout = <T,>(promise: Promise<T>, ms: number = 5000): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Supabase deadlock timeout')), ms))
+    ]);
+  };
+
   useEffect(() => {
-    // 1. Initial session check
-    const initSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          const hasProfile = await fetchProfile(session.user.id);
-          if (!hasProfile) {
-            await signOut();
-          } else {
-            await fetchRole(session.user.id);
-          }
-        }
-      } catch (error) {
-        console.error("Auth init error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initSession();
-
-    // 2. Listen for auth changes
+    // Listen for auth changes (handles initial session automatically in Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
 
-        if (session?.user) {
-          const hasProfile = await fetchProfile(session.user.id);
-          if (!hasProfile) {
-            console.warn("User has session but no profile. Signing out.");
-            await signOut();
+          if (session?.user) {
+            const hasProfile = await withTimeout(fetchProfile(session.user.id));
+            if (!hasProfile) {
+              console.warn("User has session but no profile. Signing out.");
+              await withTimeout(signOut()).catch(() => {});
+            } else {
+              await withTimeout(fetchRole(session.user.id));
+            }
           } else {
-            await fetchRole(session.user.id);
+            setProfile(null);
+            setRole(null);
           }
-        } else {
-          setProfile(null);
-          setRole(null);
+        } catch (error: any) {
+          console.error("Auth state change error:", error);
+           if (error.message === 'Supabase deadlock timeout') {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+                localStorage.removeItem(key);
+              }
+            }
+            window.location.reload();
+          }
+        } finally {
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 

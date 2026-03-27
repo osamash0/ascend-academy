@@ -161,7 +161,7 @@ export default function ProfessorAnalytics() {
       setLectures(data || []);
       setLecturesLoading(false);
     })();
-  }, [user]);
+  }, [user?.id]);
 
   // Fetch analytics when lecture selected
   useEffect(() => {
