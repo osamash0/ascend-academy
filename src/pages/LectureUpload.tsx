@@ -60,6 +60,7 @@ export default function LectureUpload() {
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('ai_model', localStorage.getItem('ascend-academy-ai-model') || 'groq');
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -114,7 +115,7 @@ export default function LectureUpload() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`
         },
-        body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
+        body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq' }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -144,7 +145,7 @@ export default function LectureUpload() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`
         },
-        body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
+        body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq' }),
       });
       if (!res.ok) throw new Error();
       const quiz = await res.json();

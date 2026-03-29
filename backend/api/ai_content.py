@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 class SlideTextRequest(BaseModel):
     slide_text: str
-    ai_model: Optional[str] = "llama3"
+    ai_model: Optional[str] = "groq"
 
 class AnalyticsStatsRequest(BaseModel):
     total_students: int = 0
@@ -20,13 +20,13 @@ class AnalyticsStatsRequest(BaseModel):
     engaging_slides: Optional[str] = None
     weekly_trend: Optional[str] = None
     confidence_summary: Optional[str] = None
-    ai_model: Optional[str] = "llama3"
+    ai_model: Optional[str] = "groq"
 
 class ChatRequest(BaseModel):
     slide_text: str
     user_message: str
     chat_history: Optional[List[Dict[str, Any]]] = None
-    ai_model: Optional[str] = "llama3"
+    ai_model: Optional[str] = "groq"
 
 @router.post("/generate-summary")
 async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
@@ -34,7 +34,7 @@ async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
     # Content filter: skip metadata slides
-    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "llama3")
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
     if filter_result["is_metadata"]:
         return {"summary": "This slide contains administrative information (e.g. instructor details, dates, logistics) and is not suitable for summarization."}
 
@@ -51,7 +51,7 @@ async def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_tok
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
     # Content filter: skip metadata slides
-    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "llama3")
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
     if filter_result["is_metadata"]:
         return {
             "question": "This slide contains administrative information and is not suitable for quiz generation.",
@@ -71,7 +71,7 @@ async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(
     try:
         # Pydantic dict() includes all fields
         data = body.dict()
-        model_choice = data.pop('ai_model', 'llama3')
+        model_choice = data.pop('ai_model', 'groq')
         result = generate_analytics_insights(data, ai_model=model_choice)
         return result
     except Exception as e:

@@ -31,6 +31,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const hasFetchedProfile = import('react').then(m => m.useRef(false)) as any;
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -97,12 +98,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(session?.user ?? null);
 
           if (session?.user) {
-            const hasProfile = await withTimeout(fetchProfile(session.user.id));
-            if (!hasProfile) {
-              console.warn("User has session but no profile. Signing out.");
-              await withTimeout(signOut()).catch(() => {});
-            } else {
-              await withTimeout(fetchRole(session.user.id));
+            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || !hasFetchedProfile.current) {
+                hasFetchedProfile.current = true;
+                const hasProfile = await withTimeout(fetchProfile(session.user.id), 15000).catch(() => true);
+                if (!hasProfile) {
+                  console.warn("User has session but no profile. Signing out.");
+                  await signOut().catch(() => {});
+                } else {
+                  await withTimeout(fetchRole(session.user.id), 15000).catch(() => {});
+                }
             }
           } else {
             setProfile(null);
@@ -110,15 +114,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (error: any) {
           console.error("Auth state change error:", error);
-           if (error.message === 'Supabase deadlock timeout') {
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i);
-              if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
-                localStorage.removeItem(key);
-              }
-            }
-            window.location.reload();
-          }
         } finally {
           setLoading(false);
         }

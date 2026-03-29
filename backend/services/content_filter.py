@@ -235,7 +235,21 @@ def _llm_classify_slide(text: str, ai_model: str = "gemini-2.5-flash") -> dict:
 Slide text:
 {text[:2000]}"""
 
-    if ai_model == "gemini-2.5-flash":
+    if ai_model == "groq":
+        try:
+            from backend.services.ai_service import groq_client, GROQ_MODEL
+            if groq_client:
+                groq_prompt = prompt + """\nReturn ONLY valid JSON with this exact structure:\n{\n  "classification": "...",\n  "confidence": 0.0,\n  "reason": "..."\n}"""
+                res = groq_client.chat.completions.create(
+                    model=GROQ_MODEL,
+                    messages=[{"role": "user", "content": groq_prompt}],
+                    response_format={"type": "json_object"}
+                )
+                return json.loads(res.choices[0].message.content)
+        except Exception as e:
+            print(f"DEBUG Groq classify error: {e}")
+
+    elif ai_model == "gemini-2.5-flash":
         try:
             from backend.services.ai_service import client as gemini_client
             from google.genai import types

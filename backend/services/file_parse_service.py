@@ -1,12 +1,13 @@
 from typing import List, Dict, Any
 import io
 import asyncio
+import time
 from pypdf import PdfReader
-from backend.services.ai_service import enhance_slide_content, generate_summary, generate_quiz, generate_slide_title
+from backend.services.ai_service import enhance_slide_content, generate_summary, generate_quiz, generate_slide_title, process_slide_batch
 from backend.services.content_filter import is_metadata_slide
 
 
-def parse_pdf(file_content: bytes) -> List[Dict[str, Any]]:
+def parse_pdf(file_content: bytes, ai_model: str = "llama3") -> List[Dict[str, Any]]:
     """
     Parses a PDF and extracts text content per page.
     Uses a 3-layer content filter to skip metadata slides, then
@@ -26,7 +27,7 @@ def parse_pdf(file_content: bytes) -> List[Dict[str, Any]]:
 
         # --- Content Filter: Skip metadata slides ---
         filter_result = is_metadata_slide(
-            raw_text, slide_index=i, total_slides=total_pages
+            raw_text, slide_index=i, total_slides=total_pages, ai_model=ai_model
         )
 
         if filter_result["is_metadata"]:
@@ -47,12 +48,11 @@ def parse_pdf(file_content: bytes) -> List[Dict[str, Any]]:
 
         # --- AI Enhancement for educational slides ---
         try:
-            enhanced_content = enhance_slide_content(raw_text)
-            summary = generate_summary(enhanced_content)
-            quiz_data = generate_quiz(enhanced_content)
-
-            # Generate a meaningful AI title for the slide
-            ai_title = generate_slide_title(enhanced_content)
+            batch_res = process_slide_batch(raw_text, ai_model=ai_model)
+            enhanced_content = batch_res.get("enhanced_content", raw_text)
+            summary = batch_res.get("summary", "")
+            quiz_data = batch_res.get("quiz", {})
+            ai_title = batch_res.get("title", "")
             title = ai_title if ai_title else f"Slide {i + 1}"
         except Exception as e:
             print(f"DEBUG: AI Processing failed for slide {i+1}: {e}")

@@ -288,7 +288,7 @@ export default function ProfessorAnalytics() {
           total_attempts: totalAttempts, total_correct: totalCorrect,
           hard_slides: hardSlides, engaging_slides: engagingSlides,
           weekly_trend: weeklyTrend, confidence_summary: confSummary,
-          ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3'
+          ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq'
         }),
       });
       if (res.ok) setAiInsights(await res.json());

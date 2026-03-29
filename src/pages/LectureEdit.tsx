@@ -261,7 +261,7 @@ export default function LectureEdit() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session?.access_token}`
                 },
-                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
+                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq' }),
             });
             if (!res.ok) throw new Error();
             const data = await res.json();
@@ -289,7 +289,7 @@ export default function LectureEdit() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session?.access_token}`
                 },
-                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3' }),
+                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq' }),
             });
             if (!res.ok) throw new Error();
             const quiz = await res.json();

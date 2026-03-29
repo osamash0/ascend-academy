@@ -75,7 +75,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                     slide_text: slideText,
                     user_message: userMsg,
                     chat_history: historyToPass,
-                    ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3'
+                    ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq'
                 }),
             });
 
