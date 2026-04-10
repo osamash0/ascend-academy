@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { LectureOverview, SlideAnalytics, QuizAnalytics, StudentPerformance } from "../types";
+import { supabase } from "@/integrations/supabase/client";
 
 const API_BASE = "http://localhost:8000/api/analytics";
 
@@ -8,7 +9,10 @@ export function useAnalytics(lectureId: string | null) {
     queryKey: ["analytics", "overview", lectureId],
     queryFn: async () => {
       if (!lectureId) return null;
-      const res = await fetch(`${API_BASE}/lecture/${lectureId}/overview`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/lecture/${lectureId}/overview`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
       const json = await res.json();
       return json.data as LectureOverview;
     },
@@ -19,7 +23,10 @@ export function useAnalytics(lectureId: string | null) {
     queryKey: ["analytics", "slides", lectureId],
     queryFn: async () => {
       if (!lectureId) return [];
-      const res = await fetch(`${API_BASE}/lecture/${lectureId}/slides`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/lecture/${lectureId}/slides`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
       const json = await res.json();
       return json.data as SlideAnalytics[];
     },
@@ -30,7 +37,10 @@ export function useAnalytics(lectureId: string | null) {
     queryKey: ["analytics", "quizzes", lectureId],
     queryFn: async () => {
       if (!lectureId) return [];
-      const res = await fetch(`${API_BASE}/lecture/${lectureId}/quizzes`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/lecture/${lectureId}/quizzes`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
       const json = await res.json();
       return json.data as QuizAnalytics[];
     },
@@ -41,7 +51,10 @@ export function useAnalytics(lectureId: string | null) {
     queryKey: ["analytics", "students", lectureId],
     queryFn: async () => {
       if (!lectureId) return [];
-      const res = await fetch(`${API_BASE}/lecture/${lectureId}/students`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/lecture/${lectureId}/students`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
       const json = await res.json();
       return json.data as StudentPerformance[];
     },

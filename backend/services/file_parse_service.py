@@ -49,6 +49,10 @@ def parse_pdf(file_content: bytes, ai_model: str = "llama3") -> List[Dict[str, A
         # --- AI Enhancement for educational slides ---
         try:
             batch_res = process_slide_batch(raw_text, ai_model=ai_model)
+            
+            # Pace requests strictly to avoid hitting Groq/Gemini free-tier RPM and TPM limits
+            import time
+            time.sleep(2)
             enhanced_content = batch_res.get("enhanced_content", raw_text)
             summary = batch_res.get("summary", "")
             quiz_data = batch_res.get("quiz", {})

@@ -541,10 +541,10 @@ export default function Settings() {
                             className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${aiModel === 'groq' ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-card hover:border-primary/50'}`}
                         >
                             <div className="flex items-center justify-between mb-2">
-                                <h3 className="font-semibold text-foreground">Groq (Llama 3 70B)</h3>
+                                <h3 className="font-semibold text-foreground">Groq (Llama 3 8B)</h3>
                                 {aiModel === 'groq' && <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />}
                             </div>
-                            <p className="text-xs text-muted-foreground">Blazing fast free cloud API running Llama 3 70B. High accuracy. Requires internet and GROQ_API_KEY.</p>
+                            <p className="text-xs text-muted-foreground">Blazing fast free cloud API running Llama 3 8B Instant. Requires internet and GROQ_API_KEY.</p>
                         </div>
                     </div>
                 </motion.div>

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
+from fastapi.concurrency import run_in_threadpool
 from backend.services.file_parse_service import parse_pdf
 from backend.core.auth_middleware import verify_token
 
@@ -19,7 +20,7 @@ async def parse_pdf_endpoint(
 
     try:
         content = await file.read()
-        slides = parse_pdf(content, ai_model=ai_model)
+        slides = await run_in_threadpool(parse_pdf, content, ai_model)
         return {"slides": slides, "total": len(slides)}
     except Exception as e:
         print(f"DEBUG upload parse-pdf error: {e}")

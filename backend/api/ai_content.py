@@ -29,7 +29,7 @@ class ChatRequest(BaseModel):
     ai_model: Optional[str] = "groq"
 
 @router.post("/generate-summary")
-async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
@@ -46,7 +46,7 @@ async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_
         raise HTTPException(status_code=500, detail="AI summary generation failed. Please try again.")
 
 @router.post("/generate-quiz")
-async def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
@@ -67,7 +67,7 @@ async def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_tok
         raise HTTPException(status_code=500, detail="AI quiz generation failed. Please try again.")
 
 @router.post("/analytics-insights")
-async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify_token)):
+def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify_token)):
     try:
         # Pydantic dict() includes all fields
         data = body.dict()
@@ -79,7 +79,7 @@ async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(
         raise HTTPException(status_code=500, detail="AI insights generation failed. Please try again.")
 
 @router.post("/chat")
-async def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
+def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
     if not body.user_message.strip():
         raise HTTPException(status_code=400, detail="user_message cannot be empty.")
     try:

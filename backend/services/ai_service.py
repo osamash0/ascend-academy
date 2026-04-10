@@ -21,13 +21,13 @@ try:
     from groq import Groq
     _groq_api_key = os.environ.get("GROQ_API_KEY")
     if _groq_api_key:
-        groq_client = Groq(api_key=_groq_api_key)
+        groq_client = Groq(api_key=_groq_api_key, max_retries=0)
     else:
-        groq_client = Groq()
+        groq_client = Groq(max_retries=0)
 except Exception:
     groq_client = None
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "llama-3.1-8b-instant"
 
 try:
     from google import genai

@@ -9,7 +9,7 @@ from backend.core.database import supabase
 security = HTTPBearer()
 
 
-async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
     Dependency that verifies the Supabase JWT from the Authorization header.
     Returns the authenticated user object or raises 401.
