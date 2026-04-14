@@ -21,9 +21,11 @@ interface LectureChatProps {
     onClose: () => void;
     slideText: string;
     slideTitle: string;
+    slideId?: string;
+    lectureId?: string;
 }
 
-export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureChatProps) {
+export function LectureChat({ isOpen, onClose, slideText, slideTitle, slideId, lectureId }: LectureChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +63,22 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
+            const userId = session?.user?.id;
+
+            // Log AI Tutor query for Behavioral Analytics
+            if (userId && lectureId && slideId) {
+                await supabase.from('learning_events').insert({
+                    user_id: userId,
+                    event_type: 'ai_tutor_query',
+                    event_data: {
+                        lectureId,
+                        slideId,
+                        slideTitle,
+                        query: userMsg,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+            }
 
             // Extract only the history strings to pass to the backend, skipping the initial greeting
             const historyToPass = newMessages.slice(1, -1);

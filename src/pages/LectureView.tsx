@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { pseudonymizeId } from '@/lib/pseudonymize';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideViewer } from '@/components/SlideViewer';
 import { QuizCard } from '@/components/QuizCard';
@@ -56,7 +55,6 @@ export default function LectureView() {
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(1);
-  const [anonId, setAnonId] = useState<string>('');
   const [showBadge, setShowBadge] = useState(false);
   const [badgeInfo, setBadgeInfo] = useState({ name: '', description: '', icon: '' });
   const [slideStartTime, setSlideStartTime] = useState<number>(Date.now());
@@ -81,8 +79,6 @@ export default function LectureView() {
   // Analytics: Track slide view duration
   useEffect(() => {
     if (!slides.length || !user) return;
-    // Compute pseudonymized ID for analytics
-    pseudonymizeId(user.id).then(setAnonId);
 
     const currentSlideId = slides[currentSlideIndex]?.id;
     const now = Date.now();
@@ -94,10 +90,10 @@ export default function LectureView() {
 
       console.log(`DEBUG: Logging slide_view for ${slideId}, duration: ${duration}s`);
       await supabase.from('learning_events').insert({
-        user_id: anonId || user.id,
+        user_id: user.id,
         event_type: 'slide_view',
         event_data: {
-          lectureId,
+          lectureId: lecture?.id || lectureId,
           slideId,
           slideTitle: title,
           duration_seconds: duration,
@@ -116,7 +112,7 @@ export default function LectureView() {
         logSlideView(currentSlideId, slides[currentSlideIndex]?.title || '', now);
       }
     };
-  }, [currentSlideIndex, slides, user, lectureId]);
+  }, [currentSlideIndex, slides, user, lectureId, lecture?.id]);
 
   const fetchLectureData = async () => {
     setLoading(true);
@@ -290,7 +286,7 @@ export default function LectureView() {
 
     // Log lecture start event
     await supabase.from('learning_events').insert({
-      user_id: anonId || user?.id,
+      user_id: user?.id,
       event_type: 'lecture_start',
       event_data: { lectureId: currentLectureId },
     });
@@ -346,7 +342,7 @@ export default function LectureView() {
     }
   };
 
-  const handlePreviousSlide = () => {
+  const handlePreviousSlide = async () => {
     if (showQuiz && quizAnswers[currentSlideIndex] === undefined) {
       setShowQuiz(false);
       return;
@@ -354,6 +350,19 @@ export default function LectureView() {
 
     if (currentSlideIndex > 0) {
       const prevIndex = currentSlideIndex - 1;
+      
+      // Log backwards navigation (Friction / Revision loop)
+      await supabase.from('learning_events').insert({
+        user_id: user?.id,
+        event_type: 'slide_back_navigation',
+        event_data: {
+          lectureId: lecture?.id || lectureId,
+          fromSlideId: currentSlide?.id,
+          toSlideId: slides[prevIndex]?.id,
+          timestamp: new Date().toISOString()
+        }
+      });
+
       setCurrentSlideIndex(prevIndex);
       setShowQuiz(quizAnswers[prevIndex] !== undefined);
       saveProgress(prevIndex, xpEarned, correctAnswers);
@@ -376,9 +385,10 @@ export default function LectureView() {
     const timeToAnswer = Math.round((Date.now() - slideStartTime) / 1000);
 
     await supabase.from('learning_events').insert({
-      user_id: anonId || user?.id,
+      user_id: user?.id,
       event_type: 'quiz_attempt',
       event_data: {
+        lectureId: lecture?.id || lectureId,
         slideId: currentSlide?.id,
         slideTitle: currentSlide?.title,
         questionId: currentQuestion?.id,
@@ -541,7 +551,7 @@ export default function LectureView() {
 
     // Log completion
     await supabase.from('learning_events').insert({
-      user_id: anonId || user?.id,
+      user_id: user?.id,
       event_type: 'lecture_complete',
       event_data: {
         lectureId: lecture.id,
@@ -794,10 +804,10 @@ export default function LectureView() {
                         onConfidenceRate={async (rating) => {
                           if (!user || !currentSlide) return;
                           await supabase.from('learning_events').insert({
-                            user_id: anonId || user.id,
+                            user_id: user.id,
                             event_type: 'confidence_rating',
                             event_data: {
-                              lectureId,
+                              lectureId: lecture?.id || lectureId,
                               slideId: currentSlide.id,
                               slideTitle: currentSlide.title,
                               rating,
@@ -891,6 +901,8 @@ export default function LectureView() {
             onClose={() => setIsChatOpen(false)}
             slideText={currentSlide?.content_text || ''}
             slideTitle={currentSlide?.title || 'Lecture Slide'}
+            slideId={currentSlide?.id}
+            lectureId={lecture?.id || lectureId}
           />
         </div>
       </div>
