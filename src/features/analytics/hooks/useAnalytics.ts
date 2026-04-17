@@ -17,7 +17,8 @@ export function useAnalytics(lectureId: string | null) {
       return json.data;
     },
     enabled: !!lectureId,
-    staleTime: 1000 * 60 * 5 // 5 minutes
+    staleTime: 1000 * 10, // 10 seconds
+    refetchInterval: 1000 * 10, // Refetch every 10 seconds for 'Live' effect
   });
 
   return { dashboard };

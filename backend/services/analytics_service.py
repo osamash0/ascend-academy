@@ -14,6 +14,17 @@ def get_auth_client(token: str):
     client.postgrest.auth(token)
     return client
 
+import hashlib
+
+def generate_anon_name(user_id: str) -> str:
+    """Generate a creative, deterministic anonymous name for a student."""
+    # Use first 8 chars of MD5 hash for consistency
+    h = hashlib.md5(str(user_id).encode()).hexdigest()
+    themes = ["Nexus", "Quantum", "Neural", "Prism", "Cortex", "Vector", "Logic", "Pulse"]
+    theme = themes[int(h[:2], 16) % len(themes)]
+    hex_id = h[-4:].upper()
+    return f"{theme}-{hex_id}"
+
 from typing import Dict, List, Any
 
 def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
@@ -67,7 +78,7 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     return {
         "total_students": total_students,
         "completion_rate": round(completion_rate, 1),
-        "average_score": round(random.uniform(70, 95), 1),  # Mock for now
+        "average_score": round(sum(p.get("quiz_score", 0) for p in progress_response.data) / total_students, 1),
         "average_time_minutes": round(avg_time_minutes, 1),
         "engagement_level": engagement
     }
@@ -99,9 +110,8 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
         avg_time = sum(e.get("event_data", {}).get("duration_seconds", 0) 
                       for e in slide_events) / view_count if view_count > 0 else 0
         
-        # Drop-off rate (mock calculation)
-        import random
-        drop_off = random.uniform(0, 15)  # 0-15% drop-off
+        # Drop-off rate (real calculation based on views vs total students)
+        drop_off = 100 * (1 - (view_count / total_students)) if total_students > 0 else 0
         
         slide_analytics.append({
             "slide_number": slide["slide_number"],
@@ -125,9 +135,22 @@ def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any
     quiz_analytics = []
     import random
     
+    # Get all quiz attempts for this lecture
+    events_res = get_auth_client(token).table("learning_events")\
+        .select("event_data")\
+        .eq("event_type", "quiz_attempt")\
+        .contains("event_data", {"lectureId": lecture_id})\
+        .execute()
+    
+    attempts_data = events_res.data or []
+    
     for question in quiz_response.data:
-        # Mock success rate (you'd calculate from actual attempts)
-        success_rate = random.uniform(40, 95)
+        # Calculate real success rate
+        q_attempts = [e for e in attempts_data if e.get("event_data", {}).get("questionId") == question["id"]]
+        total_q = len(q_attempts)
+        correct_q = len([e for e in q_attempts if e.get("event_data", {}).get("correct")])
+        
+        success_rate = (correct_q / total_q * 100) if total_q > 0 else 0
         
         # Difficulty based on success rate
         if success_rate > 80:
@@ -142,46 +165,9 @@ def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any
             "question_text": question["question_text"],
             "success_rate": round(success_rate, 1),
             "difficulty": difficulty,
-            "attempts": random.randint(10, 50)  # Mock
+            "attempts": total_q
         })
-    
-    return quiz_analytics
-
-def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Get student performance table"""
-    
-    progress_response = get_auth_client(token).table("student_progress")\
-        .select("*")\
-        .eq("lecture_id", lecture_id)\
-        .execute()
-    
-    import random
-    from backend.services.seed_service import FIRST_NAMES, LAST_NAMES
-    
-    students = []
-    for i, progress in enumerate(progress_response.data[:20]):  # Limit to 20
-        completed = len(progress.get("completed_slides", []))
-        total_slides = 10  # Mock
-        
-        progress_pct = (completed / total_slides) * 100 if total_slides > 0 else 0
-        score = random.randint(60, 100)
-        
-        # Status
-        if progress_pct >= 90 and score >= 85:
-            status = "Excelling"
-        elif progress_pct >= 50 and score >= 70:
-            status = "On Track"
-        else:
-            status = "At Risk"
-        
-        students.append({
-            "student_id": progress["user_id"],
-            "student_name": f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}",
-            "progress_percentage": round(progress_pct, 1),
-            "quiz_score": score,
-            "status": status
-        })
-    
+     
     return sorted(students, key=lambda x: x["quiz_score"], reverse=True)
 
 # Advanced Dashboard Data Collection
@@ -264,11 +250,10 @@ def get_dashboard_data(lecture_id: str, token: str = None):
     slide_performance.sort(key=lambda x: x['avgDuration'], reverse=True)
 
     # Topology & Student Matrix
-    from backend.services.seed_service import FIRST_NAMES, LAST_NAMES
     students_matrix = []
     
     for p in progress_data:
-        name = f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
+        name = generate_anon_name(p['user_id'])
         completed = len(p.get('completed_slides') or [])
         prog_pct = round((completed / max(1, len(slides_data))) * 100)
         score = p.get('quiz_score', 0)
