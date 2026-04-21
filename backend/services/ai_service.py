@@ -1,10 +1,19 @@
 import os
 import json
 import re
+from pathlib import Path
+from dotenv import load_dotenv
 from pydantic import BaseModel
 
+# Load environment variables explicitly from the project root
+# Path: backend/services/ai_service.py -> ../../.env
+_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(dotenv_path=_env_path, override=True)
+
 OLLAMA_MODEL = "llama3"
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-1.5-flash"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
 try:
     import ollama
 except ImportError:
@@ -13,10 +22,23 @@ except ImportError:
 try:
     from google import genai
     from google.genai import types
-    client = genai.Client()
+    _gemini_key = os.environ.get("GOOGLE_API_KEY")
+    gemini_client = genai.Client(api_key=_gemini_key) if _gemini_key else None
 except Exception:
     genai = None
-    client = None
+    gemini_client = None
+
+try:
+    from groq import Groq
+    _groq_key = os.environ.get("GROQ_API_KEY")
+    groq_client = Groq(api_key=_groq_key) if _groq_key and _groq_key != "your_groq_api_key_here" else None
+    if groq_client:
+        print("✅ Groq client initialized successfully.")
+    else:
+        print("⚠️  Groq client NOT initialized — GROQ_API_KEY missing or placeholder.")
+except ImportError:
+    Groq = None
+    groq_client = None
 
 # Ollama helper
 _PREAMBLE_PATTERNS = [
@@ -70,12 +92,20 @@ Raw Slide Text:
 
 Markdown Output:"""
 
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "gemini-2.5-flash" or ai_model == "gemini-1.5-flash":
+        if gemini_client:
+            try:
+                res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+                return res.text.strip()
+            except Exception as e:
+                print(f"DEBUG Gemini error: {e}")
+        return raw_text
+    elif ai_model == "groq" and groq_client:
         try:
-            res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-            return res.text.strip()
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res.choices[0].message.content.strip()
         except Exception as e:
-            print(f"DEBUG Gemini error: {e}")
+            print(f"DEBUG Groq error: {e}")
             return raw_text
     else:
         if ollama is None:
@@ -97,12 +127,20 @@ Slide content:
 {slide_text}
 
 Summary:"""
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "gemini-2.5-flash" or ai_model == "gemini-1.5-flash":
+        if gemini_client:
+            try:
+                res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+                return res.text.strip()
+            except Exception as e:
+                print(f"DEBUG Gemini summary error: {e}")
+        return "Failed to generate summary."
+    elif ai_model == "groq" and groq_client:
         try:
-            res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-            return res.text.strip()
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res.choices[0].message.content.strip()
         except Exception as e:
-            print(f"DEBUG Gemini summary error: {e}")
+            print(f"DEBUG Groq summary error: {e}")
             return "Failed to generate summary."
     else:
         if ollama is None:
@@ -116,20 +154,40 @@ Summary:"""
 
 # --- Quiz ---
 def generate_quiz(slide_text: str, ai_model: str = "llama3") -> dict:
-    if ai_model == "gemini-2.5-flash" and client:
-        prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options. The options should be plausibly confusing except for the single correct answer.
-
+    if ai_model == "gemini-2.5-flash" or ai_model == "gemini-1.5-flash":
+        if gemini_client:
+            prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options. The options should be plausibly confusing except for the single correct answer.
+    
+    Slide content:
+    {slide_text}"""
+            try:
+                res = gemini_client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=QuizQuestion)
+                )
+                return json.loads(res.text)
+            except Exception as e:
+                print(f"DEBUG Gemini quiz error: {e}")
+    elif ai_model == "groq" and groq_client:
+        prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options (A, B, C, D).
+Return your answer as valid JSON with this exact structure:
+{{
+  "question": "your question here",
+  "options": ["option A text", "option B text", "option C text", "option D text"],
+  "correctAnswer": 0
+}}
 Slide content:
 {slide_text}"""
         try:
-            res = client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=QuizQuestion)
+            res = groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"}
             )
-            return json.loads(res.text)
+            return json.loads(res.choices[0].message.content)
         except Exception as e:
-            print(f"DEBUG Gemini quiz error: {e}")
+            print(f"DEBUG Groq quiz error: {e}")
     else:
         if ollama is None:
             return {
@@ -175,12 +233,20 @@ Slide content:
 {slide_text[:1000]}
 
 Title:"""
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "gemini-2.5-flash" or ai_model == "gemini-1.5-flash":
+        if gemini_client:
+            try:
+                res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+                return res.text.strip().strip('"\'') or None
+            except Exception as e:
+                print(f"DEBUG Gemini title error: {e}")
+        return None
+    elif ai_model == "groq" and groq_client:
         try:
-            res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-            return res.text.strip().strip('"\'') or None
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res.choices[0].message.content.strip().strip('"\'') or None
         except Exception as e:
-            print(f"DEBUG Gemini title error: {e}")
+            print(f"DEBUG Groq title error: {e}")
             return None
     else:
         try:
@@ -209,15 +275,31 @@ Your task:
 1. Write a SHORT, friendly 2-3 sentence paragraph that summarises what is happening (use plain English, no jargon, as if talking to the professor directly).
 2. List exactly 3 concrete, actionable suggestions the professor can do to improve student outcomes, based on this data.
 """
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "gemini-2.5-flash" or ai_model == "gemini-1.5-flash":
+        if gemini_client:
+            try:
+                res = gemini_client.models.generate_content(
+                    model=GEMINI_MODEL, contents=prompt,
+                    config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=AnalyticsInsights)
+                )
+                return json.loads(res.text)
+            except Exception as e:
+                print(f"DEBUG Gemini analytics error: {e}")
+    elif ai_model == "groq" and groq_client:
+        prompt += """\nReturn ONLY valid JSON with this exact structure:
+{
+  "summary": "...",
+  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
+}"""
         try:
-            res = client.models.generate_content(
-                model=GEMINI_MODEL, contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=AnalyticsInsights)
+            res = groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"}
             )
-            return json.loads(res.text)
+            return json.loads(res.choices[0].message.content)
         except Exception as e:
-            print(f"DEBUG Gemini analytics error: {e}")
+            print(f"DEBUG Groq analytics error: {e}")
     else:
         if ollama is None:
             return {
@@ -284,12 +366,20 @@ Rules:
 Student: {user_message}
 Tutor:"""
 
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "gemini-2.5-flash" or ai_model == "gemini-1.5-flash":
+        if gemini_client:
+            try:
+                res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+                return res.text.strip()
+            except Exception as e:
+                print(f"DEBUG Gemini chat error: {e}")
+        return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
+    elif ai_model == "groq" and groq_client:
         try:
-            res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-            return res.text.strip()
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res.choices[0].message.content.strip()
         except Exception as e:
-            print(f"DEBUG Gemini chat error: {e}")
+            print(f"DEBUG Groq chat error: {e}")
             return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
     else:
         if ollama is None:

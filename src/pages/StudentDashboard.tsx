@@ -1,7 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Trophy, Target, Flame, Zap, Star, X, PlayCircle } from 'lucide-react';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { 
+  BookOpen, Trophy, Target, Flame, Zap, Star, X, PlayCircle, 
+  Sparkles, TrendingUp, Clock, ChevronRight, Award
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { LectureCard } from '@/components/LectureCard';
@@ -39,10 +42,100 @@ interface Achievement {
 type FilterTab = 'all' | 'inprogress' | 'completed';
 
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: 'all', label: 'All' },
+  { key: 'all', label: 'All Courses' },
   { key: 'inprogress', label: 'In Progress' },
   { key: 'completed', label: 'Completed' },
 ];
+
+/* ── Orbital Background Component ── */
+function OrbitalBackground() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {/* Primary aurora orb */}
+      <motion.div
+        className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full"
+        style={{
+          background: 'radial-gradient(circle, hsl(234 89% 68% / 0.08) 0%, transparent 70%)',
+          filter: 'blur(100px)',
+        }}
+        animate={{
+          x: [0, 30, 0],
+          y: [0, 20, 0],
+          scale: [1, 1.1, 1],
+        }}
+        transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      
+      {/* Secondary aurora orb */}
+      <motion.div
+        className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full"
+        style={{
+          background: 'radial-gradient(circle, hsl(270 60% 55% / 0.06) 0%, transparent 70%)',
+          filter: 'blur(120px)',
+        }}
+        animate={{
+          x: [0, -20, 0],
+          y: [0, -30, 0],
+          scale: [1, 1.15, 1],
+        }}
+        transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut', delay: 5 }}
+      />
+      
+      {/* Accent orb */}
+      <motion.div
+        className="absolute top-[40%] right-[20%] w-[30%] h-[30%] rounded-full"
+        style={{
+          background: 'radial-gradient(circle, hsl(190 90% 60% / 0.04) 0%, transparent 70%)',
+          filter: 'blur(80px)',
+        }}
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.5, 0.8, 0.5],
+        }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut', delay: 10 }}
+      />
+    </div>
+  );
+}
+
+/* ── Floating Particles Component ── */
+function FloatingParticles() {
+  const particles = Array.from({ length: 20 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    delay: Math.random() * 10,
+    duration: 15 + Math.random() * 20,
+    size: 2 + Math.random() * 4,
+  }));
+
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          className="absolute rounded-full bg-primary/20"
+          style={{
+            left: `${p.x}%`,
+            bottom: '-10px',
+            width: p.size,
+            height: p.size,
+          }}
+          animate={{
+            y: [0, -window.innerHeight * 1.2],
+            x: [0, (Math.random() - 0.5) * 100],
+            opacity: [0, 0.6, 0],
+          }}
+          transition={{
+            duration: p.duration,
+            repeat: Infinity,
+            delay: p.delay,
+            ease: 'linear',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function StudentDashboard() {
   const { user, profile, refreshProfile } = useAuth();
@@ -54,6 +147,16 @@ export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [showStreakBanner, setShowStreakBanner] = useState(false);
   const lecturesRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95]);
+  const heroY = useTransform(scrollYProgress, [0, 0.5], [0, -50]);
 
   useEffect(() => {
     if (user) fetchData();
@@ -63,7 +166,7 @@ export default function StudentDashboard() {
     const streak = profile?.current_streak || 0;
     if (streak > 2) {
       setShowStreakBanner(true);
-      const t = setTimeout(() => setShowStreakBanner(false), 4000);
+      const t = setTimeout(() => setShowStreakBanner(false), 5000);
       return () => clearTimeout(t);
     }
   }, [profile?.current_streak]);
@@ -119,7 +222,6 @@ export default function StudentDashboard() {
     return true;
   });
 
-  // Find in-progress lectures for the "Continue Learning" section
   const continueLectures = lectures.filter(lecture => {
     const lp = getProgressForLecture(lecture.id);
     if (!lp || lp.completed_at) return false;
@@ -130,24 +232,23 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
-        {/* Stats skeleton */}
+      <div className="relative min-h-screen p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+        <OrbitalBackground />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-card rounded-2xl border border-border p-5 animate-pulse">
-              <div className="h-4 w-20 bg-muted rounded mb-3" />
-              <div className="h-8 w-14 bg-muted rounded" />
+            <div key={i} className="glass-card p-5 animate-pulse">
+              <div className="h-4 w-20 bg-surface-2 rounded mb-3" />
+              <div className="h-8 w-14 bg-surface-2 rounded" />
             </div>
           ))}
         </div>
-        {/* Lecture cards skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-card rounded-2xl border border-border p-5 animate-pulse space-y-3">
-              <div className="h-5 w-3/4 bg-muted rounded" />
-              <div className="h-4 w-full bg-muted rounded" />
-              <div className="h-4 w-2/3 bg-muted rounded" />
-              <div className="h-2 w-full bg-muted rounded-full mt-4" />
+            <div key={i} className="glass-card p-5 animate-pulse space-y-3">
+              <div className="h-5 w-3/4 bg-surface-2 rounded" />
+              <div className="h-4 w-full bg-surface-2 rounded" />
+              <div className="h-4 w-2/3 bg-surface-2 rounded" />
+              <div className="h-2 w-full bg-surface-2 rounded-full mt-4" />
             </div>
           ))}
         </div>
@@ -169,346 +270,427 @@ export default function StudentDashboard() {
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-8">
+    <div className="relative min-h-screen">
+      <OrbitalBackground />
+      <FloatingParticles />
+      
+      <div className="relative z-10 p-6 lg:p-8 max-w-7xl mx-auto space-y-10">
 
-      {/* ── Streak Celebration Banner ── */}
-      <AnimatePresence>
-        {showStreakBanner && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: -20, height: 0 }}
-            className="rounded-2xl overflow-hidden"
-          >
-            <div className="bg-gradient-to-r from-warning/20 via-orange-400/10 to-warning/20 border border-warning/30 px-5 py-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <motion.span
-                  className="text-2xl"
-                  animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}
-                >
-                  🔥
-                </motion.span>
-                <span className="font-semibold text-warning">
-                  You're on a {streak}-day streak! Keep it up!
-                </span>
-              </div>
-              <button
-                onClick={() => setShowStreakBanner(false)}
-                className="text-warning/60 hover:text-warning transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Hero Banner ── */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative rounded-2xl overflow-hidden"
-      >
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/10 to-xp/20 pointer-events-none" />
-
-        {/* Animated orbs */}
-        <motion.div
-          className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-primary/10 blur-3xl pointer-events-none"
-          animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.6, 0.4] }}
-          transition={{ duration: 5, repeat: Infinity }}
-        />
-        <motion.div
-          className="absolute -bottom-8 left-16 w-32 h-32 rounded-full bg-xp/10 blur-2xl pointer-events-none"
-          animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 4, repeat: Infinity, delay: 1 }}
-        />
-
-        <div className="relative p-7 flex flex-col gap-5">
-          {/* Top row: greeting + badges */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <motion.h1
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.15 }}
-                className="text-3xl font-bold text-foreground"
-              >
-                {getGreeting()}, {displayName}! 👋
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.25 }}
-                className="text-muted-foreground mt-1"
-              >
-                Ready to level up your knowledge today?
-              </motion.p>
-            </div>
-
-            {/* Badges */}
+        {/* ── Streak Celebration Banner ── */}
+        <AnimatePresence>
+          {showStreakBanner && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 }}
-              className="flex items-center gap-3 flex-wrap"
+              initial={{ opacity: 0, y: -20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              className="rounded-2xl overflow-hidden"
             >
-              <div className="flex items-center gap-2 bg-primary/20 border border-primary/30 rounded-full px-4 py-2">
-                <Star className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold text-primary">Level {level}</span>
-              </div>
-              <div className="flex items-center gap-2 bg-xp/20 border border-xp/30 rounded-full px-4 py-2">
-                <Zap className="w-4 h-4 text-xp" />
-                <span className="text-sm font-semibold text-xp">{profile?.total_xp || 0} XP</span>
-              </div>
-              {streak > 0 && (
-                <div className="flex items-center gap-2 bg-warning/20 border border-warning/30 rounded-full px-4 py-2">
-                  <Flame className="w-4 h-4 text-warning" />
-                  <span className="text-sm font-semibold text-warning">{streak} day streak</span>
+              <div className="glass-panel-strong border border-warning/30 px-5 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <motion.span
+                    className="text-2xl"
+                    animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
+                    transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}
+                  >
+                    🔥
+                  </motion.span>
+                  <span className="font-semibold text-warning">
+                    You're on a {streak}-day streak! Keep the momentum going!
+                  </span>
                 </div>
-              )}
+                <button
+                  onClick={() => setShowStreakBanner(false)}
+                  className="text-warning/60 hover:text-warning transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Hero Banner — Orbital Design ── */}
+        <motion.div
+          ref={heroRef}
+          style={{ opacity: heroOpacity, scale: heroScale, y: heroY }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="relative rounded-3xl overflow-hidden"
+        >
+          {/* Living gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-accent/10" />
+          
+          {/* Animated mesh gradient */}
+          <div className="absolute inset-0 opacity-30">
+            <div 
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `
+                  radial-gradient(at 40% 20%, hsl(234 89% 68% / 0.3) 0px, transparent 50%),
+                  radial-gradient(at 80% 0%, hsl(270 60% 55% / 0.2) 0px, transparent 50%),
+                  radial-gradient(at 0% 50%, hsl(190 90% 60% / 0.15) 0px, transparent 50%),
+                  radial-gradient(at 80% 50%, hsl(234 89% 68% / 0.2) 0px, transparent 50%),
+                  radial-gradient(at 0% 100%, hsl(270 60% 55% / 0.15) 0px, transparent 50%)
+                `,
+                animation: 'aurora-drift 20s ease-in-out infinite',
+              }}
+            />
           </div>
 
-          {/* XP Progress bar — embedded here, no separate component */}
+          {/* Glass overlay */}
+          <div className="absolute inset-0 glass-panel opacity-50" />
+
+          <div className="relative p-8 lg:p-10 flex flex-col gap-6">
+            {/* Top row: greeting + orbital badges */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <span className="text-caption text-primary/80 uppercase tracking-widest font-medium">
+                    {getGreeting()}
+                  </span>
+                  <h1 className="text-display-md text-foreground mt-1">
+                    Welcome back,{' '}
+                    <span className="text-gradient-aurora">{displayName}</span>
+                  </h1>
+                </motion.div>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                  className="text-body-md text-muted-foreground max-w-lg"
+                >
+                  Ready to continue your learning journey? You have{' '}
+                  <strong className="text-foreground">{continueLectures.length} courses</strong> in progress.
+                </motion.p>
+              </div>
+
+              {/* Orbital Badge Cluster */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5, type: 'spring', stiffness: 200, damping: 20 }}
+                className="flex items-center gap-3 flex-wrap"
+              >
+                <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 group hover:border-primary/30 transition-colors">
+                  <Star className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-semibold text-foreground">Level {level}</span>
+                </div>
+                <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 group hover:border-xp/30 transition-colors">
+                  <Zap className="w-4 h-4 text-xp group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-semibold text-xp">{profile?.total_xp || 0} XP</span>
+                </div>
+                {streak > 0 && (
+                  <motion.div 
+                    className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 group hover:border-warning/30 transition-colors"
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <Flame className="w-4 h-4 text-warning group-hover:scale-110 transition-transform" />
+                    <span className="text-sm font-semibold text-warning">{streak} day streak</span>
+                  </motion.div>
+                )}
+              </motion.div>
+            </div>
+
+            {/* XP Progress — Orbital Style */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="space-y-2"
+            >
+              <div className="flex justify-between text-caption text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  Progress to Level {level + 1}
+                </span>
+                <span>{(profile?.total_xp || 0) % 100} / 100 XP</span>
+              </div>
+              <div className="h-3 bg-surface-2 rounded-full overflow-hidden relative">
+                <motion.div
+                  className="h-full rounded-full relative"
+                  style={{
+                    background: 'linear-gradient(90deg, hsl(45 93% 55%), hsl(38 92% 58%))',
+                  }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${((profile?.total_xp || 0) % 100)}%` }}
+                  transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.8 }}
+                >
+                  {/* Glow tip */}
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-xp rounded-full shadow-glow-xp" />
+                  {/* Shimmer overlay */}
+                  <div className="absolute inset-0 animate-shimmer" />
+                </motion.div>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+
+        {/* ── Stats Grid — Glass Cards ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { title: 'Courses Started', value: progress.length, icon: BookOpen, variant: 'primary', glow: 'shadow-glow-primary' },
+            { title: 'Quiz Accuracy', value: `${accuracy}%`, subtitle: `${totalCorrect}/${totalQuestionsAnswered} correct`, icon: Target, variant: 'success', glow: 'shadow-glow-success' },
+            { title: 'Best Streak', value: profile?.best_streak || 0, icon: Flame, variant: 'warning' },
+            { title: 'Achievements', value: achievements.length, icon: Trophy, variant: 'xp', glow: 'shadow-glow-xp' },
+          ].map((stat, index) => (
+            <motion.div
+              key={stat.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 * index, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <StatsCard
+                title={stat.title}
+                value={stat.value}
+                subtitle={stat.subtitle}
+                icon={stat.icon}
+                variant={stat.variant as any}
+                className={stat.glow}
+                onClick={() => {
+                  if (stat.title === 'Courses Started') {
+                    lecturesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  } else if (stat.title === 'Achievements') {
+                    navigate('/achievements');
+                  }
+                }}
+              />
+            </motion.div>
+          ))}
+        </div>
+
+        {/* ── Continue Learning — Orbital Carousel ── */}
+        {continueLectures.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
+            className="space-y-6"
           >
-            <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-              <span>Progress to Level {level + 1}</span>
-              <span>{(profile?.total_xp || 0) % 100} / 100 XP</span>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <h2 className="text-heading-lg text-foreground">Continue Learning</h2>
             </div>
-            <div className="h-2.5 bg-black/10 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full gradient-xp rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${((profile?.total_xp || 0) % 100)}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.5 }}
-              />
-            </div>
-          </motion.div>
-        </div>
-      </motion.div>
+            
+            <div className="flex overflow-x-auto pb-4 gap-5 snap-x snap-mandatory scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+              <AnimatePresence>
+                {continueLectures.map((lecture, index) => {
+                  const p = getProgressForLecture(lecture.id);
+                  const completed = p?.completed_slides?.length || 0;
+                  const total = lecture.total_slides;
+                  const pct = Math.min(100, Math.round((completed / total) * 100));
 
-      {/* ── Stats Grid ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Lectures Started"
-          value={progress.length}
-          icon={BookOpen}
-          variant="primary"
-          onClick={() => {
-            lecturesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }}
-        />
-        <StatsCard
-          title="Quiz Accuracy"
-          value={`${accuracy}%`}
-          subtitle={`${totalCorrect}/${totalQuestionsAnswered} correct`}
-          icon={Target}
-          variant="success"
-        />
-        <StatsCard
-          title="Best Streak"
-          value={profile?.best_streak || 0}
-          icon={Flame}
-          variant="warning"
-        />
-        <StatsCard
-          title="Achievements"
-          value={achievements.length}
-          icon={Trophy}
-          variant="xp"
-          onClick={() => navigate('/achievements')}
-        />
-      </div>
-
-      {/* ── Continue Learning Section ── */}
-      {continueLectures.length > 0 && (
-        <div className="mb-10">
-          <div className="flex items-center gap-2 mb-6">
-            <h2 className="text-xl font-semibold text-foreground">Continue Learning</h2>
-          </div>
-          <div className="flex overflow-x-auto pb-4 gap-5 custom-scrollbar" style={{ scrollSnapType: 'x mandatory' }}>
-            <AnimatePresence>
-              {continueLectures.map((lecture, index) => {
-                const p = getProgressForLecture(lecture.id);
-                const completed = p?.completed_slides?.length || 0;
-                const total = lecture.total_slides;
-                const pct = Math.min(100, Math.round((completed / total) * 100));
-
-                return (
-                  <motion.div
-                    key={`continue-${lecture.id}`}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="min-w-[300px] sm:min-w-[350px] flex-shrink-0"
-                    style={{ scrollSnapAlign: 'start' }}
-                  >
-                    <div
-                      onClick={() => navigate(`/lecture/${lecture.slug || lecture.id}`)}
-                      className="group cursor-pointer bg-card hover:bg-muted/50 transition-colors rounded-2xl border border-border overflow-hidden relative"
+                  return (
+                    <motion.div
+                      key={`continue-${lecture.id}`}
+                      initial={{ opacity: 0, x: -30 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      className="min-w-[340px] sm:min-w-[380px] flex-shrink-0 snap-start"
                     >
-                      {/* Stylized background accent */}
-                      <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                      <div className="p-5">
-                        <div className="flex items-start justify-between gap-4 mb-4">
-                          <div>
-                            <h3 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                              {lecture.title}
-                            </h3>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Resume from slide {p?.last_slide_viewed !== undefined && p?.last_slide_viewed !== null ? p.last_slide_viewed + 1 : completed + 1}
-                            </p>
-                          </div>
-                          <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center shadow-sm flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <PlayCircle className="w-5 h-5 text-primary-foreground fill-primary-foreground/20" />
-                          </div>
-                        </div>
-
-                        <div className="mt-4">
-                          <div className="flex justify-between text-xs text-muted-foreground mb-1.5 font-medium">
-                            <span>{pct}% Completed</span>
-                            <span>{completed} / {total} Slides</span>
-                          </div>
-                          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                            <motion.div
-                              className="h-full gradient-primary rounded-full relative"
-                              initial={{ width: 0 }}
-                              animate={{ width: `${pct}%` }}
-                              transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
+                      <div
+                        onClick={() => navigate(`/lecture/${lecture.slug || lecture.id}`)}
+                        className="group cursor-pointer glass-card overflow-hidden relative"
+                      >
+                        {/* Hover glow effect */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        
+                        <div className="relative p-6">
+                          <div className="flex items-start justify-between gap-4 mb-5">
+                            <div className="space-y-1">
+                              <h3 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-300">
+                                {lecture.title}
+                              </h3>
+                              <p className="text-body-sm text-muted-foreground flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                Resume from slide {(p?.last_slide_viewed ?? completed) + 1}
+                              </p>
+                            </div>
+                            <motion.div 
+                              className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary flex-shrink-0"
+                              whileHover={{ scale: 1.1, rotate: 5 }}
+                              whileTap={{ scale: 0.95 }}
                             >
-                              <div className="absolute top-0 right-0 bottom-0 w-4 bg-white/20" />
+                              <PlayCircle className="w-6 h-6 text-white" />
                             </motion.div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-caption text-muted-foreground font-medium">
+                              <span>{pct}% Complete</span>
+                              <span>{completed} / {total} Slides</span>
+                            </div>
+                            <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
+                              <motion.div
+                                className="h-full rounded-full relative"
+                                style={{
+                                  background: 'linear-gradient(90deg, hsl(234 89% 68%), hsl(270 60% 55%))',
+                                }}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${pct}%` }}
+                                transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                              >
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-glow-primary" />
+                              </motion.div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Lectures Section ── */}
+        <div ref={lecturesRef} className="scroll-mt-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-primary" />
+              <h2 className="text-heading-lg text-foreground">Your Courses</h2>
+            </div>
+
+            {lectures.length > 0 && (
+              <div className="flex items-center bg-surface-1 rounded-xl p-1 gap-1 relative border border-border">
+                {FILTER_TABS.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors z-10 ${activeTab === tab.key
+                      ? 'text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                  >
+                    {activeTab === tab.key && (
+                      <motion.div
+                        layoutId="activeTab"
+                        className="absolute inset-0 bg-surface-2 rounded-lg shadow-sm border border-border z-[-1]"
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* ── Lectures Section ── */}
-      <div ref={lecturesRef} className="scroll-mt-6">
-        {/* Header + Filter Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h2 className="text-xl font-semibold text-foreground">Your Lectures</h2>
-
-          {lectures.length > 0 && (
-            <div className="flex items-center bg-muted rounded-xl p-1 gap-1 relative">
-              {FILTER_TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`relative px-4 py-1.5 rounded-lg text-sm font-medium transition-colors z-10 ${activeTab === tab.key
-                    ? 'text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                >
-                  {activeTab === tab.key && (
+          {filteredLectures.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass-card p-12 text-center"
+            >
+              <motion.div 
+                className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-5 shadow-glow-primary"
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <BookOpen className="w-10 h-10 text-white" />
+              </motion.div>
+              <h3 className="text-heading-sm text-foreground mb-2">
+                {activeTab === 'all' ? 'No courses available yet' : `No ${activeTab === 'inprogress' ? 'in-progress' : 'completed'} courses`}
+              </h3>
+              <p className="text-body-sm text-muted-foreground">
+                {activeTab === 'all'
+                  ? 'Courses uploaded by professors will appear here.'
+                  : 'Switch tabs to see other courses.'}
+              </p>
+            </motion.div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              <AnimatePresence mode="popLayout">
+                {filteredLectures.map((lecture, index) => {
+                  const lectureProgress = getProgressForLecture(lecture.id);
+                  return (
                     <motion.div
-                      layoutId="activeTab"
-                      className="absolute inset-0 bg-card rounded-lg shadow-sm z-[-1]"
-                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  {tab.label}
-                </button>
-              ))}
+                      key={lecture.id}
+                      layout
+                      initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                      transition={{ 
+                        delay: index * 0.06, 
+                        type: 'spring', 
+                        stiffness: 300, 
+                        damping: 24 
+                      }}
+                      whileHover={{ 
+                        y: -8, 
+                        scale: 1.02,
+                        transition: { type: 'spring', stiffness: 400, damping: 17 }
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <LectureCard
+                        id={lecture.id}
+                        title={lecture.title}
+                        description={lecture.description || undefined}
+                        totalSlides={lecture.total_slides}
+                        completedSlides={lectureProgress?.completed_slides?.length || 0}
+                        quizScore={lectureProgress?.correct_answers || 0}
+                        totalQuestions={lectureProgress?.total_questions_answered || 0}
+                        index={index}
+                        onClick={() => navigate(`/lecture/${lecture.slug || lecture.id}`)}
+                      />
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
           )}
         </div>
 
-        {filteredLectures.length === 0 ? (
+        {/* ── Recent Achievements ── */}
+        {achievements.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-card rounded-2xl border border-border p-12 text-center"
+            transition={{ delay: 0.6 }}
+            className="space-y-6"
           >
-            <div className="w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <BookOpen className="w-8 h-8 text-primary-foreground" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-xp" />
+                <h2 className="text-heading-lg text-foreground">Recent Achievements</h2>
+              </div>
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/achievements')}
+                className="group text-primary hover:text-primary/80"
+              >
+                View all
+                <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+              </Button>
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              {activeTab === 'all' ? 'No lectures available yet' : `No ${activeTab === 'inprogress' ? 'in-progress' : 'completed'} lectures`}
-            </h3>
-            <p className="text-muted-foreground">
-              {activeTab === 'all'
-                ? 'Lectures uploaded by professors will appear here.'
-                : 'Switch tabs to see other lectures.'}
-            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {achievements.slice(0, 3).map((achievement, index) => (
+                <motion.div
+                  key={achievement.id}
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ delay: index * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <AchievementCard
+                    name={achievement.badge_name}
+                    description={achievement.badge_description || ''}
+                    icon={achievement.badge_icon || '🏆'}
+                    earnedAt={achievement.earned_at}
+                  />
+                </motion.div>
+              ))}
+            </div>
           </motion.div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            <AnimatePresence mode="popLayout">
-              {filteredLectures.map((lecture, index) => {
-                const lectureProgress = getProgressForLecture(lecture.id);
-                return (
-                  <motion.div
-                    key={lecture.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: index * 0.05, layout: { type: 'spring', stiffness: 300, damping: 30 } }}
-                  >
-                    <LectureCard
-                      id={lecture.id}
-                      title={lecture.title}
-                      description={lecture.description || undefined}
-                      totalSlides={lecture.total_slides}
-                      completedSlides={lectureProgress?.completed_slides?.length || 0}
-                      quizScore={lectureProgress?.correct_answers || 0}
-                      totalQuestions={lectureProgress?.total_questions_answered || 0}
-                      index={index}
-                      onClick={() => navigate(`/lecture/${lecture.slug || lecture.id}`)}
-                    />
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
         )}
       </div>
-
-      {/* ── Recent Achievements ── */}
-      {achievements.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-foreground">Recent Achievements</h2>
-            <Button variant="ghost" onClick={() => navigate('/achievements')}>
-              View all
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {achievements.slice(0, 3).map((achievement, index) => (
-              <motion.div
-                key={achievement.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <AchievementCard
-                  name={achievement.badge_name}
-                  description={achievement.badge_description || ''}
-                  icon={achievement.badge_icon || '🏆'}
-                  earnedAt={achievement.earned_at}
-                />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

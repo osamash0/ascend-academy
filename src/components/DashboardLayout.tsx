@@ -10,14 +10,18 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen flex w-full bg-background selection:bg-primary/20">
         <AppSidebar />
-        <main className="flex-1 overflow-auto">
-          <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-3 flex items-center justify-between">
-            <SidebarTrigger />
+        <main className="flex-1 overflow-x-hidden relative">
+          <header className="sticky top-0 z-40 w-full glass-panel border-b-0 px-6 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger className="text-muted-foreground hover:text-primary transition-colors" />
+            </div>
             <NotificationBell />
+          </header>
+          <div className="relative z-0">
+            {children}
           </div>
-          {children}
         </main>
       </div>
     </SidebarProvider>

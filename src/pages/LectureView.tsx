@@ -684,6 +684,18 @@ export default function LectureView() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <motion.div
+          className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, hsl(234 89% 68% / 0.05) 0%, transparent 70%)',
+            filter: 'blur(100px)',
+          }}
+          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
+          transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </div>
+
       {/* Sidebar */}
       <LectureSidebar
         slides={slides}
@@ -698,106 +710,99 @@ export default function LectureView() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
         {/* Header */}
-        <div className="border-b border-border bg-card">
-          <div className="w-full px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate('/dashboard')}
-                  className="rounded-full border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted"
-                  title="Exit Lecture"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-                <div>
-                  <nav className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
-                    <button
-                      onClick={() => navigate('/dashboard')}
-                      className="hover:text-foreground transition-colors"
-                    >
-                      Dashboard
-                    </button>
-                    <span className="text-foreground truncate max-w-[180px]">
-                      {currentSlide?.title || lecture?.title || 'Lecture'}
-                    </span>
-                  </nav>
-                  <p className="text-sm text-muted-foreground">
-                    Slide {currentSlideIndex + 1} of {slides.length}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                {lecture?.pdf_url && (
-                  <Button
-                    onClick={() => window.open(lecture.pdf_url!, '_blank', 'noopener noreferrer')}
-                    variant="outline"
-                    className="gap-2 rounded-full px-4 shadow-sm"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    <span className="hidden sm:inline">Show Original Source</span>
-                  </Button>
-                )}
-                <Button
-                  onClick={() => setIsChatOpen(!isChatOpen)}
-                  variant="default"
-                  className="gap-2 rounded-full px-4 shadow-sm"
-                >
-                  <Bot className="w-4 h-4" />
-                  <span className="hidden sm:inline">Ask AI Tutor</span>
-                </Button>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
-                  <Zap className="w-4 h-4 text-xp" />
-                  <span className="font-semibold text-foreground">+{xpEarned} XP</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
-                  <Trophy className="w-4 h-4 text-success" />
-                  <span className="font-semibold text-foreground">
-                    {correctAnswers}/{questions.length || slides.length}
-                  </span>
-                </div>
-              </div>
+        <header className="glass-panel border-b-0 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/dashboard')}
+              className="rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
+              title="Exit Lecture"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+            <div className="flex flex-col">
+              <nav className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">
+                <span className="opacity-50">Course</span>
+                <span className="opacity-30">/</span>
+                <span className="truncate max-w-[200px]">{lecture?.title || 'Loading...'}</span>
+              </nav>
+              <h1 className="text-sm font-bold text-foreground truncate max-w-[300px]">
+                {currentSlide?.title || 'Slide View'}
+              </h1>
             </div>
           </div>
-        </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 mr-4">
+              <div className="flex items-center gap-2 px-3 py-1.5 glass-panel border-white/5 rounded-xl">
+                <Zap className="w-3.5 h-3.5 text-xp fill-xp" />
+                <span className="text-xs font-bold text-xp">+{xpEarned} XP</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 glass-panel border-white/5 rounded-xl">
+                <Trophy className="w-3.5 h-3.5 text-success fill-success/20" />
+                <span className="text-xs font-bold text-foreground">
+                  {correctAnswers}/{questions.length || slides.length}
+                </span>
+              </div>
+            </div>
+
+            {lecture?.pdf_url && (
+              <Button
+                onClick={() => window.open(lecture.pdf_url!, '_blank', 'noopener noreferrer')}
+                variant="ghost"
+                className="hidden md:flex gap-2 rounded-xl px-4 text-muted-foreground hover:text-foreground hover:bg-white/5"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span className="text-xs font-bold">Source PDF</span>
+              </Button>
+            )}
+            
+            <Button
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              className="gap-2 rounded-xl px-5 bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary border-none hover:opacity-90"
+            >
+              <Bot className="w-4 h-4" />
+              <span className="text-xs font-bold">AI Tutor</span>
+            </Button>
+          </div>
+        </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="w-full px-6 py-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+          <div className="max-w-6xl mx-auto px-6 py-8">
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
               {/* Main content - Slide viewer */}
-              <div className="lg:col-span-2">
-                <AnimatePresence mode="wait">
-                  {currentSlide && (
-                    <motion.div
-                      key={`slide-${currentSlideIndex}`}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                    >
-                      <SlideViewer
-                        title={currentSlide.title || `Slide ${currentSlide.slide_number}`}
-                        content={currentSlide.content_text || ''}
-                        summary={currentSlide.summary || ''}
-                        slideNumber={currentSlideIndex + 1}
-                        totalSlides={slides.length}
-                        onPrevious={handlePreviousSlide}
-                        onNext={handleNextSlide}
-                        isFirst={currentSlideIndex === 0}
-                        isLast={currentSlideIndex === slides.length - 1}
-                        pdfUrl={lecture?.pdf_url}
-                        pageNumber={currentSlide.slide_number}
-                        onConfidenceRate={async (rating) => {
-                          if (!user || !currentSlide) return;
-                          await supabase.from('learning_events').insert({
-                            user_id: anonId || user.id,
-                            event_type: 'confidence_rating',
-                            event_data: {
-                              lectureId,
+              <AnimatePresence mode="wait">
+                {currentSlide && (
+                  <motion.div
+                    key={`slide-${currentSlideIndex}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <SlideViewer
+                      title={currentSlide.title || `Slide ${currentSlide.slide_number}`}
+                      content={currentSlide.content_text || ''}
+                      summary={currentSlide.summary || ''}
+                      slideNumber={currentSlideIndex + 1}
+                      totalSlides={slides.length}
+                      onPrevious={handlePreviousSlide}
+                      onNext={handleNextSlide}
+                      isFirst={currentSlideIndex === 0}
+                      isLast={currentSlideIndex === slides.length - 1}
+                      pdfUrl={lecture?.pdf_url}
+                      pageNumber={currentSlide.slide_number}
+                      onConfidenceRate={async (rating) => {
+                        if (!user || !currentSlide) return;
+                        await supabase.from('learning_events').insert({
+                          user_id: anonId || user.id,
+                          event_type: 'confidence_rating',
+                          event_data: {
+                            lectureId,
                               slideId: currentSlide.id,
                               slideTitle: currentSlide.title,
                               rating,
@@ -809,7 +814,6 @@ export default function LectureView() {
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
 
               {/* Sidebar - Quiz */}
               <div ref={quizRef}>

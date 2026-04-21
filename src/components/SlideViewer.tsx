@@ -155,64 +155,100 @@ export function SlideViewer({
   const hasPdf = pdfUrl && !pdfError;
 
   // TTS icon to show
-  const TTSIcon = isSpeaking && !isPaused ? Pause : Play;
   const ttsLabel = isSpeaking && !isPaused ? 'Pause' : isPaused ? 'Resume' : 'Listen';
 
   return (
-    <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden transition-all duration-500">
+    <div className="glass-card overflow-hidden transition-all duration-500 flex flex-col h-full">
       {/* Header */}
-      <div className="bg-secondary/50 px-6 py-4 border-b border-border">
+      <div className="bg-surface-1/50 px-6 py-5 border-b border-white/5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 gradient-primary rounded-lg flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-primary-foreground" />
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary">
+              <BookOpen className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">{title}</h2>
-              <p className="text-sm text-muted-foreground">Slide {slideNumber} of {totalSlides}</p>
+              <h2 className="font-bold text-lg text-foreground tracking-tight leading-tight">{title}</h2>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Orbital Lecture</span>
+                <span className="text-[10px] text-muted-foreground">•</span>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Slide {slideNumber} / {totalSlides}</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Progress dots */}
-            <div className="flex gap-1.5">
-              {Array.from({ length: Math.min(totalSlides, 10) }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-2 h-2 rounded-full transition-colors ${i + 1 === slideNumber ? 'bg-primary' : i + 1 < slideNumber ? 'bg-success' : 'bg-muted'
-                    }`}
-                />
-              ))}
-              {totalSlides > 10 && (
-                <span className="text-xs text-muted-foreground ml-1">+{totalSlides - 10}</span>
+          {/* TTS controls */}
+          {ttsSupported && (
+            <div className="flex items-center gap-2">
+              <motion.button
+                onClick={handleSpeak}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300 ${isSpeaking
+                    ? 'bg-primary/20 border-primary/30 text-primary shadow-glow-primary/20'
+                    : 'bg-surface-2 border-white/5 text-muted-foreground hover:text-foreground hover:border-primary/30'
+                  }`}
+                whileTap={{ scale: 0.95 }}
+                title={ttsLabel}
+              >
+                {isSpeaking && !isPaused ? (
+                  <Pause className="w-3.5 h-3.5" />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5" />
+                )}
+                {ttsLabel}
+              </motion.button>
+
+              {isSpeaking && (
+                <motion.button
+                  onClick={stopSpeech}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="p-1.5 rounded-xl bg-surface-2 border border-white/5 text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
+                  title="Stop"
+                >
+                  <Square className="w-3.5 h-3.5" />
+                </motion.button>
               )}
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <motion.div
         key={slideNumber}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className="min-h-[400px] flex flex-col"
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 10 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="flex-1 flex flex-col overflow-y-auto custom-scrollbar"
       >
         {/* PDF Slide Area */}
         {hasPdf && (
-          <div className="flex flex-col border-b border-border bg-muted/10">
-            <div className="px-6 py-3 border-b border-border/50 flex items-center gap-2 text-muted-foreground">
-              <BookOpen className="w-4 h-4" />
-              <span className="text-xs font-semibold uppercase tracking-wider">Slide Preview</span>
+          <div className="flex flex-col border-b border-white/5 bg-surface-1/30">
+            <div className="px-6 py-2 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-muted-foreground/60">
+                <BookOpen className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Original Source Material</span>
+              </div>
+              {/* Speaking indicator */}
+              {isSpeaking && !isPaused && (
+                <div className="flex items-end gap-0.5 h-3">
+                  {[0, 0.15, 0.3].map((delay, i) => (
+                    <motion.div
+                      key={i}
+                      className="w-0.5 bg-primary rounded-full"
+                      animate={{ height: ['4px', '12px', '4px'] }}
+                      transition={{ duration: 0.6, repeat: Infinity, delay }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-            <div ref={pdfContainerRef} className="w-full overflow-y-auto custom-scrollbar bg-muted/5" style={{ maxHeight: '75vh' }}>
+            <div ref={pdfContainerRef} className="w-full bg-black/20" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
               <Document
                 file={pdfUrl}
                 loading={
-                  <div className="flex items-center justify-center h-[400px]">
-                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <div className="flex items-center justify-center h-[300px]">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
                   </div>
                 }
                 onLoadError={() => setPdfError(true)}
@@ -222,166 +258,138 @@ export function SlideViewer({
                   width={containerWidth > 0 ? containerWidth - 2 : undefined}
                   renderTextLayer={true}
                   renderAnnotationLayer={true}
+                  className="mx-auto"
                 />
               </Document>
             </div>
           </div>
         )}
 
-        {/* AI Summary */}
+        {/* AI Summary Section */}
         {summary && (
-          <div className="px-6 py-4 border-b border-border">
-            <div className="bg-secondary/50 rounded-xl p-4 border border-border">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 gradient-xp rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Lightbulb className="w-4 h-4 text-xp-foreground" />
+          <div className="px-6 py-6 border-b border-white/5">
+            <div className="glass-panel border-white/5 rounded-2xl p-5 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-start gap-4 relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-xp to-warning flex items-center justify-center flex-shrink-0 shadow-glow-xp">
+                  <Lightbulb className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-foreground mb-1">AI Summary</h4>
-                  <p className="text-sm text-muted-foreground">{summary}</p>
+                  <h4 className="font-bold text-sm text-foreground mb-1 uppercase tracking-tight">AI Insights</h4>
+                  <p className="text-body-md text-muted-foreground leading-relaxed italic">"{summary}"</p>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Study Notes + TTS */}
-        <div className="flex flex-col flex-1">
-          <div className="px-6 py-3 border-b border-border/50 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-primary">
-              <Lightbulb className="w-4 h-4" />
-              <span className="text-xs font-semibold uppercase tracking-wider">Study Notes & Key Concepts</span>
-            </div>
-
-            {/* TTS controls */}
-            {ttsSupported && (
-              <div className="flex items-center gap-1.5">
-                <motion.button
-                  onClick={handleSpeak}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${isSpeaking
-                      ? 'bg-primary/10 border-primary/30 text-primary'
-                      : 'bg-muted border-border text-muted-foreground hover:text-foreground hover:border-primary/30'
-                    }`}
-                  whileTap={{ scale: 0.95 }}
-                  title={ttsLabel}
-                >
-                  {isSpeaking && !isPaused ? (
-                    <Pause className="w-3.5 h-3.5" />
-                  ) : (
-                    <Volume2 className="w-3.5 h-3.5" />
-                  )}
-                  {ttsLabel}
-                </motion.button>
-
-                {isSpeaking && (
-                  <motion.button
-                    onClick={stopSpeech}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
-                    title="Stop"
-                  >
-                    <Square className="w-3.5 h-3.5" />
-                  </motion.button>
-                )}
-
-                {/* Speaking indicator */}
-                {isSpeaking && !isPaused && (
-                  <div className="flex items-end gap-0.5 h-4">
-                    {[0, 0.15, 0.3].map((delay, i) => (
-                      <motion.div
-                        key={i}
-                        className="w-0.5 bg-primary rounded-full"
-                        animate={{ height: ['4px', '14px', '4px'] }}
-                        transition={{ duration: 0.6, repeat: Infinity, delay }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="p-8 h-full">
-            <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-primary prose-li:text-muted-foreground">
-              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                {content || '_No content available for this slide._'}
-              </ReactMarkdown>
-            </div>
+        {/* Study Notes Content */}
+        <div className="p-8 lg:p-10">
+          <div className="prose prose-lg dark:prose-invert max-w-none 
+            prose-headings:text-foreground prose-headings:font-bold prose-headings:tracking-tight
+            prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:text-body-lg
+            prose-strong:text-primary prose-strong:font-bold
+            prose-ul:text-muted-foreground prose-li:my-2
+            prose-code:text-accent prose-code:bg-accent/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md">
+            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+              {content || '_No content available for this slide._'}
+            </ReactMarkdown>
           </div>
         </div>
       </motion.div>
 
-      {/* ── Confidence Rating ── */}
-      <div className="px-6 py-5 border-t border-border bg-secondary/20">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <p className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-            How well did you understand this slide?
-          </p>
-          <div className="flex items-center gap-2">
-            {CONFIDENCE_OPTIONS.map(opt => {
-              const isActive = confidence === opt.key;
-              return (
-                <motion.button
-                  key={opt.key}
-                  onClick={() => handleConfidence(opt.key!)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all duration-200 ${isActive
-                      ? opt.activeClass
-                      : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
-                    }`}
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.95 }}
-                  animate={isActive && justRated ? { scale: [1, 1.12, 1] } : {}}
-                  transition={{ duration: 0.3 }}
-                >
-                  <span>{opt.emoji}</span>
-                  <span>{opt.label}</span>
-                </motion.button>
-              );
-            })}
-          </div>
-
-          {/* Saved confirmation */}
-          <AnimatePresence>
-            {justRated && (
-              <motion.span
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                className="text-xs text-success font-medium"
-              >
-                ✓ Saved
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="px-8 pb-6 pt-4">
-        <div className="flex items-center justify-between">
-          <Button variant="outline" onClick={onPrevious} disabled={isFirst}>
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Previous
-          </Button>
-
-          <div className="flex items-center gap-2">
-            <div className="h-1 w-32 bg-muted rounded-full overflow-hidden">
-              <motion.div
-                className="h-full gradient-primary"
-                initial={{ width: 0 }}
-                animate={{ width: `${(slideNumber / totalSlides) * 100}%` }}
-              />
+      {/* Footer Actions */}
+      <div className="px-6 py-6 border-t border-white/5 bg-surface-1/50 mt-auto">
+        <div className="flex flex-col gap-6">
+          {/* Confidence Rating — Orbital Style */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-caption font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                <HelpCircle className="w-3.5 h-3.5" />
+                Comprehension Check
+              </p>
+              <p className="text-body-sm text-muted-foreground/70 italic">How well did you grasp these concepts?</p>
             </div>
-            <span className="text-sm text-muted-foreground">
-              {Math.round((slideNumber / totalSlides) * 100)}%
-            </span>
+            
+            <div className="flex items-center gap-3">
+              {CONFIDENCE_OPTIONS.map(opt => {
+                const isActive = confidence === opt.key;
+                return (
+                  <motion.button
+                    key={opt.key}
+                    onClick={() => handleConfidence(opt.key!)}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all duration-300 ${isActive
+                        ? opt.activeClass + ' shadow-lg'
+                        : 'border-white/5 bg-surface-2 text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                      }`}
+                    whileHover={{ y: -2, scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    animate={isActive && justRated ? { y: [-2, -6, -2], scale: [1.02, 1.08, 1.02] } : {}}
+                  >
+                    <span className="text-lg">{opt.emoji}</span>
+                    <span className="hidden sm:inline">{opt.label}</span>
+                  </motion.button>
+                );
+              })}
+              
+              <AnimatePresence>
+                {justRated && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-1.5 text-success font-bold text-xs uppercase tracking-widest ml-2"
+                  >
+                    <Star className="w-3.5 h-3.5 fill-success" />
+                    Saved
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
-          <Button variant={isLast ? 'success' : 'default'} onClick={onNext}>
-            {isLast ? 'Complete' : 'Next'}
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
+          {/* Navigation Controls */}
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-white/5">
+            <Button 
+              variant="outline" 
+              onClick={onPrevious} 
+              disabled={isFirst}
+              className="rounded-xl px-6 h-12 font-bold border-white/5 hover:bg-white/5 hover:text-primary transition-all group"
+            >
+              <ChevronLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
+              Previous
+            </Button>
+
+            <div className="flex-1 max-w-[200px] space-y-2">
+              <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                <span>Course Progress</span>
+                <span>{Math.round((slideNumber / totalSlides) * 100)}%</span>
+              </div>
+              <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-primary via-secondary to-accent rounded-full relative"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(slideNumber / totalSlides) * 100}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                >
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-glow-primary" />
+                </motion.div>
+              </div>
+            </div>
+
+            <Button 
+              variant={isLast ? 'success' : 'default'} 
+              onClick={onNext}
+              className={`rounded-xl px-8 h-12 font-bold transition-all group ${
+                isLast 
+                  ? 'bg-success text-white shadow-glow-success border-none' 
+                  : 'bg-primary text-white shadow-glow-primary border-none hover:opacity-90'
+              }`}
+            >
+              {isLast ? 'Finish Course' : 'Continue'}
+              <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
