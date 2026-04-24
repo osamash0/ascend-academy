@@ -9,10 +9,19 @@ export function useAnalytics(lectureId: string | null) {
     queryFn: async () => {
       if (!lectureId) return null;
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No active session token available');
+      }
+      
       const res = await fetch(`${API_BASE}/lecture/${lectureId}/dashboard`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` }
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
-      if (!res.ok) throw new Error('API Error');
+      if (!res.ok) {
+        if (res.status === 401) {
+            throw new Error('Unauthorized - Token expired');
+        }
+        throw new Error('API Error');
+      }
       const json = await res.json();
       return json.data;
     },

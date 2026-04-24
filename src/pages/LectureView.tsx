@@ -87,13 +87,14 @@ export default function LectureView() {
     const logSlideView = async (slideId: string, title: string, startTime: number) => {
       const duration = Math.round((Date.now() - startTime) / 1000); // seconds
       if (duration < 1) return; // Ignore very short views
+      if (!lecture?.id) return; // Guard: Only track with valid UUID
 
       console.log(`DEBUG: Logging slide_view for ${slideId}, duration: ${duration}s`);
       await supabase.from('learning_events').insert({
         user_id: user.id,
         event_type: 'slide_view',
         event_data: {
-          lectureId: lecture?.id || lectureId,
+          lectureId: lecture.id,
           slideId,
           slideTitle: title,
           duration_seconds: duration,
@@ -352,16 +353,18 @@ export default function LectureView() {
       const prevIndex = currentSlideIndex - 1;
       
       // Log backwards navigation (Friction / Revision loop)
-      await supabase.from('learning_events').insert({
-        user_id: user?.id,
-        event_type: 'slide_back_navigation',
-        event_data: {
-          lectureId: lecture?.id || lectureId,
-          fromSlideId: currentSlide?.id,
-          toSlideId: slides[prevIndex]?.id,
-          timestamp: new Date().toISOString()
-        }
-      });
+      if (lecture?.id) {
+        await supabase.from('learning_events').insert({
+          user_id: user?.id,
+          event_type: 'slide_back_navigation',
+          event_data: {
+            lectureId: lecture.id,
+            fromSlideId: currentSlide?.id,
+            toSlideId: slides[prevIndex]?.id,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
 
       setCurrentSlideIndex(prevIndex);
       setShowQuiz(quizAnswers[prevIndex] !== undefined);
@@ -384,19 +387,21 @@ export default function LectureView() {
     // Log quiz attempt
     const timeToAnswer = Math.round((Date.now() - slideStartTime) / 1000);
 
-    await supabase.from('learning_events').insert({
-      user_id: user?.id,
-      event_type: 'quiz_attempt',
-      event_data: {
-        lectureId: lecture?.id || lectureId,
-        slideId: currentSlide?.id,
-        slideTitle: currentSlide?.title,
-        questionId: currentQuestion?.id,
-        correct: isCorrect,
-        time_to_answer_seconds: timeToAnswer,
-        timestamp: new Date().toISOString()
-      },
-    });
+    if (lecture?.id) {
+      await supabase.from('learning_events').insert({
+        user_id: user?.id,
+        event_type: 'quiz_attempt',
+        event_data: {
+          lectureId: lecture.id,
+          slideId: currentSlide?.id,
+          slideTitle: currentSlide?.title,
+          questionId: currentQuestion?.id,
+          correct: isCorrect,
+          time_to_answer_seconds: timeToAnswer,
+          timestamp: new Date().toISOString()
+        },
+      });
+    }
 
     if (isCorrect) {
       const newXp = xpEarned + 10;
@@ -407,13 +412,15 @@ export default function LectureView() {
         return Math.min(next, totalQ);
       });
 
-      // Add XP to user — RPC should use auth.uid() internally
+      // Add XP to user
       await supabase.rpc('add_xp_to_user', {
+        p_user_id: user?.id,
         p_xp: 10,
       } as any);
 
-      // Update streak — RPC should use auth.uid() internally
+      // Update streak
       const newStreak = await supabase.rpc('update_user_streak', {
+        p_user_id: user?.id,
         p_correct: true,
       } as any);
 
@@ -519,8 +526,9 @@ export default function LectureView() {
 
       await refreshProfile();
     } else {
-      // Reset streak — RPC should use auth.uid() internally
+      // Reset streak
       await supabase.rpc('update_user_streak', {
+        p_user_id: user?.id,
         p_correct: false,
       } as any);
       await refreshProfile();
@@ -776,7 +784,7 @@ export default function LectureView() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-scroll custom-scrollbar">
           <div className="w-full px-6 py-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Main content - Slide viewer */}
@@ -802,12 +810,12 @@ export default function LectureView() {
                         pdfUrl={lecture?.pdf_url}
                         pageNumber={currentSlide.slide_number}
                         onConfidenceRate={async (rating) => {
-                          if (!user || !currentSlide) return;
+                          if (!user || !currentSlide || !lecture?.id) return;
                           await supabase.from('learning_events').insert({
                             user_id: user.id,
                             event_type: 'confidence_rating',
                             event_data: {
-                              lectureId: lecture?.id || lectureId,
+                              lectureId: lecture.id,
                               slideId: currentSlide.id,
                               slideTitle: currentSlide.title,
                               rating,
@@ -902,7 +910,7 @@ export default function LectureView() {
             slideText={currentSlide?.content_text || ''}
             slideTitle={currentSlide?.title || 'Lecture Slide'}
             slideId={currentSlide?.id}
-            lectureId={lecture?.id || lectureId}
+            lectureId={lecture?.id}
           />
         </div>
       </div>
