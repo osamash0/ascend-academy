@@ -104,6 +104,12 @@
     --glass-bg: hsl(222 35% 11% / 0.6);
     --glass-border: hsl(220 20% 97% / 0.08);
     --glass-highlight: hsl(220 20% 97% / 0.05);
+
+    /* ── Spaceship HUD System ── */
+    --hud-cyan: 180 100% 50%;
+    --hud-amber: 45 100% 50%;
+    --hud-red: 0 100% 60%;
+    --hud-bg: 240 10% 3.9%;
   }
 }
 
@@ -425,4 +431,72 @@
     transform: translateY(-100vh) translateX(50px); 
     opacity: 0;
   }
+}
+
+@layer utilities {
+  .hud-border-cyan { border-color: hsl(var(--hud-cyan) / 0.3); }
+  .hud-border-amber { border-color: hsl(var(--hud-amber) / 0.3); }
+  .hud-glow-cyan { box-shadow: 0 0 15px hsl(var(--hud-cyan) / 0.2); }
+  .hud-glow-amber { box-shadow: 0 0 15px hsl(var(--hud-amber) / 0.2); }
+  .hud-text-cyan { color: hsl(var(--hud-cyan)); text-shadow: 0 0 10px hsl(var(--hud-cyan) / 0.5); }
+  .hud-text-amber { color: hsl(var(--hud-amber)); text-shadow: 0 0 10px hsl(var(--hud-amber) / 0.5); }
+
+  .glass-hud {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  }
+
+  .scanline {
+    width: 100%;
+    height: 100px;
+    z-index: 10;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0) 100%);
+    opacity: 0.1;
+    position: absolute;
+    bottom: 100%;
+    animation: scanline 10s linear infinite;
+  }
+
+  @keyframes scanline {
+    0% { bottom: 100%; }
+    100% { bottom: -100%; }
+  }
+
+  @keyframes vibration {
+    0% { transform: translate(0,0); }
+    25% { transform: translate(1px, 1px); }
+    50% { transform: translate(-1px, -1px); }
+    75% { transform: translate(1px, -1px); }
+    100% { transform: translate(0,0); }
+  }
+
+  .animate-vibration {
+    animation: vibration 0.1s linear infinite;
+  }
+
+  /* Hide scrollbar for carousels but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Custom font rendering */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent horizontal overflow */
+body {
+  overflow-x: hidden;
 }

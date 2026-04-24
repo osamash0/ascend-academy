@@ -132,36 +132,25 @@ export default function LectureView() {
     let currentLectureId = lectureId;
     if (!currentLectureId) return;
 
-    // Resolve slug to ID if necessary
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentLectureId);
-
-    if (!isUuid) {
-      const { data: routeData } = await (supabase as any)
+    try {
+      // Fetch lecture - We removed slug resolution as the slug column was deleted
+      const { data: lectureData, error: lectureError } = await supabase
         .from('lectures')
-        .select('id')
-        .eq('slug', currentLectureId)
+        .select('*, pdf_url')
+        .eq('id', currentLectureId)
         .single();
 
-      if (routeData) {
-        currentLectureId = routeData.id;
-      } else {
-        toast({ title: 'Not Found', description: 'Lecture not found.', variant: 'destructive' });
+      if (lectureError) {
+        console.error('Error fetching lecture:', lectureError);
+        toast({ title: 'Not Found', description: 'Lecture not found or error loading data.', variant: 'destructive' });
         navigate('/dashboard');
         return;
       }
-    }
 
-    // Fetch lecture
-    const { data: lectureData } = await supabase
-      .from('lectures')
-      .select('*, pdf_url')
-      .eq('id', currentLectureId)
-      .single();
-
-    if (lectureData) {
-      console.log('DEBUG: Fetched lecture data:', lectureData);
-      setLecture(lectureData);
-    }
+      if (lectureData) {
+        console.log('DEBUG: Fetched lecture data:', lectureData);
+        setLecture(lectureData);
+      }
 
     // Fetch slides
     const { data: slidesData } = await supabase
@@ -296,6 +285,11 @@ export default function LectureView() {
     });
 
     setLoading(false);
+    } catch (err) {
+      console.error('Fatal error in fetchLectureData:', err);
+      toast({ title: 'Error', description: 'A system error occurred.', variant: 'destructive' });
+      setLoading(false);
+    }
   };
 
   const currentSlide = slides[currentSlideIndex];

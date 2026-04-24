@@ -154,14 +154,6 @@ export default function LectureEdit() {
                 }
             }
 
-            // 2. Update lecture (regenerate slug from title if it changed, or keep existing)
-            const slug = title
-                .toLowerCase()
-                .trim()
-                .replace(/[^\w\s-]/g, '')
-                .replace(/[\s_-]+/g, '-')
-                .replace(/^-+|-+$/g, '');
-
             const { error: lErr } = await supabase
                 .from('lectures')
                 .update({
