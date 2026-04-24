@@ -1,0 +1,186 @@
+# Intelligent Slide Content Filtering for AI Summary & Quiz
+
+## Problem
+
+When a PDF lecture is uploaded, **every page** gets processed equally by the AI — including title slides, instructor contact pages, exam date announcements, table-of-contents slides, and "thank you" slides. This wastes API tokens and produces useless quiz questions like *"What is Dr. Mühling's email address?"*.
+
+## Research Summary
+
+Based on extensive research into NLP content classification, information density scoring, boilerplate detection, and LLM-as-a-judge methods, the best approach for this use case is a **3-layer filtering pipeline** that balances speed, cost, and accuracy.
+
+---
+
+## Architecture: 3-Layer Filtering Pipeline
+
+```mermaid
+flowchart TD
+    A[Raw Slide Text] --> B{Layer 1: Fast Heuristic}
+    B -->|METADATA — high confidence| D[Skip AI Processing]
+    B -->|EDUCATIONAL — high confidence| E[Full AI Processing]
+    B -->|UNCERTAIN| C{Layer 2: Information Density Score}
+    C -->|Score < threshold| D
+    C -->|Score > threshold| E
+    C -->|Borderline| F{Layer 3: LLM-as-a-Judge}
+    F -->|METADATA| D
+    F -->|EDUCATIONAL| E
+
+    D --> G["summary = placeholder message\nquiz = empty"]
+    E --> H["summary = AI generated\nquiz = AI generated"]
+```
+
+### Layer 1 — Fast Heuristic Pre-Filter (zero cost, ~1ms)
+
+Catches the **obvious** cases without any computation. Uses pattern matching and structural rules.
+
+**Detects:**
+
+| Category | Patterns |
+|---|---|
+| **Title slides** | Slide with < 30 words, contains "Lecture \d+", course name pattern, no substantive content |
+| **Contact/Info slides** | Email regex, "office hours", "contact", "sprechstunde" |
+| **Date/Admin slides** | Date patterns (DD.MM.YYYY, MM/DD/YYYY), "exam", "klausur", "deadline", "assignment due" |
+| **Boilerplate slides** | "thank you", "questions?", "references", "bibliography", "table of contents", "agenda", "outline" |
+| **University metadata** | "universität", "university", "department", "fachbereich", "fakultät", "faculty" |
+| **Empty/minimal slides** | Text length < 50 chars after stripping whitespace |
+
+**Decision logic:**
+- Compute a `metadata_signal_count` (number of metadata patterns matched)
+- Compute a `word_count` (total meaningful words on the slide)
+- If `metadata_signal_count >= 3` AND `word_count < 60` → **METADATA** (high confidence)
+- If `metadata_signal_count == 0` AND `word_count > 80` → **EDUCATIONAL** (high confidence)
+- Otherwise → pass to **Layer 2**
+
+### Layer 2 — Information Density Score (zero cost, ~5ms)
+
+For slides that aren't obviously one or the other, compute a **content density score** inspired by NLP research on lexical density and factual density.
+
+**Scoring formula:**
+
+```
+content_density = (content_word_count / total_word_count) × unique_word_ratio × length_factor
+```
+
+Where:
+- **`content_word_count`** = count of nouns, verbs, adjectives (approximated by filtering out a stop-word list and metadata keywords)
+- **`total_word_count`** = all words
+- **`unique_word_ratio`** = unique words / total words (metadata slides tend to repeat the same few words; educational slides have richer vocabulary)
+- **`length_factor`** = `min(1.0, word_count / 40)` — penalizes very short slides
+
+**Thresholds:**
+- `content_density < 0.25` → **METADATA**
+- `content_density > 0.45` → **EDUCATIONAL**
+- Between → pass to **Layer 3**
+
+### Layer 3 — LLM-as-a-Judge (only for ~5-10% of ambiguous slides)
+
+For the rare ambiguous cases, leverage the **Gemini structured output** to make a binary classification. This uses a single cheap API call with structured JSON response.
+
+**Prompt:**
+
+```
+Classify this lecture slide text as either "educational" or "metadata".
+- "educational": contains concepts, definitions, explanations, formulas, examples, or substantive learning material
+- "metadata": contains mainly administrative info like instructor details, dates, logistics, grading policy, table of contents, or acknowledgements
+
+Slide text:
+{slide_text}
+```
+
+**Structured response schema:**
+
+```python
+class SlideClassification(BaseModel):
+    classification: str  # "educational" or "metadata"
+    confidence: float    # 0.0 to 1.0
+    reason: str          # brief explanation
+```
+
+This is only called for genuinely ambiguous cases, so it adds minimal cost (typically < 5-10% of slides).
+
+---
+
+## Proposed Changes
+
+### Backend Services
+
+#### [MODIFY] [ai_service.py](file:///c:/Users/Osama/ascend-academy/backend/services/ai_service.py)
+
+Add a new `content_filter.py` module (or add functions to [ai_service.py](file:///c:/Users/Osama/ascend-academy/backend/services/ai_service.py)) with:
+
+1. **`is_metadata_slide(text, slide_index, total_slides, ai_model) → dict`**
+   - Runs the 3-layer pipeline
+   - Returns `{"is_metadata": bool, "confidence": float, "reason": str, "layer": int}`
+   - `slide_index` and `total_slides` provide positional context (first/last slides are more likely metadata)
+
+2. **`_heuristic_check(text, slide_index, total_slides) → str`** — returns `"metadata"`, `"educational"`, or `"uncertain"`
+
+3. **`_compute_content_density(text) → float`** — returns the density score
+
+4. **`_llm_classify_slide(text, ai_model) → dict`** — calls Gemini with structured output for the final verdict
+
+5. **Stop-word list and metadata keyword list** — comprehensive lists for English and German (since the lectures appear to be from a German university)
+
+Also update [generate_summary](file:///c:/Users/Osama/ascend-academy/backend/services/ai_service.py#92-116) and [generate_quiz](file:///c:/Users/Osama/ascend-academy/backend/services/ai_service.py#118-168) prompts to add:
+> *"Focus ONLY on the educational/academic content. Completely ignore any administrative information such as instructor names, emails, office hours, dates, university names, grading policies, or logistics."*
+
+---
+
+#### [MODIFY] [file_parse_service.py](file:///c:/Users/Osama/ascend-academy/backend/services/file_parse_service.py)
+
+In the [parse_pdf](file:///c:/Users/Osama/ascend-academy/backend/services/file_parse_service.py#8-60) loop, **before** calling [enhance_slide_content](file:///c:/Users/Osama/ascend-academy/backend/services/ai_service.py#55-90):
+
+```python
+filter_result = is_metadata_slide(raw_text, i, len(reader.pages), ai_model)
+if filter_result["is_metadata"]:
+    # Still include the slide but skip expensive AI processing
+    slides.append({
+        "title": f"Slide {i + 1}",
+        "content": raw_text,  # keep original text
+        "summary": "",        # empty = no summary for this slide
+        "questions": [],      # no quiz for metadata slides
+        "is_metadata": True,  # flag for frontend
+    })
+    continue
+```
+
+This means metadata slides are **still visible** to students (they can see the original content) but they don't get AI-generated summaries or quizzes.
+
+---
+
+#### [MODIFY] [ai_content.py](file:///c:/Users/Osama/ascend-academy/backend/api/ai_content.py)
+
+In [generate_summary_endpoint](file:///c:/Users/Osama/ascend-academy/backend/api/ai_content.py#30-40) and [generate_quiz_endpoint](file:///c:/Users/Osama/ascend-academy/backend/api/ai_content.py#41-51), add a quick pre-check:
+
+```python
+filter_result = is_metadata_slide(body.slide_text, slide_index=0, total_slides=1, ai_model=body.ai_model)
+if filter_result["is_metadata"]:
+    return {"summary": "This slide contains administrative information and is not suitable for summarization."}
+```
+
+This handles the case where a professor clicks "AI Generate" on a metadata slide manually.
+
+---
+
+## Why This Is Better Than Simple Keyword Matching
+
+| Aspect | Simple keywords (v1) | 3-Layer Pipeline (v2) |
+|---|---|---|
+| False positives | High — a slide mentioning "professor X proved theorem Y" would be flagged | Low — density scoring catches real educational content containing metadata words |
+| False negatives | High — misses slides without exact keyword matches | Low — LLM fallback catches unusual metadata formats |
+| Multilingual | No | Yes — keyword lists for both English & German |
+| Cost | Zero | ~Zero (LLM only for 5-10% of ambiguous slides) |
+| Adaptability | Rigid | LLM layer naturally adapts to new patterns |
+| Positional awareness | No | Yes — first/last slide bonus for metadata detection |
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Restart backend server (`uvicorn`) and confirm no import errors.
+- Upload the user's Linear Regression PDF and verify the first slide (title/contact) is correctly filtered.
+
+### Manual Verification
+- Check that the title slide gets `"summary": ""` and `"questions": []`.
+- Check that real content slides (e.g., explaining linear regression) get proper AI summaries and quizzes.
+- Test the "AI Generate" button on a metadata slide to confirm it returns the placeholder message gracefully.

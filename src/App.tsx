@@ -15,6 +15,11 @@ import Achievements from "./pages/Achievements";
 import ProfessorDashboard from "./pages/ProfessorDashboard";
 import ProfessorAnalytics from "./pages/ProfessorAnalytics";
 import LectureUpload from "./pages/LectureUpload";
+import LectureEdit from "./pages/LectureEdit";
+import Settings from "./pages/Settings";
+import Impressum from "./pages/Impressum";
+import Datenschutz from "./pages/Datenschutz";
+import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,11 +70,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function DashboardRouter() {
   const { role } = useAuth();
-  
+
   if (role === 'professor') {
     return <Navigate to="/professor/dashboard" replace />;
   }
-  
+
   return (
     <DashboardLayout>
       <StudentDashboard />
@@ -83,6 +88,8 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+      <Route path="/impressum" element={<Impressum />} />
+      <Route path="/datenschutz" element={<Datenschutz />} />
 
       {/* Student routes */}
       <Route
@@ -111,6 +118,26 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/leaderboard"
+        element={
+          <ProtectedRoute allowedRoles={['student']}>
+            <DashboardLayout>
+              <Leaderboard />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Settings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
 
       {/* Professor routes */}
       <Route
@@ -134,11 +161,31 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/professor/analytics/:lectureId"
+        element={
+          <ProtectedRoute allowedRoles={['professor']}>
+            <DashboardLayout>
+              <ProfessorAnalytics />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/professor/upload"
         element={
           <ProtectedRoute allowedRoles={['professor']}>
             <DashboardLayout>
               <LectureUpload />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/professor/lecture/:lectureId"
+        element={
+          <ProtectedRoute allowedRoles={['professor']}>
+            <DashboardLayout>
+              <LectureEdit />
             </DashboardLayout>
           </ProtectedRoute>
         }

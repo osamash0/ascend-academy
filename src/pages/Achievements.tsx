@@ -34,7 +34,7 @@ export default function Achievements() {
     if (user) {
       fetchAchievements();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const fetchAchievements = async () => {
     const { data } = await supabase
@@ -53,8 +53,29 @@ export default function Achievements() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl border border-border p-6 animate-pulse">
+              <div className="w-8 h-8 bg-muted rounded-full mx-auto mb-3" />
+              <div className="h-7 w-12 bg-muted rounded mx-auto mb-1" />
+              <div className="h-4 w-16 bg-muted rounded mx-auto" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl border border-border p-5 animate-pulse space-y-3">
+              <div className="flex gap-4 items-center">
+                <div className="w-12 h-12 bg-muted rounded-xl flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-3/4 bg-muted rounded" />
+                  <div className="h-3 w-full bg-muted rounded" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -137,7 +158,15 @@ export default function Achievements() {
       </div>
 
       {/* Earned Achievements */}
-      {achievements.length > 0 && (
+      {achievements.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <span className="text-6xl mb-4">🌱</span>
+          <h3 className="text-xl font-semibold text-foreground mb-2">No badges yet — but your journey starts now!</h3>
+          <p className="text-muted-foreground max-w-md">
+            Complete a lecture quiz, build a streak, or level up to earn your first badge. Every expert was once a beginner.
+          </p>
+        </div>
+      ) : (
         <div>
           <h2 className="text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
             <span className="text-2xl">🏆</span> Earned Badges

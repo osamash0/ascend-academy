@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -31,22 +31,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const hasFetchedProfile = useRef(false);
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data: profileData } = await supabase
+  const fetchProfile = async (userId: string): Promise<boolean> => {
+    const { data: profileData, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
       .single();
-    
-    if (profileData) {
-      setProfile(profileData as Profile);
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        setProfile(null);
+        return false;
+      }
+      console.error("fetchProfile error:", error);
+      // Keep session alive for transient errors
+      return true;
     }
+
+    if (!profileData) {
+      setProfile(null);
+      return false;
+    }
+
+    setProfile(profileData as Profile);
+    return true;
   };
 
   const fetchRole = async (userId: string) => {
@@ -55,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('role')
       .eq('user_id', userId)
       .single();
-    
+
     if (roleData) {
       setRole(roleData.role as UserRole);
     }
@@ -67,52 +82,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const withTimeout = <T,>(promise: Promise<T>, ms: number = 5000): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Supabase deadlock timeout')), ms))
+    ]);
+  };
+
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Listen for auth changes (handles initial session automatically in Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer profile/role fetching with setTimeout
-        if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-            fetchRole(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-          setRole(null);
+      async (event, session) => {
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
+
+          if (session?.user) {
+            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || !hasFetchedProfile.current) {
+                hasFetchedProfile.current = true;
+                const hasProfile = await withTimeout(fetchProfile(session.user.id), 15000).catch(() => true);
+                if (!hasProfile) {
+                  console.warn("User has session but no profile. Signing out.");
+                  await signOut().catch(() => {});
+                } else {
+                  await withTimeout(fetchRole(session.user.id), 15000).catch(() => {});
+                }
+            }
+          } else {
+            setProfile(null);
+            setRole(null);
+          }
+        } catch (error: any) {
+          console.error("Auth state change error:", error);
+        } finally {
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
-        fetchRole(session.user.id);
-      }
-      
-      setLoading(false);
-    });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string, selectedRole: UserRole) => {
     const redirectUrl = `${window.location.origin}/`;
-    
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
+        data: {
+          role: selectedRole,
+        },
       },
     });
 
@@ -120,27 +141,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error };
     }
 
-    // Insert role after signup
+    // Role is now stored in user_metadata.role
+    // A Supabase database trigger (on_auth_user_created) should read
+    // raw_user_meta_data->>'role' and insert into user_roles.
+    // Fallback: insert from client if trigger is not yet set up.
     if (data.user && selectedRole) {
-      const { error: roleError } = await supabase
+      await supabase
         .from('user_roles')
-        .insert({ user_id: data.user.id, role: selectedRole });
-      
-      if (roleError) {
-        console.error('Error setting role:', roleError);
-      }
+        .upsert({ user_id: data.user.id, role: selectedRole }, { onConflict: 'user_id' });
     }
 
     return { error: null };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    return { error };
+    if (error) return { error };
+
+    // After successful auth, check if profile exists
+    if (data.user) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', data.user.id)
+        .single();
+      
+      if (!profileData) {
+        await supabase.auth.signOut();
+        return { error: new Error('Your account appears to have been deleted. Please contact support if this is an error.') };
+      }
+    }
+
+    return { error: null };
   };
 
   const signOut = async () => {

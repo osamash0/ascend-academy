@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   GraduationCap,
@@ -34,12 +34,15 @@ import {
 const studentNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Achievements', url: '/achievements', icon: Trophy },
+  { title: 'Leaderboard', url: '/leaderboard', icon: Users },
+  { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
 const professorNavItems = [
   { title: 'Dashboard', url: '/professor/dashboard', icon: LayoutDashboard },
   { title: 'Analytics', url: '/professor/analytics', icon: BarChart3 },
   { title: 'Upload Lecture', url: '/professor/upload', icon: Upload },
+  { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -59,7 +62,10 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate(role === 'professor' ? '/professor/dashboard' : '/dashboard')}
+          className="flex items-center gap-3 w-full hover:opacity-80 transition-opacity cursor-pointer"
+        >
           <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center flex-shrink-0">
             <GraduationCap className="w-6 h-6 text-primary-foreground" />
           </div>
@@ -72,7 +78,7 @@ export function AppSidebar() {
               Learnstation
             </motion.span>
           )}
-        </div>
+        </button>
       </SidebarHeader>
 
       <SidebarContent>
@@ -109,16 +115,18 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
-                const isActive = location.pathname === item.url;
+                const isActive = location.pathname.startsWith(item.url);
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
-                      onClick={() => navigate(item.url)}
+                      asChild
                       isActive={isActive}
                       tooltip={item.title}
                     >
-                      <item.icon className="w-5 h-5" />
-                      <span>{item.title}</span>
+                      <Link to={item.url}>
+                        <item.icon className="w-5 h-5" />
+                        <span>{item.title}</span>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -129,13 +137,27 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
-        <div className="space-y-2">
+        <div className="space-y-4">
           {!isCollapsed && (
-            <div className="px-2 py-2">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {profile?.email}
-              </p>
-              <p className="text-xs text-muted-foreground capitalize">{role}</p>
+            <div 
+              onClick={() => navigate('/settings')}
+              className="flex items-center gap-3 px-2 py-1 cursor-pointer hover:bg-sidebar-accent rounded-lg transition-colors group"
+            >
+              <div className="w-10 h-10 rounded-full border border-border shadow-sm overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="User Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-muted-foreground font-semibold text-sm">
+                    {profile?.full_name?.charAt(0)?.toUpperCase() || profile?.email?.charAt(0)?.toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col overflow-hidden">
+                <p className="text-sm font-semibold text-sidebar-foreground truncate group-hover:text-primary transition-colors">
+                  {profile?.full_name || profile?.email}
+                </p>
+                <p className="text-xs text-muted-foreground capitalize">{role}</p>
+              </div>
             </div>
           )}
           <Button

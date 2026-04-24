@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GraduationCap, BookOpen, User, Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
+import { GraduationCap, BookOpen, User, Mail, Lock, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
 
 const authSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -20,9 +21,12 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [loading, setLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -48,10 +52,17 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setLoading(true);
+
+    // Require privacy consent for signup
+    if (!isLogin && !privacyConsent) {
+      toast({ title: 'Privacy consent required', description: 'Please agree to the Datenschutzerklärung.', variant: 'destructive' });
+      setLoading(false);
+      return;
+    }
 
     try {
       if (isLogin) {
@@ -59,7 +70,7 @@ export default function Auth() {
         if (error) {
           toast({
             title: 'Login failed',
-            description: error.message === 'Invalid login credentials' 
+            description: error.message === 'Invalid login credentials'
               ? 'Invalid email or password. Please try again.'
               : error.message,
             variant: 'destructive',
@@ -100,6 +111,32 @@ export default function Auth() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setErrors({ email: 'Please enter your email address first.' });
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast({
+        title: 'Password reset email sent!',
+        description: 'Check your inbox for a link to reset your password.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Failed to send reset email',
+        description: error.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left side - Branding */}
@@ -108,7 +145,7 @@ export default function Auth() {
           <div className="absolute top-20 left-20 w-64 h-64 bg-primary-foreground/10 rounded-full blur-3xl" />
           <div className="absolute bottom-20 right-20 w-96 h-96 bg-primary-foreground/10 rounded-full blur-3xl" />
         </div>
-        
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -121,12 +158,12 @@ export default function Auth() {
             </div>
             <span className="text-2xl font-bold text-primary-foreground">Learnstation</span>
           </div>
-          
+
           <h1 className="text-4xl lg:text-5xl font-bold text-primary-foreground mb-6 leading-tight">
             Learn smarter,<br />
             not harder.
           </h1>
-          
+
           <p className="text-xl text-primary-foreground/80 max-w-md">
             Transform your lectures into interactive quizzes. Track progress, earn XP, and level up your learning.
           </p>
@@ -197,18 +234,15 @@ export default function Auth() {
                     key={role}
                     type="button"
                     onClick={() => setSelectedRole(role)}
-                    className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                      selectedRole === role
-                        ? 'border-primary bg-secondary'
-                        : 'border-border hover:border-primary/50'
-                    }`}
+                    className={`p-4 rounded-xl border-2 transition-all duration-200 ${selectedRole === role
+                      ? 'border-primary bg-secondary'
+                      : 'border-border hover:border-primary/50'
+                      }`}
                   >
-                    <Icon className={`w-6 h-6 mx-auto mb-2 ${
-                      selectedRole === role ? 'text-primary' : 'text-muted-foreground'
-                    }`} />
-                    <span className={`text-sm font-medium ${
-                      selectedRole === role ? 'text-foreground' : 'text-muted-foreground'
-                    }`}>
+                    <Icon className={`w-6 h-6 mx-auto mb-2 ${selectedRole === role ? 'text-primary' : 'text-muted-foreground'
+                      }`} />
+                    <span className={`text-sm font-medium ${selectedRole === role ? 'text-foreground' : 'text-muted-foreground'
+                      }`}>
                       {label}
                     </span>
                   </button>
@@ -228,6 +262,7 @@ export default function Auth() {
                   placeholder="you@university.edu"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                   className={`pl-10 ${errors.email ? 'border-destructive' : ''}`}
                 />
               </div>
@@ -237,17 +272,39 @@ export default function Auth() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={forgotLoading}
+                    className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    {forgotLoading ? 'Sending...' : 'Forgot password?'}
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`pl-10 ${errors.password ? 'border-destructive' : ''}`}
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  className={`pl-10 pr-10 ${errors.password ? 'border-destructive' : ''}`}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password}</p>
@@ -259,7 +316,7 @@ export default function Auth() {
               variant="hero"
               size="lg"
               className="w-full"
-              disabled={loading}
+              disabled={loading || (!isLogin && !privacyConsent)}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -269,10 +326,27 @@ export default function Auth() {
               ) : (
                 <>
                   {isLogin ? 'Log in' : 'Create account'}
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4 ml-2" />
                 </>
               )}
             </Button>
+
+            {!isLogin && (
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyConsent}
+                  onChange={(e) => setPrivacyConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+                />
+                <span className="text-xs text-muted-foreground">
+                  I have read and agree to the{' '}
+                  <a href="/datenschutz" target="_blank" className="text-primary hover:underline">
+                    Datenschutzerklärung
+                  </a>.
+                </span>
+              </label>
+            )}
           </form>
 
           <div className="mt-6 text-center">
