@@ -176,18 +176,19 @@ export default function LectureView() {
 
   const currentSlide = slides[currentSlideIndex];
   const currentSlideQuestions = questions.filter(
-    q => q.slide_id === currentSlide?.id || 
-    (questions.length > 0 && currentSlideIndex < questions.length)
+    q => q.slide_id === currentSlide?.id
   );
-  const currentQuestion = currentSlideQuestions[currentQuestionIndex] || questions[currentSlideIndex];
+  const currentQuestion = currentSlideQuestions[currentQuestionIndex] ?? questions[currentSlideIndex];
 
   const handleNextSlide = () => {
-    if (currentSlideIndex < slides.length - 1) {
-      setCurrentSlideIndex(prev => prev + 1);
+    if (currentQuestion) {
+      // Show quiz for the current slide before advancing
       setShowQuiz(true);
       setCurrentQuestionIndex(0);
+    } else if (currentSlideIndex < slides.length - 1) {
+      // No quiz for this slide, advance directly
+      setCurrentSlideIndex(prev => prev + 1);
     } else {
-      // Lecture complete
       handleLectureComplete();
     }
   };
