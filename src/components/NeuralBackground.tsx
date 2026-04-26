@@ -76,25 +76,17 @@ function NeuralConnection({ count = 20 }) {
   );
 }
 
+const isWebGLAvailable = () => {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+  } catch (e) {
+    return false;
+  }
+};
+
 export function NeuralBackground() {
   return (
-    <div className="absolute inset-0 z-0 pointer-events-none opacity-40">
-      <Canvas camera={{ position: [0, 0, 5], fov: 60 }}>
-        <color attach="background" args={['#000000']} />
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
-        
-        <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-          <ParticleField count={1000} />
-          <NeuralConnection count={40} />
-        </Float>
-        
-        {/* Glow sphere in the center */}
-        <mesh scale={[2, 2, 2]}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <meshBasicMaterial color="#4f46e5" transparent opacity={0.02} />
-        </mesh>
-      </Canvas>
-    </div>
+    <div className="absolute inset-0 z-0 pointer-events-none opacity-40 bg-gradient-to-br from-black via-primary/10 to-black" />
   );
 }

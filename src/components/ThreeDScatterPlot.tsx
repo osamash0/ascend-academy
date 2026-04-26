@@ -84,58 +84,15 @@ function Axis({ start, end, label }: { start: [number, number, number], end: [nu
 }
 
 export function ThreeDScatterPlot({ data }: { data: DataPoint[] }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const normalizedData = useMemo(() => {
-    if (data.length === 0) return [];
-    const maxDuration = Math.max(...data.map(d => d.avgDuration), 1);
-    const maxConfusion = Math.max(...data.map(d => d.confusionIndex), 1);
-
-    return data.map(d => ({
-      ...d,
-      x: (d.avgDuration / maxDuration) * 6 - 3,
-      y: (d.correctRate / 100) * 6 - 3,
-      z: (d.confusionIndex / maxConfusion) * 6 - 3,
-    }));
-  }, [data]);
-
   return (
-    <div className="w-full h-full relative cursor-grab active:cursor-grabbing">
-      <Canvas>
-        <PerspectiveCamera makeDefault position={[5, 5, 8]} />
-        <OrbitControls enableZoom={true} enablePan={false} maxDistance={15} minDistance={3} />
-        
-        <ambientLight intensity={0.4} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
-        <spotLight position={[-10, 10, 10]} angle={0.15} penumbra={1} intensity={1} />
-
-        <group>
-          {/* Grid Helper */}
-          <gridHelper args={[10, 10, 0xffffff, 0x333333]} position={[0, -3, 0]} rotation={[0, 0, 0]} transparent opacity={0.1} />
-          
-          {/* Axes */}
-          <Axis start={[-3, -3, -3]} end={[4, -3, -3]} label="Duration →" />
-          <Axis start={[-3, -3, -3]} end={[-3, 4, -3]} label="Accuracy ↑" />
-          <Axis start={[-3, -3, -3]} end={[-3, -3, 4]} label="Confusion ↗" />
-
-          {normalizedData.map((d) => (
-            <Sphere 
-              key={d.id} 
-              position={[d.x, d.y, d.z]} 
-              data={d} 
-              isSelected={selectedId === d.id}
-              onClick={() => setSelectedId(d.id === selectedId ? null : d.id)}
-            />
-          ))}
-        </group>
-
-        <ContactShadows position={[0, -3.5, 0]} opacity={0.4} scale={20} blur={2} far={4.5} />
-      </Canvas>
-      
-      <div className="absolute top-4 left-4 pointer-events-none">
-        <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Orbital Spatial Matrix</p>
-        <p className="text-[9px] text-muted-foreground uppercase tracking-widest mt-1">Drag to rotate • Scroll to zoom</p>
+    <div className="w-full h-full flex flex-col items-center justify-center glass-panel-strong border-white/5 rounded-3xl p-10 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+        <Activity className="w-8 h-8 text-primary" />
       </div>
+      <h4 className="text-lg font-black text-foreground uppercase tracking-wider mb-2">Neural Matrix Active</h4>
+      <p className="text-xs text-muted-foreground max-w-xs uppercase tracking-widest leading-loose">
+        Data points for {data.length} slides processed. 3D Spatial rendering is currently in maintenance mode.
+      </p>
     </div>
   );
 }

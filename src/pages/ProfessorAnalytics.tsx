@@ -248,6 +248,9 @@ export default function ProfessorAnalytics() {
   const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [matrixView, setMatrixView] = useState<'2d' | '3d'>('3d');
+  const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
+  const [metricFeedback, setMetricFeedback] = useState<string | null>(null);
+  const [metricLoading, setMetricLoading] = useState(false);
 
   // Dashboard hook
   const { dashboard } = useAnalytics(selectedLectureId ?? null);
@@ -302,29 +305,22 @@ export default function ProfessorAnalytics() {
   }, [selectedLectureId, lectures]);
 
   // AI Insights Generator
+  // AI Insights Generator
   const fetchAiInsights = useCallback(async () => {
     if (!dashboardData) return;
     setAiLoading(true);
     setAiInsights(null);
 
-    const hardSlides = dashboardData.slidePerformance
-      .filter(s => s.correctRate < 60 && s.avgDuration > 0)
-      .slice(0, 3).map(s => `${s.name} (${s.correctRate}% correct)`)
-      .join(', ') || 'None identified';
-
-    const engagingSlides = dashboardData.slidePerformance
-      .sort((a, b) => b.avgDuration - a.avgDuration)
-      .slice(0, 3)
-      .map(s => `${s.name} (${s.avgDuration}s avg)`)
-      .join(', ') || 'None identified';
-
-    const weeklyTrend = dashboardData.activityByDay.map(d => `${d.date}: ${d.attempts}`).join(', ');
-    const confSummary = `Got it: ${dashboardData.confidenceMap.got_it}, Unsure: ${dashboardData.confidenceMap.unsure}, Confused: ${dashboardData.confidenceMap.confused}`;
-
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('No session');
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
+      
+      const hardSlides = dashboardData.slidePerformance
+        .filter(s => s.quizAttempts > 0)
+        .sort((a, b) => a.correctRate - b.correctRate)
+        .slice(0, 3)
+        .map(s => s.name)
+        .join(', ');
 
       const res = await fetch(`${API_BASE}/api/ai/analytics-insights`, {
         method: 'POST',
@@ -338,10 +334,7 @@ export default function ProfessorAnalytics() {
           total_attempts: dashboardData.overview.totalAttempts,
           total_correct: dashboardData.overview.totalCorrect,
           hard_slides: hardSlides,
-          engaging_slides: engagingSlides,
-          weekly_trend: weeklyTrend,
-          confidence_summary: confSummary,
-          ai_model: localStorage.getItem('ascend-academy-ai-model') || 'llama3'
+          ai_model: model
         }),
       });
       if (res.ok) setAiInsights(await res.json());
@@ -357,6 +350,54 @@ export default function ProfessorAnalytics() {
     }
     setAiLoading(false);
   }, [dashboardData]);
+
+  const handleMetricClick = async (title: string, value: any) => {
+    if (selectedMetric === title) {
+      setSelectedMetric(null);
+      setMetricFeedback(null);
+      return;
+    }
+
+    setSelectedMetric(title);
+    setMetricLoading(true);
+    setMetricFeedback(null);
+
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
+      
+      const context = {
+        average_score: dashboardData?.overview.averageScore,
+        total_students: dashboardData?.overview.uniqueStudents,
+        hard_slides: dashboardData?.slidePerformance
+          .sort((a, b) => a.correctRate - b.correctRate)
+          .slice(0, 2)
+          .map(s => s.name)
+          .join(', ')
+      };
+
+      const res = await fetch(`${API_BASE}/api/ai/metric-feedback`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          metric_name: title,
+          metric_value: value,
+          context_stats: context,
+          ai_model: model
+        }),
+      });
+      const data = await res.json();
+      setMetricFeedback(data.feedback);
+    } catch (err) {
+      console.error(err);
+      setMetricFeedback("Could not establish neural link for this metric.");
+    } finally {
+      setMetricLoading(false);
+    }
+  };
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
 
@@ -479,13 +520,44 @@ export default function ProfessorAnalytics() {
               ].map((stat, idx) => (
                 <motion.div
                   key={idx}
+                  layout
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.1 }}
                   whileHover={{ scale: 1.05, rotateZ: 2, z: 50 }}
-                  className="perspective-500"
+                  className={`perspective-500 transition-all duration-500 ${selectedMetric === stat.title ? 'col-span-2 row-span-1' : ''}`}
                 >
-                  <StatsCard {...stat} />
+                  <StatsCard 
+                    {...stat} 
+                    onClick={() => handleMetricClick(stat.title, stat.value)}
+                    className={selectedMetric === stat.title ? 'ring-2 ring-primary shadow-glow-primary' : ''}
+                  />
+                  <AnimatePresence>
+                    {selectedMetric === stat.title && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mt-2 glass-panel-strong rounded-2xl p-4 overflow-hidden"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <BrainCircuit className={`w-4 h-4 text-primary ${metricLoading ? 'animate-pulse' : ''}`} />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">Neural Feedback</span>
+                        </div>
+                        {metricLoading ? (
+                          <div className="flex gap-1 items-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
+                          </div>
+                        ) : (
+                          <p className="text-sm font-medium text-foreground leading-relaxed animate-in fade-in slide-in-from-top-1 duration-500">
+                            {metricFeedback}
+                          </p>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               ))}
             </div>

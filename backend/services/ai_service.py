@@ -430,6 +430,45 @@ Your task:
         ]
     }
 
+def generate_metric_feedback(metric_name: str, metric_value: Any, context_stats: dict, ai_model: str = "llama3") -> str:
+    prompt = f"""You are an expert educational teaching coach.
+Give a SHORT (max 2 sentences), sharp, and professional feedback to a professor about this specific metric:
+- Metric Name: {metric_name}
+- Current Value: {metric_value}
+
+Context of the rest of the lecture:
+- Avg Score: {context_stats.get('average_score', 0)}%
+- Total Students: {context_stats.get('total_students', 0)}
+- Hardest slides: {context_stats.get('hard_slides', 'N/A')}
+
+Your feedback should be context-aware. If the metric is good, give a quick 'why'. If it's low, give a quick 'how to fix' relative to the slides.
+Return ONLY the 1-2 sentence feedback string. No preamble.
+"""
+
+    if ai_model == "gemini-2.5-flash" or ai_model == "gemini-1.5-flash":
+        if gemini_client:
+            try:
+                res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+                return res.text.strip()
+            except Exception:
+                pass
+    elif ai_model == "groq":
+        if groq_client:
+            try:
+                res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+                return res.choices[0].message.content.strip()
+            except Exception:
+                pass
+
+    if ollama:
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res["message"]["content"].strip()
+        except Exception:
+            pass
+            
+    return f"This metric ({metric_value}) indicates the current level of student interaction for {metric_name}."
+
 # --- Chat ---
 def chat_with_lecture(slide_text: str, user_message: str, chat_history: list = None, ai_model: str = "llama3") -> str:
     """
