@@ -93,7 +93,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle, slideId, l
                     slide_text: slideText,
                     user_message: userMsg,
                     chat_history: historyToPass,
-                    ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq'
+                    ai_model: localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash'
                 }),
             });
 
