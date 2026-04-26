@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { CustomTooltip } from '@/components/charts/CustomTooltip';
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
+import { NeuralBackground } from '@/components/NeuralBackground';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -105,13 +106,17 @@ const COLORS = [
 
 // ── Helper Components ─────────────────────────────────────────────────────────
 
-function Section({ title, subtitle, icon: Icon, children, className = "" }: {
-  title: string; subtitle?: string; icon: React.ComponentType<any>; children: React.ReactNode; className?: string;
-}) {
+function Section({ title, subtitle, icon: Icon, children, className = '' }: { title: string; subtitle?: string; icon: any; children: React.ReactNode; className?: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-      className={`glass-card border-white/5 rounded-[2.5rem] p-8 ${className}`}>
-      <div className="flex items-center justify-between mb-8">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ scale: 1.01, rotateX: 1, rotateY: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className={`glass-card border-white/5 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden perspective-1000 ${className}`}
+    >
+      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16" />
+      <div className="flex justify-between items-start mb-8 relative z-10">
         <div>
           <h3 className="text-xl font-bold text-foreground">{title}</h3>
           {subtitle && <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest font-bold">{subtitle}</p>}
@@ -328,10 +333,9 @@ export default function ProfessorAnalytics() {
 
   if (!selectedLectureId) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-background">
+      <div className="min-h-screen relative overflow-hidden bg-black">
         <div className="fixed inset-0 pointer-events-none z-0">
-          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[120px] animate-aurora-drift" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/10 blur-[120px] animate-aurora-drift animation-delay-4000" />
+           <NeuralBackground />
         </div>
         <LecturePicker lectures={lectures} onSelect={(id) => navigate(`/professor/analytics/${id}`)} />
       </div>
@@ -339,10 +343,9 @@ export default function ProfessorAnalytics() {
   }
 
   return (
-    <div className="min-h-screen relative pb-32 bg-background max-w-[1600px] mx-auto">
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute top-0 right-0 w-[40%] h-[40%] rounded-full bg-primary/5 blur-[100px]" />
-        <div className="absolute bottom-0 left-0 w-[40%] h-[40%] rounded-full bg-secondary/5 blur-[100px]" />
+    <div className="min-h-screen relative pb-32 bg-black max-w-[1600px] mx-auto overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none z-0">
+         <NeuralBackground />
       </div>
 
       <div className="p-6 lg:p-10 space-y-10 relative z-10">
@@ -431,10 +434,23 @@ export default function ProfessorAnalytics() {
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <StatsCard title="Engaged Students" value={dashboardData.overview.uniqueStudents} icon={Users} variant="primary" />
-              <StatsCard title="Global Score Avg" value={`${dashboardData.overview.averageScore}%`} icon={Target} variant="success" />
-              <StatsCard title="Semantic Events" value={dashboardData.overview.totalEvents} icon={Activity} variant="default" />
-              <StatsCard title="Total Interactions" value={dashboardData.overview.totalAttempts} icon={Award} variant="xp" />
+              {[
+                { title: "Engaged Students", value: dashboardData.overview.uniqueStudents, icon: Users, variant: "primary" as const },
+                { title: "Global Score Avg", value: `${dashboardData.overview.averageScore}%`, icon: Target, variant: "success" as const },
+                { title: "Semantic Events", value: dashboardData.overview.totalEvents, icon: Activity, variant: "default" as const },
+                { title: "Total Interactions", value: dashboardData.overview.totalAttempts, icon: Award, variant: "xp" as const },
+              ].map((stat, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: idx * 0.1 }}
+                  whileHover={{ scale: 1.05, rotateZ: 2, z: 50 }}
+                  className="perspective-500"
+                >
+                  <StatsCard {...stat} />
+                </motion.div>
+              ))}
             </div>
 
             {/* Row 1: Confusion Matrix + Neural Confidence */}
