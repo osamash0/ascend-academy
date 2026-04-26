@@ -13,7 +13,7 @@ interface StatsCardProps {
 }
 
 const variantStyles = {
-  default: 'border-white/5 bg-white/2',
+  default: 'border-border bg-surface-1/50',
   primary: 'border-primary/20 bg-primary/5 shadow-glow-primary/5',
   success: 'border-success/20 bg-success/5 shadow-glow-success/5',
   warning: 'border-warning/20 bg-warning/5',
