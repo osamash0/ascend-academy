@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # Ensure .env is loaded before initializing any clients
 _env_path = Path(__file__).parent.parent.parent / ".env"
 if _env_path.exists():
-    load_dotenv(dotenv_path=_env_path)
+    load_dotenv(dotenv_path=_env_path, override=True)
 
 OLLAMA_MODEL = "llama3"
 GEMINI_MODEL = "gemini-2.5-flash"

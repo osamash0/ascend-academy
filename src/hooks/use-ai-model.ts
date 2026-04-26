@@ -12,7 +12,7 @@ export function useAiModel() {
         return stored;
       }
     }
-    return 'groq'; // Default to Groq
+    return 'gemini-2.5-flash'; // Default to Gemini
   });
 
   useEffect(() => {
