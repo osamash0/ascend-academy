@@ -7,25 +7,25 @@ interface StatsCardProps {
   value: string | number;
   subtitle?: string;
   icon: LucideIcon;
-  trend?: number;
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'xp';
+  className?: string;
   onClick?: () => void;
 }
 
 const variantStyles = {
-  default: 'bg-card border-border',
-  primary: 'gradient-card border-primary/20',
-  success: 'bg-success/5 border-success/20',
-  warning: 'bg-warning/5 border-warning/20',
-  xp: 'gradient-card border-xp/20',
+  default: 'border-border bg-surface-1/50',
+  primary: 'border-primary/20 bg-primary/5 shadow-glow-primary/5',
+  success: 'border-success/20 bg-success/5 shadow-glow-success/5',
+  warning: 'border-warning/20 bg-warning/5',
+  xp: 'border-xp/20 bg-xp/5 shadow-glow-xp/5',
 };
 
 const iconStyles = {
-  default: 'bg-muted text-muted-foreground',
-  primary: 'gradient-primary text-primary-foreground',
-  success: 'gradient-success text-success-foreground',
-  warning: 'bg-warning text-warning-foreground',
-  xp: 'gradient-xp text-xp-foreground',
+  default: 'bg-surface-2 text-muted-foreground',
+  primary: 'bg-primary/20 text-primary shadow-glow-primary/20',
+  success: 'bg-success/20 text-success shadow-glow-success/20',
+  warning: 'bg-warning/20 text-warning',
+  xp: 'bg-xp/20 text-xp shadow-glow-xp/20',
 };
 
 function AnimatedNumber({ value }: { value: number }) {
@@ -35,8 +35,8 @@ function AnimatedNumber({ value }: { value: number }) {
 
   useEffect(() => {
     const controls = animate(motionValue, value, {
-      duration: 1.2,
-      ease: 'easeOut',
+      duration: 1.5,
+      ease: [0.16, 1, 0.3, 1],
     });
     const unsubscribe = rounded.on('change', (v) => {
       if (displayRef.current) {
@@ -57,11 +57,10 @@ export function StatsCard({
   value,
   subtitle,
   icon: Icon,
-  trend,
   variant = 'default',
+  className = '',
   onClick,
 }: StatsCardProps) {
-  // Determine if value is a pure number or a percentage string
   const isPercent = typeof value === 'string' && value.endsWith('%');
   const numericValue = isPercent
     ? parseInt(value as string, 10)
@@ -72,47 +71,32 @@ export function StatsCard({
   return (
     <motion.div
       onClick={onClick}
-      className={`rounded-2xl border p-6 shadow-sm transition-all ${variantStyles[variant]} ${onClick ? 'cursor-pointer' : ''}`}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={onClick ? { 
-        y: -4, 
-        boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
-        borderColor: 'var(--primary)'
-      } : { y: -2, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+      className={`glass-card p-6 flex flex-col gap-4 ${variantStyles[variant]} ${className} ${onClick ? 'cursor-pointer' : ''}`}
+      whileHover={{ y: -4, transition: { type: 'spring', stiffness: 400, damping: 17 } }}
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-3xl font-bold text-foreground mt-1">
+      <div className="flex items-center justify-between">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconStyles[variant]}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-caption text-muted-foreground font-medium uppercase tracking-wider">{title}</p>
+        <div className="flex items-baseline gap-1">
+          <p className="text-display-md font-bold text-foreground">
             {numericValue !== null ? (
               <>
                 <AnimatedNumber value={numericValue} />
-                {isPercent && '%'}
+                {isPercent && <span className="text-heading-sm ml-0.5 text-muted-foreground">%</span>}
               </>
             ) : (
               value
             )}
           </p>
-          {subtitle && (
-            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
-          )}
-          {trend !== undefined && (
-            <div
-              className={`flex items-center gap-1 mt-2 text-sm ${trend >= 0 ? 'text-success' : 'text-destructive'
-                }`}
-            >
-              <span>{trend >= 0 ? '↑' : '↓'}</span>
-              <span>{Math.abs(trend)}% from last week</span>
-            </div>
-          )}
         </div>
-
-        <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center ${iconStyles[variant]}`}
-        >
-          <Icon className="w-6 h-6" />
-        </div>
+        {subtitle && (
+          <p className="text-body-sm text-muted-foreground/70">{subtitle}</p>
+        )}
       </div>
     </motion.div>
   );

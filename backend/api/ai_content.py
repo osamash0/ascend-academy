@@ -1,97 +1,134 @@
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
-from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from typing import Annotated, Literal, Optional, List, Dict, Any
+from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech
+import io
 from backend.services.content_filter import is_metadata_slide
 from backend.core.auth_middleware import verify_token
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
+_AiModel = Annotated[
+    Literal["groq", "gemini-2.5-flash", "llama3"],
+    Field("groq", description="Which LLM backend to use"),
+]
+
+
 class SlideTextRequest(BaseModel):
-    slide_text: str
-    ai_model: Optional[str] = "groq"
+    slide_text: str = Field(..., min_length=1, max_length=10_000)
+    ai_model: _AiModel = "groq"
+
 
 class AnalyticsStatsRequest(BaseModel):
-    total_students: int = 0
-    average_score: float = 0
-    total_attempts: int = 0
-    total_correct: int = 0
+    total_students: int = Field(0, ge=0)
+    average_score: float = Field(0, ge=0, le=100)
+    total_attempts: int = Field(0, ge=0)
+    total_correct: int = Field(0, ge=0)
     hard_slides: Optional[str] = None
     engaging_slides: Optional[str] = None
     weekly_trend: Optional[str] = None
     confidence_summary: Optional[str] = None
-    ai_model: Optional[str] = "groq"
+    ai_model: _AiModel = "groq"
+
 
 class ChatRequest(BaseModel):
-    slide_text: str
-    user_message: str
+    slide_text: str = Field(..., min_length=0, max_length=10_000)
+    user_message: str = Field(..., min_length=1, max_length=2_000)
     chat_history: Optional[List[Dict[str, Any]]] = None
-    ai_model: Optional[str] = "groq"
+    ai_model: _AiModel = "groq"
 
-@router.post("/generate-summary")
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=5_000)
+    voice: Optional[str] = "en-US-AvaNeural"
+
+
+# ── Response models ──────────────────────────────────────────────────────────
+
+class SummaryResponse(BaseModel):
+    summary: str
+
+class QuizResponse(BaseModel):
+    question: str
+    options: List[str] = Field(..., min_length=4, max_length=4)
+    correctAnswer: int = Field(..., ge=0, le=3)
+
+class InsightsResponse(BaseModel):
+    summary: str
+    suggestions: List[str]
+
+class ChatResponse(BaseModel):
+    reply: str
+
+
+# ── Endpoints ────────────────────────────────────────────────────────────────
+
+@router.post("/generate-summary", response_model=SummaryResponse)
 def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
-    # Content filter: skip metadata slides
     filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
     if filter_result["is_metadata"]:
-        return {"summary": "This slide contains administrative information (e.g. instructor details, dates, logistics) and is not suitable for summarization."}
+        return SummaryResponse(summary="This slide contains administrative information and is not suitable for summarization.")
 
     try:
         summary = generate_summary(body.slide_text, ai_model=body.ai_model)
-        return {"summary": summary}
-    except Exception as e:
-        print(f"DEBUG ai_content generate-summary error: {e}")
+        return SummaryResponse(summary=summary)
+    except Exception:
         raise HTTPException(status_code=500, detail="AI summary generation failed. Please try again.")
 
-@router.post("/generate-quiz")
+
+@router.post("/generate-quiz", response_model=QuizResponse)
 def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
-    # Content filter: skip metadata slides
     filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
     if filter_result["is_metadata"]:
-        return {
-            "question": "This slide contains administrative information and is not suitable for quiz generation.",
-            "options": ["N/A", "N/A", "N/A", "N/A"],
-            "correctAnswer": 0
-        }
+        return QuizResponse(
+            question="This slide contains administrative information and is not suitable for quiz generation.",
+            options=["N/A", "N/A", "N/A", "N/A"],
+            correctAnswer=0,
+        )
 
     try:
         quiz = generate_quiz(body.slide_text, ai_model=body.ai_model)
-        return quiz
-    except Exception as e:
-        print(f"DEBUG ai_content generate-quiz error: {e}")
+        return QuizResponse(**quiz)
+    except Exception:
         raise HTTPException(status_code=500, detail="AI quiz generation failed. Please try again.")
 
-@router.post("/analytics-insights")
+
+@router.post("/analytics-insights", response_model=InsightsResponse)
 def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify_token)):
     try:
-        # Pydantic dict() includes all fields
         data = body.dict()
-        model_choice = data.pop('ai_model', 'groq')
+        model_choice = data.pop("ai_model", "groq")
         result = generate_analytics_insights(data, ai_model=model_choice)
-        return result
-    except Exception as e:
-        print(f"DEBUG ai_content analytics-insights error: {e}")
+        return InsightsResponse(**result)
+    except Exception:
         raise HTTPException(status_code=500, detail="AI insights generation failed. Please try again.")
 
-@router.post("/chat")
+
+@router.post("/chat", response_model=ChatResponse)
 def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
-    if not body.user_message.strip():
-        raise HTTPException(status_code=400, detail="user_message cannot be empty.")
     try:
         reply = chat_with_lecture(
             slide_text=body.slide_text,
             user_message=body.user_message,
             chat_history=body.chat_history,
-            ai_model=body.ai_model
+            ai_model=body.ai_model,
         )
-        return {"reply": reply}
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print(f"DEBUG ai_content chat error: {e}")
+        return ChatResponse(reply=reply)
+    except Exception:
         raise HTTPException(status_code=500, detail="AI tutor failed to respond. Please try again.")
+
+
+@router.post("/tts")
+async def text_to_speech_endpoint(body: TTSRequest, user=Depends(verify_token)):
+    try:
+        audio_content = await generate_speech(body.text, voice=body.voice)
+        return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to generate AI voice.")

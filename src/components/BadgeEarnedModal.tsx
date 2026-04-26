@@ -33,7 +33,7 @@ export function BadgeEarnedModal({
       {isOpen && (
         <>
           <motion.div
-            className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-background/80 backdrop-blur-md z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -41,60 +41,66 @@ export function BadgeEarnedModal({
           />
           <motion.div
             className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 400 }}
           >
-            <div className="bg-card rounded-3xl p-8 shadow-2xl max-w-md w-full mx-4 pointer-events-auto border border-border">
-              <div className="text-center">
+            <div className="glass-card p-12 shadow-glow-primary/20 max-w-md w-full mx-4 pointer-events-auto border-white/10 rounded-[48px] relative overflow-hidden text-center group">
+              {/* Dynamic light rays */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,var(--primary)_0%,transparent_70%)] opacity-20" />
+              
+              <div className="relative z-10">
                 <motion.div
-                  className="w-28 h-28 gradient-primary rounded-full mx-auto mb-6 flex items-center justify-center shadow-xl relative"
-                  initial={{ scale: 0, rotate: -180 }}
+                  className="w-36 h-36 bg-gradient-to-br from-primary via-secondary to-xp rounded-full mx-auto mb-10 flex items-center justify-center shadow-glow-primary relative overflow-hidden"
+                  initial={{ scale: 0, rotate: -90 }}
                   animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.2, type: 'spring', damping: 10 }}
+                  transition={{ delay: 0.2, type: 'spring', damping: 15 }}
                 >
-                  <span className="text-5xl">
-                    {badgeIcons[badgeIcon] || badgeIcon}
+                  <span className="text-6xl drop-shadow-glow-white/50 relative z-10">
+                    {badgeIcon}
                   </span>
+                  {/* Rotating shine */}
                   <motion.div
-                    className="absolute inset-0 gradient-primary rounded-full opacity-50"
-                    initial={{ scale: 1 }}
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                    animate={{ x: ['-200%', '200%'] }}
+                    transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
                   />
                 </motion.div>
 
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
+                  transition={{ delay: 0.4 }}
                 >
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Sparkles className="w-5 h-5 text-xp" />
-                    <span className="text-lg font-medium text-muted-foreground">
-                      New Achievement!
-                    </span>
-                    <Sparkles className="w-5 h-5 text-xp" />
+                  <div className="flex flex-col gap-2 mb-8">
+                    <div className="flex items-center justify-center gap-2">
+                      <Sparkles className="w-5 h-5 text-xp animate-pulse" />
+                      <span className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">New Protocol Unlocked</span>
+                      <Sparkles className="w-5 h-5 text-xp animate-pulse" />
+                    </div>
+                    <h2 className="text-4xl font-bold text-foreground tracking-tighter">
+                      {badgeName}
+                    </h2>
                   </div>
                   
-                  <h2 className="text-2xl font-bold text-foreground mb-2">
-                    {badgeName}
-                  </h2>
-                  
-                  <p className="text-muted-foreground mb-6">
+                  <p className="text-muted-foreground font-medium mb-10 leading-relaxed text-sm">
                     {badgeDescription}
                   </p>
 
-                  <div className="flex items-center justify-center gap-2 p-3 bg-secondary rounded-xl mb-6">
+                  <div className="flex items-center justify-center gap-3 p-4 bg-white/2 border border-white/5 rounded-2xl mb-10 group-hover:border-primary/30 transition-colors">
                     <Award className="w-5 h-5 text-primary" />
-                    <span className="text-sm font-medium text-secondary-foreground">
-                      Added to your achievements
+                    <span className="text-xs font-bold text-foreground/80 uppercase tracking-widest">
+                      Added to Orbital Profile
                     </span>
                   </div>
 
-                  <Button variant="hero" size="lg" onClick={onClose}>
-                    Awesome!
+                  <Button 
+                    size="xl" 
+                    className="w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl shadow-glow-primary text-lg border-none transition-all active:scale-95 h-16" 
+                    onClick={onClose}
+                  >
+                    Confirm Access
                   </Button>
                 </motion.div>
               </div>
