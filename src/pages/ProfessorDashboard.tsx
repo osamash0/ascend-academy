@@ -331,7 +331,8 @@ export default function ProfessorDashboard() {
                         transition={{ delay: index * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                         onMouseEnter={() => setHoveredRow(lecture.id)}
                         onMouseLeave={() => setHoveredRow(null)}
-                        className={`hover:bg-white/5 transition-all group ${hoveredRow === lecture.id ? 'bg-white/5' : ''}`}
+                        onClick={() => navigate(`/professor/analytics/${lecture.id}`)}
+                        className={`hover:bg-white/5 transition-all group cursor-pointer ${hoveredRow === lecture.id ? 'bg-white/5' : ''}`}
                       >
                         <td className="px-10 py-6">
                           <div className="flex items-center gap-4">
@@ -376,7 +377,10 @@ export default function ProfessorDashboard() {
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-xl w-10 h-10 text-primary hover:bg-primary/10 shadow-sm border border-transparent hover:border-primary/20"
-                                onClick={() => navigate(`/professor/analytics/${lecture.id}`)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/professor/analytics/${lecture.id}`);
+                                }}
                                 title="Lecture Analytics"
                               >
                                 <BarChart3 className="w-5 h-5" />
@@ -387,7 +391,10 @@ export default function ProfessorDashboard() {
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-xl w-10 h-10 text-muted-foreground hover:bg-white/10 shadow-sm border border-transparent hover:border-white/10"
-                                onClick={() => navigate(`/lecture/${lecture.id}`)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/lecture/${lecture.id}`);
+                                }}
                                 title="Preview Lecture"
                               >
                                 <Eye className="w-5 h-5" />
@@ -398,7 +405,10 @@ export default function ProfessorDashboard() {
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-xl w-10 h-10 text-muted-foreground hover:bg-white/10 shadow-sm border border-transparent hover:border-white/10"
-                                onClick={() => navigate(`/professor/lecture/${lecture.id}`)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/professor/lecture/${lecture.id}`);
+                                }}
                                 title="Edit Parameters"
                               >
                                 <Settings className="w-5 h-5" />
@@ -409,7 +419,10 @@ export default function ProfessorDashboard() {
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-xl w-10 h-10 text-destructive/70 hover:text-destructive hover:bg-destructive/10 shadow-sm border border-transparent hover:border-destructive/20"
-                                onClick={() => deleteLecture(lecture.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteLecture(lecture.id);
+                                }}
                                 title="Delete Stream"
                               >
                                 <Trash2 className="w-5 h-5" />

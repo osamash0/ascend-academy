@@ -24,6 +24,7 @@ import {
 import { CustomTooltip } from '@/components/charts/CustomTooltip';
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { NeuralBackground } from '@/components/NeuralBackground';
+import { ThreeDScatterPlot } from '@/components/ThreeDScatterPlot';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -211,6 +212,7 @@ export default function ProfessorAnalytics() {
 
   const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [matrixView, setMatrixView] = useState<'2d' | '3d'>('3d');
 
   // Dashboard hook
   const { dashboard } = useAnalytics(selectedLectureId ?? null);
@@ -455,43 +457,70 @@ export default function ProfessorAnalytics() {
 
             {/* Row 1: Confusion Matrix + Neural Confidence */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <Section title="3D Confusion Matrix" subtitle="Bubble size = AI Queries + Revisions" icon={Target} className="lg:col-span-2">
-                <div className="h-96 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: -20 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
-                      <XAxis type="number" dataKey="avgDuration" name="Avg Time" unit="s" tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
-                      <YAxis type="number" dataKey="correctRate" name="Accuracy" unit="%" tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
-                      <ZAxis type="number" dataKey="confusionIndex" range={[50, 800]} name="Confusion" />
-                      <Tooltip content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const d = payload[0].payload;
-                          return (
-                            <div className="glass-panel-strong p-5 rounded-2xl shadow-2xl min-w-[240px] border-white/10 animate-scale-in">
-                              <p className="font-black text-lg mb-3 border-b border-white/10 pb-2 text-foreground">{d.name}</p>
-                              <div className="space-y-2">
-                                <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Accuracy</span><span className="font-black text-foreground">{d.correctRate}%</span></div>
-                                <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</span><span className="font-black text-muted-foreground">{d.avgDuration}s</span></div>
-                                <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Queries</span><span className="font-black text-primary">{d.aiQueries}</span></div>
-                                <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Revisions</span><span className="font-black text-warning">{d.revisions}</span></div>
+              <Section 
+                title={matrixView === '3d' ? "Spatial Neural Matrix" : "3D Confusion Matrix"} 
+                subtitle={matrixView === '3d' ? "Interactive Volumetric Telemetry" : "Bubble size = AI Queries + Revisions"} 
+                icon={Target} 
+                className="lg:col-span-2"
+              >
+                <div className="absolute top-8 right-8 z-20 flex gap-2">
+                  <Button 
+                    variant={matrixView === '2d' ? 'default' : 'outline'} 
+                    size="sm" 
+                    onClick={() => setMatrixView('2d')}
+                    className="rounded-xl h-8 text-[10px] font-black uppercase tracking-widest"
+                  >
+                    2D Map
+                  </Button>
+                  <Button 
+                    variant={matrixView === '3d' ? 'default' : 'outline'} 
+                    size="sm" 
+                    onClick={() => setMatrixView('3d')}
+                    className="rounded-xl h-8 text-[10px] font-black uppercase tracking-widest"
+                  >
+                    3D Spatial
+                  </Button>
+                </div>
+                <div className="h-[500px] w-full relative">
+                  {matrixView === '2d' ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: -20 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
+                        <XAxis type="number" dataKey="avgDuration" name="Avg Time" unit="s" tickLine={false} axisLine={false} tick={{fill: 'hsl(var(--foreground))', fontSize: 12, opacity: 0.5}} />
+                        <YAxis type="number" dataKey="correctRate" name="Accuracy" unit="%" tickLine={false} axisLine={false} tick={{fill: 'hsl(var(--foreground))', fontSize: 12, opacity: 0.5}} />
+                        <ZAxis type="number" dataKey="confusionIndex" range={[50, 800]} name="Confusion" />
+                        <Tooltip content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload;
+                            return (
+                              <div className="glass-panel-strong p-5 rounded-2xl shadow-2xl min-w-[240px] border-white/10 animate-scale-in">
+                                <p className="font-black text-lg mb-3 border-b border-white/10 pb-2 text-foreground">{d.name}</p>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Accuracy</span><span className="font-black text-foreground">{d.correctRate}%</span></div>
+                                  <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</span><span className="font-black text-muted-foreground">{d.avgDuration}s</span></div>
+                                  <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Queries</span><span className="font-black text-primary">{d.aiQueries}</span></div>
+                                  <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Revisions</span><span className="font-black text-warning">{d.revisions}</span></div>
+                                </div>
+                                <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center -mx-5 -mb-5 px-5 py-3 rounded-b-2xl bg-destructive/10">
+                                   <span className="text-[10px] uppercase font-black tracking-[0.2em] text-destructive">Confusion Index</span>
+                                   <span className="text-xl font-black text-destructive">{d.confusionIndex}</span>
+                                </div>
                               </div>
-                              <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center -mx-5 -mb-5 px-5 py-3 rounded-b-2xl bg-destructive/10">
-                                 <span className="text-[10px] uppercase font-black tracking-[0.2em] text-destructive">Confusion Index</span>
-                                 <span className="text-xl font-black text-destructive">{d.confusionIndex}</span>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }} />
-                      <ReferenceArea x1={60} y1={0} y2={60} fill="var(--destructive)" fillOpacity={0.05} />
-                      <Scatter name="Slides" data={dashboardData.slidePerformance.filter(s => s.quizAttempts > 0)}>
-                        {dashboardData.slidePerformance.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={(entry.confusionIndex > 50) ? "var(--destructive)" : "var(--primary)"} opacity={0.8}/>
-                        ))}
-                      </Scatter>
-                    </ScatterChart>
-                  </ResponsiveContainer>
+                            );
+                          }
+                          return null;
+                        }} />
+                        <ReferenceArea x1={60} y1={0} y2={60} fill="hsl(var(--destructive))" fillOpacity={0.05} />
+                        <Scatter name="Slides" data={dashboardData.slidePerformance.filter(s => s.quizAttempts > 0)}>
+                          {dashboardData.slidePerformance.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={(entry.confusionIndex > 50) ? "hsl(var(--destructive))" : "hsl(var(--primary))"} opacity={0.8}/>
+                          ))}
+                        </Scatter>
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <ThreeDScatterPlot data={dashboardData.slidePerformance.filter(s => s.quizAttempts > 0)} />
+                  )}
                 </div>
               </Section>
 
