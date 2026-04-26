@@ -119,17 +119,52 @@ function Section({ title, subtitle, icon: Icon, children, className = '' }: { ti
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16" />
       <div className="flex justify-between items-start mb-8 relative z-10">
         <div>
-          <h3 className="text-xl font-bold text-foreground">{title}</h3>
-          {subtitle && <p className="text-xs text-muted-foreground mt-1 uppercase tracking-widest font-bold">{subtitle}</p>}
-        </div>
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Icon className="w-5 h-5 text-primary" />
+          <h3 className="text-2xl font-black text-foreground flex items-center gap-3 tracking-tight">
+            <Icon className="w-7 h-7 text-primary" /> {title}
+          </h3>
+          {subtitle && <p className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-[0.2em] opacity-60">{subtitle}</p>}
         </div>
       </div>
-      {children}
+      <div className="relative z-10">
+        {children}
+      </div>
     </motion.div>
   );
 }
+
+const ThreeDBar = (props: any) => {
+  const { x, y, width, height, fill } = props;
+  if (!width || !height) return null;
+  
+  const depth = 6;
+  
+  return (
+    <g className="bar-3d group cursor-pointer">
+      {/* Right side face (3D depth) */}
+      <path 
+        d={`M ${x + width} ${y} L ${x + width + depth} ${y - depth} L ${x + width + depth} ${y + height - depth} L ${x + width} ${y + height} Z`}
+        fill={fill}
+        className="side-face brightness-75"
+      />
+      {/* Top face (3D depth) */}
+      <path 
+        d={`M ${x} ${y} L ${x + depth} ${y - depth} L ${x + width + depth} ${y - depth} L ${x + width} ${y} Z`}
+        fill={fill}
+        className="side-face brightness-110"
+      />
+      {/* Front Face */}
+      <rect 
+        x={x} 
+        y={y} 
+        width={width} 
+        height={height} 
+        fill={fill} 
+        rx={2}
+        className="transition-all duration-300 group-hover:brightness-125"
+      />
+    </g>
+  );
+};
 
 function LecturePicker({ lectures, onSelect }: { lectures: Lecture[]; onSelect: (id: string) => void }) {
   return (
@@ -571,7 +606,7 @@ export default function ProfessorAnalytics() {
                         <XAxis dataKey="title" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} />
                         <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} allowDecimals={false} />
                         <Tooltip content={<CustomTooltip valueFormatter={(v) => `${v} students quit`} />} cursor={{ fill: 'hsl(var(--white)/0.05)' }} />
-                        <Bar dataKey="dropout_count" radius={[6, 6, 0, 0]} name="Dropouts" maxBarSize={40}>
+                        <Bar dataKey="dropout_count" shape={<ThreeDBar />} name="Dropouts" maxBarSize={40}>
                           {dropoffData.map((entry, idx) => (
                             <Cell key={idx} fill={entry.dropout_percentage > 20 ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'} />
                           ))}
@@ -595,9 +630,9 @@ export default function ProfessorAnalytics() {
                         <XAxis dataKey="title" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} />
                         <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} allowDecimals={false} />
                         <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface-1))', border: '1px solid hsl(var(--border))', borderRadius: '1rem' }} />
-                        <Bar dataKey="got_it" stackId="conf" fill="hsl(var(--success))" name="Got It" />
-                        <Bar dataKey="unsure" stackId="conf" fill="hsl(var(--warning))" name="Unsure" />
-                        <Bar dataKey="confused" stackId="conf" fill="hsl(var(--destructive))" name="Confused" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="got_it" stackId="conf" fill="hsl(var(--success))" name="Got It" shape={<ThreeDBar />} />
+                        <Bar dataKey="unsure" stackId="conf" fill="hsl(var(--warning))" name="Unsure" shape={<ThreeDBar />} />
+                        <Bar dataKey="confused" stackId="conf" fill="hsl(var(--destructive))" name="Confused" shape={<ThreeDBar />} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

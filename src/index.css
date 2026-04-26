@@ -575,6 +575,23 @@
   .font-mono {
     font-variant-numeric: tabular-nums;
   }
+
+  .bar-3d {
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  
+  .bar-3d:hover {
+    filter: drop-shadow(0 10px 15px hsl(var(--primary) / 0.3));
+  }
+  
+  .bar-3d .side-face {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .bar-3d:hover .side-face {
+    opacity: 1;
+  }
 }
 
 /* Smooth scroll behavior */
