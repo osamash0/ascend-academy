@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, BookOpen, Lightbulb, Volume2, VolumeX, Square, Play, Pause } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, Lightbulb, Volume2, VolumeX, Square, Play, Pause, Star, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Document, Page, pdfjs } from 'react-pdf';
 import ReactMarkdown from 'react-markdown';
@@ -243,7 +243,7 @@ export function SlideViewer({
                 </div>
               )}
             </div>
-            <div ref={pdfContainerRef} className="w-full bg-black/20" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            <div ref={pdfContainerRef} className="w-full bg-black/20">
               <Document
                 file={pdfUrl}
                 loading={

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Star, Flame, Target, BookOpen, Award } from 'lucide-react';
+import { Trophy, Star, Flame, Target, BookOpen, Award, Zap } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { AchievementCard } from '@/components/AchievementCard';

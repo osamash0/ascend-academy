@@ -275,7 +275,7 @@ export default function Auth() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
-                  className={`h-14 pl-12 bg-white/2 border-white/5 focus:border-primary/50 rounded-2xl transition-all ${errors.email ? 'border-destructive' : ''}`}
+                  className={`h-14 pl-12 text-black bg-white border-white/5 focus:border-primary/50 rounded-2xl transition-all ${errors.email ? 'border-destructive' : ''}`}
                 />
               </div>
               {errors.email && (
@@ -306,7 +306,7 @@ export default function Auth() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={isLogin ? 'current-password' : 'new-password'}
-                  className={`h-14 pl-12 pr-12 bg-white/2 border-white/5 focus:border-primary/50 rounded-2xl transition-all ${errors.password ? 'border-destructive' : ''}`}
+                  className={`h-14 pl-12 pr-12 text-black bg-white border-white/5 focus:border-primary/50 rounded-2xl transition-all ${errors.password ? 'border-destructive' : ''}`}
                 />
                 <button
                   type="button"
