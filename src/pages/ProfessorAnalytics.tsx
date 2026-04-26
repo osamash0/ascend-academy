@@ -280,9 +280,16 @@ export default function ProfessorAnalytics() {
     const confSummary = `Got it: ${dashboardData.confidenceMap.got_it}, Unsure: ${dashboardData.confidenceMap.unsure}, Confused: ${dashboardData.confidenceMap.confused}`;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('No session');
+
       const res = await fetch(`${API_BASE}/api/ai/analytics-insights`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           total_students: dashboardData.overview.uniqueStudents,
           average_score: dashboardData.overview.averageScore,
