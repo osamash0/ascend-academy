@@ -75,15 +75,17 @@ export default function ProfessorDashboard() {
 
     const { data: lecturesData } = await supabase
       .from('lectures')
-      .select('*')
+      .select('id, title, description, total_slides, created_at, pdf_url')
       .eq('professor_id', user?.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(200);
 
     if (lecturesData) setLectures(lecturesData);
 
     const { data: progressData } = await supabase
       .from('student_progress')
-      .select('user_id, quiz_score, total_questions_answered, correct_answers');
+      .select('user_id, quiz_score, total_questions_answered, correct_answers')
+      .limit(2000);
 
     if (progressData) {
       const uniqueStudents = new Set(progressData.map(p => p.user_id));

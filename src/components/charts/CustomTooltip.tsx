@@ -1,8 +1,14 @@
 import { motion } from 'framer-motion';
 
+interface TooltipPayloadEntry {
+    color: string;
+    name: string;
+    value: number | string;
+}
+
 interface CustomTooltipProps {
     active?: boolean;
-    payload?: any[];
+    payload?: TooltipPayloadEntry[];
     label?: string;
     valueFormatter?: (value: number | string) => string;
 }

@@ -21,17 +21,18 @@ export default function Leaderboard() {
         const fetchLeaderboard = async () => {
             try {
                 // Fetch student IDs first to ensure we only get students
-                const { data: roleData, error: roleError } = await (supabase as any)
+                const { data: roleData, error: roleError } = await supabase
                     .from('user_roles')
                     .select('user_id')
-                    .eq('role', 'student');
+                    .eq('role', 'student')
+                    .limit(500);
 
                 if (roleError) throw roleError;
 
-                const studentIds = roleData.map((r: any) => r.user_id);
+                const studentIds = (roleData as { user_id: string }[]).map((r) => r.user_id);
 
                 if (studentIds.length > 0) {
-                    const { data: profilesData, error: profilesError } = await (supabase as any)
+                    const { data: profilesData, error: profilesError } = await supabase
                         .from('profiles')
                         .select('id, display_name, avatar_url, total_xp, current_level')
                         .in('id', studentIds)
@@ -40,7 +41,7 @@ export default function Leaderboard() {
 
                     if (profilesError) throw profilesError;
 
-                    setStudents(profilesData || []);
+                    setStudents((profilesData as StudentProfile[]) || []);
                 }
             } catch (error) {
                 console.error('Error fetching leaderboard:', error);

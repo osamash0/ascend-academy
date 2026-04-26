@@ -126,10 +126,10 @@ export default function Auth() {
         title: 'Password reset email sent!',
         description: 'Check your inbox for a link to reset your password.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Failed to send reset email',
-        description: error.message || 'Please try again.',
+        description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
     } finally {

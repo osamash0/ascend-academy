@@ -155,9 +155,10 @@ export default function LectureView() {
     // Fetch slides
     const { data: slidesData } = await supabase
       .from('slides')
-      .select('*')
+      .select('id, slide_number, title, content_text, summary')
       .eq('lecture_id', currentLectureId)
-      .order('slide_number', { ascending: true });
+      .order('slide_number', { ascending: true })
+      .limit(200);
 
     if (slidesData && slidesData.length > 0) {
       setSlides(slidesData);
@@ -394,12 +395,12 @@ export default function LectureView() {
       // Add XP to user — RPC should use auth.uid() internally
       await supabase.rpc('add_xp_to_user', {
         p_xp: 10,
-      } as any);
+      } as never);
 
       // Update streak — RPC should use auth.uid() internally
       const newStreak = await supabase.rpc('update_user_streak', {
         p_correct: true,
-      } as any);
+      } as never);
 
       // Check for level up
       const oldLevel = profile?.current_level || 1;
@@ -410,7 +411,7 @@ export default function LectureView() {
         setNewLevel(calculatedLevel);
         setShowLevelUp(true);
         // Notification: level up
-        await (supabase as any).from('notifications').insert({
+        await supabase.from('notifications').insert({
           user_id: user?.id,
           title: `Level ${calculatedLevel}!`,
           message: `You leveled up to Level ${calculatedLevel}. Keep going!`,
@@ -492,7 +493,7 @@ export default function LectureView() {
           });
           setTimeout(() => setShowBadge(true), 1000);
           // Notification: streak badge
-          await (supabase as any).from('notifications').insert({
+          await supabase.from('notifications').insert({
             user_id: user?.id,
             title: badgeName,
             message: `Achieved a streak of ${newStreak.data} correct answers!`,
@@ -506,9 +507,14 @@ export default function LectureView() {
       // Reset streak — RPC should use auth.uid() internally
       await supabase.rpc('update_user_streak', {
         p_correct: false,
-      } as any);
+      } as never);
       await refreshProfile();
     }
+
+    // Persist progress immediately so reload cannot re-award XP for this question
+    const finalXpNow = isCorrect ? xpEarned + 10 : xpEarned;
+    const finalCorrectNow = isCorrect ? correctAnswers + 1 : correctAnswers;
+    await saveProgress(currentSlideIndex, finalXpNow, finalCorrectNow);
 
     // Move to next slide after quiz
     setTimeout(() => {

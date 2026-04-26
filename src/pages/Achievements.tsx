@@ -39,9 +39,10 @@ export default function Achievements() {
   const fetchAchievements = async () => {
     const { data } = await supabase
       .from('achievements')
-      .select('*')
+      .select('id, badge_name, badge_description, badge_icon, earned_at')
       .eq('user_id', user?.id)
-      .order('earned_at', { ascending: false });
+      .order('earned_at', { ascending: false })
+      .limit(50);
 
     if (data) {
       setAchievements(data);

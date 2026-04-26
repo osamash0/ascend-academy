@@ -50,9 +50,9 @@ export function NotificationBell() {
         if (!user) return;
 
         const fetchNotifications = async () => {
-            const { data } = await (supabase as any)
+            const { data } = await supabase
                 .from('notifications')
-                .select('*')
+                .select('id, title, message, type, read, created_at')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false })
                 .limit(20);
@@ -96,7 +96,7 @@ export function NotificationBell() {
 
     const markAllRead = async () => {
         if (!user) return;
-        await (supabase as any)
+        await supabase
             .from('notifications')
             .update({ read: true })
             .eq('user_id', user.id)

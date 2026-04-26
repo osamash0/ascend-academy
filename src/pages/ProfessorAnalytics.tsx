@@ -187,8 +187,12 @@ export default function ProfessorAnalytics() {
         { data: eventData },
         { data: slidesData }
       ] = await Promise.all([
-        supabase.from('student_progress').select('*').eq('lecture_id', lectureId),
-        supabase.from('learning_events').select('*')
+        supabase.from('student_progress')
+          .select('user_id, lecture_id, quiz_score, total_questions_answered, correct_answers')
+          .eq('lecture_id', lectureId)
+          .limit(2000),
+        supabase.from('learning_events')
+          .select('event_type, event_data, created_at')
           .contains('event_data', { lectureId: lectureId })
           .order('created_at', { ascending: false })
           .limit(1000),

@@ -125,8 +125,8 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                 { role: 'model', content: data.reply, timestamp: new Date() }
             ]);
 
-        } catch (err: any) {
-            if (err?.name === 'AbortError') {
+        } catch (err: unknown) {
+            if (err instanceof Error && err.name === 'AbortError') {
                 // User cancelled — remove the pending user message
                 setMessages((prev) => prev.slice(0, -1));
             } else {

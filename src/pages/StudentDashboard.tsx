@@ -175,14 +175,16 @@ export default function StudentDashboard() {
 
     const { data: lecturesData } = await supabase
       .from('lectures')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('id, title, description, total_slides, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
     if (lecturesData) setLectures(lecturesData);
 
     const { data: progressData } = await supabase
       .from('student_progress')
-      .select('*')
-      .eq('user_id', user?.id);
+      .select('lecture_id, completed_slides, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at')
+      .eq('user_id', user?.id)
+      .limit(500);
     if (progressData) {
       setProgress(progressData.map(p => ({
         ...p,
@@ -192,9 +194,10 @@ export default function StudentDashboard() {
 
     const { data: achievementsData } = await supabase
       .from('achievements')
-      .select('*')
+      .select('id, badge_name, badge_description, badge_icon, earned_at')
       .eq('user_id', user?.id)
-      .order('earned_at', { ascending: false });
+      .order('earned_at', { ascending: false })
+      .limit(50);
     if (achievementsData) setAchievements(achievementsData);
 
     await refreshProfile();
