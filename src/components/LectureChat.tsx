@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Bot, User, Loader2, Sparkles, ChevronDown, BookOpen } from 'lucide-react';
+import { X, Send, Bot, User, Loader2, Sparkles, ChevronDown, BookOpen, StopCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
@@ -54,6 +54,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
     const [isExpanded, setIsExpanded] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -98,6 +99,9 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
             const token = session?.access_token;
             const historyToPass = newMessages.slice(1, -1);
 
+            // Create new AbortController for this request
+            abortControllerRef.current = new AbortController();
+
             const res = await fetch(`${API_BASE}/api/ai/chat`, {
                 method: 'POST',
                 headers: {
@@ -110,6 +114,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                     chat_history: historyToPass,
                     ai_model: selectedModel
                 }),
+                signal: abortControllerRef.current.signal,
             });
 
             if (!res.ok) throw new Error('Failed to get response');
@@ -120,18 +125,30 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                 { role: 'model', content: data.reply, timestamp: new Date() }
             ]);
 
-        } catch (err) {
-            console.error(err);
-            setMessages((prev) => [
-                ...prev,
-                { 
-                    role: 'model', 
-                    content: "I'm experiencing a connection issue. Please try again in a moment.",
-                    timestamp: new Date(),
-                }
-            ]);
+        } catch (err: any) {
+            if (err?.name === 'AbortError') {
+                // User cancelled — remove the pending user message
+                setMessages((prev) => prev.slice(0, -1));
+            } else {
+                console.error(err);
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        role: 'model',
+                        content: "I'm experiencing a connection issue. Please try again in a moment.",
+                        timestamp: new Date(),
+                    }
+                ]);
+            }
         } finally {
             setIsLoading(false);
+            abortControllerRef.current = null;
+        }
+    };
+
+    const handleCancel = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
         }
     };
 
@@ -301,8 +318,21 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                         <div className="w-7 h-7 rounded-full bg-surface-2 text-secondary-foreground border border-white/5 flex items-center justify-center flex-shrink-0 mt-1">
                                             <Sparkles className="w-3.5 h-3.5" />
                                         </div>
-                                        <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-4">
-                                            <TypingIndicator />
+                                        <div className="flex flex-col gap-2">
+                                            <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-4">
+                                                <TypingIndicator />
+                                            </div>
+                                            {/* Cancel button */}
+                                            <motion.button
+                                                initial={{ opacity: 0, scale: 0.9 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                transition={{ delay: 0.5 }}
+                                                onClick={handleCancel}
+                                                className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground hover:text-destructive uppercase tracking-widest transition-colors self-start px-1"
+                                            >
+                                                <StopCircle className="w-3 h-3" />
+                                                Cancel
+                                            </motion.button>
                                         </div>
                                     </div>
                                 </motion.div>
