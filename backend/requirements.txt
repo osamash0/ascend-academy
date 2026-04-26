@@ -10,3 +10,4 @@ python-multipart
 ollama
 google-genai
 groq
+edge-tts

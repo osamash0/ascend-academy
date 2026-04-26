@@ -6,12 +6,16 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 # Ensure .env is loaded before initializing any clients
-_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-if _env_path.exists():
-    load_dotenv(dotenv_path=_env_path, override=True)
+# Load root .env first, then backend/.env (backend/.env takes precedence)
+_root_env = Path(__file__).resolve().parent.parent.parent / ".env"
+_backend_env = Path(__file__).resolve().parent.parent / ".env"
+if _root_env.exists():
+    load_dotenv(dotenv_path=_root_env, override=True)
+if _backend_env.exists():
+    load_dotenv(dotenv_path=_backend_env, override=True)
 
 OLLAMA_MODEL = "llama3"
-GEMINI_MODEL = "gemini-1.5-flash"
+GEMINI_MODEL = "models/gemini-2.5-flash"
 GROQ_MODEL = "llama-3.1-8b-instant"
 
 try:
@@ -487,4 +491,23 @@ Tutor:"""
             print(f"DEBUG Ollama chat error: {e}")
             return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
 
+
     return "No AI model selected or unknown AI model."
+
+# --- TTS (Speech Synthesis) ---
+async def generate_speech(text: str, voice: str = "en-US-AvaNeural") -> bytes:
+    """
+    Generates audio bytes for the given text using edge-tts (free AI voice).
+    """
+    import edge_tts
+    import io
+
+    communicate = edge_tts.Communicate(text, voice)
+    audio_data = io.BytesIO()
+    
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio_data.write(chunk["data"])
+            
+    audio_data.seek(0)
+    return audio_data.getvalue()

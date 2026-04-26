@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture
+from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech
+import io
 from backend.services.content_filter import is_metadata_slide
 from backend.core.auth_middleware import verify_token
 
@@ -27,6 +29,10 @@ class ChatRequest(BaseModel):
     user_message: str
     chat_history: Optional[List[Dict[str, Any]]] = None
     ai_model: Optional[str] = "groq"
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: Optional[str] = "en-US-AvaNeural"
 
 @router.post("/generate-summary")
 def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
@@ -95,3 +101,15 @@ def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
         traceback.print_exc()
         print(f"DEBUG ai_content chat error: {e}")
         raise HTTPException(status_code=500, detail="AI tutor failed to respond. Please try again.")
+
+@router.post("/tts")
+async def text_to_speech_endpoint(body: TTSRequest, user=Depends(verify_token)):
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty.")
+    
+    try:
+        audio_content = await generate_speech(body.text, voice=body.voice)
+        return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
+    except Exception as e:
+        print(f"DEBUG ai_content tts error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate AI voice.")

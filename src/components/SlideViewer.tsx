@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, BookOpen, Lightbulb, Volume2, VolumeX, Square, Play, Pause, Star, HelpCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, Lightbulb, Volume2, VolumeX, Square, Play, Pause, Star, HelpCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Document, Page, pdfjs } from 'react-pdf';
+import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -82,8 +83,10 @@ export function SlideViewer({
 
   // TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isLoadingTTS, setIsLoadingTTS] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
   // Reset per slide
@@ -105,23 +108,32 @@ export function SlideViewer({
 
   // ── TTS helpers ──────────────────────────────────────────────────────────
   const stopSpeech = useCallback(() => {
+    // Stop browser TTS
     window.speechSynthesis?.cancel();
+    utteranceRef.current = null;
+    
+    // Stop backend Audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+
     setIsSpeaking(false);
     setIsPaused(false);
-    utteranceRef.current = null;
   }, []);
 
-  const handleSpeak = useCallback(() => {
-    if (!ttsSupported) return;
-
+  const handleSpeak = useCallback(async () => {
     if (isSpeaking && !isPaused) {
-      window.speechSynthesis.pause();
+      if (audioRef.current) audioRef.current.pause();
+      else window.speechSynthesis.pause();
       setIsPaused(true);
       return;
     }
 
     if (isPaused) {
-      window.speechSynthesis.resume();
+      if (audioRef.current) audioRef.current.play();
+      else window.speechSynthesis.resume();
       setIsPaused(false);
       return;
     }
@@ -132,16 +144,55 @@ export function SlideViewer({
       content ? `Study Notes: ${stripMarkdown(content)}` : '',
     ].filter(Boolean).join(' ');
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.92;
-    utterance.pitch = 1;
-    utterance.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
-    utterance.onend = () => { setIsSpeaking(false); setIsPaused(false); };
-    utterance.onerror = () => { setIsSpeaking(false); setIsPaused(false); };
+    if (!text.trim()) return;
 
-    utteranceRef.current = utterance;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    setIsLoadingTTS(true);
+    try {
+      // 1. Try backend high-quality AI voice
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${API_BASE}/api/ai/tts`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ text, voice: "en-US-AvaNeural" })
+      });
+
+      if (!res.ok) throw new Error('Backend TTS failed');
+      
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      
+      audio.onplay = () => { setIsSpeaking(true); setIsPaused(false); };
+      audio.onended = () => { setIsSpeaking(false); setIsPaused(false); audioRef.current = null; };
+      audio.onerror = () => { throw new Error('Audio play error'); };
+      
+      audioRef.current = audio;
+      audio.play();
+
+    } catch (err) {
+      console.warn('Fallback to browser TTS:', err);
+      // 2. Fallback to browser SpeechSynthesis
+      if (!ttsSupported) return;
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.92;
+      utterance.pitch = 1;
+      utterance.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
+      utterance.onend = () => { setIsSpeaking(false); setIsPaused(false); };
+      utterance.onerror = () => { setIsSpeaking(false); setIsPaused(false); };
+
+      utteranceRef.current = utterance;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    } finally {
+      setIsLoadingTTS(false);
+    }
   }, [isSpeaking, isPaused, title, summary, content, slideNumber, ttsSupported]);
 
   // ── Confidence rating ─────────────────────────────────────────────────────
@@ -181,19 +232,22 @@ export function SlideViewer({
             <div className="flex items-center gap-2">
               <motion.button
                 onClick={handleSpeak}
+                disabled={isLoadingTTS}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300 ${isSpeaking
                     ? 'bg-primary/20 border-primary/30 text-primary shadow-glow-primary/20'
                     : 'bg-surface-2 border-white/5 text-muted-foreground hover:text-foreground hover:border-primary/30'
-                  }`}
+                  } ${isLoadingTTS ? 'opacity-50 cursor-not-allowed' : ''}`}
                 whileTap={{ scale: 0.95 }}
                 title={ttsLabel}
               >
-                {isSpeaking && !isPaused ? (
+                {isLoadingTTS ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : isSpeaking && !isPaused ? (
                   <Pause className="w-3.5 h-3.5" />
                 ) : (
                   <Volume2 className="w-3.5 h-3.5" />
                 )}
-                {ttsLabel}
+                {isLoadingTTS ? 'Generating...' : ttsLabel}
               </motion.button>
 
               {isSpeaking && (
