@@ -70,34 +70,52 @@ export function QuizCard({
   const isCorrect = selectedAnswer === correctAnswer;
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 shadow-lg">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-medium text-muted-foreground">
-          Question {questionNumber} of {totalQuestions}
-        </span>
-        <div className="flex items-center gap-1 text-xp">
-          <Zap className="w-4 h-4" />
-          <span className="text-sm font-semibold">+10 XP</span>
+    <div className="glass-card p-8 border-white/5 rounded-[32px] shadow-2xl relative overflow-hidden group">
+      {/* Dynamic Background Glow */}
+      <AnimatePresence>
+        {showResult && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.15 }}
+            className={`absolute inset-0 -z-10 blur-[100px] ${isCorrect ? 'bg-success' : 'bg-destructive'}`}
+          />
+        )}
+      </AnimatePresence>
+
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-1">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Neural Evaluation</p>
+          <span className="text-sm font-bold text-foreground">
+            Module {questionNumber} <span className="text-muted-foreground">/ {totalQuestions}</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2 bg-xp/10 px-3 py-1.5 rounded-xl border border-xp/20">
+          <Zap className="w-4 h-4 text-xp fill-xp" />
+          <span className="text-xs font-bold text-xp uppercase tracking-tighter">+10 XP Potential</span>
         </div>
       </div>
 
-      <h3 className="text-lg font-semibold text-foreground mb-6">{question}</h3>
+      <h3 className="text-2xl font-bold text-foreground mb-10 tracking-tight leading-tight">
+        {question}
+      </h3>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-4">
         {options.map((option, index) => {
           const isSelected = selectedAnswer === index;
           const isCorrectOption = index === correctAnswer;
 
-          let optionClass = 'border-border hover:border-primary hover:bg-secondary/50';
+          let optionClass = 'border-white/5 bg-white/2 hover:border-primary/50 hover:bg-primary/5 hover:translate-x-1';
 
           if (showResult) {
             if (isCorrectOption) {
-              optionClass = 'border-success bg-success/10';
+              optionClass = 'border-success bg-success/10 shadow-glow-success/10 scale-[1.02]';
             } else if (isSelected && !isCorrect) {
-              optionClass = 'border-destructive bg-destructive/10';
+              optionClass = 'border-destructive bg-destructive/10 shadow-glow-destructive/10';
+            } else {
+              optionClass = 'border-white/5 opacity-40';
             }
           } else if (isSelected) {
-            optionClass = 'border-primary bg-secondary';
+            optionClass = 'border-primary bg-primary/10';
           }
 
           const animState =
@@ -110,35 +128,37 @@ export function QuizCard({
           return (
             <motion.button
               key={index}
-              className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-200 ${optionClass} ${showResult ? 'cursor-default' : 'cursor-pointer'
-                } relative`}
+              className={`w-full p-6 rounded-2xl border-2 text-left transition-all duration-300 ${optionClass} ${showResult ? 'cursor-default' : 'cursor-pointer'
+                } relative overflow-hidden group/option`}
               onClick={() => handleAnswer(index)}
               disabled={showResult}
-              initial={{ opacity: 0, x: -10 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={
                 animState === 'shake'
                   ? shakeVariants.shake
                   : animState === 'bounce'
                     ? bounceVariants.bounce
-                    : { opacity: 1, x: 0 }
+                    : { opacity: 1, y: 0 }
               }
-              transition={{ delay: showResult ? 0 : index * 0.1 }}
-              whileHover={!showResult ? { scale: 1.01 } : {}}
-              whileTap={!showResult ? { scale: 0.99 } : {}}
+              transition={{ delay: showResult ? 0 : index * 0.05 }}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-5">
+                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-colors ${
+                    isSelected ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground'
+                  }`}>
                     {String.fromCharCode(65 + index)}
                   </span>
-                  <span className="font-medium text-foreground">{option}</span>
+                  <span className={`text-base font-bold transition-colors ${
+                    isSelected ? 'text-foreground' : 'text-muted-foreground group-hover/option:text-foreground'
+                  }`}>{option}</span>
                 </div>
 
                 {showResult && isCorrectOption && (
                   <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="text-success"
+                    initial={{ scale: 0, rotate: -45 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center text-success"
                   >
                     <CheckCircle2 className="w-6 h-6" />
                   </motion.div>
@@ -146,9 +166,9 @@ export function QuizCard({
 
                 {showResult && isSelected && !isCorrect && (
                   <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="text-destructive"
+                    initial={{ scale: 0, rotate: 45 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center text-destructive"
                   >
                     <XCircle className="w-6 h-6" />
                   </motion.div>
@@ -158,18 +178,24 @@ export function QuizCard({
                 <AnimatePresence>
                   {showXP && isCorrectOption && (
                     <motion.div
-                      className="absolute right-4 flex items-center gap-1 text-xp font-bold text-sm pointer-events-none"
+                      className="absolute right-0 flex items-center gap-2 text-xp font-bold text-lg pointer-events-none"
                       initial={{ opacity: 1, y: 0 }}
-                      animate={{ opacity: 0, y: -36 }}
+                      animate={{ opacity: 0, y: -50 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: 1, ease: 'easeOut' }}
+                      transition={{ duration: 1.2, ease: [0.34, 1.56, 0.64, 1] }}
                     >
-                      <Zap className="w-4 h-4" />
+                      <div className="w-8 h-8 rounded-lg bg-xp flex items-center justify-center shadow-glow-xp">
+                        <Zap className="w-4 h-4 text-white fill-white" />
+                      </div>
                       +10 XP
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
+              
+              {!showResult && (
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/option:opacity-100 transition-opacity" />
+              )}
             </motion.button>
           );
         })}
@@ -178,27 +204,34 @@ export function QuizCard({
       <AnimatePresence>
         {showResult && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className={`mt-4 p-4 rounded-xl ${isCorrect
-                ? 'bg-success/10 border border-success/20'
-                : 'bg-destructive/10 border border-destructive/20'
+            className={`mt-10 p-6 rounded-2xl border flex items-center justify-between overflow-hidden relative ${isCorrect
+                ? 'bg-success/10 border-success/20'
+                : 'bg-destructive/10 border-destructive/20'
               }`}
           >
-            <div className="flex items-center gap-2">
-              {isCorrect ? (
-                <>
-                  <CheckCircle2 className="w-5 h-5 text-success" />
-                  <span className="font-semibold text-success">Correct! +10 XP</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="w-5 h-5 text-destructive" />
-                  <span className="font-semibold text-destructive">Incorrect</span>
-                </>
-              )}
+            <div className="flex items-center gap-4 relative z-10">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isCorrect ? 'bg-success text-white shadow-glow-success' : 'bg-destructive text-white shadow-glow-destructive'}`}>
+                {isCorrect ? <CheckCircle2 className="w-6 h-6" /> : <XCircle className="w-6 h-6" />}
+              </div>
+              <div className="flex flex-col">
+                <span className={`text-xl font-bold ${isCorrect ? 'text-success' : 'text-destructive'}`}>
+                  {isCorrect ? 'Neural Match Confirmed' : 'Synapse Misalignment'}
+                </span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  {isCorrect ? 'Telemetric Data Integrated' : 'Resynchronization Required'}
+                </span>
+              </div>
             </div>
+            
+            {isCorrect && (
+              <div className="flex items-center gap-2 bg-xp text-white px-4 py-2 rounded-xl font-bold shadow-glow-xp animate-bounce">
+                <Zap className="w-4 h-4 fill-white" />
+                +10 XP
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
