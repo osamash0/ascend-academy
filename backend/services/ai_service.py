@@ -550,3 +550,133 @@ async def generate_speech(text: str, voice: str = "en-US-AvaNeural") -> bytes:
             
     audio_data.seek(0)
     return audio_data.getvalue()
+
+
+# --- Mind Map Generation ---
+class MindMapNode(BaseModel):
+    id: str
+    label: str
+    type: str
+    summary: str | None = None
+    children: list["MindMapNode"] = []
+
+MindMapNode.model_rebuild()
+
+class MindMapRoot(BaseModel):
+    id: str
+    label: str
+    type: str
+    children: list[MindMapNode]
+
+def generate_mind_map(lecture_title: str, slides: list[dict], ai_model: str = "groq") -> dict:
+    """
+    Generate a hierarchical mind map tree from lecture slides.
+    
+    slides: list of {"id": str, "title": str, "summary": str}
+    Returns: tree_data dict matching MindMapRoot schema.
+    """
+    slides_text = "\n".join(
+        f"- Slide {i+1}: \"{s.get('title', 'Untitled')}\" — {s.get('summary', 'No summary')}"
+        for i, s in enumerate(slides)
+    )
+
+    prompt = f"""You are an educational knowledge architect.
+Given the following lecture slides, build a hierarchical mind map tree.
+
+Rules:
+1. The root node represents the whole lecture.
+2. Group the slides into 2-4 thematic clusters (intermediate nodes with type "cluster").
+3. Each slide becomes a child node of its closest cluster (type "slide").
+4. Extract 2-3 key concepts from each slide as leaf children (type "concept"). Keep labels under 6 words.
+5. Return ONLY valid JSON. No preamble, no postamble.
+
+JSON Schema:
+{{
+  "id": "root",
+  "label": "{lecture_title}",
+  "type": "root",
+  "children": [
+    {{
+      "id": "cluster-1",
+      "label": "Cluster Theme",
+      "type": "cluster",
+      "children": [
+        {{
+          "id": "slide-1",
+          "label": "Slide Title",
+          "type": "slide",
+          "summary": "one sentence summary",
+          "children": [
+            {{"id": "c-1-1", "label": "Key Concept", "type": "concept"}}
+          ]
+        }}
+      ]
+    }}
+  ]
+}}
+
+Lecture Title: {lecture_title}
+Slides:
+{slides_text}
+
+JSON Output:"""
+
+    default_tree = {
+        "id": "root",
+        "label": lecture_title,
+        "type": "root",
+        "children": [
+            {
+                "id": f"slide-{i}",
+                "label": s.get("title", f"Slide {i+1}"),
+                "type": "slide",
+                "summary": s.get("summary", ""),
+                "children": []
+            }
+            for i, s in enumerate(slides)
+        ]
+    }
+
+    if ai_model in ("gemini-2.5-flash", "gemini-1.5-flash"):
+        if gemini_client:
+            try:
+                res = gemini_client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(response_mime_type="application/json")
+                )
+                return json.loads(res.text)
+            except Exception as e:
+                print(f"DEBUG Gemini mind map error: {e}")
+        return default_tree
+
+    elif ai_model == "groq":
+        if not groq_client:
+            return default_tree
+        try:
+            res = groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"}
+            )
+            return json.loads(res.choices[0].message.content)
+        except Exception as e:
+            print(f"DEBUG Groq mind map error: {e}")
+            return default_tree
+
+    elif ai_model == "llama3":
+        if ollama is None:
+            return default_tree
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            content = res["message"]["content"].strip()
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                content = json_match.group()
+            return json.loads(content)
+        except Exception as e:
+            print(f"DEBUG Ollama mind map error: {e}")
+            return default_tree
+
+    return default_tree
+

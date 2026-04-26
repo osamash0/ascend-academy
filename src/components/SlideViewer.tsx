@@ -8,6 +8,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { MindMap } from '@/components/MindMap';
+import type { TreeNode } from '@/features/mindmap/hooks/useMindMap';
 import 'katex/dist/katex.min.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -33,6 +35,11 @@ interface SlideViewerProps {
   pageNumber?: number;
   onConfidenceRate?: (rating: Confidence) => void;
   initialConfidence?: Confidence;
+  // Mind map
+  mindMapData?: TreeNode | null;
+  currentSlideId?: string;
+  onGenerateMindMap?: () => void;
+  isMindMapLoading?: boolean;
 }
 
 const CONFIDENCE_OPTIONS: { key: Confidence; emoji: string; label: string; activeClass: string }[] = [
@@ -71,6 +78,10 @@ export function SlideViewer({
   pageNumber,
   onConfidenceRate,
   initialConfidence = null,
+  mindMapData,
+  currentSlideId,
+  onGenerateMindMap,
+  isMindMapLoading = false,
 }: SlideViewerProps) {
   // PDF state
   const [pdfError, setPdfError] = useState(false);
@@ -80,6 +91,14 @@ export function SlideViewer({
   // Confidence rating
   const [confidence, setConfidence] = useState<Confidence>(initialConfidence);
   const [justRated, setJustRated] = useState(false);
+
+  // Mind map panel
+  const [mindMapOpen, setMindMapOpen] = useState(false);
+
+  // Auto-expand on last slide
+  useEffect(() => {
+    if (isLast && mindMapData) setMindMapOpen(true);
+  }, [isLast, mindMapData]);
 
   // TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -319,7 +338,7 @@ export function SlideViewer({
           </div>
         )}
 
-        {/* AI Summary Section */}
+        {/* AI Summary / Insights */}
         {summary && (
           <div className="px-6 py-6 border-b border-white/5">
             <div className="glass-panel border-white/5 rounded-2xl p-5 relative overflow-hidden group">
@@ -336,6 +355,84 @@ export function SlideViewer({
             </div>
           </div>
         )}
+
+        {/* Mind Map Panel */}
+        <div className="px-6 py-4 border-b border-white/5">
+          <button
+            onClick={() => setMindMapOpen((o) => !o)}
+            className="w-full flex items-center justify-between gap-3 glass-panel border-white/5 rounded-2xl px-5 py-3.5 hover:bg-white/5 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-secondary/20 flex items-center justify-center shadow-glow-primary/20 group-hover:scale-110 transition-transform">
+                <span className="text-base">🧠</span>
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold text-foreground">Lecture Mind Map</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                  {mindMapData
+                    ? 'Interactive knowledge tree — click to explore'
+                    : 'AI knowledge tree not yet generated'}
+                </p>
+              </div>
+            </div>
+            <motion.span
+              animate={{ rotate: mindMapOpen ? 180 : 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="text-muted-foreground text-xs"
+            >
+              ▼
+            </motion.span>
+          </button>
+
+          <AnimatePresence>
+            {mindMapOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="mt-3 glass-panel border-white/5 rounded-2xl overflow-hidden relative">
+                  {mindMapData ? (
+                    <MindMap
+                      treeData={mindMapData}
+                      currentSlideId={currentSlideId}
+                      height={480}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-16 gap-5">
+                      <div className="text-4xl">🧠</div>
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-foreground mb-1">No mind map yet</p>
+                        <p className="text-xs text-muted-foreground">Generate a visual knowledge tree from all lecture slides</p>
+                      </div>
+                      {onGenerateMindMap && (
+                        <button
+                          onClick={onGenerateMindMap}
+                          disabled={isMindMapLoading}
+                          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-sm font-bold shadow-glow-primary border-none hover:opacity-90 transition-all disabled:opacity-50"
+                        >
+                          {isMindMapLoading ? (
+                            <>
+                              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <span>✨</span>
+                              Generate Mind Map
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Study Notes Content */}
         <div className="p-8 lg:p-10">

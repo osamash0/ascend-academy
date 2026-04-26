@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
 import { useToast } from '@/hooks/use-toast';
+import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 
 interface Slide {
   id: string;
@@ -66,7 +67,10 @@ export default function LectureView() {
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const { role } = useAuth(); // role is 'professor' or 'student'
+  const { role } = useAuth();
+
+  // Mind map
+  const { map: mindMap, generate: generateMindMap } = useMindMap(lectureId ?? null);
 
   useEffect(() => {
     if (lectureId && user) {
@@ -821,7 +825,11 @@ export default function LectureView() {
                             },
                           });
                         }}
-                      />
+                      mindMapData={mindMap.data ?? null}
+                      currentSlideId={currentSlide.id}
+                      onGenerateMindMap={() => generateMindMap.mutate(localStorage.getItem('ascend-academy-ai-model') || 'groq')}
+                      isMindMapLoading={generateMindMap.isPending}
+                    />
                     </motion.div>
                   )}
                 </AnimatePresence>
