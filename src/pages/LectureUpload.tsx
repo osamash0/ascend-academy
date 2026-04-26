@@ -76,9 +76,14 @@ export default function LectureUpload() {
         throw new Error('Failed to parse PDF');
       }
 
-      const data = await res.json();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const newSlides: SlideData[] = data.slides.map((s: any) => ({
+      interface ParsedSlideFromAPI {
+        title: string;
+        content: string;
+        summary?: string;
+        questions?: QuestionData[];
+      }
+      const data: { slides: ParsedSlideFromAPI[] } = await res.json();
+      const newSlides: SlideData[] = data.slides.map((s) => ({
         title: s.title,
         content: s.content,
         summary: s.summary || '',
@@ -204,13 +209,6 @@ export default function LectureUpload() {
       return;
     }
 
-    const slug = title
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
     setLoading(true);
 
     try {
@@ -249,8 +247,8 @@ export default function LectureUpload() {
           description,
           professor_id: user?.id,
           total_slides: slides.length,
-          pdf_url: pdfUrl
-        } as any)
+          pdf_url: pdfUrl,
+        })
         .select()
         .single();
 

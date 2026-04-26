@@ -70,7 +70,7 @@ export function LevelUpModal({ isOpen, onClose, newLevel }: LevelUpModalProps) {
         <>
           {showConfetti && <Confetti />}
           <motion.div
-            className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-background/80 backdrop-blur-md z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -81,61 +81,71 @@ export function LevelUpModal({ isOpen, onClose, newLevel }: LevelUpModalProps) {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 400 }}
           >
-            <div className="bg-card rounded-3xl p-8 shadow-2xl max-w-md w-full mx-4 pointer-events-auto border border-border">
-              <div className="text-center">
+            <div className="glass-card p-12 shadow-glow-primary/20 max-w-md w-full mx-4 pointer-events-auto border-white/10 rounded-[48px] relative overflow-hidden text-center group">
+              {/* Background celebration glow */}
+              <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-transparent to-transparent opacity-50" />
+              
+              <div className="relative z-10">
                 <motion.div
-                  className="w-24 h-24 gradient-level rounded-full mx-auto mb-6 flex items-center justify-center shadow-xl"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: 'spring', damping: 10 }}
+                  className="w-32 h-32 bg-gradient-to-br from-primary to-secondary rounded-[32px] mx-auto mb-10 flex items-center justify-center shadow-glow-primary relative group-hover:scale-110 transition-transform duration-500"
+                  initial={{ scale: 0, rotate: -45 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: 0.2, type: 'spring', damping: 12 }}
                 >
-                  <Trophy className="w-12 h-12 text-level-foreground" />
+                  <Trophy className="w-16 h-16 text-white drop-shadow-glow-white/50" />
+                  <motion.div 
+                    className="absolute -top-4 -right-4 bg-xp rounded-full p-2 border-4 border-background shadow-lg"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    <Sparkles className="w-6 h-6 text-white fill-white" />
+                  </motion.div>
                 </motion.div>
 
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
+                  transition={{ delay: 0.4 }}
                 >
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Sparkles className="w-6 h-6 text-xp" />
-                    <span className="text-lg font-medium text-muted-foreground">
-                      Level Up!
-                    </span>
-                    <Sparkles className="w-6 h-6 text-xp" />
+                  <div className="flex flex-col gap-2 mb-8">
+                    <span className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">Synapse Evolution Confirmed</span>
+                    <h2 className="text-5xl lg:text-6xl font-bold text-foreground tracking-tighter">
+                      Level <span className="text-primary">{newLevel}</span>
+                    </h2>
                   </div>
                   
-                  <h2 className="text-4xl font-bold text-gradient mb-2">
-                    Level {newLevel}
-                  </h2>
-                  
-                  <p className="text-muted-foreground mb-6">
-                    Amazing progress! Keep learning to unlock new achievements.
+                  <p className="text-muted-foreground font-medium mb-10 leading-relaxed text-sm">
+                    Cognitive architecture upgraded. Your integration with the Orbital protocol has reached the next phase.
                   </p>
 
-                  <div className="flex justify-center gap-1 mb-6">
+                  <div className="flex justify-center gap-3 mb-10">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <motion.div
                         key={i}
-                        initial={{ opacity: 0, scale: 0 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.5 + i * 0.1 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.6 + i * 0.1 }}
                       >
                         <Star
-                          className={`w-8 h-8 ${
-                            i < Math.min(newLevel, 5)
-                              ? 'text-xp fill-xp'
-                              : 'text-muted'
+                          className={`w-10 h-10 ${
+                            i < (newLevel % 5 || 5)
+                              ? 'text-xp fill-xp shadow-glow-xp'
+                              : 'text-white/5'
                           }`}
                         />
                       </motion.div>
                     ))}
                   </div>
 
-                  <Button variant="hero" size="lg" onClick={onClose}>
-                    Continue Learning
+                  <Button 
+                    size="xl" 
+                    className="w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl shadow-glow-primary text-lg border-none transition-all active:scale-95 h-16" 
+                    onClick={onClose}
+                  >
+                    Continue Mission
                   </Button>
                 </motion.div>
               </div>

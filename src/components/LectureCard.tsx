@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ChevronRight, BookOpen, CheckCircle2, GraduationCap, Beaker, Globe, Calculator, Music, Palette, Cpu, Leaf, Scale } from 'lucide-react';
+import { BookOpen, CheckCircle2, ChevronRight, Clock, Star } from 'lucide-react';
 
 interface LectureCardProps {
   id: string;
@@ -13,38 +13,11 @@ interface LectureCardProps {
   index?: number;
 }
 
-// Color palettes for the illustration area
-const CARD_THEMES = [
-  { bg: 'from-orange-400 to-rose-400', label: 'text-orange-500', border: 'border-orange-200', icon: Globe },
-  { bg: 'from-blue-400 to-indigo-500', label: 'text-blue-500', border: 'border-blue-200', icon: Beaker },
-  { bg: 'from-violet-400 to-purple-500', label: 'text-violet-500', border: 'border-violet-200', icon: GraduationCap },
-  { bg: 'from-emerald-400 to-teal-500', label: 'text-emerald-500', border: 'border-emerald-200', icon: Leaf },
-  { bg: 'from-amber-400 to-orange-400', label: 'text-amber-500', border: 'border-amber-200', icon: Calculator },
-  { bg: 'from-sky-400 to-blue-500', label: 'text-sky-500', border: 'border-sky-200', icon: Cpu },
-  { bg: 'from-pink-400 to-rose-500', label: 'text-pink-500', border: 'border-pink-200', icon: Music },
-  { bg: 'from-lime-400 to-green-500', label: 'text-lime-600', border: 'border-lime-200', icon: Palette },
-  { bg: 'from-cyan-400 to-sky-500', label: 'text-cyan-600', border: 'border-cyan-200', icon: Scale },
-];
-
-// Derive a short "category" label from the description or title
-function getCategory(description?: string, title?: string): string {
-  if (description && description.trim().length > 0) {
-    // Use first 2-3 words of description as category-like label
-    const words = description.trim().split(/\s+/);
-    return words.slice(0, 2).join(' ');
-  }
-  // Fall back to first word of title
-  if (title) return title.split(' ')[0];
-  return 'Lecture';
-}
-
 export function LectureCard({
   title,
   description,
   totalSlides,
   completedSlides,
-  quizScore = 0,
-  totalQuestions = 0,
   onClick,
   index = 0,
 }: LectureCardProps) {
@@ -52,79 +25,81 @@ export function LectureCard({
   const isCompleted = progress === 100;
   const isNew = completedSlides === 0 && !isCompleted;
 
-  const theme = CARD_THEMES[index % CARD_THEMES.length];
-  const ThemeIcon = theme.icon;
-  const category = getCategory(description, title);
-
-  const buttonLabel = isCompleted ? 'Review' : isNew ? 'Start' : 'Continue';
-
   return (
     <motion.div
-      className={`group bg-white dark:bg-card rounded-3xl border ${theme.border} dark:border-border overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col cursor-pointer`}
-      whileHover={{ y: -5, scale: 1.01 }}
+      layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      whileHover={{ y: -8 }}
+      className="group relative h-full cursor-pointer"
       onClick={onClick}
-      style={{ minHeight: '280px' }}
     >
-      {/* Top: white area with category + title */}
-      <div className="p-5 flex flex-col gap-2 flex-1">
-        {/* Category row */}
-        <div className={`flex items-center gap-1.5 ${theme.label}`}>
-          <ThemeIcon className="w-4 h-4" />
-          <span className="text-xs font-semibold uppercase tracking-wide truncate">{category}</span>
-        </div>
-
-        {/* Title */}
-        <h3 className="font-bold text-base text-gray-900 dark:text-foreground leading-snug line-clamp-3 group-hover:underline decoration-1 underline-offset-2">
-          {title}
-        </h3>
-
-        {/* Progress pill */}
-        {!isNew && (
-          <div className="flex items-center gap-2 mt-auto pt-2">
-            <div className="flex-1 h-1.5 bg-gray-100 dark:bg-muted rounded-full overflow-hidden">
-              <motion.div
-                className={`h-full bg-gradient-to-r ${theme.bg} rounded-full`}
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
-              />
+      <div className="glass-card flex flex-col h-full overflow-hidden border-white/5 group-hover:border-primary/50 transition-all duration-500 shadow-xl group-hover:shadow-glow-primary/10">
+        {/* Animated Accent */}
+        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary via-secondary to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        
+        <div className="p-6 flex flex-col gap-4 flex-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-primary">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <BookOpen className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest">Cognitive Module</span>
             </div>
-            <span className="text-[11px] font-medium text-muted-foreground">{Math.round(progress)}%</span>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom: colorful illustration area */}
-      <div className={`relative bg-gradient-to-br ${theme.bg} h-36 flex items-center justify-center overflow-hidden`}>
-        {/* Decorative background circles */}
-        <div className="absolute -bottom-6 -right-6 w-28 h-28 rounded-full bg-white/10" />
-        <div className="absolute -top-4 -left-4 w-20 h-20 rounded-full bg-white/10" />
-
-        {/* Main icon illustration */}
-        <motion.div
-          className="relative z-10 flex flex-col items-center gap-2"
-          whileHover={{ scale: 1.1, rotate: [0, -3, 3, 0] }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
-            {isCompleted ? (
-              <CheckCircle2 className="w-9 h-9 text-white" />
-            ) : (
-              <BookOpen className="w-9 h-9 text-white" />
+            {isCompleted && (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-success/10 text-success border border-success/20">
+                <CheckCircle2 className="w-3 h-3" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Synced</span>
+              </div>
+            )}
+            {isNew && (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                <Star className="w-3 h-3 fill-primary" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">New</span>
+              </div>
             )}
           </div>
-          <span className="text-white/90 text-xs font-semibold">
-            {totalSlides} slides
-          </span>
-        </motion.div>
 
-        {/* Action badge */}
-        <div className="absolute bottom-3 right-3">
-          <div className="flex items-center gap-1 bg-white/25 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-full">
-            {buttonLabel}
-            <ChevronRight className="w-3 h-3" />
+          <h3 className="font-bold text-xl text-foreground leading-tight line-clamp-2 group-hover:text-primary transition-colors duration-300 tracking-tight">
+            {title}
+          </h3>
+
+          {description && (
+            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed opacity-70 group-hover:opacity-100 transition-opacity">
+              {description}
+            </p>
+          )}
+
+          <div className="mt-auto pt-6 space-y-4">
+            <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              <span className="flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5" />
+                {isNew ? 'Awaiting Initiation' : isCompleted ? 'Review Synchronized' : `${Math.round(progress)}% Integrated`}
+              </span>
+              <span className="text-foreground/50">{completedSlides}/{totalSlides} Units</span>
+            </div>
+            <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
+              <motion.div
+                className="h-full bg-gradient-to-r from-primary via-secondary to-xp rounded-full relative"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 1.5, ease: [0.34, 1.56, 0.64, 1], delay: index * 0.1 }}
+              >
+                {progress > 0 && (
+                  <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white/30 to-transparent" />
+                )}
+              </motion.div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 bg-white/2 border-t border-white/5 flex items-center justify-between group-hover:bg-primary/5 transition-all duration-300">
+          <span className="text-xs font-bold text-muted-foreground group-hover:text-primary uppercase tracking-widest transition-colors">
+            {isCompleted ? 'Enter Review' : isNew ? 'Initiate Mission' : 'Resume Sync'}
+          </span>
+          <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all duration-300">
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </div>
         </div>
       </div>

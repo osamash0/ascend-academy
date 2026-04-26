@@ -1,19 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Bot, User, Loader2 } from 'lucide-react';
+import { X, Send, Bot, User, Loader2, Sparkles, ChevronDown, BookOpen, StopCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import 'katex/dist/katex.min.css';
 
-// Define the API URL base
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 interface Message {
     role: 'user' | 'model';
     content: string;
+    timestamp?: Date;
 }
 
 interface LectureChatProps {
@@ -21,17 +28,34 @@ interface LectureChatProps {
     onClose: () => void;
     slideText: string;
     slideTitle: string;
-    slideId?: string;
-    lectureId?: string;
 }
 
-export function LectureChat({ isOpen, onClose, slideText, slideTitle, slideId, lectureId }: LectureChatProps) {
+/* ── Typing Indicator Animation ── */
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-1 px-2">
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="w-1.5 h-1.5 rounded-full bg-primary/60"
+          animate={{ y: [0, -4, 0] }}
+          transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedModel, setSelectedModel] = useState(localStorage.getItem('ascend-academy-ai-model') || 'llama3');
+    const [isExpanded, setIsExpanded] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
-    // Auto-scroll to bottom of chat
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -40,21 +64,31 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle, slideId, l
         scrollToBottom();
     }, [messages, isLoading]);
 
-    // Reset chat when slide changes
     useEffect(() => {
         setMessages([
             {
                 role: 'model',
-                content: `Hi! I'm your AI Tutor. I'm ready to answer any questions you have about the slide **"${slideTitle}"**. What would you like to know?`
+                content: `Hi! I'm your AI Tutor. I'm ready to answer any questions you have about **"${slideTitle}"**. What would you like to explore?`,
+                timestamp: new Date(),
             }
         ]);
     }, [slideTitle, slideText]);
+
+    useEffect(() => {
+        if (isOpen && inputRef.current) {
+            setTimeout(() => inputRef.current?.focus(), 300);
+        }
+    }, [isOpen]);
 
     const handleSend = async () => {
         if (!input.trim() || isLoading) return;
 
         const userMsg = input.trim();
-        const newMessages: Message[] = [...messages, { role: 'user', content: userMsg }];
+        const newMessages: Message[] = [...messages, { 
+            role: 'user', 
+            content: userMsg,
+            timestamp: new Date(),
+        }];
 
         setMessages(newMessages);
         setInput('');
@@ -63,25 +97,10 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle, slideId, l
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
-            const userId = session?.user?.id;
-
-            // Log AI Tutor query for Behavioral Analytics
-            if (userId && lectureId && slideId) {
-                await supabase.from('learning_events').insert({
-                    user_id: userId,
-                    event_type: 'ai_tutor_query',
-                    event_data: {
-                        lectureId,
-                        slideId,
-                        slideTitle,
-                        query: userMsg,
-                        timestamp: new Date().toISOString()
-                    }
-                });
-            }
-
-            // Extract only the history strings to pass to the backend, skipping the initial greeting
             const historyToPass = newMessages.slice(1, -1);
+
+            // Create new AbortController for this request
+            abortControllerRef.current = new AbortController();
 
             const res = await fetch(`${API_BASE}/api/ai/chat`, {
                 method: 'POST',
@@ -93,27 +112,43 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle, slideId, l
                     slide_text: slideText,
                     user_message: userMsg,
                     chat_history: historyToPass,
-                    ai_model: localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash'
+                    ai_model: selectedModel
                 }),
+                signal: abortControllerRef.current.signal,
             });
 
             if (!res.ok) throw new Error('Failed to get response');
-
             const data = await res.json();
 
             setMessages((prev) => [
                 ...prev,
-                { role: 'model', content: data.reply }
+                { role: 'model', content: data.reply, timestamp: new Date() }
             ]);
 
-        } catch (err) {
-            console.error(err);
-            setMessages((prev) => [
-                ...prev,
-                { role: 'model', content: "Sorry, I'm having trouble connecting to my knowledge base right now. Please try again!" }
-            ]);
+        } catch (err: unknown) {
+            if (err instanceof Error && err.name === 'AbortError') {
+                // User cancelled — remove the pending user message
+                setMessages((prev) => prev.slice(0, -1));
+            } else {
+                console.error(err);
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        role: 'model',
+                        content: "I'm experiencing a connection issue. Please try again in a moment.",
+                        timestamp: new Date(),
+                    }
+                ]);
+            }
         } finally {
             setIsLoading(false);
+            abortControllerRef.current = null;
+        }
+    };
+
+    const handleCancel = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
         }
     };
 
@@ -124,130 +159,221 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle, slideId, l
         }
     };
 
+    const formatTime = (date?: Date) => {
+        if (!date) return '';
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    };
+
     return (
         <AnimatePresence>
             {isOpen && (
                 <>
-                    {/* Mobile Overlay */}
+                    {/* Mobile Overlay with blur */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
+                        className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 md:hidden"
                     />
 
-                    {/* Chat Panel */}
+                    {/* Chat Panel — Orbital Design */}
                     <motion.div
                         initial={{ x: '100%', opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: '100%', opacity: 0 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed inset-y-0 right-0 w-full md:w-[400px] border-l border-border bg-card shadow-2xl z-50 flex flex-col pt-4 pb-0 md:pt-0"
+                        transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+                        className="fixed inset-y-0 right-0 w-full md:w-[440px] z-50 flex flex-col"
                     >
+                        {/* Glassmorphism Panel */}
+                        <div className="absolute inset-0 glass-panel-strong border-l border-white/10" />
+                        
                         {/* Header */}
-                        <div className="flex shrink-0 items-center justify-between px-4 py-4 border-b border-border bg-card z-10">
+                        <div className="relative flex shrink-0 items-center justify-between px-5 py-4 border-b border-white/5">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center">
-                                    <Bot className="w-5 h-5 text-primary-foreground" />
+                                {/* Animated AI Avatar */}
+                                <div className="relative">
+                                    <motion.div
+                                        className="absolute inset-0 bg-gradient-to-tr from-primary to-secondary rounded-full blur-lg"
+                                        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+                                        transition={{ duration: 3, repeat: Infinity }}
+                                    />
+                                    <div className="relative w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary">
+                                        <Sparkles className="w-5 h-5 text-white" />
+                                    </div>
+                                    {/* Online indicator */}
+                                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-success border-2 border-surface-1" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-foreground leading-none">AI Tutor</h3>
-                                    <p className="text-xs text-muted-foreground mt-1">Context: {slideTitle}</p>
+                                    <h3 className="font-semibold text-foreground leading-none text-sm">AI Tutor</h3>
+                                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                                        Online
+                                    </p>
                                 </div>
                             </div>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={onClose}
-                                className="rounded-full text-muted-foreground hover:text-foreground"
-                            >
-                                <X className="w-5 h-5" />
-                            </Button>
+                            
+                            <div className="flex items-center gap-2">
+                                <Select 
+                                    value={selectedModel} 
+                                    onValueChange={(val) => {
+                                        setSelectedModel(val);
+                                        localStorage.setItem('ascend-academy-ai-model', val);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-[150px] text-xs glass-card border-none focus:ring-1 focus:ring-primary/30">
+                                        <SelectValue placeholder="Model" />
+                                    </SelectTrigger>
+                                    <SelectContent className="glass-panel-strong border-white/10">
+                                        <SelectItem value="llama3">Llama 3 (Local)</SelectItem>
+                                        <SelectItem value="gemini-1.5-flash">Gemini Flash</SelectItem>
+                                        <SelectItem value="groq">Groq Llama 3.3</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={onClose}
+                                    className="rounded-full text-muted-foreground hover:text-foreground hover:bg-white/5"
+                                >
+                                    <X className="w-5 h-5" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Slide Context Banner */}
+                        <div className="relative px-5 py-3 border-b border-white/5 bg-primary/5">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <BookOpen className="w-3.5 h-3.5" />
+                                <span className="truncate">Context: <span className="text-foreground font-medium">{slideTitle}</span></span>
+                            </div>
                         </div>
 
                         {/* Chat Messages */}
-                        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+                        <div className="relative flex-1 min-h-0 overflow-y-auto p-5 space-y-6 custom-scrollbar">
                             {messages.map((msg, idx) => (
-                                <div
+                                <motion.div
                                     key={idx}
+                                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                 >
-                                    <div
-                                        className={`flex items-start gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                                            }`}
-                                    >
-                                        <div
-                                            className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${msg.role === 'user'
-                                                    ? 'bg-primary/20 text-primary'
-                                                    : 'bg-secondary text-secondary-foreground border border-border/50'
-                                                }`}
-                                        >
+                                    <div className={`flex items-start gap-3 max-w-[88%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                        {/* Avatar */}
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${msg.role === 'user'
+                                                ? 'bg-primary/20 text-primary'
+                                                : 'bg-surface-2 text-secondary-foreground border border-white/5'
+                                            }`}>
                                             {msg.role === 'user' ? (
-                                                <User className="w-4 h-4" />
+                                                <User className="w-3.5 h-3.5" />
                                             ) : (
-                                                <Bot className="w-4 h-4" />
+                                                <Sparkles className="w-3.5 h-3.5" />
                                             )}
                                         </div>
 
-                                        <div
-                                            className={`px-4 py-3 rounded-2xl ${msg.role === 'user'
-                                                    ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                                                    : 'bg-secondary text-secondary-foreground border border-border/50 rounded-tl-sm'
-                                                }`}
-                                        >
-                                            {msg.role === 'user' ? (
-                                                <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
-                                            ) : (
-                                                <div className="prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-pre:bg-background/50 prose-pre:p-3 prose-pre:rounded-xl max-w-none text-sm break-words">
-                                                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown>
-                                                </div>
-                                            )}
+                                        {/* Message Bubble */}
+                                        <div className="space-y-1">
+                                            <div className={`px-4 py-3 rounded-2xl ${msg.role === 'user'
+                                                    ? 'bg-primary text-primary-foreground rounded-tr-sm shadow-glow-primary/20'
+                                                    : 'glass-card rounded-tl-sm'
+                                                }`}>
+                                                {msg.role === 'user' ? (
+                                                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                                                ) : (
+                                                    <div className="prose prose-sm dark:prose-invert 
+                                                        prose-p:leading-relaxed prose-p:mb-3
+                                                        prose-pre:bg-surface-1/80 prose-pre:border prose-pre:border-white/5
+                                                        prose-pre:rounded-xl prose-pre:p-3 prose-pre:shadow-inner
+                                                        prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1.5 prose-code:py-0.5
+                                                        prose-code:rounded-md prose-code:text-sm prose-code:font-mono
+                                                        prose-h3:text-base prose-h3:font-semibold prose-h3:text-foreground prose-h3:mt-4
+                                                        prose-h4:text-sm prose-h4:font-medium prose-h4:text-muted-foreground
+                                                        prose-li:marker:text-primary/60 prose-li:my-1
+                                                        prose-ul:space-y-1
+                                                        max-w-none text-sm break-words">
+                                                        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                            {msg.content}
+                                                        </ReactMarkdown>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className="text-[10px] text-muted-foreground/60 px-1">
+                                                {formatTime(msg.timestamp)}
+                                            </span>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
 
                             {isLoading && (
-                                <div className="flex justify-start">
-                                    <div className="flex items-start gap-3 max-w-[85%]">
-                                        <div className="w-8 h-8 rounded-full bg-secondary text-secondary-foreground border border-border/50 flex items-center justify-center flex-shrink-0 mt-1">
-                                            <Bot className="w-4 h-4" />
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="flex justify-start"
+                                >
+                                    <div className="flex items-start gap-3 max-w-[88%]">
+                                        <div className="w-7 h-7 rounded-full bg-surface-2 text-secondary-foreground border border-white/5 flex items-center justify-center flex-shrink-0 mt-1">
+                                            <Sparkles className="w-3.5 h-3.5" />
                                         </div>
-                                        <div className="px-5 py-4 rounded-2xl bg-secondary rounded-tl-sm border border-border/50">
-                                            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                                        <div className="flex flex-col gap-2">
+                                            <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-4">
+                                                <TypingIndicator />
+                                            </div>
+                                            {/* Cancel button */}
+                                            <motion.button
+                                                initial={{ opacity: 0, scale: 0.9 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                transition={{ delay: 0.5 }}
+                                                onClick={handleCancel}
+                                                className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground hover:text-destructive uppercase tracking-widest transition-colors self-start px-1"
+                                            >
+                                                <StopCircle className="w-3 h-3" />
+                                                Cancel
+                                            </motion.button>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             )}
                             <div ref={messagesEndRef} />
                         </div>
 
                         {/* Input Area */}
-                        <div className="p-4 bg-card border-t border-border mt-auto shrink-0 z-10">
+                        <div className="relative p-4 border-t border-white/5 bg-surface-1/30 backdrop-blur-xl">
                             <form
                                 onSubmit={(e) => { e.preventDefault(); handleSend(); }}
                                 className="relative flex items-center"
                             >
                                 <input
+                                    ref={inputRef}
                                     type="text"
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Ask a question about this slide..."
-                                    className="w-full bg-secondary text-secondary-foreground rounded-full pl-5 pr-14 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 border border-border/50 transition-shadow"
+                                    placeholder="Ask about this slide..."
+                                    className="w-full bg-surface-2/50 text-foreground rounded-2xl pl-5 pr-14 py-3.5 text-sm 
+                                        placeholder:text-muted-foreground/50
+                                        focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface-2/80
+                                        border border-white/5 transition-all duration-300"
                                     disabled={isLoading}
                                 />
                                 <Button
                                     type="submit"
                                     size="icon"
                                     disabled={!input.trim() || isLoading}
-                                    className="absolute right-1.5 w-9 h-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-transform active:scale-95 disabled:opacity-50"
+                                    className="absolute right-1.5 w-10 h-10 rounded-xl bg-gradient-to-r from-primary to-secondary 
+                                        hover:opacity-90 text-white shadow-glow-primary/30 
+                                        transition-all duration-200 disabled:opacity-30 disabled:shadow-none"
                                     title="Send message"
                                 >
-                                    <Send className="w-4 h-4 mr-[2px] mt-[1px]" />
+                                    <Send className="w-4 h-4" />
                                 </Button>
                             </form>
+                            <p className="text-[10px] text-muted-foreground/40 text-center mt-2">
+                                AI responses are generated and may require verification
+                            </p>
                         </div>
                     </motion.div>
                 </>

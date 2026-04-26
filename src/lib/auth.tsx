@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string): Promise<boolean> => {
     const { data: profileData, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, user_id, email, full_name, avatar_url, total_xp, current_level, current_streak, best_streak')
       .eq('user_id', userId)
       .single();
 
@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setProfile(null);
             setRole(null);
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error("Auth state change error:", error);
         } finally {
           setLoading(false);

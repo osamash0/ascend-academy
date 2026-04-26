@@ -63,10 +63,10 @@ export default function Settings() {
                 title: "Profile updated",
                 description: "Your settings have been saved successfully.",
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 title: "Error saving profile",
-                description: error.message || "An unexpected error occurred.",
+                description: error instanceof Error ? error.message : "An unexpected error occurred.",
                 variant: "destructive"
             });
         } finally {
@@ -114,10 +114,10 @@ export default function Settings() {
                 description: "Your new profile picture looks great!",
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 title: "Error uploading avatar",
-                description: error.message || "Please make sure the 'avatars' storage bucket exists and is public.",
+                description: error instanceof Error ? error.message : "Please make sure the 'avatars' storage bucket exists and is public.",
                 variant: "destructive"
             });
         } finally {
@@ -142,7 +142,7 @@ export default function Settings() {
                 title: "Avatar updated",
                 description: "Your fun new avatar is set!",
             });
-        } catch (error: any) {
+        } catch {
             toast({
                 title: "Error updating avatar",
                 description: "Failed to update your avatar.",
