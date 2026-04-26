@@ -2,6 +2,7 @@ import { useRef, useState, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Float, PerspectiveCamera, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
+import { Activity } from 'lucide-react';
 
 interface DataPoint {
   id: string;

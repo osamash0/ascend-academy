@@ -117,6 +117,18 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                 signal: abortControllerRef.current.signal,
             });
 
+            // Log the query event for analytics
+            supabase.from('learning_events').insert({
+                user_id: session?.user?.id,
+                event_type: 'ai_tutor_query',
+                event_data: {
+                    lectureId: window.location.pathname.split('/').pop(), // Best effort to get lectureId from URL
+                    slideTitle: slideTitle,
+                    query: userMsg,
+                    timestamp: new Date().toISOString()
+                }
+            }).then(() => console.log('DEBUG: AI Query logged'));
+
             if (!res.ok) throw new Error('Failed to get response');
             const data = await res.json();
 

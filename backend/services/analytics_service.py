@@ -29,9 +29,10 @@ def generate_anon_name(user_id: str) -> str:
 
 
 def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
+    client = get_auth_client(token)
     """Get high-level metrics for a lecture"""
 
-    progress_response = get_auth_client(token).table("student_progress")\
+    progress_response = client.table("student_progress")\
         .select("user_id, completed_at, quiz_score")\
         .eq("lecture_id", lecture_id)\
         .limit(2000)\
@@ -52,7 +53,7 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     completion_rate = (completed / total_students) * 100 if total_students > 0 else 0
 
     # Get average time from lecture_complete events (was querying wrong event_type before)
-    events_response = get_auth_client(token).table("learning_events")\
+    events_response = client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "lecture_complete")\
         .contains("event_data", {"lectureId": lecture_id})\
@@ -86,9 +87,10 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
 
 
 def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    client = get_auth_client(token)
     """Get per-slide analytics"""
 
-    slides_response = get_auth_client(token).table("slides")\
+    slides_response = client.table("slides")\
         .select("id, slide_number, title")\
         .eq("lecture_id", lecture_id)\
         .order("slide_number")\
@@ -96,7 +98,7 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
         .execute()
 
     # Need total_students for drop-off calculation
-    progress_response = get_auth_client(token).table("student_progress")\
+    progress_response = client.table("student_progress")\
         .select("user_id")\
         .eq("lecture_id", lecture_id)\
         .limit(2000)\
@@ -104,7 +106,7 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
     total_students = len(progress_response.data)
 
     # Fixed: was querying 'slide_viewed' (wrong); correct type is 'slide_view'
-    events_response = get_auth_client(token).table("learning_events")\
+    events_response = client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "slide_view")\
         .contains("event_data", {"lectureId": lecture_id})\
@@ -135,15 +137,16 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
 
 
 def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    client = get_auth_client(token)
     """Get quiz difficulty analytics"""
 
-    quiz_response = get_auth_client(token).table("quiz_questions")\
+    quiz_response = client.table("quiz_questions")\
         .select("id, question_text, slides!inner(lecture_id)")\
         .eq("slides.lecture_id", lecture_id)\
         .limit(200)\
         .execute()
 
-    events_res = get_auth_client(token).table("learning_events")\
+    events_res = client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
         .contains("event_data", {"lectureId": lecture_id})\
@@ -180,21 +183,22 @@ def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any
 
 
 def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    client = get_auth_client(token)
     """Get per-student performance breakdown (anonymized)"""
 
-    progress_res = get_auth_client(token).table("student_progress")\
+    progress_res = client.table("student_progress")\
         .select("user_id, quiz_score, total_questions_answered, correct_answers, completed_slides, completed_at")\
         .eq("lecture_id", lecture_id)\
         .limit(2000)\
         .execute()
 
-    slides_res = get_auth_client(token).table("slides")\
+    slides_res = client.table("slides")\
         .select("id, slide_number")\
         .eq("lecture_id", lecture_id)\
         .limit(200)\
         .execute()
 
-    events_res = get_auth_client(token).table("learning_events")\
+    events_res = client.table("learning_events")\
         .select("user_id, event_type")\
         .contains("event_data", {"lectureId": lecture_id})\
         .limit(5000)\
@@ -241,18 +245,19 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
 
 
 def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    client = get_auth_client(token)
     """
     Show which wrong answer options students pick most per question.
     Derived from selectedAnswer field in quiz_attempt events.
     """
 
-    quiz_res = get_auth_client(token).table("quiz_questions")\
+    quiz_res = client.table("quiz_questions")\
         .select("id, question_text, options, correct_answer, slides!inner(lecture_id)")\
         .eq("slides.lecture_id", lecture_id)\
         .limit(200)\
         .execute()
 
-    events_res = get_auth_client(token).table("learning_events")\
+    events_res = client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
         .contains("event_data", {"lectureId": lecture_id})\
@@ -294,18 +299,19 @@ def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str
 
 
 def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    client = get_auth_client(token)
     """
     Show which slide most students abandon the lecture on.
     Uses last_slide_viewed from student_progress for non-completers.
     """
 
-    progress_res = get_auth_client(token).table("student_progress")\
+    progress_res = client.table("student_progress")\
         .select("user_id, last_slide_viewed, completed_at")\
         .eq("lecture_id", lecture_id)\
         .limit(2000)\
         .execute()
 
-    slides_res = get_auth_client(token).table("slides")\
+    slides_res = client.table("slides")\
         .select("id, slide_number, title")\
         .eq("lecture_id", lecture_id)\
         .order("slide_number")\
@@ -341,19 +347,20 @@ def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
 
 
 def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    client = get_auth_client(token)
     """
     Per-slide confidence breakdown (got_it / unsure / confused).
     Currently only the aggregate total is shown; this gives per-slide granularity.
     """
 
-    events_res = get_auth_client(token).table("learning_events")\
+    events_res = client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "confidence_rating")\
         .contains("event_data", {"lectureId": lecture_id})\
         .limit(5000)\
         .execute()
 
-    slides_res = get_auth_client(token).table("slides")\
+    slides_res = client.table("slides")\
         .select("id, slide_number, title")\
         .eq("lecture_id", lecture_id)\
         .order("slide_number")\
@@ -394,12 +401,13 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
 
 
 def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    client = get_auth_client(token)
     """
     Return the latest student AI tutor queries for this lecture (anonymized).
     The query text is collected but never shown to professors — this surfaces it.
     """
 
-    events_res = get_auth_client(token).table("learning_events")\
+    events_res = client.table("learning_events")\
         .select("event_data, created_at")\
         .eq("event_type", "ai_tutor_query")\
         .contains("event_data", {"lectureId": lecture_id})\
@@ -424,18 +432,19 @@ def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]
 
 # Advanced Dashboard Data Collection
 def get_dashboard_data(lecture_id: str, token: str = None):
+    client = get_auth_client(token)
     # Fetch real DB data
-    progress_res = get_auth_client(token).table("student_progress")\
+    progress_res = client.table("student_progress")\
         .select("user_id, quiz_score, total_questions_answered, correct_answers, completed_slides, completed_at")\
         .eq("lecture_id", lecture_id)\
         .limit(2000)\
         .execute()
-    events_res = get_auth_client(token).table("learning_events")\
+    events_res = client.table("learning_events")\
         .select("user_id, event_type, event_data, created_at")\
         .contains("event_data", {"lectureId": lecture_id})\
         .limit(5000)\
         .execute()
-    slides_res = get_auth_client(token).table("slides")\
+    slides_res = client.table("slides")\
         .select("id, title, slide_number")\
         .eq("lecture_id", lecture_id)\
         .limit(200)\

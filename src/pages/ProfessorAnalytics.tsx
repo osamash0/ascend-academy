@@ -8,6 +8,7 @@ import {
   Brain, TrendingDown, Filter, Activity, BrainCircuit
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { StatsCard } from '@/components/StatsCard';
 import { Button } from '@/components/ui/button';
@@ -187,7 +188,7 @@ function LecturePicker({ lectures, onSelect }: { lectures: Lecture[]; onSelect: 
         </p>
       </div>
 
-      {lectures.length === 0 ? (
+      {lectures?.length === 0 ? (
         <div className="glass-card rounded-3xl border-white/5 p-16 text-center">
           <BookOpen className="w-16 h-16 text-muted-foreground/20 mx-auto mb-6" />
           <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">No active missions found</p>
@@ -195,7 +196,7 @@ function LecturePicker({ lectures, onSelect }: { lectures: Lecture[]; onSelect: 
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {lectures.map((lec, i) => (
+          {lectures?.map((lec, i) => (
             <motion.button key={lec.id} onClick={() => onSelect(lec.id)}
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }} whileHover={{ y: -8, scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -260,13 +261,20 @@ export default function ProfessorAnalytics() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
-        .from('lectures')
-        .select('id, title, description, total_slides, created_at')
-        .eq('professor_id', user.id)
-        .order('created_at', { ascending: false });
-      setLectures(data || []);
-      setLecturesLoading(false);
+      try {
+        const { data, error } = await supabase
+          .from('lectures')
+          .select('id, title, description, total_slides, created_at')
+          .eq('professor_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        setLectures(data || []);
+      } catch (err) {
+        console.error("Failed to fetch lectures:", err);
+      } finally {
+        setLecturesLoading(false);
+      }
     })();
   }, [user]);
 
@@ -296,15 +304,25 @@ export default function ProfessorAnalytics() {
     })();
   }, [selectedLectureId]);
 
+  useEffect(() => {
+    if (dashboard.isError) {
+      toast.error("Telemetry failure: Could not load lecture analytics.");
+    }
+  }, [dashboard.isError]);
+
   // Sync title
   useEffect(() => {
-    if (selectedLectureId && lectures.length > 0) {
-      const lec = lectures.find(l => l.id === selectedLectureId);
-      if (lec) setSelectedTitle(lec.title);
+    if (selectedLectureId) {
+      if (lectures?.length > 0) {
+        const lec = lectures.find(l => l.id === selectedLectureId);
+        if (lec) setSelectedTitle(lec.title);
+      } else if (!lecturesLoading) {
+         // Best effort if not in owned list
+         setSelectedTitle('Unknown Mission');
+      }
     }
-  }, [selectedLectureId, lectures]);
+  }, [selectedLectureId, lectures, lecturesLoading]);
 
-  // AI Insights Generator
   // AI Insights Generator
   const fetchAiInsights = useCallback(async () => {
     if (!dashboardData) return;
@@ -316,7 +334,7 @@ export default function ProfessorAnalytics() {
       const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
       
       const hardSlides = dashboardData.slidePerformance
-        .filter(s => s.quizAttempts > 0)
+        ?.filter(s => s.quizAttempts > 0)
         .sort((a, b) => a.correctRate - b.correctRate)
         .slice(0, 3)
         .map(s => s.name)
@@ -329,10 +347,10 @@ export default function ProfessorAnalytics() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          total_students: dashboardData.overview.uniqueStudents,
-          average_score: dashboardData.overview.averageScore,
-          total_attempts: dashboardData.overview.totalAttempts,
-          total_correct: dashboardData.overview.totalCorrect,
+          total_students: dashboardData?.overview?.uniqueStudents,
+          average_score: dashboardData?.overview?.averageScore,
+          total_attempts: dashboardData?.overview?.totalAttempts,
+          total_correct: dashboardData?.overview?.totalCorrect,
           hard_slides: hardSlides,
           ai_model: model
         }),
@@ -367,10 +385,10 @@ export default function ProfessorAnalytics() {
       const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
       
       const context = {
-        average_score: dashboardData?.overview.averageScore,
-        total_students: dashboardData?.overview.uniqueStudents,
+        average_score: dashboardData?.overview?.averageScore,
+        total_students: dashboardData?.overview?.uniqueStudents,
         hard_slides: dashboardData?.slidePerformance
-          .sort((a, b) => a.correctRate - b.correctRate)
+          ?.sort((a, b) => a.correctRate - b.correctRate)
           .slice(0, 2)
           .map(s => s.name)
           .join(', ')
@@ -488,10 +506,10 @@ export default function ProfessorAnalytics() {
                       ) : (
                         <div className="space-y-8">
                           <p className="text-xl leading-relaxed text-foreground/90 font-medium max-w-5xl border-l-4 border-primary/30 pl-6 italic">
-                            "{aiInsights?.summary}"
+                            "{aiInsights?.summary || 'Synthesizing neural data...'}"
                           </p>
                           <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {aiInsights?.suggestions.map((s, i) => (
+                            {aiInsights?.suggestions?.map((s, i) => (
                               <div key={i} className="glass-card hover:bg-white/5 p-5 rounded-2xl border-white/5 flex flex-col gap-4 group transition-all">
                                 <div className="w-8 h-8 gradient-primary rounded-lg text-sm font-black flex text-white items-center justify-center shadow-glow-primary group-hover:scale-110 transition-transform">
                                   {i + 1}
@@ -618,15 +636,15 @@ export default function ProfessorAnalytics() {
                           return null;
                         }} />
                         <ReferenceArea x1={60} y1={0} y2={60} fill="hsl(var(--destructive))" fillOpacity={0.05} />
-                        <Scatter name="Slides" data={dashboardData.slidePerformance.filter(s => s.quizAttempts > 0)}>
-                          {dashboardData.slidePerformance.map((entry, index) => (
+                        <Scatter name="Slides" data={dashboardData.slidePerformance?.filter(s => s.quizAttempts > 0)}>
+                          {dashboardData.slidePerformance?.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={(entry.confusionIndex > 50) ? "hsl(var(--destructive))" : "hsl(var(--primary))"} opacity={0.8}/>
                           ))}
                         </Scatter>
                       </ScatterChart>
                     </ResponsiveContainer>
                   ) : (
-                    <ThreeDScatterPlot data={dashboardData.slidePerformance.filter(s => s.quizAttempts > 0)} />
+                    <ThreeDScatterPlot data={dashboardData.slidePerformance?.filter(s => s.quizAttempts > 0)} />
                   )}
                 </div>
               </Section>
@@ -665,7 +683,7 @@ export default function ProfessorAnalytics() {
               <Section title="Where Students Quit" subtitle="Drop-off per slide (non-completers)" icon={TrendingDown}>
                 {extraLoading ? (
                   <Skeleton className="h-64 w-full" />
-                ) : dropoffData.length === 0 ? (
+                ) : dropoffData?.length === 0 ? (
                   <div className="text-center py-10 space-y-2">
                     <CheckCircle2 className="w-10 h-10 text-success/40 mx-auto" />
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">All students completed this lecture</p>
@@ -679,7 +697,7 @@ export default function ProfessorAnalytics() {
                         <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} allowDecimals={false} />
                         <Tooltip content={<CustomTooltip valueFormatter={(v) => `${v} students quit`} />} cursor={{ fill: 'hsl(var(--white)/0.05)' }} />
                         <Bar dataKey="dropout_count" shape={<ThreeDBar />} name="Dropouts" maxBarSize={40}>
-                          {dropoffData.map((entry, idx) => (
+                          {dropoffData?.map((entry, idx) => (
                             <Cell key={idx} fill={entry.dropout_percentage > 20 ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'} />
                           ))}
                         </Bar>
@@ -692,12 +710,12 @@ export default function ProfessorAnalytics() {
               <Section title="Confidence By Slide" subtitle="Comprehension breakdown per node" icon={Lightbulb}>
                 {extraLoading ? (
                   <Skeleton className="h-64 w-full" />
-                ) : confidenceBySlide.length === 0 ? (
+                ) : confidenceBySlide?.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground/50 text-xs font-bold uppercase tracking-widest">No confidence ratings yet</div>
                 ) : (
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={confidenceBySlide.slice(0, 10)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <BarChart data={confidenceBySlide?.slice(0, 10)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--white)/0.05)" vertical={false} />
                         <XAxis dataKey="title" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} />
                         <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} allowDecimals={false} />
@@ -739,11 +757,11 @@ export default function ProfessorAnalytics() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart 
                       data={[
-                        { range: '0–20%', count: dashboardData.studentsMatrix.filter(s => s.quiz_score <= 20).length },
-                        { range: '21–40%', count: dashboardData.studentsMatrix.filter(s => s.quiz_score > 20 && s.quiz_score <= 40).length },
-                        { range: '41–60%', count: dashboardData.studentsMatrix.filter(s => s.quiz_score > 40 && s.quiz_score <= 60).length },
-                        { range: '61–80%', count: dashboardData.studentsMatrix.filter(s => s.quiz_score > 60 && s.quiz_score <= 80).length },
-                        { range: '81–100%', count: dashboardData.studentsMatrix.filter(s => s.quiz_score > 80).length },
+                        { range: '0–20%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score <= 20).length },
+                        { range: '21–40%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 20 && s.quiz_score <= 40).length },
+                        { range: '41–60%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 40 && s.quiz_score <= 60).length },
+                        { range: '61–80%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 60 && s.quiz_score <= 80).length },
+                        { range: '81–100%', count: dashboardData.studentsMatrix?.filter(s => s.quiz_score > 80).length },
                       ]} 
                       margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                     >
@@ -786,7 +804,7 @@ export default function ProfessorAnalytics() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dashboardData.studentsMatrix.map((student) => (
+                    {dashboardData?.studentsMatrix?.map((student) => (
                       <TableRow key={student.student_id} className="border-white/5 hover:bg-white/5 transition-all group">
                         <TableCell className="px-10 py-6 font-black text-foreground text-lg tracking-tight group-hover:text-primary transition-colors">
                           {student.student_name}
@@ -843,7 +861,7 @@ export default function ProfessorAnalytics() {
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto pr-3 space-y-5 custom-scrollbar max-h-[400px]">
-                  {dashboardData.liveTicker.map((tick, i) => (
+                  {dashboardData?.liveTicker?.map((tick, i) => (
                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
                       key={i} className="text-sm glass-panel p-5 rounded-2xl border-white/5 flex gap-5 items-start hover:bg-white/5 transition-colors group">
                        <div className="mt-1 group-hover:scale-110 transition-transform">
@@ -876,7 +894,7 @@ export default function ProfessorAnalytics() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                    {aiQueryFeed.map((item, i) => (
+                    {aiQueryFeed?.map((item, i) => (
                       <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.04 }}
                         className="flex gap-4 p-4 glass-panel border-white/5 rounded-2xl hover:bg-white/5 transition-colors">
