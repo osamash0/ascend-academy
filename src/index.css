@@ -55,6 +55,10 @@
     --input: 220 13% 88%;
     --ring: 234 89% 54%;
 
+    --surface-1: 0 0% 100%;
+    --surface-2: 220 20% 97%;
+    --glass-border: 0 0% 100% / 0.5;
+
     --radius: 0.75rem;
 
     /* Sidebar */
@@ -124,6 +128,10 @@
     --border: 224 30% 20%;
     --input: 224 30% 20%;
     --ring: 234 89% 64%;
+
+    --surface-1: 224 71% 12%;
+    --surface-2: 224 71% 8%;
+    --glass-border: 0 0% 100% / 0.1;
 
     --sidebar-background: 224 71% 10%;
     --sidebar-foreground: 220 20% 97%;
@@ -196,6 +204,30 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-2xl;
+  }
+
+  .glass-panel {
+    @apply bg-surface-1/40 backdrop-blur-md border border-glass-border shadow-lg;
+  }
+
+  .glass-panel-strong {
+    @apply bg-surface-1/60 backdrop-blur-2xl border border-glass-border shadow-2xl;
+  }
+
+  .glass-hud {
+    @apply bg-surface-2/80 backdrop-blur-md border border-glass-border shadow-inner;
+  }
+
+  .interactive-surface {
+    @apply bg-surface-1/50 hover:bg-surface-1/80 border border-glass-border transition-all duration-300;
+  }
+
+  .shimmer-surface {
+    @apply relative overflow-hidden after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/5 after:to-transparent after:translate-x-[-100%] hover:after:translate-x-[100%] after:transition-transform after:duration-1000;
   }
 }
 
