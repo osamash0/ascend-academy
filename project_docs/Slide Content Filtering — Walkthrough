@@ -1,0 +1,43 @@
+# Slide Content Filtering — Walkthrough
+
+## What Was Done
+
+Added a 3-layer intelligent filtering pipeline to prevent AI summary and quiz generation on non-educational slides (title pages, contact info, exam dates, etc.).
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| [content_filter.py](file:///c:/Users/Osama/ascend-academy/backend/services/content_filter.py) | **[NEW]** 3-layer pipeline: heuristic → density scoring → LLM-as-a-judge |
+| [file_parse_service.py](file:///c:/Users/Osama/ascend-academy/backend/services/file_parse_service.py) | Integrated filter into PDF parsing; metadata slides skip AI processing |
+| [ai_content.py](file:///c:/Users/Osama/ascend-academy/backend/api/ai_content.py) | Added pre-check to `/generate-summary` and `/generate-quiz` endpoints |
+| [ai_service.py](file:///c:/Users/Osama/ascend-academy/backend/services/ai_service.py) | Updated prompts to explicitly ignore metadata content |
+
+### How It Works
+
+```mermaid
+flowchart TD
+    A[Slide Text] --> B{Layer 1: Heuristic}
+    B -->|METADATA| D[Skip AI → empty summary/quiz]
+    B -->|EDUCATIONAL| E[Full AI Processing]
+    B -->|UNCERTAIN| C{Layer 2: Density Score}
+    C -->|Low density| D
+    C -->|High density| E
+    C -->|Borderline| F{Layer 3: LLM Judge}
+    F --> D
+    F --> E
+```
+
+## Verification Results
+
+Server reloaded cleanly — no import errors.
+
+### Test Results
+
+| Input | Result | Layer | Confidence |
+|---|---|---|---|
+| Title slide (Machine Learning / Lecture 8 / Dr. Mühling / email / date) | ✅ [metadata](file:///c:/Users/Osama/ascend-academy/backend/services/content_filter.py#267-332) | 1 | 0.90 |
+| Linear regression educational content | ✅ `educational` | 2 | 0.80 |
+| "Thank you!" | ✅ [metadata](file:///c:/Users/Osama/ascend-academy/backend/services/content_filter.py#267-332) | 1 | 0.90 |
+| "Questions?" | ✅ [metadata](file:///c:/Users/Osama/ascend-academy/backend/services/content_filter.py#267-332) | 1 | 0.90 |
+| Educational content containing the word "professor" | ✅ `educational` (no false positive) | 2 | 0.80 |

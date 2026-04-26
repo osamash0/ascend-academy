@@ -1,7 +1,14 @@
 import os
 import json
 import re
+from pathlib import Path
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+# Ensure .env is loaded before initializing any clients
+_env_path = Path(__file__).parent.parent.parent / ".env"
+if _env_path.exists():
+    load_dotenv(dotenv_path=_env_path)
 
 OLLAMA_MODEL = "llama3"
 GEMINI_MODEL = "gemini-2.5-flash"
@@ -11,9 +18,25 @@ except ImportError:
     ollama = None
 
 try:
+    from groq import Groq
+    _groq_api_key = os.environ.get("GROQ_API_KEY")
+    if _groq_api_key:
+        groq_client = Groq(api_key=_groq_api_key, max_retries=0)
+    else:
+        groq_client = Groq(max_retries=0)
+except Exception:
+    groq_client = None
+
+GROQ_MODEL = "llama-3.1-8b-instant"
+
+try:
     from google import genai
     from google.genai import types
-    client = genai.Client()
+    _api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if _api_key:
+        client = genai.Client(api_key=_api_key)
+    else:
+        client = genai.Client()
 except Exception:
     genai = None
     client = None
@@ -47,6 +70,12 @@ class QuizQuestion(BaseModel):
     options: list[str]
     correctAnswer: int
 
+class SlideBatchResult(BaseModel):
+    enhanced_content: str
+    summary: str
+    title: str
+    quiz: QuizQuestion
+
 class AnalyticsInsights(BaseModel):
     summary: str
     suggestions: list[str]
@@ -70,16 +99,25 @@ Raw Slide Text:
 
 Markdown Output:"""
 
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "groq":
+        if not groq_client: return raw_text + "\n\n(Error: Groq API key is missing from .env)"
+        try:
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"DEBUG Groq error: {e}")
+            return raw_text
+    elif ai_model == "gemini-2.5-flash":
+        if not client: return raw_text + "\n\n(Error: Gemini API key is missing)"
         try:
             res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
             return res.text.strip()
         except Exception as e:
             print(f"DEBUG Gemini error: {e}")
             return raw_text
-    else:
+    elif ai_model == "llama3":
         if ollama is None:
-            return raw_text
+            return raw_text + "\n\n(Error: Ollama not installed)"
         try:
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
             text = res["message"]["content"].strip()
@@ -87,24 +125,106 @@ Markdown Output:"""
         except Exception as e:
             print(f"DEBUG Ollama error: {e}")
             return raw_text
+    return raw_text
+
+# --- Batch Processing (Upload optimization) ---
+def process_slide_batch(raw_text: str, ai_model: str = "llama3") -> dict:
+    prompt = f"""You are an educational assistant. Given the following raw lecture slide text, perform 4 tasks based ONLY on the educational content:
+1. "enhanced_content": Transform the text into clear Markdown formatting suitable for students (bullet points, bold terms, headings).
+2. "summary": Write a concise 2-3 sentence summary.
+3. "title": Generate a short, descriptive title (3-7 words).
+4. "quiz": Create one multiple-choice quiz question with exactly 4 options about the slide content.
+
+Return ONLY valid JSON with this exact structure:
+{{
+  "enhanced_content": "...",
+  "summary": "...",
+  "title": "...",
+  "quiz": {{
+    "question": "...",
+    "options": ["A", "B", "C", "D"],
+    "correctAnswer": 0
+  }}
+}}
+The correctAnswer must be the 0-indexed position of the correct option (0-3).
+
+Raw Slide Text:
+{raw_text}"""
+    
+    default_res = {
+        "enhanced_content": raw_text,
+        "summary": "",
+        "title": "Slide Title",
+        "quiz": {"question": "Could not generate quiz.", "options": ["", "", "", ""], "correctAnswer": 0}
+    }
+
+    if ai_model == "groq":
+        if not groq_client:
+            default_res["quiz"]["question"] = "Error: GROQ_API_KEY is missing from .env file!"
+            return default_res
+        try:
+            res = groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"}
+            )
+            return json.loads(res.choices[0].message.content)
+        except Exception as e:
+            print(f"DEBUG Groq batch error: {e}")
+            return default_res
+    elif ai_model == "gemini-2.5-flash":
+        if not client: return default_res
+        try:
+            res = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=SlideBatchResult)
+            )
+            return json.loads(res.text)
+        except Exception as e:
+            print(f"DEBUG Gemini batch error: {e}")
+            return default_res
+    elif ai_model == "llama3":
+        if ollama is None: return default_res
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            content = res["message"]["content"].strip()
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match: content = json_match.group()
+            return json.loads(content)
+        except Exception as e:
+            print(f"DEBUG Ollama batch error: {e}")
+            return default_res
+    return default_res
 
 # --- Summary ---
 def generate_summary(slide_text: str, ai_model: str = "llama3") -> str:
-    prompt = f"""You are an educational assistant. Given the following slide content, write a concise 2-3 sentence summary suitable for a student. 
+    prompt = f"""You are an educational assistant. Given the following slide content, write a concise 2-3 sentence summary suitable for a student.
+Focus ONLY on the educational/academic content (concepts, definitions, formulas, examples, algorithms).
+Completely ignore any administrative metadata such as instructor names, emails, contact info, office hours, dates, university names, department names, grading policies, or logistics.
 Return ONLY the summary text, no preamble.
 
 Slide content:
 {slide_text}
 
 Summary:"""
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "groq":
+        if not groq_client: return "Error: GROQ_API_KEY missing from .env!"
+        try:
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"DEBUG Groq summary error: {e}")
+            return "Failed to generate summary."
+    elif ai_model == "gemini-2.5-flash":
+        if not client: return "Error: Gemini API key missing!"
         try:
             res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
             return res.text.strip()
         except Exception as e:
             print(f"DEBUG Gemini summary error: {e}")
             return "Failed to generate summary."
-    else:
+    elif ai_model == "llama3":
         if ollama is None:
             return "Failed to generate summary. Ollama SDK is not installed in the backend environment."
         try:
@@ -113,11 +233,38 @@ Summary:"""
         except Exception as e:
             print(f"DEBUG Ollama summary error: {e}")
             return "Failed to generate summary."
+    return "Failed to generate summary."
 
 # --- Quiz ---
 def generate_quiz(slide_text: str, ai_model: str = "llama3") -> dict:
-    if ai_model == "gemini-2.5-flash" and client:
+    default_quiz = {"question": "Failed to generate quiz question.", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": 0}
+
+    if ai_model == "groq":
+        if not groq_client:
+            default_quiz["question"] = "Error: GROQ_API_KEY missing from .env!"
+            return default_quiz
+        groq_prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options (A, B, C, D).
+Focus ONLY on the educational/academic content. Do NOT create questions about instructor names, dates, or administrative information.
+Return your answer as valid JSON with this exact structure:
+{{
+  "question": "your question here",
+  "options": ["option A text", "option B text", "option C text", "option D text"],
+  "correctAnswer": 0
+}}
+The correctAnswer field must be the 0-indexed position of the correct option (0=A, 1=B, 2=C, 3=D). Return ONLY the JSON object.
+Slide content:
+{slide_text}"""
+        try:
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": groq_prompt}], response_format={"type": "json_object"})
+            return json.loads(res.choices[0].message.content)
+        except Exception as e:
+            print(f"DEBUG Groq quiz error: {e}")
+            return default_quiz
+    elif ai_model == "gemini-2.5-flash":
+        if not client: return default_quiz
         prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options. The options should be plausibly confusing except for the single correct answer.
+Focus ONLY on the educational/academic content (concepts, definitions, formulas, examples, algorithms).
+Do NOT create questions about instructor names, emails, dates, university names, or any administrative/logistical information.
 
 Slide content:
 {slide_text}"""
@@ -130,14 +277,12 @@ Slide content:
             return json.loads(res.text)
         except Exception as e:
             print(f"DEBUG Gemini quiz error: {e}")
-    else:
-        if ollama is None:
-            return {
-                "question": "Failed to generate quiz question. Ollama SDK not installed.",
-                "options": ["Option A", "Option B", "Option C", "Option D"],
-                "correctAnswer": 0
-            }
+            return default_quiz
+    elif ai_model == "llama3":
+        if ollama is None: return default_quiz
         prompt = f"""You are an educational assistant. Based on the following slide content, create one multiple-choice quiz question with exactly 4 options (A, B, C, D).
+Focus ONLY on the educational/academic content (concepts, definitions, formulas, examples, algorithms).
+Do NOT create questions about instructor names, emails, dates, university names, or any administrative/logistical information.
 
 Return your answer as valid JSON with this exact structure:
 {{
@@ -159,12 +304,9 @@ Slide content:
             return json.loads(content)
         except Exception as e:
             print(f"DEBUG Ollama quiz error: {e}")
+            return default_quiz
 
-    return {
-        "question": "Failed to generate quiz question.",
-        "options": ["Option A", "Option B", "Option C", "Option D"],
-        "correctAnswer": 0
-    }
+    return default_quiz
 
 # --- Title ---
 def generate_slide_title(slide_text: str, ai_model: str = "llama3") -> str:
@@ -175,14 +317,25 @@ Slide content:
 {slide_text[:1000]}
 
 Title:"""
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "groq":
+        if not groq_client: return None
+        try:
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+            title = res.choices[0].message.content.strip().strip('"\'')
+            return title if title else None
+        except Exception as e:
+            print(f"DEBUG Groq title error: {e}")
+            return None
+    elif ai_model == "gemini-2.5-flash":
+        if not client: return None
         try:
             res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
             return res.text.strip().strip('"\'') or None
         except Exception as e:
             print(f"DEBUG Gemini title error: {e}")
             return None
-    else:
+    elif ai_model == "llama3":
+        if ollama is None: return None
         try:
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
             title = res["message"]["content"].strip().strip('"\'')
@@ -190,6 +343,7 @@ Title:"""
         except Exception as e:
             print(f"DEBUG Ollama title error: {e}")
             return None
+    return None
 
 # --- Analytics ---
 def generate_analytics_insights(stats: dict, ai_model: str = "llama3") -> dict:
@@ -209,7 +363,16 @@ Your task:
 1. Write a SHORT, friendly 2-3 sentence paragraph that summarises what is happening (use plain English, no jargon, as if talking to the professor directly).
 2. List exactly 3 concrete, actionable suggestions the professor can do to improve student outcomes, based on this data.
 """
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "groq":
+        if not groq_client: return {"summary": "Error: GROQ_API_KEY is missing from .env!", "suggestions": []}
+        groq_prompt = prompt + """\nReturn ONLY valid JSON with this exact structure:\n{\n  "summary": "...",\n  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]\n}"""
+        try:
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": groq_prompt}], response_format={"type": "json_object"})
+            return json.loads(res.choices[0].message.content)
+        except Exception as e:
+            print(f"DEBUG Groq analytics error: {e}")
+    elif ai_model == "gemini-2.5-flash":
+        if not client: return {"summary": "Error: Gemini API key missing", "suggestions": []}
         try:
             res = client.models.generate_content(
                 model=GEMINI_MODEL, contents=prompt,
@@ -218,7 +381,7 @@ Your task:
             return json.loads(res.text)
         except Exception as e:
             print(f"DEBUG Gemini analytics error: {e}")
-    else:
+    elif ai_model == "llama3":
         if ollama is None:
             return {
                 "summary": "We couldn't generate an AI summary at this time. Ollama SDK is missing.",
@@ -226,12 +389,7 @@ Your task:
                     "Wait for the backend administrator to install missing python dependencies."
                 ]
             }
-        prompt += """\\nReturn ONLY valid JSON with this exact structure:
-{
-  "summary": "...",
-  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
-}
-No extra text outside the JSON."""
+        prompt += """\nReturn ONLY valid JSON with this exact structure:\n{\n  "summary": "...",\n  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]\n}\nNo extra text outside the JSON."""
         try:
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
             content = res["message"]["content"].strip()
@@ -255,8 +413,7 @@ def chat_with_lecture(slide_text: str, user_message: str, chat_history: list = N
     """
     Acts as a personalized AI tutor answering a student's question based on the slide's context.
     """
-    with open("/tmp/chat_debug.log", "a") as f:
-        f.write(f"\\n--- NEW CALL ---\\nMODEL: {ai_model}\\nTEXT LEN: {len(slide_text)}\\nMSG: {user_message}\\n")
+    print(f"DEBUG chat_with_lecture: MODEL={ai_model}, TEXT_LEN={len(slide_text)}, MSG={user_message[:50]}")
 
     if chat_history is None:
         chat_history = []
@@ -284,27 +441,30 @@ Rules:
 Student: {user_message}
 Tutor:"""
 
-    if ai_model == "gemini-2.5-flash" and client:
+    if ai_model == "groq":
+        if not groq_client: return "Error: GROQ_API_KEY is missing from your .env!"
+        try:
+            res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"DEBUG Groq chat error: {e}")
+            return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
+    elif ai_model == "gemini-2.5-flash":
+        if not client: return "Error: Gemini API key missing"
         try:
             res = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
             return res.text.strip()
         except Exception as e:
             print(f"DEBUG Gemini chat error: {e}")
             return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
-    else:
+    elif ai_model == "llama3":
         if ollama is None:
-            return "Ollama SDK is not installed in the backend environment. Please restart the backend using: `pip install -r backend/requirements.txt && .venv/bin/python -m uvicorn backend.main:app --reload`"
+            return "Ollama SDK is not installed in the backend environment."
         try:
-            with open("/tmp/chat_debug.log", "a") as f:
-                f.write(f"Calling Ollama...\\n")
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-            with open("/tmp/chat_debug.log", "a") as f:
-                f.write(f"Ollama SUCCESS\\n")
             return res["message"]["content"].strip()
         except Exception as e:
-            import traceback
-            with open("/tmp/chat_debug.log", "a") as f:
-                f.write(f"Ollama EXCEPTION: {e}\\n")
-                traceback.print_exc(file=f)
             print(f"DEBUG Ollama chat error: {e}")
             return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
+    
+    return "No AI model selected or unknown AI model."

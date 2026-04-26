@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -31,6 +31,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const hasFetchedProfile = useRef(false);
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -44,7 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('user_id', userId)
       .single();
 
-    if (error || !profileData) {
+    if (error) {
+      if (error.code === 'PGRST116') {
+        setProfile(null);
+        return false;
+      }
+      console.error("fetchProfile error:", error);
+      // Keep session alive for transient errors
+      return true;
+    }
+
+    if (!profileData) {
       setProfile(null);
       return false;
     }
@@ -71,51 +82,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const withTimeout = <T,>(promise: Promise<T>, ms: number = 5000): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Supabase deadlock timeout')), ms))
+    ]);
+  };
+
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Listen for auth changes (handles initial session automatically in Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, session) => {
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
 
-        // Defer profile/role fetching with setTimeout
-        if (session?.user) {
-          setTimeout(async () => {
-            const hasProfile = await fetchProfile(session.user.id);
-            if (!hasProfile) {
-              // Account likely deleted but Auth session persists
-              console.warn("User has session but no profile. Signing out.");
-              await signOut();
-              return;
+          if (session?.user) {
+            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || !hasFetchedProfile.current) {
+                hasFetchedProfile.current = true;
+                const hasProfile = await withTimeout(fetchProfile(session.user.id), 15000).catch(() => true);
+                if (!hasProfile) {
+                  console.warn("User has session but no profile. Signing out.");
+                  await signOut().catch(() => {});
+                } else {
+                  await withTimeout(fetchRole(session.user.id), 15000).catch(() => {});
+                }
             }
-            fetchRole(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-          setRole(null);
+          } else {
+            setProfile(null);
+            setRole(null);
+          }
+        } catch (error: any) {
+          console.error("Auth state change error:", error);
+        } finally {
+          setLoading(false);
         }
-
-        setLoading(false);
       }
     );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        fetchProfile(session.user.id).then(hasProfile => {
-          if (!hasProfile) {
-            signOut();
-            return;
-          }
-          fetchRole(session.user.id);
-        });
-      }
-
-      setLoading(false);
-    });
 
     return () => subscription.unsubscribe();
   }, []);

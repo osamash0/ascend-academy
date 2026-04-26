@@ -513,7 +513,7 @@ export default function Settings() {
                         Choose which AI model powers your intelligent tutor, quizzes, and summaries.
                     </p>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div 
                             onClick={() => setAiModel('llama3')}
                             className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${aiModel === 'llama3' ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-card hover:border-primary/50'}`}
@@ -530,10 +530,21 @@ export default function Settings() {
                             className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${aiModel === 'gemini-2.5-flash' ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-card hover:border-primary/50'}`}
                         >
                             <div className="flex items-center justify-between mb-2">
-                                <h3 className="font-semibold text-foreground">Gemini 2.5 Flash</h3>
+                                <h3 className="font-semibold text-foreground">Gemini 2.5</h3>
                                 {aiModel === 'gemini-2.5-flash' && <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />}
                             </div>
                             <p className="text-xs text-muted-foreground">Lightning-fast responses powered by Google. Requires an internet connection securely sent over API.</p>
+                        </div>
+
+                        <div 
+                            onClick={() => setAiModel('groq')}
+                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${aiModel === 'groq' ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-card hover:border-primary/50'}`}
+                        >
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-semibold text-foreground">Groq (Llama 3 8B)</h3>
+                                {aiModel === 'groq' && <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Blazing fast free cloud API running Llama 3 8B Instant. Requires internet and GROQ_API_KEY.</p>
                         </div>
                     </div>
                 </motion.div>

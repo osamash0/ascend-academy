@@ -34,7 +34,7 @@ export default function Achievements() {
     if (user) {
       fetchAchievements();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const fetchAchievements = async () => {
     const { data } = await supabase

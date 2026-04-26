@@ -2,13 +2,14 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture
+from backend.services.content_filter import is_metadata_slide
 from backend.core.auth_middleware import verify_token
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 class SlideTextRequest(BaseModel):
     slide_text: str
-    ai_model: Optional[str] = "llama3"
+    ai_model: Optional[str] = "groq"
 
 class AnalyticsStatsRequest(BaseModel):
     total_students: int = 0
@@ -19,18 +20,24 @@ class AnalyticsStatsRequest(BaseModel):
     engaging_slides: Optional[str] = None
     weekly_trend: Optional[str] = None
     confidence_summary: Optional[str] = None
-    ai_model: Optional[str] = "llama3"
+    ai_model: Optional[str] = "groq"
 
 class ChatRequest(BaseModel):
     slide_text: str
     user_message: str
     chat_history: Optional[List[Dict[str, Any]]] = None
-    ai_model: Optional[str] = "llama3"
+    ai_model: Optional[str] = "groq"
 
 @router.post("/generate-summary")
-async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
+
+    # Content filter: skip metadata slides
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
+    if filter_result["is_metadata"]:
+        return {"summary": "This slide contains administrative information (e.g. instructor details, dates, logistics) and is not suitable for summarization."}
+
     try:
         summary = generate_summary(body.slide_text, ai_model=body.ai_model)
         return {"summary": summary}
@@ -39,9 +46,19 @@ async def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_
         raise HTTPException(status_code=500, detail="AI summary generation failed. Please try again.")
 
 @router.post("/generate-quiz")
-async def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
+
+    # Content filter: skip metadata slides
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
+    if filter_result["is_metadata"]:
+        return {
+            "question": "This slide contains administrative information and is not suitable for quiz generation.",
+            "options": ["N/A", "N/A", "N/A", "N/A"],
+            "correctAnswer": 0
+        }
+
     try:
         quiz = generate_quiz(body.slide_text, ai_model=body.ai_model)
         return quiz
@@ -50,11 +67,11 @@ async def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_tok
         raise HTTPException(status_code=500, detail="AI quiz generation failed. Please try again.")
 
 @router.post("/analytics-insights")
-async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify_token)):
+def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify_token)):
     try:
         # Pydantic dict() includes all fields
         data = body.dict()
-        model_choice = data.pop('ai_model', 'llama3')
+        model_choice = data.pop('ai_model', 'groq')
         result = generate_analytics_insights(data, ai_model=model_choice)
         return result
     except Exception as e:
@@ -62,7 +79,7 @@ async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(
         raise HTTPException(status_code=500, detail="AI insights generation failed. Please try again.")
 
 @router.post("/chat")
-async def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
+def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
     if not body.user_message.strip():
         raise HTTPException(status_code=400, detail="user_message cannot be empty.")
     try:
@@ -75,7 +92,6 @@ async def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)
         return {"reply": reply}
     except Exception as e:
         import traceback
-        with open("/tmp/err.log", "w") as f:
-            traceback.print_exc(file=f)
+        traceback.print_exc()
         print(f"DEBUG ai_content chat error: {e}")
         raise HTTPException(status_code=500, detail="AI tutor failed to respond. Please try again.")

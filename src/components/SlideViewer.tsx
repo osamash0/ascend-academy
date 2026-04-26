@@ -207,7 +207,7 @@ export function SlideViewer({
               <BookOpen className="w-4 h-4" />
               <span className="text-xs font-semibold uppercase tracking-wider">Slide Preview</span>
             </div>
-            <div ref={pdfContainerRef} className="w-full overflow-y-auto custom-scrollbar bg-muted/5" style={{ maxHeight: '75vh' }}>
+            <div ref={pdfContainerRef} className="w-full overflow-y-scroll custom-scrollbar bg-muted/5" style={{ maxHeight: '75vh' }}>
               <Document
                 file={pdfUrl}
                 loading={
