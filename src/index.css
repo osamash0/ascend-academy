@@ -111,6 +111,80 @@
     --hud-red: 0 100% 60%;
     --hud-bg: 240 10% 3.9%;
   }
+
+  /* ── Light Mode Theme ── */
+  .light {
+    --background: 220 30% 97%;         /* #F4F6FB — Soft cloud white */
+    --foreground: 222 47% 11%;         /* #0F172A — Deep slate */
+
+    --surface-1: 220 25% 93%;          /* #E8ECF4 — Elevated card */
+    --surface-2: 220 20% 88%;          /* #DDE3EF — Hover state */
+    --surface-3: 220 18% 82%;          /* #CDD5E6 — Active/pressed */
+
+    --primary: 234 80% 58%;            /* #4B56E8 — Slightly richer indigo */
+    --primary-foreground: 0 0% 100%;
+    --primary-dim: 234 70% 48%;
+
+    --secondary: 270 55% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --accent: 190 80% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 158 55% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 85% 48%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --xp: 45 90% 42%;
+    --xp-foreground: 0 0% 100%;
+    --level: 280 75% 52%;
+    --level-foreground: 0 0% 100%;
+
+    --muted: 220 20% 88%;
+    --muted-foreground: 220 14% 40%;
+
+    --border: 220 20% 82%;
+    --input: 220 20% 82%;
+    --ring: 234 80% 58%;
+
+    --radius: 1rem;
+
+    --sidebar-background: 220 25% 93%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 234 80% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 88%;
+    --sidebar-accent-foreground: 234 70% 40%;
+    --sidebar-border: 220 20% 82%;
+    --sidebar-ring: 234 80% 58%;
+
+    --gradient-hero: linear-gradient(135deg, hsl(234 80% 58%) 0%, hsl(270 55% 50%) 50%, hsl(190 80% 40%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(220 25% 93%) 0%, hsl(220 30% 97%) 100%);
+    --gradient-glow: radial-gradient(circle at 50% 50%, hsl(234 80% 58% / 0.1) 0%, transparent 70%);
+    --gradient-aurora: linear-gradient(90deg, hsl(234 80% 58% / 0.08) 0%, hsl(270 55% 50% / 0.08) 50%, hsl(190 80% 40% / 0.08) 100%);
+
+    --shadow-sm: 0 1px 2px 0 hsl(220 30% 60% / 0.15);
+    --shadow-md: 0 4px 12px -2px hsl(220 30% 60% / 0.2), 0 2px 6px -2px hsl(220 30% 60% / 0.1);
+    --shadow-lg: 0 12px 24px -8px hsl(220 30% 60% / 0.25), 0 4px 8px -4px hsl(220 30% 60% / 0.15);
+    --shadow-xl: 0 24px 48px -12px hsl(220 30% 60% / 0.3), 0 8px 16px -8px hsl(220 30% 60% / 0.2);
+
+    --shadow-glow-primary: 0 0 30px hsl(234 80% 58% / 0.18);
+    --shadow-glow-success: 0 0 20px hsl(158 55% 38% / 0.2);
+    --shadow-glow-xp: 0 0 20px hsl(45 90% 42% / 0.25);
+    --shadow-glow-accent: 0 0 30px hsl(190 80% 40% / 0.15);
+
+    --glass-bg: hsl(220 25% 97% / 0.7);
+    --glass-border: hsl(222 47% 11% / 0.08);
+    --glass-highlight: hsl(222 47% 11% / 0.04);
+
+    --hud-cyan: 180 80% 35%;
+    --hud-amber: 45 90% 42%;
+    --hud-red: 0 80% 50%;
+    --hud-bg: 220 30% 97%;
+  }
 }
 
 @layer base {
@@ -121,10 +195,17 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
-    /* Subtle texture overlay for depth */
     background-image: 
       radial-gradient(ellipse at 20% 20%, hsl(234 89% 68% / 0.03) 0%, transparent 50%),
       radial-gradient(ellipse at 80% 80%, hsl(270 60% 55% / 0.03) 0%, transparent 50%);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  .light body,
+  .light {
+    background-image: 
+      radial-gradient(ellipse at 20% 20%, hsl(234 80% 58% / 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, hsl(270 55% 50% / 0.05) 0%, transparent 50%);
   }
 
   /* Custom scrollbar — premium thin style */
