@@ -1,11 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal, Optional, List, Dict, Any
-from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech, generate_metric_feedback
+from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech, generate_metric_feedback, analyze_slide_vision
+from backend.services.file_parse_service import _page_to_base64, _extract_text_page, _build_slide_from_vision
+from backend.core.database import supabase as _db, url as _url, key as _key
 import io
+import urllib.request
 from backend.services.content_filter import is_metadata_slide
 from backend.core.auth_middleware import verify_token
+from supabase import create_client as _create_client
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -153,3 +158,91 @@ async def text_to_speech_endpoint(body: TTSRequest, user=Depends(verify_token)):
         return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to generate AI voice.")
+
+
+# ── Slide content regeneration ────────────────────────────────────────────────
+
+class RegenerateSlideRequest(BaseModel):
+    ai_model: _AiModel = "groq"
+
+
+@router.post("/slides/{slide_id}/regenerate-content")
+async def regenerate_slide_content(
+    slide_id: str,
+    body: RegenerateSlideRequest,
+    user=Depends(verify_token),
+):
+    """
+    Re-analyze a single slide using the vision pipeline and update the database.
+    Only the professor who owns the lecture may call this.
+    """
+    client = _create_client(_url, _key)
+    client.postgrest.auth(user["token"])
+
+    # Fetch slide + lecture in one query
+    res = client.table("slides") \
+        .select("slide_number, lecture_id, lectures(pdf_url, professor_id)") \
+        .eq("id", slide_id) \
+        .maybe_single() \
+        .execute()
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Slide not found.")
+
+    lecture_info = res.data.get("lectures", {}) or {}
+    professor_id = lecture_info.get("professor_id")
+    pdf_url = lecture_info.get("pdf_url")
+
+    if professor_id != user["id"]:
+        raise HTTPException(status_code=403, detail="Only the lecture's professor can regenerate slide content.")
+    if not pdf_url:
+        raise HTTPException(status_code=400, detail="No PDF attached to this lecture.")
+
+    slide_number: int = res.data["slide_number"]
+
+    # Download PDF from Supabase Storage public URL
+    try:
+        with urllib.request.urlopen(pdf_url) as resp:
+            pdf_bytes = resp.read()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not download lecture PDF: {e}")
+
+    # Convert page to image + extract text (blocking — run in thread)
+    b64 = await run_in_threadpool(_page_to_base64, pdf_bytes, slide_number)
+    raw_text = await run_in_threadpool(_extract_text_page, pdf_bytes, slide_number - 1)
+
+    if not b64:
+        raise HTTPException(status_code=500, detail="Could not render slide as image. Ensure poppler is installed.")
+
+    # Vision analysis
+    analysis = await run_in_threadpool(analyze_slide_vision, b64, raw_text, body.ai_model)
+    slide_data = _build_slide_from_vision(analysis, slide_number, raw_text)
+
+    # Update slide record
+    client.table("slides").update({
+        "title": slide_data["title"],
+        "content_text": slide_data["content"],
+        "summary": slide_data["summary"],
+    }).eq("id", slide_id).execute()
+
+    # Replace quiz questions
+    client.table("quiz_questions").delete().eq("slide_id", slide_id).execute()
+    for q in slide_data.get("questions", []):
+        if q.get("question", "").strip():
+            client.table("quiz_questions").insert({
+                "slide_id": slide_id,
+                "question_text": q["question"],
+                "options": q["options"],
+                "correct_answer": q["correctAnswer"],
+            }).execute()
+
+    return {
+        "success": True,
+        "slide": {
+            "title": slide_data["title"],
+            "content_text": slide_data["content"],
+            "summary": slide_data["summary"],
+            "slide_type": slide_data.get("slide_type", "content_slide"),
+            "questions": slide_data.get("questions", []),
+        },
+    }

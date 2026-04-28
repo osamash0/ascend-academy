@@ -110,24 +110,76 @@ const COLORS = [
 
 // ── Helper Components ─────────────────────────────────────────────────────────
 
-function Section({ title, subtitle, icon: Icon, children, className = '' }: { title: string; subtitle?: string; icon: any; children: React.ReactNode; className?: string }) {
+function Section({ 
+  title, 
+  subtitle, 
+  icon: Icon, 
+  children, 
+  className = '', 
+  interpretation,
+  isLoading,
+  isOpen,
+  onToggle
+}: { 
+  title: string; 
+  subtitle?: string; 
+  icon: any; 
+  children: React.ReactNode; 
+  className?: string;
+  interpretation?: string | null;
+  isLoading?: boolean;
+  isOpen?: boolean;
+  onToggle?: () => void;
+}) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.01, rotateX: 1, rotateY: 1 }}
+      whileHover={{ scale: 1.005 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className={`glass-card border-white/5 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden perspective-1000 ${className}`}
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16" />
       <div className="flex justify-between items-start mb-8 relative z-10">
-        <div>
-          <h3 className="text-2xl font-black text-foreground flex items-center gap-3 tracking-tight">
+        <div 
+          className="cursor-pointer group/title"
+          onClick={onToggle}
+        >
+          <h3 className="text-2xl font-black text-foreground flex items-center gap-3 tracking-tight group-hover/title:text-primary transition-colors">
             <Icon className="w-7 h-7 text-primary" /> {title}
+            <div className="w-4 h-4 rounded-full border border-primary/30 flex items-center justify-center text-[10px] opacity-0 group-hover/title:opacity-100 transition-opacity">?</div>
           </h3>
           {subtitle && <p className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-[0.2em] opacity-60">{subtitle}</p>}
         </div>
       </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-8 p-6 rounded-2xl bg-violet-500/10 border border-violet-500/20 overflow-hidden"
+          >
+            <div className="flex items-center gap-2 mb-3 text-primary">
+              <Sparkles className="w-4 h-4 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Neural Interpretation</span>
+            </div>
+            {isLoading ? (
+              <div className="flex gap-1.5 items-center py-2">
+                <div className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+                <div className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+                <div className="w-2 h-2 rounded-full bg-primary animate-bounce" />
+              </div>
+            ) : (
+              <p className="text-sm font-medium text-foreground/90 leading-relaxed animate-in fade-in slide-in-from-top-2 duration-500">
+                {interpretation || "Select a mission to begin interpretation."}
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="relative z-10">
         {children}
       </div>
@@ -254,6 +306,74 @@ export default function ProfessorAnalytics() {
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
   const [metricFeedback, setMetricFeedback] = useState<string | null>(null);
   const [metricLoading, setMetricLoading] = useState(false);
+  const [metricInterpretations, setMetricInterpretations] = useState<Record<string, string>>({});
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  const handleMetricClick = async (id: string, title: string, value: any) => {
+    // If it's a section toggle (not a small stat card), handle open state
+    const isSection = ['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution'].includes(id);
+    
+    if (isSection) {
+      if (openSections[id]) {
+        setOpenSections(prev => ({ ...prev, [id]: false }));
+        return;
+      }
+      setOpenSections(prev => ({ ...prev, [id]: true }));
+    } else {
+      // Small stat card logic
+      if (selectedMetric === title) {
+        setSelectedMetric(null);
+        setMetricFeedback(null);
+        return;
+      }
+      setSelectedMetric(title);
+    }
+
+    // If we already have the interpretation, don't fetch again (unless you want it fresh)
+    if (metricInterpretations[id]) return;
+
+    setMetricLoading(true);
+    if (!isSection) setMetricFeedback(null);
+
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
+      
+      const context = {
+        average_score: dashboardData?.overview?.averageScore,
+        total_students: dashboardData?.overview?.uniqueStudents,
+        hard_slides: dashboardData?.slidePerformance
+          ?.sort((a, b) => a.correctRate - b.correctRate)
+          .slice(0, 2)
+          .map(s => s.name)
+          .join(', ')
+      };
+
+      const res = await fetch(`${API_BASE}/api/ai/metric-feedback`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          metric_name: title,
+          metric_value: value,
+          context_stats: context,
+          ai_model: model
+        }),
+      });
+      const data = await res.json();
+      setMetricInterpretations(prev => ({ ...prev, [id]: data.feedback }));
+      if (!isSection) setMetricFeedback(data.feedback);
+    } catch (err) {
+      console.error(err);
+      const errorMsg = "Could not establish neural link for this metric.";
+      setMetricInterpretations(prev => ({ ...prev, [id]: errorMsg }));
+      if (!isSection) setMetricFeedback(errorMsg);
+    } finally {
+      setMetricLoading(false);
+    }
+  };
 
   // Dashboard hook
   const { dashboard } = useAnalytics(selectedLectureId ?? null);
@@ -354,53 +474,6 @@ export default function ProfessorAnalytics() {
     setAiLoading(false);
   }, [dashboardData]);
 
-  const handleMetricClick = async (title: string, value: any) => {
-    if (selectedMetric === title) {
-      setSelectedMetric(null);
-      setMetricFeedback(null);
-      return;
-    }
-
-    setSelectedMetric(title);
-    setMetricLoading(true);
-    setMetricFeedback(null);
-
-    try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
-      
-      const context = {
-        average_score: dashboardData?.overview?.averageScore,
-        total_students: dashboardData?.overview?.uniqueStudents,
-        hard_slides: dashboardData?.slidePerformance
-          ?.sort((a, b) => a.correctRate - b.correctRate)
-          .slice(0, 2)
-          .map(s => s.name)
-          .join(', ')
-      };
-
-      const res = await fetch(`${API_BASE}/api/ai/metric-feedback`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          metric_name: title,
-          metric_value: value,
-          context_stats: context,
-          ai_model: model
-        }),
-      });
-      const data = await res.json();
-      setMetricFeedback(data.feedback);
-    } catch (err) {
-      console.error(err);
-      setMetricFeedback("Could not establish neural link for this metric.");
-    } finally {
-      setMetricLoading(false);
-    }
-  };
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
 
@@ -532,7 +605,7 @@ export default function ProfessorAnalytics() {
                 >
                   <StatsCard 
                     {...stat} 
-                    onClick={() => handleMetricClick(stat.title, stat.value)}
+                    onClick={() => handleMetricClick(stat.title, stat.title, stat.value)}
                     className={selectedMetric === stat.title ? 'ring-2 ring-primary shadow-glow-primary' : ''}
                   />
                   <AnimatePresence>
@@ -572,6 +645,10 @@ export default function ProfessorAnalytics() {
                 subtitle={matrixView === '3d' ? "Interactive Volumetric Telemetry" : "Bubble size = AI Queries + Revisions"} 
                 icon={Target} 
                 className="lg:col-span-2"
+                interpretation={metricInterpretations.matrix}
+                isLoading={metricLoading && openSections.matrix}
+                isOpen={openSections.matrix}
+                onToggle={() => handleMetricClick('matrix', 'Spatial Neural Matrix', dashboardData.slidePerformance)}
               >
                 <div className="absolute top-8 right-8 z-20 flex gap-2">
                   <Button 
@@ -634,7 +711,15 @@ export default function ProfessorAnalytics() {
                 </div>
               </Section>
 
-              <Section title="Neural Confidence" subtitle="Aggregate Comprehension" icon={Brain}>
+              <Section 
+                title="Neural Confidence" 
+                subtitle="Aggregate Comprehension" 
+                icon={Brain}
+                interpretation={metricInterpretations.confidence}
+                isLoading={metricLoading && openSections.confidence}
+                isOpen={openSections.confidence}
+                onToggle={() => handleMetricClick('confidence', 'Neural Confidence', dashboardData.confidenceMap)}
+              >
                 <div className="space-y-6">
                   <div className="h-6 w-full rounded-full overflow-hidden flex bg-surface-2 p-1">
                     <div style={{ width: `${(dashboardData.confidenceMap.got_it / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
@@ -665,7 +750,15 @@ export default function ProfessorAnalytics() {
 
             {/* Row 2: Drop-off Map + Per-Slide Confidence */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Section title="Where Students Quit" subtitle="Drop-off per slide (non-completers)" icon={TrendingDown}>
+              <Section 
+                title="Where Students Quit" 
+                subtitle="Drop-off per slide (non-completers)" 
+                icon={TrendingDown}
+                interpretation={metricInterpretations.dropoff}
+                isLoading={metricLoading && openSections.dropoff}
+                isOpen={openSections.dropoff}
+                onToggle={() => handleMetricClick('dropoff', 'Where Students Quit', dropoffData)}
+              >
                 {extraLoading ? (
                   <Skeleton className="h-64 w-full" />
                 ) : dropoffData?.length === 0 ? (
@@ -692,7 +785,15 @@ export default function ProfessorAnalytics() {
                 )}
               </Section>
 
-              <Section title="Confidence By Slide" subtitle="Comprehension breakdown per node" icon={Lightbulb}>
+              <Section 
+                title="Confidence By Slide" 
+                subtitle="Comprehension breakdown per node" 
+                icon={Lightbulb}
+                interpretation={metricInterpretations.bySlide}
+                isLoading={metricLoading && openSections.bySlide}
+                isOpen={openSections.bySlide}
+                onToggle={() => handleMetricClick('bySlide', 'Confidence By Slide', confidenceBySlide)}
+              >
                 {extraLoading ? (
                   <Skeleton className="h-64 w-full" />
                 ) : confidenceBySlide?.length === 0 ? (
@@ -717,7 +818,15 @@ export default function ProfessorAnalytics() {
 
             {/* Row 3: Interaction Velocity + Score Distribution */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Section title="Interaction Velocity" subtitle="Event density over 7 days" icon={TrendingUp}>
+              <Section 
+                title="Interaction Velocity" 
+                subtitle="Event density over 7 days" 
+                icon={TrendingUp}
+                interpretation={metricInterpretations.velocity}
+                isLoading={metricLoading && openSections.velocity}
+                isOpen={openSections.velocity}
+                onToggle={() => handleMetricClick('velocity', 'Interaction Velocity', dashboardData.activityByDay)}
+              >
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={dashboardData.activityByDay} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -737,7 +846,15 @@ export default function ProfessorAnalytics() {
                 </div>
               </Section>
 
-              <Section title="Score Distribution" subtitle="Learner population per band" icon={BarChart3}>
+              <Section 
+                title="Score Distribution" 
+                subtitle="Learner population per band" 
+                icon={BarChart3}
+                interpretation={metricInterpretations.distribution}
+                isLoading={metricLoading && openSections.distribution}
+                isOpen={openSections.distribution}
+                onToggle={() => handleMetricClick('distribution', 'Score Distribution', dashboardData.studentsMatrix)}
+              >
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart 

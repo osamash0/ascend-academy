@@ -40,6 +40,22 @@ interface SlideViewerProps {
   currentSlideId?: string;
   onGenerateMindMap?: () => void;
   isMindMapLoading?: boolean;
+  // Content regeneration (professor only)
+  isProfessor?: boolean;
+  onRegenerateContent?: () => void;
+  isRegeneratingContent?: boolean;
+}
+
+/** Returns true when extracted text looks like garbage (axis labels, numbers only, etc.) */
+function isGarbageContent(content: string): boolean {
+  if (!content || content.trim().length === 0) return true;
+  const cleaned = content.replace(/\s+/g, ' ').trim();
+  if (cleaned.length < 40) return true;
+  const nonSpace = cleaned.replace(/\s/g, '');
+  if (nonSpace.length === 0) return true;
+  const digits = nonSpace.replace(/\D/g, '');
+  // If >60% of non-whitespace chars are digits it's likely axis labels / raw numbers
+  return digits.length / nonSpace.length > 0.6;
 }
 
 const CONFIDENCE_OPTIONS: { key: Confidence; emoji: string; label: string; activeClass: string }[] = [
@@ -82,6 +98,9 @@ export function SlideViewer({
   currentSlideId,
   onGenerateMindMap,
   isMindMapLoading = false,
+  isProfessor = false,
+  onRegenerateContent,
+  isRegeneratingContent = false,
 }: SlideViewerProps) {
   // PDF state
   const [pdfError, setPdfError] = useState(false);
@@ -435,8 +454,32 @@ export function SlideViewer({
         </div>
 
         {/* Study Notes Content */}
-        <div className="p-8 lg:p-10">
-          <div className="prose prose-lg dark:prose-invert max-w-none 
+        <div className="p-8 lg:p-10 space-y-6">
+          {/* Garbage-content warning — shown to professors when extracted text is junk */}
+          {isGarbageContent(content) && isProfessor && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
+              <span className="text-amber-400 mt-0.5 shrink-0">⚠️</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-300">AI content not extracted correctly</p>
+                <p className="text-xs text-amber-300/70 mt-0.5">
+                  This slide likely contains a diagram or chart. The old text parser could not read it. Re-analyze with the vision AI to fix it.
+                </p>
+              </div>
+              {onRegenerateContent && (
+                <button
+                  onClick={onRegenerateContent}
+                  disabled={isRegeneratingContent}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 text-xs font-semibold transition-colors disabled:opacity-50"
+                >
+                  {isRegeneratingContent
+                    ? <><Loader2 className="w-3 h-3 animate-spin" /> Analyzing…</>
+                    : '✨ Re-analyze'}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="prose prose-lg dark:prose-invert max-w-none
             prose-headings:text-foreground prose-headings:font-bold prose-headings:tracking-tight
             prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:text-body-lg
             prose-strong:text-primary prose-strong:font-bold

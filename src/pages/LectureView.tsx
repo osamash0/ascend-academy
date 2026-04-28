@@ -72,6 +72,9 @@ export default function LectureView() {
   // Mind map
   const { map: mindMap, generate: generateMindMap } = useMindMap(lectureId ?? null);
 
+  // Slide content regeneration (professor only)
+  const [isRegeneratingContent, setIsRegeneratingContent] = useState(false);
+
   useEffect(() => {
     if (lectureId && user) {
       fetchLectureData();
@@ -294,6 +297,40 @@ export default function LectureView() {
   };
 
   const currentSlide = slides[currentSlideIndex];
+
+  const handleRegenerateContent = async () => {
+    if (!currentSlide || !user) return;
+    const aiModel = localStorage.getItem('ascend-academy-ai-model') || 'groq';
+    setIsRegeneratingContent(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:8000'}/api/ai/slides/${currentSlide.id}/regenerate-content`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ ai_model: aiModel }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Regeneration failed');
+      }
+      const json = await res.json();
+      const updated = json.slide;
+      // Patch the slide in local state so the UI updates immediately
+      setSlides(prev => prev.map(s =>
+        s.id === currentSlide.id
+          ? { ...s, title: updated.title, content_text: updated.content_text, summary: updated.summary }
+          : s
+      ));
+      toast({ title: 'Slide re-analyzed', description: 'AI content has been updated using vision analysis.' });
+    } catch (err: any) {
+      toast({ title: 'Re-analysis failed', description: err.message || 'Could not regenerate content.', variant: 'destructive' });
+    } finally {
+      setIsRegeneratingContent(false);
+    }
+  };
 
   // Refined: Only get questions for the REALLY current slide ID
   const currentSlideQuestions = questions.filter(q => q.slide_id === currentSlide?.id);
@@ -846,6 +883,9 @@ export default function LectureView() {
                         });
                       }}
                       isMindMapLoading={generateMindMap.isPending}
+                      isProfessor={role === 'professor'}
+                      onRegenerateContent={role === 'professor' ? handleRegenerateContent : undefined}
+                      isRegeneratingContent={isRegeneratingContent}
                     />
                     </motion.div>
                   )}
