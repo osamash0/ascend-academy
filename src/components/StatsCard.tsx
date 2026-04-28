@@ -13,11 +13,11 @@ interface StatsCardProps {
 }
 
 const variantStyles = {
-  default: 'border-border bg-surface-1/50',
-  primary: 'border-primary/20 bg-primary/5 shadow-glow-primary/5',
-  success: 'border-success/20 bg-success/5 shadow-glow-success/5',
-  warning: 'border-warning/20 bg-warning/5',
-  xp: 'border-xp/20 bg-xp/5 shadow-glow-xp/5',
+  default: 'glass-card border-white/5',
+  primary: 'glass-card border-primary/20 shadow-glow-primary/10',
+  success: 'glass-card border-success/20 shadow-glow-success/10',
+  warning: 'glass-card border-warning/20 shadow-glow-warning/10',
+  xp: 'glass-card border-xp/20 shadow-glow-xp/10',
 };
 
 const iconStyles = {

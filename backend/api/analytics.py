@@ -89,10 +89,18 @@ class AIQueryItem(BaseModel):
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 
-def _assert_lecture_owner(lecture_id: str, user_id: str) -> None:
+def _assert_lecture_owner(lecture_id: str, user_id: str, token: str = None) -> None:
     """Raise 403 if the authenticated user is not the professor who owns this lecture."""
-    result = supabase.table("lectures").select("professor_id").eq("id", lecture_id).single().execute()
-    if not result.data or result.data.get("professor_id") != user_id:
+    # Use the authenticated client if token provided, else default
+    client = analytics_service.get_auth_client(token) if token else supabase
+    
+    # Use execute() instead of single() to avoid PGRST116 error when 0 rows found
+    result = client.table("lectures").select("professor_id").eq("id", lecture_id).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lecture not found.")
+        
+    if result.data[0].get("professor_id") != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
 
@@ -101,7 +109,7 @@ def _assert_lecture_owner(lecture_id: str, user_id: str) -> None:
 @router.get("/lecture/{lecture_id}/overview", response_model=AnalyticsResponse)
 async def get_lecture_overview(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get high-level metrics for a lecture"""
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id)
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         data = await run_in_threadpool(analytics_service.get_lecture_overview, lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
@@ -114,7 +122,7 @@ async def get_lecture_overview(lecture_id: str, user=Depends(verify_token), cred
 @router.get("/lecture/{lecture_id}/slides", response_model=AnalyticsResponse)
 async def get_slide_analytics(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get per-slide analytics"""
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id)
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         data = await run_in_threadpool(analytics_service.get_slide_analytics, lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
@@ -127,7 +135,7 @@ async def get_slide_analytics(lecture_id: str, user=Depends(verify_token), creds
 @router.get("/lecture/{lecture_id}/quizzes", response_model=AnalyticsResponse)
 async def get_quiz_analytics(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get quiz difficulty analytics"""
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id)
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         data = await run_in_threadpool(analytics_service.get_quiz_analytics, lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
@@ -140,7 +148,7 @@ async def get_quiz_analytics(lecture_id: str, user=Depends(verify_token), creds:
 @router.get("/lecture/{lecture_id}/students", response_model=AnalyticsResponse)
 async def get_student_performance(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get anonymized per-student performance breakdown"""
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id)
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         data = await run_in_threadpool(analytics_service.get_student_performance, lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
@@ -153,7 +161,7 @@ async def get_student_performance(lecture_id: str, user=Depends(verify_token), c
 @router.get("/lecture/{lecture_id}/dashboard", response_model=AnalyticsResponse)
 async def get_dashboard_data(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Get comprehensive advanced dashboard analytics in a single call"""
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id)
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         data = await run_in_threadpool(analytics_service.get_dashboard_data, lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
@@ -171,7 +179,7 @@ async def get_distractor_analysis(lecture_id: str, user=Depends(verify_token), c
     Show which wrong answer options students select most often per question.
     Helps professors identify ambiguous distractors or conceptual gaps.
     """
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id)
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         data = await run_in_threadpool(analytics_service.get_distractor_analysis, lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
@@ -187,7 +195,7 @@ async def get_dropoff_map(lecture_id: str, user=Depends(verify_token), creds: HT
     Show which slide students abandon the lecture on.
     Uses last_slide_viewed from student_progress for non-completers.
     """
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id)
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         data = await run_in_threadpool(analytics_service.get_dropoff_map, lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
@@ -203,7 +211,7 @@ async def get_confidence_by_slide(lecture_id: str, user=Depends(verify_token), c
     Per-slide confidence breakdown (got_it / unsure / confused).
     Shows exactly which slides leave students most confused.
     """
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id)
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         data = await run_in_threadpool(analytics_service.get_confidence_by_slide, lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
@@ -219,7 +227,7 @@ async def get_ai_query_feed(lecture_id: str, user=Depends(verify_token), creds: 
     Return latest student AI tutor queries (anonymized).
     Shows professors what students are actually confused about in their own words.
     """
-    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id)
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         data = await run_in_threadpool(analytics_service.get_ai_query_feed, lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)

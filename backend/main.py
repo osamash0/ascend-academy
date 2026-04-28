@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.api.analytics import router as analytics_router
 from backend.api.upload import router as upload_router
 from backend.api.ai_content import router as ai_router
+from backend.api.mind_map import router as mind_map_router
 
 app = FastAPI(title="Learnstation API", version="0.1.0")
 
@@ -19,6 +20,7 @@ app.add_middleware(
 app.include_router(analytics_router)
 app.include_router(upload_router)
 app.include_router(ai_router)
+app.include_router(mind_map_router)
 
 @app.get("/")
 async def read_root():

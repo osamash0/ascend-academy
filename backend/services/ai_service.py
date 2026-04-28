@@ -1,11 +1,11 @@
 import os
+from typing import Any
 import json
 import re
 from pathlib import Path
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Ensure .env is loaded before initializing any clients
 # Load root .env first, then backend/.env (backend/.env takes precedence)
 _root_env = Path(__file__).resolve().parent.parent.parent / ".env"
 _backend_env = Path(__file__).resolve().parent.parent / ".env"
@@ -15,7 +15,7 @@ if _backend_env.exists():
     load_dotenv(dotenv_path=_backend_env, override=True)
 
 OLLAMA_MODEL = "llama3"
-GEMINI_MODEL = "models/gemini-2.5-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 GROQ_MODEL = "llama-3.1-8b-instant"
 
 try:
@@ -66,6 +66,36 @@ def _strip_conversational_wrapper(text: str) -> str:
     for pattern in _POSTAMBLE_PATTERNS:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE)
     return text.strip()
+
+# Slide text truncation — keeps prompt within safe token limits for free-tier models
+_MAX_SLIDE_CHARS = 4000
+
+def _truncate_slide_text(text: str) -> str:
+    if len(text) <= _MAX_SLIDE_CHARS:
+        return text
+    return text[:_MAX_SLIDE_CHARS] + "\n...[truncated]"
+
+
+def _call_with_retry(fn, *args, max_attempts: int = 3, **kwargs):
+    """Call fn with exponential backoff on rate-limit (429) errors."""
+    import time as _time
+    delay = 2.0
+    last_exc = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            last_exc = exc
+            msg = str(exc).lower()
+            is_rate_limit = "429" in msg or "rate_limit" in msg or "rate limit" in msg
+            if is_rate_limit and attempt < max_attempts:
+                print(f"DEBUG: Rate-limit hit (attempt {attempt}/{max_attempts}), retrying in {delay:.0f}s...")
+                _time.sleep(delay)
+                delay *= 2
+            else:
+                raise
+    raise last_exc
+
 
 # Gemini Schema
 class QuizQuestion(BaseModel):
@@ -133,6 +163,7 @@ Markdown Output:"""
 
 # --- Batch Processing (Upload optimization) ---
 def process_slide_batch(raw_text: str, ai_model: str = "llama3") -> dict:
+    raw_text = _truncate_slide_text(raw_text)
     prompt = f"""You are an educational assistant. Given the following raw lecture slide text, perform 4 tasks based ONLY on the educational content:
 1. "enhanced_content": Transform the text into clear Markdown formatting suitable for students (bullet points, bold terms, headings).
 2. "summary": Write a concise 2-3 sentence summary.
@@ -179,7 +210,8 @@ Raw Slide Text:
             default_res["quiz"]["question"] = "Error: GROQ_API_KEY is missing from .env file!"
             return default_res
         try:
-            res = groq_client.chat.completions.create(
+            res = _call_with_retry(
+                groq_client.chat.completions.create,
                 model=GROQ_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"}
@@ -431,6 +463,45 @@ Your task:
         ]
     }
 
+def generate_metric_feedback(metric_name: str, metric_value: Any, context_stats: dict, ai_model: str = "llama3") -> str:
+    prompt = f"""You are an expert educational teaching coach.
+Give a SHORT (max 2 sentences), sharp, and professional feedback to a professor about this specific metric:
+- Metric Name: {metric_name}
+- Current Value: {metric_value}
+
+Context of the rest of the lecture:
+- Avg Score: {context_stats.get('average_score', 0)}%
+- Total Students: {context_stats.get('total_students', 0)}
+- Hardest slides: {context_stats.get('hard_slides', 'N/A')}
+
+Your feedback should be context-aware. If the metric is good, give a quick 'why'. If it's low, give a quick 'how to fix' relative to the slides.
+Return ONLY the 1-2 sentence feedback string. No preamble.
+"""
+
+    if ai_model == "gemini-2.5-flash" or ai_model == "gemini-1.5-flash":
+        if gemini_client:
+            try:
+                res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+                return res.text.strip()
+            except Exception:
+                pass
+    elif ai_model == "groq":
+        if groq_client:
+            try:
+                res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+                return res.choices[0].message.content.strip()
+            except Exception:
+                pass
+
+    if ollama:
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            return res["message"]["content"].strip()
+        except Exception:
+            pass
+            
+    return f"This metric ({metric_value}) indicates the current level of student interaction for {metric_name}."
+
 # --- Chat ---
 def chat_with_lecture(slide_text: str, user_message: str, chat_history: list = None, ai_model: str = "llama3") -> str:
     """
@@ -511,3 +582,133 @@ async def generate_speech(text: str, voice: str = "en-US-AvaNeural") -> bytes:
             
     audio_data.seek(0)
     return audio_data.getvalue()
+
+
+# --- Mind Map Generation ---
+class MindMapNode(BaseModel):
+    id: str
+    label: str
+    type: str
+    summary: str | None = None
+    children: list["MindMapNode"] = []
+
+MindMapNode.model_rebuild()
+
+class MindMapRoot(BaseModel):
+    id: str
+    label: str
+    type: str
+    children: list[MindMapNode]
+
+def generate_mind_map(lecture_title: str, slides: list[dict], ai_model: str = "groq") -> dict:
+    """
+    Generate a hierarchical mind map tree from lecture slides.
+    
+    slides: list of {"id": str, "title": str, "summary": str}
+    Returns: tree_data dict matching MindMapRoot schema.
+    """
+    slides_text = "\n".join(
+        f"- Slide {i+1}: \"{s.get('title', 'Untitled')}\" — {s.get('summary', 'No summary')}"
+        for i, s in enumerate(slides)
+    )
+
+    prompt = f"""You are an educational knowledge architect.
+Given the following lecture slides, build a hierarchical mind map tree.
+
+Rules:
+1. The root node represents the whole lecture.
+2. Group the slides into 2-4 thematic clusters (intermediate nodes with type "cluster").
+3. Each slide becomes a child node of its closest cluster (type "slide").
+4. Extract 2-3 key concepts from each slide as leaf children (type "concept"). Keep labels under 6 words.
+5. Return ONLY valid JSON. No preamble, no postamble.
+
+JSON Schema:
+{{
+  "id": "root",
+  "label": "{lecture_title}",
+  "type": "root",
+  "children": [
+    {{
+      "id": "cluster-1",
+      "label": "Cluster Theme",
+      "type": "cluster",
+      "children": [
+        {{
+          "id": "slide-1",
+          "label": "Slide Title",
+          "type": "slide",
+          "summary": "one sentence summary",
+          "children": [
+            {{"id": "c-1-1", "label": "Key Concept", "type": "concept"}}
+          ]
+        }}
+      ]
+    }}
+  ]
+}}
+
+Lecture Title: {lecture_title}
+Slides:
+{slides_text}
+
+JSON Output:"""
+
+    default_tree = {
+        "id": "root",
+        "label": lecture_title,
+        "type": "root",
+        "children": [
+            {
+                "id": f"slide-{i}",
+                "label": s.get("title", f"Slide {i+1}"),
+                "type": "slide",
+                "summary": s.get("summary", ""),
+                "children": []
+            }
+            for i, s in enumerate(slides)
+        ]
+    }
+
+    if ai_model in ("gemini-2.5-flash", "gemini-1.5-flash"):
+        if gemini_client:
+            try:
+                res = gemini_client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(response_mime_type="application/json")
+                )
+                return json.loads(res.text)
+            except Exception as e:
+                print(f"DEBUG Gemini mind map error: {e}")
+        return default_tree
+
+    elif ai_model == "groq":
+        if not groq_client:
+            return default_tree
+        try:
+            res = groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"}
+            )
+            return json.loads(res.choices[0].message.content)
+        except Exception as e:
+            print(f"DEBUG Groq mind map error: {e}")
+            return default_tree
+
+    elif ai_model == "llama3":
+        if ollama is None:
+            return default_tree
+        try:
+            res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+            content = res["message"]["content"].strip()
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                content = json_match.group()
+            return json.loads(content)
+        except Exception as e:
+            print(f"DEBUG Ollama mind map error: {e}")
+            return default_tree
+
+    return default_tree
+

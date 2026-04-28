@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, BookOpen, TrendingUp, BarChart3, Plus, Eye, Settings, 
   Trash2, Sparkles, Activity, GraduationCap, ChevronRight, 
-  MoreHorizontal, Filter
+  MoreHorizontal, Filter, ArrowRight
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -141,39 +141,6 @@ export default function ProfessorDashboard() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="relative min-h-screen p-6 lg:p-8 space-y-8">
-        <ProfessorOrbitalBackground />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="glass-card p-5 animate-pulse">
-              <div className="h-4 w-24 bg-surface-2 rounded mb-3" />
-              <div className="h-8 w-16 bg-surface-2 rounded" />
-            </div>
-          ))}
-        </div>
-        <div className="glass-card overflow-hidden animate-pulse">
-          <div className="h-14 bg-surface-2 border-b border-border" />
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="flex items-center gap-6 px-6 py-4 border-b border-border last:border-0">
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-2/3 bg-surface-2 rounded" />
-                <div className="h-3 w-1/2 bg-surface-2 rounded" />
-              </div>
-              <div className="h-4 w-12 bg-surface-2 rounded" />
-              <div className="h-4 w-20 bg-surface-2 rounded" />
-              <div className="flex gap-2">
-                <div className="h-8 w-8 bg-surface-2 rounded" />
-                <div className="h-8 w-8 bg-surface-2 rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -183,109 +150,131 @@ export default function ProfessorDashboard() {
 
   const profName = user?.email?.split('@')[0] || 'Professor';
 
+  if (loading) {
+    return (
+      <div className="relative min-h-screen p-6 lg:p-10 space-y-10 max-w-[1600px] mx-auto">
+        <ProfessorOrbitalBackground />
+        <div className="h-64 glass-panel rounded-[2.5rem] animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="glass-card p-6 animate-pulse h-32" />
+          ))}
+        </div>
+        <div className="glass-card rounded-[2rem] h-96 animate-pulse" />
+      </div>
+    );
+  }
+
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen pb-32 bg-background max-w-[1600px] mx-auto">
       <ProfessorOrbitalBackground />
       
-      <div className="relative z-10 p-6 lg:p-8 space-y-10">
-
-        {/* ── Hero Banner — Command Center Style ── */}
+      <div className="relative z-10 p-6 lg:p-10 space-y-10">
+        
+        {/* ── Hero Banner ── */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="relative rounded-3xl overflow-hidden"
+          className="relative rounded-[2.5rem] overflow-hidden glass-panel border-white/5 shadow-2xl"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-transparent to-success/10" />
-          <div className="absolute inset-0 glass-panel opacity-40" />
-          
-          <div className="relative p-8 lg:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <motion.span
+          {/* Animated orbs */}
+          <motion.div
+            className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-primary/10 blur-[120px] pointer-events-none"
+            animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
+            transition={{ duration: 8, repeat: Infinity }}
+          />
+          <motion.div
+            className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-accent/10 blur-[100px] pointer-events-none"
+            animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.3, 0.1] }}
+            transition={{ duration: 10, repeat: Infinity, delay: 1 }}
+          />
+
+          <div className="relative p-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+            <div>
+              <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="text-caption text-primary/80 uppercase tracking-widest font-medium"
+                className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] mb-3 opacity-60"
               >
-                {getGreeting()}
-              </motion.span>
+                Command Center Dashboard
+              </motion.p>
               <motion.h1
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="text-display-md text-foreground"
+                transition={{ delay: 0.3 }}
+                className="text-4xl md:text-5xl font-black text-foreground tracking-tight"
               >
-                Welcome back,{' '}
-                <span className="text-gradient">{profName}</span>
+                {getGreeting()}, <span className="text-gradient">{profName}.</span>
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                className="text-body-md text-muted-foreground max-w-xl"
+                transition={{ delay: 0.4 }}
+                className="text-lg text-muted-foreground mt-4 max-w-2xl font-medium leading-relaxed"
               >
-                You have <strong className="text-foreground">{stats.totalStudents} students</strong> engaged across{' '}
-                <strong className="text-foreground">{lectures.length} active lectures</strong>. Average quiz score:{' '}
-                <strong className="text-success">{stats.averageScore}%</strong>.
+                System analysis confirms <strong className="text-foreground">{stats.totalStudents} students</strong> are actively engaged. Global accuracy is holding at <strong className="text-success">{stats.averageScore}%</strong> across your <strong className="text-foreground">{lectures.length} academic streams</strong>.
               </motion.p>
             </div>
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.6, type: 'spring', stiffness: 200, damping: 20 }}
+              transition={{ delay: 0.5 }}
+              className="flex-shrink-0"
             >
-              <Button 
-                onClick={() => navigate('/professor/upload')} 
-                className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-white shadow-glow-primary px-6 py-3 h-auto rounded-xl"
-              >
-                <Plus className="w-5 h-5" /> 
-                <span className="font-semibold">New Lecture</span>
+              <Button onClick={() => navigate('/professor/upload')} className="h-16 px-10 rounded-2xl gap-3 shadow-glow-primary gradient-primary text-base font-black uppercase tracking-widest hover:opacity-90 transition-all border-none text-white">
+                <Plus className="w-6 h-6" /> Create Lecture
               </Button>
             </motion.div>
           </div>
         </motion.div>
 
-        {/* ── Stats Grid — Command Center ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { title: 'Total Students', value: stats.totalStudents, icon: Users, variant: 'primary', glow: 'shadow-glow-primary' },
-            { title: 'Your Lectures', value: lectures.length, icon: BookOpen, variant: 'default' },
-            { title: 'Average Score', value: `${stats.averageScore}%`, icon: TrendingUp, variant: 'success', glow: 'shadow-glow-success' },
-            { title: 'Quiz Attempts', value: stats.totalQuizAttempts, icon: Activity, variant: 'xp' },
-          ].map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * index, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <StatsCard
-                title={stat.title}
-                value={stat.value}
-                icon={stat.icon}
-                variant={stat.variant as any}
-                className={stat.glow}
-              />
-            </motion.div>
-          ))}
+        {/* ── Stats Grid ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatsCard
+            title="Total Students"
+            value={stats.totalStudents}
+            icon={Users}
+            variant="primary"
+          />
+          <StatsCard
+            title="Your Lectures"
+            value={lectures.length}
+            icon={BookOpen}
+            variant="default"
+          />
+          <StatsCard
+            title="Average Score"
+            value={`${stats.averageScore}%`}
+            icon={TrendingUp}
+            variant="success"
+          />
+          <StatsCard
+            title="Quiz Attempts"
+            value={stats.totalQuizAttempts}
+            icon={Activity}
+            variant="xp"
+          />
         </div>
 
-        {/* ── Lectures Section — Data Table ── */}
+        {/* ── Lectures Section ── */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-primary" />
-              <h2 className="text-heading-lg text-foreground">Your Lectures</h2>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <GraduationCap className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-foreground tracking-tight">Active Academic Streams</h2>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-1 opacity-60">Manage your interactive learning materials</p>
+              </div>
             </div>
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate('/professor/analytics')}
-              className="group text-primary hover:text-primary/80"
-            >
+            <Button variant="ghost" className="rounded-xl glass-card border-white/5 font-black uppercase text-[10px] tracking-widest h-10 px-6 hover:bg-primary/10 hover:text-primary transition-all" onClick={() => navigate('/professor/analytics')}>
               <BarChart3 className="w-4 h-4 mr-2" />
-              View Analytics
-              <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+              Global Analytics
+              <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
 
@@ -293,81 +282,78 @@ export default function ProfessorDashboard() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="glass-card p-12 text-center"
+              className="glass-card p-20 text-center border-dashed border-2 border-white/5"
             >
-              <motion.div 
-                className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-5 shadow-glow-primary"
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 3, repeat: Infinity }}
-              >
-                <BookOpen className="w-10 h-10 text-white" />
-              </motion.div>
-              <h3 className="text-heading-sm text-foreground mb-2">No lectures yet</h3>
-              <p className="text-body-sm text-muted-foreground mb-6 max-w-md mx-auto">
-                Upload your first lecture to get started with interactive quizzes and student analytics.
+              <div className="w-20 h-20 rounded-[2.5rem] bg-surface-2 border border-white/5 flex items-center justify-center mx-auto mb-6">
+                <BookOpen className="w-10 h-10 text-muted-foreground/30" />
+              </div>
+              <h3 className="text-2xl font-black text-foreground mb-3 tracking-tight">No lectures detected</h3>
+              <p className="text-muted-foreground max-w-md mx-auto font-medium mb-10">
+                Upload your first lecture to initiate automated quiz generation and real-time student neural tracking.
               </p>
               <Button 
                 onClick={() => navigate('/professor/upload')}
-                className="bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary"
+                className="h-14 px-8 rounded-xl shadow-glow-primary gradient-primary font-black uppercase tracking-widest border-none text-white"
               >
-                <Plus className="w-5 h-5 mr-2" />
+                <Plus className="w-5 h-5 mr-3" />
                 Upload Your First Lecture
               </Button>
             </motion.div>
           ) : (
-            <div className="glass-card overflow-hidden">
+            <div className="glass-card rounded-[2.5rem] border-white/5 overflow-hidden shadow-2xl">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-border/50 bg-surface-1/50">
-                      <th className="px-6 py-4 text-left text-caption font-semibold text-muted-foreground uppercase tracking-wider">
-                        Lecture
+                    <tr className="border-b border-white/5 bg-white/5">
+                      <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
+                        Lecture Details
                       </th>
-                      <th className="px-6 py-4 text-left text-caption font-semibold text-muted-foreground uppercase tracking-wider">
-                        Slides
+                      <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
+                        Slide Count
                       </th>
-                      <th className="px-6 py-4 text-left text-caption font-semibold text-muted-foreground uppercase tracking-wider">
-                        Created
+                      <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
+                        Launch Date
                       </th>
-                      <th className="px-6 py-4 text-left text-caption font-semibold text-muted-foreground uppercase tracking-wider">
-                        Status
+                      <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
+                        Protocol Status
                       </th>
-                      <th className="px-6 py-4 text-right text-caption font-semibold text-muted-foreground uppercase tracking-wider">
-                        Actions
+                      <th className="px-10 py-6 text-right text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
+                        Executive Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-white/5">
                     {lectures.map((lecture, index) => (
                       <motion.tr
                         key={lecture.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ delay: index * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                         onMouseEnter={() => setHoveredRow(lecture.id)}
                         onMouseLeave={() => setHoveredRow(null)}
-                        className={`border-b border-border/30 last:border-0 transition-all duration-300 ${hoveredRow === lecture.id ? 'bg-surface-2/50' : ''}`}
+                        onClick={() => navigate(`/professor/analytics/${lecture.id}`)}
+                        className={`hover:bg-white/5 transition-all group cursor-pointer ${hoveredRow === lecture.id ? 'bg-white/5' : ''}`}
                       >
-                        <td className="px-6 py-5">
+                        <td className="px-10 py-6">
                           <div className="flex items-center gap-4">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${hoveredRow === lecture.id ? 'bg-primary/20 shadow-glow-primary' : 'bg-surface-2'}`}>
-                              <BookOpen className={`w-5 h-5 transition-colors ${hoveredRow === lecture.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${hoveredRow === lecture.id ? 'bg-primary/20 shadow-glow-primary border-primary/30' : 'bg-surface-2 border border-white/5'}`}>
+                              <BookOpen className={`w-6 h-6 transition-colors ${hoveredRow === lecture.id ? 'text-primary' : 'text-muted-foreground'}`} />
                             </div>
                             <div>
-                              <p className="font-semibold text-foreground">{lecture.title}</p>
+                              <p className="font-black text-foreground text-lg tracking-tight group-hover:text-primary transition-colors">{lecture.title}</p>
                               {lecture.description && (
-                                <p className="text-body-sm text-muted-foreground line-clamp-1 mt-0.5">
+                                <p className="text-sm text-muted-foreground font-medium mt-1 line-clamp-1 opacity-70">
                                   {lecture.description}
                                 </p>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-5">
-                          <span className="text-body-sm text-muted-foreground font-medium">{lecture.total_slides}</span>
+                        <td className="px-10 py-6">
+                          <span className="font-black text-foreground/80">{lecture.total_slides}</span>
                         </td>
-                        <td className="px-6 py-5">
-                          <span className="text-body-sm text-muted-foreground">
+                        <td className="px-10 py-6">
+                          <span className="font-bold text-muted-foreground">
                             {new Date(lecture.created_at).toLocaleDateString('en-US', { 
                               month: 'short', 
                               day: 'numeric', 
@@ -375,59 +361,71 @@ export default function ProfessorDashboard() {
                             })}
                           </span>
                         </td>
-                        <td className="px-6 py-5">
-                          <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium ${lecture.pdf_url 
-                            ? 'bg-success/10 text-success border border-success/20' 
-                            : 'bg-warning/10 text-warning border border-warning/20'
+                        <td className="px-10 py-6">
+                          <span className={`inline-flex items-center gap-2 text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest border transition-all ${lecture.pdf_url 
+                            ? 'bg-success/10 text-success border-success/20 shadow-glow-success/5' 
+                            : 'bg-warning/10 text-warning border-warning/20'
                           }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${lecture.pdf_url ? 'bg-success' : 'bg-warning'}`} />
-                            {lecture.pdf_url ? 'PDF Ready' : 'No PDF'}
+                            <span className={`w-1.5 h-1.5 rounded-full ${lecture.pdf_url ? 'bg-success animate-pulse' : 'bg-warning'}`} />
+                            {lecture.pdf_url ? 'Active Protocol' : 'No Source PDF'}
                           </span>
                         </td>
-                        <td className="px-6 py-5 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        <td className="px-10 py-6 text-right">
+                          <div className="flex items-center justify-end gap-2">
                             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="text-primary hover:text-primary hover:bg-primary/10 rounded-lg"
-                                onClick={() => navigate(`/professor/analytics/${lecture.id}`)}
-                                title="Analytics"
+                                size="icon"
+                                className="rounded-xl w-10 h-10 text-primary hover:bg-primary/10 shadow-sm border border-transparent hover:border-primary/20"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/professor/analytics/${lecture.id}`);
+                                }}
+                                title="Lecture Analytics"
                               >
-                                <BarChart3 className="w-4 h-4" />
+                                <BarChart3 className="w-5 h-5" />
                               </Button>
                             </motion.div>
                             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="text-muted-foreground hover:text-foreground rounded-lg"
-                                onClick={() => navigate(`/lecture/${lecture.id}`)}
-                                title="Preview"
+                                size="icon"
+                                className="rounded-xl w-10 h-10 text-muted-foreground hover:bg-white/10 shadow-sm border border-transparent hover:border-white/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/lecture/${lecture.id}`);
+                                }}
+                                title="Preview Lecture"
                               >
-                                <Eye className="w-4 h-4" />
+                                <Eye className="w-5 h-5" />
                               </Button>
                             </motion.div>
                             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="text-muted-foreground hover:text-foreground rounded-lg"
-                                onClick={() => navigate(`/professor/lecture/${lecture.id}`)}
-                                title="Settings"
+                                size="icon"
+                                className="rounded-xl w-10 h-10 text-muted-foreground hover:bg-white/10 shadow-sm border border-transparent hover:border-white/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/professor/lecture/${lecture.id}`);
+                                }}
+                                title="Edit Parameters"
                               >
-                                <Settings className="w-4 h-4" />
+                                <Settings className="w-5 h-5" />
                               </Button>
                             </motion.div>
                             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                onClick={() => deleteLecture(lecture.id)}
-                                className="text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded-lg"
-                                title="Delete"
+                                size="icon"
+                                className="rounded-xl w-10 h-10 text-destructive/70 hover:text-destructive hover:bg-destructive/10 shadow-sm border border-transparent hover:border-destructive/20"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteLecture(lecture.id);
+                                }}
+                                title="Delete Stream"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-5 h-5" />
                               </Button>
                             </motion.div>
                           </div>

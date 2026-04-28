@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
-import io
 import asyncio
+import io
 import time
 from pypdf import PdfReader
 from backend.services.ai_service import enhance_slide_content, generate_summary, generate_quiz, generate_slide_title, process_slide_batch
@@ -49,9 +49,6 @@ def parse_pdf(file_content: bytes, ai_model: str = "llama3") -> List[Dict[str, A
         # --- AI Enhancement for educational slides ---
         try:
             batch_res = process_slide_batch(raw_text, ai_model=ai_model)
-            
-            # Pace requests strictly to avoid hitting Groq/Gemini free-tier RPM and TPM limits
-            import time
             time.sleep(2)
             enhanced_content = batch_res.get("enhanced_content", raw_text)
             summary = batch_res.get("summary", "")
@@ -83,3 +80,90 @@ def parse_pdf(file_content: bytes, ai_model: str = "llama3") -> List[Dict[str, A
         })
 
     return slides
+
+
+async def parse_pdf_stream(file_content: bytes, ai_model: str = "llama3"):
+    """
+    Async generator that yields progress updates and per-slide results.
+
+    Yields:
+        {"type": "progress", "current": int, "total": int, "message": str}
+        {"type": "slide",    "index": int,   "slide": dict}
+        {"type": "complete", "total": int}
+        {"type": "error",    "message": str}
+    """
+    loop = asyncio.get_event_loop()
+    reader = PdfReader(io.BytesIO(file_content))
+    total_pages = len(reader.pages)
+    slides_processed = 0
+
+    yield {"type": "progress", "current": 0, "total": total_pages, "message": "Starting PDF parsing..."}
+
+    for i, page in enumerate(reader.pages):
+        current_page = i + 1
+        yield {
+            "type": "progress",
+            "current": current_page,
+            "total": total_pages,
+            "message": f"Processing slide {current_page} of {total_pages}...",
+        }
+
+        raw_text = page.extract_text()
+        if not raw_text or not raw_text.strip():
+            raw_text = "[No extractable text on this page. It may be image-based.]"
+
+        # is_metadata_slide can invoke an LLM in layer 3 — offload to thread
+        filter_result = await loop.run_in_executor(
+            None, is_metadata_slide, raw_text, i, total_pages, ai_model
+        )
+
+        if filter_result["is_metadata"]:
+            yield {
+                "type": "slide",
+                "index": i,
+                "slide": {
+                    "title": f"Slide {current_page}",
+                    "content": raw_text,
+                    "summary": "",
+                    "questions": [],
+                    "is_metadata": True,
+                },
+            }
+            slides_processed += 1
+            continue
+
+        # process_slide_batch is blocking (sync HTTP call) — offload to thread
+        try:
+            batch_res = await loop.run_in_executor(None, process_slide_batch, raw_text, ai_model)
+            # Non-blocking rate-limit pacing between AI calls
+            await asyncio.sleep(1.0)
+            enhanced_content = batch_res.get("enhanced_content", raw_text)
+            summary = batch_res.get("summary", "")
+            quiz_data = batch_res.get("quiz", {})
+            title = batch_res.get("title", "") or f"Slide {current_page}"
+        except Exception as e:
+            print(f"DEBUG: AI Processing failed for slide {current_page}: {e}")
+            enhanced_content = raw_text
+            summary = ""
+            quiz_data = {"question": "", "options": ["", "", "", ""], "correctAnswer": 0}
+            title = f"Slide {current_page}"
+
+        yield {
+            "type": "slide",
+            "index": i,
+            "slide": {
+                "title": title,
+                "content": enhanced_content,
+                "summary": summary,
+                "questions": [
+                    {
+                        "question": quiz_data.get("question", ""),
+                        "options": quiz_data.get("options", ["", "", "", ""]),
+                        "correctAnswer": quiz_data.get("correctAnswer", 0),
+                    }
+                ],
+            },
+        }
+        slides_processed += 1
+
+    yield {"type": "complete", "total": slides_processed}

@@ -218,7 +218,7 @@ def _compute_content_density(text: str) -> float:
 # Layer 3: LLM-as-a-Judge
 # ---------------------------------------------------------------------------
 
-def _llm_classify_slide(text: str, ai_model: str = "gemini-2.5-flash") -> dict:
+def _llm_classify_slide(text: str, ai_model: str = "gemini-1.5-flash") -> dict:
     """
     Uses the LLM to classify a slide as educational or metadata.
     Only called for ambiguous cases (~5-10% of slides).
@@ -249,13 +249,13 @@ Slide text:
         except Exception as e:
             print(f"DEBUG Groq classify error: {e}")
 
-    elif ai_model == "gemini-2.5-flash":
+    elif ai_model == "gemini-1.5-flash" or ai_model == "gemini-2.5-flash":
         try:
-            from backend.services.ai_service import client as gemini_client
+            from backend.services.ai_service import gemini_client, GEMINI_MODEL
             from google.genai import types
             if gemini_client:
                 res = gemini_client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model=GEMINI_MODEL,
                     contents=prompt,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
@@ -282,7 +282,7 @@ def is_metadata_slide(
     text: str,
     slide_index: int = 0,
     total_slides: int = 1,
-    ai_model: str = "gemini-2.5-flash",
+    ai_model: str = "gemini-1.5-flash",
 ) -> dict:
     """
     Runs the 3-layer filtering pipeline to determine if a slide is metadata.

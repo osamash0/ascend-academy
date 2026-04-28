@@ -1,17 +1,19 @@
 import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationBell } from '@/components/NotificationBell';
-import { useTheme } from '@/lib/theme';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
   return (
     <SidebarProvider>
@@ -28,7 +30,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 onClick={toggleTheme}
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.92 }}
-                className="relative w-14 h-7 rounded-full border border-border bg-surface-2 flex items-center px-1 transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                className="relative w-14 h-7 rounded-full border border-border bg-surface-2 flex items-center px-1 transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 overflow-hidden"
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 aria-label="Toggle theme"
               >

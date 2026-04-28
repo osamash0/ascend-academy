@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { pseudonymizeId } from '@/lib/pseudonymize';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideViewer } from '@/components/SlideViewer';
 import { QuizCard } from '@/components/QuizCard';
@@ -13,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
 import { useToast } from '@/hooks/use-toast';
+import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 
 interface Slide {
   id: string;
@@ -56,7 +56,6 @@ export default function LectureView() {
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(1);
-  const [anonId, setAnonId] = useState<string>('');
   const [showBadge, setShowBadge] = useState(false);
   const [badgeInfo, setBadgeInfo] = useState({ name: '', description: '', icon: '' });
   const [slideStartTime, setSlideStartTime] = useState<number>(Date.now());
@@ -68,7 +67,10 @@ export default function LectureView() {
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const { role } = useAuth(); // role is 'professor' or 'student'
+  const { role } = useAuth();
+
+  // Mind map
+  const { map: mindMap, generate: generateMindMap } = useMindMap(lectureId ?? null);
 
   useEffect(() => {
     if (lectureId && user) {
@@ -81,8 +83,6 @@ export default function LectureView() {
   // Analytics: Track slide view duration
   useEffect(() => {
     if (!slides.length || !user) return;
-    // Compute pseudonymized ID for analytics
-    pseudonymizeId(user.id).then(setAnonId);
 
     const currentSlideId = slides[currentSlideIndex]?.id;
     const now = Date.now();
@@ -94,7 +94,7 @@ export default function LectureView() {
 
       console.log(`DEBUG: Logging slide_view for ${slideId}, duration: ${duration}s`);
       await supabase.from('learning_events').insert({
-        user_id: anonId || user.id,
+        user_id: user.id,
         event_type: 'slide_view',
         event_data: {
           lectureId,
@@ -280,7 +280,7 @@ export default function LectureView() {
 
     // Log lecture start event
     await supabase.from('learning_events').insert({
-      user_id: anonId || user?.id,
+      user_id: user?.id,
       event_type: 'lecture_start',
       event_data: { lectureId: currentLectureId },
     });
@@ -349,6 +349,19 @@ export default function LectureView() {
 
     if (currentSlideIndex > 0) {
       const prevIndex = currentSlideIndex - 1;
+      
+      // Log revision event
+      supabase.from('learning_events').insert({
+        user_id: user?.id,
+        event_type: 'slide_back_navigation',
+        event_data: {
+          lectureId,
+          fromSlideId: slides[currentSlideIndex]?.id,
+          toSlideId: slides[prevIndex]?.id,
+          timestamp: new Date().toISOString()
+        }
+      });
+
       setCurrentSlideIndex(prevIndex);
       setShowQuiz(quizAnswers[prevIndex] !== undefined);
       saveProgress(prevIndex, xpEarned, correctAnswers);
@@ -371,13 +384,15 @@ export default function LectureView() {
     const timeToAnswer = Math.round((Date.now() - slideStartTime) / 1000);
 
     await supabase.from('learning_events').insert({
-      user_id: anonId || user?.id,
+      user_id: user?.id,
       event_type: 'quiz_attempt',
       event_data: {
+        lectureId,
         slideId: currentSlide?.id,
         slideTitle: currentSlide?.title,
         questionId: currentQuestion?.id,
         correct: isCorrect,
+        selectedAnswer: selectedIndex,
         time_to_answer_seconds: timeToAnswer,
         timestamp: new Date().toISOString()
       },
@@ -541,7 +556,7 @@ export default function LectureView() {
 
     // Log completion
     await supabase.from('learning_events').insert({
-      user_id: anonId || user?.id,
+      user_id: user?.id,
       event_type: 'lecture_complete',
       event_data: {
         lectureId: lecture.id,
@@ -799,7 +814,7 @@ export default function LectureView() {
                       onConfidenceRate={async (rating) => {
                         if (!user || !currentSlide) return;
                         await supabase.from('learning_events').insert({
-                          user_id: anonId || user.id,
+                          user_id: user.id,
                           event_type: 'confidence_rating',
                           event_data: {
                             lectureId,
@@ -810,7 +825,28 @@ export default function LectureView() {
                             },
                           });
                         }}
-                      />
+                      mindMapData={mindMap.data ?? null}
+                      currentSlideId={currentSlide.id}
+                      onGenerateMindMap={() => {
+                        const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
+                        generateMindMap.mutate(model, {
+                          onError: (error: any) => {
+                            toast({
+                              title: "Generation Failed",
+                              description: error.message || "Could not generate mind map. Check your AI configuration.",
+                              variant: "destructive"
+                            });
+                          },
+                          onSuccess: () => {
+                            toast({
+                              title: "Mind Map Generated",
+                              description: "The knowledge tree has been successfully constructed.",
+                            });
+                          }
+                        });
+                      }}
+                      isMindMapLoading={generateMindMap.isPending}
+                    />
                     </motion.div>
                   )}
                 </AnimatePresence>

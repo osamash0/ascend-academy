@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/analytics";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export function useAnalytics(lectureId: string | null) {
   const dashboard = useQuery({
@@ -13,7 +13,7 @@ export function useAnalytics(lectureId: string | null) {
         throw new Error('No active session token available');
       }
       
-      const res = await fetch(`${API_BASE}/lecture/${lectureId}/dashboard`, {
+      const res = await fetch(`${API_BASE}/api/analytics/lecture/${lectureId}/dashboard`, {
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       if (!res.ok) {
@@ -26,6 +26,11 @@ export function useAnalytics(lectureId: string | null) {
       return json.data;
     },
     enabled: !!lectureId,
+    retry: (failureCount, error: any) => {
+      // Don't retry on authentication or not found errors
+      if (error.message?.includes('Unauthorized') || error.message?.includes('API Error')) return false;
+      return failureCount < 2;
+    },
     staleTime: 1000 * 60, // 60 seconds — analytics don't need sub-minute freshness
     refetchOnWindowFocus: false,
   });

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal, Optional, List, Dict, Any
-from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech
+from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech, generate_metric_feedback
 import io
 from backend.services.content_filter import is_metadata_slide
 from backend.core.auth_middleware import verify_token
@@ -29,6 +29,13 @@ class AnalyticsStatsRequest(BaseModel):
     engaging_slides: Optional[str] = None
     weekly_trend: Optional[str] = None
     confidence_summary: Optional[str] = None
+    ai_model: _AiModel = "groq"
+
+
+class MetricInsightRequest(BaseModel):
+    metric_name: str
+    metric_value: Any
+    context_stats: Dict[str, Any]
     ai_model: _AiModel = "groq"
 
 
@@ -109,6 +116,20 @@ def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify
         return InsightsResponse(**result)
     except Exception:
         raise HTTPException(status_code=500, detail="AI insights generation failed. Please try again.")
+
+
+@router.post("/metric-feedback")
+def metric_feedback_endpoint(body: MetricInsightRequest, user=Depends(verify_token)):
+    try:
+        feedback = generate_metric_feedback(
+            metric_name=body.metric_name,
+            metric_value=body.metric_value,
+            context_stats=body.context_stats,
+            ai_model=body.ai_model
+        )
+        return {"feedback": feedback}
+    except Exception:
+        raise HTTPException(status_code=500, detail="AI metric feedback failed.")
 
 
 @router.post("/chat", response_model=ChatResponse)
