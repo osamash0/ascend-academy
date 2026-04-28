@@ -827,7 +827,24 @@ export default function LectureView() {
                         }}
                       mindMapData={mindMap.data ?? null}
                       currentSlideId={currentSlide.id}
-                      onGenerateMindMap={() => generateMindMap.mutate(localStorage.getItem('ascend-academy-ai-model') || 'groq')}
+                      onGenerateMindMap={() => {
+                        const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
+                        generateMindMap.mutate(model, {
+                          onError: (error: any) => {
+                            toast({
+                              title: "Generation Failed",
+                              description: error.message || "Could not generate mind map. Check your AI configuration.",
+                              variant: "destructive"
+                            });
+                          },
+                          onSuccess: () => {
+                            toast({
+                              title: "Mind Map Generated",
+                              description: "The knowledge tree has been successfully constructed.",
+                            });
+                          }
+                        });
+                      }}
                       isMindMapLoading={generateMindMap.isPending}
                     />
                     </motion.div>

@@ -103,4 +103,7 @@ async def generate_lecture_mind_map(
         raise
     except Exception as e:
         print(f"DEBUG mind map generate error: {e}")
-        raise HTTPException(status_code=500, detail="Mind map generation failed.")
+        error_msg = str(e)
+        if "relation \"lecture_mind_maps\" does not exist" in error_msg:
+            raise HTTPException(status_code=400, detail="Database table 'lecture_mind_maps' not found. Please run the SQL migration.")
+        raise HTTPException(status_code=500, detail=f"Mind map generation failed: {error_msg}")

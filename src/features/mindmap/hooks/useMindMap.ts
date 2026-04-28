@@ -53,6 +53,9 @@ export function useMindMap(lectureId: string | null) {
       // Populate the cache immediately so the map renders without a refetch
       queryClient.setQueryData(['mind-map', lectureId], data);
     },
+    onError: (error) => {
+      console.error('Mind map generation error:', error);
+    }
   });
 
   return { map, generate };

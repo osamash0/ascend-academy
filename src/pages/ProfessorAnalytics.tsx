@@ -75,7 +75,9 @@ interface DashboardData {
   funnel: { stage: string; count: number }[];
   confidenceMap: { got_it: number; unsure: number; confused: number };
   liveTicker: { type: string; description: string; time: string }[];
-  completionTimes: { bucket: string; count: number }[];
+  dropoffData: DropoffPoint[];
+  aiQueryFeed: AIQueryItem[];
+  confidenceBySlide: SlideConfidence[];
 }
 
 interface DropoffPoint {
@@ -257,6 +259,15 @@ export default function ProfessorAnalytics() {
   const { dashboard } = useAnalytics(selectedLectureId ?? null);
   const dashboardData = dashboard.data as DashboardData | null;
 
+  // Sync state with dashboard data when it arrives
+  useEffect(() => {
+    if (dashboardData) {
+      setDropoffData(dashboardData.dropoffData || []);
+      setConfidenceBySlide(dashboardData.confidenceBySlide || []);
+      setAiQueryFeed(dashboardData.aiQueryFeed || []);
+    }
+  }, [dashboardData]);
+
   // Fetch lecture list
   useEffect(() => {
     if (!user) return;
@@ -277,32 +288,6 @@ export default function ProfessorAnalytics() {
       }
     })();
   }, [user]);
-
-  // Fetch extra data from endpoints
-  useEffect(() => {
-    if (!selectedLectureId) return;
-    setExtraLoading(true);
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) { setExtraLoading(false); return; }
-
-      const headers = { Authorization: `Bearer ${token}` };
-      const base = `${API_BASE}/api/analytics/lecture/${selectedLectureId}`;
-
-      const [dropoffRes, confRes, aiRes] = await Promise.allSettled([
-        fetch(`${base}/dropoff`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${base}/confidence-by-slide`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${base}/ai-queries`, { headers }).then(r => r.ok ? r.json() : null),
-      ]);
-
-      if (dropoffRes.status === 'fulfilled' && dropoffRes.value?.data) setDropoffData(dropoffRes.value.data);
-      if (confRes.status === 'fulfilled' && confRes.value?.data) setConfidenceBySlide(confRes.value.data);
-      if (aiRes.status === 'fulfilled' && aiRes.value?.data) setAiQueryFeed(aiRes.value.data);
-
-      setExtraLoading(false);
-    })();
-  }, [selectedLectureId]);
 
   useEffect(() => {
     if (dashboard.isError) {

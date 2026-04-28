@@ -83,3 +83,64 @@ def parse_pdf(file_content: bytes, ai_model: str = "llama3") -> List[Dict[str, A
         })
 
     return slides
+
+
+def parse_pdf_stream(file_content: bytes, ai_model: str = "llama3"):
+    """
+    Generator version of parse_pdf that yields progress updates.
+    Yields: {"type": "progress", "current": int, "total": int, "message": str}
+    Final Yield: {"type": "complete", "slides": list}
+    """
+    slides = []
+    pdf_file = io.BytesIO(file_content)
+    reader = PdfReader(pdf_file)
+    total_pages = len(reader.pages)
+
+    yield {"type": "progress", "current": 0, "total": total_pages, "message": "Starting PDF parsing..."}
+
+    for i, page in enumerate(reader.pages):
+        current_page = i + 1
+        yield {"type": "progress", "current": current_page, "total": total_pages, "message": f"Processing slide {current_page} of {total_pages}..."}
+        
+        raw_text = page.extract_text()
+        if not raw_text or not raw_text.strip():
+            raw_text = "[No extractable text on this page. It may be image-based.]"
+
+        filter_result = is_metadata_slide(raw_text, slide_index=i, total_slides=total_pages, ai_model=ai_model)
+
+        if filter_result["is_metadata"]:
+            slides.append({
+                "title": f"Slide {current_page}",
+                "content": raw_text,
+                "summary": "",
+                "questions": [],
+                "is_metadata": True,
+            })
+            continue
+
+        try:
+            batch_res = process_slide_batch(raw_text, ai_model=ai_model)
+            time.sleep(1.5) # Slightly faster sleep
+            enhanced_content = batch_res.get("enhanced_content", raw_text)
+            summary = batch_res.get("summary", "")
+            quiz_data = batch_res.get("quiz", {})
+            ai_title = batch_res.get("title", "")
+            title = ai_title if ai_title else f"Slide {current_page}"
+        except Exception as e:
+            enhanced_content = raw_text
+            summary = ""
+            quiz_data = {"question": "", "options": ["", "", "", ""], "correctAnswer": 0}
+            title = f"Slide {current_page}"
+
+        slides.append({
+            "title": title,
+            "content": enhanced_content,
+            "summary": summary,
+            "questions": [{
+                "question": quiz_data.get("question", ""),
+                "options": quiz_data.get("options", ["", "", "", ""]),
+                "correctAnswer": quiz_data.get("correctAnswer", 0),
+            }],
+        })
+
+    yield {"type": "complete", "slides": slides, "total": len(slides)}

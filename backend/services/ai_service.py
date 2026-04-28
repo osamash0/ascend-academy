@@ -15,7 +15,7 @@ if _backend_env.exists():
     load_dotenv(dotenv_path=_backend_env, override=True)
 
 OLLAMA_MODEL = "llama3"
-GEMINI_MODEL = "models/gemini-2.5-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 GROQ_MODEL = "llama-3.1-8b-instant"
 
 try:

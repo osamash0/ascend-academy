@@ -339,6 +339,8 @@ export default function LectureUpload() {
   const [aiSummaryLoading, setAiSummaryLoading] = useState<Record<number, boolean>>({});
   const [aiQuizLoading, setAiQuizLoading] = useState<Record<number, boolean>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];
@@ -382,51 +384,72 @@ export default function LectureUpload() {
     }
 
     setIsUploading(true);
+    setUploadProgress(0);
+    setUploadStatus('Uploading PDF...');
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('ai_model', localStorage.getItem('ascend-academy-ai-model') || 'groq');
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${API_BASE}/api/upload/parse-pdf`, {
+      const response = await fetch(`${API_BASE}/api/upload/parse-pdf-stream`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session?.access_token}` },
         body: formData
       });
 
-      if (!res.ok) {
-        if (res.status === 401) throw new Error('Unauthorized - Please log in again');
-        throw new Error('Failed to parse PDF');
+      if (!response.ok) throw new Error('Failed to start PDF parsing');
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.replace('data: ', ''));
+            
+            if (data.type === 'progress') {
+              const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+              setUploadProgress(pct);
+              setUploadStatus(data.message);
+            } else if (data.type === 'complete') {
+              const newSlides: SlideData[] = data.slides.map((s: any) => ({
+                title: s.title,
+                content: s.content,
+                summary: s.summary || '',
+                questions: s.questions || [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
+              }));
+
+              setSlides(newSlides);
+              setActiveSlideIndex(0);
+              if (!title) setTitle(file.name.replace('.pdf', ''));
+              setPdfFile(file);
+              toast({
+                title: 'PDF Imported Successfully',
+                description: `${newSlides.length} slides extracted and structured.`,
+              });
+            } else if (data.type === 'error') {
+              throw new Error(data.message);
+            }
+          }
+        }
       }
-
-      interface ParsedSlideFromAPI {
-        title: string;
-        content: string;
-        summary?: string;
-        questions?: QuestionData[];
-      }
-      const data: { slides: ParsedSlideFromAPI[] } = await res.json();
-      const newSlides: SlideData[] = data.slides.map((s) => ({
-        title: s.title,
-        content: s.content,
-        summary: s.summary || '',
-        questions: s.questions || [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
-      }));
-
-      setSlides(newSlides);
-      setActiveSlideIndex(0);
-      if (!title) setTitle(file.name.replace('.pdf', ''));
-      setPdfFile(file);
-      setShowPDFPanel(false);
-
-      toast({
-        title: 'PDF Imported Successfully',
-        description: `${newSlides.length} slides extracted and structured.`,
-      });
-    } catch {
-      toast({ title: 'Upload Failed', description: 'Could not parse the PDF. Make sure the backend is running.', variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Upload Failed', description: err.message || 'Could not parse the PDF.', variant: 'destructive' });
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
+      setUploadStatus('');
       e.target.value = '';
     }
   };
@@ -807,20 +830,36 @@ export default function LectureUpload() {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-violet-500/10 border-y border-violet-200/50 dark:border-violet-800/30 px-6 py-3">
-                <div className="flex items-center gap-3 max-w-4xl mx-auto">
-                  <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center animate-pulse">
-                    <BrainCircuit className="w-4 h-4 text-violet-600" />
+              <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-6 py-4">
+                <div className="max-w-4xl mx-auto space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                        <BrainCircuit className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-none mb-1">
+                          {uploadStatus || 'AI is analyzing your PDF...'}
+                        </p>
+                        <p className="text-[10px] text-white/70">
+                          Extracting content, generating summaries, and crafting quizzes
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xl font-black">{uploadProgress}%</span>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-violet-900 dark:text-violet-200">
-                      AI is analyzing your PDF...
-                    </p>
-                    <p className="text-xs text-violet-700/70 dark:text-violet-300/70">
-                      Extracting text, generating summaries, and crafting quiz questions
-                    </p>
+                  
+                  {/* Progress Bar Container */}
+                  <div className="h-2 w-full bg-black/20 rounded-full overflow-hidden shadow-inner">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      transition={{ type: 'spring', stiffness: 50, damping: 20 }}
+                      className="h-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                    />
                   </div>
-                  <Loader2 className="w-5 h-5 text-violet-500 animate-spin" />
                 </div>
               </div>
             </motion.div>
