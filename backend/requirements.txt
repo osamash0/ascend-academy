@@ -6,6 +6,9 @@ pydantic
 python-dotenv
 asyncpg
 pypdf
+PyMuPDF
+pdf2image
+Pillow
 python-multipart
 ollama
 google-genai

@@ -17,6 +17,7 @@ if _backend_env.exists():
 OLLAMA_MODEL = "llama3"
 GEMINI_MODEL = "gemini-2.5-flash"
 GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
 
 try:
     import ollama
@@ -160,6 +161,157 @@ Markdown Output:"""
             print(f"DEBUG Ollama error: {e}")
             return raw_text
     return raw_text
+
+# --- Vision Analysis (primary upload pipeline) ---
+
+_SLIDE_VISION_PROMPT = """You are an expert educational assistant analyzing a university lecture slide.
+
+Analyze the slide image and return ONLY a valid JSON object. Do not include any text outside the JSON.
+
+{
+  "slide_type": "content_slide",
+  "metadata": {
+    "lecture_title": null,
+    "lecturer_name": null,
+    "course_code": null,
+    "university_logo_present": false,
+    "slide_number": null
+  },
+  "content_extraction": {
+    "main_topic": null,
+    "key_points": [],
+    "summary": "",
+    "example": null
+  },
+  "quiz": null
+}
+
+slide_type values — pick exactly one:
+- "title_slide"  : course/lecture name, professor info, date, university branding
+- "meta_slide"   : only logo, page number, "Thank you", "Questions?", references list, or blank slide
+- "content_slide": educational concepts, definitions, theory, processes
+- "example_slide": demonstrates a worked example, problem, or case study
+- "diagram_slide": chart, diagram, figure, or equation is the primary element
+
+Quiz format (required for content_slide / example_slide / diagram_slide):
+{"question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": 0}
+correctAnswer is the 0-indexed position of the correct option (0-3).
+
+Rules:
+1. For title_slide and meta_slide: set quiz to null and key_points to [].
+2. For content_slide: fill key_points with the main bullet points and write a 2-3 sentence summary.
+3. For example_slide: fill the example field with the complete example text.
+4. For diagram_slide: describe the diagram's key takeaway in summary; key_points can list axes/labels.
+5. Use null for absent strings, false for absent booleans, [] for empty arrays."""
+
+
+_VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
+
+
+def _vision_default() -> dict:
+    return {
+        "slide_type": "content_slide",
+        "metadata": {
+            "lecture_title": None, "lecturer_name": None,
+            "course_code": None, "university_logo_present": False, "slide_number": None,
+        },
+        "content_extraction": {"main_topic": None, "key_points": [], "summary": "", "example": None},
+        "quiz": None,
+    }
+
+
+def _parse_vision_json(raw: str) -> dict:
+    """Extract JSON from vision model response, handling markdown code fences."""
+    raw = raw.strip()
+    # Strip ```json ... ``` wrappers if present
+    match = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
+    if match:
+        raw = match.group(1).strip()
+    # Find outermost JSON object
+    match = re.search(r"\{[\s\S]*\}", raw)
+    if match:
+        return json.loads(match.group())
+    return json.loads(raw)
+
+
+def analyze_slide_vision(base64_image: str, raw_text: str = "", ai_model: str = "groq") -> dict:
+    """
+    Analyze a slide image with a vision model.
+    Returns a rich dict: slide_type, metadata, content_extraction, quiz.
+    Falls back to _vision_default() on any error.
+    """
+    if ai_model == "groq":
+        if not groq_client:
+            return _vision_default()
+
+        user_content: list = [
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+            }
+        ]
+        # Provide supplemental text so the model can read small/low-contrast text
+        if raw_text.strip():
+            user_content.append({
+                "type": "text",
+                "text": f"Supplemental extracted text from this slide:\n{raw_text[:2000]}",
+            })
+
+        try:
+            res = _call_with_retry(
+                groq_client.chat.completions.create,
+                model=GROQ_VISION_MODEL,
+                messages=[
+                    {"role": "system", "content": _SLIDE_VISION_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+                temperature=0.2,
+                max_tokens=1024,
+                response_format={"type": "json_object"},
+            )
+            return _parse_vision_json(res.choices[0].message.content)
+        except Exception as e:
+            print(f"DEBUG Groq vision error: {e}")
+            return _vision_default()
+
+    elif ai_model in ("gemini-2.5-flash", "gemini-1.5-flash"):
+        if not gemini_client:
+            return _vision_default()
+        try:
+            import base64 as _b64
+            image_bytes = _b64.b64decode(base64_image)
+            prompt = _SLIDE_VISION_PROMPT + "\n\nAnalyze the following lecture slide:"
+            res = gemini_client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=[
+                    types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+                    prompt,
+                ],
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+            return _parse_vision_json(res.text)
+        except Exception as e:
+            print(f"DEBUG Gemini vision error: {e}")
+            return _vision_default()
+
+    # Ollama / unknown model — vision not supported, caller should fall back to text
+    return _vision_default()
+
+
+def format_slide_content(content_extraction: dict) -> str:
+    """Convert vision content_extraction dict into readable Markdown."""
+    parts = []
+    topic = content_extraction.get("main_topic")
+    if topic:
+        parts.append(f"## {topic}")
+    key_points = content_extraction.get("key_points") or []
+    if key_points:
+        parts.append("\n".join(f"- {kp}" for kp in key_points))
+    example = content_extraction.get("example")
+    if example:
+        parts.append(f"**Example:**\n\n{example}")
+    return "\n\n".join(parts)
+
 
 # --- Batch Processing (Upload optimization) ---
 def process_slide_batch(raw_text: str, ai_model: str = "llama3") -> dict:
