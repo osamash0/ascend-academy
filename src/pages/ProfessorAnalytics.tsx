@@ -137,7 +137,7 @@ function Section({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.005 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className={`glass-card border-white/5 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden perspective-1000 ${className}`}
+      className={`glass-card border-border/50 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden perspective-1000 ${className}`}
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16" />
       <div className="flex justify-between items-start mb-8 relative z-10">
@@ -254,13 +254,13 @@ function LecturePicker({ lectures, onSelect }: { lectures: Lecture[]; onSelect: 
             <motion.button key={lec.id} onClick={() => onSelect(lec.id)}
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }} whileHover={{ y: -8, scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="group text-left glass-card border-white/5 rounded-3xl p-8 transition-all duration-300 flex flex-col gap-5 relative overflow-hidden">
+              className="group text-left glass-card border-border rounded-3xl p-8 transition-all duration-300 flex flex-col gap-5 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-start justify-between relative z-10">
-                <div className="w-12 h-12 rounded-2xl bg-surface-2 border border-white/5 flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                <div className="w-12 h-12 rounded-2xl bg-surface-2 border border-border flex items-center justify-center group-hover:border-primary/50 transition-colors">
                   <BookOpen className="w-6 h-6 text-primary" />
                 </div>
-                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-surface-1 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                 </div>
               </div>
@@ -270,7 +270,7 @@ function LecturePicker({ lectures, onSelect }: { lectures: Lecture[]; onSelect: 
                   <p className="text-sm text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{lec.description}</p>
                 )}
               </div>
-              <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-auto pt-4 border-t border-white/5 relative z-10">
+              <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-auto pt-4 border-t border-border relative z-10">
                 <span className="flex items-center gap-1.5"><Users className="w-3 h-3" /> Heuristics Active</span>
                 <span className="text-primary">•</span>
                 <span>{lec.total_slides ?? 0} Slides</span>
@@ -292,6 +292,7 @@ export default function ProfessorAnalytics() {
 
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [lecturesLoading, setLecturesLoading] = useState(true);
+  const [isGamingMode, setIsGamingMode] = useState(false);
   const [selectedTitle, setSelectedTitle] = useState('');
 
   // New endpoint data
@@ -487,7 +488,7 @@ export default function ProfessorAnalytics() {
 
   if (!selectedLectureId) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-black">
+      <div className="min-h-screen relative overflow-hidden bg-background">
         <div className="fixed inset-0 pointer-events-none z-0">
            <NeuralBackground />
         </div>
@@ -497,7 +498,7 @@ export default function ProfessorAnalytics() {
   }
 
   return (
-    <div className="min-h-screen relative pb-32 bg-black max-w-[1600px] mx-auto overflow-hidden">
+    <div className={`min-h-screen relative pb-32 bg-background max-w-[1600px] mx-auto overflow-hidden ${isGamingMode ? 'gaming-mode' : ''}`}>
       <div className="fixed inset-0 pointer-events-none z-0">
          <NeuralBackground />
       </div>
@@ -505,13 +506,13 @@ export default function ProfessorAnalytics() {
       <div className="p-6 lg:p-10 space-y-10 relative z-10">
         
         {/* Neural Header Controls */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 glass-panel p-6 rounded-[2rem] border-white/5 shadow-xl">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 glass-panel p-6 rounded-[2rem] border-border/50 shadow-xl">
           <div className="flex items-center gap-5">
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={() => navigate('/professor/analytics')} 
-              className="rounded-full w-12 h-12 shadow-sm glass-card hover:bg-white/10 border-white/10"
+              className="rounded-full w-12 h-12 shadow-sm glass-card hover:bg-primary/10 border-border"
             >
               <ArrowLeft className="w-5 h-5"/>
             </Button>
@@ -522,14 +523,24 @@ export default function ProfessorAnalytics() {
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1 opacity-70">Neural Edge Semantic Dashboard</p>
             </div>
           </div>
-          <Button 
-            onClick={fetchAiInsights} 
-            disabled={aiLoading || dashboard.isLoading} 
-            className="rounded-2xl h-14 px-8 shadow-glow-primary gradient-primary hover:opacity-90 transition-all font-bold text-base border-none text-white"
-          >
-            {aiLoading ? <RefreshCw className="w-5 h-5 animate-spin mr-3" /> : <Sparkles className="w-5 h-5 mr-3" />}
-            Generate Predictive Intervention
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => setIsGamingMode(!isGamingMode)}
+              variant="outline"
+              className={`rounded-2xl h-14 px-6 border-border/50 font-bold transition-all ${isGamingMode ? 'bg-primary/20 text-primary border-primary/40 shadow-glow-primary' : ''}`}
+            >
+              <Zap className={`w-5 h-5 mr-3 ${isGamingMode ? 'fill-primary' : ''}`} />
+              {isGamingMode ? 'Gaming Mode ON' : 'Standard HUD'}
+            </Button>
+            <Button 
+              onClick={fetchAiInsights} 
+              disabled={aiLoading || dashboard.isLoading} 
+              className="rounded-2xl h-14 px-8 shadow-glow-primary gradient-primary hover:opacity-90 transition-all font-bold text-base border-none text-white"
+            >
+              {aiLoading ? <RefreshCw className="w-5 h-5 animate-spin mr-3" /> : <Sparkles className="w-5 h-5 mr-3" />}
+              Generate Predictive Intervention
+            </Button>
+          </div>
         </div>
 
         {dashboard.isLoading ? (
@@ -546,33 +557,33 @@ export default function ProfessorAnalytics() {
                   initial={{ opacity: 0, scale: 0.95 }} 
                   animate={{ opacity: 1, scale: 1 }} 
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="glass-panel-strong border-primary/20 p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden"
+                  className="intelligence-hub p-10 rounded-[2.5rem] relative overflow-hidden"
                 >
-                  <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 blur-[100px] rounded-full -mr-20 -mt-20" />
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 blur-[100px] rounded-full -mr-20 -mt-20 dark:block hidden" />
                   <div className="flex flex-col lg:flex-row gap-10 items-start relative z-10">
-                    <div className="w-16 h-16 rounded-[24px] bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-glow-primary animate-float">
+                    <div className="w-16 h-16 rounded-[24px] bg-primary flex items-center justify-center flex-shrink-0 shadow-glow-primary animate-float dark:bg-gradient-to-br dark:from-primary dark:to-secondary">
                       <BrainCircuit className="w-8 h-8 text-white" />
                     </div>
                     <div className="flex-1 w-full">
-                      <h2 className="text-2xl font-black flex items-center gap-4 text-foreground mb-6">Neural Synthesizer Report</h2>
+                      <h2 className="text-2xl font-black flex items-center gap-4 text-white mb-6">Neural Synthesizer Report</h2>
                       {aiLoading ? (
                         <div className="space-y-4">
-                          <Skeleton className="h-4 w-full bg-white/5 rounded-full" />
-                          <Skeleton className="h-4 w-3/4 bg-white/5 rounded-full" />
-                          <Skeleton className="h-4 w-1/2 bg-white/5 rounded-full" />
+                          <Skeleton className="h-4 w-full bg-surface-2 rounded-full" />
+                          <Skeleton className="h-4 w-3/4 bg-surface-2 rounded-full" />
+                          <Skeleton className="h-4 w-1/2 bg-surface-2 rounded-full" />
                         </div>
                       ) : (
                         <div className="space-y-8">
-                          <p className="text-xl leading-relaxed text-foreground/90 font-medium max-w-5xl border-l-4 border-primary/30 pl-6 italic">
+                          <p className="text-xl leading-relaxed text-white/90 font-medium max-w-5xl border-l-4 border-primary/30 pl-6 italic">
                             "{aiInsights?.summary || 'Synthesizing neural data...'}"
                           </p>
                           <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {aiInsights?.suggestions?.map((s, i) => (
-                              <div key={i} className="glass-card hover:bg-white/5 p-5 rounded-2xl border-white/5 flex flex-col gap-4 group transition-all">
+                              <div key={i} className="glass-card hover:bg-surface-1 p-5 rounded-2xl border-border flex flex-col gap-4 group transition-all">
                                 <div className="w-8 h-8 gradient-primary rounded-lg text-sm font-black flex text-white items-center justify-center shadow-glow-primary group-hover:scale-110 transition-transform">
                                   {i + 1}
                                 </div>
-                                <p className="text-sm font-bold leading-relaxed text-muted-foreground group-hover:text-foreground transition-colors">
+                                <p className="text-sm font-bold leading-relaxed text-white/60 group-hover:text-white transition-colors">
                                   {s}
                                 </p>
                               </div>
@@ -680,15 +691,15 @@ export default function ProfessorAnalytics() {
                           if (active && payload && payload.length) {
                             const d = payload[0].payload;
                             return (
-                              <div className="glass-panel-strong p-5 rounded-2xl shadow-2xl min-w-[240px] border-white/10 animate-scale-in">
-                                <p className="font-black text-lg mb-3 border-b border-white/10 pb-2 text-foreground">{d.name}</p>
+                              <div className="glass-panel-strong p-5 rounded-2xl shadow-2xl min-w-[240px] border-border animate-scale-in">
+                                <p className="font-black text-lg mb-3 border-b border-border pb-2 text-foreground">{d.name}</p>
                                 <div className="space-y-2">
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Accuracy</span><span className="font-black text-foreground">{d.correctRate}%</span></div>
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</span><span className="font-black text-muted-foreground">{d.avgDuration}s</span></div>
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Queries</span><span className="font-black text-primary">{d.aiQueries}</span></div>
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Revisions</span><span className="font-black text-warning">{d.revisions}</span></div>
                                 </div>
-                                <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center -mx-5 -mb-5 px-5 py-3 rounded-b-2xl bg-destructive/10">
+                                <div className="mt-4 pt-3 border-t border-border flex justify-between items-center -mx-5 -mb-5 px-5 py-3 rounded-b-2xl bg-destructive/10">
                                    <span className="text-[10px] uppercase font-black tracking-[0.2em] text-destructive">Confusion Index</span>
                                    <span className="text-xl font-black text-destructive">{d.confusionIndex}</span>
                                 </div>
@@ -721,21 +732,23 @@ export default function ProfessorAnalytics() {
                 onToggle={() => handleMetricClick('confidence', 'Neural Confidence', dashboardData.confidenceMap)}
               >
                 <div className="space-y-6">
-                  <div className="h-6 w-full rounded-full overflow-hidden flex bg-surface-2 p-1">
-                    <div style={{ width: `${(dashboardData.confidenceMap.got_it / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
-                      className="h-full bg-success rounded-l-full transition-all duration-1000 shadow-glow-success" />
-                    <div style={{ width: `${(dashboardData.confidenceMap.unsure / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
-                      className="h-full bg-warning transition-all duration-1000" />
-                    <div style={{ width: `${(dashboardData.confidenceMap.confused / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
-                      className="h-full bg-destructive rounded-r-full transition-all duration-1000" />
+                  <div className="mastery-track w-full">
+                    <div className="flex h-full">
+                      <div style={{ width: `${(dashboardData.confidenceMap.got_it / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
+                        className="mastery-fill h-full transition-all duration-1000" />
+                      <div style={{ width: `${(dashboardData.confidenceMap.unsure / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
+                        className="bg-warning/50 h-full transition-all duration-1000" />
+                      <div style={{ width: `${(dashboardData.confidenceMap.confused / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
+                        className="bg-destructive/50 h-full transition-all duration-1000" />
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     {[
-                      { emoji: '✅', label: 'Synthesized', count: dashboardData.confidenceMap.got_it, color: 'text-success', bg: 'bg-success/10' },
-                      { emoji: '🤔', label: 'Processing', count: dashboardData.confidenceMap.unsure, color: 'text-warning', bg: 'bg-warning/10' },
-                      { emoji: '❌', label: 'Anomalies', count: dashboardData.confidenceMap.confused, color: 'text-destructive', bg: 'bg-destructive/10' },
+                      { emoji: '✅', label: 'Synthesized', count: dashboardData.confidenceMap.got_it, color: 'text-success', bg: 'bg-success/5' },
+                      { emoji: '🤔', label: 'Processing', count: dashboardData.confidenceMap.unsure, color: 'text-warning', bg: 'bg-warning/5' },
+                      { emoji: '❌', label: 'Anomalies', count: dashboardData.confidenceMap.confused, color: 'text-destructive', bg: 'bg-destructive/5' },
                     ].map(r => (
-                      <div key={r.label} className={`flex items-center justify-between p-4 rounded-2xl ${r.bg} border border-white/5`}>
+                      <div key={r.label} className={`flex items-center justify-between p-4 rounded-2xl ${r.bg} border border-border`}>
                         <div className="flex items-center gap-3">
                           <span className="text-xl">{r.emoji}</span>
                           <span className="text-xs font-bold uppercase tracking-widest text-foreground">{r.label}</span>
@@ -883,9 +896,9 @@ export default function ProfessorAnalytics() {
             </div>
 
             {/* Predictive Intervention Hub */}
-            <div className="glass-panel-strong rounded-[2.5rem] border-destructive/20 shadow-2xl overflow-hidden mt-12 relative">
-              <div className="absolute top-0 left-0 w-3 h-full bg-gradient-to-b from-destructive via-destructive/50 to-destructive/20 shadow-glow-destructive/40"></div>
-              <div className="p-8 md:px-10 border-b border-white/5 flex justify-between items-center bg-white/5">
+            <div className="intelligence-hub rounded-[2.5rem] overflow-hidden mt-12 relative">
+              <div className="absolute top-0 left-0 w-3 h-full bg-destructive shadow-glow-destructive/20 dark:block hidden"></div>
+              <div className="p-8 md:px-10 border-b border-border flex justify-between items-center bg-surface-1/50">
                  <div>
                     <h3 className="text-2xl font-black text-foreground flex items-center gap-4 tracking-tight">
                       <AlertTriangle className="w-8 h-8 text-destructive animate-pulse" /> Predictive Intervention Hub
@@ -915,10 +928,10 @@ export default function ProfessorAnalytics() {
                           <Badge 
                             variant="outline" 
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm ${
-                              student.typology.includes('Risk') || student.typology.includes('Critical') ? 'bg-destructive/10 text-destructive border-destructive/20 shadow-glow-destructive/10' 
-                              : student.typology.includes('Reviser') ? 'bg-warning/10 text-warning border-warning/20' 
-                              : student.typology.includes('Natural') ? 'bg-success/10 text-success border-success/20'
-                              : 'bg-white/5 text-muted-foreground border-white/10'
+                              student.typology.includes('Risk') || student.typology.includes('Critical') ? 'badge-advanced' 
+                              : student.typology.includes('Reviser') ? 'badge-intermediate' 
+                              : student.typology.includes('Natural') ? 'badge-beginner'
+                              : 'bg-surface-2 text-muted-foreground border-border'
                             }`}
                           >
                             {student.typology}

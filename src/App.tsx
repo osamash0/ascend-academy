@@ -7,21 +7,31 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
-// Pages
-import Landing from "./pages/Landing";
-import Auth from "./pages/Auth";
-import StudentDashboard from "./pages/StudentDashboard";
-import LectureView from "./pages/LectureView";
-import Achievements from "./pages/Achievements";
-import ProfessorDashboard from "./pages/ProfessorDashboard";
-import ProfessorAnalytics from "./pages/ProfessorAnalytics";
-import LectureUpload from "./pages/LectureUpload";
-import LectureEdit from "./pages/LectureEdit";
-import Settings from "./pages/Settings";
-import Impressum from "./pages/Impressum";
-import Datenschutz from "./pages/Datenschutz";
-import Leaderboard from "./pages/Leaderboard";
-import NotFound from "./pages/NotFound";
+import { lazy, Suspense } from "react";
+
+// Lazy Pages
+const Landing = lazy(() => import("./pages/Landing"));
+const Auth = lazy(() => import("./pages/Auth"));
+const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
+const LectureView = lazy(() => import("./pages/LectureView"));
+const Achievements = lazy(() => import("./pages/Achievements"));
+const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
+const ProfessorAnalytics = lazy(() => import("./pages/ProfessorAnalytics"));
+const LectureUpload = lazy(() => import("./pages/LectureUpload"));
+const LectureEdit = lazy(() => import("./pages/LectureEdit"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Impressum = lazy(() => import("./pages/Impressum"));
+const Datenschutz = lazy(() => import("./pages/Datenschutz"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+// Loading Component
+const PageLoader = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
+    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary animate-pulse">Neural Edge Syncing...</p>
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -85,116 +95,118 @@ function DashboardRouter() {
 
 function AppRoutes() {
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
-      <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
-      <Route path="/impressum" element={<Impressum />} />
-      <Route path="/datenschutz" element={<Datenschutz />} />
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
+        <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+        <Route path="/impressum" element={<Impressum />} />
+        <Route path="/datenschutz" element={<Datenschutz />} />
 
-      {/* Student routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <DashboardRouter />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/lecture/:lectureId"
-        element={
-          <ProtectedRoute>
-            <LectureView />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/achievements"
-        element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <DashboardLayout>
-              <Achievements />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/leaderboard"
-        element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <DashboardLayout>
-              <Leaderboard />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Settings />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
+        {/* Student routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardRouter />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/lecture/:lectureId"
+          element={
+            <ProtectedRoute>
+              <LectureView />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/achievements"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <DashboardLayout>
+                <Achievements />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leaderboard"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <DashboardLayout>
+                <Leaderboard />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Settings />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Professor routes */}
-      <Route
-        path="/professor/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={['professor']}>
-            <DashboardLayout>
-              <ProfessorDashboard />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/professor/analytics"
-        element={
-          <ProtectedRoute allowedRoles={['professor']}>
-            <DashboardLayout>
-              <ProfessorAnalytics />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/professor/analytics/:lectureId"
-        element={
-          <ProtectedRoute allowedRoles={['professor']}>
-            <DashboardLayout>
-              <ProfessorAnalytics />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/professor/upload"
-        element={
-          <ProtectedRoute allowedRoles={['professor']}>
-            <DashboardLayout>
-              <LectureUpload />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/professor/lecture/:lectureId"
-        element={
-          <ProtectedRoute allowedRoles={['professor']}>
-            <DashboardLayout>
-              <LectureEdit />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
+        {/* Professor routes */}
+        <Route
+          path="/professor/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <ProfessorDashboard />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/analytics"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <ProfessorAnalytics />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/analytics/:lectureId"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <ProfessorAnalytics />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/upload"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <LectureUpload />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/lecture/:lectureId"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <LectureEdit />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
 
-      {/* 404 */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 }
 
