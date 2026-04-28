@@ -328,6 +328,7 @@ export default function LectureUpload() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const slideListRef = useRef<HTMLDivElement>(null);
 
   /* ── State ─────────────────────────────────────────────────────────────── */
   const [title, setTitle] = useState('');
@@ -342,6 +343,7 @@ export default function LectureUpload() {
   const [aiQuizLoading, setAiQuizLoading] = useState<Record<number, boolean>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTotal, setUploadTotal] = useState(0);
   const [uploadStatus, setUploadStatus] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
@@ -378,6 +380,13 @@ export default function LectureUpload() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeSlideIndex, slides.length]);
 
+  /* ── Auto-scroll slide log during upload ──────────────────────────────── */
+  useEffect(() => {
+    if (slideListRef.current) {
+      slideListRef.current.scrollTop = slideListRef.current.scrollHeight;
+    }
+  }, [processedSlides]);
+
   /* ── PDF Import ────────────────────────────────────────────────────────── */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -390,6 +399,7 @@ export default function LectureUpload() {
 
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadTotal(0);
     setUploadStatus('Uploading PDF...');
     setProcessedSlides([]);
 
@@ -427,6 +437,7 @@ export default function LectureUpload() {
             if (data.type === 'progress') {
               const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
               setUploadProgress(pct);
+              if (data.total > 0) setUploadTotal(data.total);
               setUploadStatus(data.message);
             } else if (data.type === 'slide') {
               setProcessedSlides(prev => {
@@ -1425,71 +1436,171 @@ export default function LectureUpload() {
 
       {/* ═══════ FULL SCREEN AI PROCESSING OVERLAY ═══════ */}
       <AnimatePresence>
-        {isUploading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-card border border-violet-200 dark:border-violet-800 shadow-2xl rounded-3xl p-10 max-w-md w-full text-center space-y-8 relative overflow-hidden"
-            >
-              {/* Background Glow */}
-              <div className="absolute -top-24 -left-24 w-48 h-48 bg-violet-500/20 rounded-full blur-[60px]" />
-              <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-[60px]" />
+        {isUploading && (() => {
+          const completedCount = processedSlides.filter(Boolean).length;
+          const isAiPhase = completedCount > 0;
+          const isExtractPhase = uploadProgress > 0 && completedCount === 0;
+          const isUploadPhase = uploadProgress === 0;
 
-              <div className="relative space-y-6">
-                <div className="flex justify-center">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-violet-500/20 rounded-2xl blur-xl animate-pulse" />
-                    <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/40">
-                      <BrainCircuit className="w-10 h-10 text-white animate-bounce" />
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md p-6"
+            >
+              <motion.div
+                initial={{ scale: 0.92, opacity: 0, y: 24 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.92, opacity: 0, y: 24 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="bg-card border border-violet-200 dark:border-violet-800 shadow-2xl rounded-3xl p-8 max-w-lg w-full relative overflow-hidden"
+              >
+                {/* Background ambient glows */}
+                <div className="absolute -top-20 -left-20 w-56 h-56 bg-violet-500/15 rounded-full blur-[70px] pointer-events-none" />
+                <div className="absolute -bottom-20 -right-20 w-56 h-56 bg-indigo-500/15 rounded-full blur-[70px] pointer-events-none" />
+
+                <div className="relative space-y-6">
+                  {/* Header */}
+                  <div className="flex items-center gap-4">
+                    <div className="relative shrink-0">
+                      <div className="absolute inset-0 bg-violet-500/25 rounded-2xl blur-lg animate-pulse" />
+                      <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                        <BrainCircuit className="w-7 h-7 text-white animate-pulse" />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold tracking-tight text-foreground">
+                        Processing Your Lecture
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-0.5 truncate max-w-[280px]">
+                        {uploadStatus || 'Preparing…'}
+                      </p>
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-black tracking-tight text-foreground">
-                    Ascend AI is working...
-                  </h3>
-                  <p className="text-sm text-muted-foreground font-medium">
-                    {uploadStatus}
+                  {/* Phase steps */}
+                  <div className="flex items-center gap-2">
+                    {[
+                      { label: 'Upload', done: !isUploadPhase, active: isUploadPhase },
+                      { label: 'Extract', done: isAiPhase, active: isExtractPhase },
+                      { label: 'AI Enhance', done: false, active: isAiPhase },
+                    ].map((step, idx, arr) => (
+                      <div key={step.label} className="flex items-center gap-2 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <div className={cn(
+                            "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-500",
+                            step.done
+                              ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/40"
+                              : step.active
+                                ? "bg-violet-600 text-white shadow-sm shadow-violet-500/40 ring-2 ring-violet-400/30"
+                                : "bg-muted text-muted-foreground"
+                          )}>
+                            {step.done ? <CheckCircle2 className="w-3 h-3" /> : step.active ? <Loader2 className="w-3 h-3 animate-spin" /> : idx + 1}
+                          </div>
+                          <span className={cn(
+                            "text-xs font-semibold transition-colors duration-300 whitespace-nowrap",
+                            step.done ? "text-emerald-600 dark:text-emerald-400" : step.active ? "text-violet-600 dark:text-violet-400" : "text-muted-foreground"
+                          )}>
+                            {step.label}
+                          </span>
+                        </div>
+                        {idx < arr.length - 1 && (
+                          <div className={cn("flex-1 h-px transition-colors duration-500", step.done ? "bg-emerald-400/50" : "bg-border")} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="text-muted-foreground">
+                        {uploadTotal > 0 ? `${completedCount} / ${uploadTotal} slides` : 'Starting…'}
+                      </span>
+                      <span className="text-violet-600 dark:text-violet-400 tabular-nums">
+                        {uploadProgress > 0 ? `${uploadProgress}%` : '…'}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                      {uploadProgress === 0 ? (
+                        <div className="h-full w-[30%] rounded-full bg-gradient-to-r from-violet-600/40 via-indigo-500/60 to-violet-600/40 animate-pulse" />
+                      ) : (
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${uploadProgress}%` }}
+                          transition={{ type: 'spring', stiffness: 50, damping: 20 }}
+                          className="h-full rounded-full bg-gradient-to-r from-violet-600 via-indigo-500 to-violet-600 shadow-[0_0_10px_rgba(124,58,237,0.4)]"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Live slide log */}
+                  <div className="rounded-2xl border border-border bg-muted/30 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/50">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <Sparkles className="w-3 h-3 text-violet-500" />
+                        Slides Ready
+                      </div>
+                      {completedCount > 0 && (
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                          {completedCount}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      ref={slideListRef}
+                      className="max-h-[180px] overflow-y-auto p-2 space-y-1 scroll-smooth"
+                    >
+                      {completedCount === 0 ? (
+                        <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-500" />
+                          Waiting for first slide…
+                        </div>
+                      ) : (
+                        processedSlides.filter(Boolean).map((slide, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-background/60 hover:bg-background/90 transition-colors group"
+                          >
+                            <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            </div>
+                            <span className="text-xs text-foreground/80 font-medium truncate flex-1 group-hover:text-foreground transition-colors">
+                              {slide.title || `Slide ${i + 1}`}
+                            </span>
+                          </motion.div>
+                        ))
+                      )}
+                      {/* Current processing indicator */}
+                      {isAiPhase && completedCount < uploadTotal && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-violet-200/50 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-950/20"
+                        >
+                          <Loader2 className="w-3.5 h-3.5 text-violet-500 animate-spin shrink-0" />
+                          <span className="text-xs text-violet-600 dark:text-violet-400 font-medium">
+                            Processing slide {completedCount + 1}…
+                          </span>
+                        </motion.div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer hint */}
+                  <p className="text-center text-[11px] text-muted-foreground/60 font-medium">
+                    Please keep this tab open while your lecture is being processed
                   </p>
                 </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">
-                    <span>Processing Lecture</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <div className="h-3 w-full bg-muted rounded-full overflow-hidden shadow-inner">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${uploadProgress}%` }}
-                      transition={{ type: 'spring', stiffness: 40, damping: 20 }}
-                      className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-600 shadow-[0_0_15px_rgba(124,58,237,0.5)]"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 pt-4">
-                  <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">
-                    <Wand2 className="w-3 h-3 text-violet-500" />
-                    Summarizing Key Concepts
-                  </div>
-                  <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">
-                    <ListChecks className="w-3 h-3 text-emerald-500" />
-                    Generating Practice Quizzes
-                  </div>
-                </div>
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          );
+        })()}
       </AnimatePresence>
     </div>
   );
