@@ -55,15 +55,16 @@ async def parse_pdf_stream_endpoint(
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
     
     content = await file.read()
-    
+
     async def event_generator():
         try:
-            # We use run_in_threadpool because parse_pdf_stream is a sync generator
-            # But wait, generators in threadpool are tricky. 
-            # Let's just run it directly since it's a generator yielding items.
-            for update in parse_pdf_stream(content, ai_model):
+            async for update in parse_pdf_stream(content, ai_model):
                 yield f"data: {json.dumps(update)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

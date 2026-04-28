@@ -24,7 +24,9 @@ import {
   FileUp,
   ListChecks,
   Type,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -341,6 +343,9 @@ export default function LectureUpload() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  const [showFullPreview, setShowFullPreview] = useState(false);
+  const [processedSlides, setProcessedSlides] = useState<SlideData[]>([]);
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];
@@ -386,7 +391,8 @@ export default function LectureUpload() {
     setIsUploading(true);
     setUploadProgress(0);
     setUploadStatus('Uploading PDF...');
-    
+    setProcessedSlides([]);
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('ai_model', localStorage.getItem('ascend-academy-ai-model') || 'groq');
@@ -422,21 +428,30 @@ export default function LectureUpload() {
               const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
               setUploadProgress(pct);
               setUploadStatus(data.message);
+            } else if (data.type === 'slide') {
+              setProcessedSlides(prev => {
+                const updated = [...prev];
+                updated[data.index] = {
+                  title: data.slide.title,
+                  content: data.slide.content,
+                  summary: data.slide.summary || '',
+                  questions: data.slide.questions || [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
+                };
+                return updated;
+              });
+              setUploadStatus(`Processed ${data.index + 1} slide(s)...`);
             } else if (data.type === 'complete') {
-              const newSlides: SlideData[] = data.slides.map((s: any) => ({
-                title: s.title,
-                content: s.content,
-                summary: s.summary || '',
-                questions: s.questions || [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
-              }));
-
-              setSlides(newSlides);
-              setActiveSlideIndex(0);
-              if (!title) setTitle(file.name.replace('.pdf', ''));
-              setPdfFile(file);
-              toast({
-                title: 'PDF Imported Successfully',
-                description: `${newSlides.length} slides extracted and structured.`,
+              setProcessedSlides(prev => {
+                const finalSlides = prev.filter(Boolean) as SlideData[];
+                setSlides(finalSlides);
+                setActiveSlideIndex(0);
+                if (!title) setTitle(file.name.replace('.pdf', ''));
+                setPdfFile(file);
+                toast({
+                  title: 'PDF Imported Successfully',
+                  description: `${finalSlides.length} slides extracted and structured.`,
+                });
+                return [];
               });
             } else if (data.type === 'error') {
               throw new Error(data.message);
@@ -806,6 +821,15 @@ export default function LectureUpload() {
               Cancel
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFullPreview(true)}
+              className="gap-2 border-violet-200 text-violet-700 hover:bg-violet-50"
+            >
+              <BookOpen className="w-4 h-4" />
+              Preview Full Lecture
+            </Button>
+            <Button
               size="sm"
               onClick={handleSubmit}
               disabled={loading}
@@ -821,50 +845,6 @@ export default function LectureUpload() {
           </div>
         </div>
 
-        {/* PDF Upload Progress Bar */}
-        <AnimatePresence>
-          {isUploading && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-6 py-4">
-                <div className="max-w-4xl mx-auto space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                        <BrainCircuit className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold leading-none mb-1">
-                          {uploadStatus || 'AI is analyzing your PDF...'}
-                        </p>
-                        <p className="text-[10px] text-white/70">
-                          Extracting content, generating summaries, and crafting quizzes
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xl font-black">{uploadProgress}%</span>
-                    </div>
-                  </div>
-                  
-                  {/* Progress Bar Container */}
-                  <div className="h-2 w-full bg-black/20 rounded-full overflow-hidden shadow-inner">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${uploadProgress}%` }}
-                      transition={{ type: 'spring', stiffness: 50, damping: 20 }}
-                      className="h-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                    />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* ═══════ MAIN LAYOUT ═══════ */}
@@ -1025,6 +1005,18 @@ export default function LectureUpload() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setShowPreview(!showPreview)}
+                      className={cn(
+                        "gap-1.5 transition-all duration-300",
+                        showPreview ? "bg-violet-50 text-violet-600 border-violet-200" : ""
+                      )}
+                    >
+                      {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showPreview ? "Close Preview" : "Preview"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => addSlide(activeSlideIndex)}
                       className="gap-1.5"
                     >
@@ -1177,7 +1169,250 @@ export default function LectureUpload() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* ─── RIGHT SIDEBAR: Live Preview ─── */}
+        <AnimatePresence>
+          {showPreview && activeSlide && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 450, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="border-l border-border bg-card/50 backdrop-blur-xl flex flex-col shrink-0 overflow-hidden shadow-2xl"
+            >
+              <div className="p-4 border-b border-border flex items-center justify-between bg-muted/20">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    Live Preview
+                  </span>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-muted"
+                  onClick={() => setShowPreview(false)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8">
+                {/* Simulated Tablet Frame */}
+                <div className="relative aspect-[4/3] w-full bg-background rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
+                  
+                  {/* Status Bar */}
+                  <div className="h-6 px-4 flex items-center justify-between text-[8px] font-medium text-muted-foreground border-b border-border/50">
+                    <span>9:41 AM</span>
+                    <div className="flex gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full border border-current opacity-50" />
+                      <div className="w-2.5 h-2.5 rounded-sm border border-current opacity-50" />
+                    </div>
+                  </div>
+
+                  {/* Content Preview */}
+                  <div className="flex-1 p-8 flex flex-col">
+                    <div className="space-y-4">
+                      <motion.h1 
+                        key={`title-${activeSlideIndex}`}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-2xl font-black text-foreground tracking-tight leading-none"
+                      >
+                        {activeSlide.title || "Untitled Slide"}
+                      </motion.h1>
+                      <div className="h-1 w-12 bg-violet-500 rounded-full" />
+                    </div>
+
+                    <motion.div 
+                      key={`content-${activeSlideIndex}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="mt-6 flex-1 text-sm text-muted-foreground leading-relaxed overflow-y-auto pr-2 custom-scrollbar"
+                    >
+                      {activeSlide.content ? (
+                        <div className="prose prose-sm dark:prose-invert">
+                          {activeSlide.content.split('\n').map((line, i) => (
+                            <p key={i}>{line}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full opacity-30 italic">
+                          <LayoutTemplate className="w-8 h-8 mb-2" />
+                          No content to preview
+                        </div>
+                      )}
+                    </motion.div>
+
+                    {/* Quick Stats Overlay */}
+                    <div className="mt-auto pt-4 flex gap-3">
+                      <div className="px-2 py-1 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[10px] font-bold uppercase tracking-wider">
+                        Slide {activeSlideIndex + 1}
+                      </div>
+                      {activeSlide.questions[0]?.question && (
+                        <div className="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Quiz Included
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary Peek */}
+                <div className="mt-8 space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    Key Takeaway
+                  </h4>
+                  <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-800/30">
+                    <p className="text-xs text-amber-800 dark:text-amber-200 italic leading-relaxed">
+                      {activeSlide.summary || "Summary will appear here..."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* ═══════ FULL LECTURE PREVIEW MODAL ═══════ */}
+      <AnimatePresence>
+        {showFullPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-background flex flex-col overflow-hidden"
+          >
+            {/* Preview Header */}
+            <header className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
+              <div className="flex items-center gap-4">
+                <div className="px-3 py-1 bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[10px] font-black uppercase tracking-widest rounded-full">
+                  Student View Preview
+                </div>
+                <h3 className="font-bold text-sm truncate max-w-md">
+                  {title || "Untitled Lecture"}
+                </h3>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowFullPreview(false)}
+                className="gap-2"
+              >
+                <X className="w-4 h-4" />
+                Exit Preview
+              </Button>
+            </header>
+
+            {/* Preview Content (Simplified LectureView) */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Sidebar */}
+              <div className="w-64 border-r border-border bg-muted/20 flex flex-col hidden md:flex">
+                <div className="p-4 border-b border-border text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Lecture Contents
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                  {slides.map((s, i) => (
+                    <div 
+                      key={i}
+                      onClick={() => setActiveSlideIndex(i)}
+                      className={cn(
+                        "p-3 rounded-lg cursor-pointer text-xs transition-colors",
+                        i === activeSlideIndex ? "bg-violet-500 text-white font-bold" : "hover:bg-muted"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="opacity-50">{i + 1}</span>
+                        <span className="truncate">{s.title || `Slide ${i + 1}`}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Slide Viewer */}
+              <div className="flex-1 overflow-y-auto bg-muted/10 p-12 flex flex-col items-center">
+                <div className="max-w-4xl w-full space-y-12">
+                  <div className="bg-card border border-border shadow-2xl rounded-3xl overflow-hidden flex flex-col min-h-[500px]">
+                    <div className="p-10 flex-1 space-y-8">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1 w-12 bg-violet-600 rounded-full" />
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-600">
+                            Slide {activeSlideIndex + 1}
+                          </span>
+                        </div>
+                        <h2 className="text-4xl font-black text-foreground tracking-tight leading-tight">
+                          {activeSlide?.title}
+                        </h2>
+                      </div>
+                      
+                      <div className="prose prose-lg dark:prose-invert max-w-none text-muted-foreground leading-relaxed">
+                        {activeSlide?.content.split('\n').map((p, i) => (
+                          <p key={i}>{p}</p>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Quiz Preview Area if exists */}
+                    {activeSlide?.questions[0]?.question && (
+                      <div className="p-10 bg-emerald-50/30 dark:bg-emerald-950/10 border-t border-emerald-100 dark:border-emerald-800/20">
+                        <div className="flex items-center gap-2 mb-6">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          <span className="text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                            Practice Quiz
+                          </span>
+                        </div>
+                        <div className="space-y-6">
+                          <p className="text-lg font-bold text-foreground">
+                            {activeSlide.questions[0].question}
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {activeSlide.questions[0].options.map((opt, i) => (
+                              <div key={i} className={cn(
+                                "p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/30 text-sm font-medium",
+                                i === activeSlide.questions[0].correctAnswer ? "bg-emerald-500 text-white border-transparent" : "bg-card text-muted-foreground opacity-60"
+                              )}>
+                                {opt}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Navigation */}
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveSlideIndex(Math.max(0, activeSlideIndex - 1))}
+                      disabled={activeSlideIndex === 0}
+                      className="rounded-xl px-8"
+                    >
+                      <ChevronLeft className="mr-2 h-4 w-4" /> Previous
+                    </Button>
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                      Slide {activeSlideIndex + 1} of {slides.length}
+                    </span>
+                    <Button
+                      onClick={() => setActiveSlideIndex(Math.min(slides.length - 1, activeSlideIndex + 1))}
+                      disabled={activeSlideIndex === slides.length - 1}
+                      className="rounded-xl px-8 bg-violet-600 hover:bg-violet-700 text-white border-none"
+                    >
+                      Next <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hidden File Input */}
       <input
@@ -1187,6 +1422,75 @@ export default function LectureUpload() {
         onChange={handleFileUpload}
         className="hidden"
       />
+
+      {/* ═══════ FULL SCREEN AI PROCESSING OVERLAY ═══════ */}
+      <AnimatePresence>
+        {isUploading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-card border border-violet-200 dark:border-violet-800 shadow-2xl rounded-3xl p-10 max-w-md w-full text-center space-y-8 relative overflow-hidden"
+            >
+              {/* Background Glow */}
+              <div className="absolute -top-24 -left-24 w-48 h-48 bg-violet-500/20 rounded-full blur-[60px]" />
+              <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-[60px]" />
+
+              <div className="relative space-y-6">
+                <div className="flex justify-center">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-violet-500/20 rounded-2xl blur-xl animate-pulse" />
+                    <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/40">
+                      <BrainCircuit className="w-10 h-10 text-white animate-bounce" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-black tracking-tight text-foreground">
+                    Ascend AI is working...
+                  </h3>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    {uploadStatus}
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">
+                    <span>Processing Lecture</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="h-3 w-full bg-muted rounded-full overflow-hidden shadow-inner">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      transition={{ type: 'spring', stiffness: 40, damping: 20 }}
+                      className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-600 shadow-[0_0_15px_rgba(124,58,237,0.5)]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-4">
+                  <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">
+                    <Wand2 className="w-3 h-3 text-violet-500" />
+                    Summarizing Key Concepts
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">
+                    <ListChecks className="w-3 h-3 text-emerald-500" />
+                    Generating Practice Quizzes
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

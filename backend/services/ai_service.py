@@ -67,6 +67,36 @@ def _strip_conversational_wrapper(text: str) -> str:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE)
     return text.strip()
 
+# Slide text truncation — keeps prompt within safe token limits for free-tier models
+_MAX_SLIDE_CHARS = 4000
+
+def _truncate_slide_text(text: str) -> str:
+    if len(text) <= _MAX_SLIDE_CHARS:
+        return text
+    return text[:_MAX_SLIDE_CHARS] + "\n...[truncated]"
+
+
+def _call_with_retry(fn, *args, max_attempts: int = 3, **kwargs):
+    """Call fn with exponential backoff on rate-limit (429) errors."""
+    import time as _time
+    delay = 2.0
+    last_exc = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            last_exc = exc
+            msg = str(exc).lower()
+            is_rate_limit = "429" in msg or "rate_limit" in msg or "rate limit" in msg
+            if is_rate_limit and attempt < max_attempts:
+                print(f"DEBUG: Rate-limit hit (attempt {attempt}/{max_attempts}), retrying in {delay:.0f}s...")
+                _time.sleep(delay)
+                delay *= 2
+            else:
+                raise
+    raise last_exc
+
+
 # Gemini Schema
 class QuizQuestion(BaseModel):
     question: str
@@ -133,6 +163,7 @@ Markdown Output:"""
 
 # --- Batch Processing (Upload optimization) ---
 def process_slide_batch(raw_text: str, ai_model: str = "llama3") -> dict:
+    raw_text = _truncate_slide_text(raw_text)
     prompt = f"""You are an educational assistant. Given the following raw lecture slide text, perform 4 tasks based ONLY on the educational content:
 1. "enhanced_content": Transform the text into clear Markdown formatting suitable for students (bullet points, bold terms, headings).
 2. "summary": Write a concise 2-3 sentence summary.
@@ -179,7 +210,8 @@ Raw Slide Text:
             default_res["quiz"]["question"] = "Error: GROQ_API_KEY is missing from .env file!"
             return default_res
         try:
-            res = groq_client.chat.completions.create(
+            res = _call_with_retry(
+                groq_client.chat.completions.create,
                 model=GROQ_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"}
