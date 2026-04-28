@@ -87,6 +87,6 @@ const isWebGLAvailable = () => {
 
 export function NeuralBackground() {
   return (
-    <div className="absolute inset-0 z-0 pointer-events-none opacity-40 bg-gradient-to-br from-black via-primary/10 to-black" />
+    <div className="absolute inset-0 z-0 pointer-events-none opacity-40 bg-gradient-to-br from-black via-primary/10 to-black dark:block hidden" />
   );
 }

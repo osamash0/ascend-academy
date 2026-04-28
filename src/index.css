@@ -145,26 +145,30 @@
     --hud-bg: 222 35% 9%;
   }
 
-  /* ── Light Mode: Premium Digital Textbook ── */
+  /* ── Light Mode: Unified "Settings" Aesthetic ── */
   .light {
-    --background: 45 30% 96%;          /* #F6F4EE — Warm Ivory Paper */
-    --foreground: 30 15% 15%;          /* #2C2B29 — Warm Espresso Ink */
+    --background: 210 20% 98%;         /* #F9FAFB — Crisp Cloud White */
+    --foreground: 222 47% 11%;         /* #0F172A — High-Contrast Slate */
 
-    --surface-1: 40 20% 92%;           /* #EEEBE3 — Soft Card Parchment */
-    --surface-2: 40 18% 88%;           /* #E5E1D6 — Tactile Hover */
-    --surface-3: 40 15% 82%;           /* #D6D0C1 — Active Press */
+    --surface-1: 0 0% 100%;            /* #FFFFFF — Pure White Cards (matched to image) */
+    --surface-2: 210 15% 96%;          /* #F1F3F5 — Light Hover */
+    --surface-3: 210 15% 92%;          /* #E9ECEF — Active Press */
 
-    --primary: 235 60% 45%;            /* #4550CC — Deep Ink Blue */
-    --primary-foreground: 45 30% 98%;
-    --primary-dim: 235 50% 35%;
-    --primary-subtle: 235 60% 45% / 0.08;
+    --primary: 235 75% 55%;            /* #4F5DE8 — Standard Indigo */
+    --primary-foreground: 0 0% 100%;
+    --primary-dim: 235 65% 45%;
+    --primary-subtle: 235 75% 55% / 0.08;
 
-    --secondary: 265 40% 45%;          /* #6D4C99 — Muted Scholar Purple */
+    --secondary: 265 50% 52%;
     --secondary-foreground: 0 0% 100%;
 
     --accent: 188 75% 42%;
-    /* #0EA5E9 — Professional cyan */
     --accent-foreground: 0 0% 100%;
+
+    --popover: 0 0% 100%;              /* Pure white popovers */
+    --popover-foreground: 222 47% 11%;
+    --card: 0 0% 100%;                 /* Pure white cards */
+    --card-foreground: 222 47% 11%;
 
     --success: 158 50% 42%;
     --success-foreground: 0 0% 100%;
@@ -180,47 +184,47 @@
     --streak: 15 85% 52%;
     --streak-foreground: 0 0% 100%;
 
-    --muted: 40 15% 88%;
-    --muted-foreground: 30 10% 40%;    /* #6B655E — Muted Graphite */
+    --muted: 210 15% 94%;
+    --muted-foreground: 215 15% 45%;   /* #64748B — Clean Grey */
 
-    --border: 40 12% 82%;
-    --input: 40 12% 82%;
+    --border: 210 15% 90%;
+    --input: 210 15% 90%;
     --ring: 235 75% 55%;
 
     --radius: 0.875rem;
 
-    --sidebar-background: 40 18% 90%;
-    --sidebar-foreground: 30 15% 15%;
-    --sidebar-primary: 235 60% 45%;
-    --sidebar-primary-foreground: 45 30% 98%;
-    --sidebar-accent: 40 15% 86%;
-    --sidebar-accent-foreground: 235 50% 30%;
-    --sidebar-border: 40 12% 82%;
-    --sidebar-ring: 235 60% 45%;
+    --sidebar-background: 210 20% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 235 75% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 15% 94%;
+    --sidebar-accent-foreground: 235 65% 40%;
+    --sidebar-border: 210 15% 90%;
+    --sidebar-ring: 235 75% 55%;
 
     --gradient-hero: none;             /* Flattened for notebook clarity */
     --gradient-surface: none;
     --gradient-glow: none;
     --gradient-aurora: none;
 
-    --shadow-sm: 0 1px 2px 0 hsl(220 30% 50% / 0.15);
-    --shadow-md: 0 4px 12px -2px hsl(220 30% 50% / 0.2), 0 2px 6px -2px hsl(220 30% 50% / 0.1);
-    --shadow-lg: 0 12px 24px -8px hsl(220 30% 50% / 0.25), 0 4px 8px -4px hsl(220 30% 50% / 0.15);
-    --shadow-xl: 0 24px 48px -12px hsl(220 30% 50% / 0.3), 0 8px 16px -8px hsl(220 30% 50% / 0.2);
+    --shadow-sm: 0 1px 3px 0 hsl(220 30% 10% / 0.1);
+    --shadow-md: 0 4px 16px -2px hsl(220 30% 10% / 0.15), 0 2px 8px -2px hsl(220 30% 10% / 0.1);
+    --shadow-lg: 0 12px 32px -8px hsl(220 30% 10% / 0.2), 0 4px 12px -4px hsl(220 30% 10% / 0.15);
+    --shadow-xl: 0 24px 60px -12px hsl(220 30% 10% / 0.25), 0 12px 24px -8px hsl(220 30% 10% / 0.2);
 
-    --shadow-glow-primary: 0 0 25px hsl(235 75% 55% / 0.15);
+    --shadow-glow-primary: 0 0 20px hsl(235 75% 55% / 0.12);
     --shadow-glow-success: 0 0 20px hsl(158 50% 42% / 0.18);
     --shadow-glow-xp: 0 0 20px hsl(45 90% 48% / 0.25);
     --shadow-glow-accent: 0 0 25px hsl(188 75% 42% / 0.15);
 
-    --glass-bg: hsl(45 30% 96% / 0.9);
-    --glass-border: hsl(30 15% 15% / 0.05);
-    --glass-highlight: hsl(30 15% 15% / 0.02);
+    --glass-bg: hsl(0 0% 100% / 0.8);
+    --glass-border: hsl(210 15% 90% / 0.5);
+    --glass-highlight: hsl(0 0% 100% / 0.3);
 
-    --hud-cyan: 188 75% 35%;
-    --hud-amber: 40 85% 40%;
-    --hud-red: 0 65% 45%;
-    --hud-bg: 45 30% 96%;
+    --hud-cyan: 188 80% 35%;
+    --hud-amber: 45 90% 45%;
+    --hud-red: 0 75% 50%;
+    --hud-bg: 210 20% 98%;
   }
 }
 
@@ -241,7 +245,7 @@
   .light body,
   .light {
     background-image: none !important;
-    background-color: hsl(var(--background));
+    background-color: hsl(var(--background)) !important;
   }
 
   /* ── Typography Scale for Learning ── */
