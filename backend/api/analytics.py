@@ -235,3 +235,15 @@ async def get_ai_query_feed(lecture_id: str, user=Depends(verify_token), creds: 
         raise
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to load AI query feed.")
+
+@router.get("/personal/optimal-schedule", response_model=AnalyticsResponse)
+async def get_personal_optimal_schedule(user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Calculate the best time to study for the authenticated student.
+    Analyzes historical event data to find peak performance windows.
+    """
+    try:
+        data = await run_in_threadpool(analytics_service.get_personal_optimal_schedule, user.id, creds.credentials)
+        return AnalyticsResponse(success=True, data=data)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to calculate optimal schedule.")

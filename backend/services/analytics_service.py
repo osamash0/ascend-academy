@@ -609,3 +609,110 @@ def get_dashboard_data(lecture_id: str, token: str = None):
     }
 
 
+
+def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, Any]:
+    """
+    Calculate the best time to study for a specific student based on:
+    1. Circadian patterns (when they are active)
+    2. Performance metrics (accuracy and speed during different hours)
+    """
+    client = get_auth_client(token)
+    
+    # Fetch all learning events for this user
+    events_res = client.table("learning_events")\
+        .select("event_type, event_data, created_at")\
+        .eq("user_id", user_id)\
+        .limit(5000)\
+        .execute()
+    
+    events = events_res.data or []
+    if not events:
+        return {
+            "suggested_hours": [],
+            "message": "Not enough data yet. Keep learning to see your optimal schedule!",
+            "peak_hour": None
+        }
+
+    # Group by hour (0-23)
+    # Note: We should ideally handle timezone, but using UTC for now
+    hourly_stats = {h: {"count": 0, "correct": 0, "attempts": 0, "total_duration": 0, "view_count": 0} for h in range(24)}
+    
+    for ev in events:
+        try:
+            # created_at is like '2024-03-20T10:30:00+00:00'
+            dt = datetime.fromisoformat(ev["created_at"].replace('Z', '+00:00'))
+            hour = dt.hour
+            
+            hourly_stats[hour]["count"] += 1
+            
+            ev_type = ev.get("event_type")
+            ev_data = ev.get("event_data", {})
+            
+            if ev_type == "quiz_attempt":
+                hourly_stats[hour]["attempts"] += 1
+                if ev_data.get("correct"):
+                    hourly_stats[hour]["correct"] += 1
+            elif ev_type == "slide_view":
+                hourly_stats[hour]["view_count"] += 1
+                hourly_stats[hour]["total_duration"] += ev_data.get("duration_seconds", 0)
+        except Exception:
+            continue
+
+    # Score each hour
+    scores = []
+    for h, s in hourly_stats.items():
+        if s["count"] == 0:
+            continue
+            
+        # Volume (20% weight) - normalized against max count
+        # Accuracy (50% weight) - correct/attempts
+        # Focus (30% weight) - avg duration per slide
+        
+        accuracy = (s["correct"] / s["attempts"]) if s["attempts"] > 0 else 0.5 # Neutral if no quizzes
+        avg_duration = (s["total_duration"] / s["view_count"]) if s["view_count"] > 0 else 30
+        
+        # Scale duration to a 0-1 score (assume 60s is ideal "deep focus" per slide)
+        focus_score = min(1.0, avg_duration / 60.0)
+        
+        # Volume score
+        intensity = min(1.0, s["count"] / 10.0) # Assume 10 events/hour is high intensity
+        
+        total_score = (intensity * 0.2) + (accuracy * 0.5) + (focus_score * 0.3)
+        
+        scores.append({
+            "hour": h,
+            "score": round(total_score, 3),
+            "accuracy": round(accuracy * 100, 1),
+            "intensity": s["count"]
+        })
+
+    # Sort by score
+    scores.sort(key=lambda x: x["score"], reverse=True)
+    
+    suggested = scores[:3]
+    if not suggested:
+        return {
+            "suggested_hours": [],
+            "message": "Not enough data yet. Keep learning!",
+            "peak_hour": None
+        }
+
+    peak = suggested[0]["hour"]
+    
+    # Simple advice logic
+    advice = ""
+    if peak >= 5 and peak < 12:
+        advice = "You're a morning lark! Your focus and accuracy are highest in the AM."
+    elif peak >= 12 and peak < 17:
+        advice = "Afternoon power-user! You handle complex topics well in the middle of the day."
+    elif peak >= 17 and peak < 22:
+        advice = "Evening focus! You seem to reach your flow state as the day winds down."
+    else:
+        advice = "Night owl detected! You show high cognitive clarity during late-night sessions."
+
+    return {
+        "suggested_hours": suggested,
+        "peak_hour": peak,
+        "message": advice,
+        "accuracy_at_peak": suggested[0]["accuracy"]
+    }

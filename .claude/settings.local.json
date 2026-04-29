@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(grep -n \"function SlideViewer\\\\|{$\" /Users/abdullahabobaker/Desktop/ascend-academy/src/components/SlideViewer.tsx)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(git stash *)",
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(git checkout *)"
+    ]
+  }
+}

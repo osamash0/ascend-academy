@@ -80,6 +80,20 @@ export default function Auth() {
             title: 'Welcome back!',
             description: 'Successfully logged in.',
           });
+          
+          // Log login event for circadian pattern analysis
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (authUser) {
+            await supabase.from('learning_events').insert({
+              user_id: authUser.id,
+              event_type: 'login',
+              event_data: {
+                timestamp: new Date().toISOString(),
+                method: 'email_password'
+              }
+            });
+          }
+
           navigate('/dashboard');
         }
       } else {

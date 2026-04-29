@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { LectureCard } from '@/components/LectureCard';
 import { StatsCard } from '@/components/StatsCard';
 import { AchievementCard } from '@/components/AchievementCard';
+import { OptimalScheduleCard } from '@/components/OptimalScheduleCard';
 import { Button } from '@/components/ui/button';
 
 interface Lecture {
@@ -464,6 +465,15 @@ export default function StudentDashboard() {
               />
             </motion.div>
           ))}
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="md:col-span-2 lg:col-span-1"
+          >
+            <OptimalScheduleCard />
+          </motion.div>
         </div>
 
         {/* ── Continue Learning — Orbital Carousel ── */}
