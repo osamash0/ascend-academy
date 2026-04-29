@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { STREAK_BANNER_DURATION_MS } from '@/lib/constants';
 import { LectureCard } from '@/components/LectureCard';
 import { StatsCard } from '@/components/StatsCard';
 import { AchievementCard } from '@/components/AchievementCard';
@@ -166,7 +167,7 @@ export default function StudentDashboard() {
     const streak = profile?.current_streak || 0;
     if (streak > 2) {
       setShowStreakBanner(true);
-      const t = setTimeout(() => setShowStreakBanner(false), 5000);
+      const t = setTimeout(() => setShowStreakBanner(false), STREAK_BANNER_DURATION_MS);
       return () => clearTimeout(t);
     }
   }, [profile?.current_streak]);

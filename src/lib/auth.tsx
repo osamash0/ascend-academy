@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { AUTH_INIT_TIMEOUT_MS, AUTH_PROFILE_TIMEOUT_MS } from '@/lib/constants';
 
 type UserRole = 'student' | 'professor' | null;
 
@@ -82,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const withTimeout = <T,>(promise: Promise<T>, ms: number = 5000): Promise<T> => {
+  const withTimeout = <T,>(promise: Promise<T>, ms: number = AUTH_INIT_TIMEOUT_MS): Promise<T> => {
     return Promise.race([
       promise,
       new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Supabase deadlock timeout')), ms))
@@ -100,12 +101,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (session?.user) {
             if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || !hasFetchedProfile.current) {
                 hasFetchedProfile.current = true;
-                const hasProfile = await withTimeout(fetchProfile(session.user.id), 15000).catch(() => true);
+                const hasProfile = await withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => true);
                 if (!hasProfile) {
                   console.warn("User has session but no profile. Signing out.");
                   await signOut().catch(() => {});
                 } else {
-                  await withTimeout(fetchRole(session.user.id), 15000).catch(() => {});
+                  await withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
                 }
             }
           } else {

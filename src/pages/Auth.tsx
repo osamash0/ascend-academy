@@ -81,17 +81,21 @@ export default function Auth() {
             description: 'Successfully logged in.',
           });
           
-          // Log login event for circadian pattern analysis
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          if (authUser) {
-            await supabase.from('learning_events').insert({
-              user_id: authUser.id,
-              event_type: 'login',
-              event_data: {
-                timestamp: new Date().toISOString(),
-                method: 'email_password'
-              }
-            });
+          // Log login event for circadian pattern analysis (non-critical)
+          try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (authUser) {
+              await supabase.from('learning_events').insert({
+                user_id: authUser.id,
+                event_type: 'login',
+                event_data: {
+                  timestamp: new Date().toISOString(),
+                  method: 'email_password'
+                }
+              });
+            }
+          } catch (loginEventErr) {
+            console.error('Failed to log login event:', loginEventErr);
           }
 
           navigate('/dashboard');

@@ -11,8 +11,11 @@ Layer 3: LLM-as-a-Judge             (only for ambiguous cases, ~5-10% of slides)
 
 import re
 import json
+import logging
 from pydantic import BaseModel
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -247,7 +250,7 @@ Slide text:
                 )
                 return json.loads(res.choices[0].message.content)
         except Exception as e:
-            print(f"DEBUG Groq classify error: {e}")
+            logger.error("Groq classify error: %s", e, exc_info=True)
 
     elif ai_model == "gemini-1.5-flash" or ai_model == "gemini-2.5-flash":
         try:
@@ -264,7 +267,7 @@ Slide text:
                 )
                 return json.loads(res.text)
         except Exception as e:
-            print(f"DEBUG LLM classify error: {e}")
+            logger.error("LLM classify error: %s", e, exc_info=True)
 
     # Fallback: if LLM fails, assume educational (safe default)
     return {

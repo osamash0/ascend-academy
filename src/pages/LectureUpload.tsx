@@ -35,9 +35,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useAiModel } from '@/hooks/use-ai-model';
 import { cn } from '@/lib/utils';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  TYPES                                                                    */
@@ -326,6 +327,7 @@ export default function LectureUpload() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { aiModel } = useAiModel();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const slideListRef = useRef<HTMLDivElement>(null);
@@ -405,7 +407,7 @@ export default function LectureUpload() {
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('ai_model', localStorage.getItem('ascend-academy-ai-model') || 'groq');
+    formData.append('ai_model', aiModel);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -499,7 +501,7 @@ export default function LectureUpload() {
         },
         body: JSON.stringify({
           slide_text: content,
-          ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq'
+          ai_model: aiModel
         }),
       });
       if (!res.ok) throw new Error();
@@ -532,7 +534,7 @@ export default function LectureUpload() {
         },
         body: JSON.stringify({
           slide_text: content,
-          ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq'
+          ai_model: aiModel
         }),
       });
       if (!res.ok) throw new Error();

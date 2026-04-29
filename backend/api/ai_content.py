@@ -1,4 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
+import logging
+
+logger = logging.getLogger(__name__)
 from fastapi.responses import StreamingResponse
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
@@ -88,7 +91,8 @@ def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)
     try:
         summary = generate_summary(body.slide_text, ai_model=body.ai_model)
         return SummaryResponse(summary=summary)
-    except Exception:
+    except Exception as e:
+        logger.error("AI summary generation failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="AI summary generation failed. Please try again.")
 
 
@@ -108,7 +112,8 @@ def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     try:
         quiz = generate_quiz(body.slide_text, ai_model=body.ai_model)
         return QuizResponse(**quiz)
-    except Exception:
+    except Exception as e:
+        logger.error("AI quiz generation failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="AI quiz generation failed. Please try again.")
 
 
@@ -119,7 +124,8 @@ def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify
         model_choice = data.pop("ai_model", "groq")
         result = generate_analytics_insights(data, ai_model=model_choice)
         return InsightsResponse(**result)
-    except Exception:
+    except Exception as e:
+        logger.error("AI insights generation failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="AI insights generation failed. Please try again.")
 
 
@@ -133,7 +139,8 @@ def metric_feedback_endpoint(body: MetricInsightRequest, user=Depends(verify_tok
             ai_model=body.ai_model
         )
         return {"feedback": feedback}
-    except Exception:
+    except Exception as e:
+        logger.error("AI metric feedback failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="AI metric feedback failed.")
 
 
@@ -147,7 +154,8 @@ def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
             ai_model=body.ai_model,
         )
         return ChatResponse(reply=reply)
-    except Exception:
+    except Exception as e:
+        logger.error("Endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="AI tutor failed to respond. Please try again.")
 
 
@@ -156,7 +164,8 @@ async def text_to_speech_endpoint(body: TTSRequest, user=Depends(verify_token)):
     try:
         audio_content = await generate_speech(body.text, voice=body.voice)
         return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
-    except Exception:
+    except Exception as e:
+        logger.error("Endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate AI voice.")
 
 

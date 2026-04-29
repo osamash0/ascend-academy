@@ -208,6 +208,14 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
     slides_data = slides_res.data or []
     events_data = events_res.data or []
 
+    # Pre-bucket events by user to avoid O(n²) scans inside the student loop
+    from collections import defaultdict
+    events_by_user: dict = defaultdict(list)
+    for e in events_data:
+        uid = e.get("user_id")
+        if uid:
+            events_by_user[uid].append(e)
+
     students_matrix = []
     for p in progress_data:
         name = generate_anon_name(p["user_id"])
@@ -215,9 +223,9 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
         prog_pct = round((completed / max(1, len(slides_data))) * 100)
         score = p.get("quiz_score", 0)
 
-        stud_events = [e for e in events_data if e.get("user_id") == p["user_id"]]
-        stud_ai_queries = len([e for e in stud_events if e.get("event_type") == "ai_tutor_query"])
-        stud_revisions = len([e for e in stud_events if e.get("event_type") == "slide_back_navigation"])
+        stud_events = events_by_user[p["user_id"]]
+        stud_ai_queries = sum(1 for e in stud_events if e.get("event_type") == "ai_tutor_query")
+        stud_revisions = sum(1 for e in stud_events if e.get("event_type") == "slide_back_navigation")
 
         typology = "Standard"
         if prog_pct < 50 and stud_ai_queries > 3:
@@ -637,14 +645,19 @@ def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, 
     # Note: We should ideally handle timezone, but using UTC for now
     hourly_stats = {h: {"count": 0, "correct": 0, "attempts": 0, "total_duration": 0, "view_count": 0} for h in range(24)}
     
+    # Login events are not learning activity — exclude to avoid skewing circadian scores
+    _EXCLUDED_EVENT_TYPES = {"login"}
+
     for ev in events:
+        if ev.get("event_type") in _EXCLUDED_EVENT_TYPES:
+            continue
         try:
             # created_at is like '2024-03-20T10:30:00+00:00'
             dt = datetime.fromisoformat(ev["created_at"].replace('Z', '+00:00'))
             hour = dt.hour
-            
+
             hourly_stats[hour]["count"] += 1
-            
+
             ev_type = ev.get("event_type")
             ev_data = ev.get("event_data", {})
             

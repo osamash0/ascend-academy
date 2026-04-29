@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useAiModel } from '@/hooks/use-ai-model';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -289,6 +290,7 @@ export default function ProfessorAnalytics() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { lectureId: selectedLectureId } = useParams();
+  const { aiModel } = useAiModel();
 
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [lecturesLoading, setLecturesLoading] = useState(true);
@@ -338,7 +340,7 @@ export default function ProfessorAnalytics() {
 
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
+      const model = aiModel;
       
       const context = {
         average_score: dashboardData?.overview?.averageScore,
@@ -437,7 +439,7 @@ export default function ProfessorAnalytics() {
 
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
+      const model = aiModel;
       
       const hardSlides = dashboardData.slidePerformance
         ?.filter(s => s.quizAttempts > 0)

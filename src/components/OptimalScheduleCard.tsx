@@ -20,6 +20,7 @@ interface OptimalScheduleData {
 export function OptimalScheduleCard() {
   const [data, setData] = useState<OptimalScheduleData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     fetchOptimalSchedule();
@@ -30,7 +31,7 @@ export function OptimalScheduleCard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:8000'}/api/analytics/personal/optimal-schedule`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/analytics/personal/optimal-schedule`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
         }
@@ -41,9 +42,12 @@ export function OptimalScheduleCard() {
         if (json.success) {
           setData(json.data);
         }
+      } else {
+        setFetchError(true);
       }
     } catch (error) {
       console.error('Error fetching optimal schedule:', error);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -66,6 +70,22 @@ export function OptimalScheduleCard() {
           </div>
         </div>
         <div className="h-20 w-full bg-surface-2 rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="glass-card p-6 border-white/5 relative overflow-hidden">
+        <div className="relative z-10 flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
+            <Calendar className="w-6 h-6 text-destructive" />
+          </div>
+          <h3 className="text-sm font-bold text-foreground mb-1">Schedule Unavailable</h3>
+          <p className="text-xs text-muted-foreground max-w-[200px]">
+            Could not load your study schedule. Please try refreshing.
+          </p>
+        </div>
       </div>
     );
   }

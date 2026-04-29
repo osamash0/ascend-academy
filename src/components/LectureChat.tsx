@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useAiModel, type AiModelChoice } from '@/hooks/use-ai-model';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Bot, User, Loader2, Sparkles, ChevronDown, BookOpen, StopCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [selectedModel, setSelectedModel] = useState(localStorage.getItem('ascend-academy-ai-model') || 'llama3');
+    const { aiModel: selectedModel, setAiModel: setSelectedModel } = useAiModel();
     const [isExpanded, setIsExpanded] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -122,12 +123,15 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                 user_id: session?.user?.id,
                 event_type: 'ai_tutor_query',
                 event_data: {
-                    lectureId: window.location.pathname.split('/').pop(), // Best effort to get lectureId from URL
+                    lectureId: window.location.pathname.split('/').pop(),
                     slideTitle: slideTitle,
                     query: userMsg,
                     timestamp: new Date().toISOString()
                 }
-            }).then(() => console.log('DEBUG: AI Query logged'));
+            }).then(
+                () => {},
+                (err) => console.error('Failed to log AI tutor query event:', err)
+            );
 
             if (!res.ok) throw new Error('Failed to get response');
             const data = await res.json();
@@ -230,8 +234,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                 <Select 
                                     value={selectedModel} 
                                     onValueChange={(val) => {
-                                        setSelectedModel(val);
-                                        localStorage.setItem('ascend-academy-ai-model', val);
+                                        setSelectedModel(val as AiModelChoice);
                                     }}
                                 >
                                     <SelectTrigger className="h-8 w-[150px] text-xs glass-card border-none focus:ring-1 focus:ring-primary/30">
