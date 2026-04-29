@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { insertQuizQuestion } from '@/services/lectureService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -688,10 +689,10 @@ export default function LectureUpload() {
 
         for (const q of slideData.questions) {
           if (q.question.trim()) {
-            await supabase.from('quiz_questions').insert({
+            await insertQuizQuestion({
               slide_id: slide.id,
               question_text: q.question,
-              options: q.options.filter(o => o.trim()),
+              options: q.options.filter((o: string) => o.trim()),
               correct_answer: q.correctAnswer,
             });
           }

@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchProfessorLectures } from '@/services/lectureService';
+import { apiClient } from '@/lib/apiClient';
 import { StatsCard } from '@/components/StatsCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,17 +29,9 @@ import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { NeuralBackground } from '@/components/NeuralBackground';
 import { ThreeDScatterPlot } from '@/components/ThreeDScatterPlot';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import type { Lecture } from '@/types/domain';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
-
-interface Lecture {
-  id: string;
-  title: string;
-  description: string | null;
-  total_slides: number | null;
-  created_at: string | null;
-}
 
 interface AIInsights {
   summary: string;
@@ -339,33 +332,22 @@ export default function ProfessorAnalytics() {
     if (!isSection) setMetricFeedback(null);
 
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const model = aiModel;
-      
       const context = {
         average_score: dashboardData?.overview?.averageScore,
         total_students: dashboardData?.overview?.uniqueStudents,
         hard_slides: dashboardData?.slidePerformance
-          ?.sort((a, b) => a.correctRate - b.correctRate)
+          ?.sort((a: { correctRate: number }, b: { correctRate: number }) => a.correctRate - b.correctRate)
           .slice(0, 2)
-          .map(s => s.name)
-          .join(', ')
+          .map((s: { name: string }) => s.name)
+          .join(', '),
       };
 
-      const res = await fetch(`${API_BASE}/api/ai/metric-feedback`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          metric_name: title,
-          metric_value: value,
-          context_stats: context,
-          ai_model: model
-        }),
+      const data = await apiClient.post<{ feedback: string }>('/api/ai/metric-feedback', {
+        metric_name: title,
+        metric_value: value,
+        context_stats: context,
+        ai_model: aiModel,
       });
-      const data = await res.json();
       setMetricInterpretations(prev => ({ ...prev, [id]: data.feedback }));
       if (!isSection) setMetricFeedback(data.feedback);
     } catch (err) {
@@ -396,14 +378,8 @@ export default function ProfessorAnalytics() {
     if (!user) return;
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('lectures')
-          .select('id, title, description, total_slides, created_at')
-          .eq('professor_id', user.id)
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        setLectures(data || []);
+        const data = await fetchProfessorLectures(user.id);
+        setLectures(data);
       } catch (err) {
         console.error("Failed to fetch lectures:", err);
       } finally {
@@ -438,32 +414,22 @@ export default function ProfessorAnalytics() {
     setAiInsights(null);
 
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const model = aiModel;
-      
       const hardSlides = dashboardData.slidePerformance
-        ?.filter(s => s.quizAttempts > 0)
-        .sort((a, b) => a.correctRate - b.correctRate)
+        ?.filter((s: { quizAttempts: number }) => s.quizAttempts > 0)
+        .sort((a: { correctRate: number }, b: { correctRate: number }) => a.correctRate - b.correctRate)
         .slice(0, 3)
-        .map(s => s.name)
+        .map((s: { name: string }) => s.name)
         .join(', ');
 
-      const res = await fetch(`${API_BASE}/api/ai/analytics-insights`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          total_students: dashboardData?.overview?.uniqueStudents,
-          average_score: dashboardData?.overview?.averageScore,
-          total_attempts: dashboardData?.overview?.totalAttempts,
-          total_correct: dashboardData?.overview?.totalCorrect,
-          hard_slides: hardSlides,
-          ai_model: model
-        }),
+      const result = await apiClient.post<AIInsights>('/api/ai/analytics-insights', {
+        total_students: dashboardData?.overview?.uniqueStudents,
+        average_score: dashboardData?.overview?.averageScore,
+        total_attempts: dashboardData?.overview?.totalAttempts,
+        total_correct: dashboardData?.overview?.totalCorrect,
+        hard_slides: hardSlides,
+        ai_model: aiModel,
       });
-      if (res.ok) setAiInsights(await res.json());
+      setAiInsights(result);
     } catch {
       setAiInsights({
         summary: 'AI insights unavailable — orbital connection interrupted.',

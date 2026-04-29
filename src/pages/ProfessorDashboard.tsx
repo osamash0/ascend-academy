@@ -8,18 +8,12 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { deleteLecture as deleteLectureService, fetchProfessorLectures } from '@/services/lectureService';
+import type { Lecture } from '@/types/domain';
 import { StatsCard } from '@/components/StatsCard';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-interface Lecture {
-  id: string;
-  title: string;
-  description: string | null;
-  total_slides: number;
-  created_at: string;
-  pdf_url?: string | null;
-}
 
 interface StudentStats {
   totalStudents: number;
@@ -107,32 +101,7 @@ export default function ProfessorDashboard() {
     if (!window.confirm('Are you sure you want to delete this lecture? This cannot be undone.')) return;
 
     try {
-      const { data: slidesData } = await supabase
-        .from('slides')
-        .select('id')
-        .eq('lecture_id', lectureId);
-      const slideIds = slidesData?.map(s => s.id) || [];
-
-      if (slideIds.length > 0) {
-        await supabase.from('quiz_questions').delete().in('slide_id', slideIds);
-      }
-      await supabase.from('student_progress').delete().eq('lecture_id', lectureId);
-      await supabase.from('slides').delete().eq('lecture_id', lectureId);
-
-      const { data: lectureData } = await supabase
-        .from('lectures')
-        .select('pdf_url')
-        .eq('id', lectureId)
-        .single();
-      if (lectureData?.pdf_url) {
-        const pathMatch = lectureData.pdf_url.match(/lecture-pdfs\/(.+)$/);
-        if (pathMatch) {
-          await supabase.storage.from('lecture-pdfs').remove([pathMatch[1]]);
-        }
-      }
-
-      await supabase.from('lectures').delete().eq('id', lectureId);
-
+      await deleteLectureService(lectureId);
       setLectures(prev => prev.filter(l => l.id !== lectureId));
       toast({ title: 'Deleted', description: 'Lecture deleted successfully.' });
     } catch (err) {

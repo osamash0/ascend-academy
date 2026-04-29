@@ -6,7 +6,7 @@ import {
   Sparkles, TrendingUp, Clock, ChevronRight, Award
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchStudentDashboard } from '@/services/studentService';
 import { STREAK_BANNER_DURATION_MS } from '@/lib/constants';
 import { LectureCard } from '@/components/LectureCard';
 import { StatsCard } from '@/components/StatsCard';
@@ -14,31 +14,7 @@ import { AchievementCard } from '@/components/AchievementCard';
 import { OptimalScheduleCard } from '@/components/OptimalScheduleCard';
 import { Button } from '@/components/ui/button';
 
-interface Lecture {
-  id: string;
-  title: string;
-  description: string | null;
-  total_slides: number;
-  created_at: string;
-}
-
-interface Progress {
-  lecture_id: string;
-  completed_slides: number[];
-  quiz_score: number;
-  total_questions_answered: number;
-  correct_answers: number;
-  last_slide_viewed?: number | null;
-  completed_at?: string | null;
-}
-
-interface Achievement {
-  id: string;
-  badge_name: string;
-  badge_description: string | null;
-  badge_icon: string | null;
-  earned_at: string;
-}
+import type { Lecture, StudentProgress as Progress, Achievement } from '@/types/domain';
 
 type FilterTab = 'all' | 'inprogress' | 'completed';
 
@@ -173,35 +149,12 @@ export default function StudentDashboard() {
   }, [profile?.current_streak]);
 
   const fetchData = async () => {
+    if (!user?.id) return;
     setLoading(true);
-
-    const { data: lecturesData } = await supabase
-      .from('lectures')
-      .select('id, title, description, total_slides, created_at')
-      .order('created_at', { ascending: false })
-      .limit(200);
-    if (lecturesData) setLectures(lecturesData);
-
-    const { data: progressData } = await supabase
-      .from('student_progress')
-      .select('lecture_id, completed_slides, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at')
-      .eq('user_id', user?.id)
-      .limit(500);
-    if (progressData) {
-      setProgress(progressData.map(p => ({
-        ...p,
-        completed_slides: Array.isArray(p.completed_slides) ? p.completed_slides : [],
-      })));
-    }
-
-    const { data: achievementsData } = await supabase
-      .from('achievements')
-      .select('id, badge_name, badge_description, badge_icon, earned_at')
-      .eq('user_id', user?.id)
-      .order('earned_at', { ascending: false })
-      .limit(50);
-    if (achievementsData) setAchievements(achievementsData);
-
+    const { lectures: l, progress: p, achievements: a } = await fetchStudentDashboard(user.id);
+    setLectures(l);
+    setProgress(p);
+    setAchievements(a);
     await refreshProfile();
     setLoading(false);
   };

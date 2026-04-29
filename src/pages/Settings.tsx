@@ -5,6 +5,7 @@ import { User, Mail, Camera, Save, Loader2, AlertCircle, Trash2, Download, Lock,
 import { useAuth } from '@/lib/auth';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { supabase } from '@/integrations/supabase/client';
+import { exportAccountData, deleteAccountData } from '@/services/studentService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -419,19 +420,7 @@ export default function Settings() {
                             onClick={async () => {
                                 setIsExporting(true);
                                 try {
-                                    const [profileRes, progressRes, achievementsRes, eventsRes] = await Promise.all([
-                                        supabase.from('profiles').select('*').eq('user_id', user?.id).single(),
-                                        supabase.from('student_progress').select('*').eq('user_id', user?.id),
-                                        supabase.from('achievements').select('*').eq('user_id', user?.id),
-                                        supabase.from('learning_events').select('*').eq('user_id', user?.id),
-                                    ]);
-                                    const exportData = {
-                                        exported_at: new Date().toISOString(),
-                                        profile: profileRes.data,
-                                        progress: progressRes.data,
-                                        achievements: achievementsRes.data,
-                                        learning_events: eventsRes.data,
-                                    };
+                                    const exportData = await exportAccountData(user!.id);
                                     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
@@ -475,11 +464,7 @@ export default function Settings() {
                                         onClick={async () => {
                                             setIsDeleting(true);
                                             try {
-                                                await supabase.from('learning_events').delete().eq('user_id', user?.id);
-                                                await supabase.from('student_progress').delete().eq('user_id', user?.id);
-                                                await supabase.from('achievements').delete().eq('user_id', user?.id);
-                                                await supabase.from('user_roles').delete().eq('user_id', user?.id);
-                                                await supabase.from('profiles').delete().eq('user_id', user?.id);
+                                                await deleteAccountData(user!.id);
                                                 await signOut();
                                                 navigate('/');
                                                 toast({ title: 'Account deleted', description: 'Your account and all data have been removed.' });
