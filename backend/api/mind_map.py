@@ -1,7 +1,10 @@
 """
 Mind Map API — generates and caches per-lecture knowledge tree structures.
 """
+import logging
 from fastapi import APIRouter, HTTPException, Depends
+
+logger = logging.getLogger(__name__)
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -44,7 +47,7 @@ async def get_mind_map(
             return {"success": True, "data": res.data["tree_data"], "generated_at": res.data["generated_at"]}
         return {"success": True, "data": None}
     except Exception as e:
-        print(f"DEBUG mind map GET error: {e}")
+        logger.error("Mind map GET error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch mind map.")
 
 
@@ -102,7 +105,7 @@ async def generate_lecture_mind_map(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"DEBUG mind map generate error: {e}")
+        logger.error("Mind map generate error: %s", e, exc_info=True)
         error_msg = str(e)
         if "relation \"lecture_mind_maps\" does not exist" in error_msg:
             raise HTTPException(status_code=400, detail="Database table 'lecture_mind_maps' not found. Please run the SQL migration.")

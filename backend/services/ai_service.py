@@ -1,10 +1,13 @@
 import os
+import logging
 from typing import Any
 import json
 import re
 from pathlib import Path
 from pydantic import BaseModel
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # Load root .env first, then backend/.env (backend/.env takes precedence)
 _root_env = Path(__file__).resolve().parent.parent.parent / ".env"
@@ -29,10 +32,10 @@ try:
     _groq_api_key = os.environ.get("GROQ_API_KEY")
     if _groq_api_key and _groq_api_key != "your_groq_api_key_here":
         groq_client = Groq(api_key=_groq_api_key, max_retries=0)
-        print("✅ Groq client initialized successfully.")
+        logger.info("Groq client initialized successfully.")
     else:
         groq_client = None
-        print("⚠️  Groq client NOT initialized — GROQ_API_KEY missing or placeholder.")
+        logger.warning("Groq client not initialized: GROQ_API_KEY missing or placeholder.")
 except Exception:
     groq_client = None
 
@@ -90,7 +93,7 @@ def _call_with_retry(fn, *args, max_attempts: int = 3, **kwargs):
             msg = str(exc).lower()
             is_rate_limit = "429" in msg or "rate_limit" in msg or "rate limit" in msg
             if is_rate_limit and attempt < max_attempts:
-                print(f"DEBUG: Rate-limit hit (attempt {attempt}/{max_attempts}), retrying in {delay:.0f}s...")
+                logger.warning("Rate-limit hit (attempt %s/%s), retrying in %.0fs...", attempt, max_attempts, delay)
                 _time.sleep(delay)
                 delay *= 2
             else:
@@ -139,7 +142,7 @@ Markdown Output:"""
                 res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
                 return res.text.strip()
             except Exception as e:
-                print(f"DEBUG Gemini error: {e}")
+                logger.error("Gemini error: %s", e, exc_info=True)
         return raw_text
     elif ai_model == "groq":
         if not groq_client:
@@ -148,7 +151,7 @@ Markdown Output:"""
             res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
             return res.choices[0].message.content.strip()
         except Exception as e:
-            print(f"DEBUG Groq error: {e}")
+            logger.error("Groq error: %s", e, exc_info=True)
             return raw_text
     elif ai_model == "llama3":
         if ollama is None:
@@ -158,7 +161,7 @@ Markdown Output:"""
             text = res["message"]["content"].strip()
             return _strip_conversational_wrapper(text)
         except Exception as e:
-            print(f"DEBUG Ollama error: {e}")
+            logger.error("Ollama error: %s", e, exc_info=True)
             return raw_text
     return raw_text
 
@@ -271,7 +274,7 @@ def analyze_slide_vision(base64_image: str, raw_text: str = "", ai_model: str = 
             )
             return _parse_vision_json(res.choices[0].message.content)
         except Exception as e:
-            print(f"DEBUG Groq vision error: {e}")
+            logger.error("Groq vision error: %s", e, exc_info=True)
             return _vision_default()
 
     elif ai_model in ("gemini-2.5-flash", "gemini-1.5-flash"):
@@ -291,7 +294,7 @@ def analyze_slide_vision(base64_image: str, raw_text: str = "", ai_model: str = 
             )
             return _parse_vision_json(res.text)
         except Exception as e:
-            print(f"DEBUG Gemini vision error: {e}")
+            logger.error("Gemini vision error: %s", e, exc_info=True)
             return _vision_default()
 
     # Ollama / unknown model — vision not supported, caller should fall back to text
@@ -355,7 +358,7 @@ Raw Slide Text:
                 )
                 return json.loads(res.text)
             except Exception as e:
-                print(f"DEBUG Gemini batch error: {e}")
+                logger.error("Gemini batch error: %s", e, exc_info=True)
         return default_res
     elif ai_model == "groq":
         if not groq_client:
@@ -370,7 +373,7 @@ Raw Slide Text:
             )
             return json.loads(res.choices[0].message.content)
         except Exception as e:
-            print(f"DEBUG Groq batch error: {e}")
+            logger.error("Groq batch error: %s", e, exc_info=True)
             return default_res
     elif ai_model == "llama3":
         if ollama is None:
@@ -383,7 +386,7 @@ Raw Slide Text:
                 content = json_match.group()
             return json.loads(content)
         except Exception as e:
-            print(f"DEBUG Ollama batch error: {e}")
+            logger.error("Ollama batch error: %s", e, exc_info=True)
             return default_res
     return default_res
 
@@ -405,7 +408,7 @@ Summary:"""
                 res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
                 return res.text.strip()
             except Exception as e:
-                print(f"DEBUG Gemini summary error: {e}")
+                logger.error("Gemini summary error: %s", e, exc_info=True)
         return "Failed to generate summary."
     elif ai_model == "groq":
         if not groq_client:
@@ -414,7 +417,7 @@ Summary:"""
             res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
             return res.choices[0].message.content.strip()
         except Exception as e:
-            print(f"DEBUG Groq summary error: {e}")
+            logger.error("Groq summary error: %s", e, exc_info=True)
             return "Failed to generate summary."
     elif ai_model == "llama3":
         if ollama is None:
@@ -423,7 +426,7 @@ Summary:"""
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
             return res["message"]["content"].strip()
         except Exception as e:
-            print(f"DEBUG Ollama summary error: {e}")
+            logger.error("Ollama summary error: %s", e, exc_info=True)
             return "Failed to generate summary."
     return "Failed to generate summary."
 
@@ -445,7 +448,7 @@ Slide content:
                 )
                 return json.loads(res.text)
             except Exception as e:
-                print(f"DEBUG Gemini quiz error: {e}")
+                logger.error("Gemini quiz error: %s", e, exc_info=True)
         return default_quiz
     elif ai_model == "groq":
         if not groq_client:
@@ -469,7 +472,7 @@ Slide content:
             )
             return json.loads(res.choices[0].message.content)
         except Exception as e:
-            print(f"DEBUG Groq quiz error: {e}")
+            logger.error("Groq quiz error: %s", e, exc_info=True)
             return default_quiz
     elif ai_model == "llama3":
         if ollama is None:
@@ -502,7 +505,7 @@ Slide content:
                 content = json_match.group()
             return json.loads(content)
         except Exception as e:
-            print(f"DEBUG Ollama quiz error: {e}")
+            logger.error("Ollama quiz error: %s", e, exc_info=True)
             return default_quiz
 
     return default_quiz
@@ -523,7 +526,7 @@ Title:"""
                 res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
                 return res.text.strip().strip('"\'') or None
             except Exception as e:
-                print(f"DEBUG Gemini title error: {e}")
+                logger.error("Gemini title error: %s", e, exc_info=True)
         return None
     elif ai_model == "groq":
         if not groq_client:
@@ -533,7 +536,7 @@ Title:"""
             title = res.choices[0].message.content.strip().strip('"\'')
             return title if title else None
         except Exception as e:
-            print(f"DEBUG Groq title error: {e}")
+            logger.error("Groq title error: %s", e, exc_info=True)
             return None
     elif ai_model == "llama3":
         if ollama is None:
@@ -543,7 +546,7 @@ Title:"""
             title = res["message"]["content"].strip().strip('"\'')
             return title if title else None
         except Exception as e:
-            print(f"DEBUG Ollama title error: {e}")
+            logger.error("Ollama title error: %s", e, exc_info=True)
             return None
     return None
 
@@ -575,7 +578,7 @@ Your task:
                 )
                 return json.loads(res.text)
             except Exception as e:
-                print(f"DEBUG Gemini analytics error: {e}")
+                logger.error("Gemini analytics error: %s", e, exc_info=True)
     elif ai_model == "groq":
         if not groq_client:
             return {"summary": "Error: GROQ_API_KEY is missing from .env!", "suggestions": []}
@@ -588,7 +591,7 @@ Your task:
             )
             return json.loads(res.choices[0].message.content)
         except Exception as e:
-            print(f"DEBUG Groq analytics error: {e}")
+            logger.error("Groq analytics error: %s", e, exc_info=True)
 
     if ollama is None:
         return {
@@ -604,7 +607,7 @@ Your task:
             content = json_match.group()
         return json.loads(content)
     except Exception as e:
-        print(f"DEBUG Ollama analytics error: {e}")
+        logger.error("Ollama analytics error: %s", e, exc_info=True)
 
     return {
         "summary": "We couldn't generate an AI summary at this time. Please check your AI model.",
@@ -659,7 +662,7 @@ def chat_with_lecture(slide_text: str, user_message: str, chat_history: list = N
     """
     Acts as a personalized AI tutor answering a student's question based on the slide's context.
     """
-    print(f"DEBUG chat_with_lecture: MODEL={ai_model}, TEXT_LEN={len(slide_text)}, MSG={user_message[:50]}")
+    logger.debug("chat_with_lecture: model=%s text_len=%d", ai_model, len(slide_text))
 
     if chat_history is None:
         chat_history = []
@@ -693,7 +696,7 @@ Tutor:"""
                 res = gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
                 return res.text.strip()
             except Exception as e:
-                print(f"DEBUG Gemini chat error: {e}")
+                logger.error("Gemini chat error: %s", e, exc_info=True)
         return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
     elif ai_model == "groq":
         if not groq_client:
@@ -702,7 +705,7 @@ Tutor:"""
             res = groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
             return res.choices[0].message.content.strip()
         except Exception as e:
-            print(f"DEBUG Groq chat error: {e}")
+            logger.error("Groq chat error: %s", e, exc_info=True)
             return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
     elif ai_model == "llama3":
         if ollama is None:
@@ -711,7 +714,7 @@ Tutor:"""
             res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
             return res["message"]["content"].strip()
         except Exception as e:
-            print(f"DEBUG Ollama chat error: {e}")
+            logger.error("Ollama chat error: %s", e, exc_info=True)
             return "I'm sorry, I'm having trouble connecting to my knowledge base right now. Please try again in a moment!"
 
 
@@ -831,7 +834,7 @@ JSON Output:"""
                 )
                 return json.loads(res.text)
             except Exception as e:
-                print(f"DEBUG Gemini mind map error: {e}")
+                logger.error("Gemini mind map error: %s", e, exc_info=True)
         return default_tree
 
     elif ai_model == "groq":
@@ -845,7 +848,7 @@ JSON Output:"""
             )
             return json.loads(res.choices[0].message.content)
         except Exception as e:
-            print(f"DEBUG Groq mind map error: {e}")
+            logger.error("Groq mind map error: %s", e, exc_info=True)
             return default_tree
 
     elif ai_model == "llama3":
@@ -859,7 +862,7 @@ JSON Output:"""
                 content = json_match.group()
             return json.loads(content)
         except Exception as e:
-            print(f"DEBUG Ollama mind map error: {e}")
+            logger.error("Ollama mind map error: %s", e, exc_info=True)
             return default_tree
 
     return default_tree

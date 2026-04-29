@@ -1,4 +1,7 @@
+import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
+
+logger = logging.getLogger(__name__)
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Any, List
@@ -38,7 +41,8 @@ async def parse_pdf_endpoint(
         return ParsedSlideResponse(slides=slides, total=len(slides))
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("PDF parse failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to parse PDF. Please try again.")
 
 

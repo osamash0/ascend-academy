@@ -1,7 +1,10 @@
 """
 Analytics API Endpoints
 """
+import logging
 from fastapi import APIRouter, HTTPException, Depends, status
+
+logger = logging.getLogger(__name__)
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
@@ -115,7 +118,8 @@ async def get_lecture_overview(lecture_id: str, user=Depends(verify_token), cred
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load analytics. Please try again.")
 
 
@@ -128,7 +132,8 @@ async def get_slide_analytics(lecture_id: str, user=Depends(verify_token), creds
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load analytics. Please try again.")
 
 
@@ -141,7 +146,8 @@ async def get_quiz_analytics(lecture_id: str, user=Depends(verify_token), creds:
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load analytics. Please try again.")
 
 
@@ -154,7 +160,8 @@ async def get_student_performance(lecture_id: str, user=Depends(verify_token), c
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load student analytics. Please try again.")
 
 
@@ -167,7 +174,8 @@ async def get_dashboard_data(lecture_id: str, user=Depends(verify_token), creds:
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load comprehensive analytics.")
 
 
@@ -185,7 +193,8 @@ async def get_distractor_analysis(lecture_id: str, user=Depends(verify_token), c
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load distractor analysis.")
 
 
@@ -201,7 +210,8 @@ async def get_dropoff_map(lecture_id: str, user=Depends(verify_token), creds: HT
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load drop-off data.")
 
 
@@ -217,7 +227,8 @@ async def get_confidence_by_slide(lecture_id: str, user=Depends(verify_token), c
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load per-slide confidence data.")
 
 
@@ -233,7 +244,8 @@ async def get_ai_query_feed(lecture_id: str, user=Depends(verify_token), creds: 
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load AI query feed.")
 
 @router.get("/personal/optimal-schedule", response_model=AnalyticsResponse)
@@ -245,5 +257,6 @@ async def get_personal_optimal_schedule(user=Depends(verify_token), creds: HTTPA
     try:
         data = await run_in_threadpool(analytics_service.get_personal_optimal_schedule, user.id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
-    except Exception:
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to calculate optimal schedule.")

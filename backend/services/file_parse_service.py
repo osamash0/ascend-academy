@@ -3,6 +3,9 @@ import asyncio
 import io
 import base64
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 # --- Optional vision dependencies ---
 try:
@@ -86,7 +89,7 @@ def _page_to_base64(pdf_bytes: bytes, page_num: int, dpi: int = 120) -> Optional
         img.save(buf, format="JPEG", quality=85)
         return base64.b64encode(buf.getvalue()).decode("utf-8")
     except Exception as e:
-        print(f"DEBUG: Image conversion failed for page {page_num}: {e}")
+        logger.error("Image conversion failed for page %s: %s", page_num, e)
         return None
 
 
@@ -176,7 +179,7 @@ def parse_pdf(file_content: bytes, ai_model: str = "groq") -> List[Dict[str, Any
                     slides.append(_build_slide_from_vision(analysis, current_page, raw_text))
                     continue
                 except Exception as e:
-                    print(f"DEBUG: Vision failed for slide {current_page}, falling back to text: {e}")
+                    logger.warning("Vision failed for slide %s, falling back to text: %s", current_page, e)
 
         # Text-only path (Ollama, or vision unavailable/failed)
         if not raw_text:
@@ -195,7 +198,7 @@ def parse_pdf(file_content: bytes, ai_model: str = "groq") -> List[Dict[str, Any
             time.sleep(2)
             slides.append(_build_slide_from_text(batch_res, current_page))
         except Exception as e:
-            print(f"DEBUG: Text processing failed for slide {current_page}: {e}")
+            logger.error("Text processing failed for slide %s: %s", current_page, e)
             slides.append({
                 "title": f"Slide {current_page}", "content": raw_text,
                 "summary": "", "questions": [], "is_metadata": False, "slide_type": "content_slide",
@@ -252,7 +255,7 @@ async def parse_pdf_stream(file_content: bytes, ai_model: str = "groq"):
                     slides_processed += 1
                     continue
                 except Exception as e:
-                    print(f"DEBUG: Vision failed for slide {current_page}, falling back to text: {e}")
+                    logger.warning("Vision failed for slide %s, falling back to text: %s", current_page, e)
 
         # --- Text-only fallback ---
         if not raw_text:
@@ -283,7 +286,7 @@ async def parse_pdf_stream(file_content: bytes, ai_model: str = "groq"):
                 "slide": _build_slide_from_text(batch_res, current_page),
             }
         except Exception as e:
-            print(f"DEBUG: Text processing failed for slide {current_page}: {e}")
+            logger.error("Text processing failed for slide %s: %s", current_page, e)
             yield {
                 "type": "slide",
                 "index": i,

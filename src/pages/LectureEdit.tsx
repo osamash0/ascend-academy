@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAiModel } from '@/hooks/use-ai-model';
 import { motion } from 'framer-motion';
 import { Save, Plus, Trash2, CheckCircle2, Loader2, Sparkles, ArrowLeft, FileText, Upload, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 interface QuestionData {
     id?: string;     // existing DB id (undefined for new)
@@ -30,6 +31,7 @@ export default function LectureEdit() {
     const { lectureId } = useParams<{ lectureId: string }>();
     const navigate = useNavigate();
     const { toast } = useToast();
+    const { aiModel } = useAiModel();
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -253,7 +255,7 @@ export default function LectureEdit() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session?.access_token}`
                 },
-                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq' }),
+                body: JSON.stringify({ slide_text: content, ai_model: aiModel }),
             });
             if (!res.ok) throw new Error();
             const data = await res.json();
@@ -281,7 +283,7 @@ export default function LectureEdit() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session?.access_token}`
                 },
-                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq' }),
+                body: JSON.stringify({ slide_text: content, ai_model: aiModel }),
             });
             if (!res.ok) throw new Error();
             const quiz = await res.json();

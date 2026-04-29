@@ -13,6 +13,7 @@ import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
 import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
+import { useAiModel } from '@/hooks/use-ai-model';
 
 interface Slide {
   id: string;
@@ -71,6 +72,7 @@ export default function LectureView() {
 
   // Mind map
   const { map: mindMap, generate: generateMindMap } = useMindMap(lectureId ?? null);
+  const { aiModel } = useAiModel();
 
   // Slide content regeneration (professor only)
   const [isRegeneratingContent, setIsRegeneratingContent] = useState(false);
@@ -88,14 +90,11 @@ export default function LectureView() {
     if (!slides.length || !user) return;
 
     const currentSlideId = slides[currentSlideIndex]?.id;
+    const currentSlideTitle = slides[currentSlideIndex]?.title || '';
     const now = Date.now();
 
-    // Logic to log previous slide duration
-    const logSlideView = async (slideId: string, title: string, startTime: number) => {
-      const duration = Math.round((Date.now() - startTime) / 1000); // seconds
-      if (duration < 1) return; // Ignore very short views
-
-      console.log(`DEBUG: Logging slide_view for ${slideId}, duration: ${duration}s`);
+    const logSlideView = async (slideId: string, title: string, durationSeconds: number) => {
+      if (durationSeconds < 1) return;
       await supabase.from('learning_events').insert({
         user_id: user.id,
         event_type: 'slide_view',
@@ -103,20 +102,19 @@ export default function LectureView() {
           lectureId,
           slideId,
           slideTitle: title,
-          duration_seconds: duration,
+          duration_seconds: durationSeconds,
           timestamp: new Date().toISOString()
         },
       });
     };
 
-    // Update the state for other logic (like quiz answer timing)
     setSlideStartTime(now);
     slideStartRef.current = now;
 
-    // When slide changes, log the previous one
     return () => {
       if (currentSlideId) {
-        logSlideView(currentSlideId, slides[currentSlideIndex]?.title || '', now);
+        const elapsed = Math.round((Date.now() - slideStartRef.current) / 1000);
+        logSlideView(currentSlideId, currentSlideTitle, elapsed);
       }
     };
   }, [currentSlideIndex, slides, user, lectureId]);
@@ -151,7 +149,6 @@ export default function LectureView() {
       }
 
       if (lectureData) {
-        console.log('DEBUG: Fetched lecture data:', lectureData);
         setLecture(lectureData);
       }
 
@@ -300,11 +297,10 @@ export default function LectureView() {
 
   const handleRegenerateContent = async () => {
     if (!currentSlide || !user) return;
-    const aiModel = localStorage.getItem('ascend-academy-ai-model') || 'groq';
     setIsRegeneratingContent(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:8000'}/api/ai/slides/${currentSlide.id}/regenerate-content`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/ai/slides/${currentSlide.id}/regenerate-content`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -865,8 +861,7 @@ export default function LectureView() {
                       mindMapData={mindMap.data ?? null}
                       currentSlideId={currentSlide.id}
                       onGenerateMindMap={() => {
-                        const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
-                        generateMindMap.mutate(model, {
+                        generateMindMap.mutate(aiModel, {
                           onError: (error: any) => {
                             toast({
                               title: "Generation Failed",

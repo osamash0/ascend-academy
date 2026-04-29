@@ -1,0 +1,3 @@
+export const AUTH_INIT_TIMEOUT_MS = 5_000;
+export const AUTH_PROFILE_TIMEOUT_MS = 15_000;
+export const STREAK_BANNER_DURATION_MS = 5_000;
