@@ -6,6 +6,7 @@ from supabase import create_client
 import hashlib
 from typing import Dict, List, Any
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 
 def get_auth_client(token: str):
@@ -438,8 +439,12 @@ def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]
     return result
 
 
-# Advanced Dashboard Data Collection
+@lru_cache(maxsize=128)
 def get_dashboard_data(lecture_id: str, token: str = None):
+    """
+    Get comprehensive advanced dashboard analytics in a single call.
+    Cached to prevent redundant heavy computations on the same lecture data.
+    """
     client = get_auth_client(token)
     
     # 1. Efficiently fetch data from Supabase

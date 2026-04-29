@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal, Optional, List, Dict, Any
-from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech, generate_metric_feedback, analyze_slide_vision
+from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech, generate_metric_feedback, analyze_slide_vision, generate_slide_title, enhance_slide_content
 from backend.services.file_parse_service import _page_to_base64, _extract_text_page, _build_slide_from_vision
 from backend.core.database import supabase as _db, url as _url, key as _key
 import io
@@ -115,6 +115,30 @@ def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
     except Exception as e:
         logger.error("AI quiz generation failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="AI quiz generation failed. Please try again.")
+
+
+@router.post("/suggest-title")
+def suggest_title_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+    if not body.slide_text.strip():
+        raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
+    try:
+        title = generate_slide_title(body.slide_text, ai_model=body.ai_model)
+        return {"title": title}
+    except Exception as e:
+        logger.error("AI title suggestion failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="AI title suggestion failed.")
+
+
+@router.post("/suggest-content")
+def suggest_content_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+    if not body.slide_text.strip():
+        raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
+    try:
+        enhanced = enhance_slide_content(body.slide_text, ai_model=body.ai_model)
+        return {"content": enhanced}
+    except Exception as e:
+        logger.error("AI content enhancement failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="AI content enhancement failed.")
 
 
 @router.post("/analytics-insights", response_model=InsightsResponse)

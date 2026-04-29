@@ -47,6 +47,8 @@ export default function LectureEdit() {
     // Per-slide AI loading states
     const [aiSummaryLoading, setAiSummaryLoading] = useState<Record<number, boolean>>({});
     const [aiQuizLoading, setAiQuizLoading] = useState<Record<number, boolean>>({});
+    const [aiTitleLoading, setAiTitleLoading] = useState<Record<number, boolean>>({});
+    const [aiContentLoading, setAiContentLoading] = useState<Record<number, boolean>>({});
 
     // ── Load existing lecture data ─────────────────────────────────────────────
     useEffect(() => {
@@ -285,6 +287,42 @@ export default function LectureEdit() {
         }
     };
 
+    const handleGenerateTitle = async (slideIndex: number) => {
+        const content = slides[slideIndex].content;
+        if (!content.trim()) {
+            toast({ title: 'No content', description: 'Add slide content first.', variant: 'destructive' });
+            return;
+        }
+        setAiTitleLoading(prev => ({ ...prev, [slideIndex]: true }));
+        try {
+            const data = await apiClient.post<{ title: string }>('/api/ai/suggest-title', { slide_text: content, ai_model: aiModel });
+            updateSlide(slideIndex, 'title', data.title);
+            toast({ title: 'Title generated!' });
+        } catch {
+            toast({ title: 'AI Error', variant: 'destructive' });
+        } finally {
+            setAiTitleLoading(prev => ({ ...prev, [slideIndex]: false }));
+        }
+    };
+
+    const handleGenerateContent = async (slideIndex: number) => {
+        const existingContent = slides[slideIndex].content;
+        const existingTitle = slides[slideIndex].title;
+        setAiContentLoading(prev => ({ ...prev, [slideIndex]: true }));
+        try {
+            const data = await apiClient.post<{ content: string }>('/api/ai/suggest-content', { 
+                slide_text: existingContent || existingTitle || "Educational topic", 
+                ai_model: aiModel 
+            });
+            updateSlide(slideIndex, 'content', data.content);
+            toast({ title: 'Content enhanced!' });
+        } catch {
+            toast({ title: 'AI Error', variant: 'destructive' });
+        } finally {
+            setAiContentLoading(prev => ({ ...prev, [slideIndex]: false }));
+        }
+    };
+
     // ── Slide helpers ───────────────────────────────────────────────────────────
     const addSlide = () => setSlides([...slides, { title: '', content: '', summary: '', questions: [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }] }]);
 
@@ -450,12 +488,38 @@ export default function LectureEdit() {
 
                         <div className="space-y-4">
                             <div>
-                                <Label>Slide Title</Label>
-                                <Input value={slide.title} onChange={e => updateSlide(slideIndex, 'title', e.target.value)} placeholder="Slide title" className="mt-1.5" />
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <Label>Slide Title</Label>
+                                    <Button 
+                                        type="button" 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => handleGenerateTitle(slideIndex)} 
+                                        disabled={aiTitleLoading[slideIndex]} 
+                                        className="gap-1.5 text-xs h-7"
+                                    >
+                                        {aiTitleLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                        {slide.title ? 'Regenerate' : 'AI Generate'}
+                                    </Button>
+                                </div>
+                                <Input value={slide.title} onChange={e => updateSlide(slideIndex, 'title', e.target.value)} placeholder="Slide title" />
                             </div>
                             <div>
-                                <Label>Content</Label>
-                                <Textarea value={slide.content} onChange={e => updateSlide(slideIndex, 'content', e.target.value)} placeholder="Slide content..." className="mt-1.5" rows={4} />
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <Label>Content</Label>
+                                    <Button 
+                                        type="button" 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => handleGenerateContent(slideIndex)} 
+                                        disabled={aiContentLoading[slideIndex]} 
+                                        className="gap-1.5 text-xs h-7"
+                                    >
+                                        {aiContentLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                        {slide.content ? 'Enhance Content' : 'AI Generate'}
+                                    </Button>
+                                </div>
+                                <Textarea value={slide.content} onChange={e => updateSlide(slideIndex, 'content', e.target.value)} placeholder="Slide content..." rows={4} />
                             </div>
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">

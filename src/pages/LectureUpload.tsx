@@ -33,6 +33,7 @@ import { useAuth } from '@/lib/auth';
 import { PDFUploadOverlay } from '@/components/PDFUploadOverlay';
 import { supabase } from '@/integrations/supabase/client';
 import { insertQuizQuestion } from '@/services/lectureService';
+import { apiClient } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -346,6 +347,8 @@ export default function LectureUpload() {
   const [showPDFPanel, setShowPDFPanel] = useState(false);
   const [aiSummaryLoading, setAiSummaryLoading] = useState<Record<number, boolean>>({});
   const [aiQuizLoading, setAiQuizLoading] = useState<Record<number, boolean>>({});
+  const [aiTitleLoading, setAiTitleLoading] = useState<Record<number, boolean>>({});
+  const [aiContentLoading, setAiContentLoading] = useState<Record<number, boolean>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadTotal, setUploadTotal] = useState(0);
@@ -494,20 +497,10 @@ export default function LectureUpload() {
 
     setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: true }));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${API_BASE}/api/ai/generate-summary`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({
-          slide_text: content,
-          ai_model: aiModel
-        }),
+      const data = await apiClient.post<{ summary: string }>('/api/ai/generate-summary', {
+        slide_text: content,
+        ai_model: aiModel
       });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
       updateSlide(slideIndex, 'summary', data.summary);
       toast({ title: 'Summary Generated', description: 'AI has distilled the key points for you.' });
     } catch {
@@ -527,20 +520,10 @@ export default function LectureUpload() {
 
     setAiQuizLoading(prev => ({ ...prev, [slideIndex]: true }));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${API_BASE}/api/ai/generate-quiz`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({
-          slide_text: content,
-          ai_model: aiModel
-        }),
+      const quiz = await apiClient.post<{ question: string; options: string[]; correctAnswer: number }>('/api/ai/generate-quiz', {
+        slide_text: content,
+        ai_model: aiModel
       });
-      if (!res.ok) throw new Error();
-      const quiz = await res.json();
       const newSlides = [...slides];
       newSlides[slideIndex].questions = [{
         question: quiz.question,
@@ -553,6 +536,49 @@ export default function LectureUpload() {
       toast({ title: 'AI Error', description: 'Quiz generation failed. Is Ollama running?', variant: 'destructive' });
     } finally {
       setAiQuizLoading(prev => ({ ...prev, [slideIndex]: false }));
+    }
+  };
+  
+  /* ── AI: Generate Title ────────────────────────────────────────────────── */
+  const handleGenerateTitle = async (slideIndex: number) => {
+    const content = slides[slideIndex].content;
+    if (!content.trim()) {
+      toast({ title: 'No content', description: 'Add slide content before generating a title.', variant: 'destructive' });
+      return;
+    }
+
+    setAiTitleLoading(prev => ({ ...prev, [slideIndex]: true }));
+    try {
+      const data = await apiClient.post<{ title: string }>('/api/ai/suggest-title', {
+        slide_text: content,
+        ai_model: aiModel
+      });
+      updateSlide(slideIndex, 'title', data.title);
+      toast({ title: 'Title Suggested', description: 'AI has analyzed your content for a perfect title.' });
+    } catch {
+      toast({ title: 'AI Error', description: 'Title generation failed.', variant: 'destructive' });
+    } finally {
+      setAiTitleLoading(prev => ({ ...prev, [slideIndex]: false }));
+    }
+  };
+
+  /* ── AI: Generate Content ──────────────────────────────────────────────── */
+  const handleGenerateContent = async (slideIndex: number) => {
+    const existingContent = slides[slideIndex].content;
+    const existingTitle = slides[slideIndex].title;
+    
+    setAiContentLoading(prev => ({ ...prev, [slideIndex]: true }));
+    try {
+      const data = await apiClient.post<{ content: string }>('/api/ai/suggest-content', {
+        slide_text: existingContent || existingTitle || "Educational topic",
+        ai_model: aiModel
+      });
+      updateSlide(slideIndex, 'content', data.content);
+      toast({ title: 'Content Enhanced', description: 'AI has expanded and structured your slide content.' });
+    } catch {
+      toast({ title: 'AI Error', description: 'Content generation failed.', variant: 'destructive' });
+    } finally {
+      setAiContentLoading(prev => ({ ...prev, [slideIndex]: false }));
     }
   };
 

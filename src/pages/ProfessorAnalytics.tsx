@@ -306,30 +306,28 @@ export default function ProfessorAnalytics() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const handleMetricClick = async (id: string, title: string, value: any) => {
-    // If it's a section toggle (not a small stat card), handle open state
+    // Check local cache first
+    if (metricInterpretations[id]) {
+      // If it's a small stat card, still set the feedback from cache
+      if (!['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution'].includes(id)) {
+        setSelectedMetric(title === selectedMetric ? null : title);
+        setMetricFeedback(metricInterpretations[id]);
+      } else {
+        setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+      }
+      return;
+    }
+
     const isSection = ['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution'].includes(id);
     
     if (isSection) {
-      if (openSections[id]) {
-        setOpenSections(prev => ({ ...prev, [id]: false }));
-        return;
-      }
       setOpenSections(prev => ({ ...prev, [id]: true }));
     } else {
-      // Small stat card logic
-      if (selectedMetric === title) {
-        setSelectedMetric(null);
-        setMetricFeedback(null);
-        return;
-      }
       setSelectedMetric(title);
+      setMetricFeedback(null);
     }
 
-    // If we already have the interpretation, don't fetch again (unless you want it fresh)
-    if (metricInterpretations[id]) return;
-
     setMetricLoading(true);
-    if (!isSection) setMetricFeedback(null);
 
     try {
       const context = {

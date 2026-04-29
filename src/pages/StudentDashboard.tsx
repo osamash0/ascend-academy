@@ -6,7 +6,7 @@ import {
   Sparkles, TrendingUp, Clock, ChevronRight, Award
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { fetchStudentDashboard } from '@/services/studentService';
+import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
 import { STREAK_BANNER_DURATION_MS } from '@/lib/constants';
 import { LectureCard } from '@/components/LectureCard';
 import { StatsCard } from '@/components/StatsCard';
@@ -115,17 +115,19 @@ function FloatingParticles() {
 }
 
 export default function StudentDashboard() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const [lectures, setLectures] = useState<Lecture[]>([]);
-  const [progress, setProgress] = useState<Progress[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [showStreakBanner, setShowStreakBanner] = useState(false);
   const lecturesRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
+
+  // Use the new cached hook
+  const { data: dashboardData, isLoading: loading } = useStudentDashboard();
   
+  const lectures = dashboardData?.lectures || [];
+  const progress = dashboardData?.progress || [];
+  const achievements = dashboardData?.achievements || [];
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ['start start', 'end start'],
@@ -136,10 +138,6 @@ export default function StudentDashboard() {
   const heroY = useTransform(scrollYProgress, [0, 0.5], [0, -50]);
 
   useEffect(() => {
-    if (user) fetchData();
-  }, [user?.id]);
-
-  useEffect(() => {
     const streak = profile?.current_streak || 0;
     if (streak > 2) {
       setShowStreakBanner(true);
@@ -147,17 +145,6 @@ export default function StudentDashboard() {
       return () => clearTimeout(t);
     }
   }, [profile?.current_streak]);
-
-  const fetchData = async () => {
-    if (!user?.id) return;
-    setLoading(true);
-    const { lectures: l, progress: p, achievements: a } = await fetchStudentDashboard(user.id);
-    setLectures(l);
-    setProgress(p);
-    setAchievements(a);
-    await refreshProfile();
-    setLoading(false);
-  };
 
   const getProgressForLecture = (lectureId: string) =>
     progress.find(p => p.lecture_id === lectureId);
