@@ -3,6 +3,7 @@ uvicorn
 sqlmodel
 supabase
 pydantic
+pydantic-settings
 python-dotenv
 asyncpg
 pypdf

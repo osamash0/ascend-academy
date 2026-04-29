@@ -4,13 +4,13 @@ import { useAiModel } from '@/hooks/use-ai-model';
 import { motion } from 'framer-motion';
 import { Save, Plus, Trash2, CheckCircle2, Loader2, Sparkles, ArrowLeft, FileText, Upload, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertQuizQuestion, updateQuizQuestion, deleteSlideWithQuestions } from '@/services/lectureService';
+import { apiClient } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 interface QuestionData {
     id?: string;     // existing DB id (undefined for new)
@@ -187,14 +187,14 @@ export default function LectureEdit() {
                     for (const q of s.questions) {
                         if (!q.question.trim()) continue;
                         if (q.id) {
-                            await supabase.from('quiz_questions').update({
+                            await updateQuizQuestion(q.id, {
                                 question_text: q.question,
                                 options: q.options,
                                 correct_answer: q.correctAnswer,
-                            }).eq('id', q.id);
+                            });
                         } else {
-                            await supabase.from('quiz_questions').insert({
-                                slide_id: s.id,
+                            await insertQuizQuestion({
+                                slide_id: s.id!,
                                 question_text: q.question,
                                 options: q.options,
                                 correct_answer: q.correctAnswer,
@@ -218,7 +218,7 @@ export default function LectureEdit() {
 
                     for (const q of s.questions) {
                         if (q.question.trim()) {
-                            await supabase.from('quiz_questions').insert({
+                            await insertQuizQuestion({
                                 slide_id: newSlide.id,
                                 question_text: q.question,
                                 options: q.options,
@@ -248,17 +248,7 @@ export default function LectureEdit() {
         }
         setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(`${API_BASE}/api/ai/generate-summary`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
-                },
-                body: JSON.stringify({ slide_text: content, ai_model: aiModel }),
-            });
-            if (!res.ok) throw new Error();
-            const data = await res.json();
+            const data = await apiClient.post<{ summary: string }>('/api/ai/generate-summary', { slide_text: content, ai_model: aiModel });
             updateSlide(slideIndex, 'summary', data.summary);
             toast({ title: 'Summary generated!' });
         } catch {
@@ -276,17 +266,7 @@ export default function LectureEdit() {
         }
         setAiQuizLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(`${API_BASE}/api/ai/generate-quiz`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
-                },
-                body: JSON.stringify({ slide_text: content, ai_model: aiModel }),
-            });
-            if (!res.ok) throw new Error();
-            const quiz = await res.json();
+            const quiz = await apiClient.post<{ question: string; options: string[]; correctAnswer: number }>('/api/ai/generate-quiz', { slide_text: content, ai_model: aiModel });
             const newSlides = [...slides];
             // keep existing id if there was one
             const existingId = newSlides[slideIndex].questions[0]?.id;
@@ -320,9 +300,7 @@ export default function LectureEdit() {
         if (slides.length <= 1) return;
         const slide = slides[index];
         if (slide.id) {
-            // Delete from DB
-            await supabase.from('quiz_questions').delete().eq('slide_id', slide.id);
-            await supabase.from('slides').delete().eq('id', slide.id);
+            await deleteSlideWithQuestions(slide.id);
         }
         setSlides(slides.filter((_, i) => i !== index));
     };

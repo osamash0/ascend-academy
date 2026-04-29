@@ -1,37 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { apiClient } from '@/lib/apiClient';
 
 export function useAnalytics(lectureId: string | null) {
   const dashboard = useQuery({
-    queryKey: ["analytics", "dashboard", lectureId],
+    queryKey: ['analytics', 'dashboard', lectureId],
     queryFn: async () => {
       if (!lectureId) return null;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('No active session token available');
-      }
-      
-      const res = await fetch(`${API_BASE}/api/analytics/lecture/${lectureId}/dashboard`, {
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      });
-      if (!res.ok) {
-        if (res.status === 401) {
-            throw new Error('Unauthorized - Token expired');
-        }
-        throw new Error('API Error');
-      }
-      const json = await res.json();
+      const json = await apiClient.get<{ data: unknown }>(`/api/analytics/lecture/${lectureId}/dashboard`);
       return json.data;
     },
     enabled: !!lectureId,
-    retry: (failureCount, error: any) => {
-      // Don't retry on authentication or not found errors
-      if (error.message?.includes('Unauthorized') || error.message?.includes('API Error')) return false;
+    retry: (failureCount, error: unknown) => {
+      const msg = error instanceof Error ? error.message : '';
+      if (msg.includes('401') || msg.includes('404')) return false;
       return failureCount < 2;
     },
-    staleTime: 1000 * 60, // 60 seconds — analytics don't need sub-minute freshness
+    staleTime: 1000 * 60,
     refetchOnWindowFocus: false,
   });
 

@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAiModel, type AiModelChoice } from '@/hooks/use-ai-model';
+import { useAuth } from '@/lib/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Bot, User, Loader2, Sparkles, ChevronDown, BookOpen, StopCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/apiClient';
+import { logLearningEvent } from '@/services/studentService';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -15,8 +17,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import 'katex/dist/katex.min.css';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 interface Message {
     role: 'user' | 'model';
@@ -52,6 +52,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const { aiModel: selectedModel, setAiModel: setSelectedModel } = useAiModel();
+    const { user } = useAuth();
     const [isExpanded, setIsExpanded] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -96,44 +97,31 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
         setIsLoading(true);
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
             const historyToPass = newMessages.slice(1, -1);
 
-            // Create new AbortController for this request
             abortControllerRef.current = new AbortController();
 
-            const res = await fetch(`${API_BASE}/api/ai/chat`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
+            const res = await apiClient.stream(
+                '/api/ai/chat',
+                {
                     slide_text: slideText,
                     user_message: userMsg,
                     chat_history: historyToPass,
-                    ai_model: selectedModel
-                }),
-                signal: abortControllerRef.current.signal,
-            });
-
-            // Log the query event for analytics
-            supabase.from('learning_events').insert({
-                user_id: session?.user?.id,
-                event_type: 'ai_tutor_query',
-                event_data: {
-                    lectureId: window.location.pathname.split('/').pop(),
-                    slideTitle: slideTitle,
-                    query: userMsg,
-                    timestamp: new Date().toISOString()
-                }
-            }).then(
-                () => {},
-                (err) => console.error('Failed to log AI tutor query event:', err)
+                    ai_model: selectedModel,
+                },
+                abortControllerRef.current.signal,
             );
 
-            if (!res.ok) throw new Error('Failed to get response');
+            // Fire-and-forget analytics event
+            if (user) {
+                logLearningEvent(user.id, 'ai_tutor_query', {
+                    lectureId: window.location.pathname.split('/').pop(),
+                    slideTitle,
+                    query: userMsg,
+                    timestamp: new Date().toISOString(),
+                }).catch(err => console.error('Failed to log AI tutor query event:', err));
+            }
+
             const data = await res.json();
 
             setMessages((prev) => [

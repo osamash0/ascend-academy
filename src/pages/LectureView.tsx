@@ -4,6 +4,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchLecture, fetchSlides, fetchQuizQuestions } from '@/services/lectureService';
+import {
+  fetchLectureProgress,
+  upsertLectureProgress,
+  logLearningEvent,
+  checkAchievementExists,
+  awardAchievement,
+  insertNotification,
+  countCompletedLectures,
+} from '@/services/studentService';
+import { apiClient } from '@/lib/apiClient';
+import { checkLevelUp } from '@/domain/gamification';
 import { SlideViewer } from '@/components/SlideViewer';
 import { QuizCard } from '@/components/QuizCard';
 import { LevelUpModal } from '@/components/LevelUpModal';
@@ -15,29 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
 
-interface Slide {
-  id: string;
-  slide_number: number;
-  title: string | null;
-  content_text: string | null;
-  summary: string | null;
-}
-
-interface QuizQuestion {
-  id: string;
-  slide_id: string;
-  question_text: string;
-  options: string[];
-  correct_answer: number;
-}
-
-interface Lecture {
-  id: string;
-  title: string;
-  description: string | null;
-  total_slides: number;
-  pdf_url?: string | null;
-}
+import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
 
 export default function LectureView() {
   const { lectureId } = useParams<{ lectureId: string }>();
@@ -95,16 +85,12 @@ export default function LectureView() {
 
     const logSlideView = async (slideId: string, title: string, durationSeconds: number) => {
       if (durationSeconds < 1) return;
-      await supabase.from('learning_events').insert({
-        user_id: user.id,
-        event_type: 'slide_view',
-        event_data: {
-          lectureId,
-          slideId,
-          slideTitle: title,
-          duration_seconds: durationSeconds,
-          timestamp: new Date().toISOString()
-        },
+      await logLearningEvent(user.id, 'slide_view', {
+        lectureId,
+        slideId,
+        slideTitle: title,
+        duration_seconds: durationSeconds,
+        timestamp: new Date().toISOString(),
       });
     };
 
@@ -134,31 +120,17 @@ export default function LectureView() {
     if (!currentLectureId) return;
 
     try {
-      // Fetch lecture - We removed slug resolution as the slug column was deleted
-      const { data: lectureData, error: lectureError } = await supabase
-        .from('lectures')
-        .select('*, pdf_url')
-        .eq('id', currentLectureId)
-        .single();
-
-      if (lectureError) {
-        console.error('Error fetching lecture:', lectureError);
+      const lectureData = await fetchLecture(currentLectureId);
+      if (!lectureData) {
         toast({ title: 'Not Found', description: 'Lecture not found or error loading data.', variant: 'destructive' });
         navigate('/dashboard');
         return;
       }
-
-      if (lectureData) {
-        setLecture(lectureData);
-      }
+      setLecture(lectureData);
 
     // Fetch slides
-    const { data: slidesData } = await supabase
-      .from('slides')
-      .select('id, slide_number, title, content_text, summary')
-      .eq('lecture_id', currentLectureId)
-      .order('slide_number', { ascending: true })
-      .limit(200);
+    const slidesFromService = await fetchSlides(currentLectureId);
+    const slidesData = slidesFromService.length > 0 ? slidesFromService : null;
 
     if (slidesData && slidesData.length > 0) {
       setSlides(slidesData);
@@ -198,10 +170,8 @@ export default function LectureView() {
     }
 
     // Fetch questions
-    const { data: questionsData } = await supabase
-      .from('quiz_questions')
-      .select('*')
-      .in('slide_id', slidesData?.map(s => s.id) || []);
+    const questionsFromService = await fetchQuizQuestions(currentLectureId);
+    const questionsData = questionsFromService.length > 0 ? questionsFromService : null;
 
     if (questionsData && questionsData.length > 0) {
       setQuestions(questionsData.map(q => ({
@@ -245,15 +215,10 @@ export default function LectureView() {
 
     // Fetch user progress
     if (user?.id) {
-      const { data: progressData } = await supabase
-        .from('student_progress')
-        .select('*')
-        .eq('lecture_id', currentLectureId)
-        .eq('user_id', user.id)
-        .single();
+      const progressData = await fetchLectureProgress(user.id, currentLectureId);
 
       if (progressData) {
-        if (progressData.last_slide_viewed !== null && progressData.last_slide_viewed >= 0) {
+        if (progressData.last_slide_viewed !== null && progressData.last_slide_viewed !== undefined && progressData.last_slide_viewed >= 0) {
           const maxSlides = slidesData && slidesData.length > 0 ? slidesData.length : 4;
           const lastIndex = Math.min(progressData.last_slide_viewed, maxSlides - 1);
           setCurrentSlideIndex(lastIndex);
@@ -267,8 +232,6 @@ export default function LectureView() {
           progressData.completed_slides.forEach((slideNum: number) => {
             const slideIndex = slideNum - 1;
             restoredAnswers[slideIndex] = -1;
-            
-            // Map slide number to actual question ID if possible
             const slideId = slidesData?.[slideIndex]?.id;
             const qId = questionsData?.find(q => q.slide_id === slideId)?.id;
             if (qId) answeredQuestionsRef.current.add(qId);
@@ -279,11 +242,9 @@ export default function LectureView() {
     }
 
     // Log lecture start event
-    await supabase.from('learning_events').insert({
-      user_id: user?.id,
-      event_type: 'lecture_start',
-      event_data: { lectureId: currentLectureId },
-    });
+    if (user?.id) {
+      await logLearningEvent(user.id, 'lecture_start', { lectureId: currentLectureId });
+    }
 
     setLoading(false);
     } catch (err) {
@@ -299,20 +260,7 @@ export default function LectureView() {
     if (!currentSlide || !user) return;
     setIsRegeneratingContent(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/ai/slides/${currentSlide.id}/regenerate-content`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ ai_model: aiModel }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Regeneration failed');
-      }
-      const json = await res.json();
+      const json = await apiClient.post<{ slide: Slide }>(`/api/ai/slides/${currentSlide.id}/regenerate-content`, { ai_model: aiModel });
       const updated = json.slide;
       // Patch the slide in local state so the UI updates immediately
       setSlides(prev => prev.map(s =>
@@ -335,18 +283,14 @@ export default function LectureView() {
   const saveProgress = async (newSlideIndex: number, newXp: number, newCorrectAnswers: number) => {
     if (!user || !lectureId || !lecture) return;
 
-    const totalQuestions = questions.length || slides.length; // Fallback only if no questions
+    const totalQuestions = questions.length || slides.length;
     const cappedCorrect = Math.min(newCorrectAnswers, totalQuestions);
 
-    await supabase.from('student_progress').upsert({
-      user_id: user.id,
-      lecture_id: lecture.id,
+    await upsertLectureProgress(user.id, lecture.id, {
       last_slide_viewed: newSlideIndex,
       xp_earned: Math.min(newXp, totalQuestions * 10),
       correct_answers: cappedCorrect,
       completed_slides: slides.slice(0, Math.max(0, newSlideIndex + 1)).map(s => s.slide_number),
-    }, {
-      onConflict: 'user_id,lecture_id',
     });
   };
 
@@ -383,17 +327,15 @@ export default function LectureView() {
     if (currentSlideIndex > 0) {
       const prevIndex = currentSlideIndex - 1;
       
-      // Log revision event
-      supabase.from('learning_events').insert({
-        user_id: user?.id,
-        event_type: 'slide_back_navigation',
-        event_data: {
+      // Fire-and-forget revision event
+      if (user) {
+        logLearningEvent(user.id, 'slide_back_navigation', {
           lectureId,
           fromSlideId: slides[currentSlideIndex]?.id,
           toSlideId: slides[prevIndex]?.id,
-          timestamp: new Date().toISOString()
-        }
-      });
+          timestamp: new Date().toISOString(),
+        }).catch(() => {});
+      }
 
       setCurrentSlideIndex(prevIndex);
       setShowQuiz(quizAnswers[prevIndex] !== undefined);
@@ -413,13 +355,10 @@ export default function LectureView() {
     // Record this selection for UI state (async update)
     setQuizAnswers(prev => ({ ...prev, [currentSlideIndex]: selectedIndex }));
 
-    // Log quiz attempt
     const timeToAnswer = Math.round((Date.now() - slideStartTime) / 1000);
 
-    await supabase.from('learning_events').insert({
-      user_id: user?.id,
-      event_type: 'quiz_attempt',
-      event_data: {
+    if (user) {
+      await logLearningEvent(user.id, 'quiz_attempt', {
         lectureId,
         slideId: currentSlide?.id,
         slideTitle: currentSlide?.title,
@@ -427,9 +366,9 @@ export default function LectureView() {
         correct: isCorrect,
         selectedAnswer: selectedIndex,
         time_to_answer_seconds: timeToAnswer,
-        timestamp: new Date().toISOString()
-      },
-    });
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     if (isCorrect) {
       const newXp = xpEarned + 10;
@@ -450,103 +389,42 @@ export default function LectureView() {
         p_correct: true,
       } as never);
 
-      // Check for level up
-      const oldLevel = profile?.current_level || 1;
-      const newTotalXp = (profile?.total_xp || 0) + 10;
-      const calculatedLevel = Math.floor(newTotalXp / 100) + 1;
-
-      if (calculatedLevel > oldLevel) {
+      // Check for level up using pure domain function
+      const { newLevel: calculatedLevel, leveledUp } = checkLevelUp(profile?.total_xp || 0, 10);
+      if (leveledUp && user) {
         setNewLevel(calculatedLevel);
         setShowLevelUp(true);
-        // Notification: level up
-        await supabase.from('notifications').insert({
-          user_id: user?.id,
-          title: `Level ${calculatedLevel}!`,
-          message: `You leveled up to Level ${calculatedLevel}. Keep going!`,
-          type: 'level_up',
-        });
+        await insertNotification(user.id, `Level ${calculatedLevel}!`, `You leveled up to Level ${calculatedLevel}. Keep going!`, 'level_up');
       }
-        // Badge: Level 5 Scholar
-        if (calculatedLevel >= 5) {
-          const { data: lvl5Badge } = await supabase
-            .from('achievements')
-            .select('id')
-            .eq('user_id', user?.id)
-            .eq('badge_name', 'Level 5 Scholar')
-            .single();
 
-          if (!lvl5Badge) {
-            await supabase.from('achievements').insert({
-              user_id: user?.id,
-              badge_name: 'Level 5 Scholar',
-              badge_description: 'Reached level 5!',
-              badge_icon: '⭐',
-            });
-            setBadgeInfo({
-              name: 'Level 5 Scholar',
-              description: 'Reached level 5!',
-              icon: '⭐',
-            });
-            setTimeout(() => setShowBadge(true), 500);
-          }
+      if (user) {
+        // Badge: Level 5 Scholar
+        if (calculatedLevel >= 5 && !(await checkAchievementExists(user.id, 'Level 5 Scholar'))) {
+          await awardAchievement(user.id, { name: 'Level 5 Scholar', description: 'Reached level 5!', icon: '⭐' });
+          setBadgeInfo({ name: 'Level 5 Scholar', description: 'Reached level 5!', icon: '⭐' });
+          setTimeout(() => setShowBadge(true), 500);
         }
 
         // Badge: Level 10 Expert
-        if (calculatedLevel >= 10) {
-          const { data: lvl10Badge } = await supabase
-            .from('achievements')
-            .select('id')
-            .eq('user_id', user?.id)
-            .eq('badge_name', 'Level 10 Expert')
-            .single();
-
-          if (!lvl10Badge) {
-            await supabase.from('achievements').insert({
-              user_id: user?.id,
-              badge_name: 'Level 10 Expert',
-              badge_description: 'Reached level 10!',
-              badge_icon: '🌟',
-            });
-            setBadgeInfo({
-              name: 'Level 10 Expert',
-              description: 'Reached level 10!',
-              icon: '🌟',
-            });
-            setTimeout(() => setShowBadge(true), 500);
-          }
+        if (calculatedLevel >= 10 && !(await checkAchievementExists(user.id, 'Level 10 Expert'))) {
+          await awardAchievement(user.id, { name: 'Level 10 Expert', description: 'Reached level 10!', icon: '🌟' });
+          setBadgeInfo({ name: 'Level 10 Expert', description: 'Reached level 10!', icon: '🌟' });
+          setTimeout(() => setShowBadge(true), 500);
         }
 
-      // Check for achievements
-      if (newStreak.data === 5 || newStreak.data === 10) {
-        const badgeName = newStreak.data === 5 ? '5 Streak Master' : '10 Streak Champion';
-        const { data: existingBadge } = await supabase
-          .from('achievements')
-          .select('id')
-          .eq('user_id', user?.id)
-          .eq('badge_name', badgeName)
-          .single();
-
-        if (!existingBadge) {
-          await supabase.from('achievements').insert({
-            user_id: user?.id,
-            badge_name: badgeName,
-            badge_description: `Achieved a streak of ${newStreak.data} correct answers!`,
-            badge_icon: '🔥',
-          });
-
-          setBadgeInfo({
-            name: badgeName,
-            description: `Achieved a streak of ${newStreak.data} correct answers!`,
-            icon: '🔥',
-          });
-          setTimeout(() => setShowBadge(true), 1000);
-          // Notification: streak badge
-          await supabase.from('notifications').insert({
-            user_id: user?.id,
-            title: badgeName,
-            message: `Achieved a streak of ${newStreak.data} correct answers!`,
-            type: 'streak',
-          });
+        // Streak badges
+        if (newStreak.data === 5 || newStreak.data === 10) {
+          const badgeName = newStreak.data === 5 ? '5 Streak Master' : '10 Streak Champion';
+          if (!(await checkAchievementExists(user.id, badgeName))) {
+            await awardAchievement(user.id, {
+              name: badgeName,
+              description: `Achieved a streak of ${newStreak.data} correct answers!`,
+              icon: '🔥',
+            });
+            setBadgeInfo({ name: badgeName, description: `Achieved a streak of ${newStreak.data} correct answers!`, icon: '🔥' });
+            setTimeout(() => setShowBadge(true), 1000);
+            await insertNotification(user.id, badgeName, `Achieved a streak of ${newStreak.data} correct answers!`, 'streak');
+          }
         }
       }
 
@@ -587,130 +465,56 @@ export default function LectureView() {
 
     const sessionDuration = Math.round((Date.now() - sessionStartRef.current) / 1000);
 
-    // Log completion
-    await supabase.from('learning_events').insert({
-      user_id: user?.id,
-      event_type: 'lecture_complete',
-      event_data: {
-        lectureId: lecture.id,
-        xpEarned: finalXp,
-        correctAnswers: finalCorrect,
-        total_duration_seconds: sessionDuration,
-        completed_at: new Date().toISOString()
-      },
+    if (!user) return;
+
+    await logLearningEvent(user.id, 'lecture_complete', {
+      lectureId: lecture.id,
+      xpEarned: finalXp,
+      correctAnswers: finalCorrect,
+      total_duration_seconds: sessionDuration,
+      completed_at: new Date().toISOString(),
     });
 
     const cappedXp = slides.length > 0 ? Math.min(finalXp, slides.length * 10) : finalXp;
     const cappedCorrect = slides.length > 0 ? Math.min(finalCorrect, slides.length) : finalCorrect;
 
-    // Update progress
-    await supabase.from('student_progress').upsert({
-      user_id: user?.id,
-      lecture_id: lecture.id,
+    await upsertLectureProgress(user.id, lecture.id, {
       xp_earned: cappedXp,
       completed_slides: slides.map((_, i) => i + 1),
       quiz_score: slides.length > 0 ? Math.round((cappedCorrect / slides.length) * 100) : 0,
       total_questions_answered: slides.length,
       correct_answers: cappedCorrect,
       completed_at: new Date().toISOString(),
-    }, {
-      onConflict: 'user_id,lecture_id',
     });
 
-    // Check for first completion achievement
-    const { data: firstQuizBadge } = await supabase
-      .from('achievements')
-      .select('id')
-      .eq('user_id', user?.id)
-      .eq('badge_name', 'First Quiz Completed')
-      .single();
-
-    if (!firstQuizBadge) {
-      await supabase.from('achievements').insert({
-        user_id: user?.id,
-        badge_name: 'First Quiz Completed',
-        badge_description: 'Completed your first lecture quiz!',
-        badge_icon: '🎯',
-      });
-
-      setBadgeInfo({
-        name: 'First Quiz Completed',
-        description: 'Completed your first lecture quiz!',
-        icon: '🎯',
-      });
+    // Badge: First Quiz Completed
+    if (!(await checkAchievementExists(user.id, 'First Quiz Completed'))) {
+      await awardAchievement(user.id, { name: 'First Quiz Completed', description: 'Completed your first lecture quiz!', icon: '🎯' });
+      setBadgeInfo({ name: 'First Quiz Completed', description: 'Completed your first lecture quiz!', icon: '🎯' });
       setShowBadge(true);
-      // Notification: first quiz badge
-      await (supabase as any).from('notifications').insert({
-        user_id: user?.id,
-        title: 'First Quiz Completed 🎯',
-        message: 'Completed your first lecture quiz!',
-        type: 'achievement',
-      });
+      await insertNotification(user.id, 'First Quiz Completed 🎯', 'Completed your first lecture quiz!', 'achievement');
     }
 
     // Badge: Perfect Score
     if (finalCorrect === slides.length && slides.length > 0) {
-      const { data: perfectScoreBadge } = await supabase
-        .from('achievements')
-        .select('id')
-        .eq('user_id', user?.id)
-        .eq('badge_name', 'Perfect Score')
-        .single();
-
-      if (!perfectScoreBadge) {
-        await supabase.from('achievements').insert({
-          user_id: user?.id,
-          badge_name: 'Perfect Score',
-          badge_description: 'Got 100% on a lecture quiz!',
-          badge_icon: '💯',
-        });
-
-        setBadgeInfo({
-          name: 'Perfect Score',
-          description: 'Got 100% on a lecture quiz!',
-          icon: '💯',
-        });
+      if (!(await checkAchievementExists(user.id, 'Perfect Score'))) {
+        await awardAchievement(user.id, { name: 'Perfect Score', description: 'Got 100% on a lecture quiz!', icon: '💯' });
+        setBadgeInfo({ name: 'Perfect Score', description: 'Got 100% on a lecture quiz!', icon: '💯' });
         setTimeout(() => setShowBadge(true), 1500);
       }
     }
 
-    // Badge: Bookworm (5 lectures) & Graduate (10 lectures)
-    const { count } = await supabase
-      .from('student_progress')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id);
-
-    if (count && (count >= 5 || count >= 10)) {
-      const badgesToCheck = [
-        { name: 'Bookworm', threshold: 5, description: 'Complete 5 lectures', icon: '📚' },
-        { name: 'Graduate', threshold: 10, description: 'Complete 10 lectures', icon: '🎓' }
-      ];
-
-      for (const badge of badgesToCheck) {
-        if (count >= badge.threshold) {
-          const { data: existingBadge } = await supabase
-            .from('achievements')
-            .select('id')
-            .eq('user_id', user?.id)
-            .eq('badge_name', badge.name)
-            .single();
-
-          if (!existingBadge) {
-            await supabase.from('achievements').insert({
-              user_id: user?.id,
-              badge_name: badge.name,
-              badge_description: badge.description,
-              badge_icon: badge.icon,
-            });
-
-            setBadgeInfo({
-              name: badge.name,
-              description: badge.description,
-              icon: badge.icon,
-            });
-            setTimeout(() => setShowBadge(true), 3000);
-          }
-        }
+    // Badges: Bookworm (5 lectures) & Graduate (10 lectures)
+    const count = await countCompletedLectures(user.id);
+    const milestoneBadges = [
+      { name: 'Bookworm', threshold: 5, description: 'Complete 5 lectures', icon: '📚' },
+      { name: 'Graduate', threshold: 10, description: 'Complete 10 lectures', icon: '🎓' },
+    ];
+    for (const badge of milestoneBadges) {
+      if (count >= badge.threshold && !(await checkAchievementExists(user.id, badge.name))) {
+        await awardAchievement(user.id, badge);
+        setBadgeInfo({ name: badge.name, description: badge.description, icon: badge.icon });
+        setTimeout(() => setShowBadge(true), 3000);
       }
     }
 
@@ -846,18 +650,14 @@ export default function LectureView() {
                       pageNumber={currentSlide.slide_number}
                       onConfidenceRate={async (rating) => {
                         if (!user || !currentSlide) return;
-                        await supabase.from('learning_events').insert({
-                          user_id: user.id,
-                          event_type: 'confidence_rating',
-                          event_data: {
-                            lectureId,
-                              slideId: currentSlide.id,
-                              slideTitle: currentSlide.title,
-                              rating,
-                              timestamp: new Date().toISOString(),
-                            },
-                          });
-                        }}
+                        await logLearningEvent(user.id, 'confidence_rating', {
+                          lectureId,
+                          slideId: currentSlide.id,
+                          slideTitle: currentSlide.title,
+                          rating,
+                          timestamp: new Date().toISOString(),
+                        });
+                      }}
                       mindMapData={mindMap.data ?? null}
                       currentSlideId={currentSlide.id}
                       onGenerateMindMap={() => {

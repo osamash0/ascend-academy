@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import { logLearningEvent } from '@/services/studentService';
 
 const authSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -85,13 +86,9 @@ export default function Auth() {
           try {
             const { data: { user: authUser } } = await supabase.auth.getUser();
             if (authUser) {
-              await supabase.from('learning_events').insert({
-                user_id: authUser.id,
-                event_type: 'login',
-                event_data: {
-                  timestamp: new Date().toISOString(),
-                  method: 'email_password'
-                }
+              await logLearningEvent(authUser.id, 'login', {
+                timestamp: new Date().toISOString(),
+                method: 'email_password',
               });
             }
           } catch (loginEventErr) {
