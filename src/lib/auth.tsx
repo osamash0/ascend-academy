@@ -5,11 +5,12 @@ import { AUTH_INIT_TIMEOUT_MS, AUTH_PROFILE_TIMEOUT_MS } from '@/lib/constants';
 
 type UserRole = 'student' | 'professor' | null;
 
-interface Profile {
+export interface Profile {
   id: string;
   user_id: string;
   email: string;
   full_name: string | null;
+  display_name: string | null;
   avatar_url: string | null;
   total_xp: number;
   current_level: number;
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string): Promise<boolean> => {
     const { data: profileData, error } = await supabase
       .from('profiles')
-      .select('id, user_id, email, full_name, avatar_url, total_xp, current_level, current_streak, best_streak')
+      .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak')
       .eq('user_id', userId)
       .single();
 

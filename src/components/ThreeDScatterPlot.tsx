@@ -75,8 +75,7 @@ function Axis({ start, end, label }: { start: [number, number, number], end: [nu
         position={end}
         fontSize={0.2}
         color="white"
-        opacity={0.4}
-        transparent
+        fillOpacity={0.4}
       >
         {label}
       </Text>
