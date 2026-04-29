@@ -50,6 +50,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Impressum = lazy(() => import("./pages/Impressum"));
 const Datenschutz = lazy(() => import("./pages/Datenschutz"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const Insights = lazy(() => import("./pages/Insights"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Loading Component
@@ -173,6 +174,16 @@ function AppRoutes() {
             <ProtectedRoute>
               <DashboardLayout>
                 <Settings />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/insights"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <DashboardLayout>
+                <Insights />
               </DashboardLayout>
             </ProtectedRoute>
           }

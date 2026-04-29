@@ -12,6 +12,7 @@ import {
   Zap,
   Star,
   Sparkles,
+  Brain,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ const studentNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Achievements', url: '/achievements', icon: Trophy },
   { title: 'Leaderboard', url: '/leaderboard', icon: Users },
+  { title: 'Learning Insights', url: '/insights', icon: Brain },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 

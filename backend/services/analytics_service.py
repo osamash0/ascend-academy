@@ -719,18 +719,45 @@ def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, 
     
     # Simple advice logic
     advice = ""
-    if peak >= 5 and peak < 12:
-        advice = "You're a morning lark! Your focus and accuracy are highest in the AM."
-    elif peak >= 12 and peak < 17:
-        advice = "Afternoon power-user! You handle complex topics well in the middle of the day."
-    elif peak >= 17 and peak < 22:
-        advice = "Evening focus! You seem to reach your flow state as the day winds down."
-    else:
-        advice = "Night owl detected! You show high cognitive clarity during late-night sessions."
+    pattern = "Calibrating"
+    if peak is not None:
+        if 5 <= peak < 12:
+            advice = "You're a morning lark! Your focus and accuracy are highest in the AM."
+            pattern = "Morning Peak"
+        elif 12 <= peak < 17:
+            advice = "Afternoon power-user! You handle complex topics well in the middle of the day."
+            pattern = "Afternoon Surge"
+        elif 17 <= peak < 22:
+            advice = "Evening focus! You seem to reach your flow state as the day winds down."
+            pattern = "Evening Flow"
+        else:
+            advice = "Night owl detected! You show high cognitive clarity during late-night sessions."
+            pattern = "Night Owl"
+
+    # For the frontend timeline, we want ALL 24 hours.
+    # Hours without data will have a baseline score.
+    full_day_stats = []
+    for h in range(24):
+        # Find if we have real data for this hour
+        existing = next((s for s in scores if s["hour"] == h), None)
+        if existing:
+            full_day_stats.append(existing)
+        else:
+            full_day_stats.append({
+                "hour": h,
+                "score": 0.1, # Baseline
+                "accuracy": 0,
+                "intensity": 0
+            })
+
+    # Sort full_day_stats by hour for the timeline
+    full_day_stats.sort(key=lambda x: x["hour"])
 
     return {
-        "suggested_hours": suggested,
+        "suggested_hours": full_day_stats,
         "peak_hour": peak,
         "message": advice,
-        "accuracy_at_peak": suggested[0]["accuracy"]
+        "accuracy_at_peak": suggested[0]["accuracy"] if suggested else 0,
+        "energy_pattern": pattern,
+        "circadian_score": int(suggested[0]["score"] * 100) if suggested else 0
     }

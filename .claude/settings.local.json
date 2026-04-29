@@ -8,7 +8,12 @@
       "Bash(git stash *)",
       "Bash(git fetch *)",
       "Bash(git merge *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(grep -rn \"fetch\\(\\\\`\\\\${API_BASE\\\\|fetch\\(\\\\`\\\\${import\\\\.meta\\\\.env\" src/pages/ src/components/ src/features/)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(grep -rn \"fetch\\(\\\\`\\\\${API_BASE\\\\|fetch\\(\\\\`\\\\${import\\\\.meta\" src/pages/ src/components/ src/features/)",
+      "Bash(git commit -m ' *)",
+      "Bash(rm -f /Users/abdullahabobaker/Desktop/ascend-academy/.git/index.lock)"
     ]
   }
 }
