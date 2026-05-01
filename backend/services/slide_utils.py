@@ -2,71 +2,69 @@ import fitz
 import re
 
 def extract_visual_title(page: fitz.Page) -> str:
-    """
-    Analyzes the visual layout of a PDF page to find the most likely title.
-    - Merges adjacent spans with similar font sizes.
-    - Prioritizes large, bold text at the top.
-    - Handles multi-line titles.
+    """Heuristic title extraction from PyMuPDF layout.
+
+    Strategy:
+    - Only look in the top 35% of the page (titles live near the top).
+    - Score by font size + bold + position.
+    - Only merge continuation lines that share the same font size (±1pt).
+    - Never merge more than 3 lines to avoid pulling in bullet points.
     """
     try:
         blocks = page.get_text("dict")["blocks"]
     except Exception:
         return ""
 
+    height = page.rect.height
     candidates = []
-    for b in blocks:
-        if "lines" not in b: continue
-        for l in b["lines"]:
-            for s in l["spans"]:
-                txt = s["text"].strip()
-                if len(txt) < 2 or txt.isdigit(): continue
-                
-                # Only consider text in the top 80%
-                y_pos = s["origin"][1]
-                if y_pos > (page.rect.height * 0.8): continue
 
-                # Score: Font size is king. 
-                # Position boost: text at the very top (y < 15% height) gets 1.5x
-                # Bold boost: 1.3x
-                is_bold = "bold" in s["font"].lower() or (s["flags"] & 16)
-                pos_boost = 1.5 if y_pos < (page.rect.height * 0.15) else 1.0
-                bold_boost = 1.3 if is_bold else 1.0
-                
-                score = s["size"] * pos_boost * bold_boost
-                
+    for b in blocks:
+        if "lines" not in b:
+            continue
+        for line in b["lines"]:
+            for s in line["spans"]:
+                txt = s["text"].strip()
+                # Skip very short, purely numeric, or bullet-like spans
+                if len(txt) < 3 or re.match(r'^[\d\s\.\-\•\·]+$', txt):
+                    continue
+
+                y_pos = s["origin"][1]
+                # Only the top 35% of the page
+                if y_pos > height * 0.35:
+                    continue
+
+                is_bold = "bold" in s["font"].lower() or bool(s["flags"] & 16)
+                # Stronger position boost for very top (< 15%)
+                pos_boost = 1.6 if y_pos < height * 0.15 else 1.2 if y_pos < height * 0.25 else 1.0
+                bold_boost = 1.25 if is_bold else 1.0
+
                 candidates.append({
                     "text": txt,
                     "size": s["size"],
-                    "score": score,
+                    "score": s["size"] * pos_boost * bold_boost,
                     "y": y_pos,
-                    "x": s["origin"][0]
                 })
-    
+
     if not candidates:
         return ""
-        
-    # Sort by score descending
+
     candidates.sort(key=lambda x: x["score"], reverse=True)
-    
-    # Pick the top candidate and see if we can find its continuation on the same/next line
     best = candidates[0]
+
+    # Merge only lines that are immediately below and share the same font size (±1pt)
     title_parts = [best["text"]]
-    
-    # Simple merger: find other candidates with similar score/y that are "near"
-    # Or just find the next line if it's right below and has similar size
+    last_y = best["y"]
     for c in candidates[1:]:
-        # If it's on a subsequent line (y is slightly larger) but very close
-        if 0 < (c["y"] - best["y"]) < (best["size"] * 1.5):
-            # And it has a decent size relative to best
-            if c["size"] > (best["size"] * 0.7):
-                title_parts.append(c["text"])
-                # Update best Y to follow the flow
-                best["y"] = c["y"]
+        if len(title_parts) >= 3:
+            break
+        same_size = abs(c["size"] - best["size"]) <= 1.0
+        next_line = 0 < (c["y"] - last_y) < (best["size"] * 1.6)
+        if same_size and next_line:
+            title_parts.append(c["text"])
+            last_y = c["y"]
 
     full_title = " ".join(title_parts)
-    
-    # Clean up
-    full_title = re.sub(r'^\d+[\s.]+', '', full_title) # "1. Intro" -> "Intro"
+    full_title = re.sub(r'^\d+[\s.\-]+', '', full_title)   # strip leading "1. "
     full_title = re.sub(r'\s+', ' ', full_title).strip(": ")
-    
-    return full_title if len(full_title) < 120 else full_title[:117] + "..."
+
+    return full_title[:120] if full_title else ""

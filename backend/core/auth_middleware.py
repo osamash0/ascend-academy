@@ -2,39 +2,50 @@
 JWT Authentication Middleware for FastAPI.
 Validates Supabase access tokens on protected routes.
 """
+import logging
+from typing import Any, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from backend.core.database import supabase
+from backend.core.database import supabase_admin
 from backend.services.cache import get_cached_token, store_cached_token
 
+logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Any:
     """
     Dependency that verifies the Supabase JWT from the Authorization header.
     Returns the authenticated user object or raises 401.
-    Validated tokens are cached for 45 seconds to avoid redundant Supabase round-trips.
+    Validated tokens are cached to avoid redundant Supabase round-trips.
     """
-    token = credentials.credentials
+    token: str = credentials.credentials
 
-    cached = get_cached_token(token)
-    if cached:
-        return cached
+    # 1. Check local cache first
+    cached_user = get_cached_token(token)
+    if cached_user:
+        return cached_user
 
+    # 2. Verify with Supabase Auth
     try:
-        user_response = supabase.auth.get_user(token)
-        if user_response and user_response.user:
-            store_cached_token(token, user_response.user)
-            return user_response.user
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
-        )
+        # Use supabase_admin for user lookup to ensure consistency, 
+        # but the token itself proves user ownership.
+        user_response = supabase_admin.auth.get_user(token)
+        
+        if not user_response or not user_response.user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token.",
+            )
+            
+        user = user_response.user
+        store_cached_token(token, user)
+        return user
+        
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Authentication failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
+            detail="Authentication system error.",
         )

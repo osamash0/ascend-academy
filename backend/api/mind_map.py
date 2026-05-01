@@ -2,36 +2,33 @@
 Mind Map API — generates and caches per-lecture knowledge tree structures.
 """
 import logging
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends
-
-logger = logging.getLogger(__name__)
-from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from backend.core.auth_middleware import verify_token
-from backend.core.database import supabase, url, anon_key as key
-from backend.services.ai_service import generate_mind_map
-from supabase import create_client
-import os
+from supabase import create_client, Client
 
+from backend.core.auth_middleware import verify_token
+from backend.core.database import SUPABASE_URL, ANON_KEY
+from backend.services.ai_service import generate_mind_map
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mind-map", tags=["mind-map"])
 security = HTTPBearer()
 
-
-def get_auth_client(token: str):
-    client = create_client(url, key)
+def get_auth_client(token: str) -> Client:
+    """Creates a Supabase client authenticated with the user's JWT."""
+    client: Client = create_client(SUPABASE_URL, ANON_KEY)
     client.postgrest.auth(token)
     return client
-
 
 class GenerateRequest(BaseModel):
     ai_model: str = "groq"
 
-
 @router.get("/{lecture_id}")
 async def get_mind_map(
     lecture_id: str,
-    user=Depends(verify_token),
+    user: Any = Depends(verify_token),
     creds: HTTPAuthorizationCredentials = Depends(security)
 ):
     """Return cached mind map tree_data, or null if not yet generated."""
@@ -47,22 +44,21 @@ async def get_mind_map(
             return {"success": True, "data": res.data["tree_data"], "generated_at": res.data["generated_at"]}
         return {"success": True, "data": None}
     except Exception as e:
-        logger.error("Mind map GET error: %s", e, exc_info=True)
+        logger.error("Mind map GET error: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch mind map.")
-
 
 @router.post("/{lecture_id}/generate")
 async def generate_lecture_mind_map(
     lecture_id: str,
     body: GenerateRequest,
-    user=Depends(verify_token),
+    user: Any = Depends(verify_token),
     creds: HTTPAuthorizationCredentials = Depends(security)
 ):
     """AI-generate (or regenerate) the mind map for a lecture and cache it."""
     try:
         client = get_auth_client(creds.credentials)
 
-        # Fetch lecture + slides
+        # 1. Fetch lecture + slides
         lecture_res = client.table("lectures") \
             .select("id, title") \
             .eq("id", lecture_id) \
@@ -82,15 +78,14 @@ async def generate_lecture_mind_map(
         slides = slides_res.data or []
         lecture_title = lecture_res.data["title"]
 
-        # Run generation in thread pool (CPU-bound AI call)
-        tree_data = await run_in_threadpool(
-            generate_mind_map,
+        # 2. Run generation (now async)
+        tree_data = await generate_mind_map(
             lecture_title,
             slides,
             body.ai_model
         )
 
-        # Upsert into lecture_mind_maps
+        # 3. Upsert results
         client.table("lecture_mind_maps").upsert(
             {
                 "lecture_id": lecture_id,
@@ -105,8 +100,5 @@ async def generate_lecture_mind_map(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Mind map generate error: %s", e, exc_info=True)
-        error_msg = str(e)
-        if "relation \"lecture_mind_maps\" does not exist" in error_msg:
-            raise HTTPException(status_code=400, detail="Database table 'lecture_mind_maps' not found. Please run the SQL migration.")
-        raise HTTPException(status_code=500, detail=f"Mind map generation failed: {error_msg}")
+        logger.error("Mind map generation failed: %s", e)
+        raise HTTPException(status_code=500, detail="Mind map generation failed.")

@@ -1,44 +1,42 @@
-from fastapi import APIRouter, HTTPException, Depends
 import logging
-
-logger = logging.getLogger(__name__)
-from fastapi.responses import StreamingResponse
-from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
-from typing import Annotated, Literal, Optional, List, Dict, Any
-from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech, generate_metric_feedback, analyze_slide_vision, generate_slide_title, enhance_slide_content
-from backend.services.file_parse_service import _page_to_base64, _extract_text_page, _build_slide_from_vision
-from backend.core.database import supabase as _db, url as _url, anon_key as _key
 import io
 import urllib.request
-from backend.services.content_filter import is_metadata_slide
-from backend.core.auth_middleware import verify_token
-from supabase import create_client as _create_client
+import asyncio
+from typing import Annotated, Literal, Optional, List, Dict, Any
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from supabase import create_client, Client
 
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
+from backend.core.auth_middleware import verify_token
+from backend.services.ai_service import (
+    generate_summary, generate_quiz, generate_analytics_insights, 
+    chat_with_lecture, generate_speech, generate_metric_feedback, 
+    analyze_slide_vision, generate_slide_title, enhance_slide_content
+)
+from backend.services.content_filter import is_metadata_slide
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 _AiModel = Annotated[
-    Literal["groq", "gemini-1.5-flash", "llama3"],
+    Literal["groq", "gemini-2.0-flash", "llama3", "cerebras"],
     Field("groq", description="Which LLM backend to use"),
 ]
 
+# --- Pydantic Models ---
 
 class SlideTextRequest(BaseModel):
     slide_text: str = Field(..., min_length=1, max_length=10_000)
     ai_model: _AiModel = "groq"
-
 
 class AnalyticsStatsRequest(BaseModel):
     total_students: int = Field(0, ge=0)
     average_score: float = Field(0, ge=0, le=100)
     total_attempts: int = Field(0, ge=0)
     total_correct: int = Field(0, ge=0)
-    hard_slides: Optional[str] = None
-    engaging_slides: Optional[str] = None
-    weekly_trend: Optional[str] = None
-    confidence_summary: Optional[str] = None
     ai_model: _AiModel = "groq"
-
 
 class MetricInsightRequest(BaseModel):
     metric_name: str
@@ -46,20 +44,15 @@ class MetricInsightRequest(BaseModel):
     context_stats: Dict[str, Any]
     ai_model: _AiModel = "groq"
 
-
 class ChatRequest(BaseModel):
     slide_text: str = Field(..., min_length=0, max_length=10_000)
     user_message: str = Field(..., min_length=1, max_length=2_000)
     chat_history: Optional[List[Dict[str, Any]]] = None
     ai_model: _AiModel = "groq"
 
-
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5_000)
     voice: Optional[str] = "en-US-AvaNeural"
-
-
-# ── Response models ──────────────────────────────────────────────────────────
 
 class SummaryResponse(BaseModel):
     summary: str
@@ -76,87 +69,78 @@ class InsightsResponse(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
 
-
-# ── Endpoints ────────────────────────────────────────────────────────────────
+# --- Endpoints ---
 
 @router.post("/generate-summary", response_model=SummaryResponse)
-def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+async def generate_summary_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
-    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
-    if filter_result["is_metadata"]:
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model)
+    if filter_result.get("is_metadata"):
         return SummaryResponse(summary="This slide contains administrative information and is not suitable for summarization.")
 
     try:
-        summary = generate_summary(body.slide_text, ai_model=body.ai_model)
+        summary = await generate_summary(body.slide_text, ai_model=body.ai_model)
         return SummaryResponse(summary=summary)
     except Exception as e:
-        logger.error("AI summary generation failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="AI summary generation failed. Please try again.")
-
+        logger.error("AI summary failed: %s", e)
+        raise HTTPException(status_code=500, detail="AI summary generation failed.")
 
 @router.post("/generate-quiz", response_model=QuizResponse)
-def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+async def generate_quiz_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
-    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
-    if filter_result["is_metadata"]:
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model)
+    if filter_result.get("is_metadata"):
         return QuizResponse(
-            question="This slide contains administrative information and is not suitable for quiz generation.",
+            question="This slide contains administrative information.",
             options=["N/A", "N/A", "N/A", "N/A"],
-            correctAnswer=0,
+            correctAnswer=0
         )
 
     try:
-        quiz = generate_quiz(body.slide_text, ai_model=body.ai_model)
+        quiz = await generate_quiz(body.slide_text, ai_model=body.ai_model)
+        # Ensure correct return format
+        if isinstance(quiz, list) and quiz:
+            quiz = quiz[0]
         return QuizResponse(**quiz)
     except Exception as e:
-        logger.error("AI quiz generation failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="AI quiz generation failed. Please try again.")
-
+        logger.error("AI quiz failed: %s", e)
+        raise HTTPException(status_code=500, detail="AI quiz generation failed.")
 
 @router.post("/suggest-title")
-def suggest_title_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
-    if not body.slide_text.strip():
-        raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
+async def suggest_title_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
     try:
-        title = generate_slide_title(body.slide_text, ai_model=body.ai_model)
+        title = await generate_slide_title(body.slide_text)
         return {"title": title}
     except Exception as e:
-        logger.error("AI title suggestion failed: %s", e, exc_info=True)
+        logger.error("AI title failed: %s", e)
         raise HTTPException(status_code=500, detail="AI title suggestion failed.")
 
-
 @router.post("/suggest-content")
-def suggest_content_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
-    if not body.slide_text.strip():
-        raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
+async def suggest_content_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
     try:
-        enhanced = enhance_slide_content(body.slide_text, ai_model=body.ai_model)
-        return {"content": enhanced}
+        enhanced = await enhance_slide_content(body.slide_text, ai_model=body.ai_model)
+        return {"content": enhanced.get("content", body.slide_text)}
     except Exception as e:
-        logger.error("AI content enhancement failed: %s", e, exc_info=True)
+        logger.error("AI content enhancement failed: %s", e)
         raise HTTPException(status_code=500, detail="AI content enhancement failed.")
 
-
 @router.post("/analytics-insights", response_model=InsightsResponse)
-def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify_token)):
+async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user: Any = Depends(verify_token)):
     try:
-        data = body.dict()
-        model_choice = data.pop("ai_model", "groq")
-        result = generate_analytics_insights(data, ai_model=model_choice)
+        result = await generate_analytics_insights(body.dict(), ai_model=body.ai_model)
         return InsightsResponse(**result)
     except Exception as e:
-        logger.error("AI insights generation failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="AI insights generation failed. Please try again.")
-
+        logger.error("AI insights failed: %s", e)
+        raise HTTPException(status_code=500, detail="AI insights generation failed.")
 
 @router.post("/metric-feedback")
-def metric_feedback_endpoint(body: MetricInsightRequest, user=Depends(verify_token)):
+async def metric_feedback_endpoint(body: MetricInsightRequest, user: Any = Depends(verify_token)):
     try:
-        feedback = generate_metric_feedback(
+        feedback = await generate_metric_feedback(
             metric_name=body.metric_name,
             metric_value=body.metric_value,
             context_stats=body.context_stats,
@@ -164,14 +148,13 @@ def metric_feedback_endpoint(body: MetricInsightRequest, user=Depends(verify_tok
         )
         return {"feedback": feedback}
     except Exception as e:
-        logger.error("AI metric feedback failed: %s", e, exc_info=True)
+        logger.error("AI metric feedback failed: %s", e)
         raise HTTPException(status_code=500, detail="AI metric feedback failed.")
 
-
 @router.post("/chat", response_model=ChatResponse)
-def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
+async def chat_with_tutor_endpoint(body: ChatRequest, user: Any = Depends(verify_token)):
     try:
-        reply = chat_with_lecture(
+        reply = await chat_with_lecture(
             slide_text=body.slide_text,
             user_message=body.user_message,
             chat_history=body.chat_history,
@@ -179,40 +162,35 @@ def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
         )
         return ChatResponse(reply=reply)
     except Exception as e:
-        logger.error("Endpoint error: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="AI tutor failed to respond. Please try again.")
-
+        logger.error("AI tutor failed: %s", e)
+        raise HTTPException(status_code=500, detail="AI tutor failed to respond.")
 
 @router.post("/tts")
-async def text_to_speech_endpoint(body: TTSRequest, user=Depends(verify_token)):
+async def text_to_speech_endpoint(body: TTSRequest, user: Any = Depends(verify_token)):
     try:
         audio_content = await generate_speech(body.text, voice=body.voice)
         return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
     except Exception as e:
-        logger.error("Endpoint error: %s", e, exc_info=True)
+        logger.error("TTS failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to generate AI voice.")
 
-
-# ── Slide content regeneration ────────────────────────────────────────────────
+# --- Single Slide Regeneration ---
 
 class RegenerateSlideRequest(BaseModel):
     ai_model: _AiModel = "groq"
-
 
 @router.post("/slides/{slide_id}/regenerate-content")
 async def regenerate_slide_content(
     slide_id: str,
     body: RegenerateSlideRequest,
-    user=Depends(verify_token),
+    user: Any = Depends(verify_token),
 ):
-    """
-    Re-analyze a single slide using the vision pipeline and update the database.
-    Only the professor who owns the lecture may call this.
-    """
-    client = _create_client(_url, _key)
+    """Re-analyzes a single slide and updates the database."""
+    # Use user-authenticated client for RLS check
+    client: Client = create_client(SUPABASE_URL, ANON_KEY)
     client.postgrest.auth(user["token"])
 
-    # Fetch slide + lecture in one query
+    # 1. Fetch slide + lecture
     res = client.table("slides") \
         .select("slide_number, lecture_id, lectures(pdf_url, professor_id)") \
         .eq("id", slide_id) \
@@ -223,59 +201,62 @@ async def regenerate_slide_content(
         raise HTTPException(status_code=404, detail="Slide not found.")
 
     lecture_info = res.data.get("lectures", {}) or {}
-    professor_id = lecture_info.get("professor_id")
+    if lecture_info.get("professor_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+    
     pdf_url = lecture_info.get("pdf_url")
-
-    if professor_id != user["id"]:
-        raise HTTPException(status_code=403, detail="Only the lecture's professor can regenerate slide content.")
     if not pdf_url:
-        raise HTTPException(status_code=400, detail="No PDF attached to this lecture.")
+        raise HTTPException(status_code=400, detail="No PDF attached.")
 
-    slide_number: int = res.data["slide_number"]
+    slide_num: int = res.data["slide_number"]
 
-    # Download PDF from Supabase Storage public URL
+    # 2. Download PDF
     try:
-        with urllib.request.urlopen(pdf_url) as resp:
-            pdf_bytes = resp.read()
+        def _download():
+            with urllib.request.urlopen(pdf_url) as resp:
+                return resp.read()
+        pdf_bytes = await asyncio.to_thread(_download)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not download lecture PDF: {e}")
+        logger.error("PDF download failed: %s", e)
+        raise HTTPException(status_code=502, detail="Could not download PDF.")
 
-    # Convert page to image + extract text (blocking — run in thread)
-    b64 = await run_in_threadpool(_page_to_base64, pdf_bytes, slide_number)
-    raw_text = await run_in_threadpool(_extract_text_page, pdf_bytes, slide_number - 1)
+    # 3. Analyze Slide (Vision)
+    from backend.services.file_parse_service import _render_page_to_jpeg, safe_truncate_text
+    import fitz
 
-    if not b64:
-        raise HTTPException(status_code=500, detail="Could not render slide as image. Ensure poppler is installed.")
+    def _extract():
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            page = doc[slide_num - 1]
+            img = _render_page_to_jpeg(page)
+            text = page.get_text("text")
+            return img, text
 
-    # Vision analysis
-    analysis = await run_in_threadpool(analyze_slide_vision, b64, raw_text, body.ai_model)
-    slide_data = _build_slide_from_vision(analysis, slide_number, raw_text)
-
-    # Update slide record
+    img_bytes, raw_text = await asyncio.to_thread(_extract)
+    
+    # Run vision analysis
+    import base64
+    b64 = base64.b64encode(img_bytes).decode("utf-8")
+    analysis = await analyze_slide_vision(b64, raw_text, ai_model=body.ai_model)
+    
+    # 4. Update Database
+    from backend.services.ai.vision import format_slide_content
+    content = format_slide_content(analysis.get("content_extraction", {}))
+    
     client.table("slides").update({
-        "title": slide_data["title"],
-        "content_text": slide_data["content"],
-        "summary": slide_data["summary"],
+        "title": analysis.get("metadata", {}).get("lecture_title") or f"Slide {slide_num}",
+        "content_text": content,
+        "summary": analysis.get("content_extraction", {}).get("summary", ""),
     }).eq("id", slide_id).execute()
 
-    # Replace quiz questions
-    client.table("quiz_questions").delete().eq("slide_id", slide_id).execute()
-    for q in slide_data.get("questions", []):
-        if q.get("question", "").strip():
-            client.table("quiz_questions").insert({
-                "slide_id": slide_id,
-                "question_text": q["question"],
-                "options": q["options"],
-                "correct_answer": q["correctAnswer"],
-            }).execute()
+    # Replace quiz
+    quiz = analysis.get("quiz")
+    if quiz:
+        client.table("quiz_questions").delete().eq("slide_id", slide_id).execute()
+        client.table("quiz_questions").insert({
+            "slide_id": slide_id,
+            "question_text": quiz["question"],
+            "options": quiz["options"],
+            "correct_answer": quiz["correctAnswer"],
+        }).execute()
 
-    return {
-        "success": True,
-        "slide": {
-            "title": slide_data["title"],
-            "content_text": slide_data["content"],
-            "summary": slide_data["summary"],
-            "slide_type": slide_data.get("slide_type", "content_slide"),
-            "questions": slide_data.get("questions", []),
-        },
-    }
+    return {"success": True, "analysis": analysis}

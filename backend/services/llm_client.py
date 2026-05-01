@@ -26,8 +26,8 @@ def _is_retryable(exc: Exception) -> bool:
 
 @retry(
     retry=retry_if_exception_type(LLMRateLimitError),
-    stop=stop_after_attempt(5),
-    wait=wait_exponential(multiplier=2, min=4, max=30),
+    stop=stop_after_attempt(8),
+    wait=wait_exponential(multiplier=2, min=4, max=60),
     reraise=True,
 )
 async def _call_with_retry(fn):

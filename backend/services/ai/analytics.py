@@ -1,26 +1,47 @@
 import logging
-import json
-from typing import Any
-from .orchestrator import _llm_generate_text, parse_json_response, gemini_client, GEMINI_MODEL
+from typing import Any, Dict, List, Union
+from .orchestrator import generate_text, parse_json_response
 
 logger = logging.getLogger(__name__)
 
-def generate_analytics_insights(stats: dict, ai_model: str = "llama3") -> dict:
-    prompt = f"""You are an expert educational analyst. Summarize these stats for a professor and give 3 suggestions:
+async def generate_analytics_insights(stats: Dict[str, Any], ai_model: str = "llama3") -> Dict[str, Any]:
+    """
+    Analyzes lecture performance statistics and generates actionable insights for professors.
+    """
+    prompt = f"""You are an expert educational data analyst. 
+Summarize these lecture statistics for a professor and provide 3 specific pedagogical suggestions for improvement.
 Stats: {stats}
-Return ONLY JSON: {{"summary": "...", "suggestions": ["...", "...", "..."]}}"""
+Return ONLY valid JSON: {{"summary": "...", "suggestions": ["...", "...", "..."]}}"""
 
     try:
-        raw = _llm_generate_text(prompt, ai_model)
+        raw = await generate_text(prompt, ai_model)
         return parse_json_response(raw)
     except Exception as e:
-        logger.error("Analytics insights failed: %s", e)
-        return {"summary": "Could not generate insights.", "suggestions": ["Review low-scoring slides.", "Engage inactive students."]}
+        logger.error("AI Analytics insights failed: %s", e)
+        return {
+            "summary": "Could not generate automated insights at this time.", 
+            "suggestions": [
+                "Focus on slides with high dropout rates.", 
+                "Review student feedback on quiz clarity.", 
+                "Compare these metrics with historical averages."
+            ]
+        }
 
 
-def generate_metric_feedback(metric_name: str, metric_value: Any, context_stats: dict, ai_model: str = "llama3") -> str:
-    prompt = f"""As a coach, give 1-2 sentence feedback on {metric_name} ({metric_value}). Context: {context_stats}"""
+async def generate_metric_feedback(
+    metric_name: str, 
+    metric_value: Union[int, float, str], 
+    context_stats: Dict[str, Any], 
+    ai_model: str = "llama3"
+) -> str:
+    """
+    Generates personalized, brief feedback for a specific performance metric.
+    """
+    prompt = f"""As an educational coach, provide a brief (1-2 sentences) feedback on the metric '{metric_name}' which is currently '{metric_value}'. 
+Use the following context to make it relevant: {context_stats}"""
+    
     try:
-        return _llm_generate_text(prompt, ai_model)
-    except Exception:
-        return f"Metric {metric_name} is at {metric_value}."
+        return await generate_text(prompt, ai_model)
+    except Exception as e:
+        logger.error("Metric feedback generation failed: %s", e)
+        return f"The {metric_name} metric is currently {metric_value}."

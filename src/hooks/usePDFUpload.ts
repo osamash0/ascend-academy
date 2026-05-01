@@ -25,6 +25,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
   const [uploadStatus, setUploadStatus] = useState('');
   const [processedSlides, setProcessedSlides] = useState<SlideData[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [parserUsed, setParserUsed] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFileUpload = useCallback(
@@ -47,6 +48,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
       setUploadTotal(0);
       setUploadStatus('Uploading PDF...');
       setProcessedSlides([]);
+      setParserUsed(null);
 
       const formData = new FormData();
       formData.append('file', file);
@@ -84,7 +86,9 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
             if (!line.startsWith('data: ')) continue;
             const data = JSON.parse(line.replace('data: ', ''));
 
-            if (data.type === 'progress') {
+            if (data.type === 'info') {
+              setParserUsed(data.parser);
+            } else if (data.type === 'progress') {
               const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
               setUploadProgress(pct);
               if (data.total > 0) setUploadTotal(data.total);
@@ -143,6 +147,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     setUploadProgress(0);
     setUploadStatus('');
     setProcessedSlides([]);
+    setParserUsed(null);
   }, []);
 
   return {
@@ -153,6 +158,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     uploadStatus,
     processedSlides,
     pdfFile,
+    parserUsed,
     handleFileUpload,
     closeUploadOverlay,
   };

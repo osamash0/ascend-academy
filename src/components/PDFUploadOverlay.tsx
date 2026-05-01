@@ -1,12 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  BrainCircuit, 
-  CheckCircle2, 
-  Loader2, 
-  Sparkles, 
+import {
+  BrainCircuit,
+  CheckCircle2,
+  Loader2,
+  Sparkles,
   FileText,
-  PartyPopper
+  PartyPopper,
+  Cpu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +17,7 @@ interface PDFUploadOverlayProps {
   uploadTotal: number;
   uploadStatus: string;
   processedSlides: Array<{ title?: string }>;
+  parserUsed?: string | null;
   onClose?: () => void;
 }
 
@@ -25,6 +27,7 @@ export const PDFUploadOverlay: React.FC<PDFUploadOverlayProps> = ({
   uploadTotal,
   uploadStatus,
   processedSlides,
+  parserUsed,
   onClose
 }) => {
   const slideListRef = useRef<HTMLDivElement>(null);
@@ -131,6 +134,44 @@ export const PDFUploadOverlay: React.FC<PDFUploadOverlayProps> = ({
                   </div>
                 ))}
               </div>
+
+              {/* Parser indicator */}
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center justify-between px-4 py-3 rounded-2xl bg-muted/40 border border-border"
+              >
+                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                  <Cpu className="w-3.5 h-3.5" />
+                  Extraction engine
+                </div>
+                {parserUsed ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border",
+                      parserUsed === 'opendataloader-pdf'
+                        ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-700 dark:text-indigo-300"
+                        : "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-300"
+                    )}
+                  >
+                    <span className={cn(
+                      "w-2 h-2 rounded-full",
+                      parserUsed === 'opendataloader-pdf'
+                        ? "bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.8)]"
+                        : "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]"
+                    )} />
+                    {parserUsed === 'opendataloader-pdf' ? 'OpenDataLoader PDF' : 'PyMuPDF (fallback)'}
+                  </motion.div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Detecting…
+                  </div>
+                )}
+              </motion.div>
 
               {/* Progress bar */}
               <div className="space-y-2">

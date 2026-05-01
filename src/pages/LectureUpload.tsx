@@ -311,7 +311,7 @@ export default function LectureUpload() {
   const {
     isUploading, setIsUploading,
     uploadProgress, uploadTotal, uploadStatus,
-    processedSlides, pdfFile,
+    processedSlides, pdfFile, parserUsed,
     handleFileUpload,
     closeUploadOverlay,
   } = usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle });
@@ -477,6 +477,7 @@ export default function LectureUpload() {
           uploadTotal={uploadTotal}
           uploadStatus={uploadStatus}
           processedSlides={processedSlides}
+          parserUsed={parserUsed}
           onClose={closeUploadOverlay}
         />
       </div>
@@ -1157,6 +1158,7 @@ export default function LectureUpload() {
         uploadTotal={uploadTotal}
         uploadStatus={uploadStatus}
         processedSlides={processedSlides}
+        parserUsed={parserUsed}
         onClose={closeUploadOverlay}
       />
     </div>

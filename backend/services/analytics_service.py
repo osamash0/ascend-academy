@@ -1,16 +1,13 @@
-"""
-Analytics Service - Aggregates learning analytics data
-"""
-from backend.core.database import supabase, url, anon_key, service_role_key
-from supabase import create_client
-import hashlib
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
+from backend.services.utils.analytics_utils import calculate_student_typology, generate_anon_name
+from supabase import create_client, Client
+from functools import lru_cache
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
-from functools import lru_cache
 
-def _fetch_all(query, limit: int = 10000):
+def _fetch_all(query: Any, limit: int = 10000) -> List[Dict[str, Any]]:
     """Helper to fetch all records from a Supabase query using pagination."""
-    all_data = []
+    all_data: List[Dict[str, Any]] = []
     chunk_size = 1000
     for offset in range(0, limit, chunk_size):
         res = query.range(offset, offset + chunk_size - 1).execute()
@@ -22,35 +19,15 @@ def _fetch_all(query, limit: int = 10000):
     return all_data
 
 
-def get_auth_client(token: str):
+def get_auth_client(token: Optional[str]) -> Client:
     """Create a Supabase client authenticated with the professor's JWT.
-    Enforces RLS by using the anon_key instead of the service_role_key."""
+    Enforces RLS by using the ANON_KEY instead of the service_role_key."""
     if not token:
-        return supabase
-    # We MUST use the anon_key (not service_role_key) for the JWT to be effective for RLS
-    client = create_client(url, anon_key)
+        return supabase_admin
+    # We MUST use the ANON_KEY for the JWT to be effective for RLS
+    client: Client = create_client(SUPABASE_URL, ANON_KEY)
     client.postgrest.auth(token)
     return client
-
-
-def calculate_student_typology(prog_pct: int, score: int, ai_queries: int, revisions: int) -> str:
-    """Centralized logic to classify student behavior based on engagement and performance."""
-    if prog_pct < 50:
-        return "Highly Confused (Seeking Help)" if ai_queries > 3 else "Disengaged (At Risk)"
-    if score >= 80:
-        return "The Reviser (High Effort)" if revisions > 3 else "Natural Comprehension"
-    if score < 60:
-        return "Struggling (Critical)"
-    return "Standard"
-
-
-def generate_anon_name(user_id: str) -> str:
-    """Generate a creative, deterministic anonymous name for a student."""
-    h = hashlib.md5(str(user_id).encode()).hexdigest()
-    themes = ["Nexus", "Quantum", "Neural", "Prism", "Cortex", "Vector", "Logic", "Pulse"]
-    theme = themes[int(h[:2], 16) % len(themes)]
-    hex_id = h[-4:].upper()
-    return f"{theme}-{hex_id}"
 
 
 def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:

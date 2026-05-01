@@ -3,27 +3,33 @@ import logging
 import json
 import re
 import asyncio
-from typing import Any, Optional
+from typing import Any, Optional, Dict, List, Tuple, Union
 from pathlib import Path
-from pydantic import BaseModel
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-# Load environment
-_root_env = Path(__file__).resolve().parent.parent.parent.parent / ".env"
-_backend_env = Path(__file__).resolve().parent.parent.parent / ".env"
-if _root_env.exists(): load_dotenv(dotenv_path=_root_env, override=True)
-if _backend_env.exists(): load_dotenv(dotenv_path=_backend_env, override=True)
+# Load environment variables
+def _init_env():
+    _root_env = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+    _backend_env = Path(__file__).resolve().parent.parent.parent / ".env"
+    if _root_env.exists(): load_dotenv(dotenv_path=_root_env, override=True)
+    if _backend_env.exists(): load_dotenv(dotenv_path=_backend_env, override=True)
 
+_init_env()
+
+# Model Constants
 OLLAMA_MODEL = "llama3"
-GEMINI_MODEL = "gemini-1.5-flash"
-GROQ_MODEL = "llama-3.1-8b-instant"
+GEMINI_MODEL = "gemini-2.0-flash"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
 CEREBRAS_MODEL = "llama-3.3-70b"
+
+# Feature Flags & Metadata
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
 
-# Clients
+# --- LLM Clients Initialization ---
+
 try:
     import ollama
 except ImportError:
@@ -31,8 +37,8 @@ except ImportError:
 
 try:
     from groq import Groq
-    _key = os.environ.get("GROQ_API_KEY")
-    groq_client = Groq(api_key=_key, max_retries=0) if (_key and _key != "your_groq_api_key_here") else None
+    _g_key = os.environ.get("GROQ_API_KEY")
+    groq_client = Groq(api_key=_g_key, max_retries=0) if (_g_key and len(_g_key) > 20) else None
 except Exception:
     groq_client = None
 
@@ -45,165 +51,166 @@ except Exception:
 
 try:
     from google import genai
-    from google.genai import types
-    _api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    gemini_client = genai.Client(api_key=_api_key, http_options={'api_version': 'v1'}) if _api_key else None
+    _gem_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    gemini_client = genai.Client(api_key=_gem_key, http_options={'api_version': 'v1'}) if _gem_key else None
 except Exception:
-    genai = None
     gemini_client = None
 
-# Truncation
-try:
-    import tiktoken as _tiktoken
-    _enc = _tiktoken.get_encoding("cl100k_base")
-    MAX_TEXT_TOKENS_PER_SLIDE = 800
+# --- Utility Functions ---
 
-    def safe_truncate_text(text: str) -> tuple[str, int]:
+def parse_json_response(raw: str) -> Any:
+    """
+    Robustly extracts and parses JSON from an LLM response string.
+    Handles markdown fences and non-printable control characters.
+    """
+    raw = raw.strip()
+    match = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
+    if match:
+        raw = match.group(1).strip()
+    
+    raw = re.sub(r'[\x00-\x1F\x7F]', '', raw)
+    
+    match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", raw)
+    if not match:
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+            
+    try:
+        return json.loads(match.group(1))
+    except json.JSONDecodeError as e:
+        logger.warning("JSON parsing failed: %s. Raw: %s", e, raw[:100])
+        return {}
+
+# --- Truncation Logic ---
+
+try:
+    import tiktoken
+    _enc = tiktoken.get_encoding("cl100k_base")
+    MAX_TEXT_TOKENS = 800
+
+    def safe_truncate_text(text: str) -> Tuple[str, int]:
+        """Truncates text to fit within token limits using tiktoken."""
         tokens = _enc.encode(text)
-        orig = len(tokens)
-        if orig > MAX_TEXT_TOKENS_PER_SLIDE:
-            text = _enc.decode(tokens[:MAX_TEXT_TOKENS_PER_SLIDE]).strip() + "\n[content truncated]"
-        return text, min(orig, MAX_TEXT_TOKENS_PER_SLIDE)
+        count = len(tokens)
+        if count > MAX_TEXT_TOKENS:
+            text = _enc.decode(tokens[:MAX_TEXT_TOKENS]).strip() + "\n[content truncated]"
+        return text, min(count, MAX_TEXT_TOKENS)
 except ImportError:
-    def safe_truncate_text(text: str) -> tuple[str, int]:
+    def safe_truncate_text(text: str) -> Tuple[str, int]:
+        """Naive fallback truncation if tiktoken is missing."""
         trunc = text[:4000] + "\n...[truncated]" if len(text) > 4000 else text
         return trunc, len(trunc) // 4
 
-# Core Generation
-def _llm_generate_text(prompt: str, ai_model: str) -> str:
-    if ai_model == "gemini-1.5-flash":
-        if not gemini_client: raise RuntimeError("Gemini not configured")
+# --- Generation Logic ---
+
+def _llm_generate_text_sync(prompt: str, ai_model: str) -> str:
+    """
+    Synchronous implementation of text generation for various providers.
+    Designed to be called via thread executors.
+    """
+    if ai_model == GEMINI_MODEL:
+        if not gemini_client: raise RuntimeError("Gemini client not initialized")
         return gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt).text
+        
     elif ai_model == "cerebras":
-        if not cerebras_client: raise RuntimeError("Cerebras not configured")
-        return cerebras_client.chat.completions.create(
+        if not cerebras_client: raise RuntimeError("Cerebras client not initialized")
+        response = cerebras_client.chat.completions.create(
             model=CEREBRAS_MODEL,
             messages=[{"role": "user", "content": prompt}]
-        ).choices[0].message.content
+        )
+        return response.choices[0].message.content or ""
+        
     elif ai_model == "groq":
-        if not groq_client: raise RuntimeError("Groq not configured")
+        if not groq_client: raise RuntimeError("Groq client not initialized")
         try:
-            return groq_client.chat.completions.create(model=GROQ_MODEL, messages=[{"role":"user", "content":prompt}]).choices[0].message.content
+            response = groq_client.chat.completions.create(
+                model=GROQ_MODEL, 
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.choices[0].message.content or ""
         except Exception as e:
             if "429" in str(e) and gemini_client:
-                logger.warning("Groq rate limit. Failing over to Gemini...")
+                logger.warning("Groq rate limit. Falling back to Gemini.")
                 return gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt).text
             raise e
+            
     elif ai_model == "llama3":
         if not ollama: raise RuntimeError("Ollama not installed")
-        return ollama.chat(model=OLLAMA_MODEL, messages=[{"role":"user", "content":prompt}])["message"]["content"]
-    raise RuntimeError(f"Unknown model: {ai_model}")
-
-def parse_json_response(raw: str) -> Any:
-    raw = raw.strip()
-    # Strip markdown fences
-    match = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
-    if match: raw = match.group(1).strip()
-    
-    # Remove control characters that break JSON parsing (e.g. unescaped newlines/tabs inside strings)
-    raw = re.sub(r'[\x00-\x1F\x7F]', '', raw)
-    
-    match = re.search(r"\{[\s\S]*\}|\[[\s\S]*\]", raw)
-    return json.loads(match.group()) if match else json.loads(raw)
-
-
-# Content Generation
-def enhance_slide_content(raw_text: str, ai_model: str = "llama3") -> str:
-    prompt = f"Transform this raw lecture text into structured Markdown:\n{raw_text}"
-    try: return _llm_generate_text(prompt, ai_model)
-    except Exception: return raw_text
-
-def generate_summary(slide_text: str, ai_model: str = "llama3") -> str:
-    prompt = f"Write a 2-3 sentence educational summary of this slide:\n{slide_text}"
-    try: return _llm_generate_text(prompt, ai_model)
-    except Exception: return "Summary unavailable."
-
-def generate_quiz(slide_text: str, ai_model: str = "llama3") -> dict:
-    prompt = f"Create a 4-option MCQ about this slide. Return ONLY JSON: {{\"question\": \"...\", \"options\": [], \"correctAnswer\": 0}}\n{slide_text}"
-    try: return parse_json_response(_llm_generate_text(prompt, ai_model))
-    except Exception: return {"question": "Quiz unavailable.", "options": ["","","",""], "correctAnswer": 0}
-
-def generate_slide_title(slide_text: str, ai_model: str = "llama3") -> Optional[str]:
-    prompt = f"Generate a 3-7 word title for this slide:\n{slide_text[:1000]}"
-    try: return _llm_generate_text(prompt, ai_model).strip('"\'')
-    except Exception: return None
-
-def process_slide_batch(raw_text: str, ai_model: str = "llama3", blueprint_context: str = "") -> dict:
-    ctx = f"\nContext: {blueprint_context}" if blueprint_context else ""
-    prompt = f"Analyze this slide {ctx}. Return ONLY JSON with enhanced_content, summary, title, quiz.\n{raw_text}"
-    try: return parse_json_response(_llm_generate_text(prompt, ai_model))
-    except Exception: return {"enhanced_content": raw_text, "summary": "", "title": "Slide", "quiz": {}}
-
-
-async def batch_analyze_text_slides(slides: list[dict], ai_model: str = "groq", blueprint_context: str = "") -> dict[int, dict]:
-    from .prompts import BATCH_SLIDE_PROMPT
-    from ..llm_client import call_llm
-    
-    if not slides:
-        return {}
-
-    # Chunking: Process slides in windows of 10 to avoid context overflow
-    CHUNK_SIZE = 10
-    final_output = {}
-    
-    # Process in chunks
-    for i in range(0, len(slides), CHUNK_SIZE):
-        chunk = slides[i : i + CHUNK_SIZE]
-        logger.info("Processing text slide batch: %d to %d (total %d)", i+1, i+len(chunk), len(slides))
+        res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+        return res["message"]["content"]
         
-        parts = [f"=== SLIDE {s['page_number']} ===\n{s['text']}" for s in chunk]
-        prompt = BATCH_SLIDE_PROMPT + (f"\nContext: {blueprint_context}" if blueprint_context else "") + "\n\n".join(parts)
-        
-        try:
-            raw = await call_llm(lambda: _llm_generate_text(prompt, ai_model), timeout_seconds=180.0)
-            results = parse_json_response(raw)
-            p_to_i = {s["page_number"]: s["index"] for s in chunk}
-            
-            for r in results:
-                pn = r.get("page_number")
-                if pn in p_to_i:
-                    final_output[p_to_i[pn]] = r
-        except Exception as e:
-            logger.error("Batch text chunk (%d-%d) failed: %s", i+1, i+len(chunk), e)
-            # Fill chunk with error placeholders
-            for s in chunk:
-                if s["index"] not in final_output:
-                    final_output[s["index"]] = {
-                        "title": f"Slide {s['page_number']}",
-                        "content": s["text"],
-                        "summary": "",
-                        "questions": [],
-                        "slide_type": "content_slide",
-                        "is_metadata": False,
-                        "parse_error": str(e),
-                    }
+    raise ValueError(f"Unsupported model: {ai_model}")
+
+async def generate_text(prompt: str, ai_model: str = "groq") -> str:
+    """Async wrapper for text generation."""
+    from backend.services.llm_client import call_llm
+    return await call_llm(lambda: _llm_generate_text_sync(prompt, ai_model))
+
+# --- Public API Functions ---
+
+def process_slide_batch(text: str, ai_model: str = "groq") -> Dict[str, Any]:
+    """Synchronous slide processing (for legacy/internal calls)."""
+    prompt = f"Analyze this slide text and return JSON with {{title, content, summary, questions, slide_type, is_metadata}}:\n\n{text}"
+    raw = _llm_generate_text_sync(prompt, ai_model)
+    return parse_json_response(raw)
+
+async def enhance_slide_content(text: str, ai_model: str = "groq") -> Dict[str, Any]:
+    """Enhances raw slide text into structured educational content."""
+    from backend.services.ai.prompts import ENHANCE_PROMPT
+    prompt = ENHANCE_PROMPT.format(text=text)
+    raw = await generate_text(prompt, ai_model=ai_model)
+    return parse_json_response(raw)
+
+async def generate_deck_summary(content: str, ai_model: str = "groq") -> str:
+    """Generates a high-level summary of the entire lecture deck."""
+    prompt = f"Summarize this lecture content into a cohesive narrative:\n\n{content}"
+    return await generate_text(prompt, ai_model)
+
+async def generate_deck_quiz(summary: str, ai_model: str = "groq") -> List[Dict[str, Any]]:
+    """Generates a comprehensive quiz based on the lecture summary."""
+    prompt = f"Create a 5-question multiple choice quiz based on this summary. Return JSON array of {{question, options, answer}}:\n\n{summary}"
+    raw = await generate_text(prompt, ai_model)
+    return parse_json_response(raw)
+
+async def batch_analyze_text_slides(slides: List[Dict[str, Any]], ai_model: str = "groq", blueprint: Optional[Dict] = None) -> List[Dict[str, Any]]:
+    """Analyzes a batch of text-based slides, incorporating blueprint context if available."""
+    from backend.services.ai.prompts import BATCH_SLIDE_PROMPT
     
-    # Ensure all original slides have an entry
+    # Simple serial processing for now, can be optimized further
+    results = []
     for s in slides:
-        if s["index"] not in final_output:
-            final_output[s["index"]] = {
-                "title": f"Slide {s['page_number']}",
-                "content": s["text"],
-                "summary": "",
-                "questions": [],
-                "slide_type": "content_slide",
-                "is_metadata": False,
-                "parse_error": "missing_from_batch_response",
-            }
+        text = s["text"]
+        if blueprint:
+            from backend.services.planner_service import get_slide_context
+            from backend.services.ai.prompts import PEDAGOGICAL_SLIDE_PROMPT
+            
+            ctx = get_slide_context(blueprint, s["index"])
+            prompt = PEDAGOGICAL_SLIDE_PROMPT.format(context=ctx, text=text)
+            
+            try:
+                # Use generate_text directly to handle the custom prompt
+                raw = await generate_text(prompt, ai_model=ai_model)
+                res = parse_json_response(raw)
+                res["index"] = s["index"]
+                results.append(res)
+                continue # Skip the default process_slide_batch below
+            except Exception as e:
+                logger.error("Context-aware processing failed: %s", e)
 
-    return final_output
+        try:
+            res = await asyncio.to_thread(process_slide_batch, text, ai_model=ai_model)
+            res["index"] = s["index"]
+            results.append(res)
+        except Exception as e:
+            logger.error("Batch processing failed for slide %d: %s", s["index"], e)
+            results.append({"index": s["index"], "title": f"Slide {s['index']+1}", "content": s["text"], "parse_error": str(e)})
+            
+    return results
 
-
-async def generate_deck_summary(all_text: str, ai_model: str = "groq") -> str:
-    from .prompts import SUMMARIZER_PROMPT
-    from ..llm_client import call_llm
-    try: return await call_llm(lambda: _llm_generate_text(SUMMARIZER_PROMPT + "\n\n" + all_text, ai_model), timeout_seconds=40.0)
-    except Exception: return ""
-
-async def generate_deck_quiz(summary: str, ai_model: str = "groq") -> list[dict]:
-    from .prompts import DECK_QUIZ_PROMPT
-    from ..llm_client import call_llm
-    try:
-        raw = await call_llm(lambda: _llm_generate_text(DECK_QUIZ_PROMPT + summary, ai_model))
-        return parse_json_response(raw)
-    except Exception: return []
+# Legacy re-exports
+_llm_generate_text = _llm_generate_text_sync
+generate_summary = generate_deck_summary
+generate_quiz = generate_deck_quiz
+generate_slide_title = lambda t: process_slide_batch(t).get("title", "Untitled")

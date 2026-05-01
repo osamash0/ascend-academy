@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.user && selectedRole) {
       await supabase
         .from('user_roles')
-        .upsert({ user_id: data.user.id, role: selectedRole }, { onConflict: 'user_id' });
+        .upsert({ user_id: data.user.id, role: selectedRole }, { onConflict: 'user_id,role' });
     }
 
     return { error: null };

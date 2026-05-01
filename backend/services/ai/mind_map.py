@@ -1,7 +1,8 @@
 import logging
-from typing import Optional
+import asyncio
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from .orchestrator import _llm_generate_text, parse_json_response
+from .orchestrator import generate_text, parse_json_response
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +11,7 @@ class MindMapNode(BaseModel):
     label: str
     type: str
     summary: Optional[str] = None
-    children: list["MindMapNode"] = []
+    children: List["MindMapNode"] = []
 
 MindMapNode.model_rebuild()
 
@@ -18,10 +19,13 @@ class MindMapRoot(BaseModel):
     id: str
     label: str
     type: str
-    children: list[MindMapNode]
+    children: List[MindMapNode]
 
 
-def generate_mind_map(lecture_title: str, slides: list[dict], ai_model: str = "groq") -> dict:
+async def generate_mind_map(lecture_title: str, slides: List[Dict[str, Any]], ai_model: str = "groq") -> Dict[str, Any]:
+    """
+    Generates a structured thematic mind map for a lecture based on slide summaries.
+    """
     slides_text = "\n".join(
         f"- Slide {i+1}: \"{s.get('title', 'Untitled')}\" — {s.get('summary', 'No summary')}"
         for i, s in enumerate(slides)
@@ -33,11 +37,23 @@ Root: {lecture_title}
 Slides: {slides_text}"""
 
     try:
-        raw = _llm_generate_text(prompt, ai_model)
+        # Use the async generate_text wrapper
+        raw = await generate_text(prompt, ai_model)
         return parse_json_response(raw)
     except Exception as e:
         logger.error("Mind map generation failed: %s", e)
+        # Fallback to simple list-based structure
         return {
-            "id": "root", "label": lecture_title, "type": "root",
-            "children": [{"id": f"s-{i}", "label": s.get("title", f"Slide {i+1}"), "type": "slide", "children": []} for i, s in enumerate(slides)]
+            "id": "root", 
+            "label": lecture_title, 
+            "type": "root",
+            "children": [
+                {
+                    "id": f"s-{i}", 
+                    "label": s.get("title", f"Slide {i+1}"), 
+                    "type": "slide", 
+                    "children": []
+                } 
+                for i, s in enumerate(slides)
+            ]
         }

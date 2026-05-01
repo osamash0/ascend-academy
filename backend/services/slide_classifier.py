@@ -54,7 +54,13 @@ def classify_slide_with_routing(page: fitz.Page) -> SlideType:
     """
     text = page.get_text("text").strip()
     words = len(text.split())
-    has_images = len(page.get_images(full=False)) > 0
+    # Only count images that cover >8% of the page — filters out logos/decorations
+    page_area = page.rect.width * page.rect.height
+    has_images = any(
+        (b["bbox"][2] - b["bbox"][0]) * (b["bbox"][3] - b["bbox"][1]) / page_area > 0.08
+        for b in page.get_text("dict")["blocks"]
+        if b.get("type") == 1
+    ) if page_area > 0 else False
     # Detect vector graphics (charts/diagrams often use these instead of bitmaps)
     has_drawings = len(page.get_drawings()) > 15 
     
