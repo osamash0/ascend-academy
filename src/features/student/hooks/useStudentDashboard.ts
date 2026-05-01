@@ -16,9 +16,9 @@ export function useStudentDashboard() {
       
       // Fetch core dashboard data
       const data = await fetchStudentDashboard(user.id);
-      
-      // Refresh profile in background to sync XP/Streaks
-      await refreshProfile();
+
+      // Sync XP/streaks in background — don't block the query from resolving
+      refreshProfile();
       
       return data;
     },

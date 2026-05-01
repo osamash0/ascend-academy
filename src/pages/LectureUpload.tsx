@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -29,68 +29,24 @@ import {
   EyeOff,
   PartyPopper
 } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
 import { PDFUploadOverlay } from '@/components/PDFUploadOverlay';
-import { supabase } from '@/integrations/supabase/client';
-import { insertQuizQuestion } from '@/services/lectureService';
-import { apiClient } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useAiModel } from '@/hooks/use-ai-model';
 import { cn } from '@/lib/utils';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  TYPES                                                                    */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-interface SlideData {
-  title: string;
-  content: string;
-  summary: string;
-  questions: QuestionData[];
-}
-
-interface QuestionData {
-  question: string;
-  options: string[];
-  correctAnswer: number;
-}
-
-interface SlideStatus {
-  hasTitle: boolean;
-  hasContent: boolean;
-  hasSummary: boolean;
-  hasQuiz: boolean;
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  UTILITY: Slide completion calculator                                     */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function getSlideStatus(slide: SlideData): SlideStatus {
-  return {
-    hasTitle: slide.title.trim().length > 0,
-    hasContent: slide.content.trim().length > 0,
-    hasSummary: slide.summary.trim().length > 0,
-    hasQuiz: slide.questions.some(q => q.question.trim().length > 0 && q.options.some(o => o.trim().length > 0)),
-  };
-}
-
-function getCompletionPercent(status: SlideStatus): number {
-  const values = Object.values(status);
-  return Math.round((values.filter(Boolean).length / values.length) * 100);
-}
-
-function getOverallCompletion(slides: SlideData[]): number {
-  if (slides.length === 0) return 0;
-  const total = slides.reduce((acc, s) => acc + getCompletionPercent(getSlideStatus(s)), 0);
-  return Math.round(total / slides.length);
-}
+import { useSlideManager } from '@/hooks/useSlideManager';
+import { usePDFUpload } from '@/hooks/usePDFUpload';
+import { useAIGeneration } from '@/hooks/useAIGeneration';
+import { useLectureSubmit } from '@/hooks/useLectureSubmit';
+import {
+  getSlideStatus,
+  getCompletionPercent,
+  getOverallCompletion,
+} from '@/types/lectureUpload';
+import type { SlideStatus } from '@/types/lectureUpload';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  COMPONENT: Progress Ring                                                 */
@@ -246,6 +202,8 @@ function EmptySlideState({ onAddSlide, onUploadPDF }: { onAddSlide: () => void; 
 /*  COMPONENT: Quiz Builder                                                  */
 /* ────────────────────────────────────────────────────────────────────────── */
 
+const optionLabels = ['A', 'B', 'C', 'D'] as const;
+
 function QuizBuilder({
   question,
   questionIndex,
@@ -254,53 +212,51 @@ function QuizBuilder({
   onUpdateOption,
   onUpdateCorrectAnswer,
 }: {
-  question: QuestionData;
+  question: { question: string; options: string[]; correctAnswer: number };
   questionIndex: number;
   slideIndex: number;
-  onUpdateQuestion: (si: number, qi: number, val: string) => void;
-  onUpdateOption: (si: number, qi: number, oi: number, val: string) => void;
-  onUpdateCorrectAnswer: (si: number, qi: number, val: number) => void;
+  onUpdateQuestion: (slideIndex: number, questionIndex: number, value: string) => void;
+  onUpdateOption: (slideIndex: number, questionIndex: number, optionIndex: number, value: string) => void;
+  onUpdateCorrectAnswer: (slideIndex: number, questionIndex: number, value: number) => void;
 }) {
-  const optionLabels = ['A', 'B', 'C', 'D'];
-
   return (
-    <div className="space-y-4">
-      <div className="relative">
-        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">
-          Question
-        </Label>
-        <Input
+    <div className="space-y-4 p-5 rounded-2xl bg-card border border-border shadow-sm">
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Question</Label>
+        <Textarea
           value={question.question}
           onChange={(e) => onUpdateQuestion(slideIndex, questionIndex, e.target.value)}
-          placeholder="What is the main concept discussed in this slide?"
-          className="bg-background border-input focus:border-violet-500 focus:ring-violet-500/20"
+          placeholder="Write a comprehension question about this slide..."
+          className="min-h-[80px] resize-none bg-muted/30 border-0 focus-visible:ring-1"
+          rows={2}
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          Answer Options
+          <span className="text-[10px] font-normal normal-case">— click to mark correct</span>
+        </Label>
         {question.options.map((option, oIndex) => {
-          const isCorrect = question.correctAnswer === oIndex;
+          const isCorrect = oIndex === question.correctAnswer;
           return (
             <motion.div
               key={oIndex}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={{ scale: 1.005 }}
               onClick={() => onUpdateCorrectAnswer(slideIndex, questionIndex, oIndex)}
               className={cn(
-                "relative flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 group",
+                "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200",
                 isCorrect
-                  ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm"
-                  : "border-border bg-muted/30 hover:border-violet-300 hover:bg-violet-50/50 dark:hover:bg-violet-950/10"
+                  ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-600"
+                  : "border-border hover:border-violet-300 hover:bg-violet-50/50 dark:hover:bg-violet-950/10"
               )}
             >
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-all duration-200",
-                  isCorrect
-                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
-                    : "bg-muted text-muted-foreground group-hover:bg-violet-100 group-hover:text-violet-700 dark:group-hover:bg-violet-900/30"
-                )}
-              >
+              <div className={cn(
+                "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300",
+                isCorrect
+                  ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
+                  : "bg-muted text-muted-foreground group-hover:bg-violet-100 group-hover:text-violet-700 dark:group-hover:bg-violet-900/30"
+              )}>
                 {isCorrect ? <CheckCircle2 className="w-4 h-4" /> : optionLabels[oIndex]}
               </div>
               <Input
@@ -328,39 +284,70 @@ function QuizBuilder({
 /* ────────────────────────────────────────────────────────────────────────── */
 
 export default function LectureUpload() {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { aiModel } = useAiModel();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const slideListRef = useRef<HTMLDivElement>(null);
 
-  /* ── State ─────────────────────────────────────────────────────────────── */
+  const { toast } = useToast();
+
+  /* ── Lecture metadata ──────────────────────────────────────────────────── */
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [slides, setSlides] = useState<SlideData[]>([]);
-  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [showPDFPanel, setShowPDFPanel] = useState(false);
-  const [aiSummaryLoading, setAiSummaryLoading] = useState<Record<number, boolean>>({});
-  const [aiQuizLoading, setAiQuizLoading] = useState<Record<number, boolean>>({});
-  const [aiTitleLoading, setAiTitleLoading] = useState<Record<number, boolean>>({});
-  const [aiContentLoading, setAiContentLoading] = useState<Record<number, boolean>>({});
+
+  /* ── UI state ──────────────────────────────────────────────────────────── */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadTotal, setUploadTotal] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
-  const [processedSlides, setProcessedSlides] = useState<SlideData[]>([]);
+
+  /* ── Hooks ─────────────────────────────────────────────────────────────── */
+  const {
+    slides, setSlides,
+    activeSlideIndex, setActiveSlideIndex,
+    addSlide, removeSlide,
+    updateSlide, updateQuestionText, updateCorrectAnswer, updateOption,
+  } = useSlideManager();
+
+  const {
+    isUploading, setIsUploading,
+    uploadProgress, uploadTotal, uploadStatus,
+    processedSlides, pdfFile,
+    handleFileUpload,
+    closeUploadOverlay,
+  } = usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle });
+
+  const {
+    isAiLoading,
+    handleGenerateSummary,
+    handleGenerateQuiz,
+    handleGenerateTitle,
+    handleGenerateContent,
+  } = useAIGeneration({ slides, updateSlide });
+
+  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile });
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];
-  const overallCompletion = getOverallCompletion(slides);
   const totalSlides = slides.length;
+  const overallCompletion = useMemo(() => getOverallCompletion(slides), [slides]);
+
+  /* ── Stable nav callbacks ──────────────────────────────────────────────── */
+  const handlePrevSlide = useCallback(
+    () => setActiveSlideIndex(p => Math.max(0, p - 1)),
+    [setActiveSlideIndex]
+  );
+  const handleNextSlide = useCallback(
+    () => setActiveSlideIndex(p => Math.min(totalSlides - 1, p + 1)),
+    [setActiveSlideIndex, totalSlides]
+  );
+
+  const handleExit = useCallback(() => {
+    if (slides.length > 0) {
+      const confirm = window.confirm('You have unsaved changes. Are you sure you want to exit? All progress will be lost.');
+      if (!confirm) return;
+    }
+    navigate('/professor/dashboard');
+  }, [slides.length, navigate]);
 
   /* ── Scroll active slide into view ─────────────────────────────────────── */
   useEffect(() => {
@@ -370,23 +357,22 @@ export default function LectureUpload() {
     }
   }, [activeSlideIndex]);
 
-  /* ── Keyboard Navigation ───────────────────────────────────────────────── */
+  /* ── Keyboard navigation (stable — uses functional updaters) ───────────── */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey) {
-        if (e.key === 'ArrowUp' && activeSlideIndex > 0) {
-          e.preventDefault();
-          setActiveSlideIndex(prev => prev - 1);
-        }
-        if (e.key === 'ArrowDown' && activeSlideIndex < slides.length - 1) {
-          e.preventDefault();
-          setActiveSlideIndex(prev => prev + 1);
-        }
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveSlideIndex(p => Math.max(0, p - 1));
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveSlideIndex(p => p + 1); // clamped below via Math.min when rendering
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSlideIndex, slides.length]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Auto-scroll slide log during upload ──────────────────────────────── */
   useEffect(() => {
@@ -395,346 +381,20 @@ export default function LectureUpload() {
     }
   }, [processedSlides]);
 
-  /* ── PDF Import ────────────────────────────────────────────────────────── */
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type !== 'application/pdf') {
-      toast({ title: 'Invalid file type', description: 'Please upload a PDF file.', variant: 'destructive' });
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadTotal(0);
-    setUploadStatus('Uploading PDF...');
-    setProcessedSlides([]);
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('ai_model', aiModel);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`${API_BASE}/api/upload/parse-pdf-stream`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session?.access_token}` },
-        body: formData
-      });
-
-      if (!response.ok) throw new Error('Failed to start PDF parsing');
-      if (!response.body) throw new Error('No response body');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.replace('data: ', ''));
-            
-            if (data.type === 'progress') {
-              const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
-              setUploadProgress(pct);
-              if (data.total > 0) setUploadTotal(data.total);
-              setUploadStatus(data.message);
-            } else if (data.type === 'slide') {
-              setProcessedSlides(prev => {
-                const updated = [...prev];
-                updated[data.index] = {
-                  title: data.slide.title,
-                  content: data.slide.content,
-                  summary: data.slide.summary || '',
-                  questions: data.slide.questions || [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
-                };
-                return updated;
-              });
-              setUploadStatus(`Processed ${data.index + 1} slide(s)...`);
-            } else if (data.type === 'complete') {
-              setProcessedSlides(prev => {
-                const finalSlides = prev.filter(Boolean) as SlideData[];
-                setSlides(finalSlides);
-                setActiveSlideIndex(0);
-                if (!title) setTitle(file.name.replace('.pdf', ''));
-                setPdfFile(file);
-                toast({
-                  title: 'PDF Imported Successfully',
-                  description: `${finalSlides.length} slides extracted and structured.`,
-                });
-                return prev; // Keep slides for the overlay success state
-              });
-            } else if (data.type === 'error') {
-              throw new Error(data.message);
-            }
-          }
-        }
+  /* ── Unsaved-changes guard ─────────────────────────────────────────────── */
+  useEffect(() => {
+    const dirty = slides.some(
+      s => s.title || s.content || s.summary || s.questions.some(q => q.question)
+    );
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = '';
       }
-    } catch (err: any) {
-      toast({ title: 'Upload Failed', description: err.message || 'Could not parse the PDF.', variant: 'destructive' });
-    } finally {
-      // We don't set setIsUploading(false) here because the overlay has its own 'Close' button now
-      // unless there was an error
-      e.target.value = '';
-    }
-  };
-
-  /* ── AI: Generate Summary ──────────────────────────────────────────────── */
-  const handleGenerateSummary = async (slideIndex: number) => {
-    const content = slides[slideIndex].content;
-    if (!content.trim()) {
-      toast({ title: 'No content', description: 'Add slide content before generating a summary.', variant: 'destructive' });
-      return;
-    }
-
-    setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: true }));
-    try {
-      const data = await apiClient.post<{ summary: string }>('/api/ai/generate-summary', {
-        slide_text: content,
-        ai_model: aiModel
-      });
-      updateSlide(slideIndex, 'summary', data.summary);
-      toast({ title: 'Summary Generated', description: 'AI has distilled the key points for you.' });
-    } catch {
-      toast({ title: 'AI Error', description: 'Summary generation failed. Is Ollama running?', variant: 'destructive' });
-    } finally {
-      setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: false }));
-    }
-  };
-
-  /* ── AI: Generate Quiz ─────────────────────────────────────────────────── */
-  const handleGenerateQuiz = async (slideIndex: number) => {
-    const content = slides[slideIndex].content;
-    if (!content.trim()) {
-      toast({ title: 'No content', description: 'Add slide content before generating a quiz.', variant: 'destructive' });
-      return;
-    }
-
-    setAiQuizLoading(prev => ({ ...prev, [slideIndex]: true }));
-    try {
-      const quiz = await apiClient.post<{ question: string; options: string[]; correctAnswer: number }>('/api/ai/generate-quiz', {
-        slide_text: content,
-        ai_model: aiModel
-      });
-      const newSlides = [...slides];
-      newSlides[slideIndex].questions = [{
-        question: quiz.question,
-        options: quiz.options,
-        correctAnswer: quiz.correctAnswer,
-      }];
-      setSlides(newSlides);
-      toast({ title: 'Quiz Generated', description: 'A new question has been crafted from your content.' });
-    } catch {
-      toast({ title: 'AI Error', description: 'Quiz generation failed. Is Ollama running?', variant: 'destructive' });
-    } finally {
-      setAiQuizLoading(prev => ({ ...prev, [slideIndex]: false }));
-    }
-  };
-  
-  /* ── AI: Generate Title ────────────────────────────────────────────────── */
-  const handleGenerateTitle = async (slideIndex: number) => {
-    const content = slides[slideIndex].content;
-    if (!content.trim()) {
-      toast({ title: 'No content', description: 'Add slide content before generating a title.', variant: 'destructive' });
-      return;
-    }
-
-    setAiTitleLoading(prev => ({ ...prev, [slideIndex]: true }));
-    try {
-      const data = await apiClient.post<{ title: string }>('/api/ai/suggest-title', {
-        slide_text: content,
-        ai_model: aiModel
-      });
-      updateSlide(slideIndex, 'title', data.title);
-      toast({ title: 'Title Suggested', description: 'AI has analyzed your content for a perfect title.' });
-    } catch {
-      toast({ title: 'AI Error', description: 'Title generation failed.', variant: 'destructive' });
-    } finally {
-      setAiTitleLoading(prev => ({ ...prev, [slideIndex]: false }));
-    }
-  };
-
-  /* ── AI: Generate Content ──────────────────────────────────────────────── */
-  const handleGenerateContent = async (slideIndex: number) => {
-    const existingContent = slides[slideIndex].content;
-    const existingTitle = slides[slideIndex].title;
-    
-    setAiContentLoading(prev => ({ ...prev, [slideIndex]: true }));
-    try {
-      const data = await apiClient.post<{ content: string }>('/api/ai/suggest-content', {
-        slide_text: existingContent || existingTitle || "Educational topic",
-        ai_model: aiModel
-      });
-      updateSlide(slideIndex, 'content', data.content);
-      toast({ title: 'Content Enhanced', description: 'AI has expanded and structured your slide content.' });
-    } catch {
-      toast({ title: 'AI Error', description: 'Content generation failed.', variant: 'destructive' });
-    } finally {
-      setAiContentLoading(prev => ({ ...prev, [slideIndex]: false }));
-    }
-  };
-
-  /* ── Slide Helpers ─────────────────────────────────────────────────────── */
-  const addSlide = (insertAfterIndex?: number) => {
-    const newSlide: SlideData = {
-      title: '',
-      content: '',
-      summary: '',
-      questions: [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
     };
-
-    if (insertAfterIndex !== undefined) {
-      const newSlides = [...slides];
-      newSlides.splice(insertAfterIndex + 1, 0, newSlide);
-      setSlides(newSlides);
-      setActiveSlideIndex(insertAfterIndex + 1);
-    } else {
-      setSlides([...slides, newSlide]);
-      setActiveSlideIndex(slides.length);
-    }
-  };
-
-  const removeSlide = (index: number) => {
-    if (slides.length <= 1) {
-      setSlides([]);
-      setActiveSlideIndex(0);
-      return;
-    }
-    const newSlides = slides.filter((_, i) => i !== index);
-    setSlides(newSlides);
-    if (activeSlideIndex >= index && activeSlideIndex > 0) {
-      setActiveSlideIndex(activeSlideIndex - 1);
-    }
-  };
-
-  const updateSlide = (index: number, field: keyof SlideData, value: string | QuestionData[]) => {
-    const newSlides = [...slides];
-    newSlides[index] = { ...newSlides[index], [field]: value };
-    setSlides(newSlides);
-  };
-
-  const updateQuestionText = (slideIndex: number, questionIndex: number, value: string) => {
-    const newSlides = [...slides];
-    const newQuestions = [...newSlides[slideIndex].questions];
-    newQuestions[questionIndex] = { ...newQuestions[questionIndex], question: value };
-    newSlides[slideIndex].questions = newQuestions;
-    setSlides(newSlides);
-  };
-
-  const updateCorrectAnswer = (slideIndex: number, questionIndex: number, value: number) => {
-    const newSlides = [...slides];
-    const newQuestions = [...newSlides[slideIndex].questions];
-    newQuestions[questionIndex] = { ...newQuestions[questionIndex], correctAnswer: value };
-    newSlides[slideIndex].questions = newQuestions;
-    setSlides(newSlides);
-  };
-
-  const updateOption = (slideIndex: number, questionIndex: number, optionIndex: number, value: string) => {
-    const newSlides = [...slides];
-    const newOptions = [...newSlides[slideIndex].questions[questionIndex].options];
-    newOptions[optionIndex] = value;
-    newSlides[slideIndex].questions[questionIndex].options = newOptions;
-    setSlides(newSlides);
-  };
-
-  /* ── Submit ────────────────────────────────────────────────────────────── */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!title.trim()) {
-      toast({ title: 'Error', description: 'Please enter a lecture title.', variant: 'destructive' });
-      return;
-    }
-
-    if (slides.length === 0) {
-      toast({ title: 'Error', description: 'Add at least one slide.', variant: 'destructive' });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      let pdfUrl: string | null = null;
-      const lectureId = crypto.randomUUID();
-
-      if (pdfFile) {
-        const filePath = `lectures/${lectureId}/${pdfFile.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('lecture-pdfs')
-          .upload(filePath, pdfFile, { contentType: 'application/pdf', upsert: true });
-
-        if (uploadError) {
-          toast({
-            title: 'PDF Upload Failed',
-            description: 'Could not upload PDF to storage. Please check Supabase Storage RLS policies.',
-            variant: 'destructive'
-          });
-          throw uploadError;
-        }
-        const { data: urlData } = supabase.storage.from('lecture-pdfs').getPublicUrl(filePath);
-        pdfUrl = urlData.publicUrl;
-      }
-
-      const { data: lecture, error: lectureError } = await supabase
-        .from('lectures')
-        .insert({
-          id: lectureId,
-          title,
-          description,
-          professor_id: user?.id,
-          total_slides: slides.length,
-          pdf_url: pdfUrl,
-        })
-        .select()
-        .single();
-
-      if (lectureError) throw lectureError;
-
-      for (let i = 0; i < slides.length; i++) {
-        const slideData = slides[i];
-        const { data: slide, error: slideError } = await supabase
-          .from('slides')
-          .insert({
-            lecture_id: lecture.id,
-            slide_number: i + 1,
-            title: slideData.title || `Slide ${i + 1}`,
-            content_text: slideData.content,
-            summary: slideData.summary,
-          })
-          .select()
-          .single();
-
-        if (slideError) throw slideError;
-
-        for (const q of slideData.questions) {
-          if (q.question.trim()) {
-            await insertQuizQuestion({
-              slide_id: slide.id,
-              question_text: q.question,
-              options: q.options.filter((o: string) => o.trim()),
-              correct_answer: q.correctAnswer,
-            });
-          }
-        }
-      }
-
-      toast({ title: 'Success!', description: 'Lecture created successfully.' });
-      navigate('/professor/dashboard');
-    } catch (error) {
-      console.error('Error creating lecture:', error);
-      toast({ title: 'Error', description: 'Failed to create lecture. Please try again.', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [slides]);
 
   /* ── Render: Empty State ───────────────────────────────────────────────── */
   if (slides.length === 0) {
@@ -744,6 +404,14 @@ export default function LectureUpload() {
         <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleExit}
+                className="rounded-full h-8 w-8"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
@@ -752,8 +420,8 @@ export default function LectureUpload() {
                 <p className="text-xs text-muted-foreground">Build interactive learning experiences</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/professor/dashboard')}>
-              Cancel
+            <Button variant="outline" size="sm" onClick={handleExit} className="text-xs font-medium">
+              Exit
             </Button>
           </div>
         </div>
@@ -802,6 +470,15 @@ export default function LectureUpload() {
           onChange={handleFileUpload}
           className="hidden"
         />
+
+        <PDFUploadOverlay
+          isOpen={isUploading}
+          uploadProgress={uploadProgress}
+          uploadTotal={uploadTotal}
+          uploadStatus={uploadStatus}
+          processedSlides={processedSlides}
+          onClose={closeUploadOverlay}
+        />
       </div>
     );
   }
@@ -814,6 +491,15 @@ export default function LectureUpload() {
         <div className="flex items-center justify-between px-4 lg:px-6 h-16">
           {/* Left: Brand + Title Input */}
           <div className="flex items-center gap-4 flex-1 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleExit}
+              className="rounded-full h-8 w-8 hover:bg-muted/80"
+              title="Back to Dashboard"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-md shadow-violet-500/20 shrink-0">
               <BookOpen className="w-4 h-4 text-white" />
             </div>
@@ -857,9 +543,10 @@ export default function LectureUpload() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('/professor/dashboard')}
+              onClick={handleExit}
+              className="text-xs font-medium"
             >
-              Cancel
+              Exit
             </Button>
             <Button
               variant="outline"
@@ -1117,14 +804,14 @@ export default function LectureUpload() {
                   <div className="flex-1" />
                   <AIActionButton
                     onClick={() => handleGenerateSummary(activeSlideIndex)}
-                    loading={!!aiSummaryLoading[activeSlideIndex]}
+                    loading={isAiLoading(activeSlideIndex, 'summary')}
                     variant="subtle"
                   >
                     Generate Summary
                   </AIActionButton>
                   <AIActionButton
                     onClick={() => handleGenerateQuiz(activeSlideIndex)}
-                    loading={!!aiQuizLoading[activeSlideIndex]}
+                    loading={isAiLoading(activeSlideIndex, 'quiz')}
                     variant="subtle"
                   >
                     Generate Quiz
@@ -1183,7 +870,7 @@ export default function LectureUpload() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setActiveSlideIndex(Math.max(0, activeSlideIndex - 1))}
+                    onClick={handlePrevSlide}
                     disabled={activeSlideIndex === 0}
                     className="gap-2"
                   >
@@ -1198,7 +885,7 @@ export default function LectureUpload() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setActiveSlideIndex(Math.min(totalSlides - 1, activeSlideIndex + 1))}
+                    onClick={handleNextSlide}
                     disabled={activeSlideIndex === totalSlides - 1}
                     className="gap-2"
                   >
@@ -1228,9 +915,9 @@ export default function LectureUpload() {
                     Live Preview
                   </span>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="h-8 w-8 hover:bg-muted"
                   onClick={() => setShowPreview(false)}
                 >
@@ -1242,7 +929,7 @@ export default function LectureUpload() {
                 {/* Simulated Tablet Frame */}
                 <div className="relative aspect-[4/3] w-full bg-background rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col group">
                   <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
-                  
+
                   {/* Status Bar */}
                   <div className="h-6 px-4 flex items-center justify-between text-[8px] font-medium text-muted-foreground border-b border-border/50">
                     <span>9:41 AM</span>
@@ -1255,7 +942,7 @@ export default function LectureUpload() {
                   {/* Content Preview */}
                   <div className="flex-1 p-8 flex flex-col">
                     <div className="space-y-4">
-                      <motion.h1 
+                      <motion.h1
                         key={`title-${activeSlideIndex}`}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -1266,7 +953,7 @@ export default function LectureUpload() {
                       <div className="h-1 w-12 bg-violet-500 rounded-full" />
                     </div>
 
-                    <motion.div 
+                    <motion.div
                       key={`content-${activeSlideIndex}`}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1338,9 +1025,9 @@ export default function LectureUpload() {
                   {title || "Untitled Lecture"}
                 </h3>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowFullPreview(false)}
                 className="gap-2"
               >
@@ -1358,7 +1045,7 @@ export default function LectureUpload() {
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
                   {slides.map((s, i) => (
-                    <div 
+                    <div
                       key={i}
                       onClick={() => setActiveSlideIndex(i)}
                       className={cn(
@@ -1391,7 +1078,7 @@ export default function LectureUpload() {
                           {activeSlide?.title}
                         </h2>
                       </div>
-                      
+
                       <div className="prose prose-lg dark:prose-invert max-w-none text-muted-foreground leading-relaxed">
                         {activeSlide?.content.split('\n').map((p, i) => (
                           <p key={i}>{p}</p>
@@ -1431,7 +1118,7 @@ export default function LectureUpload() {
                   <div className="flex items-center justify-between">
                     <Button
                       variant="outline"
-                      onClick={() => setActiveSlideIndex(Math.max(0, activeSlideIndex - 1))}
+                      onClick={handlePrevSlide}
                       disabled={activeSlideIndex === 0}
                       className="rounded-xl px-8"
                     >
@@ -1441,7 +1128,7 @@ export default function LectureUpload() {
                       Slide {activeSlideIndex + 1} of {slides.length}
                     </span>
                     <Button
-                      onClick={() => setActiveSlideIndex(Math.min(slides.length - 1, activeSlideIndex + 1))}
+                      onClick={handleNextSlide}
                       disabled={activeSlideIndex === slides.length - 1}
                       className="rounded-xl px-8 bg-violet-600 hover:bg-violet-700 text-white border-none"
                     >
@@ -1470,12 +1157,7 @@ export default function LectureUpload() {
         uploadTotal={uploadTotal}
         uploadStatus={uploadStatus}
         processedSlides={processedSlides}
-        onClose={() => {
-          setIsUploading(false);
-          setUploadProgress(0);
-          setUploadStatus('');
-          setProcessedSlides([]);
-        }}
+        onClose={closeUploadOverlay}
       />
     </div>
   );

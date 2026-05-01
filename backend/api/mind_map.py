@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from backend.core.auth_middleware import verify_token
-from backend.core.database import supabase, url, key
+from backend.core.database import supabase, url, anon_key as key
 from backend.services.ai_service import generate_mind_map
 from supabase import create_client
 import os

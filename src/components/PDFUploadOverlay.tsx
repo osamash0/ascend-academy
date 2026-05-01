@@ -220,18 +220,22 @@ export const PDFUploadOverlay: React.FC<PDFUploadOverlayProps> = ({
                 </div>
               </div>
 
-              {/* Footer hint */}
-              <div className="space-y-4">
-                <p className="text-center text-[11px] text-muted-foreground/60 font-medium">
-                  Please keep this tab open while your lecture is being processed
-                </p>
-                
-                {isComplete && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="pt-2"
-                  >
+              {/* Footer hint & Cancel */}
+              <div className="space-y-4 pt-2">
+                {!isComplete ? (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-center text-[11px] text-muted-foreground/60 font-medium">
+                      Please keep this tab open while your lecture is being processed
+                    </p>
+                    <button
+                      onClick={onClose}
+                      className="w-full py-2.5 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-bold transition-all"
+                    >
+                      Cancel Processing
+                    </button>
+                  </div>
+                ) : (
+                  <div className="pt-2">
                     <button
                       onClick={onClose}
                       className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
@@ -239,7 +243,7 @@ export const PDFUploadOverlay: React.FC<PDFUploadOverlayProps> = ({
                       <CheckCircle2 className="w-5 h-5" />
                       Get Started
                     </button>
-                  </motion.div>
+                  </div>
                 )}
               </div>
             </div>

@@ -15,7 +15,7 @@ export function useAnalytics(lectureId: string | null) {
       if (msg.includes('401') || msg.includes('404')) return false;
       return failureCount < 2;
     },
-    staleTime: 1000 * 60,
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 

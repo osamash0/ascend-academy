@@ -1,23 +1,47 @@
 """
 Analytics Service - Aggregates learning analytics data
 """
-from backend.core.database import supabase, url, key
+from backend.core.database import supabase, url, anon_key, service_role_key
 from supabase import create_client
 import hashlib
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 from functools import lru_cache
+
+def _fetch_all(query, limit: int = 10000):
+    """Helper to fetch all records from a Supabase query using pagination."""
+    all_data = []
+    chunk_size = 1000
+    for offset in range(0, limit, chunk_size):
+        res = query.range(offset, offset + chunk_size - 1).execute()
+        if not res.data:
+            break
+        all_data.extend(res.data)
+        if len(res.data) < chunk_size:
+            break
+    return all_data
 
 
 def get_auth_client(token: str):
     """Create a Supabase client authenticated with the professor's JWT.
-    This allows RLS policies (has_role check) to identify the professor
-    and return all student data."""
+    Enforces RLS by using the anon_key instead of the service_role_key."""
     if not token:
         return supabase
-    client = create_client(url, key)
+    # We MUST use the anon_key (not service_role_key) for the JWT to be effective for RLS
+    client = create_client(url, anon_key)
     client.postgrest.auth(token)
     return client
+
+
+def calculate_student_typology(prog_pct: int, score: int, ai_queries: int, revisions: int) -> str:
+    """Centralized logic to classify student behavior based on engagement and performance."""
+    if prog_pct < 50:
+        return "Highly Confused (Seeking Help)" if ai_queries > 3 else "Disengaged (At Risk)"
+    if score >= 80:
+        return "The Reviser (High Effort)" if revisions > 3 else "Natural Comprehension"
+    if score < 60:
+        return "Struggling (Critical)"
+    return "Standard"
 
 
 def generate_anon_name(user_id: str) -> str:
@@ -33,13 +57,11 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     client = get_auth_client(token)
     """Get high-level metrics for a lecture"""
 
-    progress_response = client.table("student_progress")\
+    progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id, completed_at, quiz_score")\
-        .eq("lecture_id", lecture_id)\
-        .limit(2000)\
-        .execute()
+        .eq("lecture_id", lecture_id))
 
-    total_students = len(progress_response.data)
+    total_students = len(progress_data)
 
     if total_students == 0:
         return {
@@ -50,20 +72,18 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
             "engagement_level": "No Data"
         }
 
-    completed = len([p for p in progress_response.data if p.get("completed_at")])
+    completed = len([p for p in progress_data if p.get("completed_at")])
     completion_rate = (completed / total_students) * 100 if total_students > 0 else 0
 
     # Get average time from lecture_complete events (was querying wrong event_type before)
-    events_response = client.table("learning_events")\
+    events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "lecture_complete")\
-        .contains("event_data", {"lectureId": lecture_id})\
-        .limit(500)\
-        .execute()
+        .contains("event_data", {"lectureId": lecture_id}))
 
     total_time = 0
     event_count = 0
-    for event in events_response.data:
+    for event in events_data:
         if event.get("event_data") and isinstance(event["event_data"], dict):
             duration = event["event_data"].get("total_duration_seconds", 0)
             total_time += duration
@@ -81,7 +101,7 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     return {
         "total_students": total_students,
         "completion_rate": round(completion_rate, 1),
-        "average_score": round(sum(p.get("quiz_score", 0) for p in progress_response.data) / total_students, 1),
+        "average_score": round(sum(p.get("quiz_score", 0) for p in progress_data) / total_students, 1),
         "average_time_minutes": round(avg_time_minutes, 1),
         "engagement_level": engagement
     }
@@ -91,33 +111,27 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
     client = get_auth_client(token)
     """Get per-slide analytics"""
 
-    slides_response = client.table("slides")\
+    slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
         .eq("lecture_id", lecture_id)\
-        .order("slide_number")\
-        .limit(200)\
-        .execute()
+        .order("slide_number"))
 
     # Need total_students for drop-off calculation
-    progress_response = client.table("student_progress")\
+    progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id")\
-        .eq("lecture_id", lecture_id)\
-        .limit(2000)\
-        .execute()
-    total_students = len(progress_response.data)
+        .eq("lecture_id", lecture_id))
+    total_students = len(progress_data)
 
     # Fixed: was querying 'slide_viewed' (wrong); correct type is 'slide_view'
-    events_response = client.table("learning_events")\
+    events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "slide_view")\
-        .contains("event_data", {"lectureId": lecture_id})\
-        .limit(5000)\
-        .execute()
+        .contains("event_data", {"lectureId": lecture_id}))
 
     slide_analytics = []
-    for slide in slides_response.data:
+    for slide in slides_data:
         # Fixed: event_data key is camelCase 'slideId', not 'slide_id'
-        slide_events = [e for e in events_response.data
+        slide_events = [e for e in events_data
                        if e.get("event_data", {}).get("slideId") == slide["id"]]
 
         view_count = len(slide_events)
@@ -141,23 +155,19 @@ def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any
     client = get_auth_client(token)
     """Get quiz difficulty analytics"""
 
-    quiz_response = client.table("quiz_questions")\
+    quiz_data = _fetch_all(client.table("quiz_questions")\
         .select("id, question_text, slides!inner(lecture_id)")\
-        .eq("slides.lecture_id", lecture_id)\
-        .limit(200)\
-        .execute()
+        .eq("slides.lecture_id", lecture_id))
 
-    events_res = client.table("learning_events")\
+    events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
-        .contains("event_data", {"lectureId": lecture_id})\
-        .limit(5000)\
-        .execute()
+        .contains("event_data", {"lectureId": lecture_id}))
 
-    attempts_data = events_res.data or []
+    attempts_data = events_data or []
     quiz_analytics = []
 
-    for question in quiz_response.data:
+    for question in quiz_data:
         q_attempts = [e for e in attempts_data if e.get("event_data", {}).get("questionId") == question["id"]]
         total_q = len(q_attempts)
         correct_q = len([e for e in q_attempts if e.get("event_data", {}).get("correct")])
@@ -179,7 +189,6 @@ def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any
             "attempts": total_q
         })
 
-    # Fixed: was 'sorted(students, ...)' — students variable never existed
     return sorted(quiz_analytics, key=lambda x: x["success_rate"])
 
 
@@ -187,27 +196,19 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
     client = get_auth_client(token)
     """Get per-student performance breakdown (anonymized)"""
 
-    progress_res = client.table("student_progress")\
+    progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id, quiz_score, total_questions_answered, correct_answers, completed_slides, completed_at")\
-        .eq("lecture_id", lecture_id)\
-        .limit(2000)\
-        .execute()
+        .eq("lecture_id", lecture_id))
 
-    slides_res = client.table("slides")\
+    slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number")\
-        .eq("lecture_id", lecture_id)\
-        .limit(200)\
-        .execute()
+        .eq("lecture_id", lecture_id))
 
-    events_res = client.table("learning_events")\
+    events_data = _fetch_all(client.table("learning_events")\
         .select("user_id, event_type")\
-        .contains("event_data", {"lectureId": lecture_id})\
-        .limit(5000)\
-        .execute()
+        .contains("event_data", {"lectureId": lecture_id}))
 
-    progress_data = progress_res.data or []
-    slides_data = slides_res.data or []
-    events_data = events_res.data or []
+    # Data is already lists from _fetch_all
 
     # Pre-bucket events by user to avoid O(n²) scans inside the student loop
     from collections import defaultdict
@@ -228,17 +229,7 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
         stud_ai_queries = sum(1 for e in stud_events if e.get("event_type") == "ai_tutor_query")
         stud_revisions = sum(1 for e in stud_events if e.get("event_type") == "slide_back_navigation")
 
-        typology = "Standard"
-        if prog_pct < 50 and stud_ai_queries > 3:
-            typology = "Highly Confused (Seeking Help)"
-        elif prog_pct < 50 and stud_ai_queries == 0:
-            typology = "Disengaged (At Risk)"
-        elif score >= 80 and stud_revisions > 3:
-            typology = "The Reviser (High Effort)"
-        elif score >= 80 and stud_revisions == 0:
-            typology = "Natural Comprehension"
-        elif score < 60:
-            typology = "Struggling (Critical)"
+        typology = calculate_student_typology(prog_pct, score, stud_ai_queries, stud_revisions)
 
         students_matrix.append({
             "student_id": p["user_id"],
@@ -260,23 +251,19 @@ def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str
     Derived from selectedAnswer field in quiz_attempt events.
     """
 
-    quiz_res = client.table("quiz_questions")\
+    quiz_data = _fetch_all(client.table("quiz_questions")\
         .select("id, question_text, options, correct_answer, slides!inner(lecture_id)")\
-        .eq("slides.lecture_id", lecture_id)\
-        .limit(200)\
-        .execute()
+        .eq("slides.lecture_id", lecture_id))
 
-    events_res = client.table("learning_events")\
+    events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
-        .contains("event_data", {"lectureId": lecture_id})\
-        .limit(5000)\
-        .execute()
+        .contains("event_data", {"lectureId": lecture_id}))
 
-    attempts_data = events_res.data or []
+    attempts_data = events_data or []
     result = []
 
-    for question in quiz_res.data:
+    for question in quiz_data:
         q_attempts = [
             e["event_data"] for e in attempts_data
             if e.get("event_data", {}).get("questionId") == question["id"]
@@ -289,10 +276,15 @@ def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str
             if selected is not None:
                 key = str(selected)
                 answer_distribution[key] = answer_distribution.get(key, 0) + 1
-
+        
         correct_idx = str(question.get("correct_answer", -1))
         wrong_counts = {k: v for k, v in answer_distribution.items() if k != correct_idx}
-        most_common_wrong = max(wrong_counts, key=wrong_counts.get) if wrong_counts else None
+        
+        # Tie-breaking distractor analysis
+        most_common_wrongs = []
+        if wrong_counts:
+            max_v = max(wrong_counts.values())
+            most_common_wrongs = [int(k) for k, v in wrong_counts.items() if v == max_v]
 
         result.append({
             "question_id": question["id"],
@@ -300,7 +292,8 @@ def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str
             "options": question.get("options", []),
             "correct_answer": question.get("correct_answer"),
             "answer_distribution": answer_distribution,
-            "most_common_wrong_answer": int(most_common_wrong) if most_common_wrong is not None else None,
+            "most_common_wrong_answer": most_common_wrongs[0] if most_common_wrongs else None,
+            "all_common_wrong_answers": most_common_wrongs,
             "total_attempts": total_attempts
         })
 
@@ -314,21 +307,15 @@ def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     Uses last_slide_viewed from student_progress for non-completers.
     """
 
-    progress_res = client.table("student_progress")\
+    progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id, last_slide_viewed, completed_at")\
-        .eq("lecture_id", lecture_id)\
-        .limit(2000)\
-        .execute()
+        .eq("lecture_id", lecture_id))
 
-    slides_res = client.table("slides")\
+    slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
         .eq("lecture_id", lecture_id)\
-        .order("slide_number")\
-        .limit(200)\
-        .execute()
+        .order("slide_number"))
 
-    progress_data = progress_res.data or []
-    slides_data = slides_res.data or []
     total_started = len(progress_data)
 
     # Only count students who never finished
@@ -362,25 +349,21 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
     Currently only the aggregate total is shown; this gives per-slide granularity.
     """
 
-    events_res = client.table("learning_events")\
+    events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "confidence_rating")\
-        .contains("event_data", {"lectureId": lecture_id})\
-        .limit(5000)\
-        .execute()
+        .contains("event_data", {"lectureId": lecture_id}))
 
-    slides_res = client.table("slides")\
+    slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
         .eq("lecture_id", lecture_id)\
-        .order("slide_number")\
-        .limit(200)\
-        .execute()
+        .order("slide_number"))
 
-    slide_id_map = {s["id"]: s for s in (slides_res.data or [])}
+    slide_id_map = {s["id"]: s for s in slides_data}
 
     # Aggregate confidence per slide
     slide_conf: Dict[str, Dict[str, int]] = {}
-    for e in (events_res.data or []):
+    for e in events_data:
         ev_data = e.get("event_data", {})
         sid = ev_data.get("slideId")
         rating = ev_data.get("rating")
@@ -416,16 +399,14 @@ def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]
     The query text is collected but never shown to professors — this surfaces it.
     """
 
-    events_res = client.table("learning_events")\
+    events_data = _fetch_all(client.table("learning_events")\
         .select("event_data, created_at")\
         .eq("event_type", "ai_tutor_query")\
         .contains("event_data", {"lectureId": lecture_id})\
-        .order("created_at", desc=True)\
-        .limit(50)\
-        .execute()
+        .order("created_at", desc=True))
 
     result = []
-    for e in (events_res.data or []):
+    for e in events_data:
         ev_data = e.get("event_data", {})
         query_text = ev_data.get("query", "").strip()
         if not query_text:
@@ -441,62 +422,76 @@ def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]
 
 @lru_cache(maxsize=128)
 def get_dashboard_data(lecture_id: str, token: str = None):
-    """
-    Get comprehensive advanced dashboard analytics in a single call.
-    Cached to prevent redundant heavy computations on the same lecture data.
-    """
+    """Get comprehensive advanced dashboard analytics in a single call."""
     client = get_auth_client(token)
     
-    # 1. Efficiently fetch data from Supabase
-    progress_res = client.table("student_progress")\
-        .select("user_id, quiz_score, total_questions_answered, correct_answers, completed_slides, completed_at, last_slide_viewed")\
-        .eq("lecture_id", lecture_id)\
-        .limit(2000)\
-        .execute()
+    # 1. Fetch data
+    progress_data = _fetch_all(client.table("student_progress").select("*").eq("lecture_id", lecture_id))
+    events_data = _fetch_all(client.table("learning_events").select("*").contains("event_data", {"lectureId": lecture_id}))
+    slides_data = _fetch_all(client.table("slides").select("id, title, slide_number").eq("lecture_id", lecture_id).order("slide_number"))
     
-    events_res = client.table("learning_events")\
-        .select("user_id, event_type, event_data, created_at")\
-        .contains("event_data", {"lectureId": lecture_id})\
-        .limit(5000)\
-        .execute()
-    
-    slides_res = client.table("slides")\
-        .select("id, title, slide_number")\
-        .eq("lecture_id", lecture_id)\
-        .order("slide_number")\
-        .limit(200)\
-        .execute()
+    # 2. Indexing
+    events_by_user = _group_events_by_user(events_data)
+    events_by_slide = _group_events_by_slide(events_data)
+    unique_students_count = len({p["user_id"] for p in progress_data})
 
-    progress_data = progress_res.data or []
-    events_data = events_res.data or []
-    slides_data = slides_res.data or []
+    # 3. Aggregation
+    overview = _calculate_overview_stats(progress_data, len(events_data), unique_students_count)
+    activity_by_day = _calculate_activity_by_day(events_data)
+    slide_performance = _calculate_slide_performance(slides_data, events_by_slide)
+    students_matrix = _calculate_students_matrix(progress_data, events_by_user, len(slides_data))
     
-    # 2. Pre-index data for O(1) lookups
-    events_by_user = {}
+    # 4. Maps & Feeds
+    conf_map, slide_conf_list = _calculate_confidence_map(slides_data, events_by_slide)
+    dropoff_list = _calculate_dropoff_map(slides_data, progress_data, unique_students_count)
+    live_ticker, ai_queries = _generate_live_feeds(events_data)
+
+    return {
+        "overview": overview,
+        "activityByDay": activity_by_day,
+        "slidePerformance": slide_performance,
+        "studentsMatrix": students_matrix,
+        "confidenceMap": conf_map,
+        "liveTicker": live_ticker,
+        "dropoffData": dropoff_list,
+        "aiQueryFeed": ai_queries[:50],
+        "confidenceBySlide": slide_conf_list
+    }
+
+
+def _group_events_by_user(events_data: list) -> dict:
+    from collections import defaultdict
+    groups = defaultdict(list)
     for ev in events_data:
         uid = ev.get("user_id")
-        if uid not in events_by_user:
-            events_by_user[uid] = []
-        events_by_user[uid].append(ev)
+        if uid: groups[uid].append(ev)
+    return groups
 
-    events_by_slide = {}
+
+def _group_events_by_slide(events_data: list) -> dict:
+    from collections import defaultdict
+    groups = defaultdict(list)
     for ev in events_data:
         ev_data = ev.get("event_data", {})
         sid = ev_data.get("slideId") or ev_data.get("fromSlideId")
-        if sid:
-            if sid not in events_by_slide:
-                events_by_slide[sid] = []
-            events_by_slide[sid].append(ev)
+        if sid: groups[sid].append(ev)
+    return groups
 
-    unique_user_ids = {p["user_id"] for p in progress_data}
-    unique_students_count = len(unique_user_ids)
 
-    # 3. Calculate Overview Stats
+def _calculate_overview_stats(progress_data: list, total_events: int, student_count: int) -> dict:
     total_attempts = sum(p.get("total_questions_answered") or 0 for p in progress_data)
     total_correct = sum(p.get("correct_answers") or 0 for p in progress_data)
     average_score = round((total_correct / total_attempts * 100) if total_attempts > 0 else 0)
+    return {
+        "uniqueStudents": student_count,
+        "totalAttempts": total_attempts,
+        "totalCorrect": total_correct,
+        "averageScore": average_score,
+        "totalEvents": total_events
+    }
 
-    # 4. Activity By Day (Optimized lookup)
+
+def _calculate_activity_by_day(events_data: list) -> list:
     last_7_days = [(datetime.now() - timedelta(days=6 - i)).strftime("%Y-%m-%d") for i in range(7)]
     events_by_day = {}
     for ev in events_data:
@@ -504,44 +499,44 @@ def get_dashboard_data(lecture_id: str, token: str = None):
             day = ev.get("created_at", "")[:10]
             events_by_day[day] = events_by_day.get(day, 0) + 1
             
-    activity_by_day = [
+    return [
         {"date": datetime.strptime(d, "%Y-%m-%d").strftime("%a"), "attempts": events_by_day.get(d, 0)}
         for d in last_7_days
     ]
 
-    # 5. Deep Slide Analysis
-    slide_performance = []
+
+def _calculate_slide_performance(slides_data: list, events_by_slide: dict) -> list:
+    perf = []
     for s in slides_data:
         sid = s["id"]
         slide_events = events_by_slide.get(sid, [])
         st = {"duration": 0, "views": 0, "quizCorrect": 0, "quizAttempts": 0, "aiQueries": 0, "revisions": 0}
         for ev in slide_events:
-            ev_type = ev.get("event_type")
-            ev_data = ev.get("event_data", {})
-            if ev_type == "slide_view":
-                st["duration"] += ev_data.get("duration_seconds", 0)
+            evt, evd = ev.get("event_type"), ev.get("event_data", {})
+            if evt == "slide_view":
+                st["duration"] += evd.get("duration_seconds", 0)
                 st["views"] += 1
-            elif ev_type == "quiz_attempt":
+            elif evt == "quiz_attempt":
                 st["quizAttempts"] += 1
-                if ev_data.get("correct"): st["quizCorrect"] += 1
-            elif ev_type == "ai_tutor_query": st["aiQueries"] += 1
-            elif ev_type == "slide_back_navigation": st["revisions"] += 1
+                if evd.get("correct"): st["quizCorrect"] += 1
+            elif evt == "ai_tutor_query": st["aiQueries"] += 1
+            elif evt == "slide_back_navigation": st["revisions"] += 1
 
         avg_dur = round(st["duration"] / st["views"]) if st["views"] > 0 else 0
         corr_rate = round((st["quizCorrect"] / st["quizAttempts"]) * 100) if st["quizAttempts"] > 0 else 0
         raw_confusion = (st["aiQueries"] * 30) + (st["revisions"] * 15) + ((st["quizAttempts"] - st["quizCorrect"]) * 10)
-        confusion_index = min(100, max(10, raw_confusion + 10))
-
-        slide_performance.append({
+        
+        perf.append({
             "id": sid, "name": s["title"], "avgDuration": avg_dur, "correctRate": corr_rate,
             "quizAttempts": st["quizAttempts"], "aiQueries": st["aiQueries"], "revisions": st["revisions"],
-            "confusionIndex": confusion_index
+            "confusionIndex": min(100, max(10, raw_confusion + 10))
         })
-    slide_performance.sort(key=lambda x: x["avgDuration"], reverse=True)
+    return sorted(perf, key=lambda x: x["avgDuration"], reverse=True)
 
-    # 6. Student Typology Matrix
-    students_matrix = []
-    num_slides = max(1, len(slides_data))
+
+def _calculate_students_matrix(progress_data: list, events_by_user: dict, num_slides: int) -> list:
+    matrix = []
+    num_slides = max(1, num_slides)
     for p in progress_data:
         uid = p["user_id"]
         completed_count = len(p.get("completed_slides") or [])
@@ -551,76 +546,70 @@ def get_dashboard_data(lecture_id: str, token: str = None):
         stud_ai_queries = sum(1 for e in stud_events if e.get("event_type") == "ai_tutor_query")
         stud_revisions = sum(1 for e in stud_events if e.get("event_type") == "slide_back_navigation")
 
-        typology = "Standard"
-        if prog_pct < 50: typology = "Highly Confused (Seeking Help)" if stud_ai_queries > 3 else "Disengaged (At Risk)"
-        elif score >= 80: typology = "The Reviser (High Effort)" if stud_revisions > 3 else "Natural Comprehension"
-        elif score < 60: typology = "Struggling (Critical)"
+        typology = calculate_student_typology(prog_pct, score, stud_ai_queries, stud_revisions)
 
-        students_matrix.append({
+        matrix.append({
             "student_id": uid, "student_name": generate_anon_name(uid), "progress_percentage": prog_pct,
             "quiz_score": score, "typology": typology, "ai_interactions": stud_ai_queries, "revisions": stud_revisions
         })
-    students_matrix.sort(key=lambda x: x["quiz_score"], reverse=True)
+    return sorted(matrix, key=lambda x: x["quiz_score"], reverse=True)
 
-    # 7. Confidence & Dropoff Map
-    conf_map = {"got_it": 0, "unsure": 0, "confused": 0}
-    slide_confidence_list = []
+
+def _calculate_confidence_map(slides_data: list, events_by_slide: dict) -> tuple:
+    overall_conf = {"got_it": 0, "unsure": 0, "confused": 0}
+    slide_conf_list = []
     for s in slides_data:
         sid = s["id"]
         slide_events = events_by_slide.get(sid, [])
-        s_conf = {"got_it": 0, "unsure": 0, "confused": 0}
+        s_counts = {"got_it": 0, "unsure": 0, "confused": 0}
         for ev in slide_events:
             if ev.get("event_type") == "confidence_rating":
                 r = ev.get("event_data", {}).get("rating")
-                if r in s_conf:
-                    s_conf[r] += 1
-                    conf_map[r] += 1
+                if r in s_counts:
+                    s_counts[r] += 1
+                    overall_conf[r] += 1
         
-        total_s = sum(s_conf.values())
-        slide_confidence_list.append({
+        total_s = sum(s_counts.values())
+        slide_conf_list.append({
             "slide_number": s["slide_number"], "title": s["title"],
-            "got_it": s_conf["got_it"], "unsure": s_conf["unsure"], "confused": s_conf["confused"],
-            "total": total_s, "confusion_rate": round((s_conf["confused"] / total_s * 100) if total_s > 0 else 0, 1)
+            **s_counts, "total": total_s, 
+            "confusion_rate": round((s_counts["confused"] / total_s * 100) if total_s > 0 else 0, 1)
         })
-                
+    return overall_conf, slide_conf_list
+
+
+def _calculate_dropoff_map(slides_data: list, progress_data: list, student_count: int) -> list:
     dropout_by_slide = {}
     for p in progress_data:
         if not p.get("completed_at"):
             s_num = p.get("last_slide_viewed", 1)
             dropout_by_slide[s_num] = dropout_by_slide.get(s_num, 0) + 1
             
-    dropoff_list = [
+    return [
         {
             "slide_number": s["slide_number"], "title": s["title"],
             "dropout_count": dropout_by_slide.get(s["slide_number"], 0),
-            "dropout_percentage": round((dropout_by_slide.get(s["slide_number"], 0) / unique_students_count * 100) if unique_students_count > 0 else 0, 1)
+            "dropout_percentage": round((dropout_by_slide.get(s["slide_number"], 0) / student_count * 100) if student_count > 0 else 0, 1)
         }
         for s in slides_data if s["slide_number"] in dropout_by_slide
     ]
 
-    # 8. Live Ticker & AI Query Feed
-    live_ticker = []
-    ai_queries = []
+
+def _generate_live_feeds(events_data: list) -> tuple:
+    ticker, queries = [], []
     sorted_events = sorted(events_data, key=lambda x: x.get("created_at", ""), reverse=True)
     for e in sorted_events:
-        evt, ev_data = e.get("event_type"), e.get("event_data", {})
+        evt, evd = e.get("event_type"), e.get("event_data", {})
         if evt == "ai_tutor_query":
-            q_text = ev_data.get("query", "").strip()
-            if q_text: ai_queries.append({"slide_title": ev_data.get("slideTitle", "Unknown Slide"), "query_text": q_text, "created_at": e.get("created_at", "")})
-        if len(live_ticker) < 15 and evt in ["ai_tutor_query", "slide_back_navigation", "quiz_attempt"]:
-            slide_title = ev_data.get("slideTitle", "Unknown Slide")
-            if evt == "ai_tutor_query": desc = f'Asked AI Tutor on {slide_title}: "{ev_data.get("query", "")[:40]}..."'
-            elif evt == "slide_back_navigation": desc = f"Navigated backwards from {ev_data.get('fromSlideId', 'Unknown')} (Revision)"
-            else: desc = f"{'Passed' if ev_data.get('correct') else 'Failed'} quiz on {slide_title}"
-            live_ticker.append({"type": evt, "description": desc, "time": e.get("created_at", "")})
-
-    return {
-        "overview": {"uniqueStudents": unique_students_count, "totalAttempts": total_attempts, "totalCorrect": total_correct, "averageScore": average_score, "totalEvents": len(events_data)},
-        "activityByDay": activity_by_day, "slidePerformance": slide_performance, "studentsMatrix": students_matrix,
-        "confidenceMap": conf_map, "liveTicker": live_ticker, "dropoffData": dropoff_list, "aiQueryFeed": ai_queries[:50],
-        "confidenceBySlide": slide_confidence_list
-    }
-
+            q_text = evd.get("query", "").strip()
+            if q_text: queries.append({"slide_title": evd.get("slideTitle", "Unknown Slide"), "query_text": q_text, "created_at": e.get("created_at", "")})
+        if len(ticker) < 15 and evt in ["ai_tutor_query", "slide_back_navigation", "quiz_attempt"]:
+            slide_title = evd.get("slideTitle", "Unknown Slide")
+            if evt == "ai_tutor_query": desc = f'Asked AI Tutor on {slide_title}: "{evd.get("query", "")[:40]}..."'
+            elif evt == "slide_back_navigation": desc = f"Navigated backwards from {evd.get('fromSlideId', 'Unknown')} (Revision)"
+            else: desc = f"{'Passed' if evd.get('correct') else 'Failed'} quiz on {slide_title}"
+            ticker.append({"type": evt, "description": desc, "time": e.get("created_at", "")})
+    return ticker, queries
 
 
 def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, Any]:
@@ -632,13 +621,11 @@ def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, 
     client = get_auth_client(token)
     
     # Fetch all learning events for this user
-    events_res = client.table("learning_events")\
+    events_data = _fetch_all(client.table("learning_events")\
         .select("event_type, event_data, created_at")\
-        .eq("user_id", user_id)\
-        .limit(5000)\
-        .execute()
+        .eq("user_id", user_id))
     
-    events = events_res.data or []
+    events = events_data or []
     if not events:
         return {
             "suggested_hours": [],

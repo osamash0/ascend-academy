@@ -102,12 +102,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (session?.user) {
             if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || !hasFetchedProfile.current) {
                 hasFetchedProfile.current = true;
-                const hasProfile = await withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => true);
+                const profilePromise = withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => true);
+                const rolePromise = withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
+                const hasProfile = await profilePromise;
                 if (!hasProfile) {
                   console.warn("User has session but no profile. Signing out.");
                   await signOut().catch(() => {});
                 } else {
-                  await withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
+                  await rolePromise;
                 }
             }
           } else {

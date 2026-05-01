@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from typing import Annotated, Literal, Optional, List, Dict, Any
 from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech, generate_metric_feedback, analyze_slide_vision, generate_slide_title, enhance_slide_content
 from backend.services.file_parse_service import _page_to_base64, _extract_text_page, _build_slide_from_vision
-from backend.core.database import supabase as _db, url as _url, key as _key
+from backend.core.database import supabase as _db, url as _url, anon_key as _key
 import io
 import urllib.request
 from backend.services.content_filter import is_metadata_slide
@@ -18,7 +18,7 @@ from supabase import create_client as _create_client
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 _AiModel = Annotated[
-    Literal["groq", "gemini-2.5-flash", "llama3"],
+    Literal["groq", "gemini-1.5-flash", "llama3"],
     Field("groq", description="Which LLM backend to use"),
 ]
 
