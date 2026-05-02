@@ -291,6 +291,85 @@ def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str
     return result
 
 
+def _calculate_retry_performance(
+    questions: List[Dict[str, Any]],
+    first_attempt_events: List[Dict[str, Any]],
+    retry_attempt_events: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Pure aggregator: rank questions by first- and second-attempt miss rate.
+
+    questions: [{id, question_text}]
+    first_attempt_events / retry_attempt_events: [{event_data: {questionId, correct}}]
+
+    Returns rows sorted by first_attempt_miss_rate desc; questions with no
+    first-attempt data go to the end.
+    """
+    by_q_first: Dict[str, List[bool]] = {}
+    for e in first_attempt_events:
+        ed = e.get("event_data") or {}
+        qid = ed.get("questionId")
+        if qid:
+            by_q_first.setdefault(qid, []).append(bool(ed.get("correct")))
+
+    by_q_retry: Dict[str, List[bool]] = {}
+    for e in retry_attempt_events:
+        ed = e.get("event_data") or {}
+        qid = ed.get("questionId")
+        if qid:
+            by_q_retry.setdefault(qid, []).append(bool(ed.get("correct")))
+
+    rows = []
+    for q in questions:
+        qid = q["id"]
+        first = by_q_first.get(qid, [])
+        retry = by_q_retry.get(qid, [])
+        first_total = len(first)
+        first_misses = sum(1 for c in first if not c)
+        retry_total = len(retry)
+        retry_misses = sum(1 for c in retry if not c)
+        first_rate = round((first_misses / first_total) * 100, 1) if first_total else 0.0
+        retry_rate = round((retry_misses / retry_total) * 100, 1) if retry_total else 0.0
+        rows.append({
+            "question_id": qid,
+            "question_text": q.get("question_text", ""),
+            "first_attempt_total": first_total,
+            "first_attempt_misses": first_misses,
+            "first_attempt_miss_rate": first_rate,
+            "retry_total": retry_total,
+            "retry_misses": retry_misses,
+            "retry_miss_rate": retry_rate,
+        })
+
+    rows.sort(key=lambda r: (
+        0 if r["first_attempt_total"] > 0 else 1,
+        -r["first_attempt_miss_rate"],
+        -r["retry_miss_rate"],
+        r["question_id"],
+    ))
+    return rows
+
+
+def get_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    """Per-question first-attempt vs second-attempt miss rates for a lecture."""
+    client = get_auth_client(token)
+
+    quiz_data = _fetch_all(client.table("quiz_questions")
+        .select("id, question_text, slides!inner(lecture_id)")
+        .eq("slides.lecture_id", lecture_id))
+
+    first_events = _fetch_all(client.table("learning_events")
+        .select("event_data")
+        .eq("event_type", "quiz_attempt")
+        .contains("event_data", {"lectureId": lecture_id}))
+
+    retry_events = _fetch_all(client.table("learning_events")
+        .select("event_data")
+        .eq("event_type", "quiz_retry_attempt")
+        .contains("event_data", {"lectureId": lecture_id}))
+
+    return _calculate_retry_performance(quiz_data, first_events, retry_events)
+
+
 def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
     """
@@ -499,6 +578,27 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
                 WHERE le.event_type = 'confidence_rating' AND le.event_data->>'lectureId' = $1
             """, lecture_id)
 
+            # Retry Performance — first-attempt vs second-attempt miss rates per question
+            retry_rows = await conn.fetch("""
+                SELECT
+                    q.id::text as "question_id",
+                    q.question_text as "question_text",
+                    COUNT(fa.id)::int as "first_attempt_total",
+                    COUNT(fa.id) FILTER (WHERE (fa.event_data->>'correct')::boolean = false)::int as "first_attempt_misses",
+                    COUNT(ra.id)::int as "retry_total",
+                    COUNT(ra.id) FILTER (WHERE (ra.event_data->>'correct')::boolean = false)::int as "retry_misses"
+                FROM quiz_questions q
+                JOIN slides s ON s.id = q.slide_id
+                LEFT JOIN learning_events fa ON fa.event_type = 'quiz_attempt'
+                    AND fa.event_data->>'lectureId' = $1
+                    AND fa.event_data->>'questionId' = q.id::text
+                LEFT JOIN learning_events ra ON ra.event_type = 'quiz_retry_attempt'
+                    AND ra.event_data->>'lectureId' = $1
+                    AND ra.event_data->>'questionId' = q.id::text
+                WHERE s.lecture_id = $1::uuid
+                GROUP BY q.id, q.question_text
+            """, lecture_id)
+
             # Live Ticker & AI Queries
             ticker_rows = await conn.fetch("""
                 SELECT 
@@ -560,6 +660,22 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
                 desc = f"{'Passed' if evd.get('correct') else 'Failed'} quiz on {slide_title}"
             live_ticker.append({"type": r["type"], "description": desc, "time": r["time"]})
 
+    # Compute miss-rates from raw counts (kept out of SQL to avoid div-by-zero noise)
+    retry_performance = []
+    for r in retry_rows:
+        d = dict(r)
+        ft = d["first_attempt_total"]
+        rt = d["retry_total"]
+        d["first_attempt_miss_rate"] = round((d["first_attempt_misses"] / ft) * 100, 1) if ft else 0.0
+        d["retry_miss_rate"] = round((d["retry_misses"] / rt) * 100, 1) if rt else 0.0
+        retry_performance.append(d)
+    retry_performance.sort(key=lambda r: (
+        0 if r["first_attempt_total"] > 0 else 1,
+        -r["first_attempt_miss_rate"],
+        -r["retry_miss_rate"],
+        r["question_id"],
+    ))
+
     result = {
         "overview": {**dict(overview_row), "totalEvents": sum(dict(conf_counts).values()) + len(ticker_rows)},
         "activityByDay": [dict(r) for r in activity_rows],
@@ -568,6 +684,7 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
         "confidenceMap": dict(conf_counts),
         "liveTicker": live_ticker,
         "aiQueryFeed": ai_query_feed[:50],
+        "retryPerformance": retry_performance,
         # Re-using slide_rows for a simpler confidence map if needed, or just passing overall
         "dropoffData": [], # Can be added if needed, but keeping it light for now
         "confidenceBySlide": [] # Can be added similarly

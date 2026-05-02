@@ -248,6 +248,24 @@ async def get_ai_query_feed(lecture_id: str, user=Depends(verify_token), creds: 
         logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load AI query feed.")
 
+@router.get("/lecture/{lecture_id}/retry-performance", response_model=AnalyticsResponse)
+async def get_retry_performance(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Per-question first-attempt vs second-attempt miss rates.
+    Surfaces the questions students get wrong most often, plus how many
+    still trip them up on the end-of-lecture review pass.
+    """
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+    try:
+        data = await run_in_threadpool(analytics_service.get_retry_performance, lecture_id, creds.credentials)
+        return AnalyticsResponse(success=True, data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load retry-performance data.")
+
+
 @router.get("/personal/optimal-schedule", response_model=AnalyticsResponse)
 async def get_personal_optimal_schedule(user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """

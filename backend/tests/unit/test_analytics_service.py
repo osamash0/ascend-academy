@@ -113,6 +113,53 @@ def test_confidence_map_aggregates_per_slide():
     assert s1["confusion_rate"] == 50.0
 
 
+def test_retry_performance_ranks_by_first_attempt_miss_rate():
+    questions = [
+        {"id": "q1", "question_text": "Easy"},
+        {"id": "q2", "question_text": "Hard"},
+        {"id": "q3", "question_text": "Untouched"},
+    ]
+    first = [
+        {"event_data": {"questionId": "q1", "correct": True}},
+        {"event_data": {"questionId": "q1", "correct": True}},
+        {"event_data": {"questionId": "q1", "correct": True}},
+        {"event_data": {"questionId": "q1", "correct": False}},
+        {"event_data": {"questionId": "q2", "correct": False}},
+        {"event_data": {"questionId": "q2", "correct": False}},
+        {"event_data": {"questionId": "q2", "correct": False}},
+        {"event_data": {"questionId": "q2", "correct": True}},
+    ]
+    retry = [
+        {"event_data": {"questionId": "q2", "correct": True}},
+        {"event_data": {"questionId": "q2", "correct": False}},
+        {"event_data": {"questionId": "q1", "correct": True}},
+    ]
+    out = svc._calculate_retry_performance(questions, first, retry)
+    assert out[0]["question_id"] == "q2"
+    assert out[0]["first_attempt_miss_rate"] == 75.0
+    assert out[0]["retry_miss_rate"] == 50.0
+    assert out[1]["question_id"] == "q1"
+    assert out[1]["first_attempt_miss_rate"] == 25.0
+    assert out[2]["question_id"] == "q3"
+    assert out[2]["first_attempt_total"] == 0
+    assert out[2]["retry_total"] == 0
+
+
+def test_retry_performance_handles_no_data():
+    assert svc._calculate_retry_performance([], [], []) == []
+
+
+def test_retry_performance_ignores_events_with_missing_question_id():
+    questions = [{"id": "q1", "question_text": "Q"}]
+    first = [
+        {"event_data": {"correct": False}},
+        {"event_data": {"questionId": "q1", "correct": False}},
+    ]
+    out = svc._calculate_retry_performance(questions, first, [])
+    assert out[0]["first_attempt_total"] == 1
+    assert out[0]["first_attempt_miss_rate"] == 100.0
+
+
 def test_students_matrix_pseudonymized():
     progress = [
         {

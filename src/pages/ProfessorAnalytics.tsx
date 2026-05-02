@@ -72,6 +72,18 @@ interface DashboardData {
   dropoffData: DropoffPoint[];
   aiQueryFeed: AIQueryItem[];
   confidenceBySlide: SlideConfidence[];
+  retryPerformance: RetryPerformanceItem[];
+}
+
+interface RetryPerformanceItem {
+  question_id: string;
+  question_text: string;
+  first_attempt_total: number;
+  first_attempt_misses: number;
+  first_attempt_miss_rate: number;
+  retry_total: number;
+  retry_misses: number;
+  retry_miss_rate: number;
 }
 
 interface DropoffPoint {
@@ -726,6 +738,70 @@ export default function ProfessorAnalytics() {
                 </div>
               </Section>
             </div>
+
+            {/* Most-Missed Questions (retry performance) */}
+            <Section
+              title="Most-Missed Questions"
+              subtitle="Ranked by first-attempt miss rate · second-attempt miss rate shown alongside"
+              icon={Target}
+              interpretation={metricInterpretations.retryPerformance}
+              isLoading={metricLoading && openSections.retryPerformance}
+              isOpen={openSections.retryPerformance}
+              onToggle={() => handleMetricClick('retryPerformance', 'Most-Missed Questions', dashboardData.retryPerformance)}
+            >
+              {!dashboardData.retryPerformance || dashboardData.retryPerformance.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground/50 text-xs font-bold uppercase tracking-widest">
+                  No quiz attempts yet
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table className="w-full">
+                    <TableHeader>
+                      <TableRow className="border-border hover:bg-transparent">
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em]">Question</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">1st Miss Rate</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">1st Attempts</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">Retry Miss Rate</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">Retries</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dashboardData.retryPerformance.slice(0, 15).map((q) => {
+                        const firstColor =
+                          q.first_attempt_total === 0 ? 'text-muted-foreground/50'
+                          : q.first_attempt_miss_rate >= 60 ? 'text-destructive'
+                          : q.first_attempt_miss_rate >= 30 ? 'text-warning'
+                          : 'text-success';
+                        const retryColor =
+                          q.retry_total === 0 ? 'text-muted-foreground/50'
+                          : q.retry_miss_rate >= 50 ? 'text-destructive'
+                          : q.retry_miss_rate > 0 ? 'text-warning'
+                          : 'text-success';
+                        return (
+                          <TableRow key={q.question_id} className="border-border hover:bg-white/5">
+                            <TableCell className="px-6 py-4 font-medium text-sm text-foreground max-w-md">
+                              <span className="line-clamp-2">{q.question_text}</span>
+                            </TableCell>
+                            <TableCell className={`px-6 py-4 text-right font-black text-base ${firstColor}`}>
+                              {q.first_attempt_total > 0 ? `${q.first_attempt_miss_rate}%` : '—'}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-right text-xs font-bold text-muted-foreground">
+                              {q.first_attempt_misses} / {q.first_attempt_total}
+                            </TableCell>
+                            <TableCell className={`px-6 py-4 text-right font-black text-base ${retryColor}`}>
+                              {q.retry_total > 0 ? `${q.retry_miss_rate}%` : '—'}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-right text-xs font-bold text-muted-foreground">
+                              {q.retry_misses} / {q.retry_total}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Section>
 
             {/* Row 2: Drop-off Map + Per-Slide Confidence */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
