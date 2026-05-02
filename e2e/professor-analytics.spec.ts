@@ -92,13 +92,21 @@ test.describe("Professor analytics", () => {
             quiz_score: 35,
           },
         ],
+        // Field shapes here match ProfessorAnalytics.tsx contract exactly:
+        //   liveTicker  → { type, description, time }
+        //   aiQueryFeed → { id, query_text, created_at, ... }
         liveTicker: [
-          { id: "ev1", message: "Astra completed slide 1", at: "now" },
+          {
+            type: "completion",
+            description: "Astra completed slide 1",
+            time: new Date().toISOString(),
+          },
         ],
         aiQueryFeed: [
           {
             id: "aq1",
-            question: "What does orbital decay mean?",
+            query_text: "What does orbital decay mean?",
+            created_at: new Date().toISOString(),
             student_name: "Nova",
             slide_title: "Core",
           },

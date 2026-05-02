@@ -272,10 +272,21 @@ export async function mockSupabase(
   );
 
   // ─── Auth endpoints ───────────────────────────────────────────────────────
-  await page.route(/\/auth\/v1\/token(\?|$)/, async (route) => {
+  // IMPORTANT: Playwright matches handlers in REVERSE registration order, so
+  // the broad `/auth/v1/` fallback MUST be registered first and the specific
+  // token/signup/user/logout handlers MUST be registered last so they win.
+  await page.route(/\/auth\/v1\//, async (route) => {
     if (route.request().method() === "OPTIONS")
       return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
-    return json(route, session);
+    return json(route, {});
+  });
+  await page.route(/\/auth\/v1\/logout(\?|$)/, (route) =>
+    route.fulfill({ status: 204, headers: CORS_HEADERS }),
+  );
+  await page.route(/\/auth\/v1\/user(\?|$)/, async (route) => {
+    if (route.request().method() === "OPTIONS")
+      return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
+    return json(route, session.user);
   });
   await page.route(/\/auth\/v1\/signup(\?|$)/, async (route) => {
     if (route.request().method() === "OPTIONS")
@@ -283,18 +294,10 @@ export async function mockSupabase(
     // signUp returns the user object with an embedded session.
     return json(route, { ...session.user, session });
   });
-  await page.route(/\/auth\/v1\/user(\?|$)/, async (route) => {
+  await page.route(/\/auth\/v1\/token(\?|$)/, async (route) => {
     if (route.request().method() === "OPTIONS")
       return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
-    return json(route, session.user);
-  });
-  await page.route(/\/auth\/v1\/logout(\?|$)/, (route) =>
-    route.fulfill({ status: 204, headers: CORS_HEADERS }),
-  );
-  await page.route(/\/auth\/v1\//, async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
-    return json(route, {});
+    return json(route, session);
   });
 }
 

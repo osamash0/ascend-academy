@@ -116,10 +116,16 @@ test.describe("Professor PDF upload", () => {
     await page.locator('input[type="file"][accept=".pdf"]').setInputFiles(fixture);
 
     // ─── Wait for the SSE stream to drive the editor view ───────────────────
-    // After `complete` the empty state is replaced by the slide editor and
-    // the "Publish" button becomes visible.
+    // After `complete` the upload overlay shows a "Get Started" button.
+    // `usePDFUpload` only flips `isUploading` to false via `closeUploadOverlay`,
+    // so we MUST click "Get Started" to dismiss the modal before Publish is
+    // actually clickable (the overlay would otherwise intercept pointer events).
+    const getStarted = page.getByRole("button", { name: /get started/i });
+    await expect(getStarted).toBeVisible({ timeout: 15_000 });
+    await getStarted.click();
+
     const publishButton = page.getByRole("button", { name: /^publish$/i });
-    await expect(publishButton).toBeVisible({ timeout: 15_000 });
+    await expect(publishButton).toBeVisible({ timeout: 10_000 });
     await expect(publishButton).toBeEnabled();
 
     // ─── Publish: triggers storage upload + lectures/slides inserts ─────────
