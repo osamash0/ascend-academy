@@ -64,6 +64,14 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     monkeypatch.setattr(analytics_api, "supabase", fake_supabase, raising=True)
     monkeypatch.setattr(cache_module, "supabase_admin", fake_supabase, raising=True)
 
+    # upload.py imports supabase_admin by name at module-load — patch the
+    # local reference so each test's fresh fake is the one used.
+    try:
+        from backend.api import upload as upload_api
+        monkeypatch.setattr(upload_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+
     # Ensure get_client/get_auth_client return the fake
     monkeypatch.setattr(database, "get_client", lambda use_admin=False: fake_supabase, raising=True)
     monkeypatch.setattr(

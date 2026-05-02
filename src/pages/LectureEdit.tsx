@@ -27,6 +27,29 @@ interface SlideData {
     questions: QuestionData[];
 }
 
+interface DiagnosticsSlide {
+    slide_index: number;
+    route: string;
+    route_reason: string;
+    layout_features: Record<string, number | boolean>;
+    has_parse_error?: boolean;
+}
+
+interface DiagnosticsRunMetrics {
+    started_at?: string;
+    finished_at?: string;
+    totals?: Record<string, number>;
+    fallbacks?: Record<string, number>;
+}
+
+interface DiagnosticsResponse {
+    pdf_hash: string;
+    pipeline_version: string;
+    run_metrics: DiagnosticsRunMetrics | null;
+    per_slide: DiagnosticsSlide[];
+    flags: { slide_index: number; reason: string }[];
+}
+
 export default function LectureEdit() {
     const { lectureId } = useParams<{ lectureId: string }>();
     const navigate = useNavigate();
@@ -43,6 +66,13 @@ export default function LectureEdit() {
     const [pdfFile, setPdfFile] = useState<File | null>(null);
     const [existingPdfUrl, setExistingPdfUrl] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [pdfHash, setPdfHash] = useState<string | null>(null);
+
+    // Diagnostics state — read-only routing telemetry panel
+    const [diagnostics, setDiagnostics] = useState<DiagnosticsResponse | null>(null);
+    const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+    const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+    const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
 
     // Per-slide AI loading states
     const [aiSummaryLoading, setAiSummaryLoading] = useState<Record<number, boolean>>({});
@@ -69,6 +99,8 @@ export default function LectureEdit() {
             setTitle(lecture.title);
             setDescription(lecture.description ?? '');
             setExistingPdfUrl(lecture.pdf_url);
+            const lectureWithHash = lecture as typeof lecture & { pdf_hash?: string | null };
+            setPdfHash(lectureWithHash.pdf_hash ?? null);
 
             // Fetch slides ordered by slide_number
             const { data: slidesData, error: sErr } = await supabase
@@ -112,6 +144,24 @@ export default function LectureEdit() {
             toast({ title: 'Error', description: 'Failed to load lecture.', variant: 'destructive' });
         } finally {
             setLoading(false);
+        }
+    };
+
+    // ── Diagnostics ─────────────────────────────────────────────────────────
+    const fetchDiagnostics = async () => {
+        if (!pdfHash) return;
+        setDiagnosticsLoading(true);
+        setDiagnosticsError(null);
+        try {
+            const data = await apiClient.get<DiagnosticsResponse>(
+                `/api/upload/diagnostics/${pdfHash}`,
+            );
+            setDiagnostics(data);
+        } catch (err) {
+            console.error(err);
+            setDiagnosticsError('Failed to load diagnostics.');
+        } finally {
+            setDiagnosticsLoading(false);
         }
     };
 
@@ -440,6 +490,116 @@ export default function LectureEdit() {
                             </div>
                         )}
                     </div>
+                </motion.div>
+
+                {/* Pipeline Diagnostics — read-only routing telemetry */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-card rounded-2xl border border-border p-6"
+                >
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const next = !diagnosticsOpen;
+                            setDiagnosticsOpen(next);
+                            if (next && !diagnostics && !diagnosticsLoading && pdfHash) {
+                                void fetchDiagnostics();
+                            }
+                        }}
+                        className="flex items-center justify-between w-full text-left"
+                        disabled={!pdfHash}
+                    >
+                        <div>
+                            <h2 className="text-lg font-semibold text-foreground">Pipeline Diagnostics</h2>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {pdfHash
+                                    ? 'Routing telemetry for the most recent parse of this PDF.'
+                                    : 'No parsed PDF on this lecture yet.'}
+                            </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                            {diagnosticsOpen ? 'Hide' : 'Show'}
+                        </span>
+                    </button>
+
+                    {diagnosticsOpen && pdfHash && (
+                        <div className="mt-4 space-y-3 text-sm">
+                            {diagnosticsLoading && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Loader2 className="w-4 h-4 animate-spin" /> Loading diagnostics…
+                                </div>
+                            )}
+                            {diagnosticsError && (
+                                <p className="text-xs text-destructive">{diagnosticsError}</p>
+                            )}
+                            {diagnostics && (
+                                <>
+                                    {diagnostics.run_metrics && (
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                            {Object.entries(diagnostics.run_metrics.totals ?? {}).map(([k, v]) => (
+                                                <div key={`t-${k}`} className="bg-muted/50 rounded-lg p-2 text-xs">
+                                                    <div className="text-muted-foreground">{k}</div>
+                                                    <div className="font-semibold">{v}</div>
+                                                </div>
+                                            ))}
+                                            {Object.entries(diagnostics.run_metrics.fallbacks ?? {}).map(([k, v]) => (
+                                                <div key={`f-${k}`} className="bg-amber-500/10 rounded-lg p-2 text-xs">
+                                                    <div className="text-muted-foreground">fallback: {k}</div>
+                                                    <div className="font-semibold">{v}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {diagnostics.flags.length > 0 && (
+                                        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                                            <p className="text-xs font-semibold text-amber-700 mb-1">
+                                                {diagnostics.flags.length} suspected misclassification(s)
+                                            </p>
+                                            <ul className="text-xs text-amber-700 space-y-0.5">
+                                                {diagnostics.flags.map(f => (
+                                                    <li key={f.slide_index}>
+                                                        Slide {f.slide_index + 1}: {f.reason}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-xs">
+                                            <thead className="text-muted-foreground">
+                                                <tr className="text-left">
+                                                    <th className="py-1 pr-2">#</th>
+                                                    <th className="py-1 pr-2">Route</th>
+                                                    <th className="py-1 pr-2">Reason</th>
+                                                    <th className="py-1 pr-2">Words</th>
+                                                    <th className="py-1 pr-2">Img cov</th>
+                                                    <th className="py-1 pr-2">Alpha</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {diagnostics.per_slide.map(s => {
+                                                    const f = s.layout_features || {};
+                                                    return (
+                                                        <tr key={s.slide_index} className="border-t border-border">
+                                                            <td className="py-1 pr-2">{s.slide_index + 1}</td>
+                                                            <td className="py-1 pr-2 font-mono">{s.route || '—'}</td>
+                                                            <td className="py-1 pr-2 font-mono text-muted-foreground">{s.route_reason || '—'}</td>
+                                                            <td className="py-1 pr-2">{Number(f.word_count ?? 0)}</td>
+                                                            <td className="py-1 pr-2">{Number(f.image_coverage ?? 0).toFixed(2)}</td>
+                                                            <td className="py-1 pr-2">{Number(f.alpha_ratio ?? 0).toFixed(2)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </motion.div>
 
                 {/* Slide Cards */}

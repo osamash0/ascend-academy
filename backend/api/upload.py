@@ -5,14 +5,21 @@ from typing import Any, List, Dict, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from backend.services.file_parse_service import parse_pdf_stream, _safe_embedding_task
+from backend.services.file_parse_service import (
+    PIPELINE_VERSION,
+    parse_pdf_stream,
+    _safe_embedding_task,
+)
 from backend.core.database import supabase_admin
 from backend.services.cache import (
     attach_lecture_id_to_embeddings,
     compute_pdf_hash,
     get_cached_parse,
+    get_cached_slide_results,
+    get_pipeline_run,
     store_cached_parse,
 )
+from backend.services.diagnostics import flag_suspicious
 from backend.core.auth_middleware import verify_token, require_professor
 from backend.core.rate_limit import limiter
 from backend.repositories.lecture_repo import list_lectures_by_pdf_hash
@@ -316,3 +323,87 @@ async def attach_lecture_endpoint(
             )
 
     return {"updated": updated}
+
+
+# --- Routing diagnostics ---------------------------------------------------
+
+
+@router.get("/diagnostics/{pdf_hash}")
+@limiter.limit("30/minute")
+async def diagnostics_endpoint(
+    request: Request,
+    pdf_hash: str,
+    user: Any = Depends(require_professor),
+):
+    """Routing telemetry for a parsed PDF.
+
+    Ownership is enforced by looking up a `lectures` row whose
+    ``pdf_hash`` matches and verifying the caller is the professor on
+    that row.  404 when no lecture references this hash so the endpoint
+    cannot be used to enumerate which PDFs have been processed.
+    """
+    if not pdf_hash:
+        raise HTTPException(status_code=400, detail="pdf_hash is required.")
+
+    user_id = (
+        user.id if hasattr(user, "id")
+        else (user.get("id") if isinstance(user, dict) else None)
+    )
+
+    try:
+        # Filter by BOTH pdf_hash and professor_id so a multi-tenant
+        # collision (the same PDF uploaded by two professors) can never
+        # let one professor's row authorize another professor's request.
+        owned_res = (
+            supabase_admin.table("lectures")
+            .select("id, professor_id, pdf_hash")
+            .eq("pdf_hash", pdf_hash)
+            .eq("professor_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if owned_res.data:
+            pass  # caller owns at least one lecture for this hash → authorized
+        else:
+            # Distinguish "no such hash" (404) from "hash exists but
+            # belongs to someone else" (403) without leaking whether the
+            # PDF has been parsed for an unrelated professor.
+            any_res = (
+                supabase_admin.table("lectures")
+                .select("id")
+                .eq("pdf_hash", pdf_hash)
+                .limit(1)
+                .execute()
+            )
+            if not (any_res.data or []):
+                raise HTTPException(status_code=404, detail="No lecture found for this pdf_hash.")
+            raise HTTPException(status_code=403, detail="Not your lecture.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("diagnostics ownership lookup failed: %s", e)
+        raise HTTPException(status_code=500, detail="Authorization check failed.")
+
+    cached = await get_cached_slide_results(pdf_hash, PIPELINE_VERSION)
+    per_slide: List[Dict[str, Any]] = []
+    for slide_index in sorted(cached):
+        slide = cached[slide_index] or {}
+        meta = slide.get("_meta") or {}
+        per_slide.append({
+            "slide_index": slide_index,
+            "route": meta.get("route") or "",
+            "route_reason": meta.get("route_reason") or "",
+            "layout_features": meta.get("layout_features") or {},
+            "has_parse_error": bool(slide.get("parse_error")),
+        })
+
+    run_metrics = await get_pipeline_run(pdf_hash, PIPELINE_VERSION)
+    flags = flag_suspicious(per_slide)
+
+    return {
+        "pdf_hash": pdf_hash,
+        "pipeline_version": PIPELINE_VERSION,
+        "run_metrics": run_metrics,
+        "per_slide": per_slide,
+        "flags": flags,
+    }

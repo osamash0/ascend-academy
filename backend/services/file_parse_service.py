@@ -26,6 +26,7 @@ import base64
 import hashlib
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from backend.services.ai_service import (
@@ -39,13 +40,18 @@ from backend.services.ai_service import (
 from backend.services.cache import (
     get_cached_blueprint,
     get_cached_slide_results,
+    record_pipeline_run,
     store_cached_blueprint,
     store_slide_embedding,
     store_slide_parse_result,
 )
 from backend.services.ai.embeddings import generate_embeddings
 from backend.services.content_filter import is_metadata_slide
-from backend.services.layout_analyzer import PageLayout, analyze_page_layout_async
+from backend.services.layout_analyzer import (
+    PageLayout,
+    analyze_page_layout_async,
+    layout_features_dict,
+)
 from backend.services.ocr_fallback import OCRFallback
 from backend.services.pdf_reader import PDFReader
 from backend.services.planner_service import (
@@ -54,6 +60,8 @@ from backend.services.planner_service import (
     get_slide_context,
 )
 from backend.services.slide_classifier import (
+    ROUTE_SKIP,
+    ROUTE_TEXT,
     build_routing_manifest,
     RoutingManifest,
 )
@@ -137,6 +145,18 @@ async def parse_pdf_stream(
     )
 
     # ------------------------------------------------------------------
+    # Telemetry counters — incremented in-place at fallback sites.
+    # Surfaced in pipeline_run_metrics at deck-finalize time.
+    # ------------------------------------------------------------------
+    fallback_counters: Dict[str, int] = {
+        "text_batch_fallback": 0,
+        "vision_rate_limit": 0,
+        "ocr_used": 0,
+        "cache_write_retries": 0,
+    }
+    started_at_iso = datetime.now(timezone.utc).isoformat()
+
+    # ------------------------------------------------------------------
     # Blueprint — fits between passes, uses raw_text already in memory
     # ------------------------------------------------------------------
     blueprint: Optional[Dict[str, Any]] = None
@@ -161,7 +181,19 @@ async def parse_pdf_stream(
     if already_done:
         logger.info("Resuming from checkpoint: %d slides already done", len(already_done))
     for idx in sorted(already_done):
-        yield {"type": "slide", "index": idx, "slide": already_done[idx]}
+        # Older cache rows pre-date the routing telemetry fields.  Stamp
+        # _meta.route / route_reason / layout_features in-memory so the
+        # diagnostics endpoint and frontend panel work for in-flight
+        # reruns without forcing a full reparse.
+        cached_slide = already_done[idx]
+        if _backfill_route_meta(cached_slide, layouts.get(idx), manifest):
+            # Persist the enriched row back to slide_parse_cache so the
+            # diagnostics endpoint (which reads cache directly) sees the
+            # new telemetry without waiting for another full parse.
+            asyncio.create_task(
+                _safe_cache_task(idx, cached_slide, pdf_hash, _failed_cache_queue, fallback_counters)
+            )
+        yield {"type": "slide", "index": idx, "slide": cached_slide}
 
     # ------------------------------------------------------------------
     # PASS 2: Routed processing
@@ -175,22 +207,49 @@ async def parse_pdf_stream(
         for idx in manifest.skip_indices:
             if idx in already_done:
                 continue
-            slide = _make_skip_slide(idx, layouts[idx], filename)
-            asyncio.create_task(_safe_cache_task(idx, slide, pdf_hash, _failed_cache_queue))
+            slide = _make_skip_slide(idx, layouts[idx], filename, manifest)
+            asyncio.create_task(
+                _safe_cache_task(idx, slide, pdf_hash, _failed_cache_queue, fallback_counters)
+            )
             collected_count += 1
             yield {"type": "slide", "index": idx, "slide": slide}
 
         # --- TEXT + TABLE_ODL batches ---
         pending_text = [i for i in manifest.text_indices if i not in already_done]
+
+        # OCR fallback: scanned pages (low alpha_ratio) routed through TEXT
+        # because the model can't do vision get a one-shot OCR pass so the
+        # LLM has *something* to work with.  The fallback only fires for
+        # non-vision models — vision-capable models would have been routed
+        # through the VISION path by classify_page.
+        ocr_text_overrides: Dict[int, str] = {}
+        for idx in pending_text:
+            if idx in manifest.odl_table_indices:
+                continue  # ODL markdown is already a better signal than OCR
+            layout = layouts[idx]
+            if not OCRFallback.is_needed(ai_model, layout.alpha_ratio):
+                continue
+            try:
+                image_bytes = await reader.render_page_jpeg(idx, zoom=2.0)
+                ocr_text = await OCRFallback.extract_text(image_bytes)
+                if ocr_text:
+                    ocr_text_overrides[idx] = ocr_text
+                    fallback_counters["ocr_used"] = (
+                        fallback_counters.get("ocr_used", 0) + 1
+                    )
+            except Exception as e:
+                logger.warning("OCR fallback failed for slide %d: %s", idx, e)
+
         batch_inputs = [
             _build_text_batch(
                 pending_text[s:s + TEXT_BATCH_SIZE],
                 layouts, manifest.odl_table_indices, ai_model,
+                ocr_overrides=ocr_text_overrides,
             )
             for s in range(0, len(pending_text), TEXT_BATCH_SIZE)
         ]
         text_tasks = [
-            _process_text_batch_safe(batch, ai_model, blueprint, text_sem)
+            _process_text_batch_safe(batch, ai_model, blueprint, text_sem, fallback_counters)
             for batch in batch_inputs
         ]
         for batch_result in await asyncio.gather(*text_tasks, return_exceptions=True):
@@ -199,8 +258,10 @@ async def parse_pdf_stream(
                 continue
             for res in batch_result:
                 idx = res["index"]
-                _enrich_result(res, layouts[idx], filename, "Text")
-                asyncio.create_task(_safe_cache_task(idx, res, pdf_hash, _failed_cache_queue))
+                _enrich_result(res, layouts[idx], filename, "Text", manifest)
+                asyncio.create_task(
+                    _safe_cache_task(idx, res, pdf_hash, _failed_cache_queue, fallback_counters)
+                )
                 asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue))
                 collected_count += 1
                 yield {
@@ -219,7 +280,8 @@ async def parse_pdf_stream(
         vision_tasks = [
             _process_vision_slide(
                 reader, i, layouts[i], ai_model, blueprint,
-                vision_sem, use_table_prompt=(i in manifest.table_llm_indices),
+                vision_sem, fallback_counters,
+                use_table_prompt=(i in manifest.table_llm_indices),
             )
             for i in pending_vision
         ]
@@ -228,8 +290,10 @@ async def parse_pdf_stream(
                 logger.error("Vision task error (non-fatal): %s", res)
                 continue
             idx = res["index"]
-            _enrich_result(res, layouts[idx], filename, "Vision")
-            asyncio.create_task(_safe_cache_task(idx, res, pdf_hash, _failed_cache_queue))
+            _enrich_result(res, layouts[idx], filename, "Vision", manifest)
+            asyncio.create_task(
+                _safe_cache_task(idx, res, pdf_hash, _failed_cache_queue, fallback_counters)
+            )
             asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue))
             collected_count += 1
             yield {
@@ -255,7 +319,9 @@ async def parse_pdf_stream(
     # Finalize: deck summary + quiz + cache flush
     # ------------------------------------------------------------------
     async for event in _stage_finalize_deck(
-        layouts, blueprint, ai_model, _failed_cache_queue, _failed_embed_queue, pdf_hash
+        layouts, blueprint, ai_model, _failed_cache_queue, _failed_embed_queue, pdf_hash,
+        manifest=manifest, fallback_counters=fallback_counters,
+        started_at_iso=started_at_iso,
     ):
         yield event
 
@@ -273,9 +339,11 @@ def _build_text_batch(
     layouts: Dict[int, PageLayout],
     odl_table_indices: List[int],
     ai_model: str,
+    ocr_overrides: Optional[Dict[int, str]] = None,
 ) -> List[Dict]:
     """Assembles slide dicts for batch_analyze_text_slides, injecting ODL/OCR text."""
     slides_input = []
+    overrides = ocr_overrides or {}
     for idx in batch_indices:
         layout = layouts[idx]
 
@@ -285,6 +353,12 @@ def _build_text_batch(
                 "Content is pre-formatted as Markdown.]\n\n"
                 + layout.odl_table_md
             )
+        elif idx in overrides:
+            # Scanned page rescued by OCR — prefer the OCR text over the
+            # garbled raw text so the LLM has something coherent to work
+            # with.  We tag it so the downstream prompt knows.
+            ocr_txt, _ = safe_truncate_text(overrides[idx])
+            txt = "[OCR fallback applied — text extracted from page image]\n\n" + ocr_txt
         else:
             txt, _ = safe_truncate_text(layout.raw_text)
 
@@ -301,6 +375,7 @@ async def _process_text_batch_safe(
     ai_model: str,
     blueprint: Optional[Dict],
     sem: asyncio.Semaphore,
+    fallback_counters: Optional[Dict[str, int]] = None,
 ) -> List[Dict]:
     """
     Runs the LLM batch under the semaphore.
@@ -312,6 +387,10 @@ async def _process_text_batch_safe(
                 slides_input, ai_model=ai_model, blueprint=blueprint
             )
         except Exception as e:
+            if fallback_counters is not None:
+                fallback_counters["text_batch_fallback"] = (
+                    fallback_counters.get("text_batch_fallback", 0) + 1
+                )
             logger.warning(
                 "Batch of %d failed (%s), retrying per-slide", len(slides_input), e
             )
@@ -350,6 +429,7 @@ async def _process_vision_slide(
     ai_model: str,
     blueprint: Optional[Dict],
     sem: asyncio.Semaphore,
+    fallback_counters: Optional[Dict[str, int]] = None,
     use_table_prompt: bool = False,
 ) -> Dict:
     """
@@ -386,6 +466,13 @@ async def _process_vision_slide(
 
             return result
     except Exception as e:
+        msg = str(e).lower()
+        if fallback_counters is not None and (
+            "rate limit" in msg or "rate-limit" in msg or "429" in msg or "ratelimit" in msg
+        ):
+            fallback_counters["vision_rate_limit"] = (
+                fallback_counters.get("vision_rate_limit", 0) + 1
+            )
         logger.error("Vision failed for slide %d: %s", page_index, e)
         return {
             "index": page_index,
@@ -402,7 +489,13 @@ async def _process_vision_slide(
 # Result helpers
 # ---------------------------------------------------------------------------
 
-def _enrich_result(result: Dict, layout: PageLayout, filename: str, engine: str) -> None:
+def _enrich_result(
+    result: Dict,
+    layout: PageLayout,
+    filename: str,
+    engine: str,
+    manifest: Optional[RoutingManifest] = None,
+) -> None:
     """Attaches metadata to a slide result in-place."""
     idx = result.get("index", 0)
     result.setdefault("slide_index", idx)
@@ -417,10 +510,20 @@ def _enrich_result(result: Dict, layout: PageLayout, filename: str, engine: str)
         "column_count": layout.column_count,
         "has_math": layout.has_math,
         "has_code": layout.has_code_block,
+        # Routing telemetry — sourced from the classifier so the rule
+        # name on every slide always matches the rule that fired.
+        "route": (manifest.route_labels.get(idx, ROUTE_TEXT) if manifest else ROUTE_TEXT),
+        "route_reason": (manifest.reasons.get(idx, "") if manifest else ""),
+        "layout_features": layout_features_dict(layout),
     }
 
 
-def _make_skip_slide(idx: int, layout: PageLayout, filename: str) -> Dict:
+def _make_skip_slide(
+    idx: int,
+    layout: PageLayout,
+    filename: str,
+    manifest: Optional[RoutingManifest] = None,
+) -> Dict:
     return {
         "index": idx,
         "slide_index": idx,
@@ -437,8 +540,49 @@ def _make_skip_slide(idx: int, layout: PageLayout, filename: str) -> Dict:
             "engine": "Skip",
             "tokens": 0,
             "parse_time_ms": 0,
+            "route": ROUTE_SKIP,
+            "route_reason": (manifest.reasons.get(idx, "") if manifest else ""),
+            "layout_features": layout_features_dict(layout),
         },
     }
+
+
+def _backfill_route_meta(
+    cached_slide: Dict[str, Any],
+    layout: Optional[PageLayout],
+    manifest: RoutingManifest,
+) -> bool:
+    """Stamp routing telemetry onto a cached slide dict in-place.
+
+    Older cache rows (written before this telemetry shipped) lack
+    ``_meta.route``, ``_meta.route_reason`` and ``_meta.layout_features``.
+    This is invoked on the resume path so the diagnostics endpoint and
+    frontend panel work for in-flight reruns without forcing a reparse.
+    Only fields that are missing or empty are filled — anything the
+    cached slide already carries is preserved.
+
+    Returns ``True`` when at least one missing field was filled, so the
+    caller can decide whether to persist the enriched row back to the
+    cache.  ``False`` means the cached row was already fully stamped.
+    """
+    if not isinstance(cached_slide, dict):
+        return False
+    meta = cached_slide.setdefault("_meta", {}) or {}
+    if not isinstance(meta, dict):
+        return False
+    idx = cached_slide.get("slide_index", cached_slide.get("index", 0))
+    changed = False
+    if "route" not in meta or not meta.get("route"):
+        meta["route"] = manifest.route_labels.get(idx, ROUTE_TEXT)
+        changed = True
+    if "route_reason" not in meta or not meta.get("route_reason"):
+        meta["route_reason"] = manifest.reasons.get(idx, "")
+        changed = True
+    if ("layout_features" not in meta or not meta.get("layout_features")) and layout is not None:
+        meta["layout_features"] = layout_features_dict(layout)
+        changed = True
+    cached_slide["_meta"] = meta
+    return changed
 
 
 def _make_fallback_slide(idx: int, text: str) -> Dict:
@@ -463,10 +607,15 @@ async def _safe_cache_task(
     result: Dict,
     pdf_hash: str,
     failed_queue: List[Tuple],
+    fallback_counters: Optional[Dict[str, int]] = None,
 ) -> None:
     try:
         await store_slide_parse_result(pdf_hash, idx, PIPELINE_VERSION, result)
     except Exception as e:
+        if fallback_counters is not None:
+            fallback_counters["cache_write_retries"] = (
+                fallback_counters.get("cache_write_retries", 0) + 1
+            )
         logger.error("Cache write failed for slide %d: %s — queued for retry", idx, e)
         failed_queue.append((idx, result, pdf_hash))
 
@@ -588,6 +737,9 @@ async def _stage_finalize_deck(
     failed_cache_queue: List[Tuple],
     failed_embed_queue: List[Tuple],
     pdf_hash: str,
+    manifest: Optional[RoutingManifest] = None,
+    fallback_counters: Optional[Dict[str, int]] = None,
+    started_at_iso: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     try:
         final_model = "cerebras" if cerebras_client else ai_model
@@ -621,8 +773,53 @@ async def _stage_finalize_deck(
                 try:
                     await store_slide_parse_result(ph, idx, PIPELINE_VERSION, result)
                 except Exception as e:
+                    if fallback_counters is not None:
+                        fallback_counters["cache_write_retries"] = (
+                            fallback_counters.get("cache_write_retries", 0) + 1
+                        )
                     logger.error("Final cache retry failed for slide %d: %s", idx, e)
             failed_cache_queue.clear()
+
+        # Fire-and-forget run-metrics row.  Wrapped in try/except so a
+        # telemetry write never breaks the parse stream.
+        if manifest is not None:
+            try:
+                totals = {
+                    "text": len(manifest.text_indices) - len(manifest.odl_table_indices),
+                    "vision_diagram": sum(
+                        1 for i in manifest.vision_indices
+                        if manifest.route_labels.get(i) == "vision_diagram"
+                    ),
+                    "vision_generic": sum(
+                        1 for i in manifest.vision_indices
+                        if manifest.route_labels.get(i) == "vision_generic"
+                    ),
+                    "table_llm": len(manifest.table_llm_indices),
+                    "table_odl": len(manifest.odl_table_indices),
+                    "skip": len(manifest.skip_indices),
+                    "total": len(layouts),
+                }
+                # Truly fire-and-forget: scheduling as a background task
+                # avoids any synchronous Supabase round-trip blocking the
+                # final stream chunk that the upload endpoint yields.
+                async def _persist_metrics() -> None:
+                    try:
+                        await record_pipeline_run(
+                            pdf_hash=pdf_hash,
+                            pipeline_version=PIPELINE_VERSION,
+                            started_at=started_at_iso or datetime.now(timezone.utc).isoformat(),
+                            finished_at=datetime.now(timezone.utc).isoformat(),
+                            totals=totals,
+                            fallbacks=dict(fallback_counters or {}),
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to record pipeline_run_metrics (non-fatal): %s", e
+                        )
+
+                asyncio.create_task(_persist_metrics())
+            except Exception as e:
+                logger.warning("Failed to schedule pipeline_run_metrics (non-fatal): %s", e)
 
         # Flush any failed embedding writes (one more attempt; best-effort).
         if failed_embed_queue:

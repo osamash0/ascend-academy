@@ -59,14 +59,14 @@ def test_skip_when_metadata_flag_true_overrides_everything():
     layout = make_layout(
         word_count=500, image_coverage=0.9, has_table=True, odl_table_md="| x |"
     )
-    assert classify_page(layout, is_metadata=True, vision_available=True) == Route.SKIP
+    assert classify_page(layout, is_metadata=True, vision_available=True)[0] == Route.SKIP
 
 
 def test_skip_when_blank_page():
     layout = make_layout(
         word_count=2, image_coverage=0.0, drawing_count=0, raw_text="hi"
     )
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.SKIP
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.SKIP
 
 
 def test_not_skip_when_blank_text_but_image_heavy():
@@ -74,7 +74,7 @@ def test_not_skip_when_blank_text_but_image_heavy():
         word_count=2, image_coverage=0.5, drawing_count=0, raw_text="hi"
     )
     # word_count<5 but image_coverage>=0.15 → not SKIP, falls into VISION
-    route = classify_page(layout, is_metadata=False, vision_available=True)
+    route = classify_page(layout, is_metadata=False, vision_available=True)[0]
     assert route == Route.VISION
 
 
@@ -84,7 +84,7 @@ def test_not_skip_when_blank_text_but_drawing_heavy():
     )
     # word_count<5 but drawing_count>=5 → not SKIP. Drawings (<20) and low
     # image_coverage don't trigger VISION; alpha_ratio>0.25; falls to TEXT.
-    route = classify_page(layout, is_metadata=False, vision_available=True)
+    route = classify_page(layout, is_metadata=False, vision_available=True)[0]
     assert route == Route.TEXT
 
 
@@ -94,18 +94,18 @@ def test_not_skip_when_blank_text_but_drawing_heavy():
 
 def test_table_odl_takes_priority_over_table_llm():
     layout = make_layout(has_table=True, odl_table_md="| col |\n| -- |")
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.TABLE_ODL
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.TABLE_ODL
 
 
 def test_table_odl_when_only_odl_set():
     layout = make_layout(odl_table_md="| a | b |\n| - | - |")
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.TABLE_ODL
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.TABLE_ODL
 
 
 def test_table_odl_works_without_vision_too():
     layout = make_layout(odl_table_md="| a | b |")
     # ODL doesn't need vision — still TABLE_ODL
-    assert classify_page(layout, is_metadata=False, vision_available=False) == Route.TABLE_ODL
+    assert classify_page(layout, is_metadata=False, vision_available=False)[0] == Route.TABLE_ODL
 
 
 # ---------------------------------------------------------------------------
@@ -114,12 +114,12 @@ def test_table_odl_works_without_vision_too():
 
 def test_table_llm_when_pymupdf_table_and_no_odl():
     layout = make_layout(has_table=True)
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.TABLE_LLM
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.TABLE_LLM
 
 
 def test_table_llm_degrades_to_text_when_no_vision():
     layout = make_layout(has_table=True)
-    assert classify_page(layout, is_metadata=False, vision_available=False) == Route.TEXT
+    assert classify_page(layout, is_metadata=False, vision_available=False)[0] == Route.TEXT
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +131,7 @@ def test_math_override_keeps_text_when_alpha_low():
     layout = make_layout(
         word_count=50, alpha_ratio=0.10, has_math=True, image_coverage=0.0
     )
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.TEXT
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.TEXT
 
 
 def test_math_override_does_not_apply_when_word_count_too_low():
@@ -139,7 +139,7 @@ def test_math_override_does_not_apply_when_word_count_too_low():
         word_count=8, alpha_ratio=0.10, has_math=True, image_coverage=0.0
     )
     # word_count<10 → math override skipped → low alpha → VISION
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.VISION
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.VISION
 
 
 # ---------------------------------------------------------------------------
@@ -148,27 +148,27 @@ def test_math_override_does_not_apply_when_word_count_too_low():
 
 def test_vision_triggered_by_high_image_coverage():
     layout = make_layout(image_coverage=0.30, word_count=80)
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.VISION
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.VISION
 
 
 def test_vision_triggered_by_many_drawings():
     layout = make_layout(drawing_count=25, word_count=80)
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.VISION
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.VISION
 
 
 def test_vision_triggered_by_low_alpha_ratio():
     layout = make_layout(alpha_ratio=0.20, word_count=80, has_math=False)
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.VISION
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.VISION
 
 
 def test_vision_triggered_by_sparse_text_with_image():
     layout = make_layout(word_count=20, image_coverage=0.10)
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.VISION
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.VISION
 
 
 def test_vision_degrades_to_text_when_unavailable():
     layout = make_layout(image_coverage=0.30, word_count=80)
-    assert classify_page(layout, is_metadata=False, vision_available=False) == Route.TEXT
+    assert classify_page(layout, is_metadata=False, vision_available=False)[0] == Route.TEXT
 
 
 # ---------------------------------------------------------------------------
@@ -179,19 +179,19 @@ def test_default_text_for_rich_prose():
     layout = make_layout(
         word_count=200, alpha_ratio=0.95, image_coverage=0.0, drawing_count=0
     )
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.TEXT
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.TEXT
 
 
 def test_default_text_with_code_block():
     layout = make_layout(
         word_count=80, has_code_block=True, image_coverage=0.0
     )
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.TEXT
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.TEXT
 
 
 def test_default_text_with_multi_column():
     layout = make_layout(word_count=200, column_count=2)
-    assert classify_page(layout, is_metadata=False, vision_available=True) == Route.TEXT
+    assert classify_page(layout, is_metadata=False, vision_available=True)[0] == Route.TEXT
 
 
 # ---------------------------------------------------------------------------

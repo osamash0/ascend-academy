@@ -63,6 +63,25 @@ class PageLayout:
     odl_table_md: str       # non-empty when ODL provided reliable table markdown
 
 
+def layout_features_dict(layout: PageLayout) -> Dict[str, Any]:
+    """JSON-safe subset of a PageLayout used for routing telemetry.
+
+    Persisted on every slide as ``_meta.layout_features`` and surfaced in
+    the diagnostics endpoint so professors can audit *why* a slide was
+    routed the way it was without re-running the pipeline.  Keep this
+    dict small: it ships in every cached slide row.
+    """
+    return {
+        "word_count": layout.word_count,
+        "image_coverage": round(float(layout.image_coverage), 4),
+        "drawing_count": layout.drawing_count,
+        "alpha_ratio": round(float(layout.alpha_ratio), 4),
+        "has_math": bool(layout.has_math),
+        "has_table": bool(layout.has_table),
+        "column_count": layout.column_count,
+    }
+
+
 async def analyze_page_layout_async(
     reader: PDFReader,
     page_index: int,

@@ -239,6 +239,59 @@ async def store_slide_parse_result(
         logger.error("Failed to store slide parse result (slide %d): %s", slide_index, e)
 
 
+async def record_pipeline_run(
+    pdf_hash: str,
+    pipeline_version: str,
+    started_at: str,
+    finished_at: str,
+    totals: Dict[str, Any],
+    fallbacks: Dict[str, Any],
+) -> None:
+    """Insert a single ``pipeline_run_metrics`` row.
+
+    Called fire-and-forget at deck-finalize time so a telemetry write
+    never blocks the parse stream.  Errors are swallowed (logged) — the
+    diagnostics endpoint degrades gracefully when the row is absent.
+    """
+    if not pdf_hash:
+        return
+    try:
+        payload = {
+            "pdf_hash": pdf_hash,
+            "pipeline_version": pipeline_version,
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "totals": totals or {},
+            "fallbacks": fallbacks or {},
+        }
+        supabase_admin.table("pipeline_run_metrics").insert(payload).execute()
+    except Exception as e:
+        logger.warning("pipeline_run_metrics insert failed (non-fatal): %s", e)
+
+
+async def get_pipeline_run(
+    pdf_hash: str,
+    pipeline_version: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Most recent ``pipeline_run_metrics`` row for a pdf_hash.
+
+    When ``pipeline_version`` is provided the lookup is filtered to that
+    version; otherwise the latest row across all versions is returned.
+    """
+    if not pdf_hash:
+        return None
+    try:
+        q = supabase_admin.table("pipeline_run_metrics").select("*").eq("pdf_hash", pdf_hash)
+        if pipeline_version:
+            q = q.eq("pipeline_version", pipeline_version)
+        res = q.order("started_at", desc=True).limit(1).execute()
+        if res.data:
+            return res.data[0]
+    except Exception as e:
+        logger.warning("pipeline_run_metrics lookup failed: %s", e)
+    return None
+
+
 async def get_cached_slide_results(
     pdf_hash: str,
     pipeline_version: str,
