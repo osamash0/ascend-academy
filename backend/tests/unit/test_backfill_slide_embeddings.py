@@ -244,6 +244,24 @@ async def test_attach_failure_is_surfaced(seed_cache, fake_embed, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_read_failure_is_surfaced_not_silent(
+    seed_cache, fake_embed, monkeypatch
+):
+    """A failed slide_parse_cache read must record a failure, not silently exit."""
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("simulated postgrest 500")
+
+    monkeypatch.setattr(bf, "_paginated_select", _boom, raising=True)
+
+    stats = await bf.backfill(pipeline_version=PIPELINE)
+
+    # No slides were embedded because the pdf_hash listing failed first.
+    assert stats.slides_embedded == 0
+    assert stats.failures, "read failure must populate stats.failures"
+    assert any("list_pdf_hashes failed" in f for f in stats.failures)
+
+
+@pytest.mark.asyncio
 async def test_pagination_handles_more_than_one_page(
     patch_supabase, fake_embed, monkeypatch
 ):

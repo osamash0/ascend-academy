@@ -66,6 +66,10 @@ def _paginated_select(
     PostgREST returns at most ~1000 rows per request unless `Range` is set;
     a one-shot `.execute()` would silently drop the rest of a large legacy
     backlog, which is exactly the data this script needs to find.
+
+    Raises on read failure rather than returning a partial result — callers
+    catch and record the failure into BackfillStats so the script exits
+    non-zero instead of silently completing with missing rows.
     """
     all_rows: List[Dict[str, Any]] = []
     start = 0
@@ -74,13 +78,7 @@ def _paginated_select(
         for col, val in eq_filters.items():
             q = q.eq(col, val)
         end = start + PAGE_SIZE - 1
-        try:
-            res = q.range(start, end).execute()
-        except Exception as e:
-            logger.error(
-                "Paginated read of %s failed at offset %d: %s", table, start, e
-            )
-            break
+        res = q.range(start, end).execute()
         batch = res.data or []
         all_rows.extend(batch)
         if len(batch) < PAGE_SIZE:
@@ -119,13 +117,21 @@ def _is_metadata_slide(slide: Dict[str, Any]) -> bool:
     return bool(slide.get("is_metadata") or slide.get("slide_type") == "metadata")
 
 
-def _list_pdf_hashes(pipeline_version: str) -> List[str]:
+def _list_pdf_hashes(
+    pipeline_version: str, stats: Optional["BackfillStats"] = None
+) -> List[str]:
     """Return distinct pdf_hashes that have at least one cached slide."""
-    rows = _paginated_select(
-        "slide_parse_cache",
-        "pdf_hash",
-        {"pipeline_version": pipeline_version},
-    )
+    try:
+        rows = _paginated_select(
+            "slide_parse_cache",
+            "pdf_hash",
+            {"pipeline_version": pipeline_version},
+        )
+    except Exception as e:
+        logger.error("Failed to list pdf_hashes: %s", e)
+        if stats is not None:
+            stats.failures.append(f"list_pdf_hashes failed: {e}")
+        return []
     seen: Set[str] = set()
     ordered: List[str] = []
     for row in rows:
@@ -137,14 +143,22 @@ def _list_pdf_hashes(pipeline_version: str) -> List[str]:
 
 
 def _load_cached_slides(
-    pdf_hash: str, pipeline_version: str
-) -> Dict[int, Dict[str, Any]]:
-    """Return {slide_index: slide_data} for one pdf_hash."""
-    rows = _paginated_select(
-        "slide_parse_cache",
-        "slide_index,slide_data",
-        {"pdf_hash": pdf_hash, "pipeline_version": pipeline_version},
-    )
+    pdf_hash: str,
+    pipeline_version: str,
+    stats: Optional["BackfillStats"] = None,
+) -> Optional[Dict[int, Dict[str, Any]]]:
+    """Return {slide_index: slide_data} for one pdf_hash, or None on read failure."""
+    try:
+        rows = _paginated_select(
+            "slide_parse_cache",
+            "slide_index,slide_data",
+            {"pdf_hash": pdf_hash, "pipeline_version": pipeline_version},
+        )
+    except Exception as e:
+        logger.error("Failed to load slides for %s: %s", pdf_hash, e)
+        if stats is not None:
+            stats.failures.append(f"{pdf_hash}: load_cached_slides failed: {e}")
+        return None
     return {
         int(row["slide_index"]): row.get("slide_data") or {}
         for row in rows
@@ -153,14 +167,22 @@ def _load_cached_slides(
 
 
 def _existing_embedding_indices(
-    pdf_hash: str, pipeline_version: str
-) -> Set[int]:
-    """Return slide indices already embedded for one pdf_hash."""
-    rows = _paginated_select(
-        "slide_embeddings",
-        "slide_index",
-        {"pdf_hash": pdf_hash, "pipeline_version": pipeline_version},
-    )
+    pdf_hash: str,
+    pipeline_version: str,
+    stats: Optional["BackfillStats"] = None,
+) -> Optional[Set[int]]:
+    """Return slide indices already embedded for one pdf_hash, or None on read failure."""
+    try:
+        rows = _paginated_select(
+            "slide_embeddings",
+            "slide_index",
+            {"pdf_hash": pdf_hash, "pipeline_version": pipeline_version},
+        )
+    except Exception as e:
+        logger.warning("Failed to read existing embeddings for %s: %s", pdf_hash, e)
+        if stats is not None:
+            stats.failures.append(f"{pdf_hash}: existing_embedding_indices failed: {e}")
+        return None
     return {
         int(row["slide_index"])
         for row in rows
@@ -260,11 +282,24 @@ async def _backfill_one_pdf(
     dry_run: bool,
     stats: BackfillStats,
 ) -> None:
-    cached = _load_cached_slides(pdf_hash, pipeline_version)
+    cached = _load_cached_slides(pdf_hash, pipeline_version, stats)
+    if cached is None:
+        # Read failed; the failure was already recorded in stats.  Skip
+        # the lecture-attach step too — we don't know what we'd be
+        # attaching to.
+        return
     if not cached:
         return
 
-    existing = set() if force else _existing_embedding_indices(pdf_hash, pipeline_version)
+    if force:
+        existing: Set[int] = set()
+    else:
+        loaded = _existing_embedding_indices(pdf_hash, pipeline_version, stats)
+        if loaded is None:
+            # Don't risk re-embedding everything (and racing the parser)
+            # when we can't tell what's already there.
+            return
+        existing = loaded
 
     for slide_index in sorted(cached):
         stats.slides_seen += 1
@@ -314,7 +349,7 @@ async def backfill(
     if pdf_hash:
         hashes = [pdf_hash]
     else:
-        hashes = _list_pdf_hashes(pipeline_version)
+        hashes = _list_pdf_hashes(pipeline_version, stats)
 
     if limit is not None:
         hashes = hashes[:limit]
