@@ -11,8 +11,6 @@ import {
   Settings,
   Zap,
   Star,
-  Sparkles,
-  Brain,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -34,7 +32,7 @@ const studentNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Achievements', url: '/achievements', icon: Trophy },
   { title: 'Leaderboard', url: '/leaderboard', icon: Users },
-  { title: 'Learning Insights', url: '/insights', icon: Brain },
+  { title: 'Learning Insights', url: '/insights', icon: BarChart3 },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
@@ -59,11 +57,15 @@ export function AppSidebar() {
     navigate('/');
   };
 
+  const handleLogoClick = () => {
+    navigate(role === 'professor' ? '/professor/dashboard' : '/dashboard');
+  };
+
   return (
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-xl">
       <SidebarHeader className="p-6">
         <button
-          onClick={() => navigate(role === 'professor' ? '/professor/dashboard' : '/dashboard')}
+          onClick={handleLogoClick}
           className="flex items-center gap-4 w-full transition-all cursor-pointer group"
         >
           <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-glow-primary group-hover:scale-110 transition-all duration-500">
@@ -96,7 +98,7 @@ export function AppSidebar() {
           >
             <div className="glass-panel border-white/5 rounded-[24px] p-5 space-y-4 relative overflow-hidden group hover:border-primary/30 transition-all duration-500">
               <div className="absolute top-0 right-0 w-24 h-24 bg-xp/5 blur-2xl rounded-full -mr-12 -mt-12 group-hover:bg-xp/10 transition-colors" />
-              
+
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Current Tier</span>
@@ -115,7 +117,7 @@ export function AppSidebar() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-2 relative z-10">
                 <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
                   <motion.div
@@ -180,7 +182,7 @@ export function AppSidebar() {
             >
               <div className="relative w-11 h-11 rounded-[14px] border border-white/10 overflow-hidden flex-shrink-0 bg-surface-2 shadow-xl group-hover:border-primary/50 transition-all duration-500 group-hover:scale-105">
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="User" className="w-full h-full object-cover" />
+                  <img src={profile.avatar_url} alt="User avatar" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-secondary/20 to-xp/20">
                     <span className="text-primary font-bold text-base">

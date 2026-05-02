@@ -1,111 +1,149 @@
+"""
+Slide routing — maps a PageLayout to exactly one processing Route.
+
+Every slide gets one route; there is no MIXED ambiguity.  The routing
+priority is designed so each rule is mutually exclusive:
+
+    SKIP > TABLE_ODL > TABLE_LLM > MATH_OVERRIDE(TEXT) > VISION > TEXT
+
+The math override prevents equation-heavy slides (low alpha_ratio but
+valid text) from being incorrectly sent to the vision pipeline.
+
+When vision is unavailable (Ollama-only mode), VISION and TABLE_LLM
+routes fall back to TEXT; the file_parse_service will gate OCR via
+OCRFallback.is_needed() for those slides.
+"""
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Tuple
-import re
-import fitz
+from typing import Dict, List
 
-class SlideType(Enum):
-    TEXT = "text"          # Pure text, use fast extraction
-    TABLE = "table"        # Contains structured data  
-    DIAGRAM = "diagram"    # Charts, graphs, visualizations
-    MIXED = "mixed"        # Text + diagrams
-    METADATA = "metadata"  # Title, copyright
-    GARBAGE = "garbage"    # Extraction failed, need vision
-    TITLE = "title"        # Small text, likely a title (backward compat)
+from backend.services.layout_analyzer import PageLayout
 
-def detect_garbage_text(text: str) -> Tuple[bool, float]:
-    """Detect if extracted text is garbage (numbers only, random chars)"""
-    if not text:
-        return True, 0.0
-    
-    # Clean text for analysis
-    clean_text = text.replace(" ", "").replace("\n", "")
-    
-    # If text is short but looks like words, it's not garbage (likely a title)
-    if len(clean_text) < 50:
-        # Check if it contains mostly letters
-        alpha_count = len(re.findall(r'[a-zA-Z]', clean_text))
-        if alpha_count > len(clean_text) * 0.6:
-            return False, alpha_count / len(clean_text) if len(clean_text) > 0 else 0.0
 
-    # Count alphabetic characters vs numbers/symbols
-    alpha_count = len(re.findall(r'[a-zA-Z]', text))
-    digit_count = len(re.findall(r'\d', text))
-    total_alpha_digit = alpha_count + digit_count
-    
-    if total_alpha_digit == 0:
-        # Check if there are symbols at least
-        if len(text.strip()) > 0:
-            return True, 0.0
-        return False, 0.0
-    
-    alpha_ratio = alpha_count / total_alpha_digit
-    
-    # High confidence garbage signals:
-    # 1. Very low alpha ratio (mostly numbers/symbols)
-    # 2. Repeating numeric patterns (e.g., "01230123")
-    is_garbage = alpha_ratio < 0.25 or bool(re.search(r'(\d{3,})\1+', clean_text))
-    
-    return is_garbage, alpha_ratio
+class Route(Enum):
+    TEXT      = "text"       # LLM batch text analysis
+    VISION    = "vision"     # VLM image analysis (diagram / scanned)
+    TABLE_LLM = "table_llm"  # VLM with TABLE_VISION_PROMPT (no ODL table data)
+    TABLE_ODL = "table_odl"  # ODL markdown available → text batch, no vision call
+    SKIP      = "skip"       # Metadata / blank → yield immediately, no LLM
 
-def classify_slide_with_routing(page: fitz.Page) -> SlideType:
+
+@dataclass
+class RoutingManifest:
     """
-    Production routing decision with multiple signals.
-    Priority: TABLES > DIAGRAMS > TEXT > METADATA
+    Routing decisions for an entire document.
+
+    text_indices includes both TEXT and TABLE_ODL slides; TABLE_ODL slides
+    have their odl_table_md injected as the text payload before batching.
     """
-    text = page.get_text("text").strip()
-    words = len(text.split())
-    # Only count images that cover >8% of the page — filters out logos/decorations
-    page_area = page.rect.width * page.rect.height
-    has_images = any(
-        (b["bbox"][2] - b["bbox"][0]) * (b["bbox"][3] - b["bbox"][1]) / page_area > 0.08
-        for b in page.get_text("dict")["blocks"]
-        if b.get("type") == 1
-    ) if page_area > 0 else False
-    # Detect vector graphics (charts/diagrams often use these instead of bitmaps)
-    has_drawings = len(page.get_drawings()) > 15 
-    
-    # First check: Is extracted text garbage?
-    is_garbage, alpha_ratio = detect_garbage_text(text)
-    
-    # Second: Detect tables using PyMuPDF native
-    try:
-        tables = page.find_tables()
-        has_table = len(tables.tables) > 0 if tables else False
-    except:
-        has_table = False
-    
-    # Routing decision tree
-    
-    # 1. Explicit Garbage (extraction failed) -> Force Vision
-    if is_garbage and (has_images or has_drawings or words < 5):
-        return SlideType.DIAGRAM
-    
-    # 2. Structured Tables
-    if has_table:
-        return SlideType.TABLE
-    
-    # 3. Visual content with low text density
-    if (has_images or has_drawings) and words < 50:
-        return SlideType.DIAGRAM
-    
-    # 4. Meta/Title slides (low word count but high quality text)
-    if not is_garbage and words < 15:
-        return SlideType.METADATA
-    
-    # 5. Mixed Content
-    if (has_images or has_drawings) and words >= 50:
-        return SlideType.MIXED
-    
-    # 6. Fallback for pure text or undetected content
-    if is_garbage:
-        return SlideType.DIAGRAM
-        
-    return SlideType.TEXT
+    text_indices:      List[int] = field(default_factory=list)
+    vision_indices:    List[int] = field(default_factory=list)
+    table_llm_indices: List[int] = field(default_factory=list)
+    skip_indices:      List[int] = field(default_factory=list)
+    odl_table_indices: List[int] = field(default_factory=list)  # subset of text_indices
+    layouts:           Dict[int, PageLayout] = field(default_factory=dict)
 
-def needs_vision(slide_type: SlideType) -> bool:
-    """True if slide requires Vision Language Model"""
-    return slide_type in (SlideType.DIAGRAM, SlideType.MIXED, SlideType.TABLE)
 
-# Keep the original function for backward compatibility if needed by other services
-def classify_slide(text: str, page: fitz.Page) -> SlideType:
-    return classify_slide_with_routing(page)
+_VISION_MODELS = frozenset({"groq", "gemini-2.0-flash"})
+
+
+def classify_page(
+    layout: PageLayout,
+    is_metadata: bool,
+    vision_available: bool,
+) -> Route:
+    """
+    Deterministic route for a single slide.
+
+    Rules (applied in priority order, first match wins):
+
+    1. SKIP  — blank page: word_count < 5 AND image_coverage < 0.15 AND drawing_count < 5
+    2. SKIP  — is_metadata flag set by content_filter
+    3. TABLE_ODL — ODL provided reliable table markdown
+    4. TABLE_LLM — PyMuPDF detected a table structure (no ODL data)
+    5. TEXT  — MATH OVERRIDE: has_math=True AND word_count >= 10
+               (equations have low alpha_ratio but text extraction is valid)
+    6. VISION — image_coverage >= 0.25
+               OR drawing_count >= 20
+               OR alpha_ratio < 0.25  (scanned / garbage, not caught by math override)
+               OR (word_count < 30 AND image_coverage > 0.08)
+    7. TEXT  — everything else (rich text, code, multi-column)
+
+    If vision_available=False, VISION and TABLE_LLM degrade to TEXT.
+    """
+    # 1 & 2: Skip
+    if is_metadata:
+        return Route.SKIP
+    if (
+        layout.word_count < 5
+        and layout.image_coverage < 0.15
+        and layout.drawing_count < 5
+    ):
+        return Route.SKIP
+
+    # 3: ODL table
+    if layout.odl_table_md:
+        return Route.TABLE_ODL
+
+    # 4: PyMuPDF table (no ODL)
+    if layout.has_table:
+        if not vision_available:
+            return Route.TEXT
+        return Route.TABLE_LLM
+
+    # 5: Math override — keep as TEXT even if alpha_ratio is low
+    if layout.has_math and layout.word_count >= 10:
+        return Route.TEXT
+
+    # 6: Vision signals
+    needs_vision = (
+        layout.image_coverage >= 0.25
+        or layout.drawing_count >= 20
+        or layout.alpha_ratio < 0.25
+        or (layout.word_count < 30 and layout.image_coverage > 0.08)
+    )
+    if needs_vision:
+        if not vision_available:
+            return Route.TEXT
+        return Route.VISION
+
+    # 7: Default text path
+    return Route.TEXT
+
+
+def build_routing_manifest(
+    layouts: Dict[int, PageLayout],
+    metadata_flags: Dict[int, bool],
+    ai_model: str,
+) -> RoutingManifest:
+    """
+    Classifies every page and builds the full routing manifest.
+
+    TABLE_ODL pages are added to both odl_table_indices and text_indices
+    so they flow through the text batch path with ODL markdown injected.
+    """
+    vision_available = ai_model in _VISION_MODELS
+    manifest = RoutingManifest(layouts=dict(layouts))
+
+    for idx, layout in sorted(layouts.items()):
+        is_meta = metadata_flags.get(idx, False)
+        route = classify_page(layout, is_meta, vision_available)
+
+        if route == Route.SKIP:
+            manifest.skip_indices.append(idx)
+        elif route == Route.TABLE_ODL:
+            manifest.odl_table_indices.append(idx)
+            manifest.text_indices.append(idx)  # processed via text batch
+        elif route == Route.TABLE_LLM:
+            manifest.table_llm_indices.append(idx)
+        elif route == Route.VISION:
+            manifest.vision_indices.append(idx)
+        else:  # TEXT
+            manifest.text_indices.append(idx)
+
+    return manifest
+
+
+def vision_available_for_model(ai_model: str) -> bool:
+    """Returns True if the given ai_model supports vision (image) analysis."""
+    return ai_model in _VISION_MODELS

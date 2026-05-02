@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, XCircle, Zap } from 'lucide-react';
+import { CheckCircle2, XCircle, Zap, Volume2 } from 'lucide-react';
+import { useTTS } from '@/hooks/useTTS';
 
 interface QuizCardProps {
   question: string;
@@ -10,6 +11,7 @@ interface QuizCardProps {
   questionNumber: number;
   totalQuestions: number;
   initialSelectedAnswer?: number | null;
+  explanation?: string;
 }
 
 const shakeVariants = {
@@ -31,7 +33,7 @@ const bounceVariants = {
   idle: { opacity: 1, scale: 1, x: 0 },
 };
 
-export function QuizCard({
+export const QuizCard = memo(function QuizCard({
   question,
   options,
   correctAnswer,
@@ -39,18 +41,23 @@ export function QuizCard({
   questionNumber,
   totalQuestions,
   initialSelectedAnswer = null,
+  explanation,
 }: QuizCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(initialSelectedAnswer);
   const [showResult, setShowResult] = useState(initialSelectedAnswer !== null);
   const [showXP, setShowXP] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const { speak, isSpeaking } = useTTS();
 
-  // Keep state synced if props change
+  // Sync state when props change
   useEffect(() => {
     setSelectedAnswer(initialSelectedAnswer);
     setShowResult(initialSelectedAnswer !== null);
+    setShowXP(false);
+    setShowExplanation(false);
   }, [initialSelectedAnswer, question]);
 
-  const handleAnswer = (index: number) => {
+  const handleAnswer = useCallback((index: number) => {
     if (showResult) return;
 
     setSelectedAnswer(index);
@@ -62,10 +69,18 @@ export function QuizCard({
       setTimeout(() => setShowXP(false), 1200);
     }
 
-    setTimeout(() => {
+    // Delay before moving to next question
+    const timer = setTimeout(() => {
       onAnswer(correct, index);
     }, 1600);
-  };
+
+    return () => clearTimeout(timer);
+  }, [showResult, correctAnswer, onAnswer]);
+
+  const handleSpeakQuestion = useCallback(() => {
+    const text = `${question}. Options: ${options.map((opt, i) => `${String.fromCharCode(65 + i)}: ${opt}`).join('. ')}`;
+    speak(text);
+  }, [question, options, speak]);
 
   const isCorrect = selectedAnswer === correctAnswer;
 
@@ -89,9 +104,19 @@ export function QuizCard({
             Module {questionNumber} <span className="text-muted-foreground">/ {totalQuestions}</span>
           </span>
         </div>
-        <div className="flex items-center gap-2 bg-xp/10 px-3 py-1.5 rounded-xl border border-xp/20">
-          <Zap className="w-4 h-4 text-xp fill-xp" />
-          <span className="text-xs font-bold text-xp uppercase tracking-tighter">+10 XP Potential</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSpeakQuestion}
+            disabled={isSpeaking}
+            className="p-2 rounded-xl bg-surface-2 border border-white/5 text-muted-foreground hover:text-primary hover:border-primary/30 transition-all disabled:opacity-50"
+            aria-label="Read question aloud"
+          >
+            <Volume2 className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-2 bg-xp/10 px-3 py-1.5 rounded-xl border border-xp/20">
+            <Zap className="w-4 h-4 text-xp fill-xp" />
+            <span className="text-xs font-bold text-xp uppercase tracking-tighter">+10 XP Potential</span>
+          </div>
         </div>
       </div>
 
@@ -99,7 +124,7 @@ export function QuizCard({
         {question}
       </h3>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-4" role="radiogroup" aria-label="Quiz options">
         {options.map((option, index) => {
           const isSelected = selectedAnswer === index;
           const isCorrectOption = index === correctAnswer;
@@ -128,8 +153,10 @@ export function QuizCard({
           return (
             <motion.button
               key={index}
-              className={`w-full p-6 rounded-2xl border-2 text-left transition-all duration-300 ${optionClass} ${showResult ? 'cursor-default' : 'cursor-pointer'
-                } relative overflow-hidden group/option`}
+              role="radio"
+              aria-checked={isSelected}
+              aria-label={`Option ${String.fromCharCode(65 + index)}: ${option}`}
+              className={`w-full p-6 rounded-2xl border-2 text-left transition-all duration-300 ${optionClass} ${showResult ? 'cursor-default' : 'cursor-pointer'} relative overflow-hidden group/option`}
               onClick={() => handleAnswer(index)}
               disabled={showResult}
               initial={{ opacity: 0, y: 10 }}
@@ -192,7 +219,7 @@ export function QuizCard({
                   )}
                 </AnimatePresence>
               </div>
-              
+
               {!showResult && (
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover/option:opacity-100 transition-opacity" />
               )}
@@ -201,19 +228,50 @@ export function QuizCard({
         })}
       </div>
 
+      {/* Explanation section */}
+      {showResult && explanation && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mt-6"
+        >
+          <button
+            onClick={() => setShowExplanation(!showExplanation)}
+            className="text-xs font-bold text-primary uppercase tracking-widest hover:underline"
+          >
+            {showExplanation ? 'Hide' : 'Show'} Explanation
+          </button>
+          <AnimatePresence>
+            {showExplanation && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mt-3 p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm text-muted-foreground"
+              >
+                {explanation}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
       <AnimatePresence>
         {showResult && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className={`mt-10 p-6 rounded-2xl border flex items-center justify-between overflow-hidden relative ${isCorrect
+            className={`mt-10 p-6 rounded-2xl border flex items-center justify-between overflow-hidden relative ${
+              isCorrect
                 ? 'bg-success/10 border-success/20'
                 : 'bg-destructive/10 border-destructive/20'
-              }`}
+            }`}
           >
             <div className="flex items-center gap-4 relative z-10">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isCorrect ? 'bg-success text-white shadow-glow-success' : 'bg-destructive text-white shadow-glow-destructive'}`}>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                isCorrect ? 'bg-success text-white shadow-glow-success' : 'bg-destructive text-white shadow-glow-destructive'
+              }`}>
                 {isCorrect ? <CheckCircle2 className="w-6 h-6" /> : <XCircle className="w-6 h-6" />}
               </div>
               <div className="flex flex-col">
@@ -225,7 +283,7 @@ export function QuizCard({
                 </span>
               </div>
             </div>
-            
+
             {isCorrect && (
               <div className="flex items-center gap-2 bg-xp text-white px-4 py-2 rounded-xl font-bold shadow-glow-xp animate-bounce">
                 <Zap className="w-4 h-4 fill-white" />
@@ -237,4 +295,4 @@ export function QuizCard({
       </AnimatePresence>
     </div>
   );
-}
+});

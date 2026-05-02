@@ -34,6 +34,16 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
       .limit(50),
   ]);
 
+  if (lecturesRes.error) {
+    console.error('Error fetching student dashboard lectures:', lecturesRes.error);
+  }
+  if (progressRes.error) {
+    console.error('Error fetching student dashboard progress:', progressRes.error);
+  }
+  if (achievementsRes.error) {
+    console.error('Error fetching student dashboard achievements:', achievementsRes.error);
+  }
+
   const lectures: Lecture[] = lecturesRes.data ?? [];
 
   const progress: StudentProgress[] = (progressRes.data ?? []).map(p => ({
@@ -81,7 +91,7 @@ export async function logLearningEvent(
 ): Promise<void> {
   await supabase
     .from('learning_events')
-    .insert({ user_id: userId, event_type: eventType, event_data: eventData });
+    .insert({ user_id: userId, event_type: eventType, event_data: eventData as any });
 }
 
 export async function checkAchievementExists(userId: string, badgeName: string): Promise<boolean> {

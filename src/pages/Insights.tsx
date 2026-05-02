@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Brain, Sparkles, TrendingUp, Zap, Clock, Calendar, Activity, ChevronLeft } from 'lucide-react';
 import { OptimalScheduleCard } from '@/components/OptimalScheduleCard';
+import { ThreeDScatterPlot } from '@/components/ThreeDScatterPlot';
 import { useNavigate } from 'react-router-dom';
 
 export default function Insights() {
@@ -92,6 +93,32 @@ export default function Insights() {
               color="success"
             />
           </div>
+
+          {/* 3D Cognitive Map */}
+          <section className="space-y-4 pt-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-xp" />
+                Cognitive Performance Map
+              </h2>
+              <div className="px-3 py-1 rounded-full bg-xp/10 border border-xp/20">
+                <span className="text-[9px] font-bold text-xp uppercase">AI Projection</span>
+              </div>
+            </div>
+            <div className="glass-card p-2 border-white/5 overflow-hidden">
+              <ThreeDScatterPlot 
+                title="Cross-Subject Performance Sync"
+                height={400}
+                data={[
+                  { x: 10, y: 20, z: 15, label: "Neural Networks", color: "hsl(var(--primary))" },
+                  { x: 40, y: 10, z: 25, label: "Backpropagation", color: "hsl(var(--secondary))" },
+                  { x: 25, y: 40, z: 10, label: "Gradient Descent", color: "hsl(var(--xp))" },
+                  { x: 15, y: 15, z: 40, label: "Activation Functions", color: "hsl(var(--success))" },
+                  { x: 35, y: 30, z: 20, label: "Loss Functions", color: "hsl(var(--warning))" },
+                ]}
+              />
+            </div>
+          </section>
         </div>
 
         {/* Sidebar Insights */}
@@ -147,16 +174,23 @@ export default function Insights() {
 }
 
 function InsightMiniCard({ icon, title, value, description, color }: { icon: any, title: string, value: string, description: string, color: string }) {
+  const colorMap: Record<string, string> = {
+    xp: 'bg-xp/10',
+    success: 'bg-success/10',
+    primary: 'bg-primary/10',
+    secondary: 'bg-secondary/10',
+  };
+
   return (
     <motion.div 
       whileHover={{ y: -4 }}
       className="glass-card p-6 border-white/5 space-y-4"
     >
       <div className="flex items-center justify-between">
-        <div className={`w-10 h-10 rounded-xl bg-${color}/10 flex items-center justify-center`}>
+        <div className={`w-10 h-10 rounded-xl ${colorMap[color] || 'bg-primary/10'} flex items-center justify-center`}>
           {icon}
         </div>
-        <span className={`text-2xl font-black text-foreground`}>{value}</span>
+        <span className="text-2xl font-black text-foreground">{value}</span>
       </div>
       <div>
         <h4 className="text-sm font-bold text-foreground">{title}</h4>

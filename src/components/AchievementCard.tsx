@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Award, Lock, Star } from 'lucide-react';
+import { memo } from 'react';
 
 interface AchievementCardProps {
   name: string;
@@ -22,7 +23,7 @@ const iconMap: Record<string, string> = {
   'champion': '🏆',
 };
 
-export function AchievementCard({
+export const AchievementCard = memo(function AchievementCard({
   name,
   description,
   icon,
@@ -48,8 +49,9 @@ export function AchievementCard({
           ? 'opacity-40 grayscale border-white/5 bg-white/2 cursor-not-allowed'
           : 'border-white/10 hover:border-primary/50 shadow-xl hover:shadow-glow-primary/10'
       }`}
+      role="article"
+      aria-label={`${isLocked ? 'Locked' : 'Unlocked'} achievement: ${name}`}
     >
-      {/* Dynamic Background Glow for earned achievements */}
       {!isLocked && (
         <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/10 blur-[60px] rounded-full group-hover:bg-primary/20 transition-all duration-500" />
       )}
@@ -64,22 +66,24 @@ export function AchievementCard({
             }`}
           >
             {isLocked ? (
-              <Lock className="w-8 h-8 opacity-50" />
+              <Lock className="w-8 h-8 opacity-50" aria-hidden="true" />
             ) : (
-              <span className="drop-shadow-glow-white/50">{displayIcon}</span>
+              <span className="drop-shadow-glow-white/50" role="img" aria-label={name}>
+                {displayIcon}
+              </span>
             )}
           </div>
 
           {!isLocked && (
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1.5 bg-xp/10 px-2 py-1 rounded-lg border border-xp/20">
-                <Star className="w-3 h-3 text-xp fill-xp" />
+                <Star className="w-3 h-3 text-xp fill-xp" aria-hidden="true" />
                 <span className="text-[10px] font-bold text-xp uppercase tracking-tighter">Verified</span>
               </div>
             </div>
           )}
         </div>
-        
+
         <div className="space-y-2">
           <h3 className={`font-bold text-lg tracking-tight ${
             isLocked ? 'text-muted-foreground' : 'text-foreground group-hover:text-primary transition-colors'
@@ -94,31 +98,30 @@ export function AchievementCard({
         {formattedDate && (
           <div className="pt-4 border-t border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-primary/60">
-              <Award className="w-3.5 h-3.5" />
+              <Award className="w-3.5 h-3.5" aria-hidden="true" />
               <span>SYNCED {formattedDate}</span>
             </div>
             <div className="w-6 h-6 rounded-lg bg-primary/5 flex items-center justify-center">
-              <Star className="w-3 h-3 text-primary animate-pulse" />
+              <Star className="w-3 h-3 text-primary animate-pulse" aria-hidden="true" />
             </div>
           </div>
         )}
-        
+
         {isLocked && (
           <div className="pt-4 border-t border-white/5">
              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">
-              <Lock className="w-3 h-3" />
+              <Lock className="w-3 h-3" aria-hidden="true" />
               <span>LOCKED PROTOCOL</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Subtle bottom-right icon */}
       {!isLocked && (
-        <div className="absolute -bottom-4 -right-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity duration-700 -rotate-12">
+        <div className="absolute -bottom-4 -right-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity duration-700 -rotate-12" aria-hidden="true">
           <Award className="w-24 h-24 text-primary" />
         </div>
       )}
     </motion.div>
   );
-}
+});

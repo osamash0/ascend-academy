@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { BookOpen, CheckCircle2, ChevronRight, Clock, Star } from 'lucide-react';
+import { memo, useMemo } from 'react';
 
 interface LectureCardProps {
   id: string;
@@ -13,7 +14,7 @@ interface LectureCardProps {
   index?: number;
 }
 
-export function LectureCard({
+export const LectureCard = memo(function LectureCard({
   title,
   description,
   totalSlides,
@@ -21,9 +22,25 @@ export function LectureCard({
   onClick,
   index = 0,
 }: LectureCardProps) {
-  const progress = totalSlides > 0 ? (completedSlides / totalSlides) * 100 : 0;
+  const progress = useMemo(() => 
+    totalSlides > 0 ? (completedSlides / totalSlides) * 100 : 0,
+    [completedSlides, totalSlides]
+  );
+
   const isCompleted = progress === 100;
   const isNew = completedSlides === 0 && !isCompleted;
+
+  const statusText = useMemo(() => {
+    if (isNew) return 'Awaiting Initiation';
+    if (isCompleted) return 'Review Synchronized';
+    return `${Math.round(progress)}% Integrated`;
+  }, [isNew, isCompleted, progress]);
+
+  const actionText = useMemo(() => {
+    if (isCompleted) return 'Enter Review';
+    if (isNew) return 'Initiate Mission';
+    return 'Resume Sync';
+  }, [isNew, isCompleted]);
 
   return (
     <motion.div
@@ -34,28 +51,37 @@ export function LectureCard({
       whileHover={{ y: -8 }}
       className="group relative h-full cursor-pointer"
       onClick={onClick}
+      role="article"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      aria-label={`${title}. ${statusText}. ${actionText}`}
     >
       <div className="glass-card flex flex-col h-full overflow-hidden border-white/5 group-hover:border-primary/50 transition-all duration-500 shadow-xl group-hover:shadow-glow-primary/10">
         {/* Animated Accent */}
         <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary via-secondary to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        
+
         <div className="p-6 flex flex-col gap-4 flex-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-primary">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <BookOpen className="w-4 h-4" />
+                <BookOpen className="w-4 h-4" aria-hidden="true" />
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest">Cognitive Module</span>
             </div>
             {isCompleted && (
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-success/10 text-success border border-success/20">
-                <CheckCircle2 className="w-3 h-3" />
+                <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Synced</span>
               </div>
             )}
             {isNew && (
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                <Star className="w-3 h-3 fill-primary" />
+                <Star className="w-3 h-3 fill-primary" aria-hidden="true" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">New</span>
               </div>
             )}
@@ -74,8 +100,8 @@ export function LectureCard({
           <div className="mt-auto pt-6 space-y-4">
             <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
               <span className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5" />
-                {isNew ? 'Awaiting Initiation' : isCompleted ? 'Review Synchronized' : `${Math.round(progress)}% Integrated`}
+                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                {statusText}
               </span>
               <span className="text-foreground/50">{completedSlides}/{totalSlides} Units</span>
             </div>
@@ -96,13 +122,13 @@ export function LectureCard({
 
         <div className="px-6 py-4 bg-white/2 border-t border-white/5 flex items-center justify-between group-hover:bg-primary/5 transition-all duration-300">
           <span className="text-xs font-bold text-muted-foreground group-hover:text-primary uppercase tracking-widest transition-colors">
-            {isCompleted ? 'Enter Review' : isNew ? 'Initiate Mission' : 'Resume Sync'}
+            {actionText}
           </span>
           <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all duration-300">
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
           </div>
         </div>
       </div>
     </motion.div>
   );
-}
+});

@@ -1,14 +1,17 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, BookOpen, Lightbulb, Volume2, VolumeX, Square, Play, Pause, Star, HelpCircle, Loader2 } from 'lucide-react';
+import { 
+  ChevronLeft, ChevronRight, BookOpen, Lightbulb, Volume2, VolumeX, 
+  Square, Play, Pause, Star, HelpCircle, Loader2, Sparkles 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { MindMap } from '@/components/MindMap';
+import { useTTS } from '@/hooks/useTTS';
 import type { TreeNode } from '@/features/mindmap/hooks/useMindMap';
 import 'katex/dist/katex.min.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -35,18 +38,16 @@ interface SlideViewerProps {
   pageNumber?: number;
   onConfidenceRate?: (rating: Confidence) => void;
   initialConfidence?: Confidence;
-  // Mind map
   mindMapData?: TreeNode | null;
   currentSlideId?: string;
   onGenerateMindMap?: () => void;
   isMindMapLoading?: boolean;
-  // Content regeneration (professor only)
   isProfessor?: boolean;
   onRegenerateContent?: () => void;
   isRegeneratingContent?: boolean;
 }
 
-/** Returns true when extracted text looks like garbage (axis labels, numbers only, etc.) */
+/** Returns true when extracted text looks like garbage */
 function isGarbageContent(content: string): boolean {
   if (!content || content.trim().length === 0) return true;
   const cleaned = content.replace(/\s+/g, ' ').trim();
@@ -54,30 +55,22 @@ function isGarbageContent(content: string): boolean {
   const nonSpace = cleaned.replace(/\s/g, '');
   if (nonSpace.length === 0) return true;
   const digits = nonSpace.replace(/\D/g, '');
-  // If >60% of non-whitespace chars are digits it's likely axis labels / raw numbers
   return digits.length / nonSpace.length > 0.6;
 }
 
-const CONFIDENCE_OPTIONS: { key: Confidence; emoji: string; label: string; activeClass: string }[] = [
-  { key: 'got_it', emoji: '✅', label: 'Got it', activeClass: 'bg-success/20 border-success text-success' },
-  { key: 'unsure', emoji: '🤔', label: 'Unsure', activeClass: 'bg-warning/20 border-warning text-warning' },
-  { key: 'confused', emoji: '❌', label: 'Confused', activeClass: 'bg-destructive/20 border-destructive text-destructive' },
+const CONFIDENCE_OPTIONS = [
+  { key: 'got_it' as const, emoji: '✅', label: 'Got it', activeClass: 'bg-success/20 border-success text-success' },
+  { key: 'unsure' as const, emoji: '🤔', label: 'Unsure', activeClass: 'bg-warning/20 border-warning text-warning' },
+  { key: 'confused' as const, emoji: '❌', label: 'Confused', activeClass: 'bg-destructive/20 border-destructive text-destructive' },
 ];
 
-/** Strip markdown syntax so TTS reads clean text */
-function stripMarkdown(md: string): string {
-  return md
-    .replace(/#{1,6}\s+/g, '')              // headings
-    .replace(/\*\*(.*?)\*\*/g, '$1')        // bold
-    .replace(/\*(.*?)\*/g, '$1')            // italic
-    .replace(/`{1,3}[^`]*`{1,3}/g, '')     // code
-    .replace(/!\[.*?\]\(.*?\)/g, '')        // images
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
-    .replace(/^[-*+]\s+/gm, '')             // list bullets
-    .replace(/^\d+\.\s+/gm, '')             // numbered lists
-    .replace(/\n{2,}/g, '. ')              // paragraph breaks → pause
-    .replace(/\n/g, ' ')
-    .trim();
+/** Prepare TTS text from slide data */
+function prepareTTSText(title: string, summary: string, content: string, slideNumber: number): string {
+  return [
+    title ? `Slide ${slideNumber}: ${title}.` : '',
+    summary ? `Summary: ${summary}.` : '',
+    content ? `Study Notes: ${content}` : '',
+  ].filter(Boolean).join(' ');
 }
 
 export function SlideViewer({
@@ -114,137 +107,60 @@ export function SlideViewer({
   // Mind map panel
   const [mindMapOpen, setMindMapOpen] = useState(false);
 
-  // Auto-expand on last slide
+  // TTS hook
+  const { speak, stop, isSpeaking, isPaused, isLoading: isTTSLoading } = useTTS();
+
+  // Memoized TTS text to prevent unnecessary re-renders
+  const ttsText = useMemo(() => 
+    prepareTTSText(title, summary, content, slideNumber),
+    [title, summary, content, slideNumber]
+  );
+
+  // Auto-expand mind map on last slide
   useEffect(() => {
     if (isLast && mindMapData) setMindMapOpen(true);
   }, [isLast, mindMapData]);
 
-  // TTS state
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isLoadingTTS, setIsLoadingTTS] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
-
   // Reset per slide
   useEffect(() => {
-    stopSpeech();
+    stop();
     setConfidence(initialConfidence ?? null);
     setJustRated(false);
-  }, [slideNumber]);
+  }, [slideNumber, initialConfidence, stop]);
 
-  // PDF resize observer
+  // PDF resize observer with cleanup
   useEffect(() => {
     if (!pdfContainerRef.current) return;
     const observer = new ResizeObserver(entries => {
-      for (const entry of entries) setContainerWidth(entry.contentRect.width);
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
     });
     observer.observe(pdfContainerRef.current);
     return () => observer.disconnect();
   }, []);
 
-  // ── TTS helpers ──────────────────────────────────────────────────────────
-  const stopSpeech = useCallback(() => {
-    // Stop browser TTS
-    window.speechSynthesis?.cancel();
-    utteranceRef.current = null;
-    
-    // Stop backend Audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-
-    setIsSpeaking(false);
-    setIsPaused(false);
-  }, []);
-
-  const handleSpeak = useCallback(async () => {
-    if (isSpeaking && !isPaused) {
-      if (audioRef.current) audioRef.current.pause();
-      else window.speechSynthesis.pause();
-      setIsPaused(true);
-      return;
-    }
-
-    if (isPaused) {
-      if (audioRef.current) audioRef.current.play();
-      else window.speechSynthesis.resume();
-      setIsPaused(false);
-      return;
-    }
-
-    const text = [
-      title ? `Slide ${slideNumber}: ${title}.` : '',
-      summary ? `Summary: ${stripMarkdown(summary)}.` : '',
-      content ? `Study Notes: ${stripMarkdown(content)}` : '',
-    ].filter(Boolean).join(' ');
-
-    if (!text.trim()) return;
-
-    setIsLoadingTTS(true);
-    try {
-      // 1. Try backend high-quality AI voice
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${API_BASE}/api/ai/tts`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ text, voice: "en-US-AvaNeural" })
-      });
-
-      if (!res.ok) throw new Error('Backend TTS failed');
-      
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      
-      audio.onplay = () => { setIsSpeaking(true); setIsPaused(false); };
-      audio.onended = () => { setIsSpeaking(false); setIsPaused(false); audioRef.current = null; };
-      audio.onerror = () => { throw new Error('Audio play error'); };
-      
-      audioRef.current = audio;
-      audio.play();
-
-    } catch (err) {
-      console.warn('Fallback to browser TTS:', err);
-      // 2. Fallback to browser SpeechSynthesis
-      if (!ttsSupported) return;
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.92;
-      utterance.pitch = 1;
-      utterance.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
-      utterance.onend = () => { setIsSpeaking(false); setIsPaused(false); };
-      utterance.onerror = () => { setIsSpeaking(false); setIsPaused(false); };
-
-      utteranceRef.current = utterance;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-    } finally {
-      setIsLoadingTTS(false);
-    }
-  }, [isSpeaking, isPaused, title, summary, content, slideNumber, ttsSupported]);
-
-  // ── Confidence rating ─────────────────────────────────────────────────────
-  const handleConfidence = (rating: NonNullable<Confidence>) => {
+  // Confidence rating handler
+  const handleConfidence = useCallback((rating: NonNullable<Confidence>) => {
     setConfidence(rating);
     setJustRated(true);
     onConfidenceRate?.(rating);
-    setTimeout(() => setJustRated(false), 1200);
-  };
+    const timer = setTimeout(() => setJustRated(false), 1200);
+    return () => clearTimeout(timer);
+  }, [onConfidenceRate]);
+
+  // TTS control handler
+  const handleTTS = useCallback(() => {
+    if (isSpeaking && !isPaused) {
+      stop();
+    } else {
+      speak(ttsText);
+    }
+  }, [isSpeaking, isPaused, speak, stop, ttsText]);
 
   const hasPdf = pdfUrl && !pdfError;
-
-  // TTS icon to show
   const ttsLabel = isSpeaking && !isPaused ? 'Pause' : isPaused ? 'Resume' : 'Listen';
+  const TtsIcon = isSpeaking && !isPaused ? Pause : isPaused ? Play : Volume2;
 
   return (
     <div className="glass-card overflow-hidden transition-all duration-500 flex flex-col h-full">
@@ -260,47 +176,46 @@ export function SlideViewer({
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Orbital Lecture</span>
                 <span className="text-[10px] text-muted-foreground">•</span>
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Slide {slideNumber} / {totalSlides}</span>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  Slide {slideNumber} / {totalSlides}
+                </span>
               </div>
             </div>
           </div>
 
           {/* TTS controls */}
-          {ttsSupported && (
-            <div className="flex items-center gap-2">
-              <motion.button
-                onClick={handleSpeak}
-                disabled={isLoadingTTS}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300 ${isSpeaking
-                    ? 'bg-primary/20 border-primary/30 text-primary shadow-glow-primary/20'
-                    : 'bg-surface-2 border-white/5 text-muted-foreground hover:text-foreground hover:border-primary/30'
-                  } ${isLoadingTTS ? 'opacity-50 cursor-not-allowed' : ''}`}
-                whileTap={{ scale: 0.95 }}
-                title={ttsLabel}
-              >
-                {isLoadingTTS ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : isSpeaking && !isPaused ? (
-                  <Pause className="w-3.5 h-3.5" />
-                ) : (
-                  <Volume2 className="w-3.5 h-3.5" />
-                )}
-                {isLoadingTTS ? 'Generating...' : ttsLabel}
-              </motion.button>
-
-              {isSpeaking && (
-                <motion.button
-                  onClick={stopSpeech}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="p-1.5 rounded-xl bg-surface-2 border border-white/5 text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
-                  title="Stop"
-                >
-                  <Square className="w-3.5 h-3.5" />
-                </motion.button>
+          <div className="flex items-center gap-2">
+            <motion.button
+              onClick={handleTTS}
+              disabled={isTTSLoading}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300 ${
+                isSpeaking
+                  ? 'bg-primary/20 border-primary/30 text-primary shadow-glow-primary/20'
+                  : 'bg-surface-2 border-white/5 text-muted-foreground hover:text-foreground hover:border-primary/30'
+              } ${isTTSLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              whileTap={{ scale: 0.95 }}
+              title={ttsLabel}
+            >
+              {isTTSLoading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <TtsIcon className="w-3.5 h-3.5" />
               )}
-            </div>
-          )}
+              {isTTSLoading ? 'Generating...' : ttsLabel}
+            </motion.button>
+
+            {isSpeaking && (
+              <motion.button
+                onClick={stop}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-1.5 rounded-xl bg-surface-2 border border-white/5 text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
+                title="Stop"
+              >
+                <Square className="w-3.5 h-3.5" />
+              </motion.button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -321,7 +236,6 @@ export function SlideViewer({
                 <BookOpen className="w-3.5 h-3.5" />
                 <span className="text-[10px] font-bold uppercase tracking-widest">Original Source Material</span>
               </div>
-              {/* Speaking indicator */}
               {isSpeaking && !isPaused && (
                 <div className="flex items-end gap-0.5 h-3">
                   {[0, 0.15, 0.3].map((delay, i) => (
@@ -357,7 +271,7 @@ export function SlideViewer({
           </div>
         )}
 
-        {/* AI Summary / Insights */}
+        {/* AI Summary */}
         {summary && (
           <div className="px-6 py-6 border-b border-white/5">
             <div className="glass-panel border-white/5 rounded-2xl p-5 relative overflow-hidden group">
@@ -439,7 +353,7 @@ export function SlideViewer({
                             </>
                           ) : (
                             <>
-                              <span>✨</span>
+                              <Sparkles className="w-4 h-4" />
                               Generate Mind Map
                             </>
                           )}
@@ -455,7 +369,7 @@ export function SlideViewer({
 
         {/* Study Notes Content */}
         <div className="p-8 lg:p-10 space-y-6">
-          {/* Garbage-content warning — shown to professors when extracted text is junk */}
+          {/* Garbage-content warning */}
           {isGarbageContent(content) && isProfessor && (
             <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
               <span className="text-amber-400 mt-0.5 shrink-0">⚠️</span>
@@ -473,7 +387,8 @@ export function SlideViewer({
                 >
                   {isRegeneratingContent
                     ? <><Loader2 className="w-3 h-3 animate-spin" /> Analyzing…</>
-                    : '✨ Re-analyze'}
+                    : <><Sparkles className="w-3 h-3" /> Re-analyze</>
+                  }
                 </button>
               )}
             </div>
@@ -495,7 +410,7 @@ export function SlideViewer({
       {/* Footer Actions */}
       <div className="px-6 py-6 border-t border-white/5 bg-surface-1/50 mt-auto">
         <div className="flex flex-col gap-6">
-          {/* Confidence Rating — Orbital Style */}
+          {/* Confidence Rating */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <p className="text-caption font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
@@ -504,18 +419,19 @@ export function SlideViewer({
               </p>
               <p className="text-body-sm text-muted-foreground/70 italic">How well did you grasp these concepts?</p>
             </div>
-            
+
             <div className="flex items-center gap-3">
               {CONFIDENCE_OPTIONS.map(opt => {
                 const isActive = confidence === opt.key;
                 return (
                   <motion.button
                     key={opt.key}
-                    onClick={() => handleConfidence(opt.key!)}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all duration-300 ${isActive
+                    onClick={() => handleConfidence(opt.key)}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all duration-300 ${
+                      isActive
                         ? opt.activeClass + ' shadow-lg'
                         : 'border-white/5 bg-surface-2 text-muted-foreground hover:border-primary/30 hover:text-foreground'
-                      }`}
+                    }`}
                     whileHover={{ y: -2, scale: 1.02 }}
                     whileTap={{ scale: 0.95 }}
                     animate={isActive && justRated ? { y: [-2, -6, -2], scale: [1.02, 1.08, 1.02] } : {}}
@@ -525,7 +441,7 @@ export function SlideViewer({
                   </motion.button>
                 );
               })}
-              
+
               <AnimatePresence>
                 {justRated && (
                   <motion.div

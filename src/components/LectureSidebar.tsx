@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, CheckCircle2, Star } from 'lucide-react';
-import { Button } from './ui/button';
 
 interface Slide {
     id: string;
@@ -18,6 +17,76 @@ interface LectureSidebarProps {
     onToggle: () => void;
 }
 
+// Memoized slide item for better performance
+const SlideItem = memo(function SlideItem({
+    slide,
+    index,
+    isActive,
+    isDone,
+    onSelect,
+}: {
+    slide: Slide;
+    index: number;
+    isActive: boolean;
+    isDone: boolean;
+    onSelect: (index: number) => void;
+}) {
+    const itemRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        if (isActive && itemRef.current) {
+            itemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }, [isActive]);
+
+    return (
+        <button
+            ref={isActive ? itemRef : undefined}
+            onClick={() => onSelect(index)}
+            className={`w-full flex items-center gap-4 py-2.5 px-2 rounded-xl transition-all duration-300 group relative z-10 ${
+                isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+            } cursor-pointer`}
+            aria-current={isActive ? 'true' : undefined}
+            aria-label={`Slide ${slide.slide_number}${slide.title ? `: ${slide.title}` : ''}${isDone ? ' (completed)' : ''}`}
+        >
+            <div className="flex-shrink-0 w-9 h-9 flex items-center justify-center relative">
+                {isActive && (
+                    <motion.div 
+                        layoutId="activeNodeGlow"
+                        className="absolute inset-0 bg-primary/20 blur-md rounded-full"
+                    />
+                )}
+                <div className={`w-6 h-6 rounded-lg flex items-center justify-center relative z-10 transition-all duration-300 ${
+                    isActive 
+                        ? 'bg-primary text-white shadow-glow-primary' 
+                        : isDone 
+                            ? 'bg-success/20 text-success border border-success/30' 
+                            : 'bg-surface-2 text-muted-foreground border border-white/5 group-hover:border-primary/30'
+                }`}>
+                    {isDone ? (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                    ) : (
+                        <span className="text-[10px] font-bold">{slide.slide_number}</span>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex-1 text-left min-w-0">
+                <p className={`text-sm font-bold truncate transition-colors ${
+                    isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
+                }`}>
+                    {slide.title || `Slide ${slide.slide_number}`}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                    {isDone ? 'Completed' : isActive ? 'Current' : 'Remaining'}
+                </p>
+            </div>
+        </button>
+    );
+});
+
 export function LectureSidebar({
     slides,
     currentSlideIndex,
@@ -26,16 +95,13 @@ export function LectureSidebar({
     isCollapsed,
     onToggle,
 }: LectureSidebarProps) {
-    const activeRef = useRef<HTMLButtonElement>(null);
-
-    // Auto-scroll active slide into view
-    useEffect(() => {
-        activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }, [currentSlideIndex]);
-
     const progressPct = slides.length > 1
         ? (currentSlideIndex / (slides.length - 1)) * 100
         : 100;
+
+    const handleToggle = useCallback(() => {
+        onToggle();
+    }, [onToggle]);
 
     return (
         <motion.div
@@ -48,8 +114,9 @@ export function LectureSidebar({
             <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={onToggle}
+                onClick={handleToggle}
                 className="absolute -right-3 top-20 z-30 w-6 h-6 glass-panel-strong border border-white/10 rounded-full flex items-center justify-center text-primary shadow-glow-primary/20 cursor-pointer"
+                aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
                 {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
             </motion.button>
@@ -61,19 +128,20 @@ export function LectureSidebar({
                         <h2 className="text-[10px] font-bold text-primary uppercase tracking-widest">Syllabus</h2>
                         <p className="text-sm font-bold text-foreground">Lecture Content</p>
                         <div className="flex items-center gap-2 mt-2">
-                          <div className="flex-1 h-1 bg-surface-2 rounded-full overflow-hidden">
-                            <motion.div 
-                              className="h-full bg-primary"
-                              animate={{ width: `${((currentSlideIndex + 1) / slides.length) * 100}%` }}
-                            />
-                          </div>
-                          <span className="text-[10px] font-bold text-muted-foreground">{currentSlideIndex + 1}/{slides.length}</span>
+                            <div className="flex-1 h-1 bg-surface-2 rounded-full overflow-hidden">
+                                <motion.div 
+                                    className="h-full bg-primary"
+                                    animate={{ width: `${((currentSlideIndex + 1) / slides.length) * 100}%` }}
+                                    transition={{ duration: 0.3 }}
+                                />
+                            </div>
+                            <span className="text-[10px] font-bold text-muted-foreground">{currentSlideIndex + 1}/{slides.length}</span>
                         </div>
                     </div>
                 ) : (
                     <div className="flex justify-center">
                         <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <CheckCircle2 className="w-4 h-4 text-primary" />
+                            <CheckCircle2 className="w-4 h-4 text-primary" />
                         </div>
                     </div>
                 )}
@@ -98,57 +166,16 @@ export function LectureSidebar({
                     )}
 
                     <div className="space-y-2 px-3">
-                        {slides.map((slide, index) => {
-                            const isActive = index === currentSlideIndex;
-                            const isDone = completedSlides.includes(slide.slide_number) || index < currentSlideIndex;
-
-                            return (
-                                <button
-                                    key={slide.id}
-                                    ref={isActive ? activeRef : undefined}
-                                    onClick={() => onSelectSlide(index)}
-                                    className={`w-full flex items-center gap-4 py-2.5 px-2 rounded-xl transition-all duration-300 group relative z-10 ${isActive
-                                            ? 'bg-primary/10 text-primary'
-                                            : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
-                                        } cursor-pointer`}
-                                >
-                                    {/* Node */}
-                                    <div className="flex-shrink-0 w-9 h-9 flex items-center justify-center relative">
-                                        {isActive && (
-                                          <motion.div 
-                                            layoutId="activeNodeGlow"
-                                            className="absolute inset-0 bg-primary/20 blur-md rounded-full"
-                                          />
-                                        )}
-                                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center relative z-10 transition-all duration-300 ${
-                                          isActive 
-                                            ? 'bg-primary text-white shadow-glow-primary' 
-                                            : isDone 
-                                              ? 'bg-success/20 text-success border border-success/30' 
-                                              : 'bg-surface-2 text-muted-foreground border border-white/5 group-hover:border-primary/30'
-                                        }`}>
-                                          {isDone ? (
-                                            <CheckCircle2 className="w-3.5 h-3.5" />
-                                          ) : (
-                                            <span className="text-[10px] font-bold">{slide.slide_number}</span>
-                                          )}
-                                        </div>
-                                    </div>
-
-                                    {/* Label */}
-                                    {!isCollapsed && (
-                                        <div className="flex-1 text-left min-w-0">
-                                            <p className={`text-sm font-bold truncate transition-colors ${isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>
-                                                {slide.title || `Slide ${slide.slide_number}`}
-                                            </p>
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
-                                              {isDone ? 'Completed' : isActive ? 'Current' : 'Remaining'}
-                                            </p>
-                                        </div>
-                                    )}
-                                </button>
-                            );
-                        })}
+                        {slides.map((slide, index) => (
+                            <SlideItem
+                                key={slide.id}
+                                slide={slide}
+                                index={index}
+                                isActive={index === currentSlideIndex}
+                                isDone={completedSlides.includes(slide.slide_number) || index < currentSlideIndex}
+                                onSelect={onSelectSlide}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>
@@ -157,13 +184,13 @@ export function LectureSidebar({
             {!isCollapsed && (
                 <div className="p-4 border-t border-white/5 bg-surface-1/30">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center">
-                        <Star className="w-4 h-4 text-xp" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Session Bonus</p>
-                        <p className="text-xs font-bold text-foreground">+10 XP per Quiz</p>
-                      </div>
+                        <div className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center">
+                            <Star className="w-4 h-4 text-xp" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Session Bonus</p>
+                            <p className="text-xs font-bold text-foreground">+10 XP per Quiz</p>
+                        </div>
                     </div>
                 </div>
             )}

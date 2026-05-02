@@ -5,32 +5,53 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Lecture, Slide, QuizQuestion } from '@/types/domain';
 
-export async function fetchLecture(lectureId: string): Promise<Lecture | null> {
-  const { data } = await supabase
+export async function fetchLecture(id: string): Promise<Lecture | null> {
+  const { data, error } = await supabase
     .from('lectures')
-    .select('id, title, description, total_slides, created_at, pdf_url')
-    .eq('id', lectureId)
+    .select('*')
+    .eq('id', id)
     .single();
-  return data ?? null;
+  
+  if (error) {
+    console.error(`Error fetching lecture ${id}:`, error);
+    return null;
+  }
+  return data;
 }
 
 export async function fetchSlides(lectureId: string): Promise<Slide[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('slides')
     .select('id, slide_number, title, content_text, summary')
     .eq('lecture_id', lectureId)
     .order('slide_number', { ascending: true });
+  
+  if (error) {
+    console.error(`Error fetching slides for lecture ${lectureId}:`, error);
+    return [];
+  }
   return data ?? [];
 }
 
 export async function fetchQuizQuestions(lectureId: string): Promise<QuizQuestion[]> {
-  const { data } = await supabase
+  // We need to fetch questions for all slides belonging to this lecture
+  // Since there is no direct lecture_id in quiz_questions, we join with slides
+  const { data, error } = await supabase
     .from('quiz_questions')
-    .select('id, slide_id, question_text, options, correct_answer')
-    .eq('lecture_id', lectureId);
+    .select('id, slide_id, question_text, options, correct_answer, slides!inner(lecture_id)')
+    .eq('slides.lecture_id', lectureId);
+  
+  if (error) {
+    console.error(`Error fetching quiz questions for lecture ${lectureId}:`, error);
+    return [];
+  }
+
   return (data ?? []).map(q => ({
-    ...q,
-    options: Array.isArray(q.options) ? q.options : [],
+    id: q.id,
+    slide_id: q.slide_id,
+    question_text: q.question_text,
+    options: Array.isArray(q.options) ? q.options as string[] : [],
+    correct_answer: q.correct_answer
   }));
 }
 

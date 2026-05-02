@@ -1,157 +1,451 @@
+"""
+Multi-provider LLM orchestrator with automatic failover.
+
+Provider chain (rate-limit data: github.com/cheahjs/free-llm-api-resources):
+
+  ID            Model                       Daily req   TPM      Notes
+  ──────────────────────────────────────────────────────────────────────
+  cerebras      gpt-oss-120b                14,400      60,000   Best bulk option
+  groq_fast     llama-3.1-8b-instant        14,400       6,000   Fast fallback
+  gemma         gemma-3-27b-it              14,400      15,000   Google SDK
+  mistral       mistral-small-latest        ~unlimited  500,000  Needs phone verify
+  openrouter    llama-3.3-70b:free              50          —    50/day free; 1K/day w/ $10
+  gemini        gemini-2.0-flash             ~1,500     250,000  Google SDK
+  groq          llama-3.3-70b-versatile      1,000      12,000   Quality; conserved for blueprints
+  ──────────────────────────────────────────────────────────────────────
+
+Two chains:
+  BULK_CHAIN    — slide text analysis (high volume, use capacity-first)
+  QUALITY_CHAIN — blueprints / planning (low volume, quality-first)
+
+Required env vars (add what you have; missing keys disable that provider gracefully):
+  GROQ_API_KEY          https://console.groq.com
+  CEREBRAS_API_KEY      https://cloud.cerebras.ai
+  GEMINI_API_KEY        https://aistudio.google.com/apikey
+  OPENROUTER_API_KEY    https://openrouter.ai/keys
+  MISTRAL_API_KEY       https://console.mistral.ai  (requires phone)
+"""
+
 import os
 import logging
 import json
 import re
 import asyncio
-from typing import Any, Optional, Dict, List, Tuple, Union
+import datetime
+import threading
+import time
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-def _init_env():
-    _root_env = Path(__file__).resolve().parent.parent.parent.parent / ".env"
-    _backend_env = Path(__file__).resolve().parent.parent.parent / ".env"
-    if _root_env.exists(): load_dotenv(dotenv_path=_root_env, override=True)
-    if _backend_env.exists(): load_dotenv(dotenv_path=_backend_env, override=True)
+
+def _init_env() -> None:
+    _root    = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+    _backend = Path(__file__).resolve().parent.parent.parent / ".env"
+    if _root.exists():    load_dotenv(dotenv_path=_root,    override=True)
+    if _backend.exists(): load_dotenv(dotenv_path=_backend, override=True)
 
 _init_env()
 
-# Model Constants
-OLLAMA_MODEL = "llama3"
-GEMINI_MODEL = "gemini-2.0-flash"
-GROQ_MODEL = "llama-3.3-70b-versatile"
+# ---------------------------------------------------------------------------
+# Backward-compat model-name constants (used by vision.py / ai_service.py)
+# ---------------------------------------------------------------------------
+OLLAMA_MODEL      = "llama3"
+GEMINI_MODEL      = "gemini-2.0-flash"
+GROQ_MODEL        = "llama-3.3-70b-versatile"
+GROQ_FAST_MODEL   = "llama-3.1-8b-instant"
 GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
-CEREBRAS_MODEL = "llama-3.3-70b"
+CEREBRAS_MODEL    = "gpt-oss-120b"
 
-# Feature Flags & Metadata
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
 
-# --- LLM Clients Initialization ---
+# ---------------------------------------------------------------------------
+# Provider registry
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ProviderConfig:
+    id:          str
+    model:       str
+    daily_limit: int      # requests/day (0 = unlimited / unknown)
+    rpm:         int      # requests/minute (0 = unknown)
+    tpm:         int      # tokens/minute   (0 = unknown)
+    env_var:     str      # name of API-key env var
+    base_url:    Optional[str]   # None → uses Google genai SDK
+    uses_google_sdk: bool = False
+
+
+# Order within this list is irrelevant; chains below define priority.
+PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
+    p.id: p for p in [
+        ProviderConfig(
+            id="cerebras",
+            model="gpt-oss-120b",
+            daily_limit=14_400, rpm=30, tpm=60_000,
+            env_var="CEREBRAS_API_KEY",
+            base_url="https://api.cerebras.ai/v1",
+        ),
+        ProviderConfig(
+            id="groq_fast",
+            model="llama-3.1-8b-instant",
+            daily_limit=14_400, rpm=30, tpm=6_000,
+            env_var="GROQ_API_KEY",
+            base_url="https://api.groq.com/openai/v1",
+        ),
+        ProviderConfig(
+            id="gemma",
+            model="gemma-3-27b-it",
+            daily_limit=14_400, rpm=30, tpm=15_000,
+            env_var="GEMINI_API_KEY",
+            base_url=None,
+            uses_google_sdk=True,
+        ),
+        ProviderConfig(
+            id="mistral",
+            model="mistral-small-latest",
+            daily_limit=0, rpm=60, tpm=500_000,
+            env_var="MISTRAL_API_KEY",
+            base_url="https://api.mistral.ai/v1",
+        ),
+        ProviderConfig(
+            id="openrouter",
+            model="meta-llama/llama-3.3-70b-instruct:free",
+            daily_limit=50, rpm=20, tpm=0,
+            env_var="OPENROUTER_API_KEY",
+            base_url="https://openrouter.ai/api/v1",
+        ),
+        ProviderConfig(
+            id="gemini",
+            model="gemini-2.0-flash",
+            daily_limit=1_500, rpm=15, tpm=250_000,
+            env_var="GEMINI_API_KEY",
+            base_url=None,
+            uses_google_sdk=True,
+        ),
+        ProviderConfig(
+            id="groq",
+            model="llama-3.3-70b-versatile",
+            daily_limit=1_000, rpm=30, tpm=12_000,
+            env_var="GROQ_API_KEY",
+            base_url="https://api.groq.com/openai/v1",
+        ),
+    ]
+}
+
+# ---------------------------------------------------------------------------
+# Failover chains
+# ---------------------------------------------------------------------------
+
+# Bulk slide processing: highest daily capacity first; Groq 70B last (conserve quota)
+BULK_CHAIN:    List[str] = ["cerebras", "groq_fast", "gemma", "mistral", "openrouter", "gemini", "groq"]
+
+# Blueprint / planning / deck summaries: quality first
+QUALITY_CHAIN: List[str] = ["groq", "cerebras", "openrouter", "gemini", "mistral", "groq_fast", "gemma"]
+
+# ---------------------------------------------------------------------------
+# Client initialisation
+# ---------------------------------------------------------------------------
 
 try:
-    import ollama
+    import ollama as _ollama_lib
 except ImportError:
-    ollama = None
+    _ollama_lib = None
 
 try:
-    from groq import Groq
-    _g_key = os.environ.get("GROQ_API_KEY")
-    groq_client = Groq(api_key=_g_key, max_retries=0) if (_g_key and len(_g_key) > 20) else None
+    from openai import OpenAI as _OpenAI
+except ImportError:
+    _OpenAI = None
+
+try:
+    from google import genai as _genai
+    _gem_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    _google_client = _genai.Client(api_key=_gem_key, http_options={"api_version": "v1"}) if _gem_key else None
+except Exception:
+    _genai = None
+    _google_client = None
+
+
+def _make_openai_client(env_var: str, base_url: str) -> Optional[Any]:
+    """Creates an OpenAI-compatible client if the API key env var is set."""
+    if _OpenAI is None:
+        return None
+    key = os.environ.get(env_var, "")
+    if not key or len(key) < 8:
+        return None
+    try:
+        extra = {}
+        if "openrouter" in base_url:
+            extra["default_headers"] = {"HTTP-Referer": "https://ascend.academy"}
+        return _OpenAI(api_key=key, base_url=base_url, max_retries=0, **extra)
+    except Exception as exc:
+        logger.debug("Could not init client for %s: %s", env_var, exc)
+        return None
+
+
+# Build clients at startup; None means provider is disabled (key not set)
+_clients: Dict[str, Optional[Any]] = {}
+for _cfg in PROVIDER_REGISTRY.values():
+    if _cfg.uses_google_sdk:
+        _clients[_cfg.id] = _google_client   # shared Google client for gemini + gemma
+    elif _cfg.base_url:
+        _clients[_cfg.id] = _make_openai_client(_cfg.env_var, _cfg.base_url)
+
+# Backward-compat module-level references (used by vision.py / ai_service.py)
+try:
+    from groq import Groq as _GroqSDK
+    _g_key = os.environ.get("GROQ_API_KEY", "")
+    groq_client = _GroqSDK(api_key=_g_key, max_retries=0) if len(_g_key) > 20 else None
 except Exception:
     groq_client = None
 
-try:
-    from openai import OpenAI
-    _c_key = os.environ.get("CEREBRAS_API_KEY")
-    cerebras_client = OpenAI(base_url="https://api.cerebras.ai/v1", api_key=_c_key) if _c_key else None
-except Exception:
-    cerebras_client = None
+cerebras_client = _clients.get("cerebras")
+gemini_client   = _google_client
+ollama          = _ollama_lib
 
-try:
-    from google import genai
-    _gem_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    gemini_client = genai.Client(api_key=_gem_key, http_options={'api_version': 'v1'}) if _gem_key else None
-except Exception:
-    gemini_client = None
+# ---------------------------------------------------------------------------
+# Provider rotator — daily budget + backoff tracking
+# ---------------------------------------------------------------------------
 
-# --- Utility Functions ---
+class ProviderRotator:
+    """
+    Thread-safe tracker of daily request counts and temporary 429 backoffs.
+    Skips providers that have hit their daily limit or are in backoff window.
+    Resets counts at UTC midnight.
+    """
 
-_CTRL_ESCAPE = {'\n': '\\n', '\r': '\\r', '\t': '\\t'}
+    def __init__(self) -> None:
+        self._lock          = threading.Lock()
+        self._counts:  Dict[str, int]   = {}
+        self._backoff: Dict[str, float] = {}
+        self._day:     str              = datetime.date.today().isoformat()
+
+    def _reset_if_new_day(self) -> None:
+        today = datetime.date.today().isoformat()
+        if today != self._day:
+            self._day     = today
+            self._counts  = {}
+            self._backoff = {}
+
+    def record_success(self, provider_id: str) -> None:
+        with self._lock:
+            self._reset_if_new_day()
+            self._counts[provider_id] = self._counts.get(provider_id, 0) + 1
+
+    def record_rate_limit(self, provider_id: str, backoff_seconds: float = 90.0) -> None:
+        with self._lock:
+            self._backoff[provider_id] = time.monotonic() + backoff_seconds
+        logger.warning("🔄 Provider '%s' rate-limited — backing off %.0fs", provider_id, backoff_seconds)
+
+    def available(self, chain: List[str]) -> List[str]:
+        """
+        Returns the subset of `chain` that is currently usable, in order.
+        Skips providers whose daily limit is hit or are in a 429 backoff window.
+        Skips providers without a configured client (no API key).
+        Falls back to the full chain if everything is technically exhausted.
+        """
+        now = time.monotonic()
+        with self._lock:
+            self._reset_if_new_day()
+            ok = []
+            for pid in chain:
+                cfg = PROVIDER_REGISTRY.get(pid)
+                if cfg is None:
+                    continue
+                # Skip if no client (key not set)
+                if _clients.get(pid) is None and not (pid == "groq" and groq_client):
+                    continue
+                # Skip if daily limit reached
+                limit = cfg.daily_limit
+                used  = self._counts.get(pid, 0)
+                if limit > 0 and used >= limit:
+                    logger.debug("Provider '%s' daily limit reached (%d/%d)", pid, used, limit)
+                    continue
+                # Skip if in 429 backoff
+                if now < self._backoff.get(pid, 0.0):
+                    remaining = self._backoff[pid] - now
+                    logger.debug("Provider '%s' in backoff (%.0fs left)", pid, remaining)
+                    continue
+                ok.append(pid)
+        return ok or chain   # if everything exhausted, try anyway (may still work)
+
+
+_rotator = ProviderRotator()
+
+# Keep old class name as alias for any direct references
+_ProviderRotator = ProviderRotator
+
+# ---------------------------------------------------------------------------
+# Per-provider call implementations
+# ---------------------------------------------------------------------------
+
+def _call_openai_compat(client: Any, model: str, prompt: str) -> str:
+    """Unified caller for all OpenAI-compatible providers."""
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return resp.choices[0].message.content or ""
+
+
+def _call_google(model: str, prompt: str) -> str:
+    """Caller for Google AI Studio (Gemini + Gemma models)."""
+    if _google_client is None:
+        raise RuntimeError("Google AI client not initialised (GEMINI_API_KEY missing)")
+    return _google_client.models.generate_content(model=model, contents=prompt).text
+
+
+def _call_provider(provider_id: str, prompt: str) -> str:
+    """
+    Dispatches a prompt to the named provider.
+    Raises RuntimeError if the provider is not configured.
+    """
+    cfg = PROVIDER_REGISTRY.get(provider_id)
+    if cfg is None:
+        raise ValueError(f"Unknown provider: {provider_id}")
+
+    # Ollama local
+    if provider_id == "llama3":
+        if _ollama_lib is None:
+            raise RuntimeError("Ollama not installed")
+        res = _ollama_lib.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
+        return res["message"]["content"]
+
+    # Google SDK path (Gemini + Gemma)
+    if cfg.uses_google_sdk:
+        return _call_google(cfg.model, prompt)
+
+    # Groq uses the native Groq SDK (keeps backward compat for vision.py)
+    if provider_id in ("groq", "groq_fast"):
+        if groq_client is None:
+            raise RuntimeError("Groq client not initialised (GROQ_API_KEY missing)")
+        resp = groq_client.chat.completions.create(
+            model=cfg.model,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return resp.choices[0].message.content or ""
+
+    # All other OpenAI-compat providers
+    client = _clients.get(provider_id)
+    if client is None:
+        raise RuntimeError(f"Provider '{provider_id}' client not initialised ({cfg.env_var} missing)")
+    return _call_openai_compat(client, cfg.model, prompt)
+
+
+# ---------------------------------------------------------------------------
+# Rotation engine
+# ---------------------------------------------------------------------------
+
+def _generate_with_rotation(prompt: str, chain: List[str]) -> str:
+    """
+    Tries each provider in `chain` (skipping unavailable ones), rotates on 429.
+    Raises the last exception if every provider fails.
+    """
+    available = _rotator.available(chain)
+    if not available:
+        available = chain   # last-ditch: try all
+
+    last_exc: Optional[Exception] = None
+
+    for pid in available:
+        try:
+            result = _call_provider(pid, prompt)
+            _rotator.record_success(pid)
+            logger.debug("✅ Provider '%s' served request", pid)
+            return result
+        except Exception as exc:
+            msg = str(exc).lower()
+            is_rate_limit = any(k in msg for k in ("429", "rate limit", "quota", "too many requests", "rate_limit"))
+            if is_rate_limit:
+                _rotator.record_rate_limit(pid)
+                last_exc = exc
+                logger.warning("⚠️  Provider '%s' rate-limited, trying next", pid)
+            else:
+                logger.warning("Provider '%s' error (non-rate-limit): %s", pid, exc)
+                last_exc = exc
+                # Still try next provider for non-fatal errors (network glitches, etc.)
+                continue
+
+    raise last_exc or RuntimeError(f"All providers in chain {chain} failed")
+
+
+# ---------------------------------------------------------------------------
+# JSON utilities
+# ---------------------------------------------------------------------------
+
+_CTRL_ESCAPE = {"\n": "\\n", "\r": "\\r", "\t": "\\t"}
 
 
 def _sanitize_json_string(raw: str) -> str:
     """
-    Fix common LLM-generated JSON defects:
-    1. Strip unrepresentable control chars (U+0000-U+001F except whitespace).
-    2. Escape lone backslashes not part of a valid JSON escape sequence
-       (e.g. LaTeX \\sigma, \\beta, Windows paths).
-    3. Escape literal newlines / tabs / carriage-returns that appear INSIDE
-       JSON string values — the LLM sometimes emits them unescaped there,
-       which is illegal JSON even though they are valid Python str chars.
+    Fixes common LLM JSON defects:
+    - Unrepresentable control chars stripped
+    - Lone backslashes doubled
+    - Literal newlines/tabs inside strings escaped
     """
-    result: list[str] = []
+    result: list = []
     in_string = False
-    escaped = False
+    escaped   = False
     i = 0
     n = len(raw)
-
     while i < n:
         ch = raw[i]
-
         if escaped:
-            # We're inside a \X sequence — pass it through unchanged.
             result.append(ch)
             escaped = False
             i += 1
             continue
-
         if in_string:
-            if ch == '\\':
-                # Peek at the next character.
-                nxt = raw[i + 1] if i + 1 < n else ''
-                if nxt in ('"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'):
-                    # Valid JSON escape — pass the backslash through and mark
-                    # the next char as already-escaped so we skip it cleanly.
+            if ch == "\\":
+                nxt = raw[i + 1] if i + 1 < n else ""
+                if nxt in ('"', "\\", "/", "b", "f", "n", "r", "t", "u"):
                     result.append(ch)
                     escaped = True
                 else:
-                    # Invalid escape (e.g. \s, \b[not backspace], \sigma).
-                    # Double the backslash so it becomes a literal backslash.
-                    result.append('\\\\')
+                    result.append("\\\\")
                 i += 1
                 continue
-
             if ch == '"':
-                # End of string.
                 result.append(ch)
                 in_string = False
                 i += 1
                 continue
-
-            # Inside a string: control chars must be escaped.
             if ord(ch) < 0x20:
-                result.append(_CTRL_ESCAPE.get(ch, f'\\u{ord(ch):04x}'))
+                result.append(_CTRL_ESCAPE.get(ch, f"\\u{ord(ch):04x}"))
                 i += 1
                 continue
-
         else:
-            # Outside strings: strip non-printable control chars.
-            if 0x00 < ord(ch) < 0x20 and ch not in ('\n', '\r', '\t'):
+            if 0x00 < ord(ch) < 0x20 and ch not in ("\n", "\r", "\t"):
                 i += 1
                 continue
             if ch == '"':
                 in_string = True
-
         result.append(ch)
         i += 1
-
-    return ''.join(result)
+    return "".join(result)
 
 
 def parse_json_response(raw: str) -> Any:
-    """
-    Robustly extracts and parses JSON from an LLM response string.
-    Handles markdown fences, control characters, and invalid escape sequences.
-    """
+    """Robustly extracts and parses JSON from an LLM response."""
     raw = raw.strip()
     fence = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
     if fence:
         raw = fence.group(1).strip()
-
     raw = _sanitize_json_string(raw)
-
     match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", raw)
     candidate = match.group(1) if match else raw
-
     try:
         return json.loads(candidate)
     except json.JSONDecodeError as e:
-        logger.warning("JSON parsing failed: %s. Raw: %s", e, candidate[:300])
+        logger.warning("JSON parsing failed: %s. Raw: %.300s", e, candidate)
         return {}
 
-# --- Truncation Logic ---
+
+# ---------------------------------------------------------------------------
+# Token truncation
+# ---------------------------------------------------------------------------
 
 try:
     import tiktoken
@@ -159,126 +453,183 @@ try:
     MAX_TEXT_TOKENS = 800
 
     def safe_truncate_text(text: str) -> Tuple[str, int]:
-        """Truncates text to fit within token limits using tiktoken."""
         tokens = _enc.encode(text)
-        count = len(tokens)
+        count  = len(tokens)
         if count > MAX_TEXT_TOKENS:
             text = _enc.decode(tokens[:MAX_TEXT_TOKENS]).strip() + "\n[content truncated]"
         return text, min(count, MAX_TEXT_TOKENS)
 except ImportError:
     def safe_truncate_text(text: str) -> Tuple[str, int]:
-        """Naive fallback truncation if tiktoken is missing."""
         trunc = text[:4000] + "\n...[truncated]" if len(text) > 4000 else text
         return trunc, len(trunc) // 4
 
-# --- Generation Logic ---
 
-def _llm_generate_text_sync(prompt: str, ai_model: str) -> str:
+# ---------------------------------------------------------------------------
+# Public generation API
+# ---------------------------------------------------------------------------
+
+def _llm_generate_text_sync(prompt: str, ai_model: str = "groq") -> str:
     """
-    Synchronous implementation of text generation for various providers.
-    Designed to be called via thread executors.
+    Backward-compat sync entry point.
+    Routes to the appropriate chain based on ai_model hint.
     """
-    if ai_model == GEMINI_MODEL:
-        if not gemini_client: raise RuntimeError("Gemini client not initialized")
-        return gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt).text
-        
-    elif ai_model == "cerebras":
-        if not cerebras_client: raise RuntimeError("Cerebras client not initialized")
-        response = cerebras_client.chat.completions.create(
-            model=CEREBRAS_MODEL,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content or ""
-        
-    elif ai_model == "groq":
-        if not groq_client: raise RuntimeError("Groq client not initialized")
-        try:
-            response = groq_client.chat.completions.create(
-                model=GROQ_MODEL, 
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.choices[0].message.content or ""
-        except Exception as e:
-            if "429" in str(e) and gemini_client:
-                logger.warning("Groq rate limit. Falling back to Gemini.")
-                return gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt).text
-            raise e
-            
-    elif ai_model == "llama3":
-        if not ollama: raise RuntimeError("Ollama not installed")
-        res = ollama.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        return res["message"]["content"]
-        
-    raise ValueError(f"Unsupported model: {ai_model}")
+    if ai_model == "llama3":
+        return _call_provider("llama3", prompt)
+    return _generate_with_rotation(prompt, QUALITY_CHAIN)
+
 
 async def generate_text(prompt: str, ai_model: str = "groq") -> str:
-    """Async wrapper for text generation."""
+    """
+    Quality chain: Groq 70B → Cerebras → OpenRouter → Gemini → Mistral → …
+    Use for blueprints, planning, deck summaries.
+    """
     from backend.services.llm_client import call_llm
-    return await call_llm(lambda: _llm_generate_text_sync(prompt, ai_model))
+    return await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN))
 
-# --- Public API Functions ---
+
+async def generate_text_bulk(prompt: str) -> str:
+    """
+    Bulk chain: Cerebras → Groq 8B → Gemma → Mistral → OpenRouter → Gemini → Groq 70B
+    Use for slide-by-slide processing to preserve the scarce Groq 70B quota.
+    """
+    from backend.services.llm_client import call_llm
+    return await call_llm(lambda: _generate_with_rotation(prompt, BULK_CHAIN))
+
 
 def process_slide_batch(text: str, ai_model: str = "groq") -> Dict[str, Any]:
-    """Synchronous slide processing (for legacy/internal calls)."""
-    prompt = f"Analyze this slide text and return JSON with {{title, content, summary, questions, slide_type, is_metadata}}:\n\n{text}"
-    raw = _llm_generate_text_sync(prompt, ai_model)
+    """Synchronous single-slide processing (legacy/internal)."""
+    prompt = (
+        "Analyze this lecture slide and return JSON with "
+        "{title, content, summary, questions, slide_type, is_metadata}:\n\n" + text
+    )
+    raw = _generate_with_rotation(prompt, BULK_CHAIN)
     return parse_json_response(raw)
+
 
 async def enhance_slide_content(text: str, ai_model: str = "groq") -> Dict[str, Any]:
-    """Enhances raw slide text into structured educational content."""
     from backend.services.ai.prompts import ENHANCE_PROMPT
-    prompt = ENHANCE_PROMPT.format(text=text)
-    raw = await generate_text(prompt, ai_model=ai_model)
+    raw = await generate_text(ENHANCE_PROMPT.format(text=text))
     return parse_json_response(raw)
+
 
 async def generate_deck_summary(content: str, ai_model: str = "groq") -> str:
-    """Generates a high-level summary of the entire lecture deck."""
-    prompt = f"Summarize this lecture content into a cohesive narrative:\n\n{content}"
-    return await generate_text(prompt, ai_model)
+    return await generate_text(
+        f"Summarize this lecture content into a cohesive narrative:\n\n{content}"
+    )
+
 
 async def generate_deck_quiz(summary: str, ai_model: str = "groq") -> List[Dict[str, Any]]:
-    """Generates a comprehensive quiz based on the lecture summary."""
-    prompt = f"Create a 5-question multiple choice quiz based on this summary. Return JSON array of {{question, options, answer}}:\n\n{summary}"
-    raw = await generate_text(prompt, ai_model)
+    raw = await generate_text(
+        "Create a 5-question multiple choice quiz based on this summary. "
+        "Return JSON array of {question, options, answer}:\n\n" + summary
+    )
     return parse_json_response(raw)
 
-async def batch_analyze_text_slides(slides: List[Dict[str, Any]], ai_model: str = "groq", blueprint: Optional[Dict] = None) -> List[Dict[str, Any]]:
-    """Analyzes a batch of text-based slides, incorporating blueprint context if available."""
-    from backend.services.ai.prompts import BATCH_SLIDE_PROMPT
-    
-    # Simple serial processing for now, can be optimized further
-    results = []
-    for s in slides:
-        text = s["text"]
-        if blueprint:
-            from backend.services.planner_service import get_slide_context
-            from backend.services.ai.prompts import PEDAGOGICAL_SLIDE_PROMPT
-            
-            ctx = get_slide_context(blueprint, s["index"])
-            prompt = PEDAGOGICAL_SLIDE_PROMPT.format(context=ctx, text=text)
-            
-            try:
-                # Use generate_text directly to handle the custom prompt
-                raw = await generate_text(prompt, ai_model=ai_model)
-                res = parse_json_response(raw)
-                res["index"] = s["index"]
-                results.append(res)
-                continue # Skip the default process_slide_batch below
-            except Exception as e:
-                logger.error("Context-aware processing failed: %s", e)
 
-        try:
-            res = await asyncio.to_thread(process_slide_batch, text, ai_model=ai_model)
-            res["index"] = s["index"]
-            results.append(res)
-        except Exception as e:
-            logger.error("Batch processing failed for slide %d: %s", s["index"], e)
-            results.append({"index": s["index"], "title": f"Slide {s['index']+1}", "content": s["text"], "parse_error": str(e)})
-            
+async def batch_analyze_text_slides(
+    slides: List[Dict[str, Any]],
+    ai_model: str = "groq",
+    blueprint: Optional[Dict] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Analyzes a batch of slides in a SINGLE LLM call (true batching).
+
+    All slides are packed into one prompt → one API request for N slides.
+    Uses BULK_CHAIN so the scarce Groq 70B quota is preserved for blueprints.
+    """
+    from backend.services.ai.prompts import BATCH_SLIDE_PROMPT
+
+    if not slides:
+        return []
+
+    # Blueprint header — injected once at the top, not per slide
+    bp_header   = ""
+    idx_to_plan: Dict[int, Dict] = {}
+    if blueprint:
+        bp_title   = blueprint.get("lecture_title", "")
+        bp_summary = blueprint.get("overall_summary", "")
+        if bp_title or bp_summary:
+            bp_header = (
+                f"\n\nLECTURE MASTER PLAN:\nTitle: {bp_title}\n"
+                f"Summary: {bp_summary[:800]}\n"
+            )
+        idx_to_plan = {p["index"]: p for p in blueprint.get("slide_plans", [])}
+
+    # Build === SLIDE N === sections
+    slide_sections: List[str] = []
+    for s in slides:
+        body = s["text"] or "(no extracted text)"
+        plan = idx_to_plan.get(s["index"])
+        if plan:
+            proposed = plan.get("proposed_title", "")
+            concepts = ", ".join(plan.get("concepts", [])[:4])
+            body = f"[Proposed title: {proposed}] [Key concepts: {concepts}]\n" + body
+        slide_sections.append(
+            f"=== SLIDE {s['page_number']} (index={s['index']}) ===\n{body}"
+        )
+
+    full_prompt = (
+        BATCH_SLIDE_PROMPT + bp_header + "\n\n" + "\n\n".join(slide_sections)
+    )
+
+    # Single LLM call via BULK chain
+    try:
+        from backend.services.llm_client import call_llm
+        raw = await call_llm(
+            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN)
+        )
+    except Exception as exc:
+        logger.error("Bulk batch call failed: %s", exc)
+        return [
+            {
+                "index": s["index"], "title": f"Slide {s['index']+1}",
+                "content": s["text"], "summary": "", "questions": [],
+                "slide_type": "content_slide", "parse_error": str(exc),
+            }
+            for s in slides
+        ]
+
+    parsed = parse_json_response(raw)
+    if isinstance(parsed, dict):
+        parsed = [parsed]
+
+    page_to_idx = {s["page_number"]: s["index"] for s in slides}
+    results: List[Dict] = []
+
+    if isinstance(parsed, list) and len(parsed) == len(slides):
+        for s, item in zip(slides, parsed):
+            if isinstance(item, dict):
+                item["index"] = s["index"]
+                results.append(item)
+            else:
+                results.append({"index": s["index"], "title": f"Slide {s['index']+1}",
+                                 "content": s["text"], "parse_error": "bad_item"})
+    elif isinstance(parsed, list):
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            idx = page_to_idx.get(item.get("page_number"))
+            if idx is not None:
+                item["index"] = idx
+                results.append(item)
+        found = {r["index"] for r in results}
+        for s in slides:
+            if s["index"] not in found:
+                logger.warning("Slide %d missing from batch response — using fallback", s["index"])
+                results.append({"index": s["index"], "title": f"Slide {s['index']+1}",
+                                 "content": s["text"], "summary": "", "questions": []})
+    else:
+        results = [{"index": s["index"], "title": f"Slide {s['index']+1}",
+                    "content": s["text"], "summary": "", "questions": []}
+                   for s in slides]
+
     return results
 
-# Legacy re-exports
+
+# ---------------------------------------------------------------------------
+# Legacy aliases
+# ---------------------------------------------------------------------------
 _llm_generate_text = _llm_generate_text_sync
-generate_summary = generate_deck_summary
-generate_quiz = generate_deck_quiz
+generate_summary   = generate_deck_summary
+generate_quiz      = generate_deck_quiz
 generate_slide_title = lambda t: process_slide_batch(t).get("title", "Untitled")

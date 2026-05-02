@@ -97,17 +97,18 @@ async def get_similar_slides(embedding: List[float], limit: int = 5, threshold: 
 
 
 async def store_slide_embedding(
-    lecture_id: Optional[str], 
-    slide_index: int, 
-    embedding: Optional[List[float]], 
-    metadata: Dict[str, Any], 
-    content_hash: str, 
-    pdf_hash: Optional[str] = None
+    lecture_id: Optional[str],
+    slide_index: int,
+    embedding: Optional[List[float]],
+    metadata: Dict[str, Any],
+    content_hash: str,
+    pdf_hash: Optional[str] = None,
+    pipeline_version: str = "1",
 ) -> None:
     """Store slide embedding and metadata in Supabase."""
     if embedding is None:
         return
-        
+
     try:
         data = {
             "lecture_id": lecture_id,
@@ -115,8 +116,59 @@ async def store_slide_embedding(
             "slide_index": slide_index,
             "embedding": embedding,
             "metadata": metadata,
-            "content_hash": content_hash
+            "content_hash": content_hash,
+            "pipeline_version": pipeline_version,
         }
         supabase_admin.table("slide_embeddings").insert(data).execute()
     except Exception as e:
         logger.error("Failed to store slide embedding: %s", e)
+
+
+# --- Per-slide parse cache (for checkpoint/resume) ---
+
+async def store_slide_parse_result(
+    pdf_hash: str,
+    slide_index: int,
+    pipeline_version: str,
+    slide_data: Dict[str, Any],
+) -> None:
+    """
+    Upsert a single slide's full parse output.
+    Used for checkpoint/resume: if a pipeline run times out, the next run
+    can skip already-stored slides by querying get_cached_slide_results().
+    """
+    try:
+        payload = {
+            "pdf_hash": pdf_hash,
+            "slide_index": slide_index,
+            "pipeline_version": pipeline_version,
+            "slide_data": slide_data,
+        }
+        supabase_admin.table("slide_parse_cache").upsert(
+            payload, on_conflict="pdf_hash,slide_index,pipeline_version"
+        ).execute()
+    except Exception as e:
+        logger.error("Failed to store slide parse result (slide %d): %s", slide_index, e)
+
+
+async def get_cached_slide_results(
+    pdf_hash: str,
+    pipeline_version: str,
+) -> Dict[int, Dict[str, Any]]:
+    """
+    Returns {slide_index → slide_data} for all slides cached at the given
+    pipeline_version.  Used by file_parse_service to skip already-processed
+    slides when resuming after a timeout.
+    """
+    try:
+        res = (
+            supabase_admin.table("slide_parse_cache")
+            .select("slide_index,slide_data")
+            .eq("pdf_hash", pdf_hash)
+            .eq("pipeline_version", pipeline_version)
+            .execute()
+        )
+        return {row["slide_index"]: row["slide_data"] for row in (res.data or [])}
+    except Exception as e:
+        logger.warning("Checkpoint lookup failed (non-fatal): %s", e)
+        return {}

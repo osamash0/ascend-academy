@@ -6,10 +6,11 @@ New code should ideally import from specialized modules.
 
 from .ai.orchestrator import (
     gemini_client, groq_client, cerebras_client, ollama,
-    OLLAMA_MODEL, GEMINI_MODEL, GROQ_MODEL, GROQ_VISION_MODEL, CEREBRAS_MODEL,
+    OLLAMA_MODEL, GEMINI_MODEL, GROQ_MODEL, GROQ_FAST_MODEL, GROQ_VISION_MODEL, CEREBRAS_MODEL,
     enhance_slide_content, generate_summary, generate_quiz, generate_slide_title,
-    process_slide_batch, batch_analyze_text_slides, generate_deck_summary, 
-    generate_deck_quiz, safe_truncate_text, _VISION_SLIDE_TYPES_METADATA
+    process_slide_batch, batch_analyze_text_slides, generate_text_bulk,
+    generate_deck_summary, generate_deck_quiz, safe_truncate_text,
+    _VISION_SLIDE_TYPES_METADATA, _rotator,
 )
 from .ai.vision import analyze_slide_vision, analyze_diagram_slide, format_slide_content
 from .ai.embeddings import generate_embeddings

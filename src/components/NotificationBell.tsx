@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Trophy, Zap, Flame, Check, X } from 'lucide-react';
+import { Bell, Trophy, Zap, Flame, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { Button } from '@/components/ui/button';
 
 interface Notification {
     id: string;
@@ -14,11 +13,11 @@ interface Notification {
     created_at: string;
 }
 
-const typeIcons: Record<string, typeof Trophy> = {
+const typeIcons = {
     achievement: Trophy,
     level_up: Zap,
     streak: Flame,
-};
+} as const;
 
 const typeColors: Record<string, string> = {
     achievement: 'text-xp bg-xp/10',
@@ -42,28 +41,37 @@ export function NotificationBell() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
-    // Fetch notifications
+    // Fetch notifications with cleanup
     useEffect(() => {
         if (!user) return;
+        let cancelled = false;
 
         const fetchNotifications = async () => {
-            const { data } = await supabase
-                .from('notifications')
-                .select('id, title, message, type, read, created_at')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(20);
-            if (data) setNotifications(data as Notification[]);
+            try {
+                const { data } = await supabase
+                    .from('notifications')
+                    .select('id, title, message, type, read, created_at')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+
+                if (!cancelled && data) {
+                    setNotifications(data as Notification[]);
+                }
+            } catch (err) {
+                console.error('Failed to fetch notifications:', err);
+            }
         };
 
         fetchNotifications();
 
-        // Real-time subscription
+        // Real-time subscription with proper cleanup
         const channel = supabase
-            .channel('notifications')
+            .channel(`notifications-${user.id}`)
             .on(
                 'postgres_changes',
                 {
@@ -78,8 +86,14 @@ export function NotificationBell() {
             )
             .subscribe();
 
+        channelRef.current = channel;
+
         return () => {
-            supabase.removeChannel(channel);
+            cancelled = true;
+            if (channelRef.current) {
+                supabase.removeChannel(channelRef.current);
+                channelRef.current = null;
+            }
         };
     }, [user]);
 
@@ -90,32 +104,61 @@ export function NotificationBell() {
                 setOpen(false);
             }
         };
-        if (open) document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+
+        if (open) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
     }, [open]);
 
-    const markAllRead = async () => {
+    const markAllRead = useCallback(async () => {
         if (!user) return;
-        await supabase
-            .from('notifications')
-            .update({ read: true })
-            .eq('user_id', user.id)
-            .eq('read', false);
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    };
+
+        try {
+            await supabase
+                .from('notifications')
+                .update({ read: true })
+                .eq('user_id', user.id)
+                .eq('read', false);
+
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        } catch (err) {
+            console.error('Failed to mark notifications as read:', err);
+        }
+    }, [user]);
+
+    const markAsRead = useCallback(async (id: string) => {
+        try {
+            await supabase
+                .from('notifications')
+                .update({ read: true })
+                .eq('id', id);
+
+            setNotifications(prev => prev.map(n => 
+                n.id === id ? { ...n, read: true } : n
+            ));
+        } catch (err) {
+            console.error('Failed to mark notification as read:', err);
+        }
+    }, []);
 
     return (
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setOpen(!open)}
                 className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                aria-label="Notifications"
+                aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
+                aria-expanded={open}
             >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-destructive rounded-full">
+                    <motion.span 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-destructive rounded-full"
+                    >
                         {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
+                    </motion.span>
                 )}
             </button>
 
@@ -140,7 +183,11 @@ export function NotificationBell() {
                                         Mark all read
                                     </button>
                                 )}
-                                <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+                                <button 
+                                    onClick={() => setOpen(false)} 
+                                    className="text-muted-foreground hover:text-foreground"
+                                    aria-label="Close notifications"
+                                >
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
@@ -155,14 +202,18 @@ export function NotificationBell() {
                                 </div>
                             ) : (
                                 notifications.map((notif) => {
-                                    const Icon = typeIcons[notif.type] || Bell;
+                                    const Icon = typeIcons[notif.type as keyof typeof typeIcons] || Bell;
                                     const colorClass = typeColors[notif.type] || 'text-muted-foreground bg-muted';
 
                                     return (
-                                        <div
+                                        <motion.div
                                             key={notif.id}
-                                            className={`flex items-start gap-3 px-4 py-3 border-b border-border/50 transition-colors ${!notif.read ? 'bg-primary/5' : ''
-                                                }`}
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            className={`flex items-start gap-3 px-4 py-3 border-b border-border/50 transition-colors cursor-pointer ${
+                                                !notif.read ? 'bg-primary/5' : ''
+                                            }`}
+                                            onClick={() => markAsRead(notif.id)}
                                         >
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${colorClass}`}>
                                                 <Icon className="w-4 h-4" />
@@ -177,7 +228,7 @@ export function NotificationBell() {
                                             {!notif.read && (
                                                 <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2" />
                                             )}
-                                        </div>
+                                        </motion.div>
                                     );
                                 })
                             )}

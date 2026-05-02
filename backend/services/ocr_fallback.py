@@ -1,65 +1,54 @@
+"""
+OCR fallback — last-resort text extraction for scanned slides.
+
+Only triggered when:
+  a) No vision API is available (Ollama-only mode, ai_model not in {"groq", "gemini-2.0-flash"})
+  b) The slide appears scanned/garbage (layout.alpha_ratio < 0.25)
+
+When Groq or Gemini vision is available, scanned slides are routed to the
+VLM instead — vision models handle STEM symbols, equations, and arbitrary
+fonts far better than Tesseract.
+
+PaddleOCR removed: multi-GB dependency superseded by VLM vision for tables.
+Tesseract charset whitelist removed: it was stripping Greek letters, math
+operators (∑∫∏), and other STEM symbols essential for lecture content.
+"""
+import asyncio
 import io
+import logging
+
 from PIL import Image
-import pytesseract
-from typing import Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+_VISION_MODELS = frozenset({"groq", "gemini-2.0-flash"})
+
 
 class OCRFallback:
-    """Lightweight OCR for slides that need it - no heavy models"""
-    
-    @staticmethod
-    async def extract_text_from_region(image_bytes: bytes, bbox: Optional[Tuple] = None) -> str:
-        """Extract text from image region using Tesseract (dispatched to thread)"""
-        import asyncio
-        return await asyncio.to_thread(OCRFallback._sync_extract_text, image_bytes, bbox)
+    """Lightweight Tesseract-based text recovery for Ollama-only deployments."""
 
     @staticmethod
-    def _sync_extract_text(image_bytes: bytes, bbox: Optional[Tuple] = None) -> str:
+    def is_needed(ai_model: str, alpha_ratio: float) -> bool:
+        """
+        Returns True only when:
+          - No vision API is available (ai_model not a VLM provider), AND
+          - The slide's alpha_ratio indicates scanned/garbage text (< 0.25)
+        """
+        return ai_model not in _VISION_MODELS and alpha_ratio < 0.25
+
+    @staticmethod
+    async def extract_text(image_bytes: bytes) -> str:
+        """Async wrapper — dispatches Tesseract to thread pool."""
+        return await asyncio.to_thread(OCRFallback._sync_extract, image_bytes)
+
+    @staticmethod
+    def _sync_extract(image_bytes: bytes) -> str:
         try:
+            import pytesseract
             image = Image.open(io.BytesIO(image_bytes))
-            if bbox:
-                image = image.crop(bbox)
-            
-            custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;()[]{}<>!?@#$%^&*+-/= '
-            return pytesseract.image_to_string(image, config=custom_config).strip()
+            # --oem 3: LSTM engine; --psm 6: uniform block of text
+            # No charset whitelist — preserves Greek, math operators, STEM symbols
+            return pytesseract.image_to_string(image, config="--oem 3 --psm 6").strip()
         except Exception as e:
-            print(f"OCR failed: {e}")
+            logger.warning("OCR extraction failed: %s", e)
             return ""
-    
-    @staticmethod
-    async def extract_tables_from_image(image_bytes: bytes) -> Optional[str]:
-        """Attempt table extraction using PaddleOCR (dispatched to thread)"""
-        import asyncio
-        return await asyncio.to_thread(OCRFallback._sync_extract_tables, image_bytes)
-
-    @staticmethod
-    def _sync_extract_tables(image_bytes: bytes) -> Optional[str]:
-        try:
-            from paddleocr import PPStructure
-            import pandas as pd
-            import numpy as np
-            from PIL import Image
-
-            table_engine = PPStructure(show_log=False, layout=False, table=True)
-            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-            img_array = np.array(img)
-            
-            result = table_engine(img_array)
-            table_md_parts = []
-            for res in result:
-                if res['type'] == 'table':
-                    html = res['res'].get('html')
-                    if html:
-                        try:
-                            df_list = pd.read_html(io.StringIO(html))
-                            if df_list:
-                                table_md_parts.append(df_list[0].to_markdown(index=False))
-                        except Exception: pass
-            
-            if table_md_parts:
-                return "\n\n".join(table_md_parts)
-            
-            # Synchronous fallback
-            return OCRFallback._sync_extract_text(image_bytes)
-
-        except (ImportError, Exception):
-            return OCRFallback._sync_extract_text(image_bytes)

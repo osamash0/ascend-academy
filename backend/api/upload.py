@@ -89,7 +89,7 @@ async def parse_pdf_stream_endpoint(
     3. Streams real-time progress and slide objects via SSE.
     """
     content = await file.read()
-    await validate_upload(file, content)
+    page_count = await validate_upload(file, content)
 
     filename = file.filename or "upload.pdf"
     pdf_hash = compute_pdf_hash(content)
@@ -141,8 +141,10 @@ async def parse_pdf_stream_endpoint(
                     }
                 yield f"data: {json.dumps(update)}\n\n"
         except Exception as e:
-            logger.error("Streaming parse failed: %s", e, exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            logger.error("Streaming parse failed after %d slides: %s", len(collected_slides), e, exc_info=True)
+            if collected_slides:
+                yield f"data: {json.dumps({'type': 'partial_complete', 'slides_processed': len(collected_slides), 'total_expected': page_count})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'recoverable': len(collected_slides) > 0})}\n\n"
         finally:
             # Save to cache if we got results
             if collected_slides:
