@@ -19,7 +19,7 @@ def stub_ai(monkeypatch):
         }
 
     async def _chat(*a, **k):
-        return "Stubbed reply."
+        return {"reply": "Stubbed reply.", "citations": []}
 
     async def _insights(*a, **k):
         return {"summary": "ok", "suggestions": ["x"]}
@@ -126,7 +126,7 @@ class TestChat:
             headers={"Authorization": "Bearer x"},
         )
         assert r.status_code == 200
-        assert r.json() == {"reply": "Stubbed reply."}
+        assert r.json() == {"reply": "Stubbed reply.", "citations": []}
 
     def test_empty_user_message_validation(self, app, professor_user, stub_ai):
         app.dependency_overrides[verify_token] = lambda: professor_user

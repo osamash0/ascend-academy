@@ -5,8 +5,14 @@ from typing import Any, List, Dict, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from backend.services.file_parse_service import parse_pdf_stream
-from backend.services.cache import compute_pdf_hash, get_cached_parse, store_cached_parse
+from backend.services.file_parse_service import parse_pdf_stream, _safe_embedding_task
+from backend.core.database import supabase_admin
+from backend.services.cache import (
+    attach_lecture_id_to_embeddings,
+    compute_pdf_hash,
+    get_cached_parse,
+    store_cached_parse,
+)
 from backend.core.auth_middleware import verify_token, require_professor
 from backend.core.rate_limit import limiter
 
@@ -118,8 +124,22 @@ async def parse_pdf_stream_endpoint(
         async def cached_stream():
             slides = cached.get("slides", [])
             total = len(slides)
+            # Emit pdf_hash up front so the frontend can call /attach-lecture
+            # after the lecture row is created — matches the non-cache path.
+            yield f"data: {json.dumps({'type': 'meta', 'pdf_hash': pdf_hash})}\n\n"
             yield f"data: {json.dumps({'type': 'progress', 'current': 0, 'total': total, 'message': 'Loading from cache...'})}\n\n"
+            # Best-effort: schedule embedding jobs for the cached slides so
+            # the grounded tutor still has vectors to retrieve from for PDFs
+            # whose parse was cached before embeddings existed (or whose
+            # earlier embed attempts failed). store_slide_embedding is
+            # idempotent on (pdf_hash, slide_index, pipeline_version), so
+            # re-running on already-embedded slides is safe.
+            _embed_failed_queue: List[Any] = []
             for i, s in enumerate(slides):
+                if not (s.get("is_metadata") or s.get("slide_type") == "metadata"):
+                    asyncio.create_task(
+                        _safe_embedding_task(i, s, pdf_hash, _embed_failed_queue)
+                    )
                 yield f"data: {json.dumps({'type': 'slide', 'index': i, 'slide': s})}\n\n"
             
             deck = cached.get("deck", {})
@@ -172,3 +192,75 @@ async def parse_pdf_stream_endpoint(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
+
+
+# --- Attach lecture to previously-written embeddings ---------------------
+
+class AttachLectureRequest(BaseModel):
+    pdf_hash: str
+    lecture_id: str
+
+
+@router.post("/attach-lecture")
+async def attach_lecture_endpoint(
+    body: AttachLectureRequest,
+    user: Any = Depends(require_professor),
+):
+    """Backfill `lecture_id` on slide_embeddings written during PDF parsing.
+
+    Embeddings are persisted keyed by `pdf_hash` while the user is editing
+    in the upload wizard.  Once they save the lecture (which mints the
+    `lecture_id` client-side), the frontend calls this endpoint so retrieval
+    can scope by lecture rather than scanning every PDF ever embedded.
+    """
+    if not body.pdf_hash or not body.lecture_id:
+        raise HTTPException(status_code=400, detail="pdf_hash and lecture_id are required.")
+
+    # Ownership check: only the professor who owns this lecture may attach
+    # embeddings to it, and the lecture must already reference this pdf_hash.
+    # Without this, any professor could relabel another tenant's embeddings
+    # under one of their own lectures (cross-tenant poisoning / IDOR).
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    try:
+        res = (
+            supabase_admin.table("lectures")
+            .select("id, professor_id, pdf_hash")
+            .eq("id", body.lecture_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("attach-lecture ownership lookup failed: %s", e)
+        raise HTTPException(status_code=500, detail="Authorization check failed.")
+    rows = res.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Lecture not found.")
+    row = rows[0]
+    if row.get("professor_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your lecture.")
+    if row.get("pdf_hash") and row["pdf_hash"] != body.pdf_hash:
+        raise HTTPException(status_code=409, detail="pdf_hash does not match this lecture.")
+
+    updated = await attach_lecture_id_to_embeddings(body.pdf_hash, body.lecture_id)
+
+    # Persist the pdf_hash on the lecture row itself so future authorization
+    # checks (chat endpoint) can verify the linkage without trawling
+    # slide_embeddings.  We only write when missing/changed.
+    if row.get("pdf_hash") != body.pdf_hash:
+        try:
+            (
+                supabase_admin.table("lectures")
+                .update({"pdf_hash": body.pdf_hash})
+                .eq("id", body.lecture_id)
+                .execute()
+            )
+        except Exception as e:
+            # Non-fatal: embedding linkage already succeeded.  Log so we
+            # know if backfill is needed.
+            logger.warning(
+                "Failed to persist pdf_hash on lecture %s: %s",
+                body.lecture_id,
+                e,
+            )
+
+    return {"updated": updated}

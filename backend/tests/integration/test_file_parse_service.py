@@ -177,8 +177,12 @@ async def test_happy_path_event_sequence(patch_pipeline_deps):
 
     types = [e["type"] for e in events]
 
-    # First event is the layout-analysis progress
-    assert types[0] == "progress"
+    # First event is the pdf_hash meta marker the frontend needs to call
+    # /attach-lecture once the lecture row is saved.
+    assert types[0] == "meta"
+    assert events[0].get("pdf_hash")
+    # Then the layout-analysis progress event.
+    assert types[1] == "progress"
 
     # 3 slide events, then deck_complete, then complete
     slide_events = [e for e in events if e["type"] == "slide"]

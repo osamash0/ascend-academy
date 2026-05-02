@@ -105,6 +105,12 @@ class ChatRequest(BaseModel):
     user_message: str = Field(..., min_length=1, max_length=2_000)
     chat_history: Optional[List[Dict[str, Any]]] = None
     ai_model: _AiModel = "groq"
+    # Grounding scope.  Either lecture_id or pdf_hash narrows retrieval to
+    # the slides of *this* deck; without one of them the tutor falls back
+    # to single-slide grounding using `slide_text`.
+    lecture_id: Optional[str] = Field(default=None, max_length=64)
+    pdf_hash: Optional[str] = Field(default=None, max_length=128)
+    current_slide_index: Optional[int] = Field(default=None, ge=0)
 
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5_000)
@@ -122,8 +128,13 @@ class InsightsResponse(BaseModel):
     summary: str
     suggestions: List[str]
 
+class CitationModel(BaseModel):
+    slide_index: int = Field(..., ge=0)
+    similarity: float
+
 class ChatResponse(BaseModel):
     reply: str
+    citations: List[CitationModel] = Field(default_factory=list)
 
 # --- Endpoints ---
 
@@ -218,14 +229,60 @@ async def metric_feedback_endpoint(body: MetricInsightRequest, user: Any = Depen
 @router.post("/chat", response_model=ChatResponse)
 @limiter.limit("30/minute")
 async def chat_with_tutor_endpoint(request: Request, body: ChatRequest, user: Any = Depends(verify_token)):
+    # Authorization: the client tells us which lecture/pdf to ground in, but
+    # the *server* must verify the caller is allowed to read that lecture
+    # before we hand any of its content to the LLM.  Without this, anyone
+    # with a valid token could supply another lecture's id/hash and ask the
+    # tutor to read it back to them (cross-tenant data exposure).
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    user_role = (
+        (user.app_metadata or {}).get("role")
+        if hasattr(user, "app_metadata")
+        else (user.get("app_metadata", {}) or {}).get("role") if isinstance(user, dict) else None
+    )
+    safe_lecture_id: Optional[str] = None
+    safe_pdf_hash: Optional[str] = None
+    if body.lecture_id or body.pdf_hash:
+        try:
+            q = supabase_admin.table("lectures").select("id, professor_id, pdf_hash")
+            if body.lecture_id:
+                q = q.eq("id", body.lecture_id)
+            else:
+                q = q.eq("pdf_hash", body.pdf_hash)
+            res = q.limit(1).execute()
+            rows = res.data or []
+            if not rows:
+                raise HTTPException(status_code=404, detail="Lecture not found.")
+            row = rows[0]
+            # Professors may only ground in lectures they own.  Students may
+            # ground in any lecture (the platform exposes lectures to all
+            # authenticated students; refine here once enrollments exist).
+            if user_role == "professor" and row.get("professor_id") != user_id:
+                raise HTTPException(status_code=403, detail="Not your lecture.")
+            safe_lecture_id = row.get("id")
+            safe_pdf_hash = row.get("pdf_hash")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("Lecture authorization check failed: %s", e)
+            raise HTTPException(status_code=500, detail="Authorization check failed.")
     try:
-        reply = await chat_with_lecture(
+        result = await chat_with_lecture(
             slide_text=body.slide_text,
             user_message=body.user_message,
             chat_history=body.chat_history,
             ai_model=body.ai_model,
+            lecture_id=safe_lecture_id,
+            pdf_hash=safe_pdf_hash,
+            current_slide_index=body.current_slide_index,
         )
-        return ChatResponse(reply=reply)
+        # Back-compat: if a stub still returns a bare string, wrap it.
+        if isinstance(result, str):
+            return ChatResponse(reply=result, citations=[])
+        return ChatResponse(
+            reply=result.get("reply", ""),
+            citations=result.get("citations", []),
+        )
     except Exception as e:
         logger.error("AI tutor failed: %s", e)
         raise HTTPException(status_code=500, detail="AI tutor failed to respond.")

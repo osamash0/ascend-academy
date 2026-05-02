@@ -8,7 +8,7 @@ from backend.core.auth_middleware import verify_token
 @pytest.fixture
 def stub_ai(monkeypatch):
     async def _chat(*a, **k):
-        return "ok"
+        return {"reply": "ok", "citations": []}
 
     from backend.api import ai_content as mod
 

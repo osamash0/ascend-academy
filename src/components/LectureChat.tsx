@@ -18,11 +18,17 @@ import {
 } from "@/components/ui/select";
 import 'katex/dist/katex.min.css';
 
+interface Citation {
+    slide_index: number;
+    similarity: number;
+}
+
 interface Message {
     role: 'user' | 'model';
     content: string;
     timestamp?: Date;
     id: string;
+    citations?: Citation[];
 }
 
 interface LectureChatProps {
@@ -30,6 +36,12 @@ interface LectureChatProps {
     onClose: () => void;
     slideText: string;
     slideTitle: string;
+    /** UUID of the active lecture; enables grounded retrieval over its slides. */
+    lectureId?: string;
+    /** 0-indexed slide the student is currently looking at (used as anchor). */
+    currentSlideIndex?: number;
+    /** Optional callback fired when a citation chip is clicked. */
+    onSlideJump?: (slideIndex: number) => void;
 }
 
 /* ── Typing Indicator Animation ── */
@@ -53,7 +65,15 @@ function generateMsgId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureChatProps) {
+export function LectureChat({
+    isOpen,
+    onClose,
+    slideText,
+    slideTitle,
+    lectureId,
+    currentSlideIndex,
+    onSlideJump,
+}: LectureChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -141,6 +161,8 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                     user_message: userMsg,
                     chat_history: historyToPass,
                     ai_model: selectedModel,
+                    lecture_id: lectureId,
+                    current_slide_index: currentSlideIndex,
                 }),
                 signal: abortControllerRef.current.signal,
             });
@@ -194,12 +216,13 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                     }
                 }
             } else {
-                // Fallback to JSON response
+                // JSON response (this is what the grounded /api/ai/chat returns).
                 const data = await res.json();
                 setMessages(prev => [...prev, {
                     id: generateMsgId(),
                     role: 'model',
                     content: data.reply,
+                    citations: Array.isArray(data.citations) ? data.citations : [],
                     timestamp: new Date(),
                 }]);
             }
@@ -234,7 +257,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
             streamingRef.current = false;
             abortControllerRef.current = null;
         }
-    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, user]);
+    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, user, lectureId, currentSlideIndex]);
 
     const handleCancel = useCallback(() => {
         if (abortControllerRef.current) {
@@ -396,6 +419,31 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                                     </div>
                                                 )}
                                             </div>
+                                            {msg.role === 'model' && msg.citations && msg.citations.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 px-1 pt-1">
+                                                    {msg.citations.map((c) => (
+                                                        <button
+                                                            key={`${msg.id}-cite-${c.slide_index}`}
+                                                            type="button"
+                                                            onClick={() => onSlideJump?.(c.slide_index)}
+                                                            disabled={!onSlideJump}
+                                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                                                                bg-primary/10 text-primary text-[10px] font-medium
+                                                                border border-primary/20 hover:bg-primary/20
+                                                                transition-colors disabled:cursor-default
+                                                                disabled:hover:bg-primary/10"
+                                                            title={
+                                                                onSlideJump
+                                                                    ? `Jump to slide ${c.slide_index + 1}`
+                                                                    : `Slide ${c.slide_index + 1}`
+                                                            }
+                                                        >
+                                                            <BookOpen className="w-2.5 h-2.5" />
+                                                            Slide {c.slide_index + 1}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                             <span className="text-[10px] text-muted-foreground/60 px-1">
                                                 {formatTime(msg.timestamp)}
                                             </span>

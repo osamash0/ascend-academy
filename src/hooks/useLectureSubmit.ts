@@ -11,9 +11,12 @@ interface UseLectureSubmitOptions {
   title: string;
   description: string;
   pdfFile: File | null;
+  pdfHash?: string | null;
 }
 
-export function useLectureSubmit({ slides, title, description, pdfFile }: UseLectureSubmitOptions) {
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash }: UseLectureSubmitOptions) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -71,6 +74,25 @@ export function useLectureSubmit({ slides, title, description, pdfFile }: UseLec
 
         if (lectureError) throw lectureError;
 
+        // Backfill lecture_id on the embeddings written during PDF parsing
+        // so the AI tutor can scope retrieval by lecture.  Best-effort:
+        // a failure here must not block lecture creation.
+        if (pdfHash) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            await fetch(`${API_BASE}/api/upload/attach-lecture`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session?.access_token}`,
+              },
+              body: JSON.stringify({ pdf_hash: pdfHash, lecture_id: lecture.id }),
+            });
+          } catch (e) {
+            console.warn('Failed to attach lecture to embeddings (non-fatal):', e);
+          }
+        }
+
         for (let i = 0; i < slides.length; i++) {
           const slideData = slides[i];
           const { data: slide, error: slideError } = await supabase
@@ -108,7 +130,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile }: UseLec
         setLoading(false);
       }
     },
-    [slides, title, description, pdfFile, user, navigate, toast]
+    [slides, title, description, pdfFile, pdfHash, user, navigate, toast]
   );
 
   return { loading, handleSubmit };

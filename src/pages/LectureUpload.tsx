@@ -311,7 +311,7 @@ export default function LectureUpload() {
   const {
     isUploading, setIsUploading,
     uploadProgress, uploadTotal, uploadStatus,
-    processedSlides, pdfFile, parserUsed,
+    processedSlides, pdfFile, pdfHash, parserUsed,
     handleFileUpload,
     closeUploadOverlay,
   } = usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle });
@@ -324,7 +324,7 @@ export default function LectureUpload() {
     handleGenerateContent,
   } = useAIGeneration({ slides, updateSlide });
 
-  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile });
+  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash });
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];

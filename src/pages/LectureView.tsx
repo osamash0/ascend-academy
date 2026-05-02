@@ -771,6 +771,13 @@ export default function LectureView() {
             onClose={() => setIsChatOpen(false)}
             slideText={currentSlide?.content_text || ''}
             slideTitle={currentSlide?.title || 'Lecture Slide'}
+            lectureId={lectureId}
+            currentSlideIndex={currentSlideIndex}
+            onSlideJump={(idx) => {
+              if (idx >= 0 && idx < slides.length) {
+                setCurrentSlideIndex(idx);
+              }
+            }}
           />
         </div>
       </div>

@@ -139,11 +139,31 @@ async def store_slide_embedding(
     pdf_hash: Optional[str] = None,
     pipeline_version: str = "1",
 ) -> None:
-    """Store slide embedding and metadata in Supabase."""
+    """Store slide embedding and metadata in Supabase.
+
+    Idempotent on (pdf_hash, slide_index, pipeline_version): if a row already
+    exists for that key it is replaced.  The `slide_embeddings` table has no
+    unique constraint on this triple yet, so we emulate upsert with a
+    delete-then-insert.
+    """
     if embedding is None:
         return
 
     try:
+        if pdf_hash:
+            try:
+                supabase_admin.table("slide_embeddings") \
+                    .delete() \
+                    .eq("pdf_hash", pdf_hash) \
+                    .eq("slide_index", slide_index) \
+                    .eq("pipeline_version", pipeline_version) \
+                    .execute()
+            except Exception as e:
+                # Pre-delete failures are non-fatal; the insert below may
+                # produce a duplicate row but that's strictly better than
+                # losing the embedding entirely.
+                logger.warning("Pre-insert delete failed for slide %d: %s", slide_index, e)
+
         data = {
             "lecture_id": lecture_id,
             "pdf_hash": pdf_hash,
@@ -156,6 +176,34 @@ async def store_slide_embedding(
         supabase_admin.table("slide_embeddings").insert(data).execute()
     except Exception as e:
         logger.error("Failed to store slide embedding: %s", e)
+
+
+async def attach_lecture_id_to_embeddings(
+    pdf_hash: str, lecture_id: str
+) -> int:
+    """Backfill `lecture_id` on all `slide_embeddings` rows for a given PDF.
+
+    Embeddings are written during parsing keyed by `pdf_hash` only — the
+    lecture row may not exist yet.  Once the frontend persists the lecture,
+    this helper attaches the lecture_id so retrieval can scope by lecture.
+    Returns the number of rows updated.
+    """
+    if not pdf_hash or not lecture_id:
+        return 0
+    try:
+        res = (
+            supabase_admin.table("slide_embeddings")
+            .update({"lecture_id": lecture_id})
+            .eq("pdf_hash", pdf_hash)
+            .execute()
+        )
+        return len(res.data or [])
+    except Exception as e:
+        logger.error(
+            "Failed to attach lecture_id %s to pdf_hash %s: %s",
+            lecture_id, pdf_hash, e,
+        )
+        return 0
 
 
 # --- Per-slide parse cache (for checkpoint/resume) ---

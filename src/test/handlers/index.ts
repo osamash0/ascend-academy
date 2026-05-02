@@ -81,7 +81,12 @@ export const defaultHandlers = [
       correctAnswer: 1,
     }),
   ),
-  http.post(`${API}/api/ai/chat`, () => HttpResponse.json({ reply: "Test reply." })),
+  http.post(`${API}/api/ai/chat`, () =>
+    HttpResponse.json({ reply: "Test reply.", citations: [] }),
+  ),
+  http.post(`${API}/api/upload/attach-lecture`, () =>
+    HttpResponse.json({ updated: 0 }),
+  ),
   http.post(`${API}/api/ai/analytics-insights`, () =>
     HttpResponse.json({ summary: "Insight.", suggestions: ["Try X"] }),
   ),

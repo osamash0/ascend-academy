@@ -25,6 +25,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
   const [uploadStatus, setUploadStatus] = useState('');
   const [processedSlides, setProcessedSlides] = useState<SlideData[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfHash, setPdfHash] = useState<string | null>(null);
   const [parserUsed, setParserUsed] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -49,6 +50,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
       setUploadStatus('Uploading PDF...');
       setProcessedSlides([]);
       setParserUsed(null);
+      setPdfHash(null);
 
       const formData = new FormData();
       formData.append('file', file);
@@ -88,6 +90,8 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
 
             if (data.type === 'info') {
               setParserUsed(data.parser);
+            } else if (data.type === 'meta') {
+              if (data.pdf_hash) setPdfHash(data.pdf_hash);
             } else if (data.type === 'progress') {
               const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
               setUploadProgress(pct);
@@ -158,6 +162,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     uploadStatus,
     processedSlides,
     pdfFile,
+    pdfHash,
     parserUsed,
     handleFileUpload,
     closeUploadOverlay,

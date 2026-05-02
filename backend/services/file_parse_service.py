@@ -40,8 +40,10 @@ from backend.services.cache import (
     get_cached_blueprint,
     get_cached_slide_results,
     store_cached_blueprint,
+    store_slide_embedding,
     store_slide_parse_result,
 )
+from backend.services.ai.embeddings import generate_embeddings
 from backend.services.content_filter import is_metadata_slide
 from backend.services.layout_analyzer import PageLayout, analyze_page_layout_async
 from backend.services.ocr_fallback import OCRFallback
@@ -90,6 +92,11 @@ async def parse_pdf_stream(
     total_pages = await reader.get_page_count()
 
     _failed_cache_queue: List[Tuple] = []  # slides whose cache write failed
+    _failed_embed_queue: List[Tuple] = []  # slides whose embedding write failed
+
+    # Surface pdf_hash early so the frontend can attach the lecture to the
+    # embeddings written below once the user clicks "Save".
+    yield {"type": "meta", "pdf_hash": pdf_hash}
 
     yield {
         "type": "progress",
@@ -194,6 +201,7 @@ async def parse_pdf_stream(
                 idx = res["index"]
                 _enrich_result(res, layouts[idx], filename, "Text")
                 asyncio.create_task(_safe_cache_task(idx, res, pdf_hash, _failed_cache_queue))
+                asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue))
                 collected_count += 1
                 yield {
                     "type": "progress",
@@ -222,6 +230,7 @@ async def parse_pdf_stream(
             idx = res["index"]
             _enrich_result(res, layouts[idx], filename, "Vision")
             asyncio.create_task(_safe_cache_task(idx, res, pdf_hash, _failed_cache_queue))
+            asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue))
             collected_count += 1
             yield {
                 "type": "progress",
@@ -246,7 +255,7 @@ async def parse_pdf_stream(
     # Finalize: deck summary + quiz + cache flush
     # ------------------------------------------------------------------
     async for event in _stage_finalize_deck(
-        layouts, blueprint, ai_model, _failed_cache_queue, pdf_hash
+        layouts, blueprint, ai_model, _failed_cache_queue, _failed_embed_queue, pdf_hash
     ):
         yield event
 
@@ -462,6 +471,73 @@ async def _safe_cache_task(
         failed_queue.append((idx, result, pdf_hash))
 
 
+def _build_embedding_text(slide: Dict) -> str:
+    """Compact, retrieval-friendly text for a slide: title + summary + body.
+
+    We bias toward title and summary (short, high-signal) and truncate the
+    body to roughly 600 tokens so a single slide can't dominate the
+    embedding budget.  Returns "" when the slide has no usable text — the
+    caller should skip embedding in that case rather than store a zero
+    vector.
+    """
+    parts: List[str] = []
+    title = (slide.get("title") or "").strip()
+    if title and not title.lower().startswith("slide "):
+        # Don't waste tokens on auto-generated "Slide 7" placeholders.
+        parts.append(title)
+    summary = (slide.get("summary") or "").strip()
+    if summary:
+        parts.append(summary)
+    content = (slide.get("content") or "").strip()
+    if content:
+        parts.append(content[:2400])
+    return "\n\n".join(parts)
+
+
+async def _safe_embedding_task(
+    idx: int,
+    result: Dict,
+    pdf_hash: str,
+    failed_queue: List[Tuple],
+) -> None:
+    """Generate + persist a slide embedding without ever failing the parse.
+
+    Skips slides flagged as metadata (title pages, dividers) — they don't
+    carry teaching content so embedding them just adds noise to retrieval.
+    On failure the (idx, result, pdf_hash) tuple is appended to
+    `failed_queue` so deck-finalize can do one more attempt.
+    """
+    if result.get("is_metadata") or result.get("slide_type") == "metadata":
+        return
+    text = _build_embedding_text(result)
+    if not text:
+        return
+    try:
+        embedding = await generate_embeddings(text)
+        if not embedding:
+            return
+        content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        meta = result.get("_meta", {}) or {}
+        metadata = {
+            "slide_type": result.get("slide_type"),
+            "engine": meta.get("engine"),
+            "has_math": meta.get("has_math", False),
+            "title": result.get("title"),
+        }
+        await store_slide_embedding(
+            lecture_id=None,
+            slide_index=idx,
+            embedding=embedding,
+            metadata=metadata,
+            content_hash=content_hash,
+            pdf_hash=pdf_hash,
+            pipeline_version=PIPELINE_VERSION,
+        )
+    except Exception as e:
+        logger.error("Embedding write failed for slide %d: %s — queued for retry", idx, e)
+        failed_queue.append((idx, result, pdf_hash))
+
+
 # ---------------------------------------------------------------------------
 # Blueprint generation
 # ---------------------------------------------------------------------------
@@ -510,6 +586,7 @@ async def _stage_finalize_deck(
     blueprint: Optional[Dict],
     ai_model: str,
     failed_cache_queue: List[Tuple],
+    failed_embed_queue: List[Tuple],
     pdf_hash: str,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     try:
@@ -543,3 +620,35 @@ async def _stage_finalize_deck(
                 except Exception as e:
                     logger.error("Final cache retry failed for slide %d: %s", idx, e)
             failed_cache_queue.clear()
+
+        # Flush any failed embedding writes (one more attempt; best-effort).
+        if failed_embed_queue:
+            logger.info("Retrying %d failed embedding writes…", len(failed_embed_queue))
+            for idx, result, ph in failed_embed_queue:
+                try:
+                    text = _build_embedding_text(result)
+                    if not text:
+                        continue
+                    embedding = await generate_embeddings(text)
+                    if not embedding:
+                        continue
+                    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    meta = result.get("_meta", {}) or {}
+                    metadata = {
+                        "slide_type": result.get("slide_type"),
+                        "engine": meta.get("engine"),
+                        "has_math": meta.get("has_math", False),
+                        "title": result.get("title"),
+                    }
+                    await store_slide_embedding(
+                        lecture_id=None,
+                        slide_index=idx,
+                        embedding=embedding,
+                        metadata=metadata,
+                        content_hash=content_hash,
+                        pdf_hash=ph,
+                        pipeline_version=PIPELINE_VERSION,
+                    )
+                except Exception as e:
+                    logger.error("Final embedding retry failed for slide %d: %s", idx, e)
+            failed_embed_queue.clear()
