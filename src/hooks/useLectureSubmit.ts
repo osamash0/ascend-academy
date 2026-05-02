@@ -163,6 +163,19 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
           }
         }
 
+        // Fire-and-forget: hand the new lecture to the concept-graph
+        // ingestion service so it shows up in cross-course mastery
+        // queries.  Failure here must not block lecture creation.
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          fetch(`${API_BASE}/api/concepts/ingest/${lecture.id}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${session?.access_token}` },
+          }).catch(() => { /* swallow */ });
+        } catch (e) {
+          console.warn('Failed to schedule concept ingestion (non-fatal):', e);
+        }
+
         toast({ title: 'Success!', description: 'Lecture created successfully.' });
         navigate('/professor/dashboard');
       } catch (error) {

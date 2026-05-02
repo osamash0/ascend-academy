@@ -13,6 +13,7 @@ import { StatsCard } from '@/components/StatsCard';
 import { AchievementCard } from '@/components/AchievementCard';
 import { Button } from '@/components/ui/button';
 import { AssignmentsPanel } from '@/features/assignments/AssignmentsPanel';
+import { KnowledgeMapCard } from '@/components/KnowledgeMapCard';
 
 import type { Lecture, StudentProgress as Progress, Achievement } from '@/types/domain';
 
@@ -456,6 +457,9 @@ export default function StudentDashboard() {
 
         {/* ── Assignments Panel ── */}
         {user?.id && <AssignmentsPanel userId={user.id} />}
+
+        {/* ── Cross-course knowledge map ── */}
+        {user?.id && <KnowledgeMapCard userId={user.id} />}
 
         {/* ── Continue Learning — Orbital Carousel ── */}
         {continueLectures.length > 0 && (
