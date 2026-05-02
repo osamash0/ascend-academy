@@ -394,13 +394,21 @@ describe("LectureView replay stage", () => {
     const items = screen.getAllByTestId("recap-item");
     expect(items).toHaveLength(2);
 
-    // Q1: recovered on retry.
+    // Q1: recovered on retry. First answer was B (wrong), retry was A (correct).
     expect(items[0]).toHaveTextContent("Question 1?");
     expect(items[0]).toHaveTextContent(/Got it on retry/i);
+    expect(items[0]).toHaveTextContent(/First answer/i);
+    expect(items[0]).toHaveTextContent("B. B");
+    expect(items[0]).toHaveTextContent(/Your retry answer/i);
+    expect(items[0]).toHaveTextContent(/Correct answer/i);
+    expect(items[0]).toHaveTextContent("A. A");
 
-    // Q2: still missed.
+    // Q2: still missed. First answer was A (wrong), retry was A again,
+    // correct answer was B.
     expect(items[1]).toHaveTextContent("Question 2?");
     expect(items[1]).toHaveTextContent(/Still missed/i);
+    expect(items[1]).toHaveTextContent("A. A");
+    expect(items[1]).toHaveTextContent("B. B");
 
     // Done button navigates to dashboard.
     fireEvent.click(screen.getByTestId("recap-done"));
