@@ -91,6 +91,9 @@ network, no real Supabase.**
 
 ## Recent changes
 
+- 2026-05-02: Drafted `project_docs/parser_v3_architecture.md` — clean-slate
+  pipeline design (memory-safe extraction, per-slide checkpoint/resume,
+  outline pre-pass, grounded RAG tutor, free-tier model routing).
 - 2026-05-02: Built the testing harness end-to-end — pytest tree (unit /
   integration / contract / db), Vitest tree with MSW + shared supabase mock,
   Playwright skeleton, GitHub Actions CI, and the `TESTING_STRATEGY.md` +
