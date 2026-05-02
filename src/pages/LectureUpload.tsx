@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { PDFUploadOverlay } from '@/components/PDFUploadOverlay';
 import { DuplicatePDFDialog, type DuplicateMatch } from '@/components/DuplicatePDFDialog';
+import { ParseCacheDialog } from '@/components/ParseCacheDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -326,6 +327,14 @@ export default function LectureUpload() {
     matches: DuplicateMatch[];
   } | null>(null);
 
+  // Parse-cache dialog: fires only when no lecture matches but the global
+  // pdf_parse_cache would otherwise serve a stale parse silently.
+  const [parseCacheState, setParseCacheState] = useState<{
+    file: File;
+    hash: string;
+    parsedAt: string | null;
+  } | null>(null);
+
   const onDuplicateDetected = useCallback(
     (file: File, matches: DuplicateMatch[], hash: string) => {
       setDuplicateState({ file, matches, hash });
@@ -333,10 +342,20 @@ export default function LectureUpload() {
     [],
   );
 
+  const onParseCacheHit = useCallback(
+    (file: File, hash: string, parsedAt: string | null) => {
+      setParseCacheState({ file, hash, parsedAt });
+    },
+    [],
+  );
+
   const onPickFile = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) =>
-      handleFileUpload(e, { onDuplicate: onDuplicateDetected }),
-    [handleFileUpload, onDuplicateDetected],
+      handleFileUpload(e, {
+        onDuplicate: onDuplicateDetected,
+        onParseCacheHit,
+      }),
+    [handleFileUpload, onDuplicateDetected, onParseCacheHit],
   );
 
   const handleDuplicateUseExisting = useCallback(
@@ -356,6 +375,26 @@ export default function LectureUpload() {
 
   const handleDuplicateCancel = useCallback(() => {
     setDuplicateState(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  const handleParseCacheUseSaved = useCallback(async () => {
+    const state = parseCacheState;
+    setParseCacheState(null);
+    if (!state) return;
+    // forceReparse omitted → backend serves the cached parse via SSE.
+    await startUpload(state.file, { precomputedHash: state.hash });
+  }, [parseCacheState, startUpload]);
+
+  const handleParseCacheReparse = useCallback(async () => {
+    const state = parseCacheState;
+    setParseCacheState(null);
+    if (!state) return;
+    await startUpload(state.file, { forceReparse: true, precomputedHash: state.hash });
+  }, [parseCacheState, startUpload]);
+
+  const handleParseCacheCancel = useCallback(() => {
+    setParseCacheState(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
@@ -520,6 +559,14 @@ export default function LectureUpload() {
           onUseExisting={handleDuplicateUseExisting}
           onUploadAsNew={handleDuplicateUploadAsNew}
           onCancel={handleDuplicateCancel}
+        />
+
+        <ParseCacheDialog
+          open={parseCacheState !== null}
+          parsedAt={parseCacheState?.parsedAt ?? null}
+          onUseCached={handleParseCacheUseSaved}
+          onReparse={handleParseCacheReparse}
+          onCancel={handleParseCacheCancel}
         />
 
         <PDFUploadOverlay
@@ -1209,6 +1256,14 @@ export default function LectureUpload() {
         onUseExisting={handleDuplicateUseExisting}
         onUploadAsNew={handleDuplicateUploadAsNew}
         onCancel={handleDuplicateCancel}
+      />
+
+      <ParseCacheDialog
+        open={parseCacheState !== null}
+        parsedAt={parseCacheState?.parsedAt ?? null}
+        onUseCached={handleParseCacheUseSaved}
+        onReparse={handleParseCacheReparse}
+        onCancel={handleParseCacheCancel}
       />
 
       <PDFUploadOverlay

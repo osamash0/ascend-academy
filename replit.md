@@ -91,6 +91,13 @@ network, no real Supabase.**
 
 ## Recent changes
 
+- 2026-05-02: Parse-cache opt-in dialog — `POST /api/upload/check-parse-cache`
+  surfaces global `pdf_parse_cache` hits to the upload UI. New
+  `ParseCacheDialog` lets professors choose "use saved parse" vs.
+  "generate fresh" (force_reparse=true) when re-uploading a PDF whose
+  parse was cached but never persisted as a lecture row. Lectures-duplicate
+  dialog still wins when both apply. Backend (`get_cached_parse_meta`) only
+  selects `created_at` so the check is cheap.
 - 2026-05-02: Parser v3 schema migration — added `parse_runs`, `parse_pages`,
   `slide_chunks` (pgvector 384-d), and `tutor_messages` tables with backend-only
   RLS plus per-student policies on the tutor log. Nightly db harness switched

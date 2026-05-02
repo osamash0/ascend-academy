@@ -84,6 +84,33 @@ async def store_cached_parse(pdf_hash: str, data: Dict[str, Any]) -> None:
         logger.error("Failed to store cached parse: %s", e)
 
 
+async def get_cached_parse_meta(pdf_hash: str) -> Optional[Dict[str, Any]]:
+    """Lightweight existence check for `pdf_parse_cache`.
+
+    Returns `{parsed_at: <iso-ts-or-None>}` when a cache row exists for
+    `pdf_hash`, or `None` when no row exists.  Used by the
+    `/api/upload/check-parse-cache` endpoint so the upload UI can decide
+    whether to prompt "use saved parse vs. re-parse" instead of silently
+    serving the stale cached result.
+
+    Selects only `created_at` so we don't transfer the heavy `result`
+    JSONB blob on every upload — the full payload is fetched later (only
+    if the user picks "use saved parse") via the regular cache hit path.
+    """
+    try:
+        res = (
+            supabase_admin.table("pdf_parse_cache")
+            .select("created_at")
+            .eq("pdf_hash", pdf_hash)
+            .execute()
+        )
+        if res.data:
+            return {"parsed_at": res.data[0].get("created_at")}
+    except Exception as e:
+        logger.error("Failed to get cached parse meta: %s", e)
+    return None
+
+
 # --- Blueprint Cache (PostgreSQL-backed) ---
 
 async def get_cached_blueprint(pdf_hash: str, version: int = 1) -> Optional[Dict[str, Any]]:

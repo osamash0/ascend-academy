@@ -15,6 +15,7 @@ from backend.services.cache import (
     attach_lecture_id_to_embeddings,
     compute_pdf_hash,
     get_cached_parse,
+    get_cached_parse_meta,
     get_cached_slide_results,
     get_pipeline_run,
     store_cached_parse,
@@ -251,6 +252,50 @@ async def check_duplicate_endpoint(
         raise HTTPException(status_code=500, detail="Duplicate lookup failed.")
 
     return {"duplicates": matches}
+
+
+# --- Parse-cache existence check -----------------------------------------
+
+class CheckParseCacheRequest(BaseModel):
+    pdf_hash: str
+
+
+@router.post("/check-parse-cache")
+@limiter.limit("30/minute")
+async def check_parse_cache_endpoint(
+    request: Request,
+    body: CheckParseCacheRequest,
+    user: Any = Depends(require_professor),
+):
+    """Tell the frontend whether `pdf_parse_cache` already has a parse for
+    this PDF.
+
+    Distinct from `/check-duplicate`, which only looks at the current
+    professor's `lectures` rows.  A user can re-upload a PDF whose parse
+    was cached but whose lecture row was never persisted (they bailed on
+    the upload wizard, the cache was warmed by another professor, etc.) —
+    in that case the streaming endpoint would silently serve the stale
+    parse.  This endpoint surfaces that fact so the UI can prompt
+    "use saved parse vs. re-parse".
+
+    Returns `{cached: bool, parsed_at: <iso-ts-or-null>}`. Same auth and
+    pdf_hash validation rules as `/check-duplicate`.
+    """
+    pdf_hash = (body.pdf_hash or "").strip()
+    if not pdf_hash:
+        raise HTTPException(status_code=400, detail="pdf_hash is required.")
+    if len(pdf_hash) != 64 or any(c not in "0123456789abcdef" for c in pdf_hash):
+        raise HTTPException(status_code=400, detail="pdf_hash must be a SHA-256 hex digest.")
+
+    try:
+        meta = await get_cached_parse_meta(pdf_hash)
+    except Exception as e:
+        logger.error("check-parse-cache lookup failed: %s", e)
+        raise HTTPException(status_code=500, detail="Cache lookup failed.")
+
+    if meta is None:
+        return {"cached": False, "parsed_at": None}
+    return {"cached": True, "parsed_at": meta.get("parsed_at")}
 
 
 # --- Attach lecture to previously-written embeddings ---------------------

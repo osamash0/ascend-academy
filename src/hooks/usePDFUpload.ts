@@ -259,15 +259,63 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
   );
 
   /**
+   * Ask the backend whether the global pdf_parse_cache already has a
+   * parse for this hash. Distinct from checkDuplicate: this catches the
+   * case where the user (or a colleague) parsed the same PDF before but
+   * never saved a lecture from it — the streaming endpoint would
+   * otherwise serve the stale cached parse silently.
+   *
+   * Soft-fails to {cached: false} so a network/auth blip doesn't block
+   * the upload — we'd rather serve a cached parse than not at all.
+   */
+  const checkParseCache = useCallback(
+    async (hash: string): Promise<{ cached: boolean; parsedAt: string | null }> => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetch(`${API_BASE}/api/upload/check-parse-cache`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ pdf_hash: hash }),
+        });
+        if (!response.ok) return { cached: false, parsedAt: null };
+        const json = (await response.json()) as {
+          cached?: boolean;
+          parsed_at?: string | null;
+        };
+        return {
+          cached: !!json.cached,
+          parsedAt: typeof json.parsed_at === 'string' ? json.parsed_at : null,
+        };
+      } catch (err) {
+        console.warn('Parse-cache check failed; continuing without prompt', err);
+        return { cached: false, parsedAt: null };
+      }
+    },
+    [],
+  );
+
+  /**
    * File-input change handler. Computes the SHA-256, asks the backend
-   * about duplicates, and either (a) hands the matches off to the caller
-   * via onDuplicate (so the page can render the dialog) or (b) starts a
-   * normal upload if no duplicates exist or the lookup fails.
+   * about duplicates, and dispatches to one of three branches:
+   *   1. Lecture-duplicate exists for this professor → onDuplicate
+   *   2. Else, parse cache has this hash → onParseCacheHit
+   *   3. Otherwise → start upload normally
+   *
+   * The two-prompt fallback is intentional: branch (1) lets the user
+   * jump straight to their existing lecture (no parse at all), while
+   * branch (2) only fires when no lecture exists but the cache would
+   * silently serve a stale result.
    */
   const handleFileUpload = useCallback(
     async (
       e: React.ChangeEvent<HTMLInputElement>,
-      handlers: { onDuplicate?: (file: File, matches: DuplicateMatch[], hash: string) => void } = {},
+      handlers: {
+        onDuplicate?: (file: File, matches: DuplicateMatch[], hash: string) => void;
+        onParseCacheHit?: (file: File, hash: string, parsedAt: string | null) => void;
+      } = {},
     ) => {
       const file = e.target.files?.[0];
       // Always clear the input value so picking the same file again
@@ -284,9 +332,22 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
         handlers.onDuplicate(file, lookup.matches, lookup.hash);
         return;
       }
+
+      // No matching lecture — but the parse cache might still have this PDF.
+      // Only prompt when the caller wired a handler; otherwise fall back to
+      // the legacy silent-cache behavior so callers that don't yet support
+      // the new dialog keep working.
+      if (lookup?.hash && handlers.onParseCacheHit) {
+        const cacheState = await checkParseCache(lookup.hash);
+        if (cacheState.cached) {
+          handlers.onParseCacheHit(file, lookup.hash, cacheState.parsedAt);
+          return;
+        }
+      }
+
       await startUpload(file, { precomputedHash: lookup?.hash });
     },
-    [checkDuplicate, startUpload],
+    [checkDuplicate, checkParseCache, startUpload, toast],
   );
 
   const closeUploadOverlay = useCallback(() => {
@@ -315,6 +376,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     handleFileUpload,
     startUpload,
     checkDuplicate,
+    checkParseCache,
     closeUploadOverlay,
   };
 }
