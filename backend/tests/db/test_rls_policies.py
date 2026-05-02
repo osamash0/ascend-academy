@@ -102,10 +102,27 @@ def test_user_roles_insert_locked_down_authenticated(db_conn, make_user):
     uid = make_user(role="student")
     with db_conn.cursor() as cur:
         cur.execute("SET ROLE authenticated")
+        # Session-scoped (third arg = false) so the GUC survives the
+        # implicit transaction boundary between this set_config and the
+        # subsequent INSERT under autocommit. Transaction-scoped (`true`)
+        # would let auth.uid() return NULL during the INSERT, which would
+        # weaken this test into a tautology.
         cur.execute(
-            "SELECT set_config('request.jwt.claim.sub', %s, true)", (str(uid),)
+            "SELECT set_config('request.jwt.claim.sub', %s, false)", (str(uid),)
+        )
+        cur.execute(
+            "SELECT set_config('request.jwt.claim.role', %s, false)",
+            ("authenticated",),
         )
         try:
+            # Sanity: confirm the auth context is what the policy will see.
+            cur.execute("SELECT auth.uid()")
+            assert cur.fetchone()[0] == uid, (
+                "test set-up bug: auth.uid() did not see the JWT claim we "
+                "configured; the policy check below would not be exercising "
+                "the intended condition."
+            )
+
             with pytest.raises(
                 (psycopg.errors.InsufficientPrivilege, psycopg.errors.RaiseException)
             ):
@@ -116,6 +133,8 @@ def test_user_roles_insert_locked_down_authenticated(db_conn, make_user):
                 )
         finally:
             cur.execute("RESET ROLE")
+            cur.execute("SELECT set_config('request.jwt.claim.sub', '', false)")
+            cur.execute("SELECT set_config('request.jwt.claim.role', '', false)")
 
 
 def test_signup_trigger_assigns_role_from_metadata(db_conn, make_user):
