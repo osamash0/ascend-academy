@@ -1,0 +1,37 @@
+Review:
+Pearson's correlation coefficient
+•
+𝑠𝑋𝑌: Covariance
+•
+𝑟
+𝑋𝑌is normalized in the interval [-1,1].
+•
+If there is a linear dependency between the features, 𝑟
+𝑋𝑌is positive 
+or negative
+–
+𝑟
+𝑋𝑌≈0 : 
+no linear correlation
+Point cloud shows no direction
+–
+1 ≥𝑟
+𝑋𝑌> 0 : 
+positive correlation
+Point cloud shows SW-NE direction
+–
+0 ≥𝑟
+𝑋𝑌> −1 : 
+negative correlation
+Point cloud shows NW-SE direction
+𝑟
+𝑋𝑌=
+1
+𝑛σ𝑖=1
+𝑛(𝑥𝑖−ǉ
+𝑥) ∗(𝑦𝑖−ǉ
+𝑦)
+𝑠𝑥∗𝑠𝑦
+=
+𝑠𝑥𝑦
+𝑠𝑥∗𝑠𝑦

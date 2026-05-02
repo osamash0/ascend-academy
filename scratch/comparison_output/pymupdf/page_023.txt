@@ -1,0 +1,26 @@
+0
+1
+2
+3
+0
+1
+2
+3
+y
+x
+0
+1
+2
+3
+-0,5
+0
+0,5
+1
+1,5
+2
+2,5
+×
+×
+×
+(for fixed     , this is a function of x
+(function of the parameter     )

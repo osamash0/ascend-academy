@@ -9,16 +9,23 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 def _load_env() -> None:
-    """Find and load the .env file from common project locations."""
+    """Load .env files from all common project locations.
+
+    Load backend/.env first so its values take priority, then root/.env fills
+    in anything missing (e.g. SUPABASE_SERVICE_ROLE_KEY). load_dotenv skips
+    variables that are already set, so the first file wins per-variable.
+    """
     env_locations = [
         Path(__file__).parent.parent / ".env",          # backend/.env
         Path(__file__).parent.parent.parent / ".env",   # root/.env
     ]
+    found_any = False
     for loc in env_locations:
         if loc.exists():
             load_dotenv(dotenv_path=loc)
-            return
-    load_dotenv() # try default locations
+            found_any = True
+    if not found_any:
+        load_dotenv()  # try default locations
 
 _load_env()
 

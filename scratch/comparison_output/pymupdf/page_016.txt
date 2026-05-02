@@ -1,0 +1,5 @@
+Hypothesis:
+Parameters:
+Cost function:
+Goal:
+Cost function: Mean Squared Error

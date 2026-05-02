@@ -58,29 +58,97 @@ except Exception:
 
 # --- Utility Functions ---
 
+_CTRL_ESCAPE = {'\n': '\\n', '\r': '\\r', '\t': '\\t'}
+
+
+def _sanitize_json_string(raw: str) -> str:
+    """
+    Fix common LLM-generated JSON defects:
+    1. Strip unrepresentable control chars (U+0000-U+001F except whitespace).
+    2. Escape lone backslashes not part of a valid JSON escape sequence
+       (e.g. LaTeX \\sigma, \\beta, Windows paths).
+    3. Escape literal newlines / tabs / carriage-returns that appear INSIDE
+       JSON string values — the LLM sometimes emits them unescaped there,
+       which is illegal JSON even though they are valid Python str chars.
+    """
+    result: list[str] = []
+    in_string = False
+    escaped = False
+    i = 0
+    n = len(raw)
+
+    while i < n:
+        ch = raw[i]
+
+        if escaped:
+            # We're inside a \X sequence — pass it through unchanged.
+            result.append(ch)
+            escaped = False
+            i += 1
+            continue
+
+        if in_string:
+            if ch == '\\':
+                # Peek at the next character.
+                nxt = raw[i + 1] if i + 1 < n else ''
+                if nxt in ('"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'):
+                    # Valid JSON escape — pass the backslash through and mark
+                    # the next char as already-escaped so we skip it cleanly.
+                    result.append(ch)
+                    escaped = True
+                else:
+                    # Invalid escape (e.g. \s, \b[not backspace], \sigma).
+                    # Double the backslash so it becomes a literal backslash.
+                    result.append('\\\\')
+                i += 1
+                continue
+
+            if ch == '"':
+                # End of string.
+                result.append(ch)
+                in_string = False
+                i += 1
+                continue
+
+            # Inside a string: control chars must be escaped.
+            if ord(ch) < 0x20:
+                result.append(_CTRL_ESCAPE.get(ch, f'\\u{ord(ch):04x}'))
+                i += 1
+                continue
+
+        else:
+            # Outside strings: strip non-printable control chars.
+            if 0x00 < ord(ch) < 0x20 and ch not in ('\n', '\r', '\t'):
+                i += 1
+                continue
+            if ch == '"':
+                in_string = True
+
+        result.append(ch)
+        i += 1
+
+    return ''.join(result)
+
+
 def parse_json_response(raw: str) -> Any:
     """
     Robustly extracts and parses JSON from an LLM response string.
-    Handles markdown fences and non-printable control characters.
+    Handles markdown fences, control characters, and invalid escape sequences.
     """
     raw = raw.strip()
-    match = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
-    if match:
-        raw = match.group(1).strip()
-    
-    raw = re.sub(r'[\x00-\x1F\x7F]', '', raw)
-    
+    fence = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
+    if fence:
+        raw = fence.group(1).strip()
+
+    raw = _sanitize_json_string(raw)
+
     match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", raw)
-    if not match:
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            return {}
-            
+    candidate = match.group(1) if match else raw
+
     try:
-        return json.loads(match.group(1))
+        return json.loads(candidate)
     except json.JSONDecodeError as e:
-        logger.warning("JSON parsing failed: %s. Raw: %s", e, raw[:100])
+        logger.warning("JSON parsing failed: %s. Raw: %s", e, candidate[:300])
         return {}
 
 # --- Truncation Logic ---

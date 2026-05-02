@@ -1,0 +1,3 @@
+OPTIMIZATION
+How do we find the parameters (best ) 
+that minimize the cost function?

@@ -1,0 +1,16 @@
+Linear Regression
+•
+Discover relationships between numerical data
+–
+Analyze dependencies between a dependent variable
+and one or more independent variables
+•
+Goal: 
+–
+Determine cause-effect relationship
+•
+Applications
+–
+Describing and explaining relations quantitatively
+–
+Estimate or predict values of dependent variables

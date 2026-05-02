@@ -286,6 +286,7 @@ Slide text:
         except Exception as e:
             logger.error("LLM classify error: %s", e, exc_info=True)
 
+    logger.warning("_llm_classify_slide: unrecognized ai_model %r, falling back to rule-based result", ai_model)
     # Fallback: if LLM fails, assume educational (safe default)
     return {
         "classification": "educational",

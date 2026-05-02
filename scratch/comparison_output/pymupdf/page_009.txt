@@ -1,0 +1,10 @@
+Training set
+Learning algorithm
+h
+Size of 
+house
+Estimated 
+price
+Linear regression with one variable
+Univariate linear regression
+How to represent h?

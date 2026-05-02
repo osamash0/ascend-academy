@@ -1,0 +1,4 @@
+Method of least squares
+Choose  𝜃0, 𝜃1
+so that σ𝑖𝑒(𝑖) 2 is 
+minimized.

@@ -1,0 +1,6 @@
+Choose
+so that                     
+is close to      for the
+training samples
+Determination of the regression function
+Idea:

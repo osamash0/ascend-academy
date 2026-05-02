@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 MAX_FILE_MB = 25
-MAX_PAGES = 100
+MAX_PAGES = 300
 
 # --- Pydantic Models for Input/Output Validation ---
 
@@ -60,7 +60,7 @@ async def validate_upload(file: UploadFile, content: bytes) -> int:
         except Exception:
             return -1
 
-    page_count = await asyncio.to_thread(_get_info)
+    page_count = await asyncio.wait_for(asyncio.to_thread(_get_info), timeout=30.0)
     
     if page_count == -1:
         raise HTTPException(status_code=400, detail="File appears to be corrupted or password-protected.")
@@ -119,10 +119,19 @@ async def parse_pdf_stream_endpoint(
     collected_slides: List[Dict[str, Any]] = []
     collected_deck: Dict[str, Any] = {}
 
+    # Attempt ODL extraction before streaming; fall back to PyMuPDF on failure
+    odl_pages = None
+    try:
+        from backend.services.odl_service import extract_pages
+        odl_pages = await extract_pages(content, filename)
+        logger.info("ODL extraction successful for %s", filename)
+    except Exception as e:
+        logger.warning("ODL failed, falling back to PyMuPDF: %s", e)
+
     async def event_generator():
         nonlocal collected_deck
         try:
-            async for update in parse_pdf_stream(content, filename=filename, ai_model=ai_model, use_blueprint=use_blueprint):
+            async for update in parse_pdf_stream(content, filename=filename, ai_model=ai_model, use_blueprint=use_blueprint, odl_pages=odl_pages):
                 if update.get("type") == "slide":
                     collected_slides.append(update["slide"])
                 elif update.get("type") == "deck_complete":

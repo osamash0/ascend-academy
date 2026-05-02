@@ -76,15 +76,21 @@ async def parse_pdf_stream(
     pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
     odl_pages = odl_pages or {}
     
-    doc = await asyncio.to_thread(fitz.open, stream=pdf_bytes, filetype="pdf")
+    doc = await asyncio.wait_for(
+        asyncio.to_thread(fitz.open, stream=pdf_bytes, filetype="pdf"),
+        timeout=30.0
+    )
     total_pages = len(doc)
     
     try:
         yield {"type": "progress", "current": 0, "total": total_pages, "message": "Classifying slides..."}
-        
+
         # Stage 1: Classification
         t_batch, v_queue, tbl_queue, classifications, all_text = await _stage_classification(doc, ai_model, odl_pages)
-        
+
+        parser_name = "opendataloader-pdf" if odl_pages else "pymupdf"
+        yield {"type": "info", "parser": parser_name}
+
         # Stage 2: Planning (Master Plan)
         blueprint = None
         if use_blueprint:
@@ -115,7 +121,7 @@ async def parse_pdf_stream(
             text_res, vision_res = await _stage_processing(curr_text_batch, curr_v_queue, curr_tbl_queue, ai_model, blueprint)
             
             # Yield results for this batch immediately
-            async for event in _stage_yield_batch(doc, i, batch_end, classifications, text_res, vision_res, filename, ai_model, pdf_hash):
+            async for event in _stage_yield_batch(doc, i, batch_end, classifications, text_res, vision_res, filename, ai_model, pdf_hash, odl_pages):
                 yield event
             
             # Explicit memory cleanup after each batch
@@ -247,12 +253,12 @@ async def _process_single_vision(item: Dict, ai_model: str, blueprint: Optional[
         return {"index": item["index"], "parse_error": str(e)}
 
 
-async def _stage_yield_batch(doc: 'fitz.Document', start: int, end: int, cls: List, t_res: Dict, v_res: Dict, filename: str, ai_model: str, pdf_hash: str) -> AsyncGenerator[Dict, None]:
+async def _stage_yield_batch(doc: 'fitz.Document', start: int, end: int, cls: List, t_res: Dict, v_res: Dict, filename: str, ai_model: str, pdf_hash: str, odl_pages: Optional[Dict[int, Dict[str, Any]]] = None) -> AsyncGenerator[Dict, None]:
     """Yields results for a specific index range."""
     for i in range(start, end):
         stype, text, tokens, _ = cls[i]
         t_start = time.monotonic()
-        
+
         res = t_res.get(i) or v_res.get(i)
         if not res:
             res = {"title": f"Slide {i+1}", "content": text, "slide_type": stype.value, "summary": "", "questions": []}
@@ -260,7 +266,8 @@ async def _stage_yield_batch(doc: 'fitz.Document', start: int, end: int, cls: Li
 
         ai_title = res.get("title", "")
         if not ai_title or ai_title == f"Slide {i+1}":
-            res["title"] = extract_visual_title(doc[i]) or ai_title or f"Slide {i+1}"
+            odl_title = odl_pages.get(i + 1, {}).get("title") if odl_pages else None
+            res["title"] = odl_title or extract_visual_title(doc[i]) or f"Slide {i+1}"
 
         res["slide_index"] = i
         engine_used = "Vision" if i in v_res else ("Text" if i in t_res else "Heuristic")
