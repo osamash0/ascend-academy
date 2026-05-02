@@ -371,6 +371,42 @@ describe("LectureView replay stage", () => {
     expect(allRetries.length).toBe(2);
   });
 
+  it("shows the end-of-lecture recap with first answer, retry answer, and recovery status for each missed question", async () => {
+    setupLecture();
+    renderAtRoute();
+    await waitFor(() => screen.getAllByText("Slide One")[0]);
+
+    await walkThroughWithBothWrong();
+
+    // First retry: answer Q1 correctly (A, index 0).
+    fireEvent.click(screen.getByRole("radio", { name: /Option A: A/i }));
+    await waitFor(() => screen.getByTestId("quiz-continue"));
+    fireEvent.click(screen.getByTestId("quiz-continue"));
+
+    // Second retry: answer Q2 wrong again (A, index 0; correct is B).
+    await waitFor(() => screen.getByText("Question 2?"));
+    fireEvent.click(screen.getByRole("radio", { name: /Option A: A/i }));
+    await waitFor(() => screen.getByTestId("quiz-continue"));
+    fireEvent.click(screen.getByTestId("quiz-continue"));
+
+    // Recap card appears with one entry per missed question.
+    await waitFor(() => screen.getByTestId("lecture-recap"));
+    const items = screen.getAllByTestId("recap-item");
+    expect(items).toHaveLength(2);
+
+    // Q1: recovered on retry.
+    expect(items[0]).toHaveTextContent("Question 1?");
+    expect(items[0]).toHaveTextContent(/Got it on retry/i);
+
+    // Q2: still missed.
+    expect(items[1]).toHaveTextContent("Question 2?");
+    expect(items[1]).toHaveTextContent(/Still missed/i);
+
+    // Done button navigates to dashboard.
+    fireEvent.click(screen.getByTestId("recap-done"));
+    await waitFor(() => screen.getByText("Dashboard Stub"));
+  });
+
   it("skips the review stage and completes immediately when no questions were missed", async () => {
     setupLecture();
     renderAtRoute();
@@ -402,5 +438,10 @@ describe("LectureView replay stage", () => {
     expect(
       logLearningEventMock.mock.calls.filter((c) => c[1] === "quiz_retry_attempt"),
     ).toHaveLength(0);
+
+    // Recap still appears with the celebratory empty state — no retry items.
+    await waitFor(() => screen.getByTestId("lecture-recap"));
+    expect(screen.queryAllByTestId("recap-item")).toHaveLength(0);
+    expect(screen.getByTestId("lecture-recap")).toHaveTextContent(/Perfect run/i);
   });
 });

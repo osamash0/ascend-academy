@@ -23,6 +23,7 @@ import { BadgeEarnedModal } from '@/components/BadgeEarnedModal';
 import { Button } from '@/components/ui/button';
 import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
+import { LectureRecap, type RecapItem } from '@/components/LectureRecap';
 import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
@@ -69,13 +70,23 @@ export default function LectureView() {
   // student can re-attempt them after the last slide. Stored in a ref so
   // handleQuizAnswer can append synchronously without a re-render race.
   const missedQueueRef = useRef<
-    Array<{ question: QuizQuestion; slideIndex: number; firstSelectedIndex: number }>
+    Array<{
+      question: QuizQuestion;
+      slideIndex: number;
+      firstSelectedIndex: number;
+      secondSelectedIndex: number | null;
+    }>
   >([]);
   const [reviewStage, setReviewStage] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewSelectedAnswer, setReviewSelectedAnswer] = useState<number | null>(null);
   const reviewAnsweredRef = useRef<Set<string>>(new Set());
   const reviewContinueLockRef = useRef<boolean>(false);
+  // End-of-lecture recap: snapshot of every question the student missed on
+  // their first attempt, with their first answer + their retry answer + the
+  // correct answer. Populated when the lecture completes.
+  const [lectureCompleted, setLectureCompleted] = useState(false);
+  const [recapItems, setRecapItems] = useState<RecapItem[]>([]);
 
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -148,6 +159,8 @@ export default function LectureView() {
     setReviewStage(false);
     setReviewIndex(0);
     setReviewSelectedAnswer(null);
+    setLectureCompleted(false);
+    setRecapItems([]);
 
     let currentLectureId = lectureId;
     if (!currentLectureId) return;
@@ -431,6 +444,7 @@ export default function LectureView() {
           question: currentQuestion,
           slideIndex: currentSlideIndex,
           firstSelectedIndex: selectedIndex,
+          secondSelectedIndex: null,
         });
       }
     }
@@ -557,6 +571,10 @@ export default function LectureView() {
 
     setReviewSelectedAnswer(selectedIndex);
     reviewContinueLockRef.current = false;
+    // Capture the retry answer for the end-of-lecture recap. We overwrite on
+    // every retry click so the recap reflects the last attempt the student
+    // made on this question.
+    item.secondSelectedIndex = selectedIndex;
 
     if (user) {
       // Separate event type so analytics can distinguish first-attempt
@@ -596,6 +614,20 @@ export default function LectureView() {
     // achievements, notifications, navigate) twice.
     if (lectureCompleteLockRef.current) return;
     lectureCompleteLockRef.current = true;
+
+    // Snapshot the missed-question queue for the recap UI before any
+    // post-completion side effects run. Items already carry first/second
+    // attempt indices populated during the run + replay stages.
+    setRecapItems(
+      missedQueueRef.current.map((m) => ({
+        question: m.question,
+        slideIndex: m.slideIndex,
+        slideTitle: slides[m.slideIndex]?.title,
+        firstSelectedIndex: m.firstSelectedIndex,
+        secondSelectedIndex: m.secondSelectedIndex,
+      })),
+    );
+    setLectureCompleted(true);
 
     const sessionDuration = Math.round((Date.now() - sessionStartRef.current) / 1000);
 
@@ -658,7 +690,8 @@ export default function LectureView() {
       description: `You earned ${xpEarned} XP and got ${correctAnswers}/${questions.length || slides.length} correct!`,
     });
 
-    setTimeout(() => navigate('/dashboard'), 2000);
+    // The recap card now owns the "Back to dashboard" CTA — no auto-navigate
+    // so students can review which questions they had to retry.
   };
 
   if (loading) {
@@ -824,7 +857,15 @@ export default function LectureView() {
               {/* Sidebar - Quiz */}
               <div ref={quizRef}>
                 <AnimatePresence mode="wait">
-                  {reviewStage && currentReviewItem ? (
+                  {lectureCompleted ? (
+                    <LectureRecap
+                      items={recapItems}
+                      xpEarned={xpEarned}
+                      correctOnFirstTry={correctAnswers}
+                      totalQuestions={questions.length || slides.length}
+                      onDone={() => navigate('/dashboard')}
+                    />
+                  ) : reviewStage && currentReviewItem ? (
                     <motion.div
                       key={`review-${reviewIndex}`}
                       initial={{ opacity: 0, x: 20 }}

@@ -110,6 +110,14 @@ selected id is moved to the head of the failover chain by `_resolve_preferred`
 
 ## Recent changes
 
+- 2026-05-02: End-of-lecture recap. After the (optional) replay stage,
+  learners now see a `LectureRecap` card listing every question they
+  missed on the first try, with their first answer, retry answer,
+  correct answer, and a "Got it on retry" / "Still missed" status.
+  Perfect runs get a celebratory empty state. The recap owns the
+  "Back to dashboard" CTA — the old auto-`setTimeout(navigate, 2000)`
+  was removed. `missedQueueRef` items now carry `secondSelectedIndex`,
+  populated in place by `handleReviewAnswer`.
 - 2026-05-02: PDF parser now uses the new provider chain. Defaults flipped
   from `groq` to `cerebras` in `backend/api/upload.py` and
   `backend/services/file_parse_service.py`. Removed the hard-coded
