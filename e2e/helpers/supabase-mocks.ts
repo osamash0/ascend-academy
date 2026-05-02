@@ -144,8 +144,34 @@ export async function mockSupabase(
       return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
     }
     const accept = req.headers()["accept"] || "";
+
+    // Writes (POST/PATCH/PUT) → echo the body back so .single() sees a row.
+    if (method === "POST" || method === "PATCH" || method === "PUT") {
+      let body: unknown = [];
+      try {
+        body = req.postDataJSON();
+      } catch {
+        body = [];
+      }
+      const rowsOut = Array.isArray(body) ? body : [body];
+      // Synthesise a stable id so callers that read `.id` after .single() work.
+      const stamped = rowsOut.map((row, idx) => ({
+        id: `auto-${Date.now()}-${idx}`,
+        ...(row as Record<string, unknown>),
+      }));
+      if (accept.includes("vnd.pgrst.object")) {
+        return json(route, stamped[0] ?? {}, 201);
+      }
+      return json(route, stamped, 201);
+    }
+
+    if (method === "DELETE") {
+      return route.fulfill({ status: 204, headers: CORS_HEADERS });
+    }
+
+    // GET (or HEAD) with no matching table — 406 PGRST116 only for .single(),
+    // otherwise empty array. This matches PostgREST's actual behaviour.
     if (accept.includes("vnd.pgrst.object")) {
-      // single() with no row → 406 PGRST116 (treated as null by Supabase JS)
       return route.fulfill({
         status: 406,
         contentType: "application/json",
@@ -158,7 +184,7 @@ export async function mockSupabase(
         }),
       });
     }
-    return json(route, [], method === "POST" ? 201 : 200);
+    return json(route, []);
   });
 
   // ─── Generic /storage/v1/ fallback (succeeds) ─────────────────────────────
@@ -182,14 +208,23 @@ export async function mockSupabase(
       const prefer = req.headers()["prefer"] || "";
 
       if (method === "POST" || method === "PATCH" || method === "PUT") {
-        // Insert / upsert / update — return the body as inserted rows.
+        // Insert / upsert / update — echo the body back as the inserted rows
+        // and synthesise a stable `id` for any row missing one, so callers
+        // that chain `.select().single()` and read `result.id` (e.g. the
+        // publish flow inserting slides → quiz_questions) see a non-null id.
         let body: unknown = [];
         try {
           body = req.postDataJSON();
         } catch {
           body = [];
         }
-        const rowsOut = Array.isArray(body) ? body : [body];
+        const rowsIn = Array.isArray(body) ? body : [body];
+        const rowsOut = rowsIn.map((row, idx) => {
+          const r = (row ?? {}) as Record<string, unknown>;
+          return r.id !== undefined && r.id !== null
+            ? r
+            : { id: `${table}-auto-${Date.now()}-${idx}`, ...r };
+        });
         if (
           accept.includes("vnd.pgrst.object") ||
           prefer.includes("return=representation")
@@ -291,8 +326,17 @@ export async function mockSupabase(
   await page.route(/\/auth\/v1\/signup(\?|$)/, async (route) => {
     if (route.request().method() === "OPTIONS")
       return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
-    // signUp returns the user object with an embedded session.
-    return json(route, { ...session.user, session });
+    // gotrue's /signup endpoint returns the user object directly with the
+    // session fields merged on (NOT a wrapper object) — Supabase JS's
+    // `signUp()` then surfaces it as `{ data: { user, session } }`.
+    return json(route, {
+      ...session.user,
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      token_type: session.token_type,
+      expires_in: session.expires_in,
+      expires_at: session.expires_at,
+    });
   });
   await page.route(/\/auth\/v1\/token(\?|$)/, async (route) => {
     if (route.request().method() === "OPTIONS")

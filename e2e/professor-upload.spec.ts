@@ -22,6 +22,12 @@ test.describe("Professor PDF upload", () => {
       tables: {
         // Empty professor dashboard — we only land on it after publishing.
         lectures: [],
+        // The publish flow inserts into `slides` and `quiz_questions` and
+        // reads each insert back via `.single()`. Per-table handlers (which
+        // echo the inserted body) win over the broad fallback because they
+        // are registered later.
+        slides: [],
+        quiz_questions: [],
       },
     });
 
