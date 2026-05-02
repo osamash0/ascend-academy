@@ -19,8 +19,6 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Learnstation API", version="0.1.0")
 
 # ── Rate limiting ────────────────────────────────────────────────────────────
-# Shared `limiter` lives in backend.core.rate_limit so route modules can
-# import it without creating a circular dependency on this file.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
@@ -28,12 +26,11 @@ app.add_middleware(SlowAPIMiddleware)
 # ── CORS ─────────────────────────────────────────────────────────────────────
 def _build_cors_origins() -> list[str]:
     """
-    Build the CORS allowlist. In production set CORS_ALLOWED_ORIGINS to a
-    comma-separated list of fully-qualified origins (no trailing slash).
-    In development we allow common local frontend ports plus the Replit
-    proxy/dev domain when present.
+    Build the CORS allowlist. In production set CORS_ALLOWED_ORIGINS (or ALLOWED_ORIGINS)
+    to a comma-separated list of fully-qualified origins.
     """
-    raw = os.environ.get("CORS_ALLOWED_ORIGINS", "").strip()
+    raw = os.environ.get("CORS_ALLOWED_ORIGINS") or os.environ.get("ALLOWED_ORIGINS") or ""
+    raw = raw.strip()
     if raw:
         return [o.strip() for o in raw.split(",") if o.strip()]
 
@@ -72,6 +69,10 @@ app.include_router(upload_router)
 app.include_router(ai_router)
 app.include_router(mind_map_router)
 
+@app.on_event("startup")
+async def startup_event():
+    from backend.core.database import init_db_pool
+    await init_db_pool()
 
 @app.get("/")
 async def read_root():

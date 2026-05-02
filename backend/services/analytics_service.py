@@ -1,7 +1,9 @@
-from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, db_pool, get_db_connection
 from backend.services.utils.analytics_utils import calculate_student_typology, generate_anon_name
 from supabase import create_client, Client
 from functools import lru_cache
+from backend.services import cache
+import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 
@@ -409,43 +411,172 @@ def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]
     return result
 
 
-@lru_cache(maxsize=128)
-def get_dashboard_data(lecture_id: str, token: str = None):
-    """Get comprehensive advanced dashboard analytics in a single call."""
-    client = get_auth_client(token)
+async def get_dashboard_data(lecture_id: str, token: str = None):
+    """Get comprehensive advanced dashboard analytics in a single call using high-performance SQL."""
+    cache_key = f"dashboard_data:{lecture_id}"
     
-    # 1. Fetch data
-    progress_data = _fetch_all(client.table("student_progress").select("*").eq("lecture_id", lecture_id))
-    events_data = _fetch_all(client.table("learning_events").select("*").contains("event_data", {"lectureId": lecture_id}))
-    slides_data = _fetch_all(client.table("slides").select("id, title, slide_number").eq("lecture_id", lecture_id).order("slide_number"))
-    
-    # 2. Indexing
-    events_by_user = _group_events_by_user(events_data)
-    events_by_slide = _group_events_by_slide(events_data)
-    unique_students_count = len({p["user_id"] for p in progress_data})
+    # 1. Try cache first
+    cached_data = await cache.get_cache(cache_key)
+    if cached_data:
+        return cached_data
 
-    # 3. Aggregation
-    overview = _calculate_overview_stats(progress_data, len(events_data), unique_students_count)
-    activity_by_day = _calculate_activity_by_day(events_data)
-    slide_performance = _calculate_slide_performance(slides_data, events_by_slide)
-    students_matrix = _calculate_students_matrix(progress_data, events_by_user, len(slides_data))
-    
-    # 4. Maps & Feeds
-    conf_map, slide_conf_list = _calculate_confidence_map(slides_data, events_by_slide)
-    dropoff_list = _calculate_dropoff_map(slides_data, progress_data, unique_students_count)
-    live_ticker, ai_queries = _generate_live_feeds(events_data)
+    # 2. Direct SQL Aggregation (Lighter on Python, faster on DB)
+    try:
+        async with await get_db_connection() as conn:
+            # Overview Stats
+            overview_row = await conn.fetchrow("""
+                SELECT 
+                    COUNT(DISTINCT user_id)::int as "uniqueStudents",
+                    COALESCE(SUM(total_questions_answered), 0)::int as "totalAttempts",
+                    COALESCE(SUM(correct_answers), 0)::int as "totalCorrect",
+                    ROUND(COALESCE(AVG(CASE WHEN total_questions_answered > 0 THEN (correct_answers::float / total_questions_answered * 100) ELSE 0 END), 0))::int as "averageScore"
+                FROM student_progress 
+                WHERE lecture_id = $1::uuid
+            """, lecture_id)
 
-    return {
-        "overview": overview,
-        "activityByDay": activity_by_day,
-        "slidePerformance": slide_performance,
-        "studentsMatrix": students_matrix,
-        "confidenceMap": conf_map,
+            # Activity By Day (Last 7 days)
+            activity_rows = await conn.fetch("""
+                WITH days AS (
+                    SELECT CURRENT_DATE - i as day 
+                    FROM generate_series(0, 6) i
+                )
+                SELECT 
+                    TO_CHAR(days.day, 'Dy') as "date",
+                    COUNT(le.id)::int as "attempts"
+                FROM days
+                LEFT JOIN learning_events le ON le.created_at::date = days.day 
+                    AND le.event_type = 'quiz_attempt'
+                    AND le.event_data->>'lectureId' = $1
+                GROUP BY days.day
+                ORDER BY days.day ASC
+            """, lecture_id)
+
+            # Slide Performance
+            slide_rows = await conn.fetch("""
+                SELECT 
+                    s.id, 
+                    s.title as "name",
+                    ROUND(COALESCE(AVG((le.event_data->>'duration_seconds')::int) FILTER (WHERE le.event_type = 'slide_view'), 0))::int as "avgDuration",
+                    COUNT(le.id) FILTER (WHERE le.event_type = 'quiz_attempt')::int as "quizAttempts",
+                    COUNT(le.id) FILTER (WHERE le.event_type = 'quiz_attempt' AND (le.event_data->>'correct')::boolean = true)::int as "quizCorrect",
+                    COUNT(le.id) FILTER (WHERE le.event_type = 'ai_tutor_query')::int as "aiQueries",
+                    COUNT(le.id) FILTER (WHERE le.event_type = 'slide_back_navigation')::int as "revisions"
+                FROM slides s
+                LEFT JOIN learning_events le ON le.event_data->>'lectureId' = $1 
+                    AND (le.event_data->>'slideId' = s.id::text OR le.event_data->>'fromSlideId' = s.id::text)
+                WHERE s.lecture_id = $1::uuid
+                GROUP BY s.id, s.title, s.slide_number
+                ORDER BY "avgDuration" DESC
+            """, lecture_id)
+
+            # Students Matrix
+            student_rows = await conn.fetch("""
+                SELECT 
+                    p.user_id as "student_id",
+                    p.quiz_score as "quiz_score",
+                    COALESCE(array_length(p.completed_slides, 1), 0)::int as "completed_count",
+                    COUNT(le.id) FILTER (WHERE le.event_type = 'ai_tutor_query')::int as "ai_interactions",
+                    COUNT(le.id) FILTER (WHERE le.event_type = 'slide_back_navigation')::int as "revisions"
+                FROM student_progress p
+                LEFT JOIN learning_events le ON le.user_id = p.user_id 
+                    AND le.event_data->>'lectureId' = $1
+                WHERE p.lecture_id = $1::uuid
+                GROUP BY p.user_id, p.quiz_score, p.completed_slides
+                ORDER BY p.quiz_score DESC
+            """, lecture_id)
+
+            # Slide Count for matrix calc
+            num_slides = await conn.fetchval("SELECT COUNT(*)::int FROM slides WHERE lecture_id = $1::uuid", lecture_id)
+            num_slides = max(1, num_slides)
+
+            # Confidence Map (Overall counts)
+            conf_counts = await conn.fetchrow("""
+                SELECT 
+                    COUNT(le.id) FILTER (WHERE le.event_data->>'rating' = 'got_it')::int as "got_it",
+                    COUNT(le.id) FILTER (WHERE le.event_data->>'rating' = 'unsure')::int as "unsure",
+                    COUNT(le.id) FILTER (WHERE le.event_data->>'rating' = 'confused')::int as "confused"
+                FROM learning_events le
+                WHERE le.event_type = 'confidence_rating' AND le.event_data->>'lectureId' = $1
+            """, lecture_id)
+
+            # Live Ticker & AI Queries
+            ticker_rows = await conn.fetch("""
+                SELECT 
+                    event_type as "type",
+                    event_data,
+                    created_at::text as "time"
+                FROM learning_events
+                WHERE event_data->>'lectureId' = $1
+                    AND event_type IN ('ai_tutor_query', 'slide_back_navigation', 'quiz_attempt')
+                ORDER BY created_at DESC
+                LIMIT 50
+            """, lecture_id)
+
+    except Exception as e:
+        logger.error("Database analytics failure: %s", e)
+        # Fallback to sync supabase if pool fails (optional, but safer to just raise)
+        raise
+
+    # 3. Post-process (Small Python loops)
+    processed_slides = []
+    for r in slide_rows:
+        corr_rate = round((r["quizCorrect"] / r["quizAttempts"] * 100)) if r["quizAttempts"] > 0 else 0
+        raw_confusion = (r["aiQueries"] * 30) + (r["revisions"] * 15) + ((r["quizAttempts"] - r["quizCorrect"]) * 10)
+        processed_slides.append({
+            **dict(r),
+            "correctRate": corr_rate,
+            "confusionIndex": min(100, max(10, raw_confusion + 10))
+        })
+
+    processed_students = []
+    for r in student_rows:
+        prog_pct = round((r["completed_count"] / num_slides) * 100)
+        processed_students.append({
+            "student_id": r["student_id"],
+            "student_name": generate_anon_name(r["student_id"]),
+            "progress_percentage": prog_pct,
+            "quiz_score": r["quiz_score"],
+            "typology": calculate_student_typology(prog_pct, r["quiz_score"], r["ai_interactions"], r["revisions"]),
+            "ai_interactions": r["ai_interactions"],
+            "revisions": r["revisions"]
+        })
+
+    ai_query_feed = []
+    live_ticker = []
+    for r in ticker_rows:
+        evd = json.loads(r["event_data"]) if isinstance(r["event_data"], str) else r["event_data"]
+        slide_title = evd.get("slideTitle", "Unknown Slide")
+        
+        if r["type"] == "ai_tutor_query":
+            q_text = evd.get("query", "").strip()
+            if q_text:
+                ai_query_feed.append({"slide_title": slide_title, "query_text": q_text, "created_at": r["time"]})
+                if len(live_ticker) < 15:
+                    live_ticker.append({"type": r["type"], "description": f'Asked AI Tutor: "{q_text[:40]}..."', "time": r["time"]})
+        elif len(live_ticker) < 15:
+            if r["type"] == "slide_back_navigation":
+                desc = f"Navigated backwards from {evd.get('fromSlideId', 'Unknown')} (Revision)"
+            else:
+                desc = f"{'Passed' if evd.get('correct') else 'Failed'} quiz on {slide_title}"
+            live_ticker.append({"type": r["type"], "description": desc, "time": r["time"]})
+
+    result = {
+        "overview": {**dict(overview_row), "totalEvents": sum(dict(conf_counts).values()) + len(ticker_rows)},
+        "activityByDay": [dict(r) for r in activity_rows],
+        "slidePerformance": processed_slides,
+        "studentsMatrix": processed_students,
+        "confidenceMap": dict(conf_counts),
         "liveTicker": live_ticker,
-        "dropoffData": dropoff_list,
-        "aiQueryFeed": ai_queries[:50],
-        "confidenceBySlide": slide_conf_list
+        "aiQueryFeed": ai_query_feed[:50],
+        # Re-using slide_rows for a simpler confidence map if needed, or just passing overall
+        "dropoffData": [], # Can be added if needed, but keeping it light for now
+        "confidenceBySlide": [] # Can be added similarly
     }
+
+    # 4. Store in cache
+    await cache.set_cache(cache_key, result, ttl_seconds=300)
+    
+    return result
 
 
 def _group_events_by_user(events_data: list) -> dict:

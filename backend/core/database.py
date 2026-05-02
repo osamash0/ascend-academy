@@ -16,6 +16,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
+import asyncpg
 from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)
@@ -113,3 +114,36 @@ def get_client(use_admin: bool = False) -> Client:
             "(or VITE_SUPABASE_PUBLISHABLE_KEY) and restart the backend."
         )
     return supabase_anon
+
+
+# --- asyncpg Connection Pool ---
+# Used for high-performance direct SQL queries (bypass REST overhead)
+DB_URL: Optional[str] = os.environ.get("DATABASE_URL")
+db_pool: Optional[asyncpg.Pool] = None
+
+async def init_db_pool():
+    """Initialize the asyncpg connection pool."""
+    global db_pool
+    if not DB_URL:
+        logger.warning("DATABASE_URL missing; asyncpg pool will not be initialized.")
+        return
+    try:
+        db_pool = await asyncpg.create_pool(
+            DB_URL,
+            min_size=5,
+            max_size=20,
+            max_queries=1000,
+            max_inactive_connection_lifetime=300
+        )
+        logger.info("asyncpg connection pool initialized.")
+    except Exception as e:
+        logger.error("Failed to initialize asyncpg pool: %s", e)
+
+
+async def get_db_connection():
+    """Get a connection from the pool."""
+    if not db_pool:
+        await init_db_pool()
+    if not db_pool:
+        raise RuntimeError("Database pool not initialized. Check DATABASE_URL.")
+    return db_pool.acquire()

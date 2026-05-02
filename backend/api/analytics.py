@@ -170,7 +170,7 @@ async def get_dashboard_data(lecture_id: str, user=Depends(verify_token), creds:
     """Get comprehensive advanced dashboard analytics in a single call"""
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
-        data = await run_in_threadpool(analytics_service.get_dashboard_data, lecture_id, creds.credentials)
+        data = await analytics_service.get_dashboard_data(lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise

@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import time
+from datetime import datetime, timedelta
 from typing import Any, Optional, List, Dict, Tuple
 from collections import OrderedDict
 from threading import Lock
@@ -10,59 +11,51 @@ from backend.core.database import supabase_admin
 logger = logging.getLogger(__name__)
 
 
-# ── Token validation cache ───────────────────────────────────────────────────
-# Bounded LRU+TTL cache. Keys are SHA-256 hashes of the bearer token (we
-# never store the raw token). TTL kept short so revoked tokens stop working
-# quickly after sign-out / password reset.
-_TOKEN_TTL = 30.0          # seconds
-_TOKEN_CACHE_MAX = 1024    # max distinct tokens cached
-_token_cache: "OrderedDict[str, Tuple[Any, float]]" = OrderedDict()
-_token_cache_lock = Lock()
-
+# --- Token validation cache (Shared Database L2 Cache) ---
+# Note: We use the generic backend_cache table to share token validation across workers.
+# This avoids redundant Supabase Auth round-trips when scaling.
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def get_cached_token(token: str) -> Optional[Any]:
-    """Return cached user object if the token is still valid, else None."""
+async def get_cached_token(token: str) -> Optional[Any]:
+    """Retrieve user object from database cache if valid and not expired."""
     if not token:
         return None
     key = _hash_token(token)
-    now = time.monotonic()
-    with _token_cache_lock:
-        entry = _token_cache.get(key)
-        if entry is None:
-            return None
-        user, expires_at = entry
-        if now >= expires_at:
-            _token_cache.pop(key, None)
-            return None
-        # Touch for LRU semantics
-        _token_cache.move_to_end(key)
-        return user
+    cache_key = f"auth_token:{key}"
+    return await get_cache(cache_key)
 
 
-def store_cached_token(token: str, user: Any) -> None:
-    """Cache the user object behind a hashed token key."""
+async def store_cached_token(token: str, user: Any) -> None:
+    """Store user data in database cache with a 45s TTL."""
     if not token:
         return
     key = _hash_token(token)
-    with _token_cache_lock:
-        _token_cache[key] = (user, time.monotonic() + _TOKEN_TTL)
-        _token_cache.move_to_end(key)
-        # Evict oldest entries to stay within bound
-        while len(_token_cache) > _TOKEN_CACHE_MAX:
-            _token_cache.popitem(last=False)
+    cache_key = f"auth_token:{key}"
+    
+    # Extract serializable data from Supabase User object
+    user_data = user
+    if hasattr(user, "dict"):
+        user_data = user.dict()
+    elif hasattr(user, "__dict__"):
+        # Filter out non-serializable or private internal state if necessary
+        user_data = {k: v for k, v in user.__dict__.items() if not k.startswith("_")}
+
+    await set_cache(cache_key, user_data, ttl_seconds=45)
 
 
-def invalidate_cached_token(token: str) -> None:
-    """Remove a token from the cache (call on explicit sign-out)."""
+async def invalidate_cached_token(token: str) -> None:
+    """Remove a token from the shared database cache."""
     if not token:
         return
     key = _hash_token(token)
-    with _token_cache_lock:
-        _token_cache.pop(key, None)
+    cache_key = f"auth_token:{key}"
+    try:
+        supabase_admin.table("backend_cache").delete().eq("cache_key", cache_key).execute()
+    except Exception as e:
+        logger.warning("Failed to invalidate token cache: %s", e)
 
 
 def compute_pdf_hash(content: bytes) -> str:
@@ -213,3 +206,38 @@ async def get_cached_slide_results(
     except Exception as e:
         logger.warning("Checkpoint lookup failed (non-fatal): %s", e)
         return {}
+
+
+# --- Generic Backend Cache (PostgreSQL-backed) ---
+
+async def get_cache(key: str) -> Optional[Any]:
+    """Retrieve data from generic backend_cache if not expired."""
+    try:
+        # Use ISO format for timestamp comparison
+        now = datetime.utcnow().isoformat()
+        res = supabase_admin.table("backend_cache") \
+            .select("data") \
+            .eq("cache_key", key) \
+            .gt("expires_at", now) \
+            .execute()
+        
+        if res.data:
+            return res.data[0]["data"]
+    except Exception as e:
+        logger.error("Cache hit error for key %s: %s", key, e)
+    return None
+
+
+async def set_cache(key: str, data: Any, ttl_seconds: int = 300) -> None:
+    """Store data in generic backend_cache with a TTL."""
+    try:
+        expires_at = (datetime.utcnow() + timedelta(seconds=ttl_seconds)).isoformat()
+        
+        payload = {
+            "cache_key": key,
+            "data": data,
+            "expires_at": expires_at
+        }
+        supabase_admin.table("backend_cache").upsert(payload, on_conflict="cache_key").execute()
+    except Exception as e:
+        logger.error("Cache store error for key %s: %s", key, e)

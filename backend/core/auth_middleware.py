@@ -13,44 +13,45 @@ from backend.services.cache import get_cached_token, store_cached_token
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Any:
+async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Any:
     """
     Dependency that verifies the Supabase JWT from the Authorization header.
     Returns the authenticated user object or raises 401.
-    Validated tokens are cached briefly to avoid redundant Supabase round-trips.
+    Validated tokens are cached to avoid redundant Supabase round-trips.
     """
     token: str = credentials.credentials
 
-    # 1. Check local cache first (keyed by hashed token, bounded TTL)
-    cached_user = get_cached_token(token)
+    # 1. Check shared database cache first
+    cached_user = await get_cached_token(token)
     if cached_user:
-        return cached_user
+        # Wrap dict back into a DotDict-like object if necessary, or just return dict
+        # Most of our code expects user.id, so we should ensure it behaves like an object
+        from argparse import Namespace
+        return Namespace(**cached_user) if isinstance(cached_user, dict) else cached_user
 
-    # 2. Verify with Supabase Auth.
-    # Note: get_user(token) verifies the JWT signature against the project's
-    # JWT secret on the supabase-py client side, so it works regardless of
-    # whether we use the admin or anon client here.
+    # 2. Verify with Supabase Auth
     try:
+        # Use supabase_admin for user lookup to ensure consistency, 
+        # but the token itself proves user ownership.
         user_response = supabase_admin.auth.get_user(token)
-
+        
         if not user_response or not user_response.user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token.",
             )
-
+            
         user = user_response.user
-        store_cached_token(token, user)
+        await store_cached_token(token, user)
         return user
-
+        
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Authentication failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
+            detail="Authentication system error.",
         )
 
 
@@ -95,7 +96,7 @@ def _lookup_role_from_db(uid: str) -> Optional[set]:
 def require_role(*allowed_roles: str):
     """
     Dependency factory that ensures the authenticated user has one of the
-    allowed roles. Checks JWT user_metadata first (no DB round-trip) and
+    allowed roles. Checks JWT app_metadata.role first (no DB round-trip) and
     falls back to the user_roles table for backward compatibility.
     Raises 403 if no allowed role matches.
 
@@ -104,7 +105,7 @@ def require_role(*allowed_roles: str):
         async def endpoint(user=Depends(require_role("professor"))): ...
     """
 
-    def _checker(user: Any = Depends(verify_token)) -> Any:
+    async def _checker(user: Any = Depends(verify_token)) -> Any:
         uid = _user_id(user)
         if not uid:
             raise HTTPException(
