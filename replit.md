@@ -91,6 +91,10 @@ network, no real Supabase.**
 
 ## Recent changes
 
+- 2026-05-02: Parser v3 schema migration — added `parse_runs`, `parse_pages`,
+  `slide_chunks` (pgvector 384-d), and `tutor_messages` tables with backend-only
+  RLS plus per-student policies on the tutor log. Nightly db harness switched
+  to the `pgvector/pgvector:pg15` container image. v2 pipeline unaffected.
 - 2026-05-02: Drafted `project_docs/parser_v3_architecture.md` — clean-slate
   pipeline design (memory-safe extraction, per-slide checkpoint/resume,
   outline pre-pass, grounded RAG tutor, free-tier model routing).

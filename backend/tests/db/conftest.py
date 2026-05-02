@@ -40,7 +40,12 @@ def pg_container() -> Iterator["PostgresContainer"]:
         pytest.skip("testcontainers / psycopg not installed; install for nightly DB tests")
     if not os.environ.get("DOCKER_HOST") and not Path("/var/run/docker.sock").exists():
         pytest.skip("Docker is not available in this environment")
-    with PostgresContainer("postgres:15-alpine") as pg:
+    # pgvector/pgvector:pg15 is the official Postgres 15 image with the
+    # `vector` extension pre-installed. The parser v3 schema migration
+    # (20260503000008) requires `CREATE EXTENSION vector`, which is not
+    # available in postgres:15-alpine. Real Supabase projects ship pgvector
+    # by default, so this only matters for the nightly test container.
+    with PostgresContainer("pgvector/pgvector:pg15") as pg:
         yield pg
 
 
