@@ -369,6 +369,56 @@ async def test_blueprint_generated_when_use_blueprint_true(patch_pipeline_deps):
     assert any("Master Plan ready" in m for m in progress_msgs)
 
 
+async def test_odl_pages_consumed_by_parse_pdf_stream(monkeypatch, patch_pipeline_deps):
+    """End-to-end wiring check: when ODL provides table markdown for a page,
+    parse_pdf_stream must route that page via TABLE_ODL and feed the markdown
+    into the text batch instead of the raw PDF text.
+
+    This guards the contract that `_parse_odl_json` produces (1-based int
+    keys → {"text", "title"}) against `parse_pdf_stream`'s consumption.
+    """
+    pdf_bytes = _make_simple_pdf(2)
+
+    # ODL output keyed 1-based exactly like odl_service._parse_odl_json.
+    # The layout analyser expects the per-page dict to expose enough hints
+    # for `_extract_odl_table_md` to recognise a table; a `type: "table"`
+    # node with pipe-delimited content satisfies that path.
+    odl_pages = {
+        1: {"type": "table", "content": "| col1 | col2 |\n| 1 | 2 |"},
+        2: {"text": "page two body text"},
+    }
+
+    captured_batches: List[List[Dict]] = []
+
+    async def capturing_batch(slides, ai_model="groq", blueprint=None):
+        captured_batches.append(slides)
+        return _fake_text_batch(slides, ai_model, blueprint)
+
+    monkeypatch.setattr(fps, "batch_analyze_text_slides", capturing_batch)
+
+    events = await _drain(
+        fps.parse_pdf_stream(
+            pdf_bytes,
+            filename="t.pdf",
+            ai_model="groq",
+            use_blueprint=False,
+            odl_pages=odl_pages,
+        )
+    )
+
+    # All input slides should have surfaced as slide events.
+    slide_events = [e for e in events if e["type"] == "slide"]
+    assert {e["index"] for e in slide_events} == {0, 1}
+
+    # Find the slide-0 batch input and assert the ODL table markdown was
+    # injected (with the documented prefix) instead of raw PyMuPDF text.
+    flat_inputs = {s["index"]: s for batch in captured_batches for s in batch}
+    assert 0 in flat_inputs
+    text_for_slide_0 = flat_inputs[0]["text"]
+    assert "structured table" in text_for_slide_0
+    assert "| col1 | col2 |" in text_for_slide_0
+
+
 async def test_cached_blueprint_short_circuits_planning(monkeypatch, patch_pipeline_deps):
     pdf_bytes = _make_simple_pdf(2)
     cached_bp = {
