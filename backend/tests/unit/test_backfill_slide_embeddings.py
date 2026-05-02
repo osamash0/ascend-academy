@@ -244,6 +244,59 @@ async def test_attach_failure_is_surfaced(seed_cache, fake_embed, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_pagination_handles_more_than_one_page(
+    patch_supabase, fake_embed, monkeypatch
+):
+    """Legacy backlog can exceed PostgREST's 1000-row cap; paginate or lose rows."""
+    monkeypatch.setattr(bf, "supabase_admin", patch_supabase, raising=True)
+    # Force tiny pages so the test exercises the loop without 1000+ fixtures.
+    monkeypatch.setattr(bf, "PAGE_SIZE", 50, raising=True)
+
+    total_slides = 130  # 2 full pages + a partial → forces ≥3 page reads
+    rows = []
+    for i in range(total_slides):
+        rows.append({
+            "pdf_hash": PDF_HASH,
+            "slide_index": i,
+            "pipeline_version": PIPELINE,
+            "slide_data": _slide(f"Slide {i}", content=f"body {i}"),
+        })
+    patch_supabase.seed("slide_parse_cache", rows)
+
+    stats = await bf.backfill(pipeline_version=PIPELINE)
+
+    assert stats.slides_seen == total_slides
+    assert stats.slides_embedded == total_slides
+    assert len(patch_supabase.tables["slide_embeddings"]) == total_slides
+    indices = sorted(r["slide_index"] for r in patch_supabase.tables["slide_embeddings"])
+    assert indices == list(range(total_slides))
+
+
+@pytest.mark.asyncio
+async def test_pagination_lists_all_pdf_hashes(
+    patch_supabase, fake_embed, monkeypatch
+):
+    """`_list_pdf_hashes` must walk every page, not just the first."""
+    monkeypatch.setattr(bf, "supabase_admin", patch_supabase, raising=True)
+    monkeypatch.setattr(bf, "PAGE_SIZE", 10, raising=True)
+
+    hashes = [f"{i:064x}" for i in range(25)]
+    rows = [
+        {
+            "pdf_hash": h,
+            "slide_index": 0,
+            "pipeline_version": PIPELINE,
+            "slide_data": _slide("S", content="c"),
+        }
+        for h in hashes
+    ]
+    patch_supabase.seed("slide_parse_cache", rows)
+
+    listed = bf._list_pdf_hashes(PIPELINE)
+    assert sorted(listed) == sorted(hashes)
+
+
+@pytest.mark.asyncio
 async def test_pipeline_version_isolates_results(seed_cache, fake_embed):
     seed_cache.seed(
         "slide_parse_cache",

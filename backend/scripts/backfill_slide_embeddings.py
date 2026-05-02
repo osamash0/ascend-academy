@@ -51,6 +51,43 @@ from backend.services.file_parse_service import (
 
 logger = logging.getLogger(__name__)
 
+# PostgREST defaults to a 1000-row response cap.  Pick a page size strictly
+# below that so a `.range()` window is never silently truncated.
+PAGE_SIZE = 500
+
+
+def _paginated_select(
+    table: str,
+    columns: str,
+    eq_filters: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Read every row matching `eq_filters`, walking PostgREST in pages.
+
+    PostgREST returns at most ~1000 rows per request unless `Range` is set;
+    a one-shot `.execute()` would silently drop the rest of a large legacy
+    backlog, which is exactly the data this script needs to find.
+    """
+    all_rows: List[Dict[str, Any]] = []
+    start = 0
+    while True:
+        q = supabase_admin.table(table).select(columns)
+        for col, val in eq_filters.items():
+            q = q.eq(col, val)
+        end = start + PAGE_SIZE - 1
+        try:
+            res = q.range(start, end).execute()
+        except Exception as e:
+            logger.error(
+                "Paginated read of %s failed at offset %d: %s", table, start, e
+            )
+            break
+        batch = res.data or []
+        all_rows.extend(batch)
+        if len(batch) < PAGE_SIZE:
+            break
+        start += PAGE_SIZE
+    return all_rows
+
 
 @dataclass
 class BackfillStats:
@@ -84,19 +121,14 @@ def _is_metadata_slide(slide: Dict[str, Any]) -> bool:
 
 def _list_pdf_hashes(pipeline_version: str) -> List[str]:
     """Return distinct pdf_hashes that have at least one cached slide."""
-    try:
-        res = (
-            supabase_admin.table("slide_parse_cache")
-            .select("pdf_hash")
-            .eq("pipeline_version", pipeline_version)
-            .execute()
-        )
-    except Exception as e:
-        logger.error("Failed to list pdf_hashes: %s", e)
-        return []
+    rows = _paginated_select(
+        "slide_parse_cache",
+        "pdf_hash",
+        {"pipeline_version": pipeline_version},
+    )
     seen: Set[str] = set()
     ordered: List[str] = []
-    for row in res.data or []:
+    for row in rows:
         h = row.get("pdf_hash")
         if h and h not in seen:
             seen.add(h)
@@ -108,20 +140,14 @@ def _load_cached_slides(
     pdf_hash: str, pipeline_version: str
 ) -> Dict[int, Dict[str, Any]]:
     """Return {slide_index: slide_data} for one pdf_hash."""
-    try:
-        res = (
-            supabase_admin.table("slide_parse_cache")
-            .select("slide_index,slide_data")
-            .eq("pdf_hash", pdf_hash)
-            .eq("pipeline_version", pipeline_version)
-            .execute()
-        )
-    except Exception as e:
-        logger.error("Failed to load slides for %s: %s", pdf_hash, e)
-        return {}
+    rows = _paginated_select(
+        "slide_parse_cache",
+        "slide_index,slide_data",
+        {"pdf_hash": pdf_hash, "pipeline_version": pipeline_version},
+    )
     return {
         int(row["slide_index"]): row.get("slide_data") or {}
-        for row in (res.data or [])
+        for row in rows
         if row.get("slide_index") is not None
     }
 
@@ -130,20 +156,14 @@ def _existing_embedding_indices(
     pdf_hash: str, pipeline_version: str
 ) -> Set[int]:
     """Return slide indices already embedded for one pdf_hash."""
-    try:
-        res = (
-            supabase_admin.table("slide_embeddings")
-            .select("slide_index")
-            .eq("pdf_hash", pdf_hash)
-            .eq("pipeline_version", pipeline_version)
-            .execute()
-        )
-    except Exception as e:
-        logger.warning("Failed to read existing embeddings for %s: %s", pdf_hash, e)
-        return set()
+    rows = _paginated_select(
+        "slide_embeddings",
+        "slide_index",
+        {"pdf_hash": pdf_hash, "pipeline_version": pipeline_version},
+    )
     return {
         int(row["slide_index"])
-        for row in (res.data or [])
+        for row in rows
         if row.get("slide_index") is not None
     }
 
