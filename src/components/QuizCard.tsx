@@ -11,7 +11,18 @@ interface QuizCardProps {
   questionNumber: number;
   totalQuestions: number;
   initialSelectedAnswer?: number | null;
+  /** One-sentence justification rendered behind a "Show Explanation" toggle. */
   explanation?: string;
+  /** Concept tested by the question; rendered as a small badge above the question. */
+  concept?: string;
+  /**
+   * For cross-slide deck questions, the 1-based slide numbers a student needs
+   * to combine. Rendered as a row of "Slide N" chips so students can jump
+   * back to the source material.
+   */
+  linkedSlides?: number[];
+  /** Click handler for a linked-slide chip. */
+  onJumpToSlide?: (slideNumber: number) => void;
 }
 
 const shakeVariants = {
@@ -42,6 +53,9 @@ export const QuizCard = memo(function QuizCard({
   totalQuestions,
   initialSelectedAnswer = null,
   explanation,
+  concept,
+  linkedSlides,
+  onJumpToSlide,
 }: QuizCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(initialSelectedAnswer);
   const [showResult, setShowResult] = useState(initialSelectedAnswer !== null);
@@ -119,6 +133,45 @@ export const QuizCard = memo(function QuizCard({
           </div>
         </div>
       </div>
+
+      {(concept || (linkedSlides && linkedSlides.length > 0)) && (
+        <div
+          className="flex flex-wrap items-center gap-2 mb-4"
+          data-testid="quiz-meta-row"
+        >
+          {concept && (
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20"
+              data-testid="quiz-concept-badge"
+            >
+              Concept · {concept}
+            </span>
+          )}
+          {linkedSlides && linkedSlides.length > 0 && (
+            <div
+              className="flex flex-wrap items-center gap-1.5"
+              data-testid="quiz-linked-slides"
+              aria-label="Linked slides"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                Connects:
+              </span>
+              {linkedSlides.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => onJumpToSlide?.(n)}
+                  disabled={!onJumpToSlide}
+                  className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-surface-2 border border-white/10 text-foreground hover:border-primary/40 hover:text-primary transition-colors disabled:cursor-default disabled:hover:border-white/10 disabled:hover:text-foreground"
+                  aria-label={`Jump to slide ${n}`}
+                >
+                  Slide {n}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <h3 className="text-2xl font-bold text-foreground mb-10 tracking-tight leading-tight">
         {question}

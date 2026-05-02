@@ -9,6 +9,27 @@ export interface QuestionData {
   question: string;
   options: string[];
   correctAnswer: number;
+  /** One-sentence justification for the correct option (concept-testing prompt). */
+  explanation?: string;
+  /** Concept the question is testing (e.g. proposed_title from the planner). */
+  concept?: string;
+  /** Cognitive level targeted by the question. */
+  cognitive_level?: 'recall' | 'apply' | 'analyse';
+}
+
+/**
+ * A single cross-slide quiz item from the deck-complete SSE event. Carries
+ * 0-based ``linked_slides`` indices the question depends on; persistence
+ * anchors the row to the first linked slide and stores the full list in
+ * ``quiz_questions.metadata.linked_slides`` for the UI to render chips.
+ */
+export interface DeckQuizItem {
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation?: string;
+  concept?: string;
+  linked_slides: number[];
 }
 
 export interface SlideStatus {

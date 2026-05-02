@@ -57,23 +57,36 @@ function executeQuery(data: MockData, q: QueryState) {
 
   if (q.mutation === "insert") {
     const items = Array.isArray(q.payload) ? q.payload : [q.payload];
+    // Mirror PostgREST: when chained with .select(), the inserted rows are
+    // returned WITH any server-generated id. We always include the id so
+    // .single() chains see it (callers that don't .select() ignore .data).
+    const inserted: Record<string, unknown>[] = [];
     for (const it of items as Record<string, unknown>[]) {
-      table.rows.push({ id: `mock-id-${table.rows.length + 1}`, ...it });
+      const row = { id: (it as { id?: string }).id ?? `mock-id-${table.rows.length + 1}`, ...it };
+      table.rows.push(row);
+      inserted.push(row);
     }
-    return { data: items, error: null };
+    return { data: inserted, error: null };
   }
   if (q.mutation === "upsert") {
     const items = Array.isArray(q.payload) ? q.payload : [q.payload];
+    const upserted: Record<string, unknown>[] = [];
     for (const it of items as Record<string, unknown>[]) {
       const keys = (q.onConflict || "").split(",").filter(Boolean);
       const existing =
         keys.length > 0
           ? table.rows.find((r) => keys.every((k) => r[k] === it[k]))
           : undefined;
-      if (existing) Object.assign(existing, it);
-      else table.rows.push({ id: `mock-id-${table.rows.length + 1}`, ...it });
+      if (existing) {
+        Object.assign(existing, it);
+        upserted.push(existing);
+      } else {
+        const row = { id: (it as { id?: string }).id ?? `mock-id-${table.rows.length + 1}`, ...it };
+        table.rows.push(row);
+        upserted.push(row);
+      }
     }
-    return { data: items, error: null };
+    return { data: upserted, error: null };
   }
 
   let result = table.rows.filter((r) => rowMatches(r, q.filters));

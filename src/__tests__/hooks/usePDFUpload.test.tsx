@@ -58,6 +58,11 @@ describe("usePDFUpload", () => {
     expect(setActive).toHaveBeenCalledWith(0);
     expect(setTitle).toHaveBeenCalled();
     expect(result.current.parserUsed).toBe("pymupdf");
+    // deck_complete payload from MSW handler captured into state
+    expect(result.current.deckQuiz).toHaveLength(1);
+    expect(result.current.deckQuiz[0].linked_slides).toEqual([0, 1]);
+    expect(result.current.deckQuiz[0].concept).toBe("bridging");
+    expect(result.current.deckQuiz[0].explanation).toBe("links A and B");
   });
 
   it("rejects non-PDF files", async () => {

@@ -50,6 +50,22 @@ export interface QuizQuestion {
   question_text: string;
   options: string[];
   correct_answer: number;
+  /**
+   * One-sentence justification for the correct answer (from the upgraded
+   * concept-testing quiz prompt). Optional so older rows without metadata
+   * don't break consumers.
+   */
+  explanation?: string;
+  /** The concept the question is testing (e.g. the slide's proposed_title). */
+  concept?: string;
+  /** Cognitive level targeted by the question. */
+  cognitive_level?: 'recall' | 'apply' | 'analyse';
+  /**
+   * For deck-level cross-slide questions, the 0-based slide indices that
+   * a student needs to combine to answer correctly. Always present (may be
+   * empty) on cross-slide questions; absent on per-slide questions.
+   */
+  linked_slides?: number[];
 }
 
 // ─── Progress ────────────────────────────────────────────────────────────────

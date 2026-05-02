@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { insertQuizQuestion } from '@/services/lectureService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
-import type { SlideData } from '@/types/lectureUpload';
+import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
 
 interface UseLectureSubmitOptions {
   slides: SlideData[];
@@ -12,11 +12,18 @@ interface UseLectureSubmitOptions {
   description: string;
   pdfFile: File | null;
   pdfHash?: string | null;
+  /**
+   * Cross-slide quiz items captured from the upload SSE ``deck_complete``
+   * event. Each item is anchored to its first ``linked_slides`` index when
+   * persisted; the full list is stored in ``quiz_questions.metadata.linked_slides``
+   * so the player can render slide-jump chips.
+   */
+  deckQuiz?: DeckQuizItem[];
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash }: UseLectureSubmitOptions) {
+export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, deckQuiz }: UseLectureSubmitOptions) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -93,6 +100,10 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash 
           }
         }
 
+        // Map slide index → inserted slide UUID so we can anchor cross-slide
+        // deck quiz items to a real slide_id once all slides exist.
+        const slideIdByIndex: string[] = new Array(slides.length);
+
         for (let i = 0; i < slides.length; i++) {
           const slideData = slides[i];
           const { data: slide, error: slideError } = await supabase
@@ -108,6 +119,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash 
             .single();
 
           if (slideError) throw slideError;
+          slideIdByIndex[i] = slide.id;
 
           for (const q of slideData.questions) {
             if (q.question.trim()) {
@@ -116,8 +128,38 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash 
                 question_text: q.question,
                 options: q.options.filter((o: string) => o.trim()),
                 correct_answer: q.correctAnswer,
+                metadata: {
+                  explanation: q.explanation,
+                  concept: q.concept,
+                  cognitive_level: q.cognitive_level,
+                },
               });
             }
+          }
+        }
+
+        // Persist cross-slide deck quiz items. Anchor each row to the first
+        // valid linked slide; the full ``linked_slides`` list lives in
+        // metadata so the player renders chips for all of them.
+        if (deckQuiz && deckQuiz.length > 0) {
+          for (const dq of deckQuiz) {
+            const validLinks = dq.linked_slides.filter(
+              (idx) => Number.isInteger(idx) && idx >= 0 && idx < slideIdByIndex.length,
+            );
+            if (validLinks.length < 2) continue;
+            const anchorSlideId = slideIdByIndex[validLinks[0]];
+            if (!anchorSlideId) continue;
+            await insertQuizQuestion({
+              slide_id: anchorSlideId,
+              question_text: dq.question,
+              options: dq.options.filter((o: string) => o.trim()),
+              correct_answer: dq.correctAnswer,
+              metadata: {
+                explanation: dq.explanation,
+                concept: dq.concept,
+                linked_slides: validLinks,
+              },
+            });
           }
         }
 
@@ -130,7 +172,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash 
         setLoading(false);
       }
     },
-    [slides, title, description, pdfFile, pdfHash, user, navigate, toast]
+    [slides, title, description, pdfFile, pdfHash, deckQuiz, user, navigate, toast]
   );
 
   return { loading, handleSubmit };

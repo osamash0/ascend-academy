@@ -602,7 +602,10 @@ async def _stage_finalize_deck(
             )
             summary = await generate_deck_summary(all_text, final_model)
 
-        quiz = await generate_deck_quiz(summary, final_model)
+        # Pass the blueprint so generate_deck_quiz can produce a CROSS-SLIDE
+        # quiz (linked_slides + concept) when the planner has identified
+        # cross-slide concepts. Falls back to a summary-only quiz otherwise.
+        quiz = await generate_deck_quiz(summary, final_model, blueprint=blueprint)
         yield {"type": "deck_complete", "deck_summary": summary, "deck_quiz": quiz}
         yield {"type": "complete", "total": len(layouts)}
 

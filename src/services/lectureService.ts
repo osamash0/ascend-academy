@@ -67,24 +67,60 @@ export async function fetchSlides(lectureId: string): Promise<Slide[]> {
 
 export async function fetchQuizQuestions(lectureId: string): Promise<QuizQuestion[]> {
   // We need to fetch questions for all slides belonging to this lecture
-  // Since there is no direct lecture_id in quiz_questions, we join with slides
-  const { data, error } = await supabase
+  // Since there is no direct lecture_id in quiz_questions, we join with slides.
+  // ``metadata`` carries the concept-testing fields (explanation/concept/...)
+  // produced by the upgraded quiz prompt; it is optional and defaults to '{}'.
+  // The column is added in supabase/migrations/20260503000007_quiz_metadata.sql
+  // and MUST be applied before this code runs — PostgREST returns a 42703
+  // "column does not exist" error if the migration is missing. We retry the
+  // query without ``metadata`` in that case so the rest of the lecture view
+  // keeps working during a partial rollout (server upgraded, DB migration
+  // not yet applied).
+  let { data, error } = await supabase
     .from('quiz_questions')
-    .select('id, slide_id, question_text, options, correct_answer, slides!inner(lecture_id)')
+    .select('id, slide_id, question_text, options, correct_answer, metadata, slides!inner(lecture_id)' as string)
     .eq('slides.lecture_id', lectureId);
-  
+
+  if (error && /column .*metadata.* does not exist/i.test(error.message ?? '')) {
+    console.warn(
+      `quiz_questions.metadata column missing — falling back to legacy ` +
+      `schema. Apply migration 20260503000007_quiz_metadata.sql to enable ` +
+      `concept-testing fields. (lecture ${lectureId})`,
+    );
+    const fallback = await supabase
+      .from('quiz_questions')
+      .select('id, slide_id, question_text, options, correct_answer, slides!inner(lecture_id)')
+      .eq('slides.lecture_id', lectureId);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error) {
     console.error(`Error fetching quiz questions for lecture ${lectureId}:`, error);
     return [];
   }
 
-  return (data ?? []).map(q => ({
-    id: q.id,
-    slide_id: q.slide_id,
-    question_text: q.question_text,
-    options: Array.isArray(q.options) ? q.options as string[] : [],
-    correct_answer: q.correct_answer
-  }));
+  return (data ?? []).map((q: Record<string, unknown>) => {
+    const meta = (q.metadata as Record<string, unknown> | null | undefined) ?? {};
+    return {
+      id: q.id as string,
+      slide_id: q.slide_id as string,
+      question_text: q.question_text as string,
+      options: Array.isArray(q.options) ? (q.options as string[]) : [],
+      correct_answer: q.correct_answer as number,
+      explanation: typeof meta.explanation === 'string' ? meta.explanation : undefined,
+      concept: typeof meta.concept === 'string' ? meta.concept : undefined,
+      cognitive_level:
+        meta.cognitive_level === 'recall' ||
+        meta.cognitive_level === 'apply' ||
+        meta.cognitive_level === 'analyse'
+          ? meta.cognitive_level
+          : undefined,
+      linked_slides: Array.isArray(meta.linked_slides)
+        ? (meta.linked_slides as unknown[]).filter((n): n is number => typeof n === 'number')
+        : undefined,
+    };
+  });
 }
 
 export async function updateSlideContent(
@@ -108,10 +144,42 @@ export interface QuizQuestionInput {
   question_text: string;
   options: string[];
   correct_answer: number;
+  /**
+   * Optional concept-testing fields. Persisted into the ``metadata`` jsonb
+   * column added in 20260503000007_quiz_metadata.sql. Omitted keys are
+   * skipped (we don't write nulls) so the column default ``{}`` stays clean
+   * for manually-authored questions.
+   */
+  metadata?: {
+    explanation?: string;
+    concept?: string;
+    cognitive_level?: 'recall' | 'apply' | 'analyse';
+    linked_slides?: number[];
+  };
 }
 
 export async function insertQuizQuestion(q: QuizQuestionInput): Promise<void> {
-  await supabase.from('quiz_questions').insert(q);
+  // Trim the metadata down to only its populated keys before INSERT so we
+  // don't pollute the column with explicit "undefined"s that PostgREST would
+  // serialize as nulls.
+  const cleanedMetadata =
+    q.metadata
+      ? Object.fromEntries(
+          Object.entries(q.metadata).filter(
+            ([, v]) => v !== undefined && v !== null && v !== '',
+          ),
+        )
+      : undefined;
+  const payload: Record<string, unknown> = {
+    slide_id: q.slide_id,
+    question_text: q.question_text,
+    options: q.options,
+    correct_answer: q.correct_answer,
+  };
+  if (cleanedMetadata && Object.keys(cleanedMetadata).length > 0) {
+    payload.metadata = cleanedMetadata;
+  }
+  await supabase.from('quiz_questions').insert(payload);
 }
 
 export async function updateQuizQuestion(

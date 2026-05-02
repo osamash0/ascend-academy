@@ -120,6 +120,21 @@ export const defaultHandlers = [
             ],
           },
         })}\n\n`,
+        `data: ${JSON.stringify({
+          type: "deck_complete",
+          deck_summary: "deck sum",
+          deck_quiz: [
+            {
+              question: "Cross Q?",
+              options: ["a", "b", "c", "d"],
+              correctAnswer: 1,
+              concept: "bridging",
+              explanation: "links A and B",
+              linked_slides: [0, 1],
+            },
+          ],
+          total_slides: 1,
+        })}\n\n`,
         `data: ${JSON.stringify({ type: "complete", total: 1 })}\n\n`,
       ].join("");
     return new HttpResponse(body, {

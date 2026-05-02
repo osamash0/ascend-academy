@@ -518,12 +518,232 @@ async def generate_deck_summary(content: str, ai_model: str = "groq") -> str:
     )
 
 
-async def generate_deck_quiz(summary: str, ai_model: str = "groq") -> List[Dict[str, Any]]:
-    raw = await generate_text(
-        "Create a 5-question multiple choice quiz based on this summary. "
-        "Return JSON array of {question, options, answer}:\n\n" + summary
+def _build_cross_slide_quiz_prompt(blueprint: Dict[str, Any], summary: str) -> str:
+    """Render the cross-slide quiz prompt from a Master Plan blueprint.
+
+    Surfaces ``cross_slide_quiz_concepts``, slide titles, narrative-arc
+    takeaways, and per-slide ``related_previous_slides`` bridges so the LLM
+    grounds ``linked_slides`` in real planner indices.
+    """
+    from backend.services.ai.prompts import CROSS_SLIDE_DECK_QUIZ_PROMPT
+
+    concepts = blueprint.get("cross_slide_quiz_concepts") or []
+    plans    = blueprint.get("slide_plans") or []
+    arc      = blueprint.get("narrative_arc") or []
+
+    cross_concepts = "\n".join(f"- {c}" for c in concepts if c) or "- (none provided)"
+
+    slide_titles_lines: List[str] = []
+    for p in plans:
+        if not isinstance(p, dict):
+            continue
+        idx = p.get("index")
+        title = (p.get("proposed_title") or "").strip()
+        if idx is None or not title:
+            continue
+        slide_titles_lines.append(f"- slide {idx}: {title}")
+    slide_titles = "\n".join(slide_titles_lines) or "- (no slide titles)"
+
+    # Build "slide N depends on slides X, Y" lines from related_previous_slides,
+    # filtered to indices the planner actually emitted.
+    valid_indices = {
+        p.get("index") for p in plans
+        if isinstance(p, dict) and isinstance(p.get("index"), int)
+    }
+    bridge_lines: List[str] = []
+    for p in plans:
+        if not isinstance(p, dict):
+            continue
+        idx = p.get("index")
+        rel = p.get("related_previous_slides") or []
+        if not isinstance(idx, int) or not isinstance(rel, list):
+            continue
+        valid_rel = sorted({
+            r for r in rel
+            if isinstance(r, int) and r != idx and r in valid_indices and r >= 0
+        })
+        if valid_rel:
+            bridge_lines.append(
+                f"- slide {idx} builds on slide(s) "
+                + ", ".join(str(r) for r in valid_rel)
+            )
+    slide_bridges = "\n".join(bridge_lines) or "- (no explicit bridges from planner)"
+
+    takeaways_lines: List[str] = []
+    for s in arc:
+        if not isinstance(s, dict):
+            continue
+        section = s.get("section_name", "")
+        for kt in s.get("key_takeaways") or []:
+            if kt:
+                takeaways_lines.append(f"- {section}: {kt}")
+    section_takeaways = "\n".join(takeaways_lines) or "- (none provided)"
+
+    return CROSS_SLIDE_DECK_QUIZ_PROMPT.format(
+        cross_concepts=cross_concepts,
+        section_takeaways=section_takeaways,
+        slide_titles=slide_titles,
+        slide_bridges=slide_bridges,
+        summary=(summary or "").strip()[:3000],
     )
-    return parse_json_response(raw)
+
+
+def _has_cross_slide_signal(blueprint: Optional[Dict[str, Any]]) -> bool:
+    """True when the blueprint has both cross-slide concepts AND slide_plans
+    (without slide titles the LLM has no grounded indices for ``linked_slides``)."""
+    if not blueprint:
+        return False
+    concepts = blueprint.get("cross_slide_quiz_concepts") or []
+    plans    = blueprint.get("slide_plans") or []
+    return bool(concepts) and bool(plans)
+
+
+async def generate_deck_quiz(
+    summary: str,
+    ai_model: str = "groq",
+    blueprint: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Generate a 5-question deck quiz.
+
+    With a blueprint carrying cross-slide signal we use the cross-slide
+    prompt and require ``len(linked_slides) >= 2``; otherwise we fall back
+    to the legacy summary-only prompt. Each question gets one validator
+    retry; cross-slide questions that still fail are repaired
+    deterministically against the planner's concept→indices map and
+    dropped if no valid pair can be assembled.
+    """
+    from backend.services.ai.prompts import DECK_QUIZ_PROMPT
+    from backend.services.ai.quiz_validator import (
+        coerce_linked_slides,
+        validate_and_regenerate,
+        validate_cross_slide_question,
+        validate_mcq,
+    )
+
+    use_cross = _has_cross_slide_signal(blueprint)
+    if use_cross:
+        prompt = _build_cross_slide_quiz_prompt(blueprint, summary)
+    else:
+        prompt = DECK_QUIZ_PROMPT + (summary or "")
+
+    raw = await generate_text(prompt)
+    parsed = parse_json_response(raw)
+    if not isinstance(parsed, list):
+        return []
+
+    # Slide-index set + concept→indices map for cross-slide validate/repair.
+    slide_index_set: set = set()
+    concept_to_indices: Dict[str, List[int]] = {}
+    if use_cross and blueprint:
+        for p in blueprint.get("slide_plans") or []:
+            if not isinstance(p, dict):
+                continue
+            i = p.get("index")
+            if isinstance(i, int):
+                slide_index_set.add(i)
+                title = (p.get("proposed_title") or "").lower()
+                for c in (p.get("concepts") or []):
+                    if isinstance(c, str) and c.strip():
+                        concept_to_indices.setdefault(c.strip().lower(), []).append(i)
+                if title:
+                    concept_to_indices.setdefault(title, []).append(i)
+
+    # Lazy single regeneration shared across all failing questions, so the
+    # deck quiz never costs more than 2 LLM calls.
+    regen_cache: Dict[str, Any] = {"items": None, "called": False}
+
+    async def _get_regen_for(i: int, original: Dict[str, Any]) -> Dict[str, Any]:
+        if not regen_cache["called"]:
+            regen_cache["called"] = True
+            try:
+                raw2 = await generate_text(prompt)
+                items = parse_json_response(raw2)
+                regen_cache["items"] = items if isinstance(items, list) else []
+            except Exception as exc:
+                logger.warning("Deck quiz regeneration failed: %s", exc)
+                regen_cache["items"] = []
+        items = regen_cache["items"] or []
+        if i < len(items) and isinstance(items[i], dict):
+            return items[i]
+        return original
+
+    def _validator(q: Dict[str, Any]) -> Tuple[bool, str]:
+        if use_cross:
+            return validate_cross_slide_question(q, slide_index_set or None)
+        return validate_mcq(q)
+
+    def _repair_linked_slides(q: Dict[str, Any]) -> List[int]:
+        """Deterministic fix when the LLM returns < 2 indices: keep valid
+        ones, then look up ``concept`` in the planner map, then pad from
+        the slide-index set."""
+        existing = [
+            i for i in coerce_linked_slides(q.get("linked_slides"))
+            if not slide_index_set or i in slide_index_set
+        ]
+        if len(existing) >= 2:
+            return existing
+
+        concept = (q.get("concept") or "").strip().lower()
+        candidate_pool: List[int] = list(existing)
+        if concept and concept in concept_to_indices:
+            for idx in concept_to_indices[concept]:
+                if idx not in candidate_pool:
+                    candidate_pool.append(idx)
+        if len(candidate_pool) < 2:
+            # Fuzzy contains-match against any concept key
+            if concept:
+                for key, idxs in concept_to_indices.items():
+                    if key in concept or concept in key:
+                        for idx in idxs:
+                            if idx not in candidate_pool:
+                                candidate_pool.append(idx)
+                                if len(candidate_pool) >= 2:
+                                    break
+                    if len(candidate_pool) >= 2:
+                        break
+        if len(candidate_pool) < 2:
+            # Final fallback: pad from the slide map's lowest indices.
+            for idx in sorted(slide_index_set):
+                if idx not in candidate_pool:
+                    candidate_pool.append(idx)
+                if len(candidate_pool) >= 2:
+                    break
+        return sorted(set(candidate_pool[:max(2, len(candidate_pool))]))
+
+    out: List[Dict[str, Any]] = []
+    for i, item in enumerate(parsed):
+        if not isinstance(item, dict):
+            continue
+        validated = await validate_and_regenerate(
+            item,
+            lambda i=i, item=item: _get_regen_for(i, item),
+            validator=_validator,
+        )
+        if use_cross:
+            cleaned = coerce_linked_slides(validated.get("linked_slides"))
+            if slide_index_set:
+                cleaned = [c for c in cleaned if c in slide_index_set]
+            if len(cleaned) < 2:
+                # Validator + one regen failed. Repair deterministically so
+                # the cross-slide contract (>= 2 linked slides) is never
+                # violated downstream.
+                repaired = _repair_linked_slides(validated)
+                if len(repaired) >= 2:
+                    logger.info(
+                        "Repaired linked_slides for cross-slide question "
+                        "%d (LLM gave %s → using %s).",
+                        i, validated.get("linked_slides"), repaired,
+                    )
+                    cleaned = repaired
+                else:
+                    logger.warning(
+                        "Could not repair linked_slides for question %d; "
+                        "dropping it from the deck quiz.", i,
+                    )
+                    continue
+            validated["linked_slides"] = cleaned
+        out.append(validated)
+    return out
 
 
 async def batch_analyze_text_slides(
@@ -623,7 +843,143 @@ async def batch_analyze_text_slides(
                     "content": s["text"], "summary": "", "questions": []}
                    for s in slides]
 
+    # Validate the per-slide MCQ. To honour the one-shot regenerate contract
+    # for per-slide quizzes too — without burning N extra LLM calls — we
+    # collect every failing slide and re-prompt them together in a single
+    # follow-up batch call. That keeps cost bounded at O(2 calls per upload)
+    # while still letting us replace the worst MCQs (duplicate options,
+    # all/none-of-the-above, missing answers) with cleaner ones.
+    from backend.services.ai.quiz_validator import validate_mcq
+
+    failing: List[Tuple[int, Dict[str, Any]]] = []  # (results-list pos, slide row)
+    for pos, r in enumerate(results):
+        questions = r.get("questions") if isinstance(r, dict) else None
+        if not isinstance(questions, list) or not questions:
+            continue
+        q0 = questions[0]
+        ok, reason = validate_mcq(q0) if isinstance(q0, dict) else (False, "not a dict")
+        if not ok:
+            logger.info(
+                "Slide %s quiz failed validation (%s); will re-prompt in batch.",
+                r.get("index"), reason,
+            )
+            failing.append((pos, r))
+
+    if failing:
+        await _regenerate_failing_slide_quizzes(failing, slides, idx_to_plan)
+
     return results
+
+
+async def _regenerate_failing_slide_quizzes(
+    failing: List[Tuple[int, Dict[str, Any]]],
+    slides: List[Dict[str, Any]],
+    idx_to_plan: Dict[int, Dict],
+) -> None:
+    """One batched LLM retry for per-slide quizzes that failed validation.
+
+    Mutates ``failing``'s result dicts in place when the regenerated
+    question validates, otherwise keeps the original (one-retry contract).
+    Cost is bounded at +1 call per upload regardless of failure count.
+    """
+    from backend.services.ai.prompts import BATCH_SLIDE_QUIZ_REGEN_PROMPT
+    from backend.services.ai.quiz_validator import validate_mcq
+
+    pn_to_slide = {s["page_number"]: s for s in slides}
+
+    # Compact regen prompt: failing slides' text + planner concepts, marked
+    # with === SLIDE N === so the LLM can echo page_number back.
+    sections: List[str] = []
+    failing_pages: List[int] = []
+    for _pos, r in failing:
+        idx = r.get("index")
+        slide_row = next((s for s in slides if s["index"] == idx), None)
+        if slide_row is None:
+            continue
+        page = slide_row["page_number"]
+        failing_pages.append(page)
+        body = slide_row["text"] or "(no extracted text)"
+        plan = idx_to_plan.get(idx) or {}
+        proposed = plan.get("proposed_title") or r.get("title") or ""
+        concepts = ", ".join(plan.get("concepts", [])[:4])
+        header_bits = []
+        if proposed:
+            header_bits.append(f"Proposed title: {proposed}")
+        if concepts:
+            header_bits.append(f"Key concepts: {concepts}")
+        header = f"[{' | '.join(header_bits)}]\n" if header_bits else ""
+        sections.append(f"=== SLIDE {page} ===\n{header}{body}")
+
+    if not sections:
+        return
+
+    full_prompt = BATCH_SLIDE_QUIZ_REGEN_PROMPT + "\n\n" + "\n\n".join(sections)
+
+    try:
+        from backend.services.llm_client import call_llm
+        raw = await call_llm(
+            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN)
+        )
+    except Exception as exc:
+        logger.warning(
+            "Per-slide quiz regeneration batch failed (%s); keeping originals.",
+            exc,
+        )
+        return
+
+    parsed = parse_json_response(raw)
+    if isinstance(parsed, dict):
+        parsed = [parsed]
+    if not isinstance(parsed, list):
+        logger.info(
+            "Per-slide quiz regeneration produced no usable list; keeping originals.",
+        )
+        return
+
+    # Index by page_number when present; fall back to positional alignment.
+    by_page: Dict[int, Dict[str, Any]] = {}
+    leftover: List[Dict[str, Any]] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        page = item.get("page_number")
+        if isinstance(page, int) and page in pn_to_slide:
+            by_page[page] = item
+        else:
+            leftover.append(item)
+
+    replaced = 0
+    for (pos, r), page in zip(failing, failing_pages):
+        new_item = by_page.get(page)
+        if new_item is None and leftover:
+            new_item = leftover.pop(0)
+        if not isinstance(new_item, dict):
+            continue
+        new_qs = new_item.get("questions")
+        if not isinstance(new_qs, list) or not new_qs:
+            continue
+        new_q0 = new_qs[0]
+        if not isinstance(new_q0, dict):
+            continue
+        # One-retry contract (matches validate_and_regenerate): accept the
+        # regen result as-is even if it's still imperfect — we promised one
+        # regeneration, not infinite quality. Validation is just informational.
+        ok, _reason = validate_mcq(new_q0)
+        if not ok:
+            logger.info(
+                "Per-slide quiz regen for slide %s still failed validation "
+                "(%s); accepting per one-retry contract.",
+                page, _reason,
+            )
+        r["questions"] = [new_q0]
+        replaced += 1
+
+    if replaced:
+        logger.info(
+            "Per-slide quiz regeneration: replaced %d/%d failing slide "
+            "quizzes via single batched retry.",
+            replaced, len(failing),
+        )
 
 
 # ---------------------------------------------------------------------------

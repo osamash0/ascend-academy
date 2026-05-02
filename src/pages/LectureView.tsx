@@ -283,9 +283,19 @@ export default function LectureView() {
     }
   };
 
-  // Refined: Only get questions for the REALLY current slide ID
-  const currentSlideQuestions = questions.filter(q => q.slide_id === currentSlide?.id);
-  const currentQuestion = currentSlideQuestions[0]; // Assuming 1 question per slide for now
+  // Get questions for the current slide. When a slide has both a per-slide
+  // quiz AND an anchored cross-slide deck quiz item, we surface the deck
+  // (cross-slide) question first — it's the more pedagogically valuable
+  // assessment and otherwise gets shadowed by the [0] selection below.
+  const currentSlideQuestions = questions
+    .filter(q => q.slide_id === currentSlide?.id)
+    .slice()
+    .sort((a, b) => {
+      const aCross = (a.linked_slides?.length ?? 0) >= 2 ? 0 : 1;
+      const bCross = (b.linked_slides?.length ?? 0) >= 2 ? 0 : 1;
+      return aCross - bCross;
+    });
+  const currentQuestion = currentSlideQuestions[0];
 
   const saveProgress = async (newSlideIndex: number, newXp: number, newCorrectAnswers: number) => {
     if (!user || !lectureId || !lecture) return;
@@ -721,6 +731,20 @@ export default function LectureView() {
                         questionNumber={currentSlideIndex + 1}
                         totalQuestions={slides.length}
                         initialSelectedAnswer={quizAnswers[currentSlideIndex]}
+                        explanation={currentQuestion.explanation}
+                        concept={currentQuestion.concept}
+                        // ``linked_slides`` are 0-based indices from the
+                        // planner; chip labels use 1-based slide numbers.
+                        linkedSlides={
+                          currentQuestion.linked_slides && currentQuestion.linked_slides.length > 0
+                            ? currentQuestion.linked_slides.map((i) => i + 1)
+                            : undefined
+                        }
+                        onJumpToSlide={(slideNumber) => {
+                          const idx = Math.max(0, Math.min(slides.length - 1, slideNumber - 1));
+                          setCurrentSlideIndex(idx);
+                          setShowQuiz(quizAnswers[idx] !== undefined);
+                        }}
                       />
                     </motion.div>
                   ) : (

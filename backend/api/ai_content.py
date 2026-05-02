@@ -123,6 +123,30 @@ class QuizResponse(BaseModel):
     question: str
     options: List[str] = Field(..., min_length=4, max_length=4)
     correctAnswer: int = Field(..., ge=0, le=3)
+    # Per-slide concept-testing fields. Optional so older callers / cached
+    # responses without these fields don't break the response model.
+    explanation: Optional[str] = None
+    concept: Optional[str] = None
+    cognitive_level: Optional[Literal["recall", "apply", "analyse"]] = None
+
+
+class CrossSlideQuizQuestion(BaseModel):
+    """Documentary schema for an item on the ``deck_complete`` SSE event.
+
+    The LLM prompt emits letter-style ``answer: "A"|"B"|"C"|"D"`` payloads
+    (matching ``BATCH_SLIDE_PROMPT``); this model normalises to the integer
+    ``correctAnswer`` shape used by ``QuizResponse``, the frontend
+    ``QuizCard``, and the ``quiz_questions.correct_answer`` column. The
+    SSE serializer coerces letters to indices before this schema applies.
+    The ``min_length=2`` invariant on ``linked_slides`` is enforced at
+    generation time by ``validate_cross_slide_question``.
+    """
+    question: str
+    options: List[str] = Field(..., min_length=4, max_length=4)
+    correctAnswer: int = Field(..., ge=0, le=3)
+    explanation: Optional[str] = None
+    concept: Optional[str] = None
+    linked_slides: List[int] = Field(default_factory=list, min_length=2)
 
 class InsightsResponse(BaseModel):
     summary: str
@@ -402,12 +426,25 @@ async def regenerate_slide_content(
     # Replace quiz
     quiz = analysis.get("quiz")
     if quiz:
+        # Capture concept-testing fields in the quiz_questions.metadata jsonb
+        # column so the player can render the explanation chip and analytics
+        # can group questions by concept / cognitive level. Stored only when
+        # present; older models that don't emit these fields just leave the
+        # column at its default ``{}``.
+        metadata = {
+            k: v for k, v in {
+                "explanation": quiz.get("explanation"),
+                "concept": quiz.get("concept"),
+                "cognitive_level": quiz.get("cognitive_level"),
+            }.items() if v
+        }
         client.table("quiz_questions").delete().eq("slide_id", slide_id).execute()
         client.table("quiz_questions").insert({
             "slide_id": slide_id,
             "question_text": quiz["question"],
             "options": quiz["options"],
             "correct_answer": quiz["correctAnswer"],
+            "metadata": metadata,
         }).execute()
 
     return {"success": True, "analysis": analysis}

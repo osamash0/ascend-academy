@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAiModel } from '@/hooks/use-ai-model';
-import type { SlideData } from '@/types/lectureUpload';
+import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const MAX_PDF_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -27,6 +27,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfHash, setPdfHash] = useState<string | null>(null);
   const [parserUsed, setParserUsed] = useState<string | null>(null);
+  const [deckQuiz, setDeckQuiz] = useState<DeckQuizItem[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFileUpload = useCallback(
@@ -51,6 +52,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
       setProcessedSlides([]);
       setParserUsed(null);
       setPdfHash(null);
+      setDeckQuiz([]);
 
       const formData = new FormData();
       formData.append('file', file);
@@ -100,15 +102,68 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
             } else if (data.type === 'slide') {
               setProcessedSlides(prev => {
                 const updated = [...prev];
+                // Pull through the new concept-testing fields
+                // (explanation/concept/cognitive_level) so the professor can
+                // review them before saving and so they survive the save
+                // round-trip into quiz_questions.metadata.
+                const rawQs = Array.isArray(data.slide.questions) ? data.slide.questions : [];
+                const questions = rawQs.length > 0
+                  ? rawQs.map((q: Record<string, unknown>) => ({
+                      question: typeof q.question === 'string' ? q.question : '',
+                      options: Array.isArray(q.options) ? (q.options as string[]) : ['', '', '', ''],
+                      correctAnswer: typeof q.correctAnswer === 'number'
+                        ? q.correctAnswer
+                        : typeof q.answer === 'string' && q.answer.length === 1
+                          ? Math.max(0, q.answer.toUpperCase().charCodeAt(0) - 65)
+                          : 0,
+                      explanation: typeof q.explanation === 'string' ? q.explanation : undefined,
+                      concept: typeof q.concept === 'string' ? q.concept : undefined,
+                      cognitive_level:
+                        q.cognitive_level === 'recall' ||
+                        q.cognitive_level === 'apply' ||
+                        q.cognitive_level === 'analyse'
+                          ? q.cognitive_level
+                          : undefined,
+                    }))
+                  : [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }];
                 updated[data.index] = {
                   title: data.slide.title,
                   content: data.slide.content,
                   summary: data.slide.summary || '',
-                  questions: data.slide.questions || [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
+                  questions,
                 };
                 return updated;
               });
               setUploadStatus(`Processed ${data.index + 1} slide(s)...`);
+            } else if (data.type === 'deck_complete') {
+              // Capture cross-slide deck quiz items so the submit hook can
+              // persist them alongside per-slide questions.
+              const rawDeck = Array.isArray(data.deck_quiz) ? data.deck_quiz : [];
+              const items: DeckQuizItem[] = rawDeck
+                .map((q: Record<string, unknown>) => {
+                  const linked = Array.isArray(q.linked_slides)
+                    ? (q.linked_slides as unknown[]).filter(
+                        (n): n is number => typeof n === 'number' && Number.isFinite(n),
+                      )
+                    : [];
+                  if (linked.length < 2) return null;
+                  const correctAnswer =
+                    typeof q.correctAnswer === 'number'
+                      ? q.correctAnswer
+                      : typeof q.answer === 'string' && q.answer.length === 1
+                        ? Math.max(0, q.answer.toUpperCase().charCodeAt(0) - 65)
+                        : 0;
+                  return {
+                    question: typeof q.question === 'string' ? q.question : '',
+                    options: Array.isArray(q.options) ? (q.options as string[]) : ['', '', '', ''],
+                    correctAnswer,
+                    explanation: typeof q.explanation === 'string' ? q.explanation : undefined,
+                    concept: typeof q.concept === 'string' ? q.concept : undefined,
+                    linked_slides: linked,
+                  } satisfies DeckQuizItem;
+                })
+                .filter((q: DeckQuizItem | null): q is DeckQuizItem => q !== null && q.question.trim().length > 0);
+              setDeckQuiz(items);
             } else if (data.type === 'complete') {
               setProcessedSlides(prev => {
                 const finalSlides = prev.filter(Boolean) as SlideData[];
@@ -152,6 +207,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     setUploadStatus('');
     setProcessedSlides([]);
     setParserUsed(null);
+    setDeckQuiz([]);
   }, []);
 
   return {
@@ -164,6 +220,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     pdfFile,
     pdfHash,
     parserUsed,
+    deckQuiz,
     handleFileUpload,
     closeUploadOverlay,
   };
