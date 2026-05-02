@@ -27,4 +27,4 @@ layers on the journey-specific mocks (FastAPI SSE, analytics dashboard
 endpoint) on top of the baseline. The professor-analytics assertions target
 the actual section headings rendered by `ProfessorAnalytics.tsx` — the
 "distractors" panel from the original brief maps to the *Score Distribution*
-+ *Confidence By Slide* sections the page actually exposes.
+and *Confidence By Slide* sections the page actually exposes.
