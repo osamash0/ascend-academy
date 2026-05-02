@@ -13,6 +13,7 @@ import type { Lecture } from '@/types/domain';
 import { StatsCard } from '@/components/StatsCard';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { ProfessorAssignmentsTab } from '@/features/assignments/ProfessorAssignmentsTab';
 
 
 interface StudentStats {
@@ -416,6 +417,11 @@ export default function ProfessorDashboard() {
             </div>
           )}
         </div>
+
+        {/* ── Assignments Section ── */}
+        <ProfessorAssignmentsTab
+          lectures={lectures.map(l => ({ id: l.id, title: l.title }))}
+        />
       </div>
     </div>
   );

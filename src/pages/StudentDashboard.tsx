@@ -12,6 +12,7 @@ import { LectureCard } from '@/components/LectureCard';
 import { StatsCard } from '@/components/StatsCard';
 import { AchievementCard } from '@/components/AchievementCard';
 import { Button } from '@/components/ui/button';
+import { AssignmentsPanel } from '@/features/assignments/AssignmentsPanel';
 
 import type { Lecture, StudentProgress as Progress, Achievement } from '@/types/domain';
 
@@ -452,6 +453,9 @@ export default function StudentDashboard() {
             </div>
           </motion.div>
         </div>
+
+        {/* ── Assignments Panel ── */}
+        {user?.id && <AssignmentsPanel userId={user.id} />}
 
         {/* ── Continue Learning — Orbital Carousel ── */}
         {continueLectures.length > 0 && (

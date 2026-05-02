@@ -72,6 +72,13 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     except Exception:
         pass
 
+    # assignments.py also imports supabase_admin by name at module-load.
+    try:
+        from backend.api import assignments as assignments_api
+        monkeypatch.setattr(assignments_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+
     # Ensure get_client/get_auth_client return the fake
     monkeypatch.setattr(database, "get_client", lambda use_admin=False: fake_supabase, raising=True)
     monkeypatch.setattr(

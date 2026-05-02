@@ -13,6 +13,7 @@ from backend.api.upload import router as upload_router
 from backend.api.ai_content import router as ai_router
 from backend.api.mind_map import router as mind_map_router
 from backend.api.feedback import router as feedback_router
+from backend.api.assignments import router as assignments_router
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,7 @@ app.include_router(upload_router)
 app.include_router(ai_router)
 app.include_router(mind_map_router)
 app.include_router(feedback_router)
+app.include_router(assignments_router)
 
 @app.on_event("startup")
 async def startup_event():

@@ -32,13 +32,19 @@ async function request<T>(
     const text = await res.text().catch(() => res.statusText);
     throw new Error(`${method} ${path} → ${res.status}: ${text}`);
   }
-  return res.json() as Promise<T>;
+  // 204 No Content (and any empty body) must not be parsed as JSON, otherwise
+  // every successful DELETE throws on the empty body. Return undefined.
+  if (res.status === 204) return undefined as T;
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 export const apiClient = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body: unknown) => request<T>('POST', path, body),
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
+  patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
 
   /** Stream variant — returns the raw Response for SSE/NDJSON consumers. */
