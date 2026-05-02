@@ -1,6 +1,9 @@
 """Unit tests for the Supabase-backed token cache (cache.py)."""
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
+from enum import Enum
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
@@ -82,3 +85,57 @@ class TestTokenCache:
             "id": "u10",
             "email": "a@b.test",
         }
+
+    async def test_supabase_user_with_datetime_and_uuid_is_persisted(self, patch_supabase):
+        """Regression: Supabase `User` carries datetime + UUID fields and used to
+        crash `set_cache` because the underlying JSON encoder couldn't handle
+        them. After the `_to_json_safe` fix, the row must land in `backend_cache`
+        with those values coerced to strings."""
+        uid = UUID("12345678-1234-5678-1234-567812345678")
+        created = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+        last_signin = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+        user = SimpleNamespace(
+            id=uid,
+            email="prof@example.com",
+            created_at=created,
+            last_sign_in_at=last_signin,
+            app_metadata={"role": "professor"},
+        )
+        await cache.store_cached_token("tok-sb", user)
+
+        rows = patch_supabase.tables.get("backend_cache", [])
+        assert len(rows) == 1, "expected one cache row to be persisted"
+        stored = rows[0]["data"]
+        assert stored["id"] == str(uid)
+        assert stored["created_at"] == created.isoformat()
+        assert stored["last_sign_in_at"] == last_signin.isoformat()
+        assert stored["app_metadata"] == {"role": "professor"}
+
+        # And the round-trip getter returns the same coerced payload.
+        round_trip = await cache.get_cached_token("tok-sb")
+        assert round_trip == stored
+
+    async def test_set_cache_handles_decimal_enum_date_set(self, patch_supabase):
+        """`set_cache` is the generic entry point — exercise the other coercions
+        directly so we don't regress when callers pass non-User payloads."""
+
+        class _Color(Enum):
+            RED = "red"
+            BLUE = "blue"
+
+        payload = {
+            "amount": Decimal("3.14"),
+            "color": _Color.RED,
+            "issued_on": date(2026, 5, 2),
+            "tags": {"a", "b"},
+        }
+        await cache.set_cache("k-mixed", payload, ttl_seconds=60)
+
+        rows = patch_supabase.tables.get("backend_cache", [])
+        assert len(rows) == 1
+        stored = rows[0]["data"]
+        assert stored["amount"] == 3.14
+        assert stored["color"] == "red"
+        assert stored["issued_on"] == "2026-05-02"
+        assert sorted(stored["tags"]) == ["a", "b"]

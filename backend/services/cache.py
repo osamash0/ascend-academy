@@ -1,14 +1,53 @@
 import hashlib
+import json
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from decimal import Decimal
+from enum import Enum
 from typing import Any, Optional, List, Dict, Tuple
 from collections import OrderedDict
 from threading import Lock
+from uuid import UUID
 
 from backend.core.database import supabase_admin
 
 logger = logging.getLogger(__name__)
+
+
+def _json_safe_default(obj: Any) -> Any:
+    """JSON encoder fallback for non-primitive types Supabase User objects can carry.
+
+    Supabase's `User` model exposes datetime fields (created_at, last_sign_in_at, …)
+    and UUID `id`, both of which the JSON serializer used by postgrest / httpx
+    rejects with TypeError. We coerce them here so `set_cache` never crashes
+    silently and `store_cached_token` can persist the auth-token cache row.
+    """
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, UUID):
+        return str(obj)
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, Enum):
+        return obj.value
+    if isinstance(obj, (set, frozenset)):
+        return list(obj)
+    if isinstance(obj, bytes):
+        return obj.decode("utf-8", errors="replace")
+    if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
+        try:
+            return obj.dict()
+        except Exception:
+            pass
+    if hasattr(obj, "__dict__"):
+        return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def _to_json_safe(value: Any) -> Any:
+    """Recursively coerce *value* into JSON-primitive types using `_json_safe_default`."""
+    return json.loads(json.dumps(value, default=_json_safe_default))
 
 
 # --- Token validation cache (Shared Database L2 Cache) ---
@@ -363,13 +402,24 @@ async def get_cache(key: str) -> Optional[Any]:
 
 
 async def set_cache(key: str, data: Any, ttl_seconds: int = 300) -> None:
-    """Store data in generic backend_cache with a TTL."""
+    """Store data in generic backend_cache with a TTL.
+
+    `data` is coerced through `_to_json_safe` first so datetime/UUID/Decimal/Enum
+    values (typical on Supabase `User` objects) don't crash the postgrest JSON
+    encoder downstream.
+    """
     try:
         expires_at = (datetime.utcnow() + timedelta(seconds=ttl_seconds)).isoformat()
-        
+
+        try:
+            safe_data = _to_json_safe(data)
+        except TypeError as enc_exc:
+            logger.error("Cache payload not JSON-serializable for key %s: %s", key, enc_exc)
+            return
+
         payload = {
             "cache_key": key,
-            "data": data,
+            "data": safe_data,
             "expires_at": expires_at
         }
         supabase_admin.table("backend_cache").upsert(payload, on_conflict="cache_key").execute()

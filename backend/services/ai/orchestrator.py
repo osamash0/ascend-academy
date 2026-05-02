@@ -57,7 +57,10 @@ OLLAMA_MODEL      = "llama3"
 GEMINI_MODEL      = "gemini-2.0-flash"
 GROQ_MODEL        = "llama-3.3-70b-versatile"
 GROQ_FAST_MODEL   = "llama-3.1-8b-instant"
-GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
+# llama-3.2-11b-vision-preview was decommissioned by Groq (Apr 2026).
+# meta-llama/llama-4-scout-17b-16e-instruct is the current free-tier vision
+# model on Groq with the same OpenAI-compatible chat-completions schema.
+GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 CEREBRAS_MODEL    = "gpt-oss-120b"
 
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
@@ -162,7 +165,11 @@ except ImportError:
 try:
     from google import genai as _genai
     _gem_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    _google_client = _genai.Client(api_key=_gem_key, http_options={"api_version": "v1"}) if _gem_key else None
+    # Use the SDK's default API version (v1beta). The previous v1 pin caused
+    # 404s for `gemma-3-27b-it` (gemma is v1beta-only) and 400s for vision
+    # calls that pass `responseMimeType` (rejected by v1). v1beta accepts both
+    # and is what `google-genai` ships as the default for production usage.
+    _google_client = _genai.Client(api_key=_gem_key) if _gem_key else None
 except Exception:
     _genai = None
     _google_client = None
