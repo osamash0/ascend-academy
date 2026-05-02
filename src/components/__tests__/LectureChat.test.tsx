@@ -1,13 +1,10 @@
 /**
  * LectureChat citation-chip tests.
  *
- * The grounded /api/ai/chat endpoint returns
- *   { reply: string, citations: [{ slide_index, similarity }, ...] }
- * and LectureChat renders one clickable "[Slide N]" chip per citation
- * (1-indexed in the label, but the underlying slide_index is 0-indexed).
- * Clicking a chip calls the optional onSlideJump prop with the raw
- * slide_index. These tests guard the chip render + jump callback so a
- * future refactor cannot silently break either.
+ * Guards the grounded-tutor contract: /api/ai/chat returns
+ * { reply, citations: [{ slide_index, similarity }] } and LectureChat
+ * renders one "Slide N" button per citation (1-indexed label, 0-indexed
+ * slide_index in the onSlideJump callback).
  */
 import { describe, expect, it, vi, beforeAll, afterAll } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
@@ -15,10 +12,8 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/server";
 
-// jsdom does not implement Element.scrollIntoView; LectureChat calls it in
-// an auto-scroll effect on every message change. Stub it for this suite
-// only and restore the original descriptor after, so we do not leak a
-// global prototype mutation into other test files in the same worker.
+// jsdom does not implement Element.scrollIntoView; LectureChat calls it on
+// every message change. Stub for this suite and restore on teardown.
 let originalScrollIntoView: PropertyDescriptor | undefined;
 beforeAll(() => {
   originalScrollIntoView = Object.getOwnPropertyDescriptor(
@@ -39,7 +34,6 @@ afterAll(() => {
       originalScrollIntoView,
     );
   } else {
-    // jsdom did not define it originally; remove our stub.
     delete (Element.prototype as unknown as Record<string, unknown>)
       .scrollIntoView;
   }
@@ -73,8 +67,6 @@ vi.mock("@/lib/auth", () => ({
   }),
 }));
 
-// Keep analytics fire-and-forget out of the way so it cannot interfere
-// with assertions around the chat response shape.
 vi.mock("@/services/studentService", async () => {
   const actual = await vi.importActual<
     typeof import("@/services/studentService")
@@ -85,8 +77,7 @@ vi.mock("@/services/studentService", async () => {
   };
 });
 
-// ReactMarkdown's full pipeline (remark-math + rehype-katex) is overkill
-// for these tests and slows mounting; render the raw text instead.
+// Markdown rendering is not under test; stub the pipeline to passthrough.
 vi.mock("react-markdown", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -96,7 +87,9 @@ vi.mock("rehype-katex", () => ({ default: () => {} }));
 import { LectureChat } from "@/components/LectureChat";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
-function renderChat(props: Partial<React.ComponentProps<typeof LectureChat>> = {}) {
+function renderChat(
+  props: Partial<React.ComponentProps<typeof LectureChat>> = {},
+) {
   return renderWithProviders(
     <LectureChat
       isOpen
@@ -116,9 +109,6 @@ async function sendQuestion(user: ReturnType<typeof userEvent.setup>) {
   await user.keyboard("{Enter}");
 }
 
-// Note: src/test/setup.ts already calls server.resetHandlers() in a global
-// afterEach, so a local beforeEach reset is redundant.
-
 describe("LectureChat citation chips", () => {
   it("renders a clickable [Slide N] chip and forwards the 0-indexed slide_index to onSlideJump", async () => {
     server.use(
@@ -136,9 +126,7 @@ describe("LectureChat citation chips", () => {
 
     await sendQuestion(user);
 
-    // The chip label is 1-indexed ("Slide 3") even though slide_index is 0-indexed (2).
     const chip = await screen.findByRole("button", { name: /slide 3/i });
-    expect(chip).toBeInTheDocument();
     expect(chip).not.toBeDisabled();
 
     await user.click(chip);
@@ -162,7 +150,6 @@ describe("LectureChat citation chips", () => {
 
     await sendQuestion(user);
 
-    // Wait for the assistant reply to land before asserting the absence of chips.
     await waitFor(() => {
       expect(
         screen.getByText(/cannot answer from the provided slides/i),
