@@ -46,6 +46,8 @@ const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
 const ProfessorAnalytics = lazy(() => import("./pages/ProfessorAnalytics"));
 const LectureUpload = lazy(() => import("./pages/LectureUpload"));
 const LectureEdit = lazy(() => import("./pages/LectureEdit"));
+const ProfessorCourses = lazy(() => import("./pages/ProfessorCourses"));
+const ProfessorCourseDetail = lazy(() => import("./pages/ProfessorCourseDetail"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Impressum = lazy(() => import("./pages/Impressum"));
 const Datenschutz = lazy(() => import("./pages/Datenschutz"));
@@ -226,6 +228,26 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['professor']}>
               <DashboardLayout>
                 <LectureUpload />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/courses"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <ProfessorCourses />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/courses/:courseId"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <ProfessorCourseDetail />
               </DashboardLayout>
             </ProtectedRoute>
           }

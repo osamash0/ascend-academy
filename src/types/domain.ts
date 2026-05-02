@@ -32,6 +32,8 @@ export interface Lecture {
   total_slides: number;
   created_at: string;
   pdf_url?: string | null;
+  /** Optional course grouping (null = Uncategorized). */
+  course_id?: string | null;
 }
 
 export interface Slide {

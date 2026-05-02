@@ -15,6 +15,8 @@ from backend.api.mind_map import router as mind_map_router
 from backend.api.feedback import router as feedback_router
 from backend.api.assignments import router as assignments_router
 from backend.api.concepts import router as concepts_router
+from backend.api.courses import router as courses_router
+from backend.api.worksheets import router as worksheets_router
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -74,6 +76,8 @@ app.include_router(mind_map_router)
 app.include_router(feedback_router)
 app.include_router(assignments_router)
 app.include_router(concepts_router)
+app.include_router(courses_router)
+app.include_router(worksheets_router)
 
 @app.on_event("startup")
 async def startup_event():

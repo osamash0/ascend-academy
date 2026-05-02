@@ -79,6 +79,18 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     except Exception:
         pass
 
+    # courses.py / worksheets.py import supabase_admin at module load too.
+    try:
+        from backend.api import courses as courses_api
+        monkeypatch.setattr(courses_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+    try:
+        from backend.api import worksheets as worksheets_api
+        monkeypatch.setattr(worksheets_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+
     # Ensure get_client/get_auth_client return the fake
     monkeypatch.setattr(database, "get_client", lambda use_admin=False: fake_supabase, raising=True)
     monkeypatch.setattr(

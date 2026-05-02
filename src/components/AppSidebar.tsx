@@ -11,6 +11,7 @@ import {
   Settings,
   Zap,
   Star,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ const studentNavItems = [
 
 const professorNavItems = [
   { title: 'Dashboard', url: '/professor/dashboard', icon: LayoutDashboard },
+  { title: 'Courses', url: '/professor/courses', icon: BookOpen },
   { title: 'Analytics', url: '/professor/analytics', icon: BarChart3 },
   { title: 'Upload Lecture', url: '/professor/upload', icon: Upload },
   { title: 'Settings', url: '/settings', icon: Settings },

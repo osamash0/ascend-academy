@@ -23,6 +23,7 @@ import { BadgeEarnedModal } from '@/components/BadgeEarnedModal';
 import { Button } from '@/components/ui/button';
 import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
+import { WorksheetsPanel } from '@/components/WorksheetsPanel';
 import { LectureRecap, type RecapItem } from '@/components/LectureRecap';
 import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
@@ -853,6 +854,13 @@ export default function LectureView() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+              {/* Worksheets attached to this lecture (read-only for students) */}
+              {lectureId && (
+                <div className="bg-card/40 rounded-2xl border border-border p-5">
+                  <WorksheetsPanel lectureId={lectureId} editable={role === 'professor'} />
+                </div>
+              )}
 
               {/* Sidebar - Quiz */}
               <div ref={quizRef}>
