@@ -5,7 +5,7 @@ Provider chain (rate-limit data: github.com/cheahjs/free-llm-api-resources):
 
   ID            Model                       Daily req   TPM      Notes
   ──────────────────────────────────────────────────────────────────────
-  cerebras      gpt-oss-120b                14,400      60,000   PRIMARY (fast + high quality)
+  cerebras      qwen-3-235b-a22b-instruct   14,400      60,000   PRIMARY (fast + high quality)
   groq_fast     llama-3.1-8b-instant        14,400       6,000   Fast fallback
   gemma         gemma-3-27b-it              14,400      15,000   Google SDK
   mistral       mistral-small-latest        ~unlimited  500,000  Needs phone verify
@@ -61,7 +61,7 @@ GEMINI_MODEL      = "gemini-2.0-flash"
 GROQ_MODEL        = "llama-3.3-70b-versatile"
 GROQ_FAST_MODEL   = "llama-3.1-8b-instant"
 GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
-CEREBRAS_MODEL    = "gpt-oss-120b"
+CEREBRAS_MODEL    = "qwen-3-235b-a22b-instruct-2507"
 
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
 
@@ -85,8 +85,11 @@ class ProviderConfig:
 PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
     p.id: p for p in [
         ProviderConfig(
+            # Cerebras free-tier model — 235B-param Qwen-3-instruct on the
+            # ultra-fast Cerebras inference fabric. Highest-quality model
+            # with the highest free daily quota of any provider here.
             id="cerebras",
-            model="gpt-oss-120b",
+            model="qwen-3-235b-a22b-instruct-2507",
             daily_limit=14_400, rpm=30, tpm=60_000,
             env_var="CEREBRAS_API_KEY",
             base_url="https://api.cerebras.ai/v1",
@@ -713,7 +716,7 @@ async def generate_deck_quiz(
     else:
         prompt = DECK_QUIZ_PROMPT + (summary or "")
 
-    raw = await generate_text(prompt)
+    raw = await generate_text(prompt, ai_model=ai_model)
     parsed = parse_json_response(raw)
     if not isinstance(parsed, list):
         return []
@@ -743,7 +746,7 @@ async def generate_deck_quiz(
         if not regen_cache["called"]:
             regen_cache["called"] = True
             try:
-                raw2 = await generate_text(prompt)
+                raw2 = await generate_text(prompt, ai_model=ai_model)
                 items = parse_json_response(raw2)
                 regen_cache["items"] = items if isinstance(items, list) else []
             except Exception as exc:
@@ -882,8 +885,9 @@ async def batch_analyze_text_slides(
     # Single LLM call via BULK chain
     try:
         from backend.services.llm_client import call_llm
+        preferred = _resolve_preferred(ai_model)
         raw = await call_llm(
-            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN)
+            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN, preferred=preferred)
         )
     except Exception as exc:
         logger.error("Bulk batch call failed: %s", exc)
@@ -953,7 +957,7 @@ async def batch_analyze_text_slides(
             failing.append((pos, r))
 
     if failing:
-        await _regenerate_failing_slide_quizzes(failing, slides, idx_to_plan)
+        await _regenerate_failing_slide_quizzes(failing, slides, idx_to_plan, ai_model=ai_model)
 
     return results
 
@@ -962,6 +966,7 @@ async def _regenerate_failing_slide_quizzes(
     failing: List[Tuple[int, Dict[str, Any]]],
     slides: List[Dict[str, Any]],
     idx_to_plan: Dict[int, Dict],
+    ai_model: str = "cerebras",
 ) -> None:
     """One batched LLM retry for per-slide quizzes that failed validation.
 
@@ -1004,8 +1009,9 @@ async def _regenerate_failing_slide_quizzes(
 
     try:
         from backend.services.llm_client import call_llm
+        preferred = _resolve_preferred(ai_model)
         raw = await call_llm(
-            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN)
+            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN, preferred=preferred)
         )
     except Exception as exc:
         logger.warning(

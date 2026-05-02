@@ -89,8 +89,34 @@ network, no real Supabase.**
   `src/test/sharedSupabaseMock.ts`, `src/test/handlers/`) before inventing new
   ones. See `project_docs/testing.md` for the cookbook.
 
+## AI providers
+
+The orchestrator (`backend/services/ai/orchestrator.py`) auto-fails-over
+across providers; missing API keys disable a provider gracefully.
+
+- **Cerebras** (PRIMARY) — `qwen-3-235b-a22b-instruct-2507` on Cerebras
+  inference. Highest free quota (14.4K req/day) + lowest latency. Requires
+  `CEREBRAS_API_KEY`.
+- **Groq** — Llama 3.3 70B (quality) and 3.1 8B (fast). `GROQ_API_KEY`.
+- **OpenRouter** — Llama 3.3 70B free tier (50/day). `OPENROUTER_API_KEY`.
+- **Cloudflare Workers AI** — Llama 3.3 70B fp8-fast on Cloudflare's edge.
+  Needs both `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- **Gemini / Gemma** — Google AI Studio. `GEMINI_API_KEY`.
+- **Mistral, Llama 3 (local Ollama)** — optional fallbacks.
+
+Users can pin a preferred provider in **Settings → AI Preferences**; the
+selected id is moved to the head of the failover chain by `_resolve_preferred`
++ `_chain_with_preferred` while keeping the resilience tail intact.
+
 ## Recent changes
 
+- 2026-05-02: AI provider promotion. Cerebras is now the primary provider
+  (head of `QUALITY_CHAIN` and `BULK_CHAIN`); OpenRouter and Cloudflare
+  Workers AI added as deep-resilience fallbacks. The selected ai_model
+  from the frontend is now actually honored — `_generate_with_rotation`
+  takes a `preferred` arg and the chain is reordered per call. Settings UI
+  exposes Cerebras (recommended), Groq, OpenRouter, Cloudflare, Gemini,
+  and local Llama 3. Added `openai>=1.50.0` to `backend/requirements.txt`.
 - 2026-05-02: UX + feedback batch. Quiz no longer auto-advances after 1.5s —
   students click an explicit Continue button (`Finish lecture` on last slide)
   rendered by `QuizCard` and wired through `LectureView.handleQuizContinue`.

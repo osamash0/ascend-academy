@@ -39,3 +39,4 @@ faker>=24.0
 # nightly CI job can run without a separate dev-requirements file.
 psycopg[binary]>=3.1
 testcontainers[postgres]>=4.0
+openai>=1.50.0

@@ -624,7 +624,7 @@ class TestPerSlideQuizRegeneration:
         seen_prompts: List[str] = []
         responses = iter([first_response, regen_response])
 
-        def fake_rotation(prompt: str, _chain: List[str]) -> str:
+        def fake_rotation(prompt: str, _chain: List[str], preferred=None) -> str:
             seen_prompts.append(prompt)
             return next(responses)
 
@@ -664,7 +664,7 @@ class TestPerSlideQuizRegeneration:
             ']'
         )
 
-        def fake_rotation(prompt: str, _chain: List[str]) -> str:
+        def fake_rotation(prompt: str, _chain: List[str], preferred=None) -> str:
             seen_prompts.append(prompt)
             return clean_response
 
@@ -711,7 +711,7 @@ class TestPerSlideQuizRegeneration:
         )
         responses = iter([first_response, regen_response])
 
-        def fake_rotation(prompt: str, _chain: List[str]) -> str:
+        def fake_rotation(prompt: str, _chain: List[str], preferred=None) -> str:
             return next(responses)
 
         async def passthrough_call_llm(fn):
@@ -746,7 +746,7 @@ class TestPerSlideQuizRegeneration:
         # (still-degenerate) question rather than error.
         responses = iter([first_response, "not even json"])
 
-        def fake_rotation(prompt: str, _chain: List[str]) -> str:
+        def fake_rotation(prompt: str, _chain: List[str], preferred=None) -> str:
             return next(responses)
 
         async def passthrough_call_llm(fn):
