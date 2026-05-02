@@ -321,7 +321,7 @@ export default function ProfessorAnalytics() {
     // Check local cache first
     if (metricInterpretations[id]) {
       // If it's a small stat card, still set the feedback from cache
-      if (!['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution'].includes(id)) {
+      if (!['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution', 'retryPerformance'].includes(id)) {
         setSelectedMetric(title === selectedMetric ? null : title);
         setMetricFeedback(metricInterpretations[id]);
       } else {
@@ -330,7 +330,7 @@ export default function ProfessorAnalytics() {
       return;
     }
 
-    const isSection = ['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution'].includes(id);
+    const isSection = ['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution', 'retryPerformance'].includes(id);
     
     if (isSection) {
       setOpenSections(prev => ({ ...prev, [id]: true }));

@@ -578,25 +578,43 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
                 WHERE le.event_type = 'confidence_rating' AND le.event_data->>'lectureId' = $1
             """, lecture_id)
 
-            # Retry Performance — first-attempt vs second-attempt miss rates per question
+            # Retry Performance — first-attempt vs second-attempt miss rates per question.
+            # First and retry events are pre-aggregated separately to avoid the
+            # N×M row multiplication that would occur from joining both event
+            # sets in a single FROM clause.
             retry_rows = await conn.fetch("""
+                WITH first_agg AS (
+                    SELECT
+                        event_data->>'questionId' AS question_id,
+                        COUNT(*)::int AS total,
+                        COUNT(*) FILTER (WHERE (event_data->>'correct')::boolean = false)::int AS misses
+                    FROM learning_events
+                    WHERE event_type = 'quiz_attempt'
+                      AND event_data->>'lectureId' = $1
+                    GROUP BY event_data->>'questionId'
+                ),
+                retry_agg AS (
+                    SELECT
+                        event_data->>'questionId' AS question_id,
+                        COUNT(*)::int AS total,
+                        COUNT(*) FILTER (WHERE (event_data->>'correct')::boolean = false)::int AS misses
+                    FROM learning_events
+                    WHERE event_type = 'quiz_retry_attempt'
+                      AND event_data->>'lectureId' = $1
+                    GROUP BY event_data->>'questionId'
+                )
                 SELECT
-                    q.id::text as "question_id",
-                    q.question_text as "question_text",
-                    COUNT(fa.id)::int as "first_attempt_total",
-                    COUNT(fa.id) FILTER (WHERE (fa.event_data->>'correct')::boolean = false)::int as "first_attempt_misses",
-                    COUNT(ra.id)::int as "retry_total",
-                    COUNT(ra.id) FILTER (WHERE (ra.event_data->>'correct')::boolean = false)::int as "retry_misses"
+                    q.id::text AS "question_id",
+                    q.question_text AS "question_text",
+                    COALESCE(fa.total, 0)::int AS "first_attempt_total",
+                    COALESCE(fa.misses, 0)::int AS "first_attempt_misses",
+                    COALESCE(ra.total, 0)::int AS "retry_total",
+                    COALESCE(ra.misses, 0)::int AS "retry_misses"
                 FROM quiz_questions q
                 JOIN slides s ON s.id = q.slide_id
-                LEFT JOIN learning_events fa ON fa.event_type = 'quiz_attempt'
-                    AND fa.event_data->>'lectureId' = $1
-                    AND fa.event_data->>'questionId' = q.id::text
-                LEFT JOIN learning_events ra ON ra.event_type = 'quiz_retry_attempt'
-                    AND ra.event_data->>'lectureId' = $1
-                    AND ra.event_data->>'questionId' = q.id::text
+                LEFT JOIN first_agg fa ON fa.question_id = q.id::text
+                LEFT JOIN retry_agg ra ON ra.question_id = q.id::text
                 WHERE s.lecture_id = $1::uuid
-                GROUP BY q.id, q.question_text
             """, lecture_id)
 
             # Live Ticker & AI Queries
