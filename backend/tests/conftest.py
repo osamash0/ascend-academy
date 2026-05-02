@@ -223,12 +223,6 @@ def reset_rate_limit() -> None:
         except Exception:
             pass
 
-    # Also clear the token cache so cross-test bleed doesn't happen
-    try:
-        from backend.services import cache
-        cache._token_cache.clear()  # type: ignore[attr-defined]
-    except Exception:
-        pass
 
 
 # ── Sample PDF bytes ──────────────────────────────────────────────────────────

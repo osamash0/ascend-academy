@@ -105,6 +105,22 @@ class _QueryBuilder:
         self._filters.append(("neq", col, value))
         return self
 
+    def gt(self, col: str, value: Any) -> "_QueryBuilder":
+        self._filters.append(("gt", col, value))
+        return self
+
+    def gte(self, col: str, value: Any) -> "_QueryBuilder":
+        self._filters.append(("gte", col, value))
+        return self
+
+    def lt(self, col: str, value: Any) -> "_QueryBuilder":
+        self._filters.append(("lt", col, value))
+        return self
+
+    def lte(self, col: str, value: Any) -> "_QueryBuilder":
+        self._filters.append(("lte", col, value))
+        return self
+
     def in_(self, col: str, values: list[Any]) -> "_QueryBuilder":
         self._filters.append(("in", col, list(values)))
         return self
@@ -197,6 +213,14 @@ class _QueryBuilder:
                 matching = [r for r in matching if r.get(col) == val]
             elif op == "neq":
                 matching = [r for r in matching if r.get(col) != val]
+            elif op == "gt":
+                matching = [r for r in matching if r.get(col) is not None and r.get(col) > val]
+            elif op == "gte":
+                matching = [r for r in matching if r.get(col) is not None and r.get(col) >= val]
+            elif op == "lt":
+                matching = [r for r in matching if r.get(col) is not None and r.get(col) < val]
+            elif op == "lte":
+                matching = [r for r in matching if r.get(col) is not None and r.get(col) <= val]
             elif op == "in":
                 matching = [r for r in matching if r.get(col) in val]
             elif op == "contains":
@@ -244,6 +268,14 @@ class _QueryBuilder:
             if op == "eq" and row.get(col) != val:
                 return False
             if op == "neq" and row.get(col) == val:
+                return False
+            if op == "gt" and not (row.get(col) is not None and row.get(col) > val):
+                return False
+            if op == "gte" and not (row.get(col) is not None and row.get(col) >= val):
+                return False
+            if op == "lt" and not (row.get(col) is not None and row.get(col) < val):
+                return False
+            if op == "lte" and not (row.get(col) is not None and row.get(col) <= val):
                 return False
             if op == "in" and row.get(col) not in val:
                 return False
