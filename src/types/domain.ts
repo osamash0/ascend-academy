@@ -25,6 +25,25 @@ export interface Profile {
 
 // ─── Lectures ────────────────────────────────────────────────────────────────
 
+/** Lightweight course summary embedded on lecture rows for grouping/UX. */
+export interface CourseSummary {
+  id: string;
+  title: string;
+  color?: string | null;
+}
+
+/** Worksheet attached to a lecture (PDF / docx / etc). */
+export interface Worksheet {
+  id: string;
+  lecture_id: string;
+  title: string;
+  file_url: string;
+  file_type: string | null;
+  size_bytes: number | null;
+  uploaded_by?: string | null;
+  created_at?: string;
+}
+
 export interface Lecture {
   id: string;
   title: string;
@@ -34,6 +53,10 @@ export interface Lecture {
   pdf_url?: string | null;
   /** Optional course grouping (null = Uncategorized). */
   course_id?: string | null;
+  /** Resolved course summary when the API hydrates it. */
+  course?: CourseSummary | null;
+  /** Optional worksheet list when the API or service hydrates it. */
+  worksheets?: Worksheet[];
 }
 
 export interface Slide {

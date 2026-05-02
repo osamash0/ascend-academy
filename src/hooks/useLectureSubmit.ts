@@ -12,6 +12,8 @@ interface UseLectureSubmitOptions {
   description: string;
   pdfFile: File | null;
   pdfHash?: string | null;
+  /** Optional course to assign the new lecture to (null/undefined = Uncategorized). */
+  courseId?: string | null;
   /**
    * Cross-slide quiz items captured from the upload SSE ``deck_complete``
    * event. Each item is anchored to its first ``linked_slides`` index when
@@ -23,7 +25,7 @@ interface UseLectureSubmitOptions {
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, deckQuiz }: UseLectureSubmitOptions) {
+export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz }: UseLectureSubmitOptions) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -75,6 +77,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
             professor_id: user?.id,
             total_slides: slides.length,
             pdf_url: pdfUrl,
+            course_id: courseId ?? null,
           })
           .select()
           .single();
@@ -185,7 +188,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         setLoading(false);
       }
     },
-    [slides, title, description, pdfFile, pdfHash, deckQuiz, user, navigate, toast]
+    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, user, navigate, toast]
   );
 
   return { loading, handleSubmit };

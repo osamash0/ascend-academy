@@ -40,15 +40,15 @@ export async function resolvePdfUrl(rawPdfUrl: string | null | undefined): Promi
 export async function fetchLecture(id: string): Promise<Lecture | null> {
   const { data, error } = await supabase
     .from('lectures')
-    .select('*')
+    .select('*, course:courses(id, title, color)')
     .eq('id', id)
     .single();
-  
+
   if (error) {
     console.error(`Error fetching lecture ${id}:`, error);
     return null;
   }
-  return data;
+  return data as unknown as Lecture;
 }
 
 export async function fetchSlides(lectureId: string): Promise<Slide[]> {
@@ -133,10 +133,10 @@ export async function updateSlideContent(
 export async function fetchProfessorLectures(professorId: string): Promise<Lecture[]> {
   const { data } = await supabase
     .from('lectures')
-    .select('id, title, description, total_slides, created_at')
+    .select('id, title, description, total_slides, created_at, pdf_url, course_id')
     .eq('professor_id', professorId)
     .order('created_at', { ascending: false });
-  return data ?? [];
+  return (data ?? []) as unknown as Lecture[];
 }
 
 export interface QuizQuestionInput {

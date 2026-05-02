@@ -226,15 +226,17 @@ async def upload_worksheet(
             raise HTTPException(status_code=500, detail="Failed to create worksheet row.")
         ws = ins.data[0]
         path = f"worksheets/{lecture_id}/{ws['id']}_{safe_name}"
+        content_type = file.content_type or "application/octet-stream"
         try:
-            supabase_admin.storage.from_("worksheets").upload(
-                path,
-                raw,
-                {"content-type": file.content_type or "application/octet-stream"} if False else None,  # supabase-py signature varies; fallback below
-            )
-        except TypeError:
-            # supabase-py older signature: only (path, file)
-            supabase_admin.storage.from_("worksheets").upload(path, raw)
+            try:
+                supabase_admin.storage.from_("worksheets").upload(
+                    path,
+                    raw,
+                    {"content-type": content_type},
+                )
+            except TypeError:
+                # Older supabase-py releases accept only (path, file).
+                supabase_admin.storage.from_("worksheets").upload(path, raw)
         except Exception as e:
             # Roll back the metadata row so we don't leave orphans.
             supabase_admin.table("worksheets").delete().eq("id", ws["id"]).execute()

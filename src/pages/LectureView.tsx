@@ -746,7 +746,9 @@ export default function LectureView() {
             </Button>
             <div className="flex flex-col">
               <nav className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">
-                <span className="opacity-50">Course</span>
+                <span className="opacity-50 truncate max-w-[160px]">
+                  {(lecture as { course?: { title?: string } | null } | null)?.course?.title || 'Uncategorized'}
+                </span>
                 <span className="opacity-30">/</span>
                 <span className="truncate max-w-[200px]">{lecture?.title || 'Loading...'}</span>
               </nav>

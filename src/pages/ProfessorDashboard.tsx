@@ -9,6 +9,7 @@ import {
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { deleteLecture as deleteLectureService, fetchProfessorLectures } from '@/services/lectureService';
+import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Course } from '@/services/coursesService';
 import type { Lecture } from '@/types/domain';
 import { StatsCard } from '@/components/StatsCard';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,25 @@ export default function ProfessorDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [lectures, setLectures] = useState<Lecture[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  useEffect(() => {
+    listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
+  }, []);
+
+  const handleAssignCourse = async (lecture: Lecture, nextCourseId: string | null) => {
+    const prev = lecture.course_id ?? null;
+    if (prev === nextCourseId) return;
+    try {
+      if (prev) await unassignLectureFromCourse(prev, lecture.id);
+      if (nextCourseId) await assignLectureToCourse(nextCourseId, lecture.id);
+      setLectures((prevList) =>
+        prevList.map((l) => (l.id === lecture.id ? { ...l, course_id: nextCourseId } : l)),
+      );
+      toast({ title: 'Course updated' });
+    } catch (err) {
+      toast({ title: 'Failed to change course', description: String(err), variant: 'destructive' });
+    }
+  };
   const [stats, setStats] = useState<StudentStats>({
     totalStudents: 0,
     averageScore: 0,
@@ -71,7 +91,7 @@ export default function ProfessorDashboard() {
     // Fetch the professor's own lectures first so we can scope progress queries.
     const { data: lecturesData } = await supabase
       .from('lectures')
-      .select('id, title, description, total_slides, created_at, pdf_url')
+      .select('id, title, description, total_slides, created_at, pdf_url, course_id')
       .eq('professor_id', user?.id)
       .order('created_at', { ascending: false })
       .limit(200);
@@ -341,13 +361,30 @@ export default function ProfessorDashboard() {
                           </span>
                         </td>
                         <td className="px-10 py-6">
-                          <span className={`inline-flex items-center gap-2 text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest border transition-all ${lecture.pdf_url 
-                            ? 'bg-success/10 text-success border-success/20 shadow-glow-success/5' 
-                            : 'bg-warning/10 text-warning border-warning/20'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${lecture.pdf_url ? 'bg-success animate-pulse' : 'bg-warning'}`} />
-                            {lecture.pdf_url ? 'Active Protocol' : 'No Source PDF'}
-                          </span>
+                          <div className="flex flex-col items-start gap-2">
+                            <span className={`inline-flex items-center gap-2 text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest border transition-all ${lecture.pdf_url 
+                              ? 'bg-success/10 text-success border-success/20 shadow-glow-success/5' 
+                              : 'bg-warning/10 text-warning border-warning/20'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${lecture.pdf_url ? 'bg-success animate-pulse' : 'bg-warning'}`} />
+                              {lecture.pdf_url ? 'Active Protocol' : 'No Source PDF'}
+                            </span>
+                            <select
+                              value={lecture.course_id ?? ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleAssignCourse(lecture, e.target.value || null);
+                              }}
+                              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                              title="Course assignment"
+                            >
+                              <option value="">Uncategorized</option>
+                              {courses.map((c) => (
+                                <option key={c.id} value={c.id}>{c.title}</option>
+                              ))}
+                            </select>
+                          </div>
                         </td>
                         <td className="px-10 py-6 text-right">
                           <div className="flex items-center justify-end gap-2">

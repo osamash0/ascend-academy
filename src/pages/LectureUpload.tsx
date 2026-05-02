@@ -48,6 +48,7 @@ import {
   getOverallCompletion,
 } from '@/types/lectureUpload';
 import type { SlideStatus } from '@/types/lectureUpload';
+import { listCourses, type Course } from '@/services/coursesService';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  COMPONENT: Progress Ring                                                 */
@@ -295,6 +296,11 @@ export default function LectureUpload() {
   /* ── Lecture metadata ──────────────────────────────────────────────────── */
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [courseId, setCourseId] = useState<string | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  useEffect(() => {
+    listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
+  }, []);
 
   /* ── UI state ──────────────────────────────────────────────────────────── */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -367,7 +373,7 @@ export default function LectureUpload() {
     handleGenerateContent,
   } = useAIGeneration({ slides, updateSlide });
 
-  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, deckQuiz });
+  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz });
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];
@@ -496,6 +502,20 @@ export default function LectureUpload() {
                 className="mt-1.5"
                 rows={3}
               />
+            </div>
+            <div>
+              <Label htmlFor="course" className="text-sm font-medium">Course</Label>
+              <select
+                id="course"
+                value={courseId ?? ''}
+                onChange={(e) => setCourseId(e.target.value || null)}
+                className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Uncategorized</option>
+                {courses.map(c => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
             </div>
           </motion.div>
         </div>

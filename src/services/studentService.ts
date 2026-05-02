@@ -16,7 +16,7 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
   const [lecturesRes, progressRes, achievementsRes] = await Promise.all([
     supabase
       .from('lectures')
-      .select('id, title, description, total_slides, created_at')
+      .select('id, title, description, total_slides, created_at, course_id, course:courses(id, title, color)')
       .order('created_at', { ascending: false })
       .limit(200),
 
@@ -44,7 +44,7 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
     console.error('Error fetching student dashboard achievements:', achievementsRes.error);
   }
 
-  const lectures: Lecture[] = lecturesRes.data ?? [];
+  const lectures: Lecture[] = (lecturesRes.data ?? []) as unknown as Lecture[];
 
   const progress: StudentProgress[] = (progressRes.data ?? []).map(p => ({
     ...p,

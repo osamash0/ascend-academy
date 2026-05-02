@@ -602,46 +602,67 @@ export default function StudentDashboard() {
               </p>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              <AnimatePresence mode="popLayout">
-                {filteredLectures.map((lecture, index) => {
-                  const lectureProgress = getProgressForLecture(lecture.id);
-                  return (
-                    <motion.div
-                      key={lecture.id}
-                      layout
-                      initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                      transition={{ 
-                        delay: index * 0.06, 
-                        type: 'spring', 
-                        stiffness: 300, 
-                        damping: 24 
-                      }}
-                      whileHover={{ 
-                        y: -8, 
-                        scale: 1.02,
-                        transition: { type: 'spring', stiffness: 400, damping: 17 }
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <LectureCard
-                        id={lecture.id}
-                        title={lecture.title}
-                        description={lecture.description || undefined}
-                        totalSlides={lecture.total_slides}
-                        completedSlides={lectureProgress?.completed_slides?.length || 0}
-                        quizScore={lectureProgress?.correct_answers || 0}
-                        totalQuestions={lectureProgress?.total_questions_answered || 0}
-                        index={index}
-                        onClick={() => navigate(`/lecture/${lecture.id}`)}
-                      />
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
+            (() => {
+              // Group lectures by course; lectures without a course go into
+              // a single "Uncategorized" group rendered last.
+              const groups = new Map<string, { title: string; lectures: typeof filteredLectures }>();
+              for (const l of filteredLectures) {
+                const key = l.course?.id ?? l.course_id ?? '__uncat__';
+                const title = l.course?.title ?? (key === '__uncat__' ? 'Uncategorized' : 'Course');
+                if (!groups.has(key)) groups.set(key, { title, lectures: [] });
+                groups.get(key)!.lectures.push(l);
+              }
+              const ordered = [...groups.entries()].sort(([a], [b]) => {
+                if (a === '__uncat__') return 1;
+                if (b === '__uncat__') return -1;
+                return 0;
+              });
+              return (
+                <div className="space-y-10">
+                  {ordered.map(([key, group]) => (
+                    <section key={key} className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-heading-sm text-foreground">{group.title}</h3>
+                        <span className="text-xs text-muted-foreground">
+                          {group.lectures.length} {group.lectures.length === 1 ? 'lecture' : 'lectures'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        <AnimatePresence mode="popLayout">
+                          {group.lectures.map((lecture, index) => {
+                            const lectureProgress = getProgressForLecture(lecture.id);
+                            return (
+                              <motion.div
+                                key={lecture.id}
+                                layout
+                                initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                                transition={{ delay: index * 0.04, type: 'spring', stiffness: 300, damping: 24 }}
+                                whileHover={{ y: -8, scale: 1.02, transition: { type: 'spring', stiffness: 400, damping: 17 } }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <LectureCard
+                                  id={lecture.id}
+                                  title={lecture.title}
+                                  description={lecture.description || undefined}
+                                  totalSlides={lecture.total_slides}
+                                  completedSlides={lectureProgress?.completed_slides?.length || 0}
+                                  quizScore={lectureProgress?.correct_answers || 0}
+                                  totalQuestions={lectureProgress?.total_questions_answered || 0}
+                                  index={index}
+                                  onClick={() => navigate(`/lecture/${lecture.id}`)}
+                                />
+                              </motion.div>
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              );
+            })()
           )}
         </div>
 
