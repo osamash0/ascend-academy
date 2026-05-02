@@ -110,6 +110,13 @@ selected id is moved to the head of the failover chain by `_resolve_preferred`
 
 ## Recent changes
 
+- 2026-05-02: PDF parser now uses the new provider chain. Defaults flipped
+  from `groq` to `cerebras` in `backend/api/upload.py` and
+  `backend/services/file_parse_service.py`. Removed the hard-coded
+  `cerebras_client else groq` gates inside `_stage_planning`,
+  `_stage_finalize_deck`, `summarizer_service`, and `planner_service` —
+  they now pass the caller's `ai_model` straight through and let the
+  orchestrator handle cerebras → openrouter → cloudflare → groq → … failover.
 - 2026-05-02: AI provider promotion. Cerebras is now the primary provider
   (head of `QUALITY_CHAIN` and `BULK_CHAIN`); OpenRouter and Cloudflare
   Workers AI added as deep-resilience fallbacks. The selected ai_model

@@ -52,7 +52,7 @@ async def generate_blueprint(
     outline: List[Dict[str, Any]], 
     summary: str, 
     first_slides: List[str], 
-    ai_model: str = "groq"
+    ai_model: str = "cerebras"
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Planner Agent: Generates a master narrative blueprint for the lecture.
@@ -67,11 +67,9 @@ async def generate_blueprint(
     )
 
     try:
-        from backend.services.ai_service import cerebras_client
-        # Cerebras is prioritized for planning due to speed and high logic quality
-        plan_model = "cerebras" if cerebras_client else ai_model
-        
-        raw_json = await generate_text(prompt, plan_model)
+        # Honor caller's selected provider; orchestrator failover handles
+        # cerebras → openrouter → cloudflare → groq → … failover transparently.
+        raw_json = await generate_text(prompt, ai_model)
         blueprint = parse_json_response(raw_json)
         
         # Validation

@@ -95,7 +95,7 @@ router = APIRouter(prefix="/api/upload", tags=["upload"])
 async def parse_pdf_stream_endpoint(
     request: Request,
     file: UploadFile = File(...),
-    ai_model: str = Form("groq"),
+    ai_model: str = Form("cerebras"),
     use_blueprint: bool = Form(True),
     force_reparse: bool = Form(False),
     user: Any = Depends(require_professor),
