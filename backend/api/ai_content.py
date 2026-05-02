@@ -77,34 +77,46 @@ def _validate_supabase_storage_url(url: str) -> None:
 _security = HTTPBearer()
 
 _AiModel = Annotated[
-    Literal["groq", "gemini-2.0-flash", "llama3", "cerebras"],
-    Field("groq", description="Which LLM backend to use"),
+    Literal[
+        "cerebras",        # PRIMARY
+        "groq",
+        "groq_fast",
+        "openrouter",
+        "cloudflare",
+        "gemini",
+        "gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "gemma",
+        "mistral",
+        "llama3",
+    ],
+    Field("cerebras", description="Preferred LLM backend (head of failover chain)"),
 ]
 
 # --- Pydantic Models ---
 
 class SlideTextRequest(BaseModel):
     slide_text: str = Field(..., min_length=1, max_length=10_000)
-    ai_model: _AiModel = "groq"
+    ai_model: _AiModel = "cerebras"
 
 class AnalyticsStatsRequest(BaseModel):
     total_students: int = Field(0, ge=0)
     average_score: float = Field(0, ge=0, le=100)
     total_attempts: int = Field(0, ge=0)
     total_correct: int = Field(0, ge=0)
-    ai_model: _AiModel = "groq"
+    ai_model: _AiModel = "cerebras"
 
 class MetricInsightRequest(BaseModel):
     metric_name: str
     metric_value: Any
     context_stats: Dict[str, Any]
-    ai_model: _AiModel = "groq"
+    ai_model: _AiModel = "cerebras"
 
 class ChatRequest(BaseModel):
     slide_text: str = Field(..., min_length=0, max_length=10_000)
     user_message: str = Field(..., min_length=1, max_length=2_000)
     chat_history: Optional[List[Dict[str, Any]]] = None
-    ai_model: _AiModel = "groq"
+    ai_model: _AiModel = "cerebras"
     # Grounding scope.  Either lecture_id or pdf_hash narrows retrieval to
     # the slides of *this* deck; without one of them the tutor falls back
     # to single-slide grounding using `slide_text`.
@@ -324,7 +336,7 @@ async def text_to_speech_endpoint(request: Request, body: TTSRequest, user: Any 
 # --- Single Slide Regeneration ---
 
 class RegenerateSlideRequest(BaseModel):
-    ai_model: _AiModel = "groq"
+    ai_model: _AiModel = "cerebras"
 
 @router.post("/slides/{slide_id}/regenerate-content")
 @limiter.limit("10/minute")

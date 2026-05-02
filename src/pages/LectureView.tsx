@@ -55,6 +55,27 @@ export default function LectureView() {
   const slideStartRef = useRef<number>(Date.now());
   const quizRef = useRef<HTMLDivElement>(null);
   const answeredQuestionsRef = useRef<Set<string>>(new Set());
+  // Authoritative post-answer counters. handleQuizAnswer writes the freshly
+  // computed values here so handleQuizContinue can read them synchronously
+  // without depending on possibly-stale React state.
+  const committedXpRef = useRef<number>(0);
+  const committedCorrectRef = useRef<number>(0);
+  // One-shot guards so a fast double-click on Continue / Finish lecture
+  // cannot double-fire advancement or completion side effects.
+  const continueLockRef = useRef<boolean>(false);
+  const lectureCompleteLockRef = useRef<boolean>(false);
+
+  // Review stage: every wrong answer during the run is pushed here so the
+  // student can re-attempt them after the last slide. Stored in a ref so
+  // handleQuizAnswer can append synchronously without a re-render race.
+  const missedQueueRef = useRef<
+    Array<{ question: QuizQuestion; slideIndex: number; firstSelectedIndex: number }>
+  >([]);
+  const [reviewStage, setReviewStage] = useState(false);
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [reviewSelectedAnswer, setReviewSelectedAnswer] = useState<number | null>(null);
+  const reviewAnsweredRef = useRef<Set<string>>(new Set());
+  const reviewContinueLockRef = useRef<boolean>(false);
 
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -117,6 +138,16 @@ export default function LectureView() {
     setQuizAnswers({});
     setXpEarned(0);
     setCorrectAnswers(0);
+
+    // Reset replay/review session state so a previously-loaded lecture
+    // doesn't leak its missed-question queue or review progress into the
+    // newly loaded one.
+    missedQueueRef.current = [];
+    reviewAnsweredRef.current = new Set();
+    reviewContinueLockRef.current = false;
+    setReviewStage(false);
+    setReviewIndex(0);
+    setReviewSelectedAnswer(null);
 
     let currentLectureId = lectureId;
     if (!currentLectureId) return;
@@ -388,6 +419,22 @@ export default function LectureView() {
       }).catch((err) => console.warn('quiz_attempt telemetry failed', err));
     }
 
+    // Track wrong answers for the end-of-lecture replay stage. Each missed
+    // question is queued exactly once per run; second-pass attempts during
+    // the replay are tracked separately via handleReviewAnswer.
+    if (!isCorrect && currentQuestion) {
+      const alreadyQueued = missedQueueRef.current.some(
+        (m) => m.question.id === currentQuestion.id,
+      );
+      if (!alreadyQueued) {
+        missedQueueRef.current.push({
+          question: currentQuestion,
+          slideIndex: currentSlideIndex,
+          firstSelectedIndex: selectedIndex,
+        });
+      }
+    }
+
     if (isCorrect) {
       const newXp = xpEarned + 10;
       setXpEarned(newXp);
@@ -454,28 +501,101 @@ export default function LectureView() {
     // Persist progress immediately so reload cannot re-award XP for this question
     const finalXpNow = isCorrect ? xpEarned + 10 : xpEarned;
     const finalCorrectNow = isCorrect ? correctAnswers + 1 : correctAnswers;
+    // Stash authoritative values for handleQuizContinue — React state may not
+    // yet reflect the setXpEarned / setCorrectAnswers calls above.
+    committedXpRef.current = finalXpNow;
+    committedCorrectRef.current = finalCorrectNow;
+    // A new question was just answered → re-arm the continue lock.
+    continueLockRef.current = false;
     await saveProgress(currentSlideIndex, finalXpNow, finalCorrectNow);
 
-    // Move to next slide after quiz
-    setTimeout(() => {
-      const isCorrectNow = isCorrect ? 1 : 0;
-      const currentFinalXp = isCorrect ? xpEarned + 10 : xpEarned;
-      const currentFinalCorrect = correctAnswers + isCorrectNow;
+    // Advancement is now driven by the Continue button (see handleQuizContinue),
+    // so we no longer auto-advance on a 1.5s timer. The student controls the pace.
+  };
 
-      if (currentSlideIndex < slides.length - 1) {
-        const nextIndex = currentSlideIndex + 1;
-        setCurrentSlideIndex(nextIndex);
-        setShowQuiz(quizAnswers[nextIndex] !== undefined);
-        saveProgress(nextIndex, currentFinalXp, currentFinalCorrect);
-      } else {
-        setShowQuiz(false);
-        handleLectureComplete(currentFinalXp, currentFinalCorrect);
+  const handleQuizContinue = () => {
+    // Idempotency guard — a fast double-click must not advance/complete twice.
+    if (continueLockRef.current) return;
+    continueLockRef.current = true;
+
+    // Read committed values from refs (set in handleQuizAnswer) so we never
+    // race against pending setState calls.
+    const xp = committedXpRef.current || xpEarned;
+    const correct = committedCorrectRef.current || correctAnswers;
+
+    if (currentSlideIndex < slides.length - 1) {
+      const nextIndex = currentSlideIndex + 1;
+      setCurrentSlideIndex(nextIndex);
+      setShowQuiz(quizAnswers[nextIndex] !== undefined);
+      saveProgress(nextIndex, xp, correct);
+    } else {
+      setShowQuiz(false);
+      // If the student got anything wrong during the run, route them through
+      // the replay stage before firing completion. Otherwise complete now.
+      if (missedQueueRef.current.length > 0) {
+        setReviewStage(true);
+        setReviewIndex(0);
+        setReviewSelectedAnswer(null);
+        reviewContinueLockRef.current = false;
+        return;
       }
-    }, 1500);
+      handleLectureComplete(xp, correct);
+    }
+  };
+
+  const currentReviewItem =
+    reviewStage && missedQueueRef.current.length > 0
+      ? missedQueueRef.current[reviewIndex]
+      : null;
+
+  const handleReviewAnswer = (isCorrect: boolean, selectedIndex: number) => {
+    const item = currentReviewItem;
+    if (!item) return;
+    const key = `${item.question.id}#${reviewIndex}`;
+    if (reviewAnsweredRef.current.has(key)) return;
+    reviewAnsweredRef.current.add(key);
+
+    setReviewSelectedAnswer(selectedIndex);
+    reviewContinueLockRef.current = false;
+
+    if (user) {
+      // Separate event type so analytics can distinguish first-attempt
+      // accuracy from eventual mastery. Retry attempts deliberately do NOT
+      // award XP or bump correctAnswers — saveProgress is not re-called.
+      logLearningEvent(user.id, 'quiz_retry_attempt', {
+        lectureId,
+        slideId: item.question.slide_id,
+        slideTitle: slides[item.slideIndex]?.title,
+        questionId: item.question.id,
+        correct: isCorrect,
+        selectedAnswer: selectedIndex,
+        firstAttemptAnswer: item.firstSelectedIndex,
+        reviewIndex,
+        timestamp: new Date().toISOString(),
+      }).catch((err) => console.warn('quiz_retry_attempt telemetry failed', err));
+    }
+  };
+
+  const handleReviewContinue = () => {
+    if (reviewContinueLockRef.current) return;
+    reviewContinueLockRef.current = true;
+
+    const next = reviewIndex + 1;
+    if (next < missedQueueRef.current.length) {
+      setReviewIndex(next);
+      setReviewSelectedAnswer(null);
+    } else {
+      setReviewStage(false);
+      handleLectureComplete(committedXpRef.current || xpEarned, committedCorrectRef.current || correctAnswers);
+    }
   };
 
   const handleLectureComplete = async (finalXp: number = xpEarned, finalCorrect: number = correctAnswers) => {
     if (!lecture) return;
+    // One-shot guard — double-clicking Finish must not fire completion (XP cap,
+    // achievements, notifications, navigate) twice.
+    if (lectureCompleteLockRef.current) return;
+    lectureCompleteLockRef.current = true;
 
     const sessionDuration = Math.round((Date.now() - sessionStartRef.current) / 1000);
 
@@ -704,7 +824,48 @@ export default function LectureView() {
               {/* Sidebar - Quiz */}
               <div ref={quizRef}>
                 <AnimatePresence mode="wait">
-                  {showQuiz && currentQuestion ? (
+                  {reviewStage && currentReviewItem ? (
+                    <motion.div
+                      key={`review-${reviewIndex}`}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-4"
+                      data-testid="review-stage"
+                    >
+                      <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
+                          <HelpCircle className="w-5 h-5 text-primary-foreground" />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-bold text-foreground">
+                            Review missed questions
+                          </h2>
+                          <p className="text-xs text-muted-foreground">
+                            {reviewIndex + 1} of {missedQueueRef.current.length} · second attempt
+                          </p>
+                        </div>
+                      </div>
+                      <QuizCard
+                        key={`review-card-${reviewIndex}`}
+                        question={currentReviewItem.question.question_text}
+                        options={currentReviewItem.question.options}
+                        correctAnswer={currentReviewItem.question.correct_answer}
+                        onAnswer={handleReviewAnswer}
+                        onContinue={handleReviewContinue}
+                        continueLabel={
+                          reviewIndex < missedQueueRef.current.length - 1
+                            ? 'Next question'
+                            : 'Finish lecture'
+                        }
+                        questionNumber={reviewIndex + 1}
+                        totalQuestions={missedQueueRef.current.length}
+                        initialSelectedAnswer={reviewSelectedAnswer}
+                        explanation={currentReviewItem.question.explanation}
+                        concept={currentReviewItem.question.concept}
+                      />
+                    </motion.div>
+                  ) : showQuiz && currentQuestion ? (
                     <motion.div
                       key={`quiz-${currentSlideIndex}`}
                       initial={{ opacity: 0, x: 20 }}
@@ -728,6 +889,8 @@ export default function LectureView() {
                         options={currentQuestion.options}
                         correctAnswer={currentQuestion.correct_answer}
                         onAnswer={handleQuizAnswer}
+                        onContinue={handleQuizContinue}
+                        continueLabel={currentSlideIndex < slides.length - 1 ? 'Continue' : 'Finish lecture'}
                         questionNumber={currentSlideIndex + 1}
                         totalQuestions={slides.length}
                         initialSelectedAnswer={quizAnswers[currentSlideIndex]}

@@ -5,6 +5,7 @@ import { useTheme } from 'next-themes';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationBell } from '@/components/NotificationBell';
+import { FeedbackWidget } from '@/components/FeedbackWidget';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -89,6 +90,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="relative z-0">
             {children}
           </div>
+          <FeedbackWidget />
         </main>
       </div>
     </SidebarProvider>
