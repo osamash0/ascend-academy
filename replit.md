@@ -91,6 +91,17 @@ network, no real Supabase.**
 
 ## Recent changes
 
+- 2026-05-02: UX + feedback batch. Quiz no longer auto-advances after 1.5s —
+  students click an explicit Continue button (`Finish lecture` on last slide)
+  rendered by `QuizCard` and wired through `LectureView.handleQuizContinue`.
+  Progression uses committed refs (`committedXp/CorrectRef`) + one-shot locks
+  (`continueLockRef`, `lectureCompleteLockRef`) to avoid stale-state races and
+  double-fires. `LectureEdit` got a sticky save bar at the top of the form.
+  New cross-app feedback widget: `src/components/FeedbackWidget.tsx` mounted
+  in `DashboardLayout`, posting to `POST /api/feedback`
+  (`backend/api/feedback.py`, slowapi-rate-limited, server-derived `user_id`,
+  service-role insert). Schema: `supabase/migrations/20260503000008_user_feedback.sql`
+  (table + RLS for authenticated select/insert).
 - 2026-05-02: Built the testing harness end-to-end — pytest tree (unit /
   integration / contract / db), Vitest tree with MSW + shared supabase mock,
   Playwright skeleton, GitHub Actions CI, and the `TESTING_STRATEGY.md` +

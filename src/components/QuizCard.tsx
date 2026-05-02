@@ -1,13 +1,20 @@
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, XCircle, Zap, Volume2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Zap, Volume2, ArrowRight } from 'lucide-react';
 import { useTTS } from '@/hooks/useTTS';
 
 interface QuizCardProps {
   question: string;
   options: string[];
   correctAnswer: number;
+  /** Called once the user picks an answer. The component does NOT auto-advance — the
+   * parent decides what to do (e.g. record telemetry, update streak). It will then
+   * receive `onContinue` when the user clicks the explicit "Continue" button below. */
   onAnswer: (isCorrect: boolean, selectedIndex: number) => void;
+  /** Called when the user clicks the "Continue" button after reviewing the result. */
+  onContinue?: () => void;
+  /** Label for the continue button (e.g. "Continue", "Finish lecture"). */
+  continueLabel?: string;
   questionNumber: number;
   totalQuestions: number;
   initialSelectedAnswer?: number | null;
@@ -49,6 +56,8 @@ export const QuizCard = memo(function QuizCard({
   options,
   correctAnswer,
   onAnswer,
+  onContinue,
+  continueLabel = 'Continue',
   questionNumber,
   totalQuestions,
   initialSelectedAnswer = null,
@@ -61,6 +70,7 @@ export const QuizCard = memo(function QuizCard({
   const [showResult, setShowResult] = useState(initialSelectedAnswer !== null);
   const [showXP, setShowXP] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const continueRef = useRef<HTMLDivElement>(null);
   const { speak, isSpeaking } = useTTS();
 
   // Sync state when props change
@@ -70,6 +80,16 @@ export const QuizCard = memo(function QuizCard({
     setShowXP(false);
     setShowExplanation(false);
   }, [initialSelectedAnswer, question]);
+
+  // Auto-scroll the Continue button into view once the result is revealed so
+  // students on small screens never have to hunt for it.
+  useEffect(() => {
+    if (!showResult) return;
+    const t = setTimeout(() => {
+      continueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [showResult]);
 
   const handleAnswer = useCallback((index: number) => {
     if (showResult) return;
@@ -83,12 +103,10 @@ export const QuizCard = memo(function QuizCard({
       setTimeout(() => setShowXP(false), 1200);
     }
 
-    // Delay before moving to next question
-    const timer = setTimeout(() => {
-      onAnswer(correct, index);
-    }, 1600);
-
-    return () => clearTimeout(timer);
+    // Notify parent immediately so XP/streak/telemetry persist while the user
+    // reads the explanation. The parent must NOT auto-advance — advancement
+    // is driven by the explicit "Continue" button below.
+    onAnswer(correct, index);
   }, [showResult, correctAnswer, onAnswer]);
 
   const handleSpeakQuestion = useCallback(() => {
@@ -346,6 +364,28 @@ export const QuizCard = memo(function QuizCard({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Explicit Continue button — replaces the old 1.5s auto-advance so
+          students control the pace and have time to read the explanation. */}
+      {showResult && onContinue && (
+        <motion.div
+          ref={continueRef}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="mt-6 flex justify-end"
+        >
+          <button
+            type="button"
+            onClick={onContinue}
+            data-testid="quiz-continue"
+            className="flex items-center gap-2 px-6 h-12 rounded-xl bg-primary text-white font-bold shadow-glow-primary hover:opacity-90 transition-opacity"
+          >
+            {continueLabel}
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </motion.div>
+      )}
     </div>
   );
 });

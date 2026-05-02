@@ -441,6 +441,27 @@ export default function LectureEdit() {
 
             <form onSubmit={handleSave} className="space-y-8">
 
+                {/* Sticky Save Bar — always visible while scrolling so professors
+                    can save from anywhere on the page (no more scroll-to-bottom). */}
+                <div
+                    className="sticky top-0 z-30 -mx-6 lg:-mx-8 px-6 lg:px-8 py-3 bg-background/85 backdrop-blur-md border-b border-border flex items-center justify-end gap-3 shadow-sm"
+                    data-testid="lecture-edit-sticky-save"
+                >
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => navigate('/professor/dashboard')}
+                        disabled={saving}
+                    >
+                        Cancel
+                    </Button>
+                    <Button type="submit" variant="hero" disabled={saving} data-testid="lecture-edit-save-top">
+                        {saving
+                            ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Saving…</span>
+                            : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
+                    </Button>
+                </div>
+
                 {/* Lecture Details */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-6">
                     <h2 className="text-lg font-semibold text-foreground mb-4">Lecture Details</h2>
