@@ -5,7 +5,7 @@ New code should ideally import from specialized modules.
 """
 
 from .ai.orchestrator import (
-    gemini_client, groq_client, cerebras_client, ollama,
+    gemini_client, groq_client, cerebras_client, openrouter_client, cloudflare_client, ollama,
     OLLAMA_MODEL, GEMINI_MODEL, GROQ_MODEL, GROQ_FAST_MODEL, GROQ_VISION_MODEL, CEREBRAS_MODEL,
     enhance_slide_content, generate_summary, generate_quiz, generate_slide_title,
     process_slide_batch, batch_analyze_text_slides, generate_text_bulk,

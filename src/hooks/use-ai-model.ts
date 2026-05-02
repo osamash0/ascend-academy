@@ -1,18 +1,37 @@
 import { useState, useEffect } from 'react';
 
-export type AiModelChoice = 'llama3' | 'gemini-2.5-flash' | 'groq';
+export type AiModelChoice =
+  | 'cerebras'
+  | 'groq'
+  | 'openrouter'
+  | 'cloudflare'
+  | 'gemini-2.5-flash'
+  | 'llama3';
 
 const STORAGE_KEY = 'ascend-academy-ai-model';
+
+const VALID_MODELS: ReadonlyArray<AiModelChoice> = [
+  'cerebras',
+  'groq',
+  'openrouter',
+  'cloudflare',
+  'gemini-2.5-flash',
+  'llama3',
+];
+
+function isValidModel(value: string | null): value is AiModelChoice {
+  return value !== null && (VALID_MODELS as ReadonlyArray<string>).includes(value);
+}
 
 export function useAiModel() {
   const [aiModel, setAiModelState] = useState<AiModelChoice>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === 'llama3' || stored === 'gemini-2.5-flash' || stored === 'groq') {
+      if (isValidModel(stored)) {
         return stored;
       }
     }
-    return 'gemini-2.5-flash'; // Default to Gemini
+    return 'cerebras';
   });
 
   useEffect(() => {

@@ -5,11 +5,12 @@ Provider chain (rate-limit data: github.com/cheahjs/free-llm-api-resources):
 
   ID            Model                       Daily req   TPM      Notes
   ──────────────────────────────────────────────────────────────────────
-  cerebras      gpt-oss-120b                14,400      60,000   Best bulk option
+  cerebras      gpt-oss-120b                14,400      60,000   PRIMARY (fast + high quality)
   groq_fast     llama-3.1-8b-instant        14,400       6,000   Fast fallback
   gemma         gemma-3-27b-it              14,400      15,000   Google SDK
   mistral       mistral-small-latest        ~unlimited  500,000  Needs phone verify
   openrouter    llama-3.3-70b:free              50          —    50/day free; 1K/day w/ $10
+  cloudflare    llama-3.3-70b               10,000          —    Workers AI free tier
   gemini        gemini-2.0-flash             ~1,500     250,000  Google SDK
   groq          llama-3.3-70b-versatile      1,000      12,000   Quality; conserved for blueprints
   ──────────────────────────────────────────────────────────────────────
@@ -19,10 +20,12 @@ Two chains:
   QUALITY_CHAIN — blueprints / planning (low volume, quality-first)
 
 Required env vars (add what you have; missing keys disable that provider gracefully):
+  CEREBRAS_API_KEY      https://cloud.cerebras.ai          ← PRIMARY
   GROQ_API_KEY          https://console.groq.com
-  CEREBRAS_API_KEY      https://cloud.cerebras.ai
   GEMINI_API_KEY        https://aistudio.google.com/apikey
   OPENROUTER_API_KEY    https://openrouter.ai/keys
+  CLOUDFLARE_API_TOKEN  https://dash.cloudflare.com/profile/api-tokens
+  CLOUDFLARE_ACCOUNT_ID https://dash.cloudflare.com (URL of any Cloudflare page)
   MISTRAL_API_KEY       https://console.mistral.ai  (requires phone)
 """
 
@@ -118,6 +121,16 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             base_url="https://openrouter.ai/api/v1",
         ),
         ProviderConfig(
+            # Cloudflare Workers AI is OpenAI-compatible at
+            # /accounts/{account_id}/ai/v1. The account ID is appended to
+            # the base URL at client-init time (see _make_cloudflare_client).
+            id="cloudflare",
+            model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+            daily_limit=10_000, rpm=300, tpm=0,
+            env_var="CLOUDFLARE_API_TOKEN",
+            base_url="https://api.cloudflare.com/client/v4/accounts",
+        ),
+        ProviderConfig(
             id="gemini",
             model="gemini-2.0-flash",
             daily_limit=1_500, rpm=15, tpm=250_000,
@@ -140,10 +153,45 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
 # ---------------------------------------------------------------------------
 
 # Bulk slide processing: highest daily capacity first; Groq 70B last (conserve quota)
-BULK_CHAIN:    List[str] = ["cerebras", "groq_fast", "gemma", "mistral", "openrouter", "gemini", "groq"]
+BULK_CHAIN:    List[str] = ["cerebras", "groq_fast", "cloudflare", "gemma", "mistral", "openrouter", "gemini", "groq"]
 
-# Blueprint / planning / deck summaries: quality first
-QUALITY_CHAIN: List[str] = ["groq", "cerebras", "openrouter", "gemini", "mistral", "groq_fast", "gemma"]
+# Blueprint / planning / deck summaries: Cerebras (gpt-oss-120b) is now the
+# primary — it is both fast and high quality, and has the highest free-tier
+# daily quota of any provider in the registry. Groq 70B is held back as a
+# quality fallback after Cerebras and the deep-resilience providers.
+QUALITY_CHAIN: List[str] = ["cerebras", "groq", "openrouter", "cloudflare", "gemini", "mistral", "groq_fast", "gemma"]
+
+# Maps the user-facing ai_model string (sent from the frontend) to the
+# orchestrator's internal provider id. Values that don't map fall back to
+# the chain's natural head.
+_USER_MODEL_TO_PROVIDER: Dict[str, str] = {
+    "cerebras":          "cerebras",
+    "groq":              "groq",
+    "groq_fast":         "groq_fast",
+    "openrouter":        "openrouter",
+    "cloudflare":        "cloudflare",
+    "gemini":            "gemini",
+    "gemini-2.0-flash":  "gemini",
+    "gemini-1.5-flash":  "gemini",
+    "gemini-2.5-flash":  "gemini",
+    "gemma":             "gemma",
+    "mistral":           "mistral",
+}
+
+
+def _resolve_preferred(ai_model: Optional[str]) -> Optional[str]:
+    """Map a user-facing model selection to a provider id, or None."""
+    if not ai_model:
+        return None
+    return _USER_MODEL_TO_PROVIDER.get(ai_model.lower())
+
+
+def _chain_with_preferred(chain: List[str], preferred: Optional[str]) -> List[str]:
+    """Return ``chain`` with ``preferred`` moved to the front (if known)."""
+    if not preferred or preferred not in PROVIDER_REGISTRY:
+        return chain
+    rest = [p for p in chain if p != preferred]
+    return [preferred, *rest]
 
 # ---------------------------------------------------------------------------
 # Client initialisation
@@ -185,11 +233,35 @@ def _make_openai_client(env_var: str, base_url: str) -> Optional[Any]:
         return None
 
 
+def _make_cloudflare_client() -> Optional[Any]:
+    """Cloudflare Workers AI requires both an API token AND an account id —
+    the OpenAI-compatible base URL is /accounts/{account_id}/ai/v1.
+    Returns None if either env var is missing.
+    """
+    if _OpenAI is None:
+        return None
+    token = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+    account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+    if not token or len(token) < 8 or not account_id:
+        return None
+    try:
+        return _OpenAI(
+            api_key=token,
+            base_url=f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
+            max_retries=0,
+        )
+    except Exception as exc:
+        logger.debug("Could not init Cloudflare Workers AI client: %s", exc)
+        return None
+
+
 # Build clients at startup; None means provider is disabled (key not set)
 _clients: Dict[str, Optional[Any]] = {}
 for _cfg in PROVIDER_REGISTRY.values():
     if _cfg.uses_google_sdk:
         _clients[_cfg.id] = _google_client   # shared Google client for gemini + gemma
+    elif _cfg.id == "cloudflare":
+        _clients[_cfg.id] = _make_cloudflare_client()
     elif _cfg.base_url:
         _clients[_cfg.id] = _make_openai_client(_cfg.env_var, _cfg.base_url)
 
@@ -201,9 +273,11 @@ try:
 except Exception:
     groq_client = None
 
-cerebras_client = _clients.get("cerebras")
-gemini_client   = _google_client
-ollama          = _ollama_lib
+cerebras_client   = _clients.get("cerebras")
+openrouter_client = _clients.get("openrouter")
+cloudflare_client = _clients.get("cloudflare")
+gemini_client     = _google_client
+ollama            = _ollama_lib
 
 # ---------------------------------------------------------------------------
 # Provider rotator — daily budget + backoff tracking
@@ -338,11 +412,18 @@ def _call_provider(provider_id: str, prompt: str) -> str:
 # Rotation engine
 # ---------------------------------------------------------------------------
 
-def _generate_with_rotation(prompt: str, chain: List[str]) -> str:
+def _generate_with_rotation(
+    prompt: str,
+    chain: List[str],
+    preferred: Optional[str] = None,
+) -> str:
     """
     Tries each provider in `chain` (skipping unavailable ones), rotates on 429.
+    If ``preferred`` is a known provider id it is moved to the head of the
+    chain so the user's selection is honored first when available.
     Raises the last exception if every provider fails.
     """
+    chain = _chain_with_preferred(chain, preferred)
     available = _rotator.available(chain)
     if not available:
         available = chain   # last-ditch: try all
@@ -468,53 +549,59 @@ except ImportError:
 # Public generation API
 # ---------------------------------------------------------------------------
 
-def _llm_generate_text_sync(prompt: str, ai_model: str = "groq") -> str:
+def _llm_generate_text_sync(prompt: str, ai_model: str = "cerebras") -> str:
     """
     Backward-compat sync entry point.
     Routes to the appropriate chain based on ai_model hint.
     """
     if ai_model == "llama3":
         return _call_provider("llama3", prompt)
-    return _generate_with_rotation(prompt, QUALITY_CHAIN)
+    return _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=_resolve_preferred(ai_model))
 
 
-async def generate_text(prompt: str, ai_model: str = "groq") -> str:
+async def generate_text(prompt: str, ai_model: str = "cerebras") -> str:
     """
-    Quality chain: Groq 70B → Cerebras → OpenRouter → Gemini → Mistral → …
+    Quality chain: Cerebras → Groq 70B → OpenRouter → Cloudflare → Gemini → …
     Use for blueprints, planning, deck summaries.
+    The user-selected ``ai_model`` is moved to the head of the chain when
+    it maps to a known provider (cerebras, groq, openrouter, cloudflare, gemini, ...).
     """
     from backend.services.llm_client import call_llm
-    return await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN))
+    preferred = _resolve_preferred(ai_model)
+    return await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=preferred))
 
 
-async def generate_text_bulk(prompt: str) -> str:
+async def generate_text_bulk(prompt: str, ai_model: str = "cerebras") -> str:
     """
-    Bulk chain: Cerebras → Groq 8B → Gemma → Mistral → OpenRouter → Gemini → Groq 70B
+    Bulk chain: Cerebras → Groq 8B → Cloudflare → Gemma → Mistral → OpenRouter → …
     Use for slide-by-slide processing to preserve the scarce Groq 70B quota.
+    User-selected ``ai_model`` is honored at the head of the chain when known.
     """
     from backend.services.llm_client import call_llm
-    return await call_llm(lambda: _generate_with_rotation(prompt, BULK_CHAIN))
+    preferred = _resolve_preferred(ai_model)
+    return await call_llm(lambda: _generate_with_rotation(prompt, BULK_CHAIN, preferred=preferred))
 
 
-def process_slide_batch(text: str, ai_model: str = "groq") -> Dict[str, Any]:
+def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
     """Synchronous single-slide processing (legacy/internal)."""
     prompt = (
         "Analyze this lecture slide and return JSON with "
         "{title, content, summary, questions, slide_type, is_metadata}:\n\n" + text
     )
-    raw = _generate_with_rotation(prompt, BULK_CHAIN)
+    raw = _generate_with_rotation(prompt, BULK_CHAIN, preferred=_resolve_preferred(ai_model))
     return parse_json_response(raw)
 
 
-async def enhance_slide_content(text: str, ai_model: str = "groq") -> Dict[str, Any]:
+async def enhance_slide_content(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
     from backend.services.ai.prompts import ENHANCE_PROMPT
-    raw = await generate_text(ENHANCE_PROMPT.format(text=text))
+    raw = await generate_text(ENHANCE_PROMPT.format(text=text), ai_model=ai_model)
     return parse_json_response(raw)
 
 
-async def generate_deck_summary(content: str, ai_model: str = "groq") -> str:
+async def generate_deck_summary(content: str, ai_model: str = "cerebras") -> str:
     return await generate_text(
-        f"Summarize this lecture content into a cohesive narrative:\n\n{content}"
+        f"Summarize this lecture content into a cohesive narrative:\n\n{content}",
+        ai_model=ai_model,
     )
 
 
@@ -600,7 +687,7 @@ def _has_cross_slide_signal(blueprint: Optional[Dict[str, Any]]) -> bool:
 
 async def generate_deck_quiz(
     summary: str,
-    ai_model: str = "groq",
+    ai_model: str = "cerebras",
     blueprint: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Generate a 5-question deck quiz.

@@ -24,7 +24,13 @@ interface ExportData {
     learning_events: unknown[] | null;
 }
 
-type AiModelOption = 'llama3' | 'gemini-2.5-flash' | 'groq';
+type AiModelOption =
+    | 'cerebras'
+    | 'groq'
+    | 'openrouter'
+    | 'cloudflare'
+    | 'gemini-2.5-flash'
+    | 'llama3';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -39,19 +45,34 @@ const PRESET_AVATARS = [
 
 const AI_MODELS: { id: AiModelOption; name: string; description: string }[] = [
     {
-        id: 'llama3',
-        name: 'Llama 3 (Local)',
-        description: 'Runs locally via Ollama. Completely private and offline, but may be slower depending on your hardware.'
-    },
-    {
-        id: 'gemini-2.5-flash',
-        name: 'Gemini 2.5',
-        description: 'Lightning-fast responses powered by Google. Requires an internet connection securely sent over API.'
+        id: 'cerebras',
+        name: 'Cerebras (Recommended)',
+        description: 'Primary engine: GPT-OSS-120B on Cerebras inference — extremely fast, high quality, and the highest free-tier daily quota of any provider.'
     },
     {
         id: 'groq',
-        name: 'Groq (Llama 3 8B)',
-        description: 'Blazing fast free cloud API running Llama 3 8B Instant. Requires internet and GROQ_API_KEY.'
+        name: 'Groq (Llama 3.3 70B)',
+        description: 'High-quality cloud LLM via Groq. Used as the first quality fallback when Cerebras is unavailable.'
+    },
+    {
+        id: 'openrouter',
+        name: 'OpenRouter (Llama 3.3 70B)',
+        description: 'Deep-resilience fallback via OpenRouter. Free tier of 50 req/day; ideal as a backup when other providers are rate-limited.'
+    },
+    {
+        id: 'cloudflare',
+        name: 'Cloudflare Workers AI',
+        description: 'Deep-resilience fallback running Llama 3.3 70B on Cloudflare Workers AI. Generous free tier and global edge deployment.'
+    },
+    {
+        id: 'gemini-2.5-flash',
+        name: 'Gemini',
+        description: 'Lightning-fast responses powered by Google AI Studio. Useful when you want Google\'s model behavior specifically.'
+    },
+    {
+        id: 'llama3',
+        name: 'Llama 3 (Local)',
+        description: 'Runs locally via Ollama. Completely private and offline, but slower and only available when Ollama is installed.'
     },
 ];
 
