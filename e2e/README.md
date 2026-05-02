@@ -16,10 +16,15 @@ npx playwright test --ui                     # interactive
 
 | File | Journey | Status |
 |---|---|---|
-| `student-happy-path.spec.ts` | Signup → dashboard → open lecture → complete quiz → earn XP / badge | skeleton |
-| `professor-upload.spec.ts` | Login → upload PDF → SSE progress → publish lecture | skeleton |
-| `professor-analytics.spec.ts` | Open lecture analytics → all 4 panels render (overview, dropoff, distractors, AI queries) | skeleton |
+| `student-happy-path.spec.ts` | Signup → dashboard → open lecture → complete quiz → completion toast | active |
+| `professor-upload.spec.ts` | Login → upload PDF → SSE progress → publish lecture | active |
+| `professor-analytics.spec.ts` | Open lecture analytics → all 4 panels render (drop-off, confidence-by-slide, score distribution, AI queries) | active |
 
-The skeletons use `test.fixme()` so they show up in the report as expected-to-be-implemented work without failing the suite. Each `fixme` block carries the
-exact route-mocking + assertion plan in comments — un-fixme as the journey
-becomes a stable target.
+All three journeys are now real tests. They share `helpers/supabase-mocks.ts`,
+which installs hermetic `page.route()` handlers for Supabase auth, REST
+tables, single-row `.single()` reads, RPCs, and storage uploads. Each spec
+layers on the journey-specific mocks (FastAPI SSE, analytics dashboard
+endpoint) on top of the baseline. The professor-analytics assertions target
+the actual section headings rendered by `ProfessorAnalytics.tsx` — the
+"distractors" panel from the original brief maps to the *Score Distribution*
++ *Confidence By Slide* sections the page actually exposes.
