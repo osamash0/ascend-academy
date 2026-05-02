@@ -190,6 +190,30 @@ def _existing_embedding_indices(
     }
 
 
+def _hashes_with_any_embedding(
+    pipeline_version: str, stats: Optional["BackfillStats"] = None
+) -> Optional[Set[str]]:
+    """Single-shot lookup of every pdf_hash that already has ≥1 embedding.
+
+    Used as a fast-path so the common case — legacy lectures with zero
+    embedding rows — skips the per-hash `_existing_embedding_indices`
+    query entirely.  Returns None on read failure so callers can fall
+    back to the safe per-hash path instead of assuming "no embeddings".
+    """
+    try:
+        rows = _paginated_select(
+            "slide_embeddings",
+            "pdf_hash",
+            {"pipeline_version": pipeline_version},
+        )
+    except Exception as e:
+        logger.warning("Pre-fetch of embedded hashes failed: %s", e)
+        if stats is not None:
+            stats.failures.append(f"hashes_with_any_embedding failed: {e}")
+        return None
+    return {row["pdf_hash"] for row in rows if row.get("pdf_hash")}
+
+
 def _lecture_ids_for_pdf_hash(pdf_hash: str) -> List[str]:
     """Look up lecture rows whose pdf_hash matches (column added in 20260503000006)."""
     try:
@@ -281,6 +305,7 @@ async def _backfill_one_pdf(
     force: bool,
     dry_run: bool,
     stats: BackfillStats,
+    has_any_embedding: Optional[bool] = None,
 ) -> None:
     cached = _load_cached_slides(pdf_hash, pipeline_version, stats)
     if cached is None:
@@ -293,6 +318,10 @@ async def _backfill_one_pdf(
 
     if force:
         existing: Set[int] = set()
+    elif has_any_embedding is False:
+        # Common case: legacy lecture with zero embedding rows — skip
+        # the per-hash existing-indices query entirely.
+        existing = set()
     else:
         loaded = _existing_embedding_indices(pdf_hash, pipeline_version, stats)
         if loaded is None:
@@ -354,14 +383,25 @@ async def backfill(
     if limit is not None:
         hashes = hashes[:limit]
 
+    # Pre-compute which hashes already have any embeddings so the common
+    # "fully-missing legacy lecture" case skips a per-hash read.  Falls
+    # back to the safe per-hash path on lookup failure.
+    embedded_hashes: Optional[Set[str]] = None
+    if hashes and not force:
+        embedded_hashes = _hashes_with_any_embedding(pipeline_version, stats)
+
     for h in hashes:
         stats.pdf_hashes_seen += 1
+        has_any = (
+            None if embedded_hashes is None else (h in embedded_hashes)
+        )
         await _backfill_one_pdf(
             h,
             pipeline_version=pipeline_version,
             force=force,
             dry_run=dry_run,
             stats=stats,
+            has_any_embedding=has_any,
         )
 
     return stats

@@ -262,6 +262,57 @@ async def test_read_failure_is_surfaced_not_silent(
 
 
 @pytest.mark.asyncio
+async def test_skips_existing_indices_query_when_no_embeddings_exist(
+    seed_cache, fake_embed, monkeypatch
+):
+    """Legacy lectures with zero embeddings shouldn't pay the per-hash read cost."""
+    calls: list = []
+    real = bf._existing_embedding_indices
+
+    def _spy(*args, **kwargs):
+        calls.append(args)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(bf, "_existing_embedding_indices", _spy, raising=True)
+
+    stats = await bf.backfill(pipeline_version=PIPELINE)
+
+    assert stats.slides_embedded == 2
+    # Pre-fetch detected zero embeddings exist, so the per-hash query is skipped.
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_falls_back_to_per_hash_check_on_prefetch_failure(
+    seed_cache, fake_embed, monkeypatch
+):
+    """If the global pre-fetch fails we still backfill safely via per-hash reads."""
+    seed_cache.seed(
+        "slide_embeddings",
+        [{
+            "pdf_hash": PDF_HASH,
+            "slide_index": 1,
+            "pipeline_version": PIPELINE,
+            "embedding": [0.0] * 768,
+            "metadata": {"title": "Intro"},
+            "content_hash": "stale",
+            "lecture_id": None,
+        }],
+    )
+
+    def _bad_prefetch(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(bf, "_hashes_with_any_embedding", _bad_prefetch, raising=True)
+
+    stats = await bf.backfill(pipeline_version=PIPELINE)
+
+    # Per-hash read still ran and correctly marked slide 1 as already embedded.
+    assert stats.slides_already_embedded == 1
+    assert stats.slides_embedded == 1
+
+
+@pytest.mark.asyncio
 async def test_pagination_handles_more_than_one_page(
     patch_supabase, fake_embed, monkeypatch
 ):
