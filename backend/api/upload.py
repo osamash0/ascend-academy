@@ -15,6 +15,7 @@ from backend.services.cache import (
 )
 from backend.core.auth_middleware import verify_token, require_professor
 from backend.core.rate_limit import limiter
+from backend.repositories.lecture_repo import list_lectures_by_pdf_hash
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,7 @@ async def parse_pdf_stream_endpoint(
     file: UploadFile = File(...),
     ai_model: str = Form("groq"),
     use_blueprint: bool = Form(True),
+    force_reparse: bool = Form(False),
     user: Any = Depends(require_professor),
 ):
     """
@@ -117,8 +119,10 @@ async def parse_pdf_stream_endpoint(
     filename = file.filename or "upload.pdf"
     pdf_hash = compute_pdf_hash(content)
 
-    # 1. Check cache
-    cached = await get_cached_parse(pdf_hash)
+    # 1. Check cache (skipped when the user explicitly opts to re-parse a
+    #    PDF they've already uploaded — the duplicate dialog uses this to
+    #    guarantee a genuinely fresh parse for the "Upload as new" choice).
+    cached = None if force_reparse else await get_cached_parse(pdf_hash)
     if cached:
         logger.info("Cache hit for %s", filename)
         async def cached_stream():
@@ -192,6 +196,54 @@ async def parse_pdf_stream_endpoint(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
+
+
+# --- Duplicate PDF lookup -------------------------------------------------
+
+class CheckDuplicateRequest(BaseModel):
+    pdf_hash: str
+
+
+@router.post("/check-duplicate")
+@limiter.limit("30/minute")
+async def check_duplicate_endpoint(
+    request: Request,
+    body: CheckDuplicateRequest,
+    user: Any = Depends(require_professor),
+):
+    """Return the current professor's lectures that already use this PDF.
+
+    The frontend computes a SHA-256 of the picked PDF in the browser and
+    calls this endpoint before kicking off the streaming parser.  If any
+    matches come back, the UI shows a "open existing vs upload as new"
+    dialog instead of silently re-parsing.
+
+    Scoped to the authenticated professor; another user uploading the
+    same PDF is not surfaced as a duplicate.
+    """
+    pdf_hash = (body.pdf_hash or "").strip()
+    if not pdf_hash:
+        raise HTTPException(status_code=400, detail="pdf_hash is required.")
+    # SHA-256 hex strings are exactly 64 lowercase hex chars.  Reject
+    # anything else so we don't pay a database query for malformed input.
+    if len(pdf_hash) != 64 or any(c not in "0123456789abcdef" for c in pdf_hash):
+        raise HTTPException(status_code=400, detail="pdf_hash must be a SHA-256 hex digest.")
+
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid user context.")
+
+    try:
+        # Re-resolve via the database module so monkeypatched test fixtures
+        # take effect — `from ... import supabase_admin` captures the
+        # original reference at import time.
+        from backend.core import database as _db
+        matches = list_lectures_by_pdf_hash(_db.supabase_admin, user_id, pdf_hash)
+    except Exception as e:
+        logger.error("check-duplicate lookup failed: %s", e)
+        raise HTTPException(status_code=500, detail="Duplicate lookup failed.")
+
+    return {"duplicates": matches}
 
 
 # --- Attach lecture to previously-written embeddings ---------------------

@@ -24,6 +24,51 @@ def test_get_lecture_none_when_missing(fake_supabase):
         lecture_repo.get_lecture(fake_supabase, "X")
 
 
+def test_list_lectures_by_pdf_hash_scoped_to_owner(fake_supabase):
+    """Hash matches across professors must NOT cross the user boundary."""
+    fake_supabase.seed(
+        "lectures",
+        [
+            {"id": "L1", "professor_id": "P1", "title": "Mine v1",
+             "pdf_hash": "h" * 64, "total_slides": 3,
+             "created_at": "2026-01-01"},
+            {"id": "L2", "professor_id": "P1", "title": "Mine v2",
+             "pdf_hash": "h" * 64, "total_slides": 4,
+             "created_at": "2026-02-02"},
+            {"id": "L3", "professor_id": "P2", "title": "Theirs",
+             "pdf_hash": "h" * 64, "total_slides": 9,
+             "created_at": "2026-03-03"},
+            {"id": "L4", "professor_id": "P1", "title": "Different PDF",
+             "pdf_hash": "z" * 64, "total_slides": 2,
+             "created_at": "2026-04-04"},
+        ],
+    )
+    out = lecture_repo.list_lectures_by_pdf_hash(fake_supabase, "P1", "h" * 64)
+    # P1's two matching lectures, newest first, P2's row excluded.
+    assert [r["id"] for r in out] == ["L2", "L1"]
+    # The four columns the dialog renders must be present (the fake
+    # supabase returns whole rows; production PostgREST honors .select()).
+    for col in ("id", "title", "created_at", "total_slides"):
+        assert col in out[0]
+
+
+def test_list_lectures_by_pdf_hash_returns_empty_for_no_match(fake_supabase):
+    fake_supabase.seed(
+        "lectures",
+        [{"id": "L1", "professor_id": "P1", "pdf_hash": "a" * 64,
+          "title": "x", "total_slides": 1, "created_at": "2026-01-01"}],
+    )
+    assert lecture_repo.list_lectures_by_pdf_hash(fake_supabase, "P1", "b" * 64) == []
+
+
+def test_list_lectures_by_pdf_hash_short_circuits_on_falsy_args(fake_supabase):
+    # No DB call should happen — guards against a missing hash being treated
+    # as "match all rows".
+    fake_supabase.seed("lectures", [])
+    assert lecture_repo.list_lectures_by_pdf_hash(fake_supabase, "", "h" * 64) == []
+    assert lecture_repo.list_lectures_by_pdf_hash(fake_supabase, "P1", "") == []
+
+
 def test_list_lectures_filters_by_professor(fake_supabase):
     fake_supabase.seed(
         "lectures",

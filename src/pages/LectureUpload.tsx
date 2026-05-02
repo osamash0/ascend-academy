@@ -30,6 +30,7 @@ import {
   PartyPopper
 } from 'lucide-react';
 import { PDFUploadOverlay } from '@/components/PDFUploadOverlay';
+import { DuplicatePDFDialog, type DuplicateMatch } from '@/components/DuplicatePDFDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -314,8 +315,49 @@ export default function LectureUpload() {
     processedSlides, pdfFile, pdfHash, parserUsed,
     deckQuiz,
     handleFileUpload,
+    startUpload,
     closeUploadOverlay,
   } = usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle });
+
+  /* ── Duplicate-PDF dialog state ────────────────────────────────────────── */
+  const [duplicateState, setDuplicateState] = useState<{
+    file: File;
+    hash: string;
+    matches: DuplicateMatch[];
+  } | null>(null);
+
+  const onDuplicateDetected = useCallback(
+    (file: File, matches: DuplicateMatch[], hash: string) => {
+      setDuplicateState({ file, matches, hash });
+    },
+    [],
+  );
+
+  const onPickFile = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      handleFileUpload(e, { onDuplicate: onDuplicateDetected }),
+    [handleFileUpload, onDuplicateDetected],
+  );
+
+  const handleDuplicateUseExisting = useCallback(
+    (lectureId: string) => {
+      setDuplicateState(null);
+      navigate(`/professor/lecture/${lectureId}`);
+    },
+    [navigate],
+  );
+
+  const handleDuplicateUploadAsNew = useCallback(async () => {
+    const state = duplicateState;
+    setDuplicateState(null);
+    if (!state) return;
+    await startUpload(state.file, { forceReparse: true, precomputedHash: state.hash });
+  }, [duplicateState, startUpload]);
+
+  const handleDuplicateCancel = useCallback(() => {
+    setDuplicateState(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
 
   const {
     isAiLoading,
@@ -468,8 +510,16 @@ export default function LectureUpload() {
           ref={fileInputRef}
           type="file"
           accept=".pdf"
-          onChange={handleFileUpload}
+          onChange={onPickFile}
           className="hidden"
+        />
+
+        <DuplicatePDFDialog
+          open={duplicateState !== null}
+          matches={duplicateState?.matches ?? []}
+          onUseExisting={handleDuplicateUseExisting}
+          onUploadAsNew={handleDuplicateUploadAsNew}
+          onCancel={handleDuplicateCancel}
         />
 
         <PDFUploadOverlay
@@ -1149,8 +1199,16 @@ export default function LectureUpload() {
         ref={fileInputRef}
         type="file"
         accept=".pdf"
-        onChange={handleFileUpload}
+        onChange={onPickFile}
         className="hidden"
+      />
+
+      <DuplicatePDFDialog
+        open={duplicateState !== null}
+        matches={duplicateState?.matches ?? []}
+        onUseExisting={handleDuplicateUseExisting}
+        onUploadAsNew={handleDuplicateUploadAsNew}
+        onCancel={handleDuplicateCancel}
       />
 
       <PDFUploadOverlay

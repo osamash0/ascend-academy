@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAiModel } from '@/hooks/use-ai-model';
 import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
+import type { DuplicateMatch } from '@/components/DuplicatePDFDialog';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const MAX_PDF_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -13,6 +14,38 @@ interface UsePDFUploadOptions {
   setActiveSlideIndex: (idx: number) => void;
   title: string;
   setTitle: (t: string) => void;
+}
+
+/**
+ * Compute SHA-256 hex of a file in the browser via WebCrypto.
+ *
+ * We feed a Uint8Array (not the raw arrayBuffer) because some File
+ * implementations — notably jsdom's used in tests — return a buffer
+ * that fails the WebCrypto ArrayBuffer instanceof check; TypedArrays
+ * are accepted everywhere.
+ */
+async function sha256OfFile(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const view = new Uint8Array(buf);
+  const digest = await crypto.subtle.digest('SHA-256', view);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function validatePdfFile(
+  file: File,
+  toast: ReturnType<typeof useToast>['toast'],
+): boolean {
+  if (file.type !== 'application/pdf') {
+    toast({ title: 'Invalid file type', description: 'Please upload a PDF file.', variant: 'destructive' });
+    return false;
+  }
+  if (file.size > MAX_PDF_BYTES) {
+    toast({ title: 'File too large', description: 'PDF must be under 50 MB.', variant: 'destructive' });
+    return false;
+  }
+  return true;
 }
 
 export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }: UsePDFUploadOptions) {
@@ -30,20 +63,13 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
   const [deckQuiz, setDeckQuiz] = useState<DeckQuizItem[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const handleFileUpload = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      if (file.type !== 'application/pdf') {
-        toast({ title: 'Invalid file type', description: 'Please upload a PDF file.', variant: 'destructive' });
-        return;
-      }
-
-      if (file.size > MAX_PDF_BYTES) {
-        toast({ title: 'File too large', description: 'PDF must be under 50 MB.', variant: 'destructive' });
-        return;
-      }
+  /**
+   * Run the streaming parse for a file. Used both directly (fresh upload)
+   * and from the duplicate dialog "Upload as new" path (forceReparse=true).
+   */
+  const startUpload = useCallback(
+    async (file: File, opts: { forceReparse?: boolean; precomputedHash?: string } = {}) => {
+      if (!validatePdfFile(file, toast)) return;
 
       setIsUploading(true);
       setUploadProgress(0);
@@ -51,12 +77,13 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
       setUploadStatus('Uploading PDF...');
       setProcessedSlides([]);
       setParserUsed(null);
-      setPdfHash(null);
+      setPdfHash(opts.precomputedHash ?? null);
       setDeckQuiz([]);
 
       const formData = new FormData();
       formData.append('file', file);
       formData.append('ai_model', aiModel);
+      if (opts.forceReparse) formData.append('force_reparse', 'true');
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -192,10 +219,74 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
       } finally {
         clearTimeout(timeoutId);
         abortControllerRef.current = null;
-        e.target.value = '';
       }
     },
-    [aiModel, setSlides, setActiveSlideIndex, title, setTitle, toast]
+    [aiModel, setSlides, setActiveSlideIndex, title, setTitle, toast],
+  );
+
+  /**
+   * Hash a picked file and ask the backend if any of THIS professor's
+   * existing lectures already use the same PDF. Returns null if anything
+   * goes wrong (validation/network/etc) — the caller should fall back to
+   * a normal upload in that case rather than blocking the user.
+   */
+  const checkDuplicate = useCallback(
+    async (file: File): Promise<{ hash: string; matches: DuplicateMatch[] } | null> => {
+      if (!validatePdfFile(file, toast)) return null;
+      try {
+        const hash = await sha256OfFile(file);
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetch(`${API_BASE}/api/upload/check-duplicate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ pdf_hash: hash }),
+        });
+        if (!response.ok) {
+          // Soft-fail: surface no duplicates so the upload still proceeds.
+          return { hash, matches: [] };
+        }
+        const json = (await response.json()) as { duplicates?: DuplicateMatch[] };
+        return { hash, matches: Array.isArray(json.duplicates) ? json.duplicates : [] };
+      } catch (err) {
+        console.warn('Duplicate-PDF check failed; continuing without prompt', err);
+        return null;
+      }
+    },
+    [toast],
+  );
+
+  /**
+   * File-input change handler. Computes the SHA-256, asks the backend
+   * about duplicates, and either (a) hands the matches off to the caller
+   * via onDuplicate (so the page can render the dialog) or (b) starts a
+   * normal upload if no duplicates exist or the lookup fails.
+   */
+  const handleFileUpload = useCallback(
+    async (
+      e: React.ChangeEvent<HTMLInputElement>,
+      handlers: { onDuplicate?: (file: File, matches: DuplicateMatch[], hash: string) => void } = {},
+    ) => {
+      const file = e.target.files?.[0];
+      // Always clear the input value so picking the same file again
+      // re-fires onChange. Caller controls dialog/cancel flow.
+      e.target.value = '';
+      if (!file) return;
+
+      // Validate up-front so an invalid file doesn't get toasted twice
+      // (once by checkDuplicate, then again by startUpload's fallback).
+      if (!validatePdfFile(file, toast)) return;
+
+      const lookup = await checkDuplicate(file);
+      if (lookup && lookup.matches.length > 0 && handlers.onDuplicate) {
+        handlers.onDuplicate(file, lookup.matches, lookup.hash);
+        return;
+      }
+      await startUpload(file, { precomputedHash: lookup?.hash });
+    },
+    [checkDuplicate, startUpload],
   );
 
   const closeUploadOverlay = useCallback(() => {
@@ -222,6 +313,8 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     parserUsed,
     deckQuiz,
     handleFileUpload,
+    startUpload,
+    checkDuplicate,
     closeUploadOverlay,
   };
 }
