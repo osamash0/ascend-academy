@@ -1,0 +1,39 @@
+To get that perfect balance—where you don't hit rate limits, you maintain the context between slides, and the user isn't staring at a loading screen for three minutes—you need to move away from processing slides one by one.
+
+The most solid, production-ready design for your constraints is the Overlapping Batch Architecture coupled with a Streaming UI.
+
+Here is exactly how to design this system.
+
+1. The Core Strategy: Overlapping Batches
+
+Instead of sending 1 slide per API call (which hits the Requests-Per-Minute limit) or 50 slides (which hits the token limit), you group the slides into small batches of 3 to 5 slides.
+
+To solve your context problem, you make the batches overlap.
+
+API Call 1: Sends Slides 1, 2, 3, 4, 5. (Asks for 5 questions).
+
+API Call 2: Sends Slide 5 (as read-only context) + Slides 6, 7, 8, 9, 10. (Asks for 5 questions).
+
+API Call 3: Sends Slide 10 (as context) + Slides 11, 12, 13, 14, 15.
+
+Why this is the magic bullet:
+
+Speed: You are reducing your API calls by 80%. A 50-slide deck now only takes 10 API requests instead of 50. You can process this entirely within the free tier limits of Groq or Gemini without having to force long, artificial delays.
+
+Context: Because you process 5 slides together, the AI has native context for that section. The overlap ensures that if Slide 6 refers back to Slide 5, the AI still knows what is going on.
+
+Tokens: 5 slides is roughly 500–1000 words. This is tiny. You will never hit a token limit.
+
+2. The AI Prompt Structure
+
+When you send a batch, you need to use JSON enforcement to ensure the AI gives you exactly what you need in a way your website can parse. Your prompt to the AI should look something like this:
+
+"You are an expert professor. I am providing you with a batch of lecture slides. Slide [X] is provided only for previous context. For the remaining slides in this batch, generate exactly one multiple-choice quiz question per slide. Ensure pronouns and concepts are resolved using the context. Return the result strictly as a JSON array in this format: [{"slide_number": 6, "question": "...", "options": ["A", "B", "C", "D"], "answer": "A"}]"
+
+3. The UI/UX Trick: Streaming (Server-Sent Events)
+
+"Speed" in web development is often just "perceived speed." If your backend takes 15 seconds to process all 10 batches, do not make the user wait 15 seconds to see a result.
+
+Design your backend to yield results as soon as each batch finishes.
+
+As soon as API Call 1 finishes (which takes maybe 2 seconds), your website should instantly render the first 5 quiz questions on the screen.
