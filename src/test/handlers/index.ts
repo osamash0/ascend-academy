@@ -107,7 +107,9 @@ export const defaultHandlers = [
     const body =
       [
         `data: ${JSON.stringify({ type: "info", parser: "pymupdf" })}\n\n`,
+        `data: ${JSON.stringify({ type: "phase", phase: "extract" })}\n\n`,
         `data: ${JSON.stringify({ type: "progress", current: 0, total: 1, message: "Parsing..." })}\n\n`,
+        `data: ${JSON.stringify({ type: "phase", phase: "enhance" })}\n\n`,
         `data: ${JSON.stringify({
           type: "slide",
           index: 0,
@@ -135,6 +137,7 @@ export const defaultHandlers = [
           ],
           total_slides: 1,
         })}\n\n`,
+        `data: ${JSON.stringify({ type: "phase", phase: "finalize" })}\n\n`,
         `data: ${JSON.stringify({ type: "complete", total: 1 })}\n\n`,
       ].join("");
     return new HttpResponse(body, {

@@ -179,8 +179,27 @@ async def test_happy_path_event_sequence(patch_pipeline_deps):
     # /attach-lecture once the lecture row is saved.
     assert types[0] == "meta"
     assert events[0].get("pdf_hash")
-    # Then the layout-analysis progress event.
-    assert types[1] == "progress"
+    # Then the explicit "extract" phase marker that drives the upload
+    # overlay's stepper, followed by the layout-analysis progress event.
+    assert types[1] == "phase"
+    assert events[1] == {"type": "phase", "phase": "extract"}
+    assert types[2] == "progress"
+
+    # The "enhance" phase marker fires before per-slide LLM work begins
+    # and the "finalize" marker fires when entering deck finalisation.
+    enhance_pos = next(
+        i for i, e in enumerate(events)
+        if e["type"] == "phase" and e.get("phase") == "enhance"
+    )
+    finalize_pos = next(
+        i for i, e in enumerate(events)
+        if e["type"] == "phase" and e.get("phase") == "finalize"
+    )
+    first_slide_pos = next(i for i, t in enumerate(types) if t == "slide")
+    deck_complete_pos = types.index("deck_complete")
+    assert enhance_pos < first_slide_pos
+    assert finalize_pos > first_slide_pos
+    assert finalize_pos < deck_complete_pos
 
     # 3 slide events, then deck_complete, then complete
     slide_events = [e for e in events if e["type"] == "slide"]

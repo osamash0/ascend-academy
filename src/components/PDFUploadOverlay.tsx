@@ -15,6 +15,8 @@ interface ProcessedSlide {
   title?: string;
 }
 
+type ParsePhase = 'extract' | 'enhance' | 'finalize' | null | undefined;
+
 interface PDFUploadOverlayProps {
   isOpen: boolean;
   uploadProgress: number;
@@ -22,6 +24,14 @@ interface PDFUploadOverlayProps {
   uploadStatus: string;
   processedSlides: ProcessedSlide[];
   parserUsed?: string | null;
+  parsePhase?: ParsePhase;
+  /**
+   * Authoritative completion signal driven by the backend `complete` SSE
+   * event. The stepper's "AI Enhance" step only flips to done when this
+   * is true, so deck finalisation (deck summary + cross-slide quiz) keeps
+   * the step active until the parse pipeline really is finished.
+   */
+  parseCompleted?: boolean;
   onClose?: () => void;
 }
 
@@ -32,16 +42,43 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
   uploadStatus,
   processedSlides,
   parserUsed,
+  parsePhase,
+  parseCompleted = false,
   onClose
 }: PDFUploadOverlayProps) {
   const slideListRef = useRef<HTMLDivElement>(null);
 
   const completedCount = processedSlides.filter(Boolean).length;
-  const isComplete = uploadTotal > 0 && completedCount >= uploadTotal && uploadProgress === 100;
+  // Backend `complete` is the source of truth. When the backend is
+  // emitting phase markers we trust `parseCompleted` exclusively — the
+  // counter heuristic would otherwise flip "AI Enhance" to done as soon
+  // as the last slide arrived, even though the deck-summary / cross-slide
+  // quiz finalize stage is still running. The legacy counter heuristic is
+  // only used as a fallback when no phase markers are flowing at all
+  // (older cached responses, tests that bypass the new SSE events).
+  const isComplete = parseCompleted
+    ? true
+    : parsePhase
+      ? false
+      : uploadTotal > 0 && completedCount >= uploadTotal && uploadProgress === 100;
 
-  const isAiPhase = completedCount > 0 && !isComplete;
-  const isExtractPhase = uploadProgress > 0 && completedCount === 0 && !isComplete;
-  const isUploadPhase = uploadProgress === 0 && !isComplete;
+  // Prefer the explicit backend phase marker; fall back to the legacy
+  // counter-based heuristic when it isn't available (older cached
+  // responses, tests that bypass the new SSE events).
+  let isUploadPhase: boolean;
+  let isExtractPhase: boolean;
+  let isAiPhase: boolean;
+  if (parsePhase) {
+    isUploadPhase = false;
+    isExtractPhase = parsePhase === 'extract' && !isComplete;
+    // AI Enhance is held active across `enhance` AND `finalize` so the
+    // deck-summary / cross-slide-quiz stage doesn't visually finish early.
+    isAiPhase = (parsePhase === 'enhance' || parsePhase === 'finalize') && !isComplete;
+  } else {
+    isAiPhase = completedCount > 0 && !isComplete;
+    isExtractPhase = uploadProgress > 0 && completedCount === 0 && !isComplete;
+    isUploadPhase = uploadProgress === 0 && !isComplete;
+  }
 
   // Auto-scroll the slide list
   useEffect(() => {
@@ -288,14 +325,9 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
                     </button>
                   </div>
                 ) : (
-                  <div className="pt-2">
-                    <button
-                      onClick={onClose}
-                      className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                      Get Started
-                    </button>
+                  <div className="pt-2 flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
+                    <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                    Opening editor…
                   </div>
                 )}
               </div>

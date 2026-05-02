@@ -157,7 +157,12 @@ class TestParsePdfStreamForceReparse:
             return 1  # page count
 
         async def _parse(content, *_a, **_k):
-            yield {"type": "info", "parser": "stub"}
+            # The endpoint now emits its own parser `info` event up front,
+            # so the parser stream only needs to yield the phase/complete
+            # markers the frontend listens for.
+            yield {"type": "phase", "phase": "extract"}
+            yield {"type": "phase", "phase": "enhance"}
+            yield {"type": "phase", "phase": "finalize"}
             yield {"type": "complete", "total": 0}
 
         monkeypatch.setattr(upload_mod, "validate_upload", _validate)
@@ -215,4 +220,8 @@ class TestParsePdfStreamForceReparse:
         # And the streamed body must come from the fresh parser stub, not
         # the cached payload.
         assert "cached" not in r.text
-        assert '"parser": "stub"' in r.text
+        # The endpoint now emits the parser identity itself (defaulting to
+        # pymupdf when ODL extraction failed on the fake bytes used here)
+        # and the parse stub contributes phase markers.
+        assert '"parser": "pymupdf"' in r.text
+        assert '"phase": "enhance"' in r.text

@@ -320,7 +320,7 @@ export default function LectureUpload() {
   const {
     isUploading, setIsUploading,
     uploadProgress, uploadTotal, uploadStatus,
-    processedSlides, pdfFile, pdfHash, parserUsed,
+    processedSlides, pdfFile, pdfHash, parserUsed, parsePhase, parseCompleted,
     deckQuiz,
     handleFileUpload,
     startUpload,
@@ -551,6 +551,8 @@ export default function LectureUpload() {
           uploadStatus={uploadStatus}
           processedSlides={processedSlides}
           parserUsed={parserUsed}
+          parsePhase={parsePhase}
+          parseCompleted={parseCompleted}
           onClose={closeUploadOverlay}
         />
       </div>
@@ -1240,6 +1242,8 @@ export default function LectureUpload() {
         uploadStatus={uploadStatus}
         processedSlides={processedSlides}
         parserUsed={parserUsed}
+        parsePhase={parsePhase}
+        parseCompleted={parseCompleted}
         onClose={closeUploadOverlay}
       />
     </div>

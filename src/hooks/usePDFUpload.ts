@@ -60,8 +60,16 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfHash, setPdfHash] = useState<string | null>(null);
   const [parserUsed, setParserUsed] = useState<string | null>(null);
+  const [parsePhase, setParsePhase] = useState<'extract' | 'enhance' | 'finalize' | null>(null);
+  // Authoritative completion signal — set only when the backend SSE
+  // `complete` event arrives. The overlay's stepper uses this (not slide
+  // counters or progress %) to decide when to flip "AI Enhance" to done,
+  // so deck finalisation (deck summary + cross-slide quiz) keeps the step
+  // active until the parse pipeline is genuinely finished.
+  const [parseCompleted, setParseCompleted] = useState(false);
   const [deckQuiz, setDeckQuiz] = useState<DeckQuizItem[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Run the streaming parse for a file. Used both directly (fresh upload)
@@ -71,12 +79,20 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     async (file: File, opts: { forceReparse?: boolean; precomputedHash?: string } = {}) => {
       if (!validatePdfFile(file, toast)) return;
 
+      // Cancel any pending auto-close from a prior upload before resetting.
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+
       setIsUploading(true);
       setUploadProgress(0);
       setUploadTotal(0);
       setUploadStatus('Uploading PDF...');
       setProcessedSlides([]);
       setParserUsed(null);
+      setParsePhase(null);
+      setParseCompleted(false);
       setPdfHash(opts.precomputedHash ?? null);
       setDeckQuiz([]);
 
@@ -119,6 +135,14 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
 
             if (data.type === 'info') {
               setParserUsed(data.parser);
+            } else if (data.type === 'phase') {
+              if (
+                data.phase === 'extract' ||
+                data.phase === 'enhance' ||
+                data.phase === 'finalize'
+              ) {
+                setParsePhase(data.phase);
+              }
             } else if (data.type === 'meta') {
               if (data.pdf_hash) setPdfHash(data.pdf_hash);
             } else if (data.type === 'progress') {
@@ -204,6 +228,28 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
                 });
                 return prev;
               });
+              // Authoritative completion signal — flips the overlay's "AI
+              // Enhance" step to done. Done BEFORE the auto-close timer
+              // so the user sees all three steps render green for a beat.
+              setParseCompleted(true);
+              // Auto-dismiss the overlay after a brief beat so all three
+              // step indicators have time to render green. The error and
+              // user-cancel paths intentionally do NOT schedule this so the
+              // professor can read the failure message.
+              if (autoCloseTimerRef.current) {
+                clearTimeout(autoCloseTimerRef.current);
+              }
+              autoCloseTimerRef.current = setTimeout(() => {
+                autoCloseTimerRef.current = null;
+                setIsUploading(false);
+                setUploadProgress(0);
+                setUploadStatus('');
+                setProcessedSlides([]);
+                setParserUsed(null);
+                setParsePhase(null);
+                setParseCompleted(false);
+                setDeckQuiz([]);
+              }, 800);
             } else if (data.type === 'error') {
               throw new Error(data.message);
             }
@@ -290,6 +336,10 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
   );
 
   const closeUploadOverlay = useCallback(() => {
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -298,6 +348,8 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     setUploadStatus('');
     setProcessedSlides([]);
     setParserUsed(null);
+    setParsePhase(null);
+    setParseCompleted(false);
     setDeckQuiz([]);
   }, []);
 
@@ -311,6 +363,8 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     pdfFile,
     pdfHash,
     parserUsed,
+    parsePhase,
+    parseCompleted,
     deckQuiz,
     handleFileUpload,
     startUpload,

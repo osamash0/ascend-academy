@@ -105,6 +105,10 @@ async def parse_pdf_stream(
     # embeddings written below once the user clicks "Save".
     yield {"type": "meta", "pdf_hash": pdf_hash}
 
+    # Phase marker: layout analysis + planning (drives the overlay's Extract
+    # step). The matching `enhance`/`finalize` markers are emitted below.
+    yield {"type": "phase", "phase": "extract"}
+
     yield {
         "type": "progress",
         "current": 0,
@@ -197,6 +201,10 @@ async def parse_pdf_stream(
     # ------------------------------------------------------------------
     # PASS 2: Routed processing
     # ------------------------------------------------------------------
+    # Phase marker: per-slide LLM work is about to start (drives the
+    # overlay's "AI Enhance" step active state).
+    yield {"type": "phase", "phase": "enhance"}
+
     text_sem   = asyncio.Semaphore(TEXT_BATCH_SEM)
     vision_sem = asyncio.Semaphore(VISION_SEM_LIMIT)
     collected_count = len(already_done)
@@ -744,6 +752,10 @@ async def _stage_finalize_deck(
     fallback_counters: Optional[Dict[str, int]] = None,
     started_at_iso: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
+    # Phase marker: deck summary + cross-slide quiz. The overlay keeps "AI
+    # Enhance" active through this stage and only flips it to done on the
+    # subsequent `complete` event.
+    yield {"type": "phase", "phase": "finalize"}
     try:
         # Use the caller's selected provider; orchestrator failover handles
         # cerebras → openrouter → cloudflare → groq → … if it's unavailable.

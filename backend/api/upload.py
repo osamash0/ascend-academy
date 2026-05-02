@@ -135,10 +135,17 @@ async def parse_pdf_stream_endpoint(
         async def cached_stream():
             slides = cached.get("slides", [])
             total = len(slides)
+            # Emit parser identity first so the overlay's "Extraction engine"
+            # pill resolves immediately even on cache hits. Older cache rows
+            # pre-date the field — default to "pymupdf" in that case.
+            cached_parser = cached.get("parser") or "pymupdf"
+            yield f"data: {json.dumps({'type': 'info', 'parser': cached_parser})}\n\n"
+            yield f"data: {json.dumps({'type': 'phase', 'phase': 'extract'})}\n\n"
             # Emit pdf_hash up front so the frontend can call /attach-lecture
             # after the lecture row is created — matches the non-cache path.
             yield f"data: {json.dumps({'type': 'meta', 'pdf_hash': pdf_hash})}\n\n"
             yield f"data: {json.dumps({'type': 'progress', 'current': 0, 'total': total, 'message': 'Loading from cache...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'phase', 'phase': 'enhance'})}\n\n"
             # Best-effort: schedule embedding jobs for the cached slides so
             # the grounded tutor still has vectors to retrieve from for PDFs
             # whose parse was cached before embeddings existed (or whose
@@ -152,7 +159,8 @@ async def parse_pdf_stream_endpoint(
                         _safe_embedding_task(i, s, pdf_hash, _embed_failed_queue)
                     )
                 yield f"data: {json.dumps({'type': 'slide', 'index': i, 'slide': s})}\n\n"
-            
+
+            yield f"data: {json.dumps({'type': 'phase', 'phase': 'finalize'})}\n\n"
             deck = cached.get("deck", {})
             yield f"data: {json.dumps({'type': 'deck_complete', **deck, 'total_slides': total})}\n\n"
             yield f"data: {json.dumps({'type': 'complete', 'total': total})}\n\n"
@@ -167,17 +175,27 @@ async def parse_pdf_stream_endpoint(
     collected_slides: List[Dict[str, Any]] = []
     collected_deck: Dict[str, Any] = {}
 
-    # Attempt ODL extraction before streaming; fall back to PyMuPDF on failure
+    # Attempt ODL extraction before streaming; fall back to PyMuPDF on failure.
+    # Track success explicitly: an ODL run that completes but returns an empty
+    # page map is still an ODL run — we shouldn't mis-report it as the
+    # PyMuPDF fallback in the overlay's "Extraction engine" pill.
     odl_pages = None
+    odl_succeeded = False
     try:
         from backend.services.odl_service import extract_pages
         odl_pages = await extract_pages(content, filename)
+        odl_succeeded = True
         logger.info("ODL extraction successful for %s", filename)
     except Exception as e:
         logger.warning("ODL failed, falling back to PyMuPDF: %s", e)
 
+    parser_used = "opendataloader-pdf" if odl_succeeded else "pymupdf"
+
     async def event_generator():
         nonlocal collected_deck
+        # Surface parser identity as the very first SSE event so the
+        # overlay's "Extraction engine" pill resolves immediately.
+        yield f"data: {json.dumps({'type': 'info', 'parser': parser_used})}\n\n"
         try:
             async for update in parse_pdf_stream(content, filename=filename, ai_model=ai_model, use_blueprint=use_blueprint, odl_pages=odl_pages):
                 if update.get("type") == "slide":
@@ -194,9 +212,13 @@ async def parse_pdf_stream_endpoint(
                 yield f"data: {json.dumps({'type': 'partial_complete', 'slides_processed': len(collected_slides), 'total_expected': page_count})}\n\n"
             yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'recoverable': len(collected_slides) > 0})}\n\n"
         finally:
-            # Save to cache if we got results
+            # Save to cache if we got results — include parser identity so
+            # cache-hit replays can resolve the overlay's pill correctly.
             if collected_slides:
-                await store_cached_parse(pdf_hash, {"slides": collected_slides, "deck": collected_deck})
+                await store_cached_parse(
+                    pdf_hash,
+                    {"slides": collected_slides, "deck": collected_deck, "parser": parser_used},
+                )
 
     return StreamingResponse(
         event_generator(),

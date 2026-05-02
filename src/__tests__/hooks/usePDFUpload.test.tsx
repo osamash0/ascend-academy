@@ -58,11 +58,24 @@ describe("usePDFUpload", () => {
     expect(setActive).toHaveBeenCalledWith(0);
     expect(setTitle).toHaveBeenCalled();
     expect(result.current.parserUsed).toBe("pymupdf");
+    // The last phase marker emitted by the MSW stream is "finalize".
+    expect(result.current.parsePhase).toBe("finalize");
     // deck_complete payload from MSW handler captured into state
     expect(result.current.deckQuiz).toHaveLength(1);
     expect(result.current.deckQuiz[0].linked_slides).toEqual([0, 1]);
     expect(result.current.deckQuiz[0].concept).toBe("bridging");
     expect(result.current.deckQuiz[0].explanation).toBe("links A and B");
+
+    // After `complete`, the overlay auto-dismisses ~800ms later. Wait for
+    // the timer to fire and assert the upload state has been reset.
+    await waitFor(
+      () => {
+        expect(result.current.isUploading).toBe(false);
+      },
+      { timeout: 2000 },
+    );
+    expect(result.current.parserUsed).toBeNull();
+    expect(result.current.parsePhase).toBeNull();
   });
 
   it("rejects non-PDF files", async () => {
