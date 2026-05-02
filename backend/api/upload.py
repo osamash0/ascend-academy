@@ -91,7 +91,21 @@ async def parse_pdf_stream_endpoint(
     2. Checks semantic cache.
     3. Streams real-time progress and slide objects via SSE.
     """
-    content = await file.read()
+    max_bytes = MAX_FILE_MB * 1024 * 1024
+    chunks: List[bytes] = []
+    bytes_read = 0
+    while True:
+        chunk = await file.read(65536)
+        if not chunk:
+            break
+        bytes_read += len(chunk)
+        if bytes_read > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File exceeds the {MAX_FILE_MB}MB limit.",
+            )
+        chunks.append(chunk)
+    content = b"".join(chunks)
     page_count = await validate_upload(file, content)
 
     filename = file.filename or "upload.pdf"

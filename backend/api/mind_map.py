@@ -8,8 +8,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from supabase import create_client, Client
 
-from backend.core.auth_middleware import verify_token
-from backend.core.database import SUPABASE_URL, ANON_KEY
+from backend.core.auth_middleware import verify_token, require_professor
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
 from backend.core.rate_limit import limiter
 from backend.services.ai_service import generate_mind_map
 
@@ -62,22 +62,28 @@ async def generate_lecture_mind_map(
     request: Request,
     lecture_id: str,
     body: GenerateRequest,
-    user: Any = Depends(verify_token),
+    user: Any = Depends(require_professor),
     creds: HTTPAuthorizationCredentials = Depends(security)
 ):
     """AI-generate (or regenerate) the mind map for a lecture and cache it."""
     try:
-        client = get_auth_client(creds.credentials)
+        user_id = user.id if hasattr(user, "id") else user.get("id")
 
-        # 1. Fetch lecture + slides (RLS will scope this to the caller)
-        lecture_res = client.table("lectures") \
-            .select("id, title") \
+        # 1. Verify ownership before any expensive operation using the admin
+        #    client to avoid RLS catalog-read bypasses for this authz check.
+        ownership_res = supabase_admin.table("lectures") \
+            .select("id, title, professor_id") \
             .eq("id", lecture_id) \
             .maybe_single() \
             .execute()
 
-        if not lecture_res.data:
+        if not ownership_res.data:
             raise HTTPException(status_code=404, detail="Lecture not found.")
+
+        if ownership_res.data.get("professor_id") != user_id:
+            raise HTTPException(status_code=403, detail="You do not own this lecture.")
+
+        client = get_auth_client(creds.credentials)
 
         slides_res = client.table("slides") \
             .select("id, title, summary, slide_number") \
@@ -92,7 +98,7 @@ async def generate_lecture_mind_map(
                 status_code=400,
                 detail="No slides found for this lecture; cannot build a mind map.",
             )
-        lecture_title = lecture_res.data["title"]
+        lecture_title = ownership_res.data["title"]
 
         # 2. Run generation (now async)
         tree_data = await generate_mind_map(

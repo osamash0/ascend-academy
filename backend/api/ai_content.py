@@ -1,6 +1,7 @@
 import logging
 import io
 import urllib.request
+import urllib.parse
 import asyncio
 from typing import Annotated, Literal, Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, Request
@@ -21,6 +22,58 @@ from backend.services.content_filter import is_metadata_slide
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai"])
+
+_PDF_MAX_BYTES = 50 * 1024 * 1024  # 50 MB cap on PDF downloads
+
+
+_STORAGE_PATH_PREFIX = "/storage/v1/object/"
+
+
+def _validate_supabase_storage_url(url: str) -> None:
+    """Raise HTTPException if the URL is not a trusted Supabase Storage HTTPS URL.
+
+    Enforces:
+    - https scheme only (no file://, http://, etc.)
+    - hostname must exactly match the project's Supabase host
+    - path must be under /storage/v1/object/ (the Storage API namespace)
+    This prevents SSRF via arbitrary hosts, internal addresses, or non-storage paths.
+    """
+    if not url:
+        raise HTTPException(status_code=400, detail="No PDF attached.")
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid PDF URL.")
+
+    if parsed.scheme != "https":
+        raise HTTPException(status_code=400, detail="PDF URL must use HTTPS.")
+
+    # Derive the trusted storage host from the configured Supabase URL.
+    # SUPABASE_URL is like https://<project>.supabase.co
+    try:
+        project_host = urllib.parse.urlparse(SUPABASE_URL).hostname or ""
+    except Exception:
+        project_host = ""
+
+    allowed_host = project_host.lower()
+    request_host = (parsed.hostname or "").lower()
+
+    if not allowed_host or request_host != allowed_host:
+        raise HTTPException(
+            status_code=400,
+            detail="PDF URL does not point to the project's Supabase Storage.",
+        )
+
+    # Require the path to be under the Supabase Storage object namespace.
+    # This prevents the same project host being used to reach non-storage
+    # endpoints (e.g. metadata APIs, internal REST routes).
+    if not parsed.path.startswith(_STORAGE_PATH_PREFIX):
+        raise HTTPException(
+            status_code=400,
+            detail="PDF URL must point to a Supabase Storage object.",
+        )
+
+
 _security = HTTPBearer()
 
 _AiModel = Annotated[
@@ -222,17 +275,41 @@ async def regenerate_slide_content(
         raise HTTPException(status_code=403, detail="Unauthorized.")
     
     pdf_url = lecture_info.get("pdf_url")
-    if not pdf_url:
-        raise HTTPException(status_code=400, detail="No PDF attached.")
+    _validate_supabase_storage_url(pdf_url)
 
     slide_num: int = res.data["slide_number"]
 
-    # 2. Download PDF
+    # 2. Download PDF — constrained to trusted Supabase Storage host,
+    #    with an explicit timeout, redirect blocking, and a response-size cap.
     try:
         def _download():
-            with urllib.request.urlopen(pdf_url) as resp:
-                return resp.read()
+            class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+                def redirect_request(self, req, fp, code, msg, headers, newurl):
+                    raise ValueError(f"Redirect not allowed (HTTP {code} → {newurl})")
+
+            opener = urllib.request.build_opener(_NoRedirectHandler)
+            req = urllib.request.Request(
+                pdf_url,
+                headers={"User-Agent": "LectureApp/1.0"},
+            )
+            with opener.open(req, timeout=30) as resp:
+                chunks = []
+                total = 0
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > _PDF_MAX_BYTES:
+                        raise ValueError(
+                            f"PDF response exceeds {_PDF_MAX_BYTES // (1024*1024)} MB limit."
+                        )
+                    chunks.append(chunk)
+                return b"".join(chunks)
         pdf_bytes = await asyncio.to_thread(_download)
+    except ValueError as e:
+        logger.warning("PDF download rejected (size): %s", e)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error("PDF download failed: %s", e)
         raise HTTPException(status_code=502, detail="Could not download PDF.")
