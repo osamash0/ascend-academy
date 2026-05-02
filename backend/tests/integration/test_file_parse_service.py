@@ -154,8 +154,6 @@ def patch_pipeline_deps(monkeypatch):
     monkeypatch.setattr(fps, "get_cached_slide_results", get_cached_slides)
     monkeypatch.setattr(fps, "store_slide_parse_result", store_slide)
     monkeypatch.setattr(fps, "is_metadata_slide", is_metadata)
-    # Force cerebras_client falsey so plan_model defaults to "groq" path
-    monkeypatch.setattr(fps, "cerebras_client", None, raising=False)
     return state
 
 

@@ -35,7 +35,6 @@ from backend.services.ai_service import (
     generate_deck_summary,
     generate_deck_quiz,
     safe_truncate_text,
-    cerebras_client,
 )
 from backend.services.cache import (
     get_cached_blueprint,
@@ -79,7 +78,7 @@ PIPELINE_VERSION = "2"  # bump when prompts/schema change to invalidate checkpoi
 async def parse_pdf_stream(
     pdf_bytes: bytes,
     filename: str = "upload.pdf",
-    ai_model: str = "groq",
+    ai_model: str = "cerebras",
     use_blueprint: bool = True,
     odl_pages: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
@@ -701,7 +700,11 @@ async def _stage_planning(
     if blueprint:
         return blueprint
 
-    plan_model = "cerebras" if cerebras_client else "groq"
+    # Honor the caller-selected provider as preferred head of the failover
+    # chain. The orchestrator already handles provider rotation
+    # (cerebras → openrouter → cloudflare → groq → …) when the preferred
+    # provider is unavailable or rate-limited.
+    plan_model = ai_model
 
     try:
         reader = PDFReader(pdf_bytes)
@@ -742,7 +745,9 @@ async def _stage_finalize_deck(
     started_at_iso: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     try:
-        final_model = "cerebras" if cerebras_client else ai_model
+        # Use the caller's selected provider; orchestrator failover handles
+        # cerebras → openrouter → cloudflare → groq → … if it's unavailable.
+        final_model = ai_model
 
         if blueprint and blueprint.get("overall_summary"):
             summary = blueprint["overall_summary"]

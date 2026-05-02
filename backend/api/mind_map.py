@@ -28,7 +28,7 @@ def get_auth_client(token: str) -> Client:
 
 
 class GenerateRequest(BaseModel):
-    ai_model: str = "groq"
+    ai_model: str = "cerebras"
 
 
 @router.get("/{lecture_id}")

@@ -22,7 +22,7 @@ class MindMapRoot(BaseModel):
     children: List[MindMapNode]
 
 
-async def generate_mind_map(lecture_title: str, slides: List[Dict[str, Any]], ai_model: str = "groq") -> Dict[str, Any]:
+async def generate_mind_map(lecture_title: str, slides: List[Dict[str, Any]], ai_model: str = "cerebras") -> Dict[str, Any]:
     """
     Generates a structured thematic mind map for a lecture based on slide summaries.
     """

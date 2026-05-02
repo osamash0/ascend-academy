@@ -54,8 +54,9 @@ async def generate_hierarchical_summary(
                 "start_page": i + 1
             })
 
-    from backend.services.ai_service import cerebras_client
-    map_model = "cerebras" if cerebras_client else ai_model
+    # Honor caller's selected provider; orchestrator failover handles
+    # provider rotation transparently.
+    map_model = ai_model
 
     tasks = []
     for idx, section in enumerate(sections):
@@ -130,10 +131,9 @@ Sections:
 Final Narrative Summary:"""
 
     try:
-        # Final reduction often benefits from higher reasoning models (e.g. Cerebras)
-        from backend.services.ai_service import cerebras_client
-        final_model = "cerebras" if cerebras_client else ai_model
-        return await generate_text(prompt, final_model)
+        # Honor caller's selected provider; orchestrator failover handles
+        # provider rotation transparently.
+        return await generate_text(prompt, ai_model)
     except Exception as e:
         logger.error("Final reduction failed: %s", e)
         return "\n\n".join(summaries)
