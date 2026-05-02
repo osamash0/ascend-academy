@@ -320,33 +320,3 @@ export function MindMap({ treeData, currentSlideId, height = 460 }: MindMapProps
     </div>
   );
 }
-           onHover={handleHover}
-              />
-            ))}
-          </AnimatePresence>
-        </g>
-      </svg>
-
-      {/* Tooltip */}
-      <AnimatePresence>
-        {hovered?.summary && (
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-            transition={{ duration: 0.15 }}
-            className="absolute z-50 max-w-[220px] glass-panel-strong border-primary/20 p-3 rounded-xl shadow-2xl text-xs text-muted-foreground pointer-events-none"
-            style={{
-              left: (hovered.x + hovered.width / 2) * transform.scale + transform.x,
-              top: hovered.y * transform.scale + transform.y - 12,
-              transform: 'translate(-50%, -100%)',
-            }}
-          >
-            <p className="font-bold text-foreground mb-1 text-[11px]">{hovered.label}</p>
-            <p>{hovered.summary}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
