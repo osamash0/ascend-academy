@@ -42,10 +42,20 @@ WITH CHECK (
     AND public.has_role(auth.uid(), 'professor')
 );
 
+-- ── lectures.course_id ───────────────────────────────────────────────────────
+-- Must be added BEFORE any policy below references it. Nullable on purpose:
+-- existing lectures have no course (Uncategorized).
+ALTER TABLE public.lectures
+    ADD COLUMN IF NOT EXISTS course_id UUID
+    REFERENCES public.courses(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS lectures_course_idx
+    ON public.lectures(course_id);
+
 -- Students may read course rows that label a lecture they're enrolled
--- in via an assignment. We keep this scoped through assignments — the
--- only existing student visibility primitive — so we don't invent a new
--- per-course roster yet.
+-- in via an assignment. Scoped through assignments — the only existing
+-- student visibility primitive — so we don't invent a new per-course
+-- roster yet.
 DROP POLICY IF EXISTS "Students view courses for enrolled lectures" ON public.courses;
 CREATE POLICY "Students view courses for enrolled lectures"
 ON public.courses FOR SELECT
@@ -60,13 +70,3 @@ USING (
           AND ae.user_id = auth.uid()
     )
 );
-
-
--- ── lectures.course_id ───────────────────────────────────────────────────────
--- Nullable on purpose: existing lectures have no course (Uncategorized).
-ALTER TABLE public.lectures
-    ADD COLUMN IF NOT EXISTS course_id UUID
-    REFERENCES public.courses(id) ON DELETE SET NULL;
-
-CREATE INDEX IF NOT EXISTS lectures_course_idx
-    ON public.lectures(course_id);

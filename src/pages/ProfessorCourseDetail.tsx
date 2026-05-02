@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, BookOpen, Loader2, Plus, FileText, X, ExternalLink,
+  ArrowLeft, BookOpen, Loader2, Plus, FileText, X, ExternalLink, Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -117,9 +117,14 @@ export default function ProfessorCourseDetail() {
             </p>
           </div>
         </div>
-        <Button onClick={openPicker} className="gap-2">
-          <Plus className="w-4 h-4" /> Add lecture
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={openPicker} variant="outline" className="gap-2">
+            <Plus className="w-4 h-4" /> Add lecture
+          </Button>
+          <Button onClick={() => navigate(`/professor/upload?courseId=${courseId}`)} className="gap-2">
+            <Upload className="w-4 h-4" /> Upload new
+          </Button>
+        </div>
       </div>
 
       {course.lectures.length === 0 ? (
@@ -129,7 +134,7 @@ export default function ProfessorCourseDetail() {
           <p className="text-sm text-muted-foreground">Add an existing lecture, or upload a new one.</p>
           <div className="flex justify-center gap-2">
             <Button onClick={openPicker} variant="outline" className="gap-2"><Plus className="w-4 h-4" /> Add existing</Button>
-            <Button onClick={() => navigate('/professor/upload')} className="gap-2"><Plus className="w-4 h-4" /> Upload new</Button>
+            <Button onClick={() => navigate(`/professor/upload?courseId=${courseId}`)} className="gap-2"><Plus className="w-4 h-4" /> Upload new</Button>
           </div>
         </div>
       ) : (
@@ -150,7 +155,7 @@ export default function ProfessorCourseDetail() {
                 <p className="text-sm text-muted-foreground line-clamp-2">{l.description}</p>
               )}
               <p className="text-xs text-muted-foreground">{l.total_slides} slides</p>
-              <div className="flex gap-2 pt-2 border-t border-white/5">
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
                 <Button
                   size="sm"
                   variant="outline"
@@ -158,6 +163,15 @@ export default function ProfessorCourseDetail() {
                   onClick={() => navigate(`/professor/lecture/${l.id}`)}
                 >
                   <ExternalLink className="w-3.5 h-3.5" /> Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs"
+                  onClick={() => navigate(`/professor/lecture/${l.id}#worksheets`)}
+                  title="Upload or manage worksheets"
+                >
+                  <Upload className="w-3.5 h-3.5" /> Worksheets
                 </Button>
               </div>
             </div>

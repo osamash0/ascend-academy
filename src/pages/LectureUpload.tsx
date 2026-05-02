@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -296,7 +296,9 @@ export default function LectureUpload() {
   /* ── Lecture metadata ──────────────────────────────────────────────────── */
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [courseId, setCourseId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const prefilledCourseId = searchParams.get('courseId');
+  const [courseId, setCourseId] = useState<string | null>(prefilledCourseId);
   const [courses, setCourses] = useState<Course[]>([]);
   useEffect(() => {
     listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
