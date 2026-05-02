@@ -32,3 +32,10 @@ respx>=0.21
 freezegun>=1.5
 httpx>=0.27
 faker>=24.0
+
+# ── DB / RLS testing (nightly only, gated behind `pytest -m db`) ─────────────
+# psycopg drives the throwaway Postgres container; testcontainers boots and
+# tears it down per session. Both are pulled in for every install so the
+# nightly CI job can run without a separate dev-requirements file.
+psycopg[binary]>=3.1
+testcontainers[postgres]>=4.0
