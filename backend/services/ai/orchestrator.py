@@ -162,7 +162,7 @@ except ImportError:
 try:
     from google import genai as _genai
     _gem_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    _google_client = _genai.Client(api_key=_gem_key, http_options={"api_version": "v1"}) if _gem_key else None
+    _google_client = _genai.Client(api_key=_gem_key, http_options={"api_version": "v1beta"}) if _gem_key else None
 except Exception:
     _genai = None
     _google_client = None

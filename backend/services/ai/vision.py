@@ -10,8 +10,8 @@ from .orchestrator import (
 
 logger = logging.getLogger(__name__)
 
-# Vision chain: Groq vision (free, 14400/day) → Gemini Flash (multimodal, 1500/day)
-VISION_CHAIN = ["groq_vision", "gemini_vision"]
+# Vision chain: Gemini Flash first (multimodal, 1500/day) → Groq vision (fallback)
+VISION_CHAIN = ["gemini_vision", "groq_vision"]
 
 # --- Prompts ---
 SLIDE_VISION_PROMPT = """Analyze the lecture slide image and return ONLY a valid JSON object:
