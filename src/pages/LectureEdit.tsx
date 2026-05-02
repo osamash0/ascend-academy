@@ -145,8 +145,9 @@ export default function LectureEdit() {
                     .upload(filePath, pdfFile, { contentType: 'application/pdf', upsert: true });
 
                 if (!uploadError) {
-                    const { data: urlData } = supabase.storage.from('lecture-pdfs').getPublicUrl(filePath);
-                    finalPdfUrl = urlData.publicUrl;
+                    // Store only the storage path (not a public URL) — the bucket is private.
+                    // Signed URLs are generated on demand when the PDF must be accessed.
+                    finalPdfUrl = filePath;
                 } else {
                     console.error('PDF Upload Error:', uploadError);
                     toast({

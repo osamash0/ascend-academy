@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchLecture, fetchSlides, fetchQuizQuestions } from '@/services/lectureService';
+import { fetchLecture, fetchSlides, fetchQuizQuestions, resolvePdfUrl } from '@/services/lectureService';
 import {
   fetchLectureProgress,
   upsertLectureProgress,
@@ -36,6 +36,7 @@ export default function LectureView() {
   const { toast } = useToast();
 
   const [lecture, setLecture] = useState<Lecture | null>(null);
+  const [resolvedPdfUrl, setResolvedPdfUrl] = useState<string | null>(null);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -128,6 +129,10 @@ export default function LectureView() {
         return;
       }
       setLecture(lectureData);
+
+    // Resolve the stored pdf_url (path or legacy public URL) to an authenticated
+    // signed URL so the private bucket is accessible in the browser.
+    resolvePdfUrl(lectureData.pdf_url).then(setResolvedPdfUrl).catch(() => setResolvedPdfUrl(null));
 
     // Fetch slides
     const slidesFromService = await fetchSlides(currentLectureId);
@@ -382,12 +387,10 @@ export default function LectureView() {
         return Math.min(next, totalQ);
       });
 
-      // Add XP to user — RPC should use auth.uid() internally
-      await supabase.rpc('add_xp_to_user', {
-        p_xp: 10,
-      } as never);
+      // Add XP to user — function uses auth.uid() internally; no user ID argument needed.
+      await supabase.rpc('add_xp_to_user', { p_xp: 10 } as never);
 
-      // Update streak — RPC should use auth.uid() internally
+      // Update streak — function uses auth.uid() internally; no user ID argument needed.
       const newStreak = await supabase.rpc('update_user_streak', {
         p_correct: true,
       } as never);
@@ -433,10 +436,8 @@ export default function LectureView() {
 
       await refreshProfile();
     } else {
-      // Reset streak — RPC should use auth.uid() internally
-      await supabase.rpc('update_user_streak', {
-        p_correct: false,
-      } as never);
+      // Reset streak — function uses auth.uid() internally; no user ID argument needed.
+      await supabase.rpc('update_user_streak', { p_correct: false } as never);
       await refreshProfile();
     }
 
@@ -605,9 +606,9 @@ export default function LectureView() {
               </div>
             </div>
 
-            {lecture?.pdf_url && (
+            {resolvedPdfUrl && (
               <Button
-                onClick={() => window.open(lecture.pdf_url!, '_blank', 'noopener noreferrer')}
+                onClick={() => window.open(resolvedPdfUrl, '_blank', 'noopener noreferrer')}
                 variant="ghost"
                 className="hidden md:flex gap-2 rounded-xl px-4 text-muted-foreground hover:text-foreground hover:bg-white/5"
               >
@@ -650,7 +651,7 @@ export default function LectureView() {
                       onNext={handleNextSlide}
                       isFirst={currentSlideIndex === 0}
                       isLast={currentSlideIndex === slides.length - 1}
-                      pdfUrl={lecture?.pdf_url}
+                      pdfUrl={resolvedPdfUrl}
                       pageNumber={currentSlide.slide_number}
                       onConfidenceRate={async (rating) => {
                         if (!user || !currentSlide) return;

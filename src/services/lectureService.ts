@@ -5,6 +5,38 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Lecture, Slide, QuizQuestion } from '@/types/domain';
 
+/**
+ * Extracts the storage object path from a raw pdf_url value.
+ * Handles both:
+ *  - Legacy public URL: "https://.../object/public/lecture-pdfs/lectures/uuid/file.pdf"
+ *  - New path-only value: "lectures/uuid/file.pdf"
+ */
+function extractStoragePath(rawPdfUrl: string): string {
+  const urlMatch = rawPdfUrl.match(/lecture-pdfs\/(.+)$/);
+  return urlMatch ? urlMatch[1] : rawPdfUrl;
+}
+
+/**
+ * Resolves a stored pdf_url value to a short-lived signed URL suitable for
+ * browser rendering or download.  The bucket is private, so public URLs no
+ * longer work; this function creates an authenticated signed URL with a
+ * 1-hour expiry for the current session.
+ *
+ * Returns null if the input is null/empty or if signing fails.
+ */
+export async function resolvePdfUrl(rawPdfUrl: string | null | undefined): Promise<string | null> {
+  if (!rawPdfUrl) return null;
+  const storagePath = extractStoragePath(rawPdfUrl);
+  const { data, error } = await supabase.storage
+    .from('lecture-pdfs')
+    .createSignedUrl(storagePath, 3600); // 1-hour expiry
+  if (error || !data?.signedUrl) {
+    console.warn('Failed to create signed URL for PDF:', error?.message);
+    return null;
+  }
+  return data.signedUrl;
+}
+
 export async function fetchLecture(id: string): Promise<Lecture | null> {
   const { data, error } = await supabase
     .from('lectures')
@@ -113,10 +145,14 @@ export async function deleteLecture(lectureId: string): Promise<void> {
     .eq('id', lectureId)
     .single();
   if (lectureData?.pdf_url) {
-    const pathMatch = (lectureData.pdf_url as string).match(/lecture-pdfs\/(.+)$/);
-    if (pathMatch) {
-      await supabase.storage.from('lecture-pdfs').remove([pathMatch[1]]);
-    }
+    const rawValue = lectureData.pdf_url as string;
+    // Support both legacy full public URLs and newer path-only values.
+    // Legacy: "https://.../storage/v1/object/public/lecture-pdfs/lectures/uuid/file.pdf"
+    //         → extract everything after "lecture-pdfs/"
+    // New:    "lectures/uuid/file.pdf" (stored directly as a path)
+    const urlMatch = rawValue.match(/lecture-pdfs\/(.+)$/);
+    const storagePath = urlMatch ? urlMatch[1] : rawValue;
+    await supabase.storage.from('lecture-pdfs').remove([storagePath]);
   }
 
   await supabase.from('lectures').delete().eq('id', lectureId);

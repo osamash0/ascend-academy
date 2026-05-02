@@ -51,8 +51,9 @@ export function useLectureSubmit({ slides, title, description, pdfFile }: UseLec
             });
             throw uploadError;
           }
-          const { data: urlData } = supabase.storage.from('lecture-pdfs').getPublicUrl(filePath);
-          pdfUrl = urlData.publicUrl;
+          // Store only the storage path (not a public URL) — the bucket is private.
+          // Authenticated signed URLs are generated on demand when the PDF must be accessed.
+          pdfUrl = filePath;
         }
 
         const { data: lecture, error: lectureError } = await supabase

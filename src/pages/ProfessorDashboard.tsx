@@ -67,18 +67,26 @@ export default function ProfessorDashboard() {
   const fetchData = async () => {
     setLoading(true);
 
-    const [{ data: lecturesData }, { data: progressData }] = await Promise.all([
-      supabase
-        .from('lectures')
-        .select('id, title, description, total_slides, created_at, pdf_url')
-        .eq('professor_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(200),
-      supabase
-        .from('student_progress')
-        .select('user_id, quiz_score, total_questions_answered, correct_answers')
-        .limit(2000),
-    ]);
+    // Fetch the professor's own lectures first so we can scope progress queries.
+    const { data: lecturesData } = await supabase
+      .from('lectures')
+      .select('id, title, description, total_slides, created_at, pdf_url')
+      .eq('professor_id', user?.id)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    const ownLectureIds = (lecturesData ?? []).map(l => l.id);
+
+    // Only fetch student progress for lectures this professor owns.
+    // RLS now enforces this server-side as well, but we also filter explicitly
+    // so the query intent is clear and does not rely solely on policy enforcement.
+    const { data: progressData } = ownLectureIds.length > 0
+      ? await supabase
+          .from('student_progress')
+          .select('user_id, quiz_score, total_questions_answered, correct_answers')
+          .in('lecture_id', ownLectureIds)
+          .limit(2000)
+      : { data: [] };
 
     if (lecturesData) setLectures(lecturesData);
 
