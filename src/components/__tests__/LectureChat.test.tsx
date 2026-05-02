@@ -9,21 +9,39 @@
  * slide_index. These tests guard the chip render + jump callback so a
  * future refactor cannot silently break either.
  */
-import { describe, expect, it, vi, beforeEach, beforeAll } from "vitest";
+import { describe, expect, it, vi, beforeAll, afterAll } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/server";
 
 // jsdom does not implement Element.scrollIntoView; LectureChat calls it in
-// an auto-scroll effect on every message change.
+// an auto-scroll effect on every message change. Stub it for this suite
+// only and restore the original descriptor after, so we do not leak a
+// global prototype mutation into other test files in the same worker.
+let originalScrollIntoView: PropertyDescriptor | undefined;
 beforeAll(() => {
-  if (!Element.prototype.scrollIntoView) {
-    Object.defineProperty(Element.prototype, "scrollIntoView", {
-      configurable: true,
-      writable: true,
-      value: () => {},
-    });
+  originalScrollIntoView = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "scrollIntoView",
+  );
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    writable: true,
+    value: () => {},
+  });
+});
+afterAll(() => {
+  if (originalScrollIntoView) {
+    Object.defineProperty(
+      Element.prototype,
+      "scrollIntoView",
+      originalScrollIntoView,
+    );
+  } else {
+    // jsdom did not define it originally; remove our stub.
+    delete (Element.prototype as unknown as Record<string, unknown>)
+      .scrollIntoView;
   }
 });
 
@@ -98,9 +116,8 @@ async function sendQuestion(user: ReturnType<typeof userEvent.setup>) {
   await user.keyboard("{Enter}");
 }
 
-beforeEach(() => {
-  server.resetHandlers();
-});
+// Note: src/test/setup.ts already calls server.resetHandlers() in a global
+// afterEach, so a local beforeEach reset is redundant.
 
 describe("LectureChat citation chips", () => {
   it("renders a clickable [Slide N] chip and forwards the 0-indexed slide_index to onSlideJump", async () => {
