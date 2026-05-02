@@ -20,11 +20,23 @@ def _fetch_all(query: Any, limit: int = 10000) -> List[Dict[str, Any]]:
 
 
 def get_auth_client(token: Optional[str]) -> Client:
-    """Create a Supabase client authenticated with the professor's JWT.
-    Enforces RLS by using the ANON_KEY instead of the service_role_key."""
+    """Create a Supabase client authenticated with the user's JWT.
+    Enforces RLS by using the ANON_KEY (not the service_role key).
+
+    Raises ValueError when called without a token. Callers that legitimately
+    need to bypass RLS for background tasks must import supabase_admin
+    directly — we no longer silently downgrade to admin (that was a
+    privilege-escalation hazard).
+    """
     if not token:
-        return supabase_admin
-    # We MUST use the ANON_KEY for the JWT to be effective for RLS
+        raise ValueError(
+            "get_auth_client requires a user JWT. "
+            "Use supabase_admin directly for trusted background tasks."
+        )
+    if not ANON_KEY:
+        raise RuntimeError(
+            "ANON_KEY not configured; cannot create RLS-enforcing client."
+        )
     client: Client = create_client(SUPABASE_URL, ANON_KEY)
     client.postgrest.auth(token)
     return client

@@ -2,12 +2,13 @@ import logging
 import json
 import asyncio
 from typing import Any, List, Dict, Optional
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from backend.services.file_parse_service import parse_pdf_stream
 from backend.services.cache import compute_pdf_hash, get_cached_parse, store_cached_parse
-from backend.core.auth_middleware import verify_token
+from backend.core.auth_middleware import verify_token, require_professor
+from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -76,11 +77,13 @@ async def validate_upload(file: UploadFile, content: bytes) -> int:
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
 @router.post("/parse-pdf-stream")
+@limiter.limit("5/minute")
 async def parse_pdf_stream_endpoint(
+    request: Request,
     file: UploadFile = File(...),
     ai_model: str = Form("groq"),
     use_blueprint: bool = Form(True),
-    user: Any = Depends(verify_token),
+    user: Any = Depends(require_professor),
 ):
     """
     Streamed PDF parsing endpoint.

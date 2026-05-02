@@ -62,6 +62,7 @@ logger = logging.getLogger(__name__)
 TEXT_BATCH_SIZE  = 12
 TEXT_BATCH_SEM   = 2    # max concurrent text-batch LLM calls (rate-limit guard)
 VISION_SEM_LIMIT = 3    # max concurrent VLM calls
+LAYOUT_SEM_LIMIT = 8    # max concurrent Pass-1 layout analyses (memory guard)
 PIPELINE_VERSION = "2"  # bump when prompts/schema change to invalidate checkpoints
 
 
@@ -98,11 +99,18 @@ async def parse_pdf_stream(
     }
 
     # ------------------------------------------------------------------
-    # PASS 1: Layout analysis — concurrent, no LLM, no pixmaps held
+    # PASS 1: Layout analysis — concurrent, no LLM, no pixmaps held.
+    # Bounded by LAYOUT_SEM_LIMIT so a 300-page PDF doesn't spawn 300
+    # threads and blow the container's memory.
     # ------------------------------------------------------------------
+    layout_sem = asyncio.Semaphore(LAYOUT_SEM_LIMIT)
+
+    async def _bounded_layout(i: int) -> PageLayout:
+        async with layout_sem:
+            return await analyze_page_layout_async(reader, i, odl_pages.get(i + 1))
+
     layouts_list = await asyncio.gather(*[
-        analyze_page_layout_async(reader, i, odl_pages.get(i + 1))
-        for i in range(total_pages)
+        _bounded_layout(i) for i in range(total_pages)
     ])
     layouts: Dict[int, PageLayout] = {l.index: l for l in layouts_list}
 

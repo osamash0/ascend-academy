@@ -2,28 +2,34 @@
 Mind Map API — generates and caches per-lecture knowledge tree structures.
 """
 import logging
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Any
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from supabase import create_client, Client
 
 from backend.core.auth_middleware import verify_token
 from backend.core.database import SUPABASE_URL, ANON_KEY
+from backend.core.rate_limit import limiter
 from backend.services.ai_service import generate_mind_map
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mind-map", tags=["mind-map"])
 security = HTTPBearer()
 
+
 def get_auth_client(token: str) -> Client:
     """Creates a Supabase client authenticated with the user's JWT."""
+    if not ANON_KEY:
+        raise RuntimeError("ANON_KEY not configured; cannot create RLS client.")
     client: Client = create_client(SUPABASE_URL, ANON_KEY)
     client.postgrest.auth(token)
     return client
 
+
 class GenerateRequest(BaseModel):
     ai_model: str = "groq"
+
 
 @router.get("/{lecture_id}")
 async def get_mind_map(
@@ -43,12 +49,17 @@ async def get_mind_map(
         if res.data:
             return {"success": True, "data": res.data["tree_data"], "generated_at": res.data["generated_at"]}
         return {"success": True, "data": None}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("Mind map GET error: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to fetch mind map.")
+        logger.error("Mind map GET error for lecture %s: %s", lecture_id, e, exc_info=True)
+        raise HTTPException(status_code=503, detail="Mind map service is temporarily unavailable.")
+
 
 @router.post("/{lecture_id}/generate")
+@limiter.limit("10/minute")
 async def generate_lecture_mind_map(
+    request: Request,
     lecture_id: str,
     body: GenerateRequest,
     user: Any = Depends(verify_token),
@@ -58,7 +69,7 @@ async def generate_lecture_mind_map(
     try:
         client = get_auth_client(creds.credentials)
 
-        # 1. Fetch lecture + slides
+        # 1. Fetch lecture + slides (RLS will scope this to the caller)
         lecture_res = client.table("lectures") \
             .select("id, title") \
             .eq("id", lecture_id) \
@@ -76,6 +87,11 @@ async def generate_lecture_mind_map(
             .execute()
 
         slides = slides_res.data or []
+        if not slides:
+            raise HTTPException(
+                status_code=400,
+                detail="No slides found for this lecture; cannot build a mind map.",
+            )
         lecture_title = lecture_res.data["title"]
 
         # 2. Run generation (now async)
@@ -99,6 +115,12 @@ async def generate_lecture_mind_map(
 
     except HTTPException:
         raise
+    except TimeoutError as e:
+        logger.warning("Mind map generation timed out for %s: %s", lecture_id, e)
+        raise HTTPException(status_code=504, detail="Mind map generation timed out. Please retry.")
     except Exception as e:
-        logger.error("Mind map generation failed: %s", e)
-        raise HTTPException(status_code=500, detail="Mind map generation failed.")
+        logger.error("Mind map generation failed for %s: %s", lecture_id, e, exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail="The AI service failed to generate the mind map. Please try a different model or retry shortly.",
+        )

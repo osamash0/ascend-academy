@@ -83,15 +83,16 @@ export default function LectureView() {
     const currentSlideTitle = slides[currentSlideIndex]?.title || '';
     const now = Date.now();
 
-    const logSlideView = async (slideId: string, title: string, durationSeconds: number) => {
+    const logSlideView = (slideId: string, title: string, durationSeconds: number) => {
       if (durationSeconds < 1) return;
-      await logLearningEvent(user.id, 'slide_view', {
+      // Fire-and-forget — telemetry must never block the UI or crash the lecture.
+      logLearningEvent(user.id, 'slide_view', {
         lectureId,
         slideId,
         slideTitle: title,
         duration_seconds: durationSeconds,
         timestamp: new Date().toISOString(),
-      });
+      }).catch((err) => console.warn('slide_view telemetry failed', err));
     };
 
     setSlideStartTime(now);
@@ -241,9 +242,10 @@ export default function LectureView() {
       }
     }
 
-    // Log lecture start event
+    // Log lecture start event (fire-and-forget; never block lecture load)
     if (user?.id) {
-      await logLearningEvent(user.id, 'lecture_start', { lectureId: currentLectureId });
+      logLearningEvent(user.id, 'lecture_start', { lectureId: currentLectureId })
+        .catch((err) => console.warn('lecture_start telemetry failed', err));
     }
 
     setLoading(false);
@@ -358,7 +360,8 @@ export default function LectureView() {
     const timeToAnswer = Math.round((Date.now() - slideStartTime) / 1000);
 
     if (user) {
-      await logLearningEvent(user.id, 'quiz_attempt', {
+      // Fire-and-forget telemetry; never block the quiz flow on a network blip.
+      logLearningEvent(user.id, 'quiz_attempt', {
         lectureId,
         slideId: currentSlide?.id,
         slideTitle: currentSlide?.title,
@@ -367,7 +370,7 @@ export default function LectureView() {
         selectedAnswer: selectedIndex,
         time_to_answer_seconds: timeToAnswer,
         timestamp: new Date().toISOString(),
-      });
+      }).catch((err) => console.warn('quiz_attempt telemetry failed', err));
     }
 
     if (isCorrect) {
@@ -467,13 +470,14 @@ export default function LectureView() {
 
     if (!user) return;
 
-    await logLearningEvent(user.id, 'lecture_complete', {
+    // Fire-and-forget telemetry — completion flow must finish even if logging fails.
+    logLearningEvent(user.id, 'lecture_complete', {
       lectureId: lecture.id,
       xpEarned: finalXp,
       correctAnswers: finalCorrect,
       total_duration_seconds: sessionDuration,
       completed_at: new Date().toISOString(),
-    });
+    }).catch((err) => console.warn('lecture_complete telemetry failed', err));
 
     const cappedXp = slides.length > 0 ? Math.min(finalXp, slides.length * 10) : finalXp;
     const cappedCorrect = slides.length > 0 ? Math.min(finalCorrect, slides.length) : finalCorrect;

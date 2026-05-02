@@ -2,26 +2,67 @@ import hashlib
 import logging
 import time
 from typing import Any, Optional, List, Dict, Tuple
+from collections import OrderedDict
+from threading import Lock
+
 from backend.core.database import supabase_admin
 
 logger = logging.getLogger(__name__)
 
-# Token validation cache: avoids a Supabase round-trip on every API request.
-_token_cache: Dict[str, Tuple[Any, float]] = {}
-_TOKEN_TTL = 45.0  # seconds
+
+# ── Token validation cache ───────────────────────────────────────────────────
+# Bounded LRU+TTL cache. Keys are SHA-256 hashes of the bearer token (we
+# never store the raw token). TTL kept short so revoked tokens stop working
+# quickly after sign-out / password reset.
+_TOKEN_TTL = 30.0          # seconds
+_TOKEN_CACHE_MAX = 1024    # max distinct tokens cached
+_token_cache: "OrderedDict[str, Tuple[Any, float]]" = OrderedDict()
+_token_cache_lock = Lock()
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def get_cached_token(token: str) -> Optional[Any]:
-    """Retrieve user object from memory cache if token is valid and not expired."""
-    entry = _token_cache.get(token)
-    if entry and time.monotonic() < entry[1]:
-        return entry[0]
-    return None
+    """Return cached user object if the token is still valid, else None."""
+    if not token:
+        return None
+    key = _hash_token(token)
+    now = time.monotonic()
+    with _token_cache_lock:
+        entry = _token_cache.get(key)
+        if entry is None:
+            return None
+        user, expires_at = entry
+        if now >= expires_at:
+            _token_cache.pop(key, None)
+            return None
+        # Touch for LRU semantics
+        _token_cache.move_to_end(key)
+        return user
 
 
 def store_cached_token(token: str, user: Any) -> None:
-    """Store user object in memory cache with a TTL."""
-    _token_cache[token] = (user, time.monotonic() + _TOKEN_TTL)
+    """Cache the user object behind a hashed token key."""
+    if not token:
+        return
+    key = _hash_token(token)
+    with _token_cache_lock:
+        _token_cache[key] = (user, time.monotonic() + _TOKEN_TTL)
+        _token_cache.move_to_end(key)
+        # Evict oldest entries to stay within bound
+        while len(_token_cache) > _TOKEN_CACHE_MAX:
+            _token_cache.popitem(last=False)
+
+
+def invalidate_cached_token(token: str) -> None:
+    """Remove a token from the cache (call on explicit sign-out)."""
+    if not token:
+        return
+    key = _hash_token(token)
+    with _token_cache_lock:
+        _token_cache.pop(key, None)
 
 
 def compute_pdf_hash(content: bytes) -> str:

@@ -3,13 +3,15 @@ import io
 import urllib.request
 import asyncio
 from typing import Annotated, Literal, Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from supabase import create_client, Client
 
 from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
-from backend.core.auth_middleware import verify_token
+from backend.core.auth_middleware import verify_token, require_professor
+from backend.core.rate_limit import limiter
 from backend.services.ai_service import (
     generate_summary, generate_quiz, generate_analytics_insights, 
     chat_with_lecture, generate_speech, generate_metric_feedback, 
@@ -19,6 +21,7 @@ from backend.services.content_filter import is_metadata_slide
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai"])
+_security = HTTPBearer()
 
 _AiModel = Annotated[
     Literal["groq", "gemini-2.0-flash", "llama3", "cerebras"],
@@ -83,9 +86,13 @@ async def generate_summary_endpoint(body: SlideTextRequest, user: Any = Depends(
     try:
         summary = await generate_summary(body.slide_text, ai_model=body.ai_model)
         return SummaryResponse(summary=summary)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="AI summary timed out. Please retry.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error("AI summary failed: %s", e)
-        raise HTTPException(status_code=500, detail="AI summary generation failed.")
+        logger.error("AI summary failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="AI service unavailable. Please try a different model or retry shortly.")
 
 @router.post("/generate-quiz", response_model=QuizResponse)
 async def generate_quiz_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
@@ -106,9 +113,13 @@ async def generate_quiz_endpoint(body: SlideTextRequest, user: Any = Depends(ver
         if isinstance(quiz, list) and quiz:
             quiz = quiz[0]
         return QuizResponse(**quiz)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="AI quiz timed out. Please retry.")
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"AI returned invalid quiz format: {e}")
     except Exception as e:
-        logger.error("AI quiz failed: %s", e)
-        raise HTTPException(status_code=500, detail="AI quiz generation failed.")
+        logger.error("AI quiz failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="AI service unavailable. Please try a different model or retry shortly.")
 
 @router.post("/suggest-title")
 async def suggest_title_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
@@ -152,7 +163,8 @@ async def metric_feedback_endpoint(body: MetricInsightRequest, user: Any = Depen
         raise HTTPException(status_code=500, detail="AI metric feedback failed.")
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat_with_tutor_endpoint(body: ChatRequest, user: Any = Depends(verify_token)):
+@limiter.limit("30/minute")
+async def chat_with_tutor_endpoint(request: Request, body: ChatRequest, user: Any = Depends(verify_token)):
     try:
         reply = await chat_with_lecture(
             slide_text=body.slide_text,
@@ -166,7 +178,8 @@ async def chat_with_tutor_endpoint(body: ChatRequest, user: Any = Depends(verify
         raise HTTPException(status_code=500, detail="AI tutor failed to respond.")
 
 @router.post("/tts")
-async def text_to_speech_endpoint(body: TTSRequest, user: Any = Depends(verify_token)):
+@limiter.limit("20/minute")
+async def text_to_speech_endpoint(request: Request, body: TTSRequest, user: Any = Depends(verify_token)):
     try:
         audio_content = await generate_speech(body.text, voice=body.voice)
         return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
@@ -180,15 +193,18 @@ class RegenerateSlideRequest(BaseModel):
     ai_model: _AiModel = "groq"
 
 @router.post("/slides/{slide_id}/regenerate-content")
+@limiter.limit("10/minute")
 async def regenerate_slide_content(
+    request: Request,
     slide_id: str,
     body: RegenerateSlideRequest,
-    user: Any = Depends(verify_token),
+    user: Any = Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(_security),
 ):
     """Re-analyzes a single slide and updates the database."""
     # Use user-authenticated client for RLS check
     client: Client = create_client(SUPABASE_URL, ANON_KEY)
-    client.postgrest.auth(user["token"])
+    client.postgrest.auth(creds.credentials)
 
     # 1. Fetch slide + lecture
     res = client.table("slides") \
@@ -201,7 +217,8 @@ async def regenerate_slide_content(
         raise HTTPException(status_code=404, detail="Slide not found.")
 
     lecture_info = res.data.get("lectures", {}) or {}
-    if lecture_info.get("professor_id") != user["id"]:
+    user_id = user.id if hasattr(user, "id") else user.get("id")
+    if lecture_info.get("professor_id") != user_id:
         raise HTTPException(status_code=403, detail="Unauthorized.")
     
     pdf_url = lecture_info.get("pdf_url")
