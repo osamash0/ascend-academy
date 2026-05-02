@@ -62,7 +62,13 @@ jobs:
 
   e2e:
     name: E2E (Playwright)
-    if: contains(github.event.pull_request.labels.*.name, 'e2e')
+    # Runs on PRs labeled `e2e` (opt-in for fast PR cycles), every nightly
+    # `schedule` trigger (so regressions are caught even without a PR), and
+    # on-demand via `workflow_dispatch`.
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

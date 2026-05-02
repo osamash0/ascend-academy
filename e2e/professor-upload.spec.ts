@@ -1,6 +1,10 @@
 import { test, expect } from "@playwright/test";
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { mockSupabase, loginAs, PROFESSOR } from "./helpers/supabase-mocks";
+
+// `package.json` declares `"type": "module"`, so CommonJS-style `__dirname`
+// is undefined at runtime. Resolve the fixture path via `import.meta.url`.
+const FIXTURE_PDF = fileURLToPath(new URL("./fixtures/sample.pdf", import.meta.url));
 
 /**
  * Professor PDF upload journey: log in → /professor/upload → attach PDF →
@@ -112,8 +116,7 @@ test.describe("Professor PDF upload", () => {
     await page.locator("#title").fill("Mission Briefing Lecture");
 
     // Attach the PDF — the input is hidden, but Playwright can target it.
-    const fixture = path.resolve(__dirname, "fixtures/sample.pdf");
-    await page.locator('input[type="file"][accept=".pdf"]').setInputFiles(fixture);
+    await page.locator('input[type="file"][accept=".pdf"]').setInputFiles(FIXTURE_PDF);
 
     // ─── Wait for the SSE stream to drive the editor view ───────────────────
     // After `complete` the upload overlay shows a "Get Started" button.
