@@ -138,16 +138,20 @@ async def store_slide_embedding(
     content_hash: str,
     pdf_hash: Optional[str] = None,
     pipeline_version: str = "1",
-) -> None:
+) -> bool:
     """Store slide embedding and metadata in Supabase.
 
     Idempotent on (pdf_hash, slide_index, pipeline_version): if a row already
     exists for that key it is replaced.  The `slide_embeddings` table has no
     unique constraint on this triple yet, so we emulate upsert with a
     delete-then-insert.
+
+    Returns True on a successful insert, False if the embedding was missing
+    or the insert failed (failures are still logged here so existing
+    fire-and-forget callers can keep ignoring the return value).
     """
     if embedding is None:
-        return
+        return False
 
     try:
         if pdf_hash:
@@ -174,8 +178,10 @@ async def store_slide_embedding(
             "pipeline_version": pipeline_version,
         }
         supabase_admin.table("slide_embeddings").insert(data).execute()
+        return True
     except Exception as e:
         logger.error("Failed to store slide embedding: %s", e)
+        return False
 
 
 async def attach_lecture_id_to_embeddings(
