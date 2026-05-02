@@ -1,0 +1,50 @@
+Here’s a prompt you can give to your coding agent. It frames the ultimate goal—building an intelligent lecture processing system—while leaving room for the agent to propose concrete improvements to the PDF parsing, content extraction, and AI features.
+
+---
+
+```
+I'm building an AI‑powered university lecture platform. The core feature is: a professor uploads a PDF slide deck, and the system automatically extracts every slide, understands the lecture’s context, names each slide correctly, writes high‑quality educational content, generates insightful quizzes, and provides a Socratic AI tutor that answers student questions *strictly from the uploaded document*.
+
+The current backend (Python/FastAPI) has a working v1 pipeline, but it suffers from memory leaks, brittle slide classification, no checkpointing, and sometimes inaccurate content extraction—especially for slides with diagrams, graphs, images, or mathematical formulas.
+
+Your job is to **redesign the entire PDF‑to‑knowledge pipeline** so that it becomes robust, accurate, and scalable, with a focus on understanding the *meaning* of each slide, not just extracting raw text.
+
+### Current Stack (keep what’s good)
+- Free‑tier AI providers: Groq, Gemini, Cerebras, Ollama
+- PyMuPDF (fitz) for PDF rendering and text extraction
+- Optional OpenDataLoader PDF for structure‑aware parsing
+- Async Python with FastAPI, SSE streaming
+- Existing modules for AI prompts, caching, content filtering, embeddings
+
+### Current Pain Points
+1. **Memory leaks**: live fitz.Page objects and unreleased pixmaps crash the server on large (100+ slide) decks.
+2. **Brittle routing**: slides are often misclassified (e.g., diagrams sent to text‑only LLM, or pure‑text slides wasting vision calls).
+3. **No resume**: if processing fails after 80 slides, the whole job restarts from scratch.
+4. **Shallow understanding**: the system sometimes treats diagrams as blank pages, mislabels slides, and produces generic quizzes that don’t test conceptual understanding.
+5. **AI tutor hallucinates**: it sometimes answers using general knowledge instead of staying strictly within the lecture content.
+
+### What I Need from You
+
+Design a new pipeline (or a set of improvements to the existing one) that achieves:
+
+1. **Memory‑safe PDF handling** – no shared fitz.Document, explicit pixmap release, resilient to large PDFs.
+2. **Smart slide routing** – every slide gets exactly one optimal processing path (text batch, vision model, table extractor, or skip) based on its actual content (diagram, graph, equation, photo, etc.).
+3. **Checkpoint/resume** – per‑slide caching so that an interrupted job can resume exactly where it left off.
+4. **Deep content understanding** – the AI should truly “read” the lecture, not just OCR. That means:
+   - Diagrams, graphs, and function plots are described correctly and integrated into the slide’s educational content.
+   - Slide titles are meaningful and reflect the slide’s actual topic (not just “Slide 5”).
+   - Quizzes are concept‑testing, not trivial recall; ideally they connect ideas across multiple slides.
+5. **Document‑grounded AI tutor** – the chat function must only use the extracted slide content as its knowledge base, with no external information.
+6. **Seamless integration** – keep the existing FastAPI endpoints unchanged; reuse the existing LLM orchestrator, prompts, and caching infrastructure where possible.
+
+You have full freedom to restructure the code, introduce new data structures, or even propose a completely different pipeline architecture—as long as it meets the goals above and stays within the zero‑cost provider limits.
+
+Please provide:
+- A high‑level architecture diagram (text is fine).
+- Key data structures (e.g., PageLayout, RoutingManifest).
+- A step‑by‑step description of how a PDF flows from upload to final enriched slides and quizzes.
+- Critical code snippets for the most important parts (e.g., how you’d ensure the AI tutor stays grounded, how you’d handle a graph‑heavy slide).
+- Any database schema changes needed.
+
+Focus on practical, maintainable Python code that works with the existing backend. I’m ready to implement the changes—just need the right blueprint.
+```
