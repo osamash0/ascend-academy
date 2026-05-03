@@ -53,7 +53,22 @@ function extractErrorMessage(err: unknown): string {
     const maybeAxios = err as { response?: { data?: { detail?: unknown } }; message?: unknown };
     const detail = maybeAxios.response?.data?.detail;
     if (typeof detail === 'string') return detail;
-    if (typeof maybeAxios.message === 'string') return maybeAxios.message;
+    const msg = maybeAxios.message;
+    if (typeof msg === 'string') {
+      // apiClient throws `Error("METHOD path → STATUS: <body>")` — pull the
+      // server-provided `detail` out of the trailing JSON when present so we
+      // surface a clean message instead of the raw transport string.
+      const jsonStart = msg.indexOf('{');
+      if (jsonStart >= 0) {
+        try {
+          const parsed = JSON.parse(msg.slice(jsonStart));
+          if (parsed && typeof parsed === 'object' && typeof (parsed as { detail?: unknown }).detail === 'string') {
+            return (parsed as { detail: string }).detail;
+          }
+        } catch { /* fall through */ }
+      }
+      return msg;
+    }
   }
   return 'Could not answer that question.';
 }
