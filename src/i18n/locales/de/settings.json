@@ -16,7 +16,9 @@
     "displayNamePlaceholder": "Anonym (nur Avatar)",
     "displayNameHelp": "Wird in der Bestenliste anstelle nur deines Avatars angezeigt.",
     "email": "E-Mail-Adresse",
-    "emailHelp": "Deine E-Mail-Adresse kann hier nicht geändert werden."
+    "emailHelp": "Deine E-Mail-Adresse kann hier nicht geändert werden.",
+    "unsavedChanges": "● Ungespeicherte Änderungen",
+    "upToDate": "Aktuell"
   },
   "avatar": {
     "anonymousUser": "Anonyme:r Nutzer:in",
@@ -42,7 +44,16 @@
   "ai": {
     "title": "KI-Modell",
     "description": "Wähle, welches KI-Modell deinen Tutor und die Inhaltserstellung antreibt.",
-    "saved": "KI-Modell aktualisiert"
+    "saved": "KI-Modell aktualisiert",
+    "preferences": "KI-Einstellungen",
+    "preferencesDescription": "Wähle, welches KI-Modell deinen intelligenten Tutor, Quiz und Zusammenfassungen antreibt.",
+    "savedTitle": "KI-Einstellung gespeichert",
+    "savedDescription": "Dein Tutor wird jetzt von {{name}} angetrieben.",
+    "savePreference": "KI-Einstellung speichern"
+  },
+  "header": {
+    "title": "Einstellungen",
+    "subtitle": "Verwalte deine Kontoeinstellungen und Profildaten"
   },
   "security": {
     "title": "Sicherheit",
@@ -50,33 +61,42 @@
     "currentPasswordPlaceholder": "Gib dein aktuelles Passwort ein",
     "newPassword": "Neues Passwort",
     "newPasswordPlaceholder": "Mindestens 6 Zeichen",
-    "confirmPassword": "Neues Passwort bestätigen",
+    "confirmPassword": "Passwort bestätigen",
     "confirmPasswordPlaceholder": "Neues Passwort erneut eingeben",
-    "passwordsDontMatch": "Passwörter stimmen nicht überein.",
+    "passwordsDontMatch": "Passwörter stimmen nicht überein",
+    "passwordTooShort": "Das Passwort muss mindestens 6 Zeichen lang sein",
     "changePassword": "Passwort ändern",
-    "changing": "Wird geändert...",
+    "changing": "Wird aktualisiert...",
     "currentIncorrect": "Aktuelles Passwort falsch",
     "currentIncorrectDescription": "Bitte überprüfe dein aktuelles Passwort und versuche es erneut.",
     "passwordChangeFailed": "Passwortänderung fehlgeschlagen",
+    "passwordChangeFailedDescription": "Ein unerwarteter Fehler ist aufgetreten.",
     "passwordUpdated": "Passwort aktualisiert!",
     "passwordUpdatedDescription": "Dein Passwort wurde erfolgreich geändert."
   },
   "data": {
     "title": "Daten & Datenschutz",
-    "exportTitle": "Daten exportieren",
-    "exportDescription": "Lade eine JSON-Datei mit allen auf Learnstation gespeicherten Daten herunter.",
-    "exportButton": "Meine Daten exportieren",
+    "exportTitle": "Meine Daten exportieren",
+    "exportDescription": "Lade alle deine Daten als JSON-Datei herunter (Art. 20 DSGVO)",
+    "exportButton": "Exportieren",
     "exporting": "Wird exportiert...",
-    "exportSuccess": "Daten exportiert",
+    "exportSuccess": "Daten exportiert!",
     "exportSuccessDescription": "Deine Daten wurden heruntergeladen.",
     "exportError": "Export fehlgeschlagen",
+    "exportErrorDescription": "Bitte versuche es erneut.",
+    "dangerZone": "Gefahrenzone",
     "deleteTitle": "Konto löschen",
     "deleteDescription": "Lösche dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
     "deleteButton": "Mein Konto löschen",
+    "deleteConfirmShort": "Bist du sicher? Alle Daten werden dauerhaft gelöscht.",
+    "cancel": "Abbrechen",
+    "deleteFinal": "Ja, alles löschen",
     "deleting": "Wird gelöscht...",
     "deleteConfirm": "Bist du absolut sicher? Dies löscht dein Konto und alle deine Daten dauerhaft. Tippe DELETE zur Bestätigung.",
     "deleteSuccess": "Konto gelöscht",
-    "deleteError": "Löschung fehlgeschlagen"
+    "deleteSuccessDescription": "Dein Konto und alle Daten wurden entfernt.",
+    "deleteError": "Löschung fehlgeschlagen",
+    "deleteErrorDescription": "Bitte kontaktiere den Support."
   },
   "save": "Änderungen speichern",
   "saving": "Wird gespeichert...",

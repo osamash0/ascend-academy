@@ -37,6 +37,11 @@
     "unsavedChanges": "Ungespeicherte Änderungen",
     "comingSoon": "Demnächst verfügbar"
   },
+  "status": {
+    "deleted": "Gelöscht",
+    "error": "Fehler",
+    "success": "Erfolg"
+  },
   "toasts": {
     "errorTitle": "Fehler",
     "successTitle": "Erfolg",

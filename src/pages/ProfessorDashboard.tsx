@@ -71,9 +71,9 @@ export default function ProfessorDashboard() {
       setLectures((prevList) =>
         prevList.map((l) => (l.id === lecture.id ? { ...l, course_id: nextCourseId } : l)),
       );
-      toast({ title: 'Course updated' });
+      toast({ title: t('professor:lectures.courseUpdated') });
     } catch (err) {
-      toast({ title: 'Failed to change course', description: String(err), variant: 'destructive' });
+      toast({ title: t('professor:lectures.courseUpdateFailed'), description: String(err), variant: 'destructive' });
     }
   };
   const [stats, setStats] = useState<StudentStats>({
@@ -131,15 +131,15 @@ export default function ProfessorDashboard() {
   };
 
   const deleteLecture = async (lectureId: string) => {
-    if (!window.confirm('Are you sure you want to delete this lecture? This cannot be undone.')) return;
+    if (!window.confirm(t('professor:lectures.deleteConfirm'))) return;
 
     try {
       await deleteLectureService(lectureId);
       setLectures(prev => prev.filter(l => l.id !== lectureId));
-      toast({ title: 'Deleted', description: 'Lecture deleted successfully.' });
+      toast({ title: t('common:status.deleted'), description: t('professor:lectures.deleted') });
     } catch (err) {
       console.error(err);
-      toast({ title: 'Error', description: 'Failed to delete lecture.', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('professor:lectures.deleteFailed'), variant: 'destructive' });
     }
   };
 
@@ -150,7 +150,7 @@ export default function ProfessorDashboard() {
     return t('common:greetings.evening');
   };
 
-  const profName = user?.email?.split('@')[0] || 'Professor';
+  const profName = user?.email?.split('@')[0] || t('professor:defaultName');
 
   if (loading) {
     return (
@@ -407,9 +407,9 @@ export default function ProfessorDashboard() {
                                 handleAssignCourse(lecture, e.target.value || null);
                               }}
                               className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                              title="Course assignment"
+                              title={t('professor:lectures.courseAssignment')}
                             >
-                              <option value="">Uncategorized</option>
+                              <option value="">{t('professor:lectures.uncategorized')}</option>
                               {courses.map((c) => (
                                 <option key={c.id} value={c.id}>{c.title}</option>
                               ))}
@@ -427,7 +427,7 @@ export default function ProfessorDashboard() {
                                   e.stopPropagation();
                                   navigate(`/professor/analytics/${lecture.id}`);
                                 }}
-                                title="Lecture Analytics"
+                                title={t('professor:lectures.actions.analytics')}
                               >
                                 <BarChart3 className="w-5 h-5" />
                               </Button>
@@ -441,7 +441,7 @@ export default function ProfessorDashboard() {
                                   e.stopPropagation();
                                   navigate(`/lecture/${lecture.id}`);
                                 }}
-                                title="Preview Lecture"
+                                title={t('professor:lectures.actions.preview')}
                               >
                                 <Eye className="w-5 h-5" />
                               </Button>
@@ -455,7 +455,7 @@ export default function ProfessorDashboard() {
                                   e.stopPropagation();
                                   navigate(`/professor/lecture/${lecture.id}`);
                                 }}
-                                title="Edit Parameters"
+                                title={t('professor:lectures.actions.edit')}
                               >
                                 <Settings className="w-5 h-5" />
                               </Button>
@@ -469,7 +469,7 @@ export default function ProfessorDashboard() {
                                   e.stopPropagation();
                                   deleteLecture(lecture.id);
                                 }}
-                                title="Delete Stream"
+                                title={t('professor:lectures.actions.delete')}
                               >
                                 <Trash2 className="w-5 h-5" />
                               </Button>

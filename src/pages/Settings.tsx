@@ -106,6 +106,7 @@ function AvatarSection({
     user: { id: string } | null;
     onUpdate: () => Promise<void>;
 }) {
+    const { t } = useTranslation(['settings', 'common']);
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
     const [isUploading, setIsUploading] = useState(false);
@@ -210,10 +211,10 @@ function AvatarSection({
                             onClick={() => fileInputRef.current?.click()}
                             role="button"
                             tabIndex={0}
-                            aria-label="Change avatar"
+                            aria-label={t('settings:avatar.changeAvatar')}
                         >
                             <Camera className="w-8 h-8 text-white mb-2" aria-hidden="true" />
-                            <span className="text-white text-xs font-medium">Change Avatar</span>
+                            <span className="text-white text-xs font-medium">{t('settings:avatar.changeAvatar')}</span>
                         </div>
                     </div>
 
@@ -224,7 +225,7 @@ function AvatarSection({
                     )}
                 </div>
 
-                <h3 className="font-semibold text-lg">{profile?.full_name || 'Anonymous User'}</h3>
+                <h3 className="font-semibold text-lg">{profile?.full_name || t('settings:avatar.anonymousUser')}</h3>
                 <p className="text-muted-foreground text-sm mb-6">{profile?.email}</p>
 
                 <input
@@ -244,11 +245,11 @@ function AvatarSection({
                     disabled={isUploading}
                 >
                     <Camera className="w-4 h-4 mr-2" aria-hidden="true" />
-                    Upload Photo
+                    {t('settings:avatar.uploadPhoto')}
                 </Button>
 
                 <div className="w-full mt-6 pt-6 border-t border-border">
-                    <p className="text-sm font-medium text-foreground mb-3 text-left">Or choose a fun preset:</p>
+                    <p className="text-sm font-medium text-foreground mb-3 text-left">{t('settings:avatar.presetsTitle')}</p>
                     <div className="grid grid-cols-3 gap-3">
                         {PRESET_AVATARS.map((preset, i) => (
                             <button
@@ -286,6 +287,7 @@ function ProfileForm({
     user: { id: string } | null;
     onUpdate: () => Promise<void>;
 }) {
+    const { t } = useTranslation(['settings', 'common']);
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
 
@@ -346,15 +348,15 @@ function ProfileForm({
         >
             <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
                 <div>
-                    <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
+                    <h2 className="text-xl font-semibold mb-4">{t('settings:profile.personalInfo')}</h2>
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <label htmlFor="fullName" className="text-sm font-medium">Full Name</label>
+                            <label htmlFor="fullName" className="text-sm font-medium">{t('settings:profile.fullName')}</label>
                             <div className="relative">
                                 <User className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                                 <Input
                                     id="fullName"
-                                    placeholder="Enter your full name"
+                                    placeholder={t('settings:profile.fullNamePlaceholder')}
                                     className="pl-10"
                                     value={fullName}
                                     onChange={(e) => setFullName(e.target.value)}
@@ -364,23 +366,23 @@ function ProfileForm({
                         </div>
 
                         <div className="space-y-2">
-                            <label htmlFor="displayName" className="text-sm font-medium">Display Name (public)</label>
+                            <label htmlFor="displayName" className="text-sm font-medium">{t('settings:profile.displayName')}</label>
                             <div className="relative">
                                 <User className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                                 <Input
                                     id="displayName"
-                                    placeholder="Anonymous (Avatar Only)"
+                                    placeholder={t('settings:profile.displayNamePlaceholder')}
                                     className="pl-10"
                                     value={displayName}
                                     onChange={(e) => setDisplayName(e.target.value)}
                                     maxLength={50}
                                 />
                             </div>
-                            <p className="text-xs text-muted-foreground">Shown on the leaderboard instead of your avatar only.</p>
+                            <p className="text-xs text-muted-foreground">{t('settings:profile.displayNameHelp')}</p>
                         </div>
 
                         <div className="space-y-2">
-                            <label htmlFor="email" className="text-sm font-medium">Email Address</label>
+                            <label htmlFor="email" className="text-sm font-medium">{t('settings:profile.email')}</label>
                             <div className="relative">
                                 <Mail className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                                 <Input
@@ -389,10 +391,10 @@ function ProfileForm({
                                     className="pl-10 opacity-70 cursor-not-allowed"
                                     readOnly
                                     disabled
-                                    aria-label="Email address (cannot be changed)"
+                                    aria-label={t('settings:profile.email')}
                                 />
                             </div>
-                            <p className="text-xs text-muted-foreground">Your email address cannot be changed here.</p>
+                            <p className="text-xs text-muted-foreground">{t('settings:profile.emailHelp')}</p>
                         </div>
                     </div>
                 </div>
@@ -400,10 +402,10 @@ function ProfileForm({
                 <div className="pt-4 border-t border-border flex items-center justify-between">
                     <div className="text-xs text-muted-foreground">
                         {hasUnsavedChanges ? (
-                            <span className="text-amber-500 font-medium">● Unsaved changes</span>
+                            <span className="text-amber-500 font-medium">{t('settings:profile.unsavedChanges')}</span>
                         ) : (
                             <span className="text-emerald-500 font-medium flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Up to date
+                                <CheckCircle2 className="w-3 h-3" /> {t('settings:profile.upToDate')}
                             </span>
                         )}
                     </div>
@@ -415,12 +417,12 @@ function ProfileForm({
                         {isSaving ? (
                             <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
-                                Saving...
+                                {t('settings:saving')}
                             </>
                         ) : (
                             <>
                                 <Save className="w-4 h-4 mr-2" aria-hidden="true" />
-                                Save Changes
+                                {t('settings:save')}
                             </>
                         )}
                     </Button>
@@ -431,6 +433,7 @@ function ProfileForm({
 }
 
 function SecuritySection({ user }: { user: { email?: string } | null }) {
+    const { t } = useTranslation(['settings', 'common']);
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
 
@@ -458,8 +461,8 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
 
             if (signInError) {
                 toast({
-                    title: 'Current password incorrect',
-                    description: 'Please check your current password and try again.',
+                    title: t('settings:security.currentIncorrect'),
+                    description: t('settings:security.currentIncorrectDescription'),
                     variant: 'destructive'
                 });
                 return;
@@ -467,17 +470,17 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
 
             const { error } = await supabase.auth.updateUser({ password: newPassword });
             if (error) {
-                toast({ title: 'Password change failed', description: error.message, variant: 'destructive' });
+                toast({ title: t('settings:security.passwordChangeFailed'), description: error.message, variant: 'destructive' });
             } else {
-                toast({ title: 'Password updated!', description: 'Your password has been changed successfully.' });
+                toast({ title: t('settings:security.passwordUpdated'), description: t('settings:security.passwordUpdatedDescription') });
                 setCurrentPassword('');
                 setNewPassword('');
                 setConfirmPassword('');
             }
         } catch (error: unknown) {
             toast({
-                title: 'Password change failed',
-                description: error instanceof Error ? error.message : 'An unexpected error occurred.',
+                title: t('settings:security.passwordChangeFailed'),
+                description: error instanceof Error ? error.message : t('settings:security.passwordChangeFailedDescription'),
                 variant: 'destructive'
             });
         } finally {
@@ -494,17 +497,17 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
         >
             <div className="flex items-center gap-2 mb-4">
                 <Shield className="w-5 h-5 text-primary" aria-hidden="true" />
-                <h2 className="text-xl font-semibold text-foreground">Security</h2>
+                <h2 className="text-xl font-semibold text-foreground">{t('settings:security.title')}</h2>
             </div>
             <div className="space-y-4">
                 <div>
-                    <label htmlFor="currentPassword" className="text-sm font-medium text-foreground mb-1 block">Current Password</label>
+                    <label htmlFor="currentPassword" className="text-sm font-medium text-foreground mb-1 block">{t('settings:security.currentPassword')}</label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                         <Input
                             id="currentPassword"
                             type={showCurrentPassword ? 'text' : 'password'}
-                            placeholder="Enter your current password"
+                            placeholder={t('settings:security.currentPasswordPlaceholder')}
                             value={currentPassword}
                             onChange={(e) => setCurrentPassword(e.target.value)}
                             autoComplete="current-password"
@@ -523,13 +526,13 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                 </div>
 
                 <div>
-                    <label htmlFor="newPassword" className="text-sm font-medium text-foreground mb-1 block">New Password</label>
+                    <label htmlFor="newPassword" className="text-sm font-medium text-foreground mb-1 block">{t('settings:security.newPassword')}</label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                         <Input
                             id="newPassword"
                             type={showNewPassword ? 'text' : 'password'}
-                            placeholder="Min. 6 characters"
+                            placeholder={t('settings:security.newPasswordPlaceholder')}
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             autoComplete="new-password"
@@ -547,18 +550,18 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                         </button>
                     </div>
                     {newPassword && newPassword.length < 6 && (
-                        <p className="text-xs text-destructive mt-1">Password must be at least 6 characters</p>
+                        <p className="text-xs text-destructive mt-1">{t('settings:security.passwordTooShort')}</p>
                     )}
                 </div>
 
                 <div>
-                    <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground mb-1 block">Confirm Password</label>
+                    <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground mb-1 block">{t('settings:security.confirmPassword')}</label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                         <Input
                             id="confirmPassword"
                             type={showConfirmPassword ? 'text' : 'password'}
-                            placeholder="Re-enter your new password"
+                            placeholder={t('settings:security.confirmPasswordPlaceholder')}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             autoComplete="new-password"
@@ -575,7 +578,7 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                         </button>
                     </div>
                     {!passwordsMatch && (
-                        <p className="text-xs text-destructive mt-1">Passwords do not match</p>
+                        <p className="text-xs text-destructive mt-1">{t('settings:security.passwordsDontMatch')}</p>
                     )}
                 </div>
 
@@ -584,9 +587,9 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                     onClick={handleChangePassword}
                 >
                     {isChangingPassword ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />Updating...</>
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />{t('settings:security.changing')}</>
                     ) : (
-                        <><Lock className="w-4 h-4 mr-2" aria-hidden="true" />Change Password</>
+                        <><Lock className="w-4 h-4 mr-2" aria-hidden="true" />{t('settings:security.changePassword')}</>
                     )}
                 </Button>
             </div>
@@ -603,6 +606,7 @@ function DataPrivacySection({
     signOut: () => Promise<void>;
     navigate: ReturnType<typeof useNavigate>;
 }) {
+    const { t } = useTranslation(['settings', 'common']);
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
 
@@ -640,9 +644,9 @@ function DataPrivacySection({
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            toast({ title: 'Data exported!', description: 'Your data has been downloaded.' });
+            toast({ title: t('settings:data.exportSuccess'), description: t('settings:data.exportSuccessDescription') });
         } catch {
-            toast({ title: 'Export failed', description: 'Please try again.', variant: 'destructive' });
+            toast({ title: t('settings:data.exportError'), description: t('settings:data.exportErrorDescription'), variant: 'destructive' });
         } finally {
             safeSetState(setIsExporting, false);
         }
@@ -667,11 +671,11 @@ function DataPrivacySection({
 
             await signOut();
             navigate('/');
-            toast({ title: 'Account deleted', description: 'Your account and all data have been removed.' });
+            toast({ title: t('settings:data.deleteSuccess'), description: t('settings:data.deleteSuccessDescription') });
         } catch (error: any) {
             toast({ 
-                title: 'Deletion failed', 
-                description: error.message || 'Please contact support.', 
+                title: t('settings:data.deleteError'), 
+                description: error.message || t('settings:data.deleteErrorDescription'), 
                 variant: 'destructive' 
             });
             safeSetState(setIsDeleting, false);
@@ -686,12 +690,12 @@ function DataPrivacySection({
             transition={{ delay: 0.2 }}
             className="bg-card rounded-2xl border border-border p-6"
         >
-            <h2 className="text-xl font-semibold text-foreground mb-4">Data & Privacy</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-4">{t('settings:data.title')}</h2>
 
             <div className="flex items-center justify-between py-4 border-b border-border">
                 <div>
-                    <p className="font-medium text-foreground">Export My Data</p>
-                    <p className="text-sm text-muted-foreground">Download all your data as a JSON file (Art. 20 DSGVO)</p>
+                    <p className="font-medium text-foreground">{t('settings:data.exportTitle')}</p>
+                    <p className="text-sm text-muted-foreground">{t('settings:data.exportDescription')}</p>
                 </div>
                 <Button
                     variant="outline"
@@ -699,25 +703,25 @@ function DataPrivacySection({
                     disabled={isExporting}
                 >
                     {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" /> : <Download className="w-4 h-4 mr-2" aria-hidden="true" />}
-                    {isExporting ? 'Exporting...' : 'Export'}
+                    {isExporting ? t('settings:data.exporting') : t('settings:data.exportButton')}
                 </Button>
             </div>
 
             <div className="pt-4">
-                <p className="font-medium text-destructive mb-1">Danger Zone</p>
+                <p className="font-medium text-destructive mb-1">{t('settings:data.dangerZone')}</p>
                 <p className="text-sm text-muted-foreground mb-3">
-                    Permanently delete your account and all associated data. This action cannot be undone.
+                    {t('settings:data.deleteDescription')}
                 </p>
                 {!showDeleteConfirm ? (
                     <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
                         <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
-                        Delete My Account
+                        {t('settings:data.deleteButton')}
                     </Button>
                 ) : (
                     <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30">
-                        <p className="text-sm text-destructive font-medium">Are you sure? All data will be permanently deleted.</p>
+                        <p className="text-sm text-destructive font-medium">{t('settings:data.deleteConfirmShort')}</p>
                         <div className="flex gap-2 shrink-0">
-                            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+                            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)}>{t('settings:data.cancel')}</Button>
                             <Button
                                 variant="destructive"
                                 size="sm"
@@ -725,7 +729,7 @@ function DataPrivacySection({
                                 onClick={handleDelete}
                             >
                                 {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" /> : null}
-                                {isDeleting ? 'Deleting...' : 'Yes, Delete Everything'}
+                                {isDeleting ? t('settings:data.deleting') : t('settings:data.deleteFinal')}
                             </Button>
                         </div>
                     </div>
@@ -782,6 +786,7 @@ function LanguageSection() {
 }
 
 function AiPreferencesSection() {
+    const { t } = useTranslation(['settings', 'common']);
     const { aiModel, setAiModel } = useAiModel();
     const { toast } = useToast();
 
@@ -791,10 +796,10 @@ function AiPreferencesSection() {
     const handleSave = useCallback(() => {
         setAiModel(pendingModel);
         toast({
-            title: 'AI Preference saved',
-            description: `Your tutor is now powered by ${AI_MODELS.find(m => m.id === pendingModel)?.name}.`
+            title: t('settings:ai.savedTitle'),
+            description: t('settings:ai.savedDescription', { name: AI_MODELS.find(m => m.id === pendingModel)?.name })
         });
-    }, [pendingModel, setAiModel, toast]);
+    }, [pendingModel, setAiModel, toast, t]);
 
     return (
         <motion.div
@@ -805,10 +810,10 @@ function AiPreferencesSection() {
         >
             <div className="flex items-center gap-3 mb-4">
                 <BrainCircuit className="w-6 h-6 text-primary" aria-hidden="true" />
-                <h2 className="text-xl font-semibold text-foreground">AI Preferences</h2>
+                <h2 className="text-xl font-semibold text-foreground">{t('settings:ai.preferences')}</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
-                Choose which AI model powers your intelligent tutor, quizzes, and summaries.
+                {t('settings:ai.preferencesDescription')}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -846,7 +851,7 @@ function AiPreferencesSection() {
                     >
                         <Button onClick={handleSave}>
                             <Save className="w-4 h-4 mr-2" aria-hidden="true" />
-                            Save AI Preference
+                            {t('settings:ai.savePreference')}
                         </Button>
                     </motion.div>
                 )}
@@ -873,6 +878,7 @@ function LoadingSkeleton() {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function Settings() {
+    const { t } = useTranslation(['settings', 'common']);
     const { user, profile, refreshProfile, signOut } = useAuth();
     const navigate = useNavigate();
 
@@ -883,8 +889,8 @@ export default function Settings() {
     return (
         <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-8">
             <div>
-                <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-                <p className="text-muted-foreground mt-1">Manage your account preferences and profile details</p>
+                <h1 className="text-3xl font-bold text-foreground">{t('settings:header.title')}</h1>
+                <p className="text-muted-foreground mt-1">{t('settings:header.subtitle')}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

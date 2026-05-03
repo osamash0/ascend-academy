@@ -1,4 +1,5 @@
 {
+  "defaultName": "Professor",
   "commandCenter": "Command Center Dashboard",
   "greeting": "{{greeting}}, {{name}}.",
   "summary": "System analysis confirms <bold>{{students}} students</bold> are actively engaged. Global accuracy is holding at <bold>{{accuracy}}%</bold> across your <bold>{{lectures}} academic streams</bold>.",

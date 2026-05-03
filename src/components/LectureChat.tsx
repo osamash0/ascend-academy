@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAiModel, type AiModelChoice } from '@/hooks/use-ai-model';
 import { useAuth } from '@/lib/auth';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,6 +75,7 @@ export function LectureChat({
     currentSlideIndex,
     onSlideJump,
 }: LectureChatProps) {
+    const { t } = useTranslation(['lecture']);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -167,7 +169,7 @@ export function LectureChat({
                 signal: abortControllerRef.current.signal,
             });
 
-            if (!res.ok) throw new Error('Chat request failed');
+            if (!res.ok) throw new Error(t('lecture:chat.requestFailed'));
 
             // Check if response is streaming
             const contentType = res.headers.get('content-type');
@@ -178,7 +180,7 @@ export function LectureChat({
                 const decoder = new TextDecoder();
                 let fullContent = '';
 
-                if (!reader) throw new Error('No reader available');
+                if (!reader) throw new Error(t('lecture:chat.noReader'));
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -324,10 +326,10 @@ export function LectureChat({
                                     <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-success border-2 border-surface-1" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-foreground leading-none text-sm">AI Tutor</h3>
+                                    <h3 className="font-semibold text-foreground leading-none text-sm">{t('lecture:chat.title')}</h3>
                                     <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                                        Online
+                                        {t('lecture:chat.online')}
                                     </p>
                                 </div>
                             </div>
@@ -338,7 +340,7 @@ export function LectureChat({
                                     onValueChange={(val) => setSelectedModel(val as AiModelChoice)}
                                 >
                                     <SelectTrigger className="h-8 w-[150px] text-xs glass-card border-none focus:ring-1 focus:ring-primary/30">
-                                        <SelectValue placeholder="Model" />
+                                        <SelectValue placeholder={t('lecture:chat.modelPlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent className="glass-panel-strong border-white/10">
                                         <SelectItem value="cerebras">Cerebras (Recommended)</SelectItem>
@@ -366,7 +368,7 @@ export function LectureChat({
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <BookOpen className="w-3.5 h-3.5" />
                                 <span className="truncate">
-                                    Context: <span className="text-foreground font-medium">{slideTitle}</span>
+                                    {t('lecture:chat.context')} <span className="text-foreground font-medium">{slideTitle}</span>
                                 </span>
                             </div>
                         </div>
@@ -437,12 +439,12 @@ export function LectureChat({
                                                                 disabled:hover:bg-primary/10"
                                                             title={
                                                                 onSlideJump
-                                                                    ? `Jump to slide ${c.slide_index + 1}`
-                                                                    : `Slide ${c.slide_index + 1}`
+                                                                    ? t('lecture:chat.jumpTo', { number: c.slide_index + 1 })
+                                                                    : t('lecture:chat.slideRef', { number: c.slide_index + 1 })
                                                             }
                                                         >
                                                             <BookOpen className="w-2.5 h-2.5" />
-                                                            Slide {c.slide_index + 1}
+                                                            {t('lecture:chat.slideRef', { number: c.slide_index + 1 })}
                                                         </button>
                                                     ))}
                                                 </div>
@@ -500,7 +502,7 @@ export function LectureChat({
                                                 className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground hover:text-destructive uppercase tracking-widest transition-colors self-start px-1"
                                             >
                                                 <StopCircle className="w-3 h-3" />
-                                                Cancel
+                                                {t('lecture:chat.cancel')}
                                             </motion.button>
                                         </div>
                                     </div>
@@ -521,7 +523,7 @@ export function LectureChat({
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Ask about this slide..."
+                                    placeholder={t('lecture:chat.inputPlaceholder')}
                                     className="w-full bg-surface-2/50 text-foreground rounded-2xl pl-5 pr-14 py-3.5 text-sm 
                                         placeholder:text-muted-foreground/50
                                         focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface-2/80
@@ -535,13 +537,13 @@ export function LectureChat({
                                     className="absolute right-1.5 w-10 h-10 rounded-xl bg-gradient-to-r from-primary to-secondary 
                                         hover:opacity-90 text-white shadow-glow-primary/30 
                                         transition-all duration-200 disabled:opacity-30 disabled:shadow-none"
-                                    title="Send message"
+                                    title={t('lecture:chat.sendMessage')}
                                 >
                                     <Send className="w-4 h-4" />
                                 </Button>
                             </form>
                             <p className="text-[10px] text-muted-foreground/40 text-center mt-2">
-                                AI responses are generated and may require verification
+                                {t('lecture:chat.disclaimer')}
                             </p>
                         </div>
                     </motion.div>

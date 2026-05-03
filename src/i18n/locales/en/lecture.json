@@ -64,6 +64,20 @@
     "mindMapSuccessTitle": "Mind Map Generated",
     "mindMapSuccessDescription": "The knowledge tree has been successfully constructed."
   },
+  "chat": {
+    "title": "AI Tutor",
+    "online": "Online",
+    "modelPlaceholder": "Model",
+    "context": "Context:",
+    "cancel": "Cancel",
+    "inputPlaceholder": "Ask about this slide...",
+    "sendMessage": "Send message",
+    "disclaimer": "AI responses are generated and may require verification",
+    "jumpTo": "Jump to slide {{number}}",
+    "slideRef": "Slide {{number}}",
+    "requestFailed": "Chat request failed",
+    "noReader": "No reader available"
+  },
   "regenerate": {
     "button": "Re-analyze slide",
     "loading": "Re-analyzing...",

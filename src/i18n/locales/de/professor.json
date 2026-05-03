@@ -1,4 +1,5 @@
 {
+  "defaultName": "Professor:in",
   "commandCenter": "Kommandozentrum",
   "greeting": "{{greeting}}, {{name}}.",
   "summary": "Die Systemanalyse bestätigt: <bold>{{students}} Studierende</bold> sind aktiv engagiert. Die globale Genauigkeit liegt bei <bold>{{accuracy}}%</bold> in deinen <bold>{{lectures}} akademischen Strömen</bold>.",

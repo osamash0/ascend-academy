@@ -64,6 +64,20 @@
     "mindMapSuccessTitle": "Mindmap generiert",
     "mindMapSuccessDescription": "Der Wissensbaum wurde erfolgreich erstellt."
   },
+  "chat": {
+    "title": "KI-Tutor",
+    "online": "Online",
+    "modelPlaceholder": "Modell",
+    "context": "Kontext:",
+    "cancel": "Abbrechen",
+    "inputPlaceholder": "Frage zu dieser Folie stellen...",
+    "sendMessage": "Nachricht senden",
+    "disclaimer": "KI-Antworten werden generiert und müssen ggf. überprüft werden",
+    "jumpTo": "Zu Folie {{number}} springen",
+    "slideRef": "Folie {{number}}",
+    "requestFailed": "Chat-Anfrage fehlgeschlagen",
+    "noReader": "Kein Reader verfügbar"
+  },
   "regenerate": {
     "button": "Folie neu analysieren",
     "loading": "Wird neu analysiert...",

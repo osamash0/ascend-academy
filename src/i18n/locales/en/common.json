@@ -42,6 +42,11 @@
     "successTitle": "Success",
     "tryAgain": "Please try again."
   },
+  "status": {
+    "deleted": "Deleted",
+    "error": "Error",
+    "success": "Success"
+  },
   "greetings": {
     "morning": "Good morning",
     "afternoon": "Good afternoon",
