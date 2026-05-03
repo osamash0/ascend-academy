@@ -112,6 +112,32 @@ class TestAskEndpointOwnership:
         assert body["table"] == []
         assert body["chart"] is None
 
+    def test_parse_failure_returns_couldnt_understand(self, app, patch_supabase, professor_user, monkeypatch):
+        _seed_lecture(patch_supabase, "L1", professor_user.id)
+
+        async def fake_ask(*, lecture_id, question, token, ai_model="cerebras"):
+            return {
+                "intent": "unknown",
+                "answer_text": "I couldn't understand that question. Try rephrasing it, or pick one of the suggested questions below.",
+                "table": [],
+                "chart": None,
+                "debug": {"parse_failed": True},
+            }
+        monkeypatch.setattr("backend.api.analytics.ask_lecture_data", fake_ask)
+
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        app.dependency_overrides[require_professor] = lambda: professor_user
+        client = TestClient(app)
+        r = client.post(
+            "/api/analytics/lecture/L1/ask",
+            json={"question": "??!@#$"},
+            headers={"Authorization": "Bearer fake-token"},
+        )
+        assert r.status_code == 200
+        body = r.json()["data"]
+        assert body["intent"] == "unknown"
+        assert "couldn't understand" in body["answer_text"]
+
     def test_oversize_question_rejected(self, app, patch_supabase, professor_user, stub_ask):
         _seed_lecture(patch_supabase, "L1", professor_user.id)
         app.dependency_overrides[verify_token] = lambda: professor_user

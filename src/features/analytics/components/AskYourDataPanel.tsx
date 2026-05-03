@@ -152,7 +152,8 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
               </TooltipProvider>
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Type a question in plain English — get a summary, a table, and a chart.
+              Ask about slides, quizzes, students, or concepts in this lecture —
+              get a summary, a table, and a chart.
               AI answers can be off; spot-check important numbers against the dashboards.
             </p>
           </div>
