@@ -16,7 +16,9 @@ import {
 } from '@/services/analyticsService';
 import { useAiModel } from '@/hooks/use-ai-model';
 
-const MAX_LEN = 300;
+// Mirror of backend `PUBLIC_MAX_QUESTION_LENGTH` in
+// backend/services/ai/ask_data.py. Keep in sync.
+const MAX_LEN = 500;
 const MAX_RECENT = 5;
 
 const recentStorageKey = (lectureId: string) => `ask-your-data:recent:${lectureId}`;

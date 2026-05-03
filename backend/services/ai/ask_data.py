@@ -319,6 +319,11 @@ _EXECUTORS = {
 
 MAX_QUESTION_LENGTH = 500
 
+# Single source of truth for the question-length contract. Frontend
+# truncates input to this value; the backend endpoint rejects anything
+# longer; the service layer truncates as a final safety net.
+PUBLIC_MAX_QUESTION_LENGTH = MAX_QUESTION_LENGTH
+
 
 async def ask_lecture_data(
     *,

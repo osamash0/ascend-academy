@@ -10,9 +10,11 @@ from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
 from backend.services import analytics_service, analytics_cache
 from backend.services.ai.ask_data import (
+    PUBLIC_MAX_QUESTION_LENGTH,
     ask_lecture_data,
     list_suggested_questions,
 )
+import os as _os
 from backend.core.auth_middleware import verify_token, require_professor, security
 from backend.core.database import supabase
 from backend.core.rate_limit import limiter
@@ -424,8 +426,20 @@ async def get_ask_suggestions(
     return AnalyticsResponse(success=True, data={"questions": list_suggested_questions()})
 
 
+def _ask_rate_limit_key(request: Request) -> str:
+    """Per-professor key when authenticated; falls back to IP. Avoids NAT
+    false-throttling by keying on the user id whenever the bearer token
+    has been resolved by `require_professor`."""
+    user = getattr(request.state, "user", None)
+    uid = getattr(user, "id", None) if user is not None else None
+    if uid:
+        return f"user:{uid}"
+    from slowapi.util import get_remote_address
+    return get_remote_address(request)
+
+
 @router.post("/lecture/{lecture_id}/ask", response_model=AskResponse)
-@limiter.limit("20/minute")
+@limiter.limit("20/minute", key_func=_ask_rate_limit_key)
 async def ask_lecture_question(
     lecture_id: str,
     body: AskRequest,
@@ -438,12 +452,18 @@ async def ask_lecture_question(
     The LLM picks one of a fixed catalog of intents; we run the matching
     analytics function server-side. No raw SQL is ever generated.
     """
+    # Stash the resolved user on request.state so the per-user rate-limit
+    # key function above can read it on subsequent requests.
+    request.state.user = user
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
 
     if not body.question or not body.question.strip():
         raise HTTPException(status_code=400, detail="Question text is required.")
-    if len(body.question) > 1000:
-        raise HTTPException(status_code=400, detail="Question is too long (max 1000 chars).")
+    if len(body.question) > PUBLIC_MAX_QUESTION_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Question is too long (max {PUBLIC_MAX_QUESTION_LENGTH} chars).",
+        )
 
     try:
         result = await ask_lecture_data(
@@ -458,12 +478,18 @@ async def ask_lecture_question(
         logger.error("Ask Your Data pipeline failed: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail="Could not answer that question. Please retry.")
 
+    # Hide internal debug payload outside development to avoid leaking
+    # implementation details (classified params, error excerpts, etc).
+    debug_payload: Dict[str, Any] = {}
+    if (_os.getenv("ENVIRONMENT") or _os.getenv("APP_ENV") or "development").lower() in {"development", "dev", "local", "test"}:
+        debug_payload = result.get("debug", {}) or {}
+
     payload = AskResponseData(
         intent=result.get("intent", "unknown"),
         answer_text=result.get("answer_text", ""),
         table=result.get("table", []) or [],
         chart=result.get("chart"),
-        debug=result.get("debug", {}) or {},
+        debug=debug_payload,
         suggested_questions=list_suggested_questions(),
     )
     return AskResponse(success=True, data=payload)
