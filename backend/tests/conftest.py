@@ -64,11 +64,40 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     monkeypatch.setattr(analytics_api, "supabase", fake_supabase, raising=True)
     monkeypatch.setattr(cache_module, "supabase_admin", fake_supabase, raising=True)
 
+    from backend.services import analytics_cache as analytics_cache_module
+    monkeypatch.setattr(analytics_cache_module, "supabase_admin", fake_supabase, raising=True)
+
     # upload.py imports supabase_admin by name at module-load — patch the
     # local reference so each test's fresh fake is the one used.
     try:
         from backend.api import upload as upload_api
         monkeypatch.setattr(upload_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+
+    # assignments.py also imports supabase_admin by name at module-load.
+    try:
+        from backend.api import assignments as assignments_api
+        monkeypatch.setattr(assignments_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+
+    # schedule.py imports supabase_admin by name at module-load.
+    try:
+        from backend.api import schedule as schedule_api
+        monkeypatch.setattr(schedule_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+
+    # courses.py / worksheets.py import supabase_admin at module load too.
+    try:
+        from backend.api import courses as courses_api
+        monkeypatch.setattr(courses_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+    try:
+        from backend.api import worksheets as worksheets_api
+        monkeypatch.setattr(worksheets_api, "supabase_admin", fake_supabase, raising=False)
     except Exception:
         pass
 

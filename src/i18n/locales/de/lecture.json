@@ -1,0 +1,93 @@
+{
+  "navigation": {
+    "back": "Zurück",
+    "previous": "Vorherige",
+    "next": "Nächste",
+    "showQuiz": "Quiz starten",
+    "continue": "Weiter",
+    "finishLecture": "Vorlesung abschließen",
+    "slideOf": "Folie {{current}} von {{total}}"
+  },
+  "quiz": {
+    "submit": "Antwort absenden",
+    "correct": "Richtig!",
+    "incorrect": "Nicht ganz",
+    "tryAgain": "Erneut versuchen",
+    "explanation": "Erklärung",
+    "showExplanation": "Erklärung anzeigen",
+    "hideExplanation": "Erklärung ausblenden"
+  },
+  "tutor": {
+    "title": "KI-Tutor",
+    "placeholder": "Frag alles zu dieser Folie...",
+    "send": "Senden",
+    "thinking": "Denkt nach...",
+    "open": "KI-Tutor öffnen",
+    "close": "Schließen"
+  },
+  "recap": {
+    "title": "Vorlesungs-Zusammenfassung",
+    "missedQuestions": "Fragen, die du verpasst hast",
+    "yourFirstAnswer": "Deine erste Antwort",
+    "yourRetryAnswer": "Deine zweite Antwort",
+    "correctAnswer": "Richtige Antwort",
+    "backToDashboard": "Zurück zum Dashboard"
+  },
+  "completion": {
+    "completed": "Vorlesung abgeschlossen!",
+    "xpEarned": "Verdiente XP: {{xp}}",
+    "accuracy": "Genauigkeit: {{percent}}%",
+    "continueButton": "Weiter"
+  },
+  "chrome": {
+    "reviewMissed": "Verpasste Fragen wiederholen",
+    "reviewProgress": "{{current}} von {{total}} · zweiter Versuch",
+    "knowledgeCheck": "Wissens-Check",
+    "quizFallback": "Quiz",
+    "slideFallback": "Vorlesungsfolie",
+    "slideNumberFallback": "Folie {{number}}",
+    "readSlideHint": "Lies die Folie durch und klicke auf „Weiter\", um eine Quizfrage zum Inhalt zu beantworten.",
+    "exitLecture": "Vorlesung verlassen",
+    "uncategorized": "Nicht kategorisiert",
+    "lectureLoading": "Wird geladen...",
+    "slideView": "Folienansicht",
+    "sourcePdf": "Quell-PDF"
+  },
+  "toasts": {
+    "notFoundTitle": "Nicht gefunden",
+    "notFoundDescription": "Vorlesung nicht gefunden oder Fehler beim Laden der Daten.",
+    "errorTitle": "Fehler",
+    "systemError": "Ein Systemfehler ist aufgetreten.",
+    "lectureCompleteTitle": "Vorlesung abgeschlossen! 🎉",
+    "lectureCompleteDescription": "Du hast {{xp}} XP verdient und {{correct}}/{{total}} richtig beantwortet!",
+    "mindMapErrorTitle": "Generierung fehlgeschlagen",
+    "mindMapErrorDescription": "Mindmap konnte nicht generiert werden. Überprüfe deine KI-Konfiguration.",
+    "mindMapSuccessTitle": "Mindmap generiert",
+    "mindMapSuccessDescription": "Der Wissensbaum wurde erfolgreich erstellt."
+  },
+  "chat": {
+    "title": "KI-Tutor",
+    "welcome": "Hallo! Ich bin dein KI-Tutor und beantworte gerne deine Fragen zu **„{{slide}}“**. Was möchtest du erkunden?",
+    "connectionError": "Es liegt ein Verbindungsproblem vor. Bitte versuche es gleich erneut.",
+    "modelCerebras": "Cerebras (empfohlen)",
+    "online": "Online",
+    "modelPlaceholder": "Modell",
+    "context": "Kontext:",
+    "cancel": "Abbrechen",
+    "inputPlaceholder": "Frage zu dieser Folie stellen...",
+    "sendMessage": "Nachricht senden",
+    "disclaimer": "KI-Antworten werden generiert und müssen ggf. überprüft werden",
+    "jumpTo": "Zu Folie {{number}} springen",
+    "slideRef": "Folie {{number}}",
+    "requestFailed": "Chat-Anfrage fehlgeschlagen",
+    "noReader": "Kein Reader verfügbar"
+  },
+  "regenerate": {
+    "button": "Folie neu analysieren",
+    "loading": "Wird neu analysiert...",
+    "success": "Folie neu analysiert",
+    "successDescription": "Die KI-Inhalte wurden mittels Bildanalyse aktualisiert.",
+    "failure": "Neuanalyse fehlgeschlagen",
+    "failureDescription": "Inhalt konnte nicht neu generiert werden."
+  }
+}

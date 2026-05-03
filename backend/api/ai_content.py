@@ -18,6 +18,8 @@ from backend.services.ai_service import (
     chat_with_lecture, generate_speech, generate_metric_feedback, 
     analyze_slide_vision, generate_slide_title, enhance_slide_content
 )
+from backend.services.ai.analytics import generate_slide_recommendation
+from backend.services import analytics_service, analytics_cache
 from backend.services.content_filter import is_metadata_slide
 
 logger = logging.getLogger(__name__)
@@ -247,6 +249,132 @@ async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user: Any = D
     except Exception as e:
         logger.error("AI insights failed: %s", e)
         raise HTTPException(status_code=500, detail="AI insights generation failed.")
+
+class SlideSuggestionRequest(BaseModel):
+    ai_model: _AiModel = "cerebras"
+
+
+class SlideSuggestionResponse(BaseModel):
+    suggestion: str
+    label: str
+    reasons: List[str]
+    cached: bool
+
+
+@router.post("/slides/{slide_id}/recommendation", response_model=SlideSuggestionResponse)
+@limiter.limit("20/minute")
+async def slide_recommendation_endpoint(
+    request: Request,
+    slide_id: str,
+    body: SlideSuggestionRequest,
+    user: Any = Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(_security),
+):
+    """On-demand AI improvement tip for a single slide.
+
+    Verifies the caller owns the parent lecture, recomputes the slide's
+    metrics snapshot (so the cache key tracks the latest analytics), and
+    returns a 1–3 sentence suggestion. Cached per slide + metrics-hash so
+    repeated clicks are free until the analytics cache turns over.
+    """
+    user_id = user.id if hasattr(user, "id") else user.get("id")
+
+    # 1. Resolve slide → lecture and confirm ownership.
+    res = supabase_admin.table("slides")\
+        .select("id, lecture_id, title, content_text, summary, lectures(professor_id)")\
+        .eq("id", slide_id)\
+        .limit(1)\
+        .execute()
+    rows = res.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Slide not found.")
+    slide = rows[0]
+    lecture_id = slide.get("lecture_id")
+    lecture_info = slide.get("lectures") or {}
+    if lecture_info.get("professor_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your lecture.")
+
+    # 2. Pull the cached slide analytics row for this slide.
+    try:
+        slide_rows = await asyncio.to_thread(
+            analytics_service.get_slide_analytics, lecture_id, creds.credentials
+        )
+    except Exception as e:
+        logger.error("Slide analytics lookup failed: %s", e)
+        raise HTTPException(status_code=500, detail="Could not load slide metrics.")
+
+    metrics = next((s for s in slide_rows if s.get("slide_id") == slide_id), None)
+    if metrics is None:
+        raise HTTPException(status_code=404, detail="Slide metrics unavailable.")
+
+    label = metrics.get("recommendation_label")
+    if label == "insufficient_data" or label is None:
+        # No useful suggestion possible — surface a static helper instead
+        # of burning a token.
+        return SlideSuggestionResponse(
+            suggestion="Not enough student activity yet to give a tailored tip. Encourage a few students to complete the slide first.",
+            label=label or "insufficient_data",
+            reasons=metrics.get("recommendation_reasons", []),
+            cached=False,
+        )
+    if label != "needs_review":
+        # Hard-gate AI generation to slides flagged for review so off-path
+        # calls (e.g. direct API hits) don't burn tokens for satisfactory
+        # or outstanding slides where no tip is needed.
+        return SlideSuggestionResponse(
+            suggestion="This slide is performing well — no AI suggestion needed.",
+            label=label,
+            reasons=metrics.get("recommendation_reasons", []),
+            cached=False,
+        )
+
+    # 3. Cache key = (slide_id, hash of metrics snapshot, model).
+    snapshot = {
+        "drop_off_rate": metrics.get("drop_off_rate"),
+        "confusion_rate": metrics.get("confusion_rate"),
+        "quiz_success_rate": metrics.get("quiz_success_rate"),
+        "view_count": metrics.get("view_count"),
+        "quiz_attempts": metrics.get("quiz_attempts"),
+        "label": label,
+        "reasons": sorted(metrics.get("recommendation_reasons", []) or []),
+    }
+    cache_params = {"slide_id": slide_id, "model": body.ai_model, "snapshot": snapshot}
+
+    cache_hit = {"hit": True}
+
+    async def _compute():
+        cache_hit["hit"] = False
+        text = await generate_slide_recommendation(
+            slide_title=slide.get("title") or f"Slide {slide_id[:6]}",
+            slide_text=slide.get("content_text") or slide.get("summary") or "",
+            drop_off_rate=float(metrics.get("drop_off_rate") or 0.0),
+            confusion_rate=float(metrics.get("confusion_rate") or 0.0),
+            quiz_success_rate=metrics.get("quiz_success_rate"),
+            view_count=int(metrics.get("view_count") or 0),
+            reasons=metrics.get("recommendation_reasons", []) or [],
+            ai_model=body.ai_model,
+        )
+        return {"suggestion": text}
+
+    try:
+        payload = await analytics_cache.get_or_compute_async(
+            lecture_id,
+            "ai_slide_recommendation",
+            _compute,
+            params=cache_params,
+            ttl_seconds=60 * 60 * 24,  # 24h; invalidated whenever analytics cache is dropped
+        )
+    except Exception as e:
+        logger.error("Slide recommendation pipeline failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="AI suggestion failed. Please retry.")
+
+    return SlideSuggestionResponse(
+        suggestion=payload.get("suggestion", ""),
+        label=label,
+        reasons=metrics.get("recommendation_reasons", []),
+        cached=cache_hit["hit"],
+    )
+
 
 @router.post("/metric-feedback")
 async def metric_feedback_endpoint(body: MetricInsightRequest, user: Any = Depends(verify_token)):

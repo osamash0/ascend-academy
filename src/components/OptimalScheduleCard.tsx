@@ -1,282 +1,258 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
-import { 
-  Clock, Sparkles, Brain, Calendar, Moon, Sun, 
-  Battery, Activity, Zap, Award, ChevronRight, Info 
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Calendar, CheckCircle2, Circle, Clock, Sparkles,
+  AlertCircle, BookOpen, Target, ChevronRight, Loader2,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Link } from 'react-router-dom';
+import { apiClient } from '@/lib/apiClient';
 
-interface HourlyStat {
-  hour: number;
-  score: number;
-  accuracy: number;
-  intensity: number;
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+interface PlanItem {
+  item_id: string;
+  lecture_id: string;
+  lecture_title: string;
+  est_minutes: number;
+  reason: string;
+  priority: 'assignment' | 'weak_concept' | 'continue';
+  slide_start: number | null;
+  slide_end: number | null;
 }
 
-interface OptimalScheduleData {
-  suggested_hours: HourlyStat[];
-  peak_hour: number | null;
-  message: string;
-  accuracy_at_peak?: number;
-  energy_pattern?: string;
-  circadian_score?: number;
+interface PlanDay {
+  date: string;          // YYYY-MM-DD
+  items: PlanItem[];
+  total_minutes: number;
+  budget_minutes: number;
+}
+
+interface StudyPlan {
+  days: PlanDay[];
+  budget_minutes: number;
+  has_assignments: boolean;
+  has_weak_concepts: boolean;
+}
+
+interface PlanResponse {
+  success: boolean;
+  data: StudyPlan;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const formatHour = (h: number): string => {
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hour = h % 12 || 12;
-  return `${hour} ${ampm}`;
+const dayLabel = (iso: string, todayISO: string): string => {
+  if (iso === todayISO) return 'Today';
+  const d = new Date(iso + 'T00:00:00');
+  const today = new Date(todayISO + 'T00:00:00');
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (diff === 1) return 'Tomorrow';
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 };
 
-const getScoreColor = (score: number): string => {
-  if (score >= 0.8) return 'from-green-400 to-emerald-500';
-  if (score >= 0.6) return 'from-primary to-secondary';
-  if (score >= 0.4) return 'from-amber-400 to-orange-500';
-  return 'from-rose-400 to-red-500';
+const todayISO = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// ─── 3D Circular Progress Ring ─────────────────────────────────────────────
+const PRIORITY_META: Record<PlanItem['priority'], { icon: React.ReactNode; label: string; color: string }> = {
+  assignment:    { icon: <AlertCircle className="w-3 h-3" />, label: 'Assignment', color: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
+  weak_concept:  { icon: <Target      className="w-3 h-3" />, label: 'Review',     color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+  continue:      { icon: <BookOpen    className="w-3 h-3" />, label: 'Continue',   color: 'text-primary bg-primary/10 border-primary/20' },
+};
 
-function CircadianRing({ percentage, size = 120 }: { percentage: number; size?: number }) {
-  const radius = (size - 20) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (percentage / 100) * circumference;
+// ─── Item row ───────────────────────────────────────────────────────────────
 
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={6}
-          className="text-white/5"
-        />
-        <defs>
-          <linearGradient id="circadianGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="hsl(var(--primary))" />
-            <stop offset="50%" stopColor="hsl(var(--secondary))" />
-            <stop offset="100%" stopColor="hsl(var(--xp))" />
-          </linearGradient>
-        </defs>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="url(#circadianGradient)"
-          strokeWidth={6}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="transition-all duration-1000 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold text-foreground">{percentage}%</span>
-        <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Alignment</span>
-      </div>
-    </div>
-  );
+interface ItemRowProps {
+  item: PlanItem;
+  isToday: boolean;
+  onMarkDone: (id: string) => Promise<void>;
 }
 
-// ─── Animated Waveform ─────────────────────────────────────────────────────
+function ItemRow({ item, isToday, onMarkDone }: ItemRowProps) {
+  const [pending, setPending] = useState(false);
+  const [done, setDone] = useState(false);
+  const meta = PRIORITY_META[item.priority];
 
-function EnergyWaveform({ data, isActive }: { data: number[]; isActive: boolean }) {
-  return (
-    <div className="flex items-end gap-[2px] h-12">
-      {data.map((height, i) => (
-        <motion.div
-          key={i}
-          className="w-1.5 rounded-full bg-gradient-to-t from-primary to-secondary"
-          animate={{
-            height: isActive ? [height, height * 1.3, height] : height,
-            opacity: isActive ? [0.6, 1, 0.6] : 0.4,
-          }}
-          transition={{
-            duration: 1,
-            repeat: isActive ? Infinity : 0,
-            delay: i * 0.1,
-            ease: "easeInOut",
-          }}
-          style={{ height: `${height}%` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Hour Bar Component ────────────────────────────────────────────────────
-
-interface HourBarProps {
-  stat: HourlyStat;
-  isPeak: boolean;
-  isHovered: boolean;
-  onHover: (hour: number | null) => void;
-  index: number;
-}
-
-const HourBar = React.memo(function HourBar({ stat, isPeak, isHovered, onHover, index }: HourBarProps) {
-  const barHeight = stat.score * 100;
-  const colorClass = getScoreColor(stat.score);
+  const handleClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pending || done) return;
+    setPending(true);
+    try {
+      await onMarkDone(item.item_id);
+      setDone(true);
+    } catch (err) {
+      console.error('Failed to mark done:', err);
+      setPending(false);
+    }
+  };
 
   return (
     <motion.div
-      className="flex-1 flex flex-col items-center gap-1 group/hour relative"
-      onMouseEnter={() => onHover(stat.hour)}
-      onMouseLeave={() => onHover(null)}
+      layout
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: done ? 0.4 : 1, x: 0 }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.2 }}
+      className="flex items-start gap-3 p-3 rounded-xl bg-surface-2/50 hover:bg-surface-2 transition-colors group/item"
     >
-      <motion.div
-        className={`w-full rounded-t-lg bg-gradient-to-t ${colorClass} cursor-pointer relative overflow-hidden`}
-        initial={{ height: 0 }}
-        animate={{ height: `${barHeight}%` }}
-        transition={{ duration: 0.8, delay: index * 0.05, ease: [0.34, 1.56, 0.64, 1] }}
-        style={{ minHeight: 4 }}
-      >
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-t from-white/0 via-white/20 to-white/0"
-          animate={{ y: isHovered ? ['-100%', '100%'] : '0%' }}
-          transition={{ duration: 0.6, repeat: isHovered ? Infinity : 0 }}
-        />
-        {isPeak && (
-          <motion.div
-            className="absolute -top-1 left-1/2 -translate-x-1/2"
-            animate={{ scale: [1, 1.3, 1] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          >
-            <div className="w-2 h-2 rounded-full bg-white shadow-glow-primary" />
-          </motion.div>
-        )}
-      </motion.div>
+      {isToday ? (
+        <button
+          onClick={handleClick}
+          disabled={pending || done}
+          aria-label={done ? 'Marked done' : 'Mark done'}
+          className="mt-0.5 flex-shrink-0 transition-transform hover:scale-110 disabled:cursor-default"
+        >
+          {pending ? (
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          ) : done ? (
+            <CheckCircle2 className="w-5 h-5 text-success" />
+          ) : (
+            <Circle className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+          )}
+        </button>
+      ) : (
+        <Circle className="w-5 h-5 text-muted-foreground/30 mt-0.5 flex-shrink-0" />
+      )}
 
-      <span className={`text-[8px] font-bold transition-all duration-300 ${
-        isHovered ? 'text-primary scale-110' : 'text-muted-foreground/50'
-      }`}>
-        {stat.hour === 0 ? '12a' : stat.hour === 12 ? '12p' : stat.hour > 12 ? `${stat.hour - 12}p` : `${stat.hour}a`}
-      </span>
+      <Link
+        to={
+          item.slide_start
+            ? `/lecture/${item.lecture_id}?slide=${item.slide_start}`
+            : `/lecture/${item.lecture_id}`
+        }
+        className="flex-1 min-w-0"
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border ${meta.color}`}>
+            {meta.icon}
+            {meta.label}
+          </span>
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Clock className="w-2.5 h-2.5" />
+            {item.est_minutes}m
+          </span>
+        </div>
+        <p className={`text-sm font-medium text-foreground truncate ${done ? 'line-through' : ''}`}>
+          {item.lecture_title}
+        </p>
+        <p className="text-[11px] text-muted-foreground truncate">
+          {item.reason}
+          {item.slide_start && item.slide_end ? ` · slides ${item.slide_start}–${item.slide_end}` : ''}
+        </p>
+      </Link>
+
+      <ChevronRight className="w-4 h-4 text-muted-foreground/30 mt-1 flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity" />
     </motion.div>
   );
-});
+}
 
-// ─── Main Component ────────────────────────────────────────────────────────
+// ─── Day section ────────────────────────────────────────────────────────────
+
+function DaySection({
+  day,
+  isToday,
+  onMarkDone,
+}: { day: PlanDay; isToday: boolean; onMarkDone: (id: string) => Promise<void> }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between px-1">
+        <span className={`text-xs font-bold uppercase tracking-widest ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
+          {dayLabel(day.date, todayISO())}
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          {day.total_minutes}/{day.budget_minutes} min
+        </span>
+      </div>
+      {day.items.length === 0 ? (
+        <div className="px-3 py-2 text-[11px] text-muted-foreground italic">
+          {isToday ? 'All clear today — nice work.' : 'Nothing scheduled.'}
+        </div>
+      ) : (
+        <AnimatePresence mode="popLayout">
+          {day.items.map((it) => (
+            <ItemRow key={it.item_id} item={it} isToday={isToday} onMarkDone={onMarkDone} />
+          ))}
+        </AnimatePresence>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ─────────────────────────────────────────────────────────
 
 export function OptimalScheduleCard() {
-  const [data, setData] = useState<OptimalScheduleData | null>(null);
+  const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hoveredHour, setHoveredHour] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const today = useMemo(() => todayISO(), []);
 
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const rotateX = useSpring(mouseY, { stiffness: 100, damping: 30 });
-  const rotateY = useSpring(mouseX, { stiffness: 100, damping: 30 });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchOptimalSchedule = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session || cancelled) return;
-
-        // Construct API URL carefully
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const apiUrl = `${baseUrl.replace(/\/$/, '')}/api/analytics/personal/optimal-schedule`;
-
-        const response = await fetch(apiUrl, { 
-          headers: { 'Authorization': `Bearer ${session.access_token}` } 
-        });
-
-        if (!cancelled && response.ok) {
-          const json = await response.json();
-          if (json.success) {
-            setData(json.data);
-          } else {
-            console.warn('API returned success: false', json.message);
-          }
-        } else if (!cancelled) {
-          console.error(`API Error: ${response.status} ${response.statusText}`);
-        }
-      } catch (error) {
-        console.error('Error fetching optimal schedule:', error);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    fetchOptimalSchedule();
-    return () => { cancelled = true; };
+  const loadPlan = useCallback(async () => {
+    try {
+      const res = await apiClient.get<PlanResponse>('/api/schedule/me?days=7');
+      if (res?.success) setPlan(res.data);
+      else setError('Could not load study plan.');
+    } catch (e) {
+      console.error('Failed to load study plan:', e);
+      setError('Could not load study plan.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (rect) {
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      mouseX.set((e.clientX - centerX) / (rect.width / 2) * 10);
-      mouseY.set((e.clientY - centerY) / (rect.height / 2) * -10);
-    }
-  }, [mouseX, mouseY]);
+  useEffect(() => {
+    loadPlan();
+  }, [loadPlan]);
 
-  const handleMouseLeave = useCallback(() => {
-    mouseX.set(0);
-    mouseY.set(0);
-    setHoveredHour(null);
-  }, [mouseX, mouseY]);
+  const markDone = useCallback(async (itemId: string) => {
+    await apiClient.post(`/api/schedule/items/${encodeURIComponent(itemId)}/done`, {});
+    setPlan((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        days: prev.days.map((d, idx) =>
+          idx === 0 ? { ...d, items: d.items.filter((it) => it.item_id !== itemId) } : d,
+        ),
+      };
+    });
+  }, []);
 
-  // Memoize derived values
-  const peakHourStr = useMemo(() => formatHour(data?.peak_hour || 0), [data?.peak_hour]);
-  const circadianAlignment = useMemo(() => 
-    data?.circadian_score || Math.round((data?.accuracy_at_peak || 75) * 1.2),
-    [data?.circadian_score, data?.accuracy_at_peak]
-  );
-  const waveformData = useMemo(() => 
-    data?.suggested_hours.map(h => h.score * 80 + 20) || [],
-    [data?.suggested_hours]
-  );
-
-  // Loading state
   if (loading) {
     return (
       <div className="glass-card p-6 animate-pulse space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-surface-2" />
+          <div className="w-12 h-12 rounded-2xl bg-surface-2" />
           <div className="space-y-2">
-            <div className="h-4 w-32 bg-surface-2 rounded" />
-            <div className="h-3 w-20 bg-surface-2 rounded" />
+            <div className="h-4 w-40 bg-surface-2 rounded" />
+            <div className="h-3 w-24 bg-surface-2 rounded" />
           </div>
         </div>
-        <div className="h-20 w-full bg-surface-2 rounded-2xl" />
+        <div className="h-16 w-full bg-surface-2 rounded-xl" />
+        <div className="h-16 w-full bg-surface-2 rounded-xl" />
       </div>
     );
   }
 
-  // Empty state
-  if (!data || !data.suggested_hours.length) {
+  const todayDay = plan?.days[0];
+  const upcomingDays = plan?.days.slice(1) || [];
+  const totalThisWeek = plan?.days.reduce((sum, d) => sum + d.items.length, 0) || 0;
+
+  if (!plan || totalThisWeek === 0) {
     return (
-      <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
+      <div className="glass-card p-6 border-white/5 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-50" />
         <div className="relative z-10 flex flex-col items-center text-center py-4">
           <div className="w-12 h-12 rounded-2xl bg-surface-2 flex items-center justify-center mb-4">
             <Calendar className="w-6 h-6 text-muted-foreground" />
           </div>
-          <h3 className="text-sm font-bold text-foreground mb-1">Calibrating Your Rhythm</h3>
-          <p className="text-xs text-muted-foreground max-w-[200px]">
-            Complete 5+ quizzes to unlock your personalized circadian analysis.
+          <h3 className="text-sm font-bold text-foreground mb-1">Your Study Plan</h3>
+          <p className="text-xs text-muted-foreground max-w-[240px]">
+            {error
+              ? 'Could not load plan right now. Try again in a moment.'
+              : 'Open a lecture to start studying — your personalized 7-day plan will appear here.'}
           </p>
-          <div className="mt-4 w-full bg-surface-2 rounded-full h-1.5">
-            <motion.div 
-              className="h-full rounded-full bg-gradient-to-r from-primary to-secondary"
-              initial={{ width: 0 }}
-              animate={{ width: '30%' }}
-              transition={{ duration: 1, delay: 0.5 }}
-            />
-          </div>
         </div>
       </div>
     );
@@ -284,218 +260,89 @@ export function OptimalScheduleCard() {
 
   return (
     <motion.div
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      style={{ rotateX, rotateY, perspective: 1000 }}
-      className="relative group touch-none"
+      className="glass-card p-6 border-white/5 relative overflow-hidden hover:border-primary/30 transition-colors"
     >
-      <div className="glass-card p-6 border-white/5 relative overflow-hidden transition-all duration-500 hover:border-primary/30 hover:shadow-glow-primary/20">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+      <motion.div
+        className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-primary/10 blur-3xl"
+        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+        transition={{ duration: 8, repeat: Infinity }}
+      />
 
-        <motion.div
-          className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-primary/10 blur-3xl"
-          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 8, repeat: Infinity }}
-        />
-
-        <div className="relative z-10">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <motion.div
-                className="relative"
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: "spring", stiffness: 400 }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary rounded-2xl blur-md opacity-60 animate-pulse" />
-                <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary">
-                  <Clock className="w-6 h-6 text-white" />
-                </div>
-              </motion.div>
-              <div>
-                <h3 className="text-sm font-bold text-foreground">Optimal Window</h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Circadian Analysis</span>
-                  <button 
-                    onClick={() => setExpanded(!expanded)}
-                    className="text-muted-foreground/50 hover:text-primary transition-colors"
-                    aria-label="Toggle details"
-                  >
-                    <Info className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
             <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", delay: 0.2 }}
-              className="flex flex-col items-end"
+              className="relative"
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: 'spring', stiffness: 400 }}
             >
-              <div className="text-3xl font-black text-foreground tracking-tighter flex items-center gap-1">
-                {peakHourStr}
-                <motion.span
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  🧠
-                </motion.span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Peak Performance</span>
-                {data.accuracy_at_peak && (
-                  <span className="text-[9px] font-bold text-success">{data.accuracy_at_peak}%</span>
-                )}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary rounded-2xl blur-md opacity-60" />
+              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary">
+                <Calendar className="w-6 h-6 text-white" />
               </div>
             </motion.div>
-          </div>
-
-          {/* Circadian Alignment Ring + Message */}
-          <div className="flex items-center gap-6 mb-6">
-            <CircadianRing percentage={circadianAlignment} size={100} />
-
-            <div className="flex-1 space-y-2">
-              <div className="flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-xp mt-0.5 flex-shrink-0 animate-pulse" />
-                <p className="text-sm font-medium text-foreground leading-relaxed italic">
-                  "{data.message}"
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2 mt-2">
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10 border border-primary/20">
-                  <Activity className="w-3 h-3 text-primary" />
-                  <span className="text-[9px] font-bold text-primary uppercase tracking-wider">
-                    {data.energy_pattern || "Morning Peak"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-success/10 border border-success/20">
-                  <Brain className="w-3 h-3 text-success" />
-                  <span className="text-[9px] font-bold text-success uppercase tracking-wider">
-                    {circadianAlignment >= 80 ? "Optimal Sync" : "Calibrating"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 24-Hour Energy Timeline */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <Battery className="w-3 h-3" />
-                Energy Rhythm
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Your Study Plan</h3>
+              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                Next 7 Days · {plan.budget_minutes} min/day
               </span>
-              <span className="text-[9px] text-muted-foreground">→ Your focus varies by hour</span>
-            </div>
-
-            <div className="flex items-end gap-1 h-24">
-              {data.suggested_hours.map((stat, idx) => (
-                <HourBar
-                  key={stat.hour}
-                  stat={stat}
-                  isPeak={stat.hour === data.peak_hour}
-                  isHovered={hoveredHour === stat.hour}
-                  onHover={setHoveredHour}
-                  index={idx}
-                />
-              ))}
-            </div>
-
-            <div className="flex justify-between mt-2 px-1">
-              <span className="text-[7px] text-muted-foreground/40">12a</span>
-              <span className="text-[7px] text-muted-foreground/40">6a</span>
-              <span className="text-[7px] text-muted-foreground/40">12p</span>
-              <span className="text-[7px] text-muted-foreground/40">6p</span>
-              <span className="text-[7px] text-muted-foreground/40">12a</span>
             </div>
           </div>
 
-          {/* Waveform Preview + Action */}
-          <div className="flex items-center justify-between pt-4 border-t border-white/5">
-            <div className="flex items-center gap-3">
-              <EnergyWaveform 
-                data={waveformData.slice(0, 8)} 
-                isActive={hoveredHour !== null} 
-              />
-              <div className="text-[9px] text-muted-foreground">
-                {hoveredHour !== null ? (
-                  <span className="text-primary font-bold">
-                    {formatHour(hoveredHour)} → {Math.round(data.suggested_hours.find(h => h.hour === hoveredHour)?.score! * 100)}% energy
-                  </span>
-                ) : (
-                  <span>Hover over timeline</span>
-                )}
-              </div>
+          {(plan.has_assignments || plan.has_weak_concepts) && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 border border-primary/20">
+              <Sparkles className="w-3 h-3 text-primary" />
+              <span className="text-[9px] font-bold text-primary uppercase tracking-wider">
+                Personalized
+              </span>
             </div>
-
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-1 text-xs font-bold text-primary group/btn"
-            >
-              <span>View Insights</span>
-              <ChevronRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
-            </motion.button>
-          </div>
-
-          {/* Expanded Details Panel */}
-          <AnimatePresence>
-            {expanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className="mt-6 pt-6 border-t border-white/5 overflow-hidden"
-              >
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Best Focus Hours</p>
-                    <div className="space-y-1">
-                      {data.suggested_hours.slice(0, 3).map(stat => (
-                        <div key={stat.hour} className="flex items-center justify-between text-xs">
-                          <span className="font-medium">{formatHour(stat.hour)}</span>
-                          <div className="flex-1 mx-3 h-1.5 bg-surface-2 rounded-full overflow-hidden">
-                            <motion.div
-                              className="h-full rounded-full bg-gradient-to-r from-primary to-secondary"
-                              initial={{ width: 0 }}
-                              animate={{ width: `${stat.score * 100}%` }}
-                              transition={{ duration: 0.5 }}
-                            />
-                          </div>
-                          <span className="text-muted-foreground text-[10px]">{Math.round(stat.score * 100)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Study Tips</p>
-                    <ul className="space-y-1.5 text-[10px] text-muted-foreground">
-                      <li className="flex items-center gap-1">
-                        <Zap className="w-2.5 h-2.5 text-primary" />
-                        Study during {peakHourStr} for best retention
-                      </li>
-                      <li className="flex items-center gap-1">
-                        <Moon className="w-2.5 h-2.5 text-primary" />
-                        Avoid complex topics after 9 PM
-                      </li>
-                      <li className="flex items-center gap-1">
-                        <Award className="w-2.5 h-2.5 text-primary" />
-                        Your circadian alignment is {circadianAlignment}%
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          )}
         </div>
+
+        {/* Today */}
+        {todayDay && (
+          <div className="mb-4">
+            <DaySection day={todayDay} isToday={true} onMarkDone={markDone} />
+          </div>
+        )}
+
+        {/* Upcoming */}
+        {upcomingDays.length > 0 && (
+          <>
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="w-full text-left text-xs font-bold text-primary hover:text-primary/80 transition-colors flex items-center justify-between pt-3 border-t border-white/5"
+            >
+              <span>{expanded ? 'Hide' : 'Show'} upcoming days</span>
+              <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+            </button>
+            <AnimatePresence>
+              {expanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-4 pt-3">
+                    {upcomingDays.map((d) => (
+                      <DaySection
+                        key={d.date}
+                        day={d}
+                        isToday={false}
+                        onMarkDone={markDone}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </div>
     </motion.div>
   );

@@ -1,0 +1,142 @@
+{
+  "nav": {
+    "features": "Features",
+    "howItWorks": "How It Works",
+    "forProfessors": "For Professors",
+    "pricing": "Pricing",
+    "signIn": "Sign In",
+    "launchMission": "Launch Mission"
+  },
+  "hero": {
+    "badge": "v2.0 Now Orbiting",
+    "headlineLine1": "Your Learning",
+    "headlineLine2": "Mission Control",
+    "subtitle": "Ascend Academy's next-generation platform. AI-powered tutoring, real-time analytics, and immersive course experiences — all from your command center.",
+    "ctaPrimary": "Launch Your Mission",
+    "ctaSecondary": "Watch Demo",
+    "systemOnline": "SYSTEM ONLINE",
+    "scrollToExplore": "Scroll to Explore",
+    "stats": {
+      "xpEarned": "XP Earned",
+      "currentStreak": "Current Streak",
+      "accuracy": "Accuracy",
+      "days": "{{count}} Days"
+    },
+    "preview": {
+      "activeCourse": "Active Course",
+      "inProgress": "IN PROGRESS",
+      "courseTitle": "Advanced Machine Learning",
+      "courseSubtitle": "Module 4 of 12 • Neural Networks",
+      "aiTutorActive": "AI Tutor Active",
+      "tutorQuestion": "\"How do backpropagation gradients flow through a neural network?\"",
+      "generatingResponse": "Generating response..."
+    }
+  },
+  "stats": {
+    "activeLearners": "Active Learners",
+    "questionsAnswered": "Questions Answered",
+    "retentionRate": "Retention Rate",
+    "userRating": "User Rating"
+  },
+  "features": {
+    "eyebrow": "Ship Systems",
+    "headlineLeft": "Everything You Need to",
+    "headlineHighlight": "Reach Orbit",
+    "subtitle": "Six powerful systems working in harmony to deliver the most advanced learning experience in the galaxy.",
+    "learnMore": "Learn more",
+    "aiTutor": {
+      "title": "AI Tutor",
+      "description": "Your personal AI companion that adapts to your learning style, answers questions in real-time, and guides you through complex topics."
+    },
+    "liveAnalytics": {
+      "title": "Live Analytics",
+      "description": "Mission-control dashboards track your progress with precision. See your XP, streaks, and skill mastery in real-time."
+    },
+    "adaptiveQuizzes": {
+      "title": "Adaptive Quizzes",
+      "description": "Smart assessments that evolve with your knowledge. Wrong answers become learning opportunities, not setbacks."
+    },
+    "professorCommand": {
+      "title": "Professor Command",
+      "description": "Instructors get a full mission control suite: upload lectures, track class performance, and deploy AI-powered insights."
+    },
+    "secureVault": {
+      "title": "Secure Vault",
+      "description": "Your learning data is encrypted and protected. Enterprise-grade security with privacy-first architecture."
+    },
+    "universalAccess": {
+      "title": "Universal Access",
+      "description": "Learn anywhere, on any device. Sync progress across platforms with offline capability for deep-space learning."
+    }
+  },
+  "howItWorks": {
+    "eyebrow": "Flight Path",
+    "headlineLeft": "Four Stages to",
+    "headlineHighlight": "Liftoff",
+    "step1": {
+      "title": "Launch Your Profile",
+      "description": "Create your astronaut profile. Set your learning goals, choose your mission path, and calibrate your AI tutor."
+    },
+    "step2": {
+      "title": "Engage Courses",
+      "description": "Enter immersive lecture environments. Navigate slides, interact with content, and let the AI guide your journey."
+    },
+    "step3": {
+      "title": "AI-Powered Mastery",
+      "description": "Ask questions in real-time. Get personalized explanations, practice with adaptive quizzes, and level up your skills."
+    },
+    "step4": {
+      "title": "Track & Celebrate",
+      "description": "Watch your progress in the command center. Earn XP, maintain streaks, unlock achievements, and reach new levels."
+    }
+  },
+  "professors": {
+    "eyebrow": "For Commanders",
+    "headlineLeft": "Professor",
+    "headlineHighlight": "Mission Control",
+    "subtitle": "Deploy courses, monitor student progress in real-time, and leverage AI analytics to optimize learning outcomes. Your classroom, reimagined as a command center.",
+    "bullet1": "Upload lectures with intelligent slide parsing",
+    "bullet2": "Real-time student engagement analytics",
+    "bullet3": "AI-generated quiz questions per slide",
+    "bullet4": "Performance dashboards with exportable reports",
+    "cta": "Start Teaching",
+    "preview": {
+      "title": "Class Analytics",
+      "live": "● LIVE",
+      "avgScore": "Avg Score",
+      "attendance": "Attendance",
+      "engagement": "Engagement",
+      "high": "High"
+    }
+  },
+  "cta": {
+    "headlineLeft": "Ready for",
+    "headlineHighlight": "Liftoff?",
+    "subtitle": "Join 50,000+ learners already on their mission. Your AI tutor is standing by, your dashboard is calibrated, and the stars are waiting.",
+    "primary": "Begin Your Mission",
+    "secondary": "Contact Sales"
+  },
+  "footer": {
+    "tagline": "The next-generation learning platform. AI-powered, data-driven, and built for the future of education.",
+    "platform": "Platform",
+    "resources": "Resources",
+    "company": "Company",
+    "links": {
+      "features": "Features",
+      "pricing": "Pricing",
+      "security": "Security",
+      "enterprise": "Enterprise",
+      "documentation": "Documentation",
+      "apiReference": "API Reference",
+      "community": "Community",
+      "blog": "Blog",
+      "about": "About",
+      "careers": "Careers",
+      "contact": "Contact",
+      "privacy": "Privacy"
+    },
+    "imprint": "Imprint",
+    "privacyPolicy": "Privacy Policy",
+    "copyright": "© {{year}} Ascend Academy. All systems nominal."
+  }
+}

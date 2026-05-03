@@ -3,6 +3,7 @@ from backend.services.utils.analytics_utils import calculate_student_typology, g
 from supabase import create_client, Client
 from functools import lru_cache
 from backend.services import cache
+from backend.services import analytics_cache
 import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
@@ -44,9 +45,18 @@ def get_auth_client(token: Optional[str]) -> Client:
     return client
 
 
-def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
+def get_lecture_overview(lecture_id: str, token: str = None, force_refresh: bool = False) -> Dict[str, Any]:
+    """Get high-level metrics for a lecture (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "overview",
+        lambda: _compute_lecture_overview(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     client = get_auth_client(token)
-    """Get high-level metrics for a lecture"""
 
     progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id, completed_at, quiz_score")\
@@ -98,9 +108,20 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     }
 
 
-def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_slide_analytics(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Get per-slide analytics (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "slides",
+        lambda: _compute_slide_analytics(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    from backend.services.recommendations import compute_slide_recommendation
+
     client = get_auth_client(token)
-    """Get per-slide analytics"""
 
     slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
@@ -113,38 +134,108 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
         .eq("lecture_id", lecture_id))
     total_students = len(progress_data)
 
-    # Fixed: was querying 'slide_viewed' (wrong); correct type is 'slide_view'
-    events_data = _fetch_all(client.table("learning_events")\
+    # Slide views (camelCase 'slideId' in event_data)
+    view_events = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "slide_view")\
         .contains("event_data", {"lectureId": lecture_id}))
 
+    # Confidence ratings — used to compute confusion_rate per slide
+    confidence_events = _fetch_all(client.table("learning_events")\
+        .select("event_data")\
+        .eq("event_type", "confidence_rating")\
+        .contains("event_data", {"lectureId": lecture_id}))
+
+    # Quiz attempts joined with their slide via quiz_questions
+    quiz_questions = _fetch_all(client.table("quiz_questions")\
+        .select("id, slide_id, slides!inner(lecture_id)")\
+        .eq("slides.lecture_id", lecture_id))
+    qid_to_slide = {q["id"]: q["slide_id"] for q in quiz_questions}
+
+    quiz_events = _fetch_all(client.table("learning_events")\
+        .select("event_data")\
+        .eq("event_type", "quiz_attempt")\
+        .contains("event_data", {"lectureId": lecture_id}))
+
+    # Aggregate per-slide quiz totals/correct
+    quiz_by_slide: Dict[str, Dict[str, int]] = {}
+    for ev in quiz_events:
+        ed = ev.get("event_data") or {}
+        sid = qid_to_slide.get(ed.get("questionId"))
+        if not sid:
+            continue
+        bucket = quiz_by_slide.setdefault(sid, {"attempts": 0, "correct": 0})
+        bucket["attempts"] += 1
+        if ed.get("correct"):
+            bucket["correct"] += 1
+
+    # Aggregate confusion per slide
+    conf_by_slide: Dict[str, Dict[str, int]] = {}
+    for ev in confidence_events:
+        ed = ev.get("event_data") or {}
+        sid = ed.get("slideId")
+        rating = ed.get("rating")
+        if not sid or rating not in ("got_it", "unsure", "confused"):
+            continue
+        b = conf_by_slide.setdefault(sid, {"got_it": 0, "unsure": 0, "confused": 0})
+        b[rating] += 1
+
     slide_analytics = []
     for slide in slides_data:
-        # Fixed: event_data key is camelCase 'slideId', not 'slide_id'
-        slide_events = [e for e in events_data
-                       if e.get("event_data", {}).get("slideId") == slide["id"]]
+        sid = slide["id"]
+        slide_views = [e for e in view_events
+                       if e.get("event_data", {}).get("slideId") == sid]
 
-        view_count = len(slide_events)
+        view_count = len(slide_views)
         avg_time = sum(e.get("event_data", {}).get("duration_seconds", 0)
-                      for e in slide_events) / view_count if view_count > 0 else 0
-
+                      for e in slide_views) / view_count if view_count > 0 else 0
         drop_off = 100 * (1 - (view_count / total_students)) if total_students > 0 else 0
 
+        cb = conf_by_slide.get(sid, {"got_it": 0, "unsure": 0, "confused": 0})
+        conf_total = cb["got_it"] + cb["unsure"] + cb["confused"]
+        confusion_rate = round((cb["confused"] / conf_total * 100), 1) if conf_total > 0 else 0.0
+
+        qb = quiz_by_slide.get(sid, {"attempts": 0, "correct": 0})
+        quiz_attempts = qb["attempts"]
+        quiz_success_rate = round((qb["correct"] / quiz_attempts * 100), 1) if quiz_attempts > 0 else None
+
+        label, reasons = compute_slide_recommendation(
+            drop_off_rate=max(0.0, drop_off),
+            confusion_rate=confusion_rate,
+            quiz_success_rate=quiz_success_rate,
+            view_count=view_count,
+            quiz_attempts=quiz_attempts,
+        )
+
         slide_analytics.append({
+            "slide_id": sid,
             "slide_number": slide["slide_number"],
             "title": slide.get("title", f"Slide {slide['slide_number']}"),
             "view_count": view_count,
             "average_time_seconds": round(avg_time, 1),
-            "drop_off_rate": round(max(0, drop_off), 1)
+            "drop_off_rate": round(max(0, drop_off), 1),
+            "confusion_rate": confusion_rate,
+            "quiz_attempts": quiz_attempts,
+            "quiz_success_rate": quiz_success_rate,
+            "recommendation_label": label,
+            "recommendation_reasons": reasons,
         })
 
     return slide_analytics
 
 
-def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_quiz_analytics(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Get quiz difficulty analytics (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "quizzes",
+        lambda: _compute_quiz_analytics(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """Get quiz difficulty analytics"""
 
     quiz_data = _fetch_all(client.table("quiz_questions")\
         .select("id, question_text, slides!inner(lecture_id)")\
@@ -183,9 +274,18 @@ def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any
     return sorted(quiz_analytics, key=lambda x: x["success_rate"])
 
 
-def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_student_performance(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Get per-student performance breakdown (anonymized, cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "students",
+        lambda: _compute_student_performance(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_student_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """Get per-student performance breakdown (anonymized)"""
 
     progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id, quiz_score, total_questions_answered, correct_answers, completed_slides, completed_at")\
@@ -235,12 +335,18 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
     return sorted(students_matrix, key=lambda x: x["quiz_score"], reverse=True)
 
 
-def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_distractor_analysis(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Show which wrong answer options students pick most per question (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "distractors",
+        lambda: _compute_distractor_analysis(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """
-    Show which wrong answer options students pick most per question.
-    Derived from selectedAnswer field in quiz_attempt events.
-    """
 
     quiz_data = _fetch_all(client.table("quiz_questions")\
         .select("id, question_text, options, correct_answer, slides!inner(lecture_id)")\
@@ -349,8 +455,17 @@ def _calculate_retry_performance(
     return rows
 
 
-def get_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Per-question first-attempt vs second-attempt miss rates for a lecture."""
+def get_retry_performance(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Per-question first-attempt vs second-attempt miss rates for a lecture (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "retry_performance",
+        lambda: _compute_retry_performance(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
 
     quiz_data = _fetch_all(client.table("quiz_questions")
@@ -370,12 +485,18 @@ def get_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, 
     return _calculate_retry_performance(quiz_data, first_events, retry_events)
 
 
-def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_dropoff_map(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Show which slide most students abandon the lecture on (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "dropoff",
+        lambda: _compute_dropoff_map(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """
-    Show which slide most students abandon the lecture on.
-    Uses last_slide_viewed from student_progress for non-completers.
-    """
 
     progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id, last_slide_viewed, completed_at")\
@@ -412,12 +533,18 @@ def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     return result
 
 
-def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_confidence_by_slide(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Per-slide confidence breakdown (got_it / unsure / confused; cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "confidence_by_slide",
+        lambda: _compute_confidence_by_slide(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """
-    Per-slide confidence breakdown (got_it / unsure / confused).
-    Currently only the aggregate total is shown; this gives per-slide granularity.
-    """
 
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
@@ -462,12 +589,18 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
     return sorted(result, key=lambda x: x["confusion_rate"], reverse=True)
 
 
-def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_ai_query_feed(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Return the latest student AI tutor queries for this lecture (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "ai_queries",
+        lambda: _compute_ai_query_feed(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """
-    Return the latest student AI tutor queries for this lecture (anonymized).
-    The query text is collected but never shown to professors — this surfaces it.
-    """
 
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data, created_at")\
@@ -490,16 +623,17 @@ def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]
     return result
 
 
-async def get_dashboard_data(lecture_id: str, token: str = None):
+async def get_dashboard_data(lecture_id: str, token: str = None, force_refresh: bool = False):
     """Get comprehensive advanced dashboard analytics in a single call using high-performance SQL."""
-    cache_key = f"dashboard_data:{lecture_id}"
-    
-    # 1. Try cache first
-    cached_data = await cache.get_cache(cache_key)
-    if cached_data:
-        return cached_data
+    return await analytics_cache.get_or_compute_async(
+        lecture_id,
+        "dashboard",
+        lambda: _compute_dashboard_data(lecture_id, token),
+        force_refresh=force_refresh,
+    )
 
-    # 2. Direct SQL Aggregation (Lighter on Python, faster on DB)
+
+async def _compute_dashboard_data(lecture_id: str, token: str = None):
     try:
         async with await get_db_connection() as conn:
             # Overview Stats
@@ -708,9 +842,6 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
         "confidenceBySlide": [] # Can be added similarly
     }
 
-    # 4. Store in cache
-    await cache.set_cache(cache_key, result, ttl_seconds=300)
-    
     return result
 
 
@@ -865,6 +996,236 @@ def _generate_live_feeds(events_data: list) -> tuple:
             else: desc = f"{'Passed' if evd.get('correct') else 'Failed'} quiz on {slide_title}"
             ticker.append({"type": evt, "description": desc, "time": e.get("created_at", "")})
     return ticker, queries
+
+
+# ── Professor course-wide overview ───────────────────────────────────────────
+
+
+def get_professor_overview(
+    course_id: str,
+    days: int = 7,
+    token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Course-wide aggregate for the professor dashboard (cached).
+
+    Cache key uses the course_id slot in `analytics_cache` so an existing
+    per-lecture invalidate (which only drops rows for one lecture_id) will
+    NOT clear it. Course-level invalidation can be added later as a
+    follow-up; for now the 5-minute TTL keeps stale data bounded.
+    """
+    return analytics_cache.get_or_compute(
+        course_id,
+        "professor_overview",
+        lambda: _compute_professor_overview(course_id, days, token),
+        params={"days": days},
+    )
+
+
+def _compute_professor_overview(
+    course_id: str,
+    days: int,
+    token: Optional[str],
+) -> Dict[str, Any]:
+    from collections import defaultdict
+    client = get_auth_client(token) if token else supabase_admin
+
+    # 1. Lectures in this course
+    lec_rows = _fetch_all(
+        client.table("lectures")
+        .select("id, title, total_slides")
+        .eq("course_id", course_id)
+    )
+    lecture_ids = [l["id"] for l in lec_rows]
+
+    empty: Dict[str, Any] = {
+        "active_students": 0,
+        "average_completion": 0.0,
+        "average_quiz_accuracy": 0.0,
+        "median_time_minutes": 0.0,
+        "weakest_concepts": [],
+        "weakest_slides": [],
+        "activity_sparkline": _empty_sparkline(days),
+        "lecture_count": 0,
+        "days": days,
+    }
+    if not lecture_ids:
+        return empty
+
+    total_slides_by_lec = {
+        l["id"]: max(1, int(l.get("total_slides") or 1)) for l in lec_rows
+    }
+
+    # 2. Progress rows across all lectures in course
+    progress = _fetch_all(
+        client.table("student_progress")
+        .select(
+            "user_id, lecture_id, quiz_score, total_questions_answered, "
+            "correct_answers, completed_slides, completed_at"
+        )
+        .in_("lecture_id", lecture_ids)
+    )
+
+    # 3. Recent learning events (last `days` days), scoped at the query
+    #    level so a high-volume `learning_events` table can never truncate
+    #    or skew this course's metrics. We fetch per lecture using a JSONB
+    #    `contains` filter on `event_data->lectureId` so the database — not
+    #    Python — does the course-scoping before pagination caps apply.
+    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    course_events: List[Dict[str, Any]] = []
+    for lid in lecture_ids:
+        course_events.extend(
+            _fetch_all(
+                client.table("learning_events")
+                .select("user_id, event_type, event_data, created_at")
+                .gte("created_at", cutoff)
+                .contains("event_data", {"lectureId": lid})
+            )
+        )
+
+    active_students = len({
+        e["user_id"] for e in course_events if e.get("user_id")
+    })
+
+    # 4. Average completion across progress rows
+    completion_pcts: List[float] = []
+    for p in progress:
+        total = total_slides_by_lec.get(p.get("lecture_id"), 1)
+        completed = len(p.get("completed_slides") or [])
+        completion_pcts.append(min(100.0, round((completed / total) * 100, 1)))
+    avg_completion = (
+        round(sum(completion_pcts) / len(completion_pcts), 1)
+        if completion_pcts else 0.0
+    )
+
+    # 5. Average quiz accuracy (weighted by attempts — ties to per-lecture views)
+    total_q = sum(int(p.get("total_questions_answered") or 0) for p in progress)
+    total_c = sum(int(p.get("correct_answers") or 0) for p in progress)
+    avg_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0.0
+
+    # 6. Median lecture-completion time (minutes)
+    durations: List[float] = []
+    for e in course_events:
+        if e.get("event_type") != "lecture_complete":
+            continue
+        d = (e.get("event_data") or {}).get("total_duration_seconds")
+        if isinstance(d, (int, float)) and d > 0:
+            durations.append(d / 60.0)
+    median_time = _median(durations)
+
+    # 7. Weakest concepts (degrades to weakest slides)
+    slides = _fetch_all(
+        client.table("slides")
+        .select("id, title, lecture_id")
+        .in_("lecture_id", lecture_ids)
+    )
+    slide_ids = [s["id"] for s in slides]
+    questions = _fetch_all(
+        client.table("quiz_questions")
+        .select("id, metadata, slide_id")
+        .in_("slide_id", slide_ids)
+    ) if slide_ids else []
+
+    q_concept = {
+        q["id"]: ((q.get("metadata") or {}).get("concept") or "").strip()
+        for q in questions
+    }
+
+    concept_stats: Dict[str, Dict[str, int]] = defaultdict(
+        lambda: {"attempts": 0, "correct": 0}
+    )
+    slide_stats: Dict[str, Dict[str, int]] = defaultdict(
+        lambda: {"attempts": 0, "correct": 0}
+    )
+    for e in course_events:
+        if e.get("event_type") != "quiz_attempt":
+            continue
+        ed = e.get("event_data") or {}
+        qid = ed.get("questionId")
+        is_correct = bool(ed.get("correct"))
+        concept = q_concept.get(qid)
+        if concept:
+            concept_stats[concept]["attempts"] += 1
+            if is_correct:
+                concept_stats[concept]["correct"] += 1
+        sid = ed.get("slideId")
+        if sid:
+            slide_stats[sid]["attempts"] += 1
+            if is_correct:
+                slide_stats[sid]["correct"] += 1
+
+    weakest_concepts = sorted(
+        [
+            {
+                "concept": c,
+                "miss_rate": round((1 - s["correct"] / s["attempts"]) * 100, 1),
+                "attempts": s["attempts"],
+            }
+            for c, s in concept_stats.items() if s["attempts"] > 0
+        ],
+        key=lambda r: (-r["miss_rate"], -r["attempts"]),
+    )[:5]
+
+    weakest_slides: List[Dict[str, Any]] = []
+    if not weakest_concepts:
+        title_map = {s["id"]: s.get("title") or "Untitled" for s in slides}
+        weakest_slides = sorted(
+            [
+                {
+                    "slide_id": sid,
+                    "title": title_map.get(sid) or "Untitled",
+                    "miss_rate": round((1 - s["correct"] / s["attempts"]) * 100, 1),
+                    "attempts": s["attempts"],
+                }
+                for sid, s in slide_stats.items() if s["attempts"] > 0
+            ],
+            key=lambda r: (-r["miss_rate"], -r["attempts"]),
+        )[:5]
+
+    # 8. 7-day activity sparkline (counts learning_events tied to course)
+    by_day: Dict[str, int] = defaultdict(int)
+    for e in course_events:
+        if e.get("event_type") not in (
+            "quiz_attempt", "slide_view", "ai_tutor_query",
+            "lecture_complete", "confidence_rating",
+        ):
+            continue
+        day = (e.get("created_at") or "")[:10]
+        if day:
+            by_day[day] += 1
+    today = datetime.utcnow().date()
+    sparkline = []
+    for i in range(days - 1, -1, -1):
+        d = (today - timedelta(days=i)).isoformat()
+        sparkline.append({"date": d, "count": by_day.get(d, 0)})
+
+    return {
+        "active_students": active_students,
+        "average_completion": avg_completion,
+        "average_quiz_accuracy": avg_accuracy,
+        "median_time_minutes": round(median_time, 1),
+        "weakest_concepts": weakest_concepts,
+        "weakest_slides": weakest_slides,
+        "activity_sparkline": sparkline,
+        "lecture_count": len(lecture_ids),
+        "days": days,
+    }
+
+
+def _median(values: List[float]) -> float:
+    if not values:
+        return 0.0
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    return s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2
+
+
+def _empty_sparkline(days: int) -> List[Dict[str, Any]]:
+    today = datetime.utcnow().date()
+    return [
+        {"date": (today - timedelta(days=i)).isoformat(), "count": 0}
+        for i in range(days - 1, -1, -1)
+    ]
 
 
 def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, Any]:

@@ -16,6 +16,7 @@ export interface Profile {
   current_level: number;
   current_streak: number;
   best_streak: number;
+  preferred_language?: 'en' | 'de' | null;
 }
 
 interface AuthContextType {
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string): Promise<boolean> => {
     const { data: profileData, error } = await supabase
       .from('profiles')
-      .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak')
+      .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak, preferred_language')
       .eq('user_id', userId)
       .single();
 

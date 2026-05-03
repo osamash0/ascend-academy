@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Trophy, Zap, Flame, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
@@ -25,19 +26,24 @@ const typeColors: Record<string, string> = {
     streak: 'text-orange-500 bg-orange-500/10',
 };
 
-function timeAgo(dateStr: string): string {
-    const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (seconds < 60) return 'just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+function useTimeAgo() {
+    const { t } = useTranslation(['common']);
+    return useCallback((dateStr: string): string => {
+        const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+        if (seconds < 60) return t('common:notifications.justNow');
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return t('common:notifications.minutesAgo', { count: minutes });
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return t('common:notifications.hoursAgo', { count: hours });
+        const days = Math.floor(hours / 24);
+        return t('common:notifications.daysAgo', { count: days });
+    }, [t]);
 }
 
 export function NotificationBell() {
     const { user } = useAuth();
+    const { t } = useTranslation(['common']);
+    const timeAgo = useTimeAgo();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -147,7 +153,7 @@ export function NotificationBell() {
             <button
                 onClick={() => setOpen(!open)}
                 className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
+                aria-label={unreadCount > 0 ? t('common:notifications.ariaUnread', { count: unreadCount }) : t('common:notifications.ariaNone')}
                 aria-expanded={open}
             >
                 <Bell className="w-5 h-5" />
@@ -173,20 +179,20 @@ export function NotificationBell() {
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                            <h3 className="font-semibold text-foreground text-sm">Notifications</h3>
+                            <h3 className="font-semibold text-foreground text-sm">{t('common:notifications.title')}</h3>
                             <div className="flex items-center gap-2">
                                 {unreadCount > 0 && (
                                     <button
                                         onClick={markAllRead}
                                         className="text-xs text-primary hover:underline"
                                     >
-                                        Mark all read
+                                        {t('common:notifications.markAllRead')}
                                     </button>
                                 )}
                                 <button 
                                     onClick={() => setOpen(false)} 
                                     className="text-muted-foreground hover:text-foreground"
-                                    aria-label="Close notifications"
+                                    aria-label={t('common:notifications.close')}
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
@@ -198,7 +204,7 @@ export function NotificationBell() {
                             {notifications.length === 0 ? (
                                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                                     <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                                    No notifications yet
+                                    {t('common:notifications.empty')}
                                 </div>
                             ) : (
                                 notifications.map((notif) => {

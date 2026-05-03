@@ -2,15 +2,22 @@
 Analytics API Endpoints
 """
 import logging
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, status
 
 logger = logging.getLogger(__name__)
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
-from backend.services import analytics_service
-from backend.core.auth_middleware import verify_token, security
+from backend.services import analytics_service, analytics_cache
+from backend.services.ai.ask_data import (
+    PUBLIC_MAX_QUESTION_LENGTH,
+    ask_lecture_data,
+    list_suggested_questions,
+)
+import os as _os
+from backend.core.auth_middleware import verify_token, require_professor, security
 from backend.core.database import supabase
+from backend.core.rate_limit import limiter
 from fastapi.security import HTTPAuthorizationCredentials
 
 
@@ -24,6 +31,41 @@ class AnalyticsResponse(BaseModel):
 class AnalyticsListResponse(BaseModel):
     success: bool
     data: List[Any]
+
+
+class WeakestConceptItem(BaseModel):
+    concept: str
+    miss_rate: float
+    attempts: int
+
+
+class WeakestSlideItem(BaseModel):
+    slide_id: str
+    title: str
+    miss_rate: float
+    attempts: int
+
+
+class SparklinePoint(BaseModel):
+    date: str
+    count: int
+
+
+class ProfessorOverviewData(BaseModel):
+    active_students: int
+    average_completion: float
+    average_quiz_accuracy: float
+    median_time_minutes: float
+    weakest_concepts: List[WeakestConceptItem]
+    weakest_slides: List[WeakestSlideItem]
+    activity_sparkline: List[SparklinePoint]
+    lecture_count: int
+    days: int
+
+
+class ProfessorOverviewResponse(BaseModel):
+    success: bool
+    data: ProfessorOverviewData
 
 
 # ── Typed item models ────────────────────────────────────────────────────────
@@ -47,11 +89,17 @@ class QuizAnalyticsItem(BaseModel):
 
 
 class SlideAnalyticsItem(BaseModel):
+    slide_id: Optional[str] = None
     slide_number: int
     title: str
     view_count: int
     average_time_seconds: float
     drop_off_rate: float
+    confusion_rate: Optional[float] = 0.0
+    quiz_attempts: Optional[int] = 0
+    quiz_success_rate: Optional[float] = None
+    recommendation_label: Optional[str] = None
+    recommendation_reasons: List[str] = []
 
 
 class DistractorQuestion(BaseModel):
@@ -90,6 +138,15 @@ class AIQueryItem(BaseModel):
 # ── Router ───────────────────────────────────────────────────────────────────
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+
+def _assert_course_owner(course_id: str, user_id: str) -> None:
+    """Raise 403 if the authenticated user is not the professor who owns this course."""
+    res = supabase.table("courses").select("professor_id").eq("id", course_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+    if res.data[0].get("professor_id") != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
 
 def _assert_lecture_owner(lecture_id: str, user_id: str, token: str = None) -> None:
@@ -264,6 +321,189 @@ async def get_retry_performance(lecture_id: str, user=Depends(verify_token), cre
     except Exception as e:
         logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load retry-performance data.")
+
+
+@router.get("/professor/overview", response_model=ProfessorOverviewResponse)
+@limiter.limit("60/minute")
+async def get_professor_overview(
+    request: Request,
+    course_id: str = Query(..., min_length=1),
+    days: int = Query(7, ge=1, le=90),
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Course-wide aggregate metrics for the professor dashboard.
+
+    Returns active students (last N days), average completion %, average
+    quiz accuracy, median time, weakest concepts (degrades to weakest
+    slides if the concept graph has nothing to say), and an N-day
+    activity sparkline.
+    """
+    await run_in_threadpool(_assert_course_owner, course_id, user.id)
+    try:
+        data = await run_in_threadpool(
+            analytics_service.get_professor_overview,
+            course_id,
+            days,
+            creds.credentials,
+        )
+        return ProfessorOverviewResponse(success=True, data=ProfessorOverviewData(**data))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Professor overview endpoint error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load professor overview.")
+
+
+@router.post("/lecture/{lecture_id}/cache/refresh", response_model=AnalyticsResponse)
+async def refresh_analytics_cache(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+    """Force-invalidate every cached analytics aggregate for a lecture.
+
+    Professor-only. Returns the number of cache rows dropped so the UI can
+    surface a confirmation. The next dashboard load will recompute and
+    repopulate the cache from scratch.
+    """
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+    try:
+        deleted = await run_in_threadpool(analytics_cache.invalidate, lecture_id)
+        # Force-recompute the dashboard so the next read is already warm.
+        # Other per-feature aggregates repopulate lazily on first read.
+        recomputed = False
+        try:
+            await analytics_service.get_dashboard_data(
+                lecture_id, creds.credentials, force_refresh=True
+            )
+            recomputed = True
+        except Exception as e:
+            logger.warning("Cache refresh recompute failed (will lazy-fill): %s", e)
+
+        return AnalyticsResponse(
+            success=True,
+            data={"invalidated_rows": deleted, "recomputed": recomputed},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Cache refresh failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to refresh analytics cache.")
+
+
+class AskRequest(BaseModel):
+    question: str
+    ai_model: Optional[str] = "cerebras"
+
+
+class AskChartSpec(BaseModel):
+    type: str
+    x_key: str
+    y_key: str
+    y_label: Optional[str] = None
+    data: List[Dict[str, Any]] = []
+
+
+class AskResponseData(BaseModel):
+    intent: str
+    answer_text: str
+    table: List[Dict[str, Any]] = []
+    chart: Optional[AskChartSpec] = None
+    debug: Dict[str, Any] = {}
+    suggested_questions: List[str] = []
+
+
+class AskResponse(BaseModel):
+    success: bool
+    data: AskResponseData
+
+
+@router.get("/lecture/{lecture_id}/ask/suggestions", response_model=AnalyticsResponse)
+async def get_ask_suggestions(
+    lecture_id: str,
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Static list of suggested example questions for the empty-state chips."""
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+    return AnalyticsResponse(success=True, data={"questions": list_suggested_questions()})
+
+
+def _ask_rate_limit_key(request: Request) -> str:
+    """Per-professor rate-limit key.
+
+    SlowAPI runs ``key_func`` *before* route dependencies execute, so we
+    cannot rely on a resolved user object here. We instead derive a
+    stable per-user key from the bearer token itself: a SHA-256 of the
+    raw token. This means two professors sharing the same NAT'd IP each
+    get their own bucket. Falls back to the remote IP for unauthenticated
+    requests (which would be rejected downstream by ``require_professor``
+    anyway, but defends against pre-auth flooding).
+    """
+    import hashlib
+    from slowapi.util import get_remote_address
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        token = auth[7:].strip()
+        # Sanity-check the token shape (JWT: three dot-separated segments,
+        # reasonable length). Malformed/garbage tokens fall back to the IP
+        # bucket so pre-auth abuse can't spray new keys past the limiter.
+        if token and 20 <= len(token) <= 4096 and token.count(".") == 2:
+            return "user:" + hashlib.sha256(token.encode("utf-8")).hexdigest()[:32]
+    return get_remote_address(request)
+
+
+@router.post("/lecture/{lecture_id}/ask", response_model=AskResponse)
+@limiter.limit("20/minute", key_func=_ask_rate_limit_key)
+async def ask_lecture_question(
+    lecture_id: str,
+    body: AskRequest,
+    request: Request,
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Natural-language analytics query.
+
+    The LLM picks one of a fixed catalog of intents; we run the matching
+    analytics function server-side. No raw SQL is ever generated.
+    """
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+
+    if not body.question or not body.question.strip():
+        raise HTTPException(status_code=400, detail="Question text is required.")
+    if len(body.question) > PUBLIC_MAX_QUESTION_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Question is too long (max {PUBLIC_MAX_QUESTION_LENGTH} chars).",
+        )
+
+    try:
+        result = await ask_lecture_data(
+            lecture_id=lecture_id,
+            question=body.question,
+            token=creds.credentials,
+            ai_model=body.ai_model or "cerebras",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Ask Your Data pipeline failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Could not answer that question. Please retry.")
+
+    # Hide internal debug payload by default; only expose when the
+    # environment is *explicitly* marked as a development/test context.
+    # This makes production misconfiguration safe-by-default.
+    debug_payload: Dict[str, Any] = {}
+    _env = (_os.getenv("ENVIRONMENT") or _os.getenv("APP_ENV") or "").lower()
+    if _env in {"development", "dev", "local", "test"}:
+        debug_payload = result.get("debug", {}) or {}
+
+    payload = AskResponseData(
+        intent=result.get("intent", "unknown"),
+        answer_text=result.get("answer_text", ""),
+        table=result.get("table", []) or [],
+        chart=result.get("chart"),
+        debug=debug_payload,
+        suggested_questions=list_suggested_questions(),
+    )
+    return AskResponse(success=True, data=payload)
 
 
 @router.get("/personal/optimal-schedule", response_model=AnalyticsResponse)

@@ -2,6 +2,7 @@ import { ReactNode, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { useTranslation } from 'react-i18next';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -13,6 +14,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { t } = useTranslation(['common']);
 
   const toggleTheme = useCallback(() => {
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
@@ -29,7 +31,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="flex items-center gap-4">
               <SidebarTrigger 
                 className="text-muted-foreground hover:text-primary transition-colors"
-                aria-label="Toggle sidebar"
+                aria-label={t('common:shell.toggleSidebar')}
               />
             </div>
             <div className="flex items-center gap-3">
@@ -39,8 +41,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.92 }}
                 className="relative w-14 h-7 rounded-full border border-border bg-surface-2 flex items-center px-1 transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 overflow-hidden"
-                title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                title={isDark ? t('common:shell.switchToLight') : t('common:shell.switchToDark')}
+                aria-label={isDark ? t('common:shell.switchToLight') : t('common:shell.switchToDark')}
               >
                 <motion.span
                   className="absolute inset-0 rounded-full"

@@ -1,0 +1,55 @@
+{
+  "imprint": {
+    "title": "Imprint",
+    "section5": "Information pursuant to § 5 TMG",
+    "addressLines": "[First and last name / Company name]\n[Street and number]\n[Postal code and city]\nGermany",
+    "contact": "Contact",
+    "email": "Email",
+    "responsible": "Responsible for content under § 55 (2) RStV",
+    "responsibleAddress": "[First and last name]\n[Street and number]\n[Postal code and city]",
+    "disclaimer": "Disclaimer",
+    "liability": "Liability for content",
+    "liabilityBody": "The contents of our pages have been created with the greatest care. However, we cannot guarantee the accuracy, completeness, or timeliness of the content.",
+    "backHome": "← Back to home"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "lastUpdated": "Last updated: March 2026",
+    "section1Title": "1. Controller",
+    "section1Body": "[First and last name]\n[Street and number]\n[Postal code and city]\nEmail:",
+    "section2Title": "2. Data we collect",
+    "section2Intro": "When you use Learnstation, we process the following personal data:",
+    "section2Items": [
+      "<bold>Account data:</bold> email address, password (stored encrypted), full name (optional), avatar URL.",
+      "<bold>Learning progress:</bold> completed slides, quiz results, XP, level, streaks, and achievements.",
+      "<bold>Learning events:</bold> slide view duration, quiz answers with timestamps, and self-rated understanding.",
+      "<bold>Usage data:</bold> browser type (only via Supabase standard logs)."
+    ],
+    "section3Title": "3. Purpose and legal basis",
+    "section3Items": [
+      "<bold>Performance of contract (Art. 6(1)(b) GDPR):</bold> account data and learning progress are required to provide the platform's core functionality.",
+      "<bold>Legitimate interest (Art. 6(1)(f) GDPR):</bold> learning events are collected to improve teaching and to help instructors identify difficult content."
+    ],
+    "section4Title": "4. Processors",
+    "section4Items": [
+      "<bold>Supabase Inc.</bold> — authentication, database, and file storage. Data is stored on EU servers (depending on project configuration).",
+      "<bold>Ollama (local)</bold> — AI summaries and quiz questions are processed locally on the server. No data is sent to external AI services."
+    ],
+    "section5Title": "5. Retention period",
+    "section5Body": "Your data is stored as long as your account is active. After account deletion, all personal data is deleted within 30 days.",
+    "section6Title": "6. Your rights",
+    "section6Intro": "Under the GDPR, you have the following rights:",
+    "section6Items": [
+      "<bold>Right of access (Art. 15):</bold> you can request what data we have stored about you.",
+      "<bold>Right to erasure (Art. 17):</bold> you can delete your account and all associated data in the settings.",
+      "<bold>Right to data portability (Art. 20):</bold> you can export your data as a JSON file in the settings.",
+      "<bold>Right to object (Art. 21):</bold> you may object to the processing of your data at any time.",
+      "<bold>Right to lodge a complaint:</bold> you have the right to file a complaint with a data protection authority."
+    ],
+    "section7Title": "7. Cookies and local storage",
+    "section7Body": "Learnstation does not use <bold>tracking cookies</bold> and no third-party analytics tools (no Google Analytics, no Facebook Pixel). Only the browser's localStorage is used for session management.",
+    "section8Title": "8. International data transfer",
+    "section8Body": "Supabase may process data on servers in the United States. In that case, the EU Standard Contractual Clauses (SCCs) apply as a safeguard under Art. 46 GDPR.",
+    "backHome": "← Back to home"
+  }
+}

@@ -11,6 +11,16 @@ def insert_event(client: Client, user_id: str, event_type: str, event_data: dict
     client.table("learning_events").insert(
         {"user_id": user_id, "event_type": event_type, "event_data": event_data}
     ).execute()
+    # Cheap "mark dirty" for the per-lecture analytics cache so the next
+    # dashboard load recomputes against fresh data. Imported lazily to
+    # avoid a circular import (analytics_cache → core.database → …).
+    lecture_id = (event_data or {}).get("lectureId") or (event_data or {}).get("lecture_id")
+    if lecture_id:
+        try:
+            from backend.services import analytics_cache
+            analytics_cache.invalidate(str(lecture_id))
+        except Exception:
+            pass
 
 
 def get_events_for_lecture(

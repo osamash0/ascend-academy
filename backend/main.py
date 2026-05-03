@@ -13,6 +13,12 @@ from backend.api.upload import router as upload_router
 from backend.api.ai_content import router as ai_router
 from backend.api.mind_map import router as mind_map_router
 from backend.api.feedback import router as feedback_router
+from backend.api.assignments import router as assignments_router
+from backend.api.concepts import router as concepts_router
+from backend.api.courses import router as courses_router
+from backend.api.worksheets import router as worksheets_router
+from backend.api.nudges import router as nudges_router
+from backend.api.schedule import router as schedule_router
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -70,11 +76,26 @@ app.include_router(upload_router)
 app.include_router(ai_router)
 app.include_router(mind_map_router)
 app.include_router(feedback_router)
+app.include_router(assignments_router)
+app.include_router(concepts_router)
+app.include_router(courses_router)
+app.include_router(worksheets_router)
+app.include_router(nudges_router)
+app.include_router(schedule_router)
 
 @app.on_event("startup")
 async def startup_event():
     from backend.core.database import init_db_pool
     await init_db_pool()
+    # Start the daily nudge engine scheduler when explicitly enabled. Off by
+    # default (and during tests) so we don't fan out notifications from local
+    # dev shells. In production set ENABLE_NUDGE_SCHEDULER=1.
+    if os.environ.get("ENABLE_NUDGE_SCHEDULER") == "1":
+        try:
+            from backend.services.nudge_scheduler import start_scheduler
+            start_scheduler()
+        except Exception as e:
+            logger.error("Failed to start nudge scheduler: %s", e, exc_info=True)
 
 @app.get("/")
 async def read_root():

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -23,6 +24,9 @@ import { BadgeEarnedModal } from '@/components/BadgeEarnedModal';
 import { Button } from '@/components/ui/button';
 import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
+import { WorksheetsPanel } from '@/components/WorksheetsPanel';
+import { LectureRecap, type RecapItem } from '@/components/LectureRecap';
+import { RelatedAcrossCoursesPanel } from '@/components/RelatedAcrossCoursesPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
@@ -30,6 +34,7 @@ import { useAiModel } from '@/hooks/use-ai-model';
 import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
 
 export default function LectureView() {
+  const { t } = useTranslation(['lecture', 'common']);
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
@@ -69,13 +74,23 @@ export default function LectureView() {
   // student can re-attempt them after the last slide. Stored in a ref so
   // handleQuizAnswer can append synchronously without a re-render race.
   const missedQueueRef = useRef<
-    Array<{ question: QuizQuestion; slideIndex: number; firstSelectedIndex: number }>
+    Array<{
+      question: QuizQuestion;
+      slideIndex: number;
+      firstSelectedIndex: number;
+      secondSelectedIndex: number | null;
+    }>
   >([]);
   const [reviewStage, setReviewStage] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewSelectedAnswer, setReviewSelectedAnswer] = useState<number | null>(null);
   const reviewAnsweredRef = useRef<Set<string>>(new Set());
   const reviewContinueLockRef = useRef<boolean>(false);
+  // End-of-lecture recap: snapshot of every question the student missed on
+  // their first attempt, with their first answer + their retry answer + the
+  // correct answer. Populated when the lecture completes.
+  const [lectureCompleted, setLectureCompleted] = useState(false);
+  const [recapItems, setRecapItems] = useState<RecapItem[]>([]);
 
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -148,6 +163,8 @@ export default function LectureView() {
     setReviewStage(false);
     setReviewIndex(0);
     setReviewSelectedAnswer(null);
+    setLectureCompleted(false);
+    setRecapItems([]);
 
     let currentLectureId = lectureId;
     if (!currentLectureId) return;
@@ -155,7 +172,7 @@ export default function LectureView() {
     try {
       const lectureData = await fetchLecture(currentLectureId);
       if (!lectureData) {
-        toast({ title: 'Not Found', description: 'Lecture not found or error loading data.', variant: 'destructive' });
+        toast({ title: t('lecture:toasts.notFoundTitle'), description: t('lecture:toasts.notFoundDescription'), variant: 'destructive' });
         navigate('/dashboard');
         return;
       }
@@ -287,7 +304,7 @@ export default function LectureView() {
     setLoading(false);
     } catch (err) {
       console.error('Fatal error in fetchLectureData:', err);
-      toast({ title: 'Error', description: 'A system error occurred.', variant: 'destructive' });
+      toast({ title: t('lecture:toasts.errorTitle'), description: t('lecture:toasts.systemError'), variant: 'destructive' });
       setLoading(false);
     }
   };
@@ -306,9 +323,9 @@ export default function LectureView() {
           ? { ...s, title: updated.title, content_text: updated.content_text, summary: updated.summary }
           : s
       ));
-      toast({ title: 'Slide re-analyzed', description: 'AI content has been updated using vision analysis.' });
+      toast({ title: t('lecture:regenerate.success'), description: t('lecture:regenerate.successDescription') });
     } catch (err: any) {
-      toast({ title: 'Re-analysis failed', description: err.message || 'Could not regenerate content.', variant: 'destructive' });
+      toast({ title: t('lecture:regenerate.failure'), description: err.message || t('lecture:regenerate.failureDescription'), variant: 'destructive' });
     } finally {
       setIsRegeneratingContent(false);
     }
@@ -431,6 +448,7 @@ export default function LectureView() {
           question: currentQuestion,
           slideIndex: currentSlideIndex,
           firstSelectedIndex: selectedIndex,
+          secondSelectedIndex: null,
         });
       }
     }
@@ -457,36 +475,56 @@ export default function LectureView() {
       if (leveledUp && user) {
         setNewLevel(calculatedLevel);
         setShowLevelUp(true);
-        await insertNotification(user.id, `Level ${calculatedLevel}!`, `You leveled up to Level ${calculatedLevel}. Keep going!`, 'level_up');
+        await insertNotification(
+          user.id,
+          t('common:achievements.levelUp.title', { level: calculatedLevel }),
+          t('common:achievements.levelUp.description', { level: calculatedLevel }),
+          'level_up'
+        );
       }
 
       if (user) {
+        // Achievement IDs (canonical, English) are persisted in the DB so that
+        // checkAchievementExists / awardAchievement remain stable across locales.
+        // The displayed name/description are localized for the user.
         // Badge: Level 5 Scholar
         if (calculatedLevel >= 5 && !(await checkAchievementExists(user.id, 'Level 5 Scholar'))) {
           await awardAchievement(user.id, { name: 'Level 5 Scholar', description: 'Reached level 5!', icon: '⭐' });
-          setBadgeInfo({ name: 'Level 5 Scholar', description: 'Reached level 5!', icon: '⭐' });
+          setBadgeInfo({
+            name: t('common:achievements.level5.name'),
+            description: t('common:achievements.level5.description'),
+            icon: '⭐',
+          });
           setTimeout(() => setShowBadge(true), 500);
         }
 
         // Badge: Level 10 Expert
         if (calculatedLevel >= 10 && !(await checkAchievementExists(user.id, 'Level 10 Expert'))) {
           await awardAchievement(user.id, { name: 'Level 10 Expert', description: 'Reached level 10!', icon: '🌟' });
-          setBadgeInfo({ name: 'Level 10 Expert', description: 'Reached level 10!', icon: '🌟' });
+          setBadgeInfo({
+            name: t('common:achievements.level10.name'),
+            description: t('common:achievements.level10.description'),
+            icon: '🌟',
+          });
           setTimeout(() => setShowBadge(true), 500);
         }
 
         // Streak badges
         if (newStreak.data === 5 || newStreak.data === 10) {
           const badgeName = newStreak.data === 5 ? '5 Streak Master' : '10 Streak Champion';
+          const localizedName = newStreak.data === 5
+            ? t('common:achievements.streak5.name')
+            : t('common:achievements.streak10.name');
+          const localizedDescription = t('common:achievements.streakDescription', { count: newStreak.data });
           if (!(await checkAchievementExists(user.id, badgeName))) {
             await awardAchievement(user.id, {
               name: badgeName,
               description: `Achieved a streak of ${newStreak.data} correct answers!`,
               icon: '🔥',
             });
-            setBadgeInfo({ name: badgeName, description: `Achieved a streak of ${newStreak.data} correct answers!`, icon: '🔥' });
+            setBadgeInfo({ name: localizedName, description: localizedDescription, icon: '🔥' });
             setTimeout(() => setShowBadge(true), 1000);
-            await insertNotification(user.id, badgeName, `Achieved a streak of ${newStreak.data} correct answers!`, 'streak');
+            await insertNotification(user.id, localizedName, localizedDescription, 'streak');
           }
         }
       }
@@ -557,6 +595,10 @@ export default function LectureView() {
 
     setReviewSelectedAnswer(selectedIndex);
     reviewContinueLockRef.current = false;
+    // Capture the retry answer for the end-of-lecture recap. We overwrite on
+    // every retry click so the recap reflects the last attempt the student
+    // made on this question.
+    item.secondSelectedIndex = selectedIndex;
 
     if (user) {
       // Separate event type so analytics can distinguish first-attempt
@@ -597,6 +639,20 @@ export default function LectureView() {
     if (lectureCompleteLockRef.current) return;
     lectureCompleteLockRef.current = true;
 
+    // Snapshot the missed-question queue for the recap UI before any
+    // post-completion side effects run. Items already carry first/second
+    // attempt indices populated during the run + replay stages.
+    setRecapItems(
+      missedQueueRef.current.map((m) => ({
+        question: m.question,
+        slideIndex: m.slideIndex,
+        slideTitle: slides[m.slideIndex]?.title,
+        firstSelectedIndex: m.firstSelectedIndex,
+        secondSelectedIndex: m.secondSelectedIndex,
+      })),
+    );
+    setLectureCompleted(true);
+
     const sessionDuration = Math.round((Date.now() - sessionStartRef.current) / 1000);
 
     if (!user) return;
@@ -622,19 +678,32 @@ export default function LectureView() {
       completed_at: new Date().toISOString(),
     });
 
-    // Badge: First Quiz Completed
+    // Badge: First Quiz Completed (canonical English name persisted in DB; UI localized)
     if (!(await checkAchievementExists(user.id, 'First Quiz Completed'))) {
       await awardAchievement(user.id, { name: 'First Quiz Completed', description: 'Completed your first lecture quiz!', icon: '🎯' });
-      setBadgeInfo({ name: 'First Quiz Completed', description: 'Completed your first lecture quiz!', icon: '🎯' });
+      setBadgeInfo({
+        name: t('common:achievements.firstQuiz.name'),
+        description: t('common:achievements.firstQuiz.description'),
+        icon: '🎯',
+      });
       setShowBadge(true);
-      await insertNotification(user.id, 'First Quiz Completed 🎯', 'Completed your first lecture quiz!', 'achievement');
+      await insertNotification(
+        user.id,
+        t('common:achievements.firstQuiz.notificationTitle'),
+        t('common:achievements.firstQuiz.description'),
+        'achievement'
+      );
     }
 
     // Badge: Perfect Score
     if (finalCorrect === slides.length && slides.length > 0) {
       if (!(await checkAchievementExists(user.id, 'Perfect Score'))) {
         await awardAchievement(user.id, { name: 'Perfect Score', description: 'Got 100% on a lecture quiz!', icon: '💯' });
-        setBadgeInfo({ name: 'Perfect Score', description: 'Got 100% on a lecture quiz!', icon: '💯' });
+        setBadgeInfo({
+          name: t('common:achievements.perfectScore.name'),
+          description: t('common:achievements.perfectScore.description'),
+          icon: '💯',
+        });
         setTimeout(() => setShowBadge(true), 1500);
       }
     }
@@ -642,23 +711,28 @@ export default function LectureView() {
     // Badges: Bookworm (5 lectures) & Graduate (10 lectures)
     const count = await countCompletedLectures(user.id);
     const milestoneBadges = [
-      { name: 'Bookworm', threshold: 5, description: 'Complete 5 lectures', icon: '📚' },
-      { name: 'Graduate', threshold: 10, description: 'Complete 10 lectures', icon: '🎓' },
-    ];
+      { name: 'Bookworm', threshold: 5, description: 'Complete 5 lectures', icon: '📚', i18nKey: 'bookworm' },
+      { name: 'Graduate', threshold: 10, description: 'Complete 10 lectures', icon: '🎓', i18nKey: 'graduate' },
+    ] as const;
     for (const badge of milestoneBadges) {
       if (count >= badge.threshold && !(await checkAchievementExists(user.id, badge.name))) {
-        await awardAchievement(user.id, badge);
-        setBadgeInfo({ name: badge.name, description: badge.description, icon: badge.icon });
+        await awardAchievement(user.id, { name: badge.name, description: badge.description, icon: badge.icon });
+        setBadgeInfo({
+          name: t(`common:achievements.${badge.i18nKey}.name`),
+          description: t(`common:achievements.${badge.i18nKey}.description`),
+          icon: badge.icon,
+        });
         setTimeout(() => setShowBadge(true), 3000);
       }
     }
 
     toast({
-      title: 'Lecture Complete! 🎉',
-      description: `You earned ${xpEarned} XP and got ${correctAnswers}/${questions.length || slides.length} correct!`,
+      title: t('lecture:toasts.lectureCompleteTitle'),
+      description: t('lecture:toasts.lectureCompleteDescription', { xp: xpEarned, correct: correctAnswers, total: questions.length || slides.length }),
     });
 
-    setTimeout(() => navigate('/dashboard'), 2000);
+    // The recap card now owns the "Back to dashboard" CTA — no auto-navigate
+    // so students can review which questions they had to retry.
   };
 
   if (loading) {
@@ -706,18 +780,20 @@ export default function LectureView() {
               size="icon"
               onClick={() => navigate('/dashboard')}
               className="rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
-              title="Exit Lecture"
+              title={t('lecture:chrome.exitLecture')}
             >
               <X className="w-5 h-5" />
             </Button>
             <div className="flex flex-col">
               <nav className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">
-                <span className="opacity-50">Course</span>
+                <span className="opacity-50 truncate max-w-[160px]">
+                  {(lecture as { course?: { title?: string } | null } | null)?.course?.title || t('lecture:chrome.uncategorized')}
+                </span>
                 <span className="opacity-30">/</span>
-                <span className="truncate max-w-[200px]">{lecture?.title || 'Loading...'}</span>
+                <span className="truncate max-w-[200px]">{lecture?.title || t('lecture:chrome.lectureLoading')}</span>
               </nav>
               <h1 className="text-sm font-bold text-foreground truncate max-w-[300px]">
-                {currentSlide?.title || 'Slide View'}
+                {currentSlide?.title || t('lecture:chrome.slideView')}
               </h1>
             </div>
           </div>
@@ -743,7 +819,7 @@ export default function LectureView() {
                 className="hidden md:flex gap-2 rounded-xl px-4 text-muted-foreground hover:text-foreground hover:bg-white/5"
               >
                 <ExternalLink className="w-4 h-4" />
-                <span className="text-xs font-bold">Source PDF</span>
+                <span className="text-xs font-bold">{t('lecture:chrome.sourcePdf')}</span>
               </Button>
             )}
             
@@ -752,7 +828,7 @@ export default function LectureView() {
               className="gap-2 rounded-xl px-5 bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary border-none hover:opacity-90"
             >
               <Bot className="w-4 h-4" />
-              <span className="text-xs font-bold">AI Tutor</span>
+              <span className="text-xs font-bold">{t('lecture:tutor.title')}</span>
             </Button>
           </div>
         </header>
@@ -772,7 +848,7 @@ export default function LectureView() {
                     transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <SlideViewer
-                      title={currentSlide.title || `Slide ${currentSlide.slide_number}`}
+                      title={currentSlide.title || t('lecture:chrome.slideNumberFallback', { number: currentSlide.slide_number })}
                       content={currentSlide.content_text || ''}
                       summary={currentSlide.summary || ''}
                       slideNumber={currentSlideIndex + 1}
@@ -799,15 +875,15 @@ export default function LectureView() {
                         generateMindMap.mutate(aiModel, {
                           onError: (error: any) => {
                             toast({
-                              title: "Generation Failed",
-                              description: error.message || "Could not generate mind map. Check your AI configuration.",
+                              title: t('lecture:toasts.mindMapErrorTitle'),
+                              description: error.message || t('lecture:toasts.mindMapErrorDescription'),
                               variant: "destructive"
                             });
                           },
                           onSuccess: () => {
                             toast({
-                              title: "Mind Map Generated",
-                              description: "The knowledge tree has been successfully constructed.",
+                              title: t('lecture:toasts.mindMapSuccessTitle'),
+                              description: t('lecture:toasts.mindMapSuccessDescription'),
                             });
                           }
                         });
@@ -821,10 +897,31 @@ export default function LectureView() {
                   )}
                 </AnimatePresence>
 
+              {/* Worksheets attached to this lecture (read-only for students) */}
+              {lectureId && (
+                <div className="bg-card/40 rounded-2xl border border-border p-5">
+                  <WorksheetsPanel lectureId={lectureId} editable={role === 'professor'} />
+                </div>
+              )}
+
+              {/* Cross-course concept overlap: surfaces other lectures that
+                  cover concepts present on this lecture. */}
+              {lectureId && (
+                <RelatedAcrossCoursesPanel lectureId={lectureId} />
+              )}
+
               {/* Sidebar - Quiz */}
               <div ref={quizRef}>
                 <AnimatePresence mode="wait">
-                  {reviewStage && currentReviewItem ? (
+                  {lectureCompleted ? (
+                    <LectureRecap
+                      items={recapItems}
+                      xpEarned={xpEarned}
+                      correctOnFirstTry={correctAnswers}
+                      totalQuestions={questions.length || slides.length}
+                      onDone={() => navigate('/dashboard')}
+                    />
+                  ) : reviewStage && currentReviewItem ? (
                     <motion.div
                       key={`review-${reviewIndex}`}
                       initial={{ opacity: 0, x: 20 }}
@@ -839,10 +936,10 @@ export default function LectureView() {
                         </div>
                         <div>
                           <h2 className="text-base font-bold text-foreground">
-                            Review missed questions
+                            {t('lecture:chrome.reviewMissed')}
                           </h2>
                           <p className="text-xs text-muted-foreground">
-                            {reviewIndex + 1} of {missedQueueRef.current.length} · second attempt
+                            {t('lecture:chrome.reviewProgress', { current: reviewIndex + 1, total: missedQueueRef.current.length })}
                           </p>
                         </div>
                       </div>
@@ -855,8 +952,8 @@ export default function LectureView() {
                         onContinue={handleReviewContinue}
                         continueLabel={
                           reviewIndex < missedQueueRef.current.length - 1
-                            ? 'Next question'
-                            : 'Finish lecture'
+                            ? t('lecture:navigation.next')
+                            : t('lecture:navigation.finishLecture')
                         }
                         questionNumber={reviewIndex + 1}
                         totalQuestions={missedQueueRef.current.length}
@@ -879,9 +976,9 @@ export default function LectureView() {
                         </div>
                         <div>
                           <h2 className="text-base font-bold text-foreground truncate max-w-[200px]">
-                            {currentSlide?.title || 'Quiz'}
+                            {currentSlide?.title || t('lecture:chrome.quizFallback')}
                           </h2>
-                          <p className="text-xs text-muted-foreground">Knowledge Check</p>
+                          <p className="text-xs text-muted-foreground">{t('lecture:chrome.knowledgeCheck')}</p>
                         </div>
                       </div>
                       <QuizCard
@@ -890,7 +987,7 @@ export default function LectureView() {
                         correctAnswer={currentQuestion.correct_answer}
                         onAnswer={handleQuizAnswer}
                         onContinue={handleQuizContinue}
-                        continueLabel={currentSlideIndex < slides.length - 1 ? 'Continue' : 'Finish lecture'}
+                        continueLabel={currentSlideIndex < slides.length - 1 ? t('lecture:navigation.continue') : t('lecture:navigation.finishLecture')}
                         questionNumber={currentSlideIndex + 1}
                         totalQuestions={slides.length}
                         initialSelectedAnswer={quizAnswers[currentSlideIndex]}
@@ -923,13 +1020,13 @@ export default function LectureView() {
                           </div>
                           <div>
                             <h1 className="text-xl font-bold text-foreground">
-                              {currentSlide?.title || 'Lecture Slide'}
+                              {currentSlide?.title || t('lecture:chrome.slideFallback')}
                             </h1>
                           </div>
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mt-4">
-                        Read through the slide and click "Next" to answer a quiz question about the content.
+                        {t('lecture:chrome.readSlideHint')}
                       </p>
                     </motion.div>
                   )}
@@ -957,7 +1054,7 @@ export default function LectureView() {
             isOpen={isChatOpen}
             onClose={() => setIsChatOpen(false)}
             slideText={currentSlide?.content_text || ''}
-            slideTitle={currentSlide?.title || 'Lecture Slide'}
+            slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
             lectureId={lectureId}
             currentSlideIndex={currentSlideIndex}
             onSlideJump={(idx) => {

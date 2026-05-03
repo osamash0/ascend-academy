@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { 
   BookOpen, Trophy, Target, Flame, Zap, Star, X, PlayCircle, 
@@ -12,15 +13,18 @@ import { LectureCard } from '@/components/LectureCard';
 import { StatsCard } from '@/components/StatsCard';
 import { AchievementCard } from '@/components/AchievementCard';
 import { Button } from '@/components/ui/button';
+import { AssignmentsPanel } from '@/features/assignments/AssignmentsPanel';
+import { KnowledgeMapCard } from '@/components/KnowledgeMapCard';
+import { NudgeBanner } from '@/components/NudgeBanner';
 
 import type { Lecture, StudentProgress as Progress, Achievement } from '@/types/domain';
 
 type FilterTab = 'all' | 'inprogress' | 'completed';
 
-const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: 'all', label: 'All Courses' },
-  { key: 'inprogress', label: 'In Progress' },
-  { key: 'completed', label: 'Completed' },
+const FILTER_TAB_KEYS: { key: FilterTab; i18nKey: string }[] = [
+  { key: 'all', i18nKey: 'dashboard:filters.all' },
+  { key: 'inprogress', i18nKey: 'dashboard:filters.inProgress' },
+  { key: 'completed', i18nKey: 'dashboard:filters.completed' },
 ];
 
 /* ── Orbital Background Component ── */
@@ -116,6 +120,7 @@ function FloatingParticles() {
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation(['dashboard']);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [showStreakBanner, setShowStreakBanner] = useState(false);
   const lecturesRef = useRef<HTMLDivElement>(null);
@@ -140,8 +145,8 @@ export default function StudentDashboard() {
     const streak = profile?.current_streak || 0;
     if (streak > 2) {
       setShowStreakBanner(true);
-      const t = setTimeout(() => setShowStreakBanner(false), STREAK_BANNER_DURATION_MS);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setShowStreakBanner(false), STREAK_BANNER_DURATION_MS);
+      return () => clearTimeout(timer);
     }
   }, [profile?.current_streak]);
 
@@ -203,13 +208,13 @@ export default function StudentDashboard() {
   const level = profile?.current_level || 1;
   const displayName = profile?.full_name
     ? profile.full_name.split(' ')[0]
-    : user?.email?.split('@')[0] || 'Student';
+    : user?.email?.split('@')[0] || t('dashboard:fallbackName');
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return t('dashboard:greeting.morning');
+    if (hour < 17) return t('dashboard:greeting.afternoon');
+    return t('dashboard:greeting.evening');
   };
 
   return (
@@ -218,6 +223,9 @@ export default function StudentDashboard() {
       <FloatingParticles />
       
       <div className="relative z-10 p-6 lg:p-8 max-w-7xl mx-auto space-y-10">
+
+        {/* ── Nudge engine banner (highest-priority active nudge) ── */}
+        <NudgeBanner />
 
         {/* ── Streak Celebration Banner ── */}
         <AnimatePresence>
@@ -238,7 +246,7 @@ export default function StudentDashboard() {
                     🔥
                   </motion.span>
                   <span className="font-semibold text-warning">
-                    You're on a {streak}-day streak! Keep the momentum going!
+                    {t('dashboard:streakBanner', { count: streak })}
                   </span>
                 </div>
                 <button
@@ -297,8 +305,16 @@ export default function StudentDashboard() {
                     {getGreeting()}
                   </span>
                   <h1 className="text-display-md text-foreground mt-1">
-                    Welcome back,{' '}
-                    <span className="text-gradient-aurora">{displayName}</span>
+                    {(() => {
+                      const parts = t('dashboard:welcomeBack', { name: '__NAME__' }).split('__NAME__');
+                      return (
+                        <>
+                          {parts[0]}
+                          <span className="text-gradient-aurora">{displayName}</span>
+                          {parts[1] ?? ''}
+                        </>
+                      );
+                    })()}
                   </h1>
                 </motion.div>
                 <motion.p
@@ -307,8 +323,15 @@ export default function StudentDashboard() {
                   transition={{ delay: 0.4 }}
                   className="text-body-md text-muted-foreground max-w-lg"
                 >
-                  Ready to continue your learning journey? You have{' '}
-                  <strong className="text-foreground">{continueLectures.length} courses</strong> in progress.
+                  {(() => {
+                    const raw = t('dashboard:subtitle', { count: continueLectures.length });
+                    const segments = raw.split(/<bold>|<\/bold>/);
+                    return segments.map((seg, idx) =>
+                      idx % 2 === 1
+                        ? <strong key={idx} className="text-foreground">{seg}</strong>
+                        : <span key={idx}>{seg}</span>
+                    );
+                  })()}
                 </motion.p>
               </div>
 
@@ -321,7 +344,7 @@ export default function StudentDashboard() {
               >
                 <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 group hover:border-primary/30 transition-colors">
                   <Star className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
-                  <span className="text-sm font-semibold text-foreground">Level {level}</span>
+                  <span className="text-sm font-semibold text-foreground">{t('dashboard:level', { level })}</span>
                 </div>
                 <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 group hover:border-xp/30 transition-colors">
                   <Zap className="w-4 h-4 text-xp group-hover:scale-110 transition-transform" />
@@ -334,7 +357,7 @@ export default function StudentDashboard() {
                     transition={{ duration: 2, repeat: Infinity }}
                   >
                     <Flame className="w-4 h-4 text-warning group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-semibold text-warning">{streak} day streak</span>
+                    <span className="text-sm font-semibold text-warning">{t('dashboard:dayStreak', { count: streak })}</span>
                   </motion.div>
                 )}
               </motion.div>
@@ -350,9 +373,9 @@ export default function StudentDashboard() {
               <div className="flex justify-between text-caption text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" />
-                  Progress to Level {level + 1}
+                  {t('dashboard:progressToLevel', { level: level + 1 })}
                 </span>
-                <span>{(profile?.total_xp || 0) % 100} / 100 XP</span>
+                <span>{t('dashboard:xpProgress', { current: (profile?.total_xp || 0) % 100 })}</span>
               </div>
               <div className="h-3 bg-surface-2 rounded-full overflow-hidden relative">
                 <motion.div
@@ -377,10 +400,10 @@ export default function StudentDashboard() {
         {/* ── Stats Grid — Glass Cards ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { title: 'Courses Started', value: progress.length, icon: BookOpen, variant: 'primary', glow: 'shadow-glow-primary' },
-            { title: 'Quiz Accuracy', value: `${accuracy}%`, subtitle: `${totalCorrect}/${totalQuestionsAnswered} correct`, icon: Target, variant: 'success', glow: 'shadow-glow-success' },
-            { title: 'Best Streak', value: profile?.best_streak || 0, icon: Flame, variant: 'warning' },
-            { title: 'Achievements', value: achievements.length, icon: Trophy, variant: 'xp', glow: 'shadow-glow-xp' },
+            { key: 'coursesStarted', title: t('dashboard:stats.coursesStarted'), value: progress.length, icon: BookOpen, variant: 'primary', glow: 'shadow-glow-primary' },
+            { key: 'quizAccuracy', title: t('dashboard:stats.quizAccuracy'), value: `${accuracy}%`, subtitle: t('dashboard:stats.accuracySubtitle', { correct: totalCorrect, total: totalQuestionsAnswered }), icon: Target, variant: 'success', glow: 'shadow-glow-success' },
+            { key: 'bestStreak', title: t('dashboard:stats.bestStreak'), value: profile?.best_streak || 0, icon: Flame, variant: 'warning' },
+            { key: 'achievements', title: t('dashboard:stats.achievements'), value: achievements.length, icon: Trophy, variant: 'xp', glow: 'shadow-glow-xp' },
           ].map((stat, index) => (
             <motion.div
               key={stat.title}
@@ -396,9 +419,9 @@ export default function StudentDashboard() {
                 variant={stat.variant as any}
                 className={stat.glow}
                 onClick={() => {
-                  if (stat.title === 'Courses Started') {
+                  if (stat.key === 'coursesStarted') {
                     lecturesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  } else if (stat.title === 'Achievements') {
+                  } else if (stat.key === 'achievements') {
                     navigate('/achievements');
                   }
                 }}
@@ -423,13 +446,13 @@ export default function StudentDashboard() {
                     <TrendingUp className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-foreground">Learning Insights</h3>
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest">AI Intelligence</p>
+                    <h3 className="text-sm font-bold text-foreground">{t('dashboard:stats.learningInsights')}</h3>
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{t('dashboard:stats.aiIntelligence')}</p>
                   </div>
                 </div>
                 
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Analyze your circadian rhythm, focus intensity, and performance patterns.
+                  {t('dashboard:stats.insightsDescription')}
                 </p>
 
                 <div className="flex items-center justify-between pt-2">
@@ -444,7 +467,7 @@ export default function StudentDashboard() {
                     whileHover={{ x: 3 }}
                     className="flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-widest"
                   >
-                    Explore
+                    {t('dashboard:stats.explore')}
                     <ChevronRight className="w-3 h-3" />
                   </motion.div>
                 </div>
@@ -452,6 +475,12 @@ export default function StudentDashboard() {
             </div>
           </motion.div>
         </div>
+
+        {/* ── Assignments Panel ── */}
+        {user?.id && <AssignmentsPanel userId={user.id} />}
+
+        {/* ── Cross-course knowledge map ── */}
+        {user?.id && <KnowledgeMapCard userId={user.id} />}
 
         {/* ── Continue Learning — Orbital Carousel ── */}
         {continueLectures.length > 0 && (
@@ -463,7 +492,7 @@ export default function StudentDashboard() {
           >
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              <h2 className="text-heading-lg text-foreground">Continue Learning</h2>
+              <h2 className="text-heading-lg text-foreground">{t('dashboard:continueLearning')}</h2>
             </div>
             
             <div className="flex overflow-x-auto pb-4 gap-5 snap-x snap-mandatory scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
@@ -497,7 +526,7 @@ export default function StudentDashboard() {
                               </h3>
                               <p className="text-body-sm text-muted-foreground flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                Resume from slide {(p?.last_slide_viewed ?? completed) + 1}
+                                {t('dashboard:resumeFromSlide', { slide: (p?.last_slide_viewed ?? completed) + 1 })}
                               </p>
                             </div>
                             <motion.div 
@@ -511,8 +540,8 @@ export default function StudentDashboard() {
 
                           <div className="space-y-2">
                             <div className="flex justify-between text-caption text-muted-foreground font-medium">
-                              <span>{pct}% Complete</span>
-                              <span>{completed} / {total} Slides</span>
+                              <span>{t('dashboard:percentComplete', { percent: pct })}</span>
+                              <span>{t('dashboard:slidesProgress', { completed, total })}</span>
                             </div>
                             <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
                               <motion.div
@@ -543,12 +572,12 @@ export default function StudentDashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-primary" />
-              <h2 className="text-heading-lg text-foreground">Your Courses</h2>
+              <h2 className="text-heading-lg text-foreground">{t('dashboard:yourCourses')}</h2>
             </div>
 
             {lectures.length > 0 && (
               <div className="flex items-center bg-surface-1 rounded-xl p-1 gap-1 relative border border-border">
-                {FILTER_TABS.map(tab => (
+                {FILTER_TAB_KEYS.map(tab => (
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
@@ -564,7 +593,7 @@ export default function StudentDashboard() {
                         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                       />
                     )}
-                    {tab.label}
+                    {t(tab.i18nKey)}
                   </button>
                 ))}
               </div>
@@ -585,55 +614,74 @@ export default function StudentDashboard() {
                 <BookOpen className="w-10 h-10 text-white" />
               </motion.div>
               <h3 className="text-heading-sm text-foreground mb-2">
-                {activeTab === 'all' ? 'No courses available yet' : `No ${activeTab === 'inprogress' ? 'in-progress' : 'completed'} courses`}
+                {t('dashboard:noCourses')}
               </h3>
               <p className="text-body-sm text-muted-foreground">
-                {activeTab === 'all'
-                  ? 'Courses uploaded by professors will appear here.'
-                  : 'Switch tabs to see other courses.'}
+                {t('dashboard:noCoursesDescription')}
               </p>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              <AnimatePresence mode="popLayout">
-                {filteredLectures.map((lecture, index) => {
-                  const lectureProgress = getProgressForLecture(lecture.id);
-                  return (
-                    <motion.div
-                      key={lecture.id}
-                      layout
-                      initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                      transition={{ 
-                        delay: index * 0.06, 
-                        type: 'spring', 
-                        stiffness: 300, 
-                        damping: 24 
-                      }}
-                      whileHover={{ 
-                        y: -8, 
-                        scale: 1.02,
-                        transition: { type: 'spring', stiffness: 400, damping: 17 }
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <LectureCard
-                        id={lecture.id}
-                        title={lecture.title}
-                        description={lecture.description || undefined}
-                        totalSlides={lecture.total_slides}
-                        completedSlides={lectureProgress?.completed_slides?.length || 0}
-                        quizScore={lectureProgress?.correct_answers || 0}
-                        totalQuestions={lectureProgress?.total_questions_answered || 0}
-                        index={index}
-                        onClick={() => navigate(`/lecture/${lecture.id}`)}
-                      />
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
+            (() => {
+              // Group lectures by course; lectures without a course go into
+              // a single "Uncategorized" group rendered last.
+              const groups = new Map<string, { title: string; lectures: typeof filteredLectures }>();
+              for (const l of filteredLectures) {
+                const key = l.course?.id ?? l.course_id ?? '__uncat__';
+                const title = l.course?.title ?? (key === '__uncat__' ? t('dashboard:uncategorized') : t('dashboard:courseFallback'));
+                if (!groups.has(key)) groups.set(key, { title, lectures: [] });
+                groups.get(key)!.lectures.push(l);
+              }
+              const ordered = [...groups.entries()].sort(([a], [b]) => {
+                if (a === '__uncat__') return 1;
+                if (b === '__uncat__') return -1;
+                return 0;
+              });
+              return (
+                <div className="space-y-10">
+                  {ordered.map(([key, group]) => (
+                    <section key={key} className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-heading-sm text-foreground">{group.title}</h3>
+                        <span className="text-xs text-muted-foreground">
+                          {t('dashboard:lectureCount', { count: group.lectures.length })}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        <AnimatePresence mode="popLayout">
+                          {group.lectures.map((lecture, index) => {
+                            const lectureProgress = getProgressForLecture(lecture.id);
+                            return (
+                              <motion.div
+                                key={lecture.id}
+                                layout
+                                initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                                transition={{ delay: index * 0.04, type: 'spring', stiffness: 300, damping: 24 }}
+                                whileHover={{ y: -8, scale: 1.02, transition: { type: 'spring', stiffness: 400, damping: 17 } }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <LectureCard
+                                  id={lecture.id}
+                                  title={lecture.title}
+                                  description={lecture.description || undefined}
+                                  totalSlides={lecture.total_slides}
+                                  completedSlides={lectureProgress?.completed_slides?.length || 0}
+                                  quizScore={lectureProgress?.correct_answers || 0}
+                                  totalQuestions={lectureProgress?.total_questions_answered || 0}
+                                  index={index}
+                                  onClick={() => navigate(`/lecture/${lecture.id}`)}
+                                />
+                              </motion.div>
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              );
+            })()
           )}
         </div>
 
@@ -648,14 +696,14 @@ export default function StudentDashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Award className="w-5 h-5 text-xp" />
-                <h2 className="text-heading-lg text-foreground">Recent Achievements</h2>
+                <h2 className="text-heading-lg text-foreground">{t('dashboard:recentAchievements')}</h2>
               </div>
               <Button 
                 variant="ghost" 
                 onClick={() => navigate('/achievements')}
                 className="group text-primary hover:text-primary/80"
               >
-                View all
+                {t('dashboard:viewAll')}
                 <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
               </Button>
             </div>

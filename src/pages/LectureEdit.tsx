@@ -6,6 +6,8 @@ import { Save, Plus, Trash2, CheckCircle2, Loader2, Sparkles, ArrowLeft, FileTex
 import { supabase } from '@/integrations/supabase/client';
 import { insertQuizQuestion, updateQuizQuestion, deleteSlideWithQuestions } from '@/services/lectureService';
 import { apiClient } from '@/lib/apiClient';
+import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Course } from '@/services/coursesService';
+import { WorksheetsPanel } from '@/components/WorksheetsPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,6 +60,9 @@ export default function LectureEdit() {
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [courseId, setCourseId] = useState<string | null>(null);
+    const [originalCourseId, setOriginalCourseId] = useState<string | null>(null);
     const [slides, setSlides] = useState<SlideData[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -99,6 +104,10 @@ export default function LectureEdit() {
             setTitle(lecture.title);
             setDescription(lecture.description ?? '');
             setExistingPdfUrl(lecture.pdf_url);
+            const cid = (lecture as { course_id?: string | null }).course_id ?? null;
+            setCourseId(cid);
+            setOriginalCourseId(cid);
+            try { setCourses(await listCourses()); } catch (e) { console.error(e); }
             const lectureWithHash = lecture as typeof lecture & { pdf_hash?: string | null };
             setPdfHash(lectureWithHash.pdf_hash ?? null);
 
@@ -474,8 +483,45 @@ export default function LectureEdit() {
                             <Label htmlFor="description">Description (optional)</Label>
                             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief overview..." className="mt-1.5" rows={3} />
                         </div>
+                        <div>
+                            <Label htmlFor="course">Course</Label>
+                            <select
+                                id="course"
+                                value={courseId ?? ''}
+                                onChange={async (e) => {
+                                    const next = e.target.value || null;
+                                    setCourseId(next);
+                                    if (!lectureId) return;
+                                    try {
+                                        if (originalCourseId && originalCourseId !== next) {
+                                            await unassignLectureFromCourse(originalCourseId, lectureId);
+                                        }
+                                        if (next && next !== originalCourseId) {
+                                            await assignLectureToCourse(next, lectureId);
+                                        }
+                                        setOriginalCourseId(next);
+                                        toast({ title: 'Course updated' });
+                                    } catch (err) {
+                                        toast({ title: 'Failed to change course', description: String(err), variant: 'destructive' });
+                                    }
+                                }}
+                                className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                            >
+                                <option value="">Uncategorized</option>
+                                {courses.map(c => (
+                                    <option key={c.id} value={c.id}>{c.title}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </motion.div>
+
+                {/* Worksheets */}
+                {lectureId && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-6">
+                        <WorksheetsPanel lectureId={lectureId} editable />
+                    </motion.div>
+                )}
 
                 {/* PDF Upload / Replace */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-6 font-geist">

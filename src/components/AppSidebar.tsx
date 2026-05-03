@@ -1,5 +1,6 @@
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import {
   GraduationCap,
   LayoutDashboard,
@@ -11,9 +12,11 @@ import {
   Settings,
   Zap,
   Star,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import { LanguageToggle } from '@/components/LanguageToggle';
 import {
   Sidebar,
   SidebarContent,
@@ -29,18 +32,19 @@ import {
 } from '@/components/ui/sidebar';
 
 const studentNavItems = [
-  { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-  { title: 'Achievements', url: '/achievements', icon: Trophy },
-  { title: 'Leaderboard', url: '/leaderboard', icon: Users },
-  { title: 'Learning Insights', url: '/insights', icon: BarChart3 },
-  { title: 'Settings', url: '/settings', icon: Settings },
+  { titleKey: 'nav:student.dashboard', url: '/dashboard', icon: LayoutDashboard },
+  { titleKey: 'nav:student.achievements', url: '/achievements', icon: Trophy },
+  { titleKey: 'nav:student.leaderboard', url: '/leaderboard', icon: Users },
+  { titleKey: 'nav:student.insights', url: '/insights', icon: BarChart3 },
+  { titleKey: 'nav:student.settings', url: '/settings', icon: Settings },
 ];
 
 const professorNavItems = [
-  { title: 'Dashboard', url: '/professor/dashboard', icon: LayoutDashboard },
-  { title: 'Analytics', url: '/professor/analytics', icon: BarChart3 },
-  { title: 'Upload Lecture', url: '/professor/upload', icon: Upload },
-  { title: 'Settings', url: '/settings', icon: Settings },
+  { titleKey: 'nav:professor.dashboard', url: '/professor/dashboard', icon: LayoutDashboard },
+  { titleKey: 'nav:professor.courses', url: '/professor/courses', icon: BookOpen },
+  { titleKey: 'nav:professor.analytics', url: '/professor/analytics', icon: BarChart3 },
+  { titleKey: 'nav:professor.upload', url: '/professor/upload', icon: Upload },
+  { titleKey: 'nav:professor.settings', url: '/settings', icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -49,6 +53,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { state } = useSidebar();
   const isCollapsed = state === 'collapsed';
+  const { t } = useTranslation(['nav']);
 
   const navItems = role === 'professor' ? professorNavItems : studentNavItems;
 
@@ -78,10 +83,10 @@ export function AppSidebar() {
               className="flex flex-col items-start"
             >
               <span className="font-bold text-lg text-foreground tracking-tighter leading-none mb-1">
-                Ascend
+                {t('sidebar.brand')}
               </span>
               <span className="text-[10px] text-primary font-bold uppercase tracking-[0.3em] leading-none">
-                v2.0 Orbital
+                {t('sidebar.version')}
               </span>
             </motion.div>
           )}
@@ -101,16 +106,16 @@ export function AppSidebar() {
 
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Current Tier</span>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">{t('sidebar.currentTier')}</span>
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-lg bg-xp/20 flex items-center justify-center">
                       <Star className="w-3.5 h-3.5 text-xp fill-xp" />
                     </div>
-                    <span className="text-sm font-bold text-foreground">Level {profile.current_level}</span>
+                    <span className="text-sm font-bold text-foreground">{t('sidebar.level', { level: profile.current_level })}</span>
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Telemetry</span>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">{t('sidebar.telemetry')}</span>
                   <div className="flex items-center gap-1.5 text-xp">
                     <Zap className="w-3.5 h-3.5 fill-xp" />
                     <span className="text-sm font-bold tracking-tighter">{profile.total_xp.toLocaleString()}</span>
@@ -130,7 +135,7 @@ export function AppSidebar() {
                   </motion.div>
                 </div>
                 <div className="flex justify-between items-center text-[8px] text-muted-foreground font-bold uppercase tracking-[0.2em]">
-                  <span>Protocol Progress</span>
+                  <span>{t('sidebar.protocolProgress')}</span>
                   <span className="text-foreground">{profile.total_xp % 100}%</span>
                 </div>
               </div>
@@ -140,18 +145,19 @@ export function AppSidebar() {
 
         <SidebarGroup className="mt-2">
           <SidebarGroupLabel className="px-4 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/30 mb-4">
-            Navigation Hub
+            {t('sidebar.navigationHub')}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
               {navItems.map((item) => {
                 const isActive = location.pathname.startsWith(item.url);
+                const label = t(item.titleKey);
                 return (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.titleKey}>
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      tooltip={item.title}
+                      tooltip={label}
                       className={`h-12 rounded-[14px] transition-all duration-300 ${
                         isActive 
                           ? 'bg-primary/10 text-primary shadow-glow-primary/10 border border-primary/20' 
@@ -160,7 +166,7 @@ export function AppSidebar() {
                     >
                       <Link to={item.url} className="flex items-center gap-3 px-4">
                         <item.icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-                        <span className="font-bold tracking-tight">{item.title}</span>
+                        <span className="font-bold tracking-tight">{label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -203,13 +209,18 @@ export function AppSidebar() {
               </div>
             </motion.div>
           )}
+          {!isCollapsed && (
+            <div className="flex justify-center">
+              <LanguageToggle variant="icon-dark" />
+            </div>
+          )}
           <Button
             variant="ghost"
             className="w-full h-12 justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-[14px] px-4 transition-all"
             onClick={handleSignOut}
           >
             <LogOut className="w-5 h-5" />
-            {!isCollapsed && <span className="ml-3 font-bold tracking-tight">Sign out</span>}
+            {!isCollapsed && <span className="ml-3 font-bold tracking-tight">{t('sidebar.signOut')}</span>}
           </Button>
         </div>
       </SidebarFooter>

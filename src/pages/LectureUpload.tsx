@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -49,6 +50,7 @@ import {
   getOverallCompletion,
 } from '@/types/lectureUpload';
 import type { SlideStatus } from '@/types/lectureUpload';
+import { listCourses, type Course } from '@/services/coursesService';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  COMPONENT: Progress Ring                                                 */
@@ -102,11 +104,12 @@ function ProgressRing({ percent, size = 36, stroke = 3 }: { percent: number; siz
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function StatusDots({ status }: { status: SlideStatus }) {
+  const { t } = useTranslation(['upload']);
   const items = [
-    { key: 'hasTitle', label: 'Title', icon: Type },
-    { key: 'hasContent', label: 'Content', icon: FileText },
-    { key: 'hasSummary', label: 'Summary', icon: Sparkles },
-    { key: 'hasQuiz', label: 'Quiz', icon: ListChecks },
+    { key: 'hasTitle', label: t('upload:statusDots.title'), icon: Type },
+    { key: 'hasContent', label: t('upload:statusDots.content'), icon: FileText },
+    { key: 'hasSummary', label: t('upload:statusDots.summary'), icon: Sparkles },
+    { key: 'hasQuiz', label: t('upload:statusDots.quiz'), icon: ListChecks },
   ] as const;
 
   return (
@@ -173,6 +176,7 @@ function AIActionButton({
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function EmptySlideState({ onAddSlide, onUploadPDF }: { onAddSlide: () => void; onUploadPDF: () => void }) {
+  const { t } = useTranslation(['upload']);
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -182,18 +186,18 @@ function EmptySlideState({ onAddSlide, onUploadPDF }: { onAddSlide: () => void; 
       <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-950/50 dark:to-indigo-950/50 flex items-center justify-center mb-6 shadow-inner">
         <LayoutTemplate className="w-10 h-10 text-violet-500" />
       </div>
-      <h3 className="text-xl font-semibold text-foreground mb-2">Start Building Your Lecture</h3>
+      <h3 className="text-xl font-semibold text-foreground mb-2">{t('upload:empty.title')}</h3>
       <p className="text-muted-foreground max-w-sm mb-8">
-        Create slides from scratch or import a PDF to auto-generate structured content with AI-powered summaries and quizzes.
+        {t('upload:empty.description')}
       </p>
       <div className="flex gap-3">
         <Button onClick={onAddSlide} size="lg" className="gap-2">
           <Plus className="w-5 h-5" />
-          Create First Slide
+          {t('upload:empty.createFirstSlide')}
         </Button>
         <Button onClick={onUploadPDF} variant="outline" size="lg" className="gap-2">
           <FileUp className="w-5 h-5" />
-          Import PDF
+          {t('upload:empty.importPdf')}
         </Button>
       </div>
     </motion.div>
@@ -221,14 +225,15 @@ function QuizBuilder({
   onUpdateOption: (slideIndex: number, questionIndex: number, optionIndex: number, value: string) => void;
   onUpdateCorrectAnswer: (slideIndex: number, questionIndex: number, value: number) => void;
 }) {
+  const { t } = useTranslation(['upload']);
   return (
     <div className="space-y-4 p-5 rounded-2xl bg-card border border-border shadow-sm">
       <div className="space-y-2">
-        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Question</Label>
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('upload:slide.questionLabel')}</Label>
         <Textarea
           value={question.question}
           onChange={(e) => onUpdateQuestion(slideIndex, questionIndex, e.target.value)}
-          placeholder="Write a comprehension question about this slide..."
+          placeholder={t('upload:slide.questionPlaceholder')}
           className="min-h-[80px] resize-none bg-muted/30 border-0 focus-visible:ring-1"
           rows={2}
         />
@@ -236,8 +241,8 @@ function QuizBuilder({
 
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-          Answer Options
-          <span className="text-[10px] font-normal normal-case">— click to mark correct</span>
+          {t('upload:slide.answerOptions')}
+          <span className="text-[10px] font-normal normal-case">— {t('upload:slide.answerHelp')}</span>
         </Label>
         {question.options.map((option, oIndex) => {
           const isCorrect = oIndex === question.correctAnswer;
@@ -264,7 +269,7 @@ function QuizBuilder({
               <Input
                 value={option}
                 onChange={(e) => onUpdateOption(slideIndex, questionIndex, oIndex, e.target.value)}
-                placeholder={`Option ${optionLabels[oIndex]}`}
+                placeholder={t('upload:slide.optionPlaceholder', { label: optionLabels[oIndex] })}
                 className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-0 text-sm"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -275,7 +280,7 @@ function QuizBuilder({
 
       <p className="text-xs text-muted-foreground flex items-center gap-1.5">
         <AlertCircle className="w-3 h-3" />
-        Click any option card to mark it as the correct answer
+        {t('upload:slide.answerHint')}
       </p>
     </div>
   );
@@ -286,6 +291,7 @@ function QuizBuilder({
 /* ────────────────────────────────────────────────────────────────────────── */
 
 export default function LectureUpload() {
+  const { t } = useTranslation(['upload', 'common']);
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -296,6 +302,13 @@ export default function LectureUpload() {
   /* ── Lecture metadata ──────────────────────────────────────────────────── */
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [searchParams] = useSearchParams();
+  const prefilledCourseId = searchParams.get('courseId');
+  const [courseId, setCourseId] = useState<string | null>(prefilledCourseId);
+  const [courses, setCourses] = useState<Course[]>([]);
+  useEffect(() => {
+    listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
+  }, []);
 
   /* ── UI state ──────────────────────────────────────────────────────────── */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -313,7 +326,7 @@ export default function LectureUpload() {
   const {
     isUploading, setIsUploading,
     uploadProgress, uploadTotal, uploadStatus,
-    processedSlides, pdfFile, pdfHash, parserUsed,
+    processedSlides, pdfFile, pdfHash, parserUsed, parsePhase, parseCompleted,
     deckQuiz,
     handleFileUpload,
     startUpload,
@@ -406,7 +419,7 @@ export default function LectureUpload() {
     handleGenerateContent,
   } = useAIGeneration({ slides, updateSlide });
 
-  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, deckQuiz });
+  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz });
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];
@@ -425,11 +438,11 @@ export default function LectureUpload() {
 
   const handleExit = useCallback(() => {
     if (slides.length > 0) {
-      const confirm = window.confirm('You have unsaved changes. Are you sure you want to exit? All progress will be lost.');
+      const confirm = window.confirm(t('upload:toasts.exitConfirm'));
       if (!confirm) return;
     }
     navigate('/professor/dashboard');
-  }, [slides.length, navigate]);
+  }, [slides.length, navigate, t]);
 
   /* ── Scroll active slide into view ─────────────────────────────────────── */
   useEffect(() => {
@@ -498,12 +511,12 @@ export default function LectureUpload() {
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-foreground">Create Lecture</h1>
-                <p className="text-xs text-muted-foreground">Build interactive learning experiences</p>
+                <h1 className="text-lg font-bold text-foreground">{t('upload:header.title')}</h1>
+                <p className="text-xs text-muted-foreground">{t('upload:header.subtitle')}</p>
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={handleExit} className="text-xs font-medium">
-              Exit
+              {t('upload:header.exit')}
             </Button>
           </div>
         </div>
@@ -516,25 +529,39 @@ export default function LectureUpload() {
             className="space-y-4"
           >
             <div>
-              <Label htmlFor="title" className="text-sm font-medium">Lecture Title</Label>
+              <Label htmlFor="title" className="text-sm font-medium">{t('upload:form.titleLabel')}</Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Introduction to Machine Learning"
+                placeholder={t('upload:form.titlePlaceholder')}
                 className="mt-1.5 text-lg h-12"
               />
             </div>
             <div>
-              <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+              <Label htmlFor="description" className="text-sm font-medium">{t('upload:form.descriptionLabel')}</Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief overview of what students will learn..."
+                placeholder={t('upload:form.descriptionPlaceholder')}
                 className="mt-1.5"
                 rows={3}
               />
+            </div>
+            <div>
+              <Label htmlFor="course" className="text-sm font-medium">{t('upload:empty.courseLabel')}</Label>
+              <select
+                id="course"
+                value={courseId ?? ''}
+                onChange={(e) => setCourseId(e.target.value || null)}
+                className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">{t('upload:empty.uncategorized')}</option>
+                {courses.map(c => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
             </div>
           </motion.div>
         </div>
@@ -576,6 +603,8 @@ export default function LectureUpload() {
           uploadStatus={uploadStatus}
           processedSlides={processedSlides}
           parserUsed={parserUsed}
+          parsePhase={parsePhase}
+          parseCompleted={parseCompleted}
           onClose={closeUploadOverlay}
         />
       </div>
@@ -595,7 +624,7 @@ export default function LectureUpload() {
               size="icon"
               onClick={handleExit}
               className="rounded-full h-8 w-8 hover:bg-muted/80"
-              title="Back to Dashboard"
+              title={t('upload:chrome.backToDashboard')}
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
@@ -606,13 +635,13 @@ export default function LectureUpload() {
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Lecture Title"
+                placeholder={t('upload:form.titleLabel')}
                 className="border-0 bg-transparent text-lg font-semibold placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-auto"
               />
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add a brief description..."
+                placeholder={t('upload:form.descriptionPlaceholder')}
                 className="border-0 bg-transparent text-xs text-muted-foreground placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-auto py-0"
               />
             </div>
@@ -623,7 +652,7 @@ export default function LectureUpload() {
             <ProgressRing percent={overallCompletion} size={32} stroke={2.5} />
             <div className="text-xs">
               <span className="font-semibold text-foreground">{overallCompletion}%</span>
-              <span className="text-muted-foreground ml-1">complete</span>
+              <span className="text-muted-foreground ml-1">{t('upload:chrome.complete')}</span>
             </div>
           </div>
 
@@ -637,7 +666,7 @@ export default function LectureUpload() {
               className="hidden sm:flex gap-2"
             >
               {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
-              Import PDF
+              {t('upload:empty.importPdf')}
             </Button>
             <Button
               variant="outline"
@@ -645,7 +674,7 @@ export default function LectureUpload() {
               onClick={handleExit}
               className="text-xs font-medium"
             >
-              Exit
+              {t('upload:header.exit')}
             </Button>
             <Button
               variant="outline"
@@ -654,7 +683,7 @@ export default function LectureUpload() {
               className="gap-2 border-violet-200 text-violet-700 hover:bg-violet-50"
             >
               <BookOpen className="w-4 h-4" />
-              Preview Full Lecture
+              {t('upload:actions.preview')}
             </Button>
             <Button
               size="sm"
@@ -667,7 +696,7 @@ export default function LectureUpload() {
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              Publish
+              {loading ? t('upload:actions.saving') : t('upload:actions.save')}
             </Button>
           </div>
         </div>
@@ -690,7 +719,7 @@ export default function LectureUpload() {
               <div className="p-4 border-b border-border">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Slides ({totalSlides})
+                    {t('upload:chrome.slides', { count: totalSlides })}
                   </span>
                   <div className="flex gap-1">
                     <Button
@@ -698,7 +727,7 @@ export default function LectureUpload() {
                       size="icon"
                       className="h-7 w-7"
                       onClick={() => fileInputRef.current?.click()}
-                      title="Import PDF"
+                      title={t('upload:empty.importPdf')}
                     >
                       <FileUp className="w-3.5 h-3.5" />
                     </Button>
@@ -707,7 +736,7 @@ export default function LectureUpload() {
                       size="icon"
                       className="h-7 w-7"
                       onClick={() => addSlide(activeSlideIndex)}
-                      title="Add slide after current"
+                      title={t('upload:chrome.addSlideAfter')}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </Button>
@@ -721,7 +750,7 @@ export default function LectureUpload() {
                   onClick={() => addSlide()}
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Add New Slide
+                  {t('upload:chrome.addNewSlide')}
                 </Button>
               </div>
 
@@ -763,7 +792,7 @@ export default function LectureUpload() {
                           "text-sm font-medium truncate",
                           isActive ? "text-foreground" : "text-muted-foreground"
                         )}>
-                          {slide.title || `Slide ${index + 1}`}
+                          {slide.title || t('upload:slideFallback', { number: index + 1 })}
                         </p>
                         <div className="flex items-center gap-2 mt-1.5">
                           <StatusDots status={status} />
@@ -821,9 +850,9 @@ export default function LectureUpload() {
                       </span>
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-foreground">Slide Editor</h2>
+                      <h2 className="text-lg font-semibold text-foreground">{t('upload:chrome.slideEditor')}</h2>
                       <p className="text-xs text-muted-foreground">
-                        {getCompletionPercent(getSlideStatus(activeSlide))}% complete
+                        {getCompletionPercent(getSlideStatus(activeSlide))}% {t('upload:chrome.complete')}
                       </p>
                     </div>
                   </div>
@@ -839,7 +868,7 @@ export default function LectureUpload() {
                       )}
                     >
                       {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      {showPreview ? "Close Preview" : "Preview"}
+                      {showPreview ? t('upload:chrome.previewClose') : t('upload:chrome.previewOpen')}
                     </Button>
                     <Button
                       variant="outline"
@@ -848,7 +877,7 @@ export default function LectureUpload() {
                       className="gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      Insert After
+                      {t('upload:chrome.insertAfter')}
                     </Button>
                     {slides.length > 1 && (
                       <Button
@@ -867,12 +896,12 @@ export default function LectureUpload() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <Type className="w-3.5 h-3.5 text-muted-foreground" />
-                    Slide Title
+                    {t('upload:slide.titleLabel')}
                   </Label>
                   <Input
                     value={activeSlide.title}
                     onChange={(e) => updateSlide(activeSlideIndex, 'title', e.target.value)}
-                    placeholder="Enter a clear, descriptive title..."
+                    placeholder={t('upload:slide.titlePlaceholder')}
                     className="h-11 text-base"
                   />
                 </div>
@@ -881,16 +910,16 @@ export default function LectureUpload() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                    Content
+                    {t('upload:slide.contentLabel')}
                   </Label>
                   <Textarea
                     value={activeSlide.content}
                     onChange={(e) => updateSlide(activeSlideIndex, 'content', e.target.value)}
-                    placeholder="Write the main content for this slide..."
+                    placeholder={t('upload:slide.contentPlaceholder')}
                     className="min-h-[160px] resize-y text-base leading-relaxed"
                   />
                   <p className="text-xs text-muted-foreground">
-                    {activeSlide.content.length} characters
+                    {t('upload:chrome.characters', { count: activeSlide.content.length })}
                   </p>
                 </div>
 
@@ -898,7 +927,7 @@ export default function LectureUpload() {
                 <div className="flex flex-wrap gap-3 p-4 rounded-xl bg-gradient-to-r from-violet-50/80 to-indigo-50/80 dark:from-violet-950/20 dark:to-indigo-950/20 border border-violet-100 dark:border-violet-800/30">
                   <div className="flex items-center gap-2 text-sm text-violet-800 dark:text-violet-300 font-medium">
                     <Zap className="w-4 h-4" />
-                    AI Assistant
+                    {t('upload:chrome.aiAssistant')}
                   </div>
                   <div className="flex-1" />
                   <AIActionButton
@@ -906,14 +935,14 @@ export default function LectureUpload() {
                     loading={isAiLoading(activeSlideIndex, 'summary')}
                     variant="subtle"
                   >
-                    Generate Summary
+                    {t('upload:actions.generateSummary')}
                   </AIActionButton>
                   <AIActionButton
                     onClick={() => handleGenerateQuiz(activeSlideIndex)}
                     loading={isAiLoading(activeSlideIndex, 'quiz')}
                     variant="subtle"
                   >
-                    Generate Quiz
+                    {t('upload:actions.generateQuiz')}
                   </AIActionButton>
                 </div>
 
@@ -921,17 +950,17 @@ export default function LectureUpload() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    Summary
+                    {t('upload:slide.summaryLabel')}
                     {activeSlide.summary && (
                       <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
-                        AI Generated
+                        {t('upload:chrome.aiGenerated')}
                       </span>
                     )}
                   </Label>
                   <Textarea
                     value={activeSlide.summary}
                     onChange={(e) => updateSlide(activeSlideIndex, 'summary', e.target.value)}
-                    placeholder="Key takeaways from this slide (or use AI to generate)..."
+                    placeholder={t('upload:slide.summaryPlaceholder')}
                     className="min-h-[100px] resize-y bg-amber-50/30 dark:bg-amber-950/10 border-amber-200/50 dark:border-amber-800/30 focus:border-amber-400"
                     rows={3}
                   />
@@ -942,11 +971,11 @@ export default function LectureUpload() {
                   <div className="flex items-center gap-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <ListChecks className="w-3.5 h-3.5 text-emerald-500" />
-                      Quiz Questions
+                      {t('upload:slide.quizLabel')}
                     </Label>
                     {activeSlide.questions[0]?.question && (
                       <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
-                        Configured
+                        {t('upload:chrome.configured')}
                       </span>
                     )}
                   </div>
@@ -974,11 +1003,11 @@ export default function LectureUpload() {
                     className="gap-2"
                   >
                     <ChevronLeft className="w-4 h-4" />
-                    Previous Slide
+                    {t('common:actions.back')}
                   </Button>
 
                   <span className="text-xs text-muted-foreground">
-                    Slide {activeSlideIndex + 1} of {totalSlides}
+                    {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })} / {totalSlides}
                   </span>
 
                   <Button
@@ -988,7 +1017,7 @@ export default function LectureUpload() {
                     disabled={activeSlideIndex === totalSlides - 1}
                     className="gap-2"
                   >
-                    Next Slide
+                    {t('common:actions.next')}
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -1011,7 +1040,7 @@ export default function LectureUpload() {
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    Live Preview
+                    {t('upload:chrome.livePreview')}
                   </span>
                 </div>
                 <Button
@@ -1047,7 +1076,7 @@ export default function LectureUpload() {
                         animate={{ opacity: 1, x: 0 }}
                         className="text-2xl font-black text-foreground tracking-tight leading-none"
                       >
-                        {activeSlide.title || "Untitled Slide"}
+                        {activeSlide.title || t('upload:slide.untitledSlide')}
                       </motion.h1>
                       <div className="h-1 w-12 bg-violet-500 rounded-full" />
                     </div>
@@ -1068,7 +1097,7 @@ export default function LectureUpload() {
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full opacity-30 italic">
                           <LayoutTemplate className="w-8 h-8 mb-2" />
-                          No content to preview
+                          {t('upload:chrome.noContentPreview')}
                         </div>
                       )}
                     </motion.div>
@@ -1076,11 +1105,11 @@ export default function LectureUpload() {
                     {/* Quick Stats Overlay */}
                     <div className="mt-auto pt-4 flex gap-3">
                       <div className="px-2 py-1 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[10px] font-bold uppercase tracking-wider">
-                        Slide {activeSlideIndex + 1}
+                        {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })}
                       </div>
                       {activeSlide.questions[0]?.question && (
                         <div className="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Quiz Included
+                          <CheckCircle2 className="w-3 h-3" /> {t('upload:chrome.quizIncluded')}
                         </div>
                       )}
                     </div>
@@ -1091,11 +1120,11 @@ export default function LectureUpload() {
                 <div className="mt-8 space-y-3">
                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
                     <Sparkles className="w-3 h-3 text-amber-500" />
-                    Key Takeaway
+                    {t('upload:chrome.keyTakeaway')}
                   </h4>
                   <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-800/30">
                     <p className="text-xs text-amber-800 dark:text-amber-200 italic leading-relaxed">
-                      {activeSlide.summary || "Summary will appear here..."}
+                      {activeSlide.summary || t('upload:chrome.summaryWillAppear')}
                     </p>
                   </div>
                 </div>
@@ -1118,10 +1147,10 @@ export default function LectureUpload() {
             <header className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
               <div className="flex items-center gap-4">
                 <div className="px-3 py-1 bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[10px] font-black uppercase tracking-widest rounded-full">
-                  Student View Preview
+                  {t('upload:chrome.studentViewPreview')}
                 </div>
                 <h3 className="font-bold text-sm truncate max-w-md">
-                  {title || "Untitled Lecture"}
+                  {title || t('upload:chrome.untitledLecture')}
                 </h3>
               </div>
               <Button
@@ -1131,7 +1160,7 @@ export default function LectureUpload() {
                 className="gap-2"
               >
                 <X className="w-4 h-4" />
-                Exit Preview
+                {t('upload:actions.exitPreview')}
               </Button>
             </header>
 
@@ -1140,7 +1169,7 @@ export default function LectureUpload() {
               {/* Sidebar */}
               <div className="w-64 border-r border-border bg-muted/20 flex flex-col hidden md:flex">
                 <div className="p-4 border-b border-border text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Lecture Contents
+                  {t('upload:chrome.lectureContents')}
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
                   {slides.map((s, i) => (
@@ -1154,7 +1183,7 @@ export default function LectureUpload() {
                     >
                       <div className="flex items-center gap-2">
                         <span className="opacity-50">{i + 1}</span>
-                        <span className="truncate">{s.title || `Slide ${i + 1}`}</span>
+                        <span className="truncate">{s.title || t('upload:slideFallback', { number: i + 1 })}</span>
                       </div>
                     </div>
                   ))}
@@ -1170,7 +1199,7 @@ export default function LectureUpload() {
                         <div className="flex items-center gap-2">
                           <div className="h-1 w-12 bg-violet-600 rounded-full" />
                           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-600">
-                            Slide {activeSlideIndex + 1}
+                            {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })}
                           </span>
                         </div>
                         <h2 className="text-4xl font-black text-foreground tracking-tight leading-tight">
@@ -1191,7 +1220,7 @@ export default function LectureUpload() {
                         <div className="flex items-center gap-2 mb-6">
                           <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                           <span className="text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-                            Practice Quiz
+                            {t('upload:chrome.practiceQuiz')}
                           </span>
                         </div>
                         <div className="space-y-6">
@@ -1221,17 +1250,17 @@ export default function LectureUpload() {
                       disabled={activeSlideIndex === 0}
                       className="rounded-xl px-8"
                     >
-                      <ChevronLeft className="mr-2 h-4 w-4" /> Previous
+                      <ChevronLeft className="mr-2 h-4 w-4" /> {t('common:actions.back')}
                     </Button>
                     <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                      Slide {activeSlideIndex + 1} of {slides.length}
+                      {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })} / {slides.length}
                     </span>
                     <Button
                       onClick={handleNextSlide}
                       disabled={activeSlideIndex === slides.length - 1}
                       className="rounded-xl px-8 bg-violet-600 hover:bg-violet-700 text-white border-none"
                     >
-                      Next <ChevronRight className="ml-2 h-4 w-4" />
+                      {t('common:actions.next')} <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -1273,6 +1302,8 @@ export default function LectureUpload() {
         uploadStatus={uploadStatus}
         processedSlides={processedSlides}
         parserUsed={parserUsed}
+        parsePhase={parsePhase}
+        parseCompleted={parseCompleted}
         onClose={closeUploadOverlay}
       />
     </div>

@@ -1,0 +1,55 @@
+{
+  "imprint": {
+    "title": "Impressum",
+    "section5": "Angaben gemäß § 5 TMG",
+    "addressLines": "[Vor- und Nachname / Firmenname]\n[Straße und Hausnummer]\n[PLZ und Ort]\nDeutschland",
+    "contact": "Kontakt",
+    "email": "E-Mail",
+    "responsible": "Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV",
+    "responsibleAddress": "[Vor- und Nachname]\n[Straße und Hausnummer]\n[PLZ und Ort]",
+    "disclaimer": "Haftungsausschluss",
+    "liability": "Haftung für Inhalte",
+    "liabilityBody": "Die Inhalte unserer Seiten wurden mit größter Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte können wir jedoch keine Gewähr übernehmen.",
+    "backHome": "← Zurück zur Startseite"
+  },
+  "privacy": {
+    "title": "Datenschutzerklärung",
+    "lastUpdated": "Stand: März 2026",
+    "section1Title": "1. Verantwortlicher",
+    "section1Body": "[Vor- und Nachname]\n[Straße und Hausnummer]\n[PLZ und Ort]\nE-Mail:",
+    "section2Title": "2. Welche Daten wir erheben",
+    "section2Intro": "Wenn Sie Learnstation nutzen, verarbeiten wir folgende personenbezogene Daten:",
+    "section2Items": [
+      "<bold>Kontodaten:</bold> E-Mail-Adresse, Passwort (verschlüsselt gespeichert), vollständiger Name (optional), Avatar-URL.",
+      "<bold>Lernfortschritt:</bold> Abgeschlossene Folien, Quizergebnisse, XP-Punkte, Level, Streaks und Auszeichnungen.",
+      "<bold>Lern-Events:</bold> Betrachtungsdauer von Folien, Quizantworten mit Zeitstempel und Selbsteinschätzung des Verständnisses.",
+      "<bold>Nutzungsdaten:</bold> Browser-Typ (nur über Supabase-Standard-Logs)."
+    ],
+    "section3Title": "3. Zweck und Rechtsgrundlage",
+    "section3Items": [
+      "<bold>Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO):</bold> Kontodaten und Lernfortschritt sind erforderlich, um die Kernfunktionalität der Plattform bereitzustellen.",
+      "<bold>Berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO):</bold> Lern-Events werden zur Verbesserung der Lehre und Identifizierung schwieriger Inhalte durch Dozenten erhoben."
+    ],
+    "section4Title": "4. Auftragsverarbeiter",
+    "section4Items": [
+      "<bold>Supabase Inc.</bold> — Authentifizierung, Datenbank und Dateispeicherung. Datenspeicherung auf Servern in der EU (je nach Projektkonfiguration).",
+      "<bold>Ollama (lokal)</bold> — KI-gestützte Zusammenfassungen und Quizfragen werden lokal auf dem Server verarbeitet. Es werden keine Daten an externe KI-Dienste gesendet."
+    ],
+    "section5Title": "5. Speicherdauer",
+    "section5Body": "Ihre Daten werden so lange gespeichert, wie Ihr Konto aktiv ist. Nach Löschung des Kontos werden alle personenbezogenen Daten innerhalb von 30 Tagen gelöscht.",
+    "section6Title": "6. Ihre Rechte",
+    "section6Intro": "Nach der DSGVO haben Sie folgende Rechte:",
+    "section6Items": [
+      "<bold>Auskunftsrecht (Art. 15):</bold> Sie können erfahren, welche Daten wir über Sie gespeichert haben.",
+      "<bold>Recht auf Löschung (Art. 17):</bold> Sie können Ihr Konto und alle zugehörigen Daten in den Einstellungen löschen.",
+      "<bold>Recht auf Datenübertragbarkeit (Art. 20):</bold> Sie können Ihre Daten als JSON-Datei in den Einstellungen exportieren.",
+      "<bold>Widerspruchsrecht (Art. 21):</bold> Sie können der Verarbeitung Ihrer Daten jederzeit widersprechen.",
+      "<bold>Beschwerderecht:</bold> Sie haben das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren."
+    ],
+    "section7Title": "7. Cookies und lokale Speicherung",
+    "section7Body": "Learnstation verwendet <bold>keine Tracking-Cookies</bold> und keine Drittanbieter-Analyse-Tools (kein Google Analytics, kein Facebook Pixel). Zur Sitzungsverwaltung wird ausschließlich der lokale Speicher des Browsers (localStorage) verwendet.",
+    "section8Title": "8. Drittlandübermittlung",
+    "section8Body": "Supabase kann Daten auf Servern in den USA verarbeiten. In diesem Fall gelten die EU-Standardvertragsklauseln (SCCs) als Schutzgarantie gemäß Art. 46 DSGVO.",
+    "backHome": "← Zurück zur Startseite"
+  }
+}
