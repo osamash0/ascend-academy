@@ -151,6 +151,78 @@ class TestAskEndpointOwnership:
         assert r.status_code == 400
 
 
+class TestAskEndpointSeededExecutors:
+    """End-to-end tests that exercise the real intent executors (only the
+    LLM classifier is stubbed) against seeded supabase data — locks the
+    answer shape for canonical example questions over time."""
+
+    def _setup(self, app, patch_supabase, professor_user, monkeypatch, intent: str, params=None):
+        _seed_lecture(patch_supabase, "L1", professor_user.id)
+
+        async def fake_classify(question, ai_model="cerebras"):
+            return {"intent": intent, "params": params or {}}
+        monkeypatch.setattr("backend.services.ai.ask_data.classify_intent", fake_classify)
+
+        # Skip cache so seeded rows are read fresh.
+        from backend.services import analytics_cache
+        monkeypatch.setattr(analytics_cache, "get_or_compute",
+                            lambda lecture_id, kind, fn, force_refresh=False: fn())
+
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        app.dependency_overrides[require_professor] = lambda: professor_user
+        return TestClient(app)
+
+    def test_completion_count_against_seeded_data(self, app, patch_supabase, professor_user, monkeypatch):
+        client = self._setup(app, patch_supabase, professor_user, monkeypatch, "completion_count")
+        patch_supabase.seed("student_progress", [
+            {"user_id": "u1", "lecture_id": "L1", "completed_at": "2026-01-02", "quiz_score": 80},
+            {"user_id": "u2", "lecture_id": "L1", "completed_at": "2026-01-02", "quiz_score": 60},
+            {"user_id": "u3", "lecture_id": "L1", "completed_at": None, "quiz_score": 0},
+        ])
+
+        r = client.post(
+            "/api/analytics/lecture/L1/ask",
+            json={"question": "How many students finished the lecture?"},
+            headers={"Authorization": "Bearer fake-token"},
+        )
+        assert r.status_code == 200
+        data = r.json()["data"]
+        assert data["intent"] == "completion_count"
+        # 2 of 3 students completed → answer text reports both numbers.
+        assert "2" in data["answer_text"] and "3" in data["answer_text"]
+        metrics = {row["metric"]: row["value"] for row in data["table"]}
+        assert metrics["Students started"] == 3
+        assert metrics["Students completed"] == 2
+
+    def test_struggling_students_against_seeded_data(self, app, patch_supabase, professor_user, monkeypatch):
+        client = self._setup(
+            app, patch_supabase, professor_user, monkeypatch,
+            "struggling_students", params={"max_accuracy_percent": 40},
+        )
+        # Stub get_student_performance directly — the underlying analytics
+        # call assembles data from many tables; we just need the executor
+        # to receive a realistic shape so we can assert filtering behavior.
+        from backend.services import analytics_service
+        monkeypatch.setattr(analytics_service, "get_student_performance",
+                            lambda lecture_id, token: [
+                                {"student_id": "u1", "student_name": "Alice", "quiz_score": 25, "progress_percentage": 80},
+                                {"student_id": "u2", "student_name": "Bob",   "quiz_score": 75, "progress_percentage": 90},
+                                {"student_id": "u3", "student_name": "Cara",  "quiz_score": 39, "progress_percentage": 60},
+                            ])
+
+        r = client.post(
+            "/api/analytics/lecture/L1/ask",
+            json={"question": "Show me students whose quiz accuracy is below 40%"},
+            headers={"Authorization": "Bearer fake-token"},
+        )
+        assert r.status_code == 200
+        data = r.json()["data"]
+        assert data["intent"] == "struggling_students"
+        names = {row["student"] for row in data["table"]}
+        assert names == {"Alice", "Cara"}, f"unexpected filtered set: {names}"
+        assert "2 student" in data["answer_text"]
+
+
 class TestAskRateLimitKey:
     def test_key_derives_from_bearer_token(self):
         from backend.api.analytics import _ask_rate_limit_key
