@@ -39,6 +39,31 @@
     "accuracy": "Accuracy: {{percent}}%",
     "continueButton": "Continue"
   },
+  "chrome": {
+    "reviewMissed": "Review missed questions",
+    "reviewProgress": "{{current}} of {{total}} · second attempt",
+    "knowledgeCheck": "Knowledge Check",
+    "quizFallback": "Quiz",
+    "slideFallback": "Lecture Slide",
+    "readSlideHint": "Read through the slide and click \"Next\" to answer a quiz question about the content.",
+    "exitLecture": "Exit Lecture",
+    "uncategorized": "Uncategorized",
+    "lectureLoading": "Loading...",
+    "slideView": "Slide View",
+    "sourcePdf": "Source PDF"
+  },
+  "toasts": {
+    "notFoundTitle": "Not Found",
+    "notFoundDescription": "Lecture not found or error loading data.",
+    "errorTitle": "Error",
+    "systemError": "A system error occurred.",
+    "lectureCompleteTitle": "Lecture Complete! 🎉",
+    "lectureCompleteDescription": "You earned {{xp}} XP and got {{correct}}/{{total}} correct!",
+    "mindMapErrorTitle": "Generation Failed",
+    "mindMapErrorDescription": "Could not generate mind map. Check your AI configuration.",
+    "mindMapSuccessTitle": "Mind Map Generated",
+    "mindMapSuccessDescription": "The knowledge tree has been successfully constructed."
+  },
   "regenerate": {
     "button": "Re-analyze slide",
     "loading": "Re-analyzing...",

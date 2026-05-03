@@ -14,7 +14,33 @@
     "title": "Start Building Your Lecture",
     "description": "Create slides from scratch or import a PDF to auto-generate structured content with AI-powered summaries and quizzes.",
     "createFirstSlide": "Create First Slide",
-    "importPdf": "Import PDF"
+    "importPdf": "Import PDF",
+    "uncategorized": "Uncategorized",
+    "courseLabel": "Course"
+  },
+  "chrome": {
+    "backToDashboard": "Back to Dashboard",
+    "complete": "complete",
+    "slides": "Slides ({{count}})",
+    "addNewSlide": "Add New Slide",
+    "addSlideAfter": "Add slide after current",
+    "slideEditor": "Slide Editor",
+    "aiAssistant": "AI Assistant",
+    "aiGenerated": "AI Generated",
+    "configured": "Configured",
+    "characters": "{{count}} characters",
+    "insertAfter": "Insert After",
+    "previewClose": "Close Preview",
+    "previewOpen": "Preview",
+    "livePreview": "Live Preview",
+    "noContentPreview": "No content to preview",
+    "quizIncluded": "Quiz Included",
+    "keyTakeaway": "Key Takeaway",
+    "summaryWillAppear": "Summary will appear here...",
+    "studentViewPreview": "Student View Preview",
+    "untitledLecture": "Untitled Lecture",
+    "lectureContents": "Lecture Contents",
+    "practiceQuiz": "Practice Quiz"
   },
   "actions": {
     "addSlide": "Add Slide",
@@ -25,7 +51,9 @@
     "generateSummary": "Generate Summary",
     "generateQuiz": "Generate Quiz",
     "generateTitle": "Generate Title",
-    "generateContent": "Generate Content"
+    "generateContent": "Generate Content",
+    "preview": "Preview",
+    "exitPreview": "Exit Preview"
   },
   "slide": {
     "titleLabel": "Slide Title",
@@ -41,7 +69,10 @@
     "answerOptions": "Answer Options",
     "answerHelp": "click to mark correct",
     "answerHint": "Click any option card to mark it as the correct answer",
-    "optionPlaceholder": "Option {{label}}"
+    "optionPlaceholder": "Option {{label}}",
+    "slideNumber": "Slide {{number}}",
+    "untitledSlide": "Untitled Slide",
+    "noSlides": "No slides yet"
   },
   "upload": {
     "uploading": "Uploading PDF...",
@@ -61,6 +92,7 @@
     "saved": "Lecture saved",
     "savedDescription": "Your lecture has been saved successfully.",
     "saveError": "Failed to save lecture",
-    "exitConfirm": "You have unsaved changes. Are you sure you want to exit? All progress will be lost."
+    "exitConfirm": "You have unsaved changes. Are you sure you want to exit? All progress will be lost.",
+    "deleteSlideConfirm": "Delete this slide? This cannot be undone."
   }
 }

@@ -5,16 +5,42 @@
     "exit": "Beenden"
   },
   "form": {
-    "titleLabel": "Vorlesungstitel",
+    "titleLabel": "Titel der Vorlesung",
     "titlePlaceholder": "z. B. Einführung in maschinelles Lernen",
     "descriptionLabel": "Beschreibung",
     "descriptionPlaceholder": "Beschreibe, was die Studierenden lernen werden..."
   },
   "empty": {
     "title": "Beginne mit dem Aufbau deiner Vorlesung",
-    "description": "Erstelle Folien von Grund auf oder importiere eine PDF, um strukturierte Inhalte mit KI-Zusammenfassungen und Quizzen zu erzeugen.",
+    "description": "Erstelle Folien von Grund auf oder importiere ein PDF, um strukturierte Inhalte mit KI-Zusammenfassungen und Quizzes automatisch zu erzeugen.",
     "createFirstSlide": "Erste Folie erstellen",
-    "importPdf": "PDF importieren"
+    "importPdf": "PDF importieren",
+    "uncategorized": "Nicht kategorisiert",
+    "courseLabel": "Kurs"
+  },
+  "chrome": {
+    "backToDashboard": "Zurück zum Dashboard",
+    "complete": "abgeschlossen",
+    "slides": "Folien ({{count}})",
+    "addNewSlide": "Neue Folie hinzufügen",
+    "addSlideAfter": "Folie nach der aktuellen einfügen",
+    "slideEditor": "Folien-Editor",
+    "aiAssistant": "KI-Assistent",
+    "aiGenerated": "KI-generiert",
+    "configured": "Konfiguriert",
+    "characters": "{{count}} Zeichen",
+    "insertAfter": "Danach einfügen",
+    "previewClose": "Vorschau schließen",
+    "previewOpen": "Vorschau",
+    "livePreview": "Live-Vorschau",
+    "noContentPreview": "Kein Inhalt für die Vorschau",
+    "quizIncluded": "Quiz enthalten",
+    "keyTakeaway": "Wichtigste Erkenntnis",
+    "summaryWillAppear": "Hier erscheint die Zusammenfassung...",
+    "studentViewPreview": "Studierenden-Vorschau",
+    "untitledLecture": "Unbenannte Vorlesung",
+    "lectureContents": "Vorlesungsinhalt",
+    "practiceQuiz": "Übungs-Quiz"
   },
   "actions": {
     "addSlide": "Folie hinzufügen",
@@ -25,42 +51,48 @@
     "generateSummary": "Zusammenfassung generieren",
     "generateQuiz": "Quiz generieren",
     "generateTitle": "Titel generieren",
-    "generateContent": "Inhalt generieren"
+    "generateContent": "Inhalt generieren",
+    "preview": "Vorschau",
+    "exitPreview": "Vorschau beenden"
   },
   "slide": {
     "titleLabel": "Folientitel",
-    "titlePlaceholder": "Gib einen klaren, prägnanten Titel ein",
+    "titlePlaceholder": "Gib einen klaren, knappen Titel ein",
     "contentLabel": "Folieninhalt",
     "contentPlaceholder": "Schreibe den Hauptinhalt dieser Folie...",
     "summaryLabel": "KI-Zusammenfassung",
-    "summaryPlaceholder": "Eine kurze Zusammenfassung erscheint hier, oder klicke auf Zusammenfassung generieren.",
-    "quizLabel": "Quizfragen",
+    "summaryPlaceholder": "Hier erscheint eine kurze Zusammenfassung, oder klicke auf „Zusammenfassung generieren\".",
+    "quizLabel": "Quiz-Fragen",
     "addQuestion": "Frage hinzufügen",
     "questionLabel": "Frage",
     "questionPlaceholder": "Schreibe eine Verständnisfrage zu dieser Folie...",
     "answerOptions": "Antwortmöglichkeiten",
-    "answerHelp": "klicken, um als richtig zu markieren",
-    "answerHint": "Klicke auf eine Antwortkarte, um sie als richtige Antwort zu markieren",
-    "optionPlaceholder": "Option {{label}}"
+    "answerHelp": "anklicken, um als richtig zu markieren",
+    "answerHint": "Klicke auf eine Optionskarte, um sie als richtige Antwort zu markieren",
+    "optionPlaceholder": "Option {{label}}",
+    "slideNumber": "Folie {{number}}",
+    "untitledSlide": "Unbenannte Folie",
+    "noSlides": "Noch keine Folien"
   },
   "upload": {
     "uploading": "PDF wird hochgeladen...",
     "processing": "Folien werden verarbeitet ({{current}} von {{total}})...",
     "phaseExtracting": "Text wird extrahiert",
     "phaseAnalyzing": "Inhalt wird analysiert",
-    "phaseQuizzing": "Quizze werden erstellt",
+    "phaseQuizzing": "Quizze werden generiert",
     "phaseFinalizing": "Wird abgeschlossen",
     "completed": "Upload abgeschlossen",
     "close": "Schließen",
-    "duplicateTitle": "Diese PDF kennen wir schon",
-    "duplicateDescription": "Öffne die bestehende Vorlesung oder lade sie als neue hoch.",
-    "useExisting": "Bestehende öffnen",
+    "duplicateTitle": "Wir kennen dieses PDF bereits",
+    "duplicateDescription": "Öffne die vorhandene Vorlesung oder lade als neue hoch.",
+    "useExisting": "Vorhandene öffnen",
     "uploadAsNew": "Als neue hochladen"
   },
   "toasts": {
     "saved": "Vorlesung gespeichert",
     "savedDescription": "Deine Vorlesung wurde erfolgreich gespeichert.",
     "saveError": "Vorlesung konnte nicht gespeichert werden",
-    "exitConfirm": "Du hast nicht gespeicherte Änderungen. Möchtest du wirklich beenden? Der Fortschritt geht verloren."
+    "exitConfirm": "Du hast ungespeicherte Änderungen. Möchtest du wirklich beenden? Alle Fortschritte gehen verloren.",
+    "deleteSlideConfirm": "Diese Folie löschen? Dies kann nicht rückgängig gemacht werden."
   }
 }

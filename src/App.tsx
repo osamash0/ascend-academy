@@ -6,8 +6,14 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { useLanguagePreference } from "@/hooks/useLanguagePreference";
 
 import { lazy, Suspense, Component, type ReactNode } from "react";
+
+function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
+  useLanguagePreference();
+  return <>{children}</>;
+}
 
 class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
@@ -279,7 +285,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
-              <AppRoutes />
+              <LanguagePreferenceBootstrap>
+                <AppRoutes />
+              </LanguagePreferenceBootstrap>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>

@@ -172,7 +172,7 @@ export default function LectureView() {
     try {
       const lectureData = await fetchLecture(currentLectureId);
       if (!lectureData) {
-        toast({ title: 'Not Found', description: 'Lecture not found or error loading data.', variant: 'destructive' });
+        toast({ title: t('lecture:toasts.notFoundTitle'), description: t('lecture:toasts.notFoundDescription'), variant: 'destructive' });
         navigate('/dashboard');
         return;
       }
@@ -304,7 +304,7 @@ export default function LectureView() {
     setLoading(false);
     } catch (err) {
       console.error('Fatal error in fetchLectureData:', err);
-      toast({ title: 'Error', description: 'A system error occurred.', variant: 'destructive' });
+      toast({ title: t('lecture:toasts.errorTitle'), description: t('lecture:toasts.systemError'), variant: 'destructive' });
       setLoading(false);
     }
   };
@@ -323,9 +323,9 @@ export default function LectureView() {
           ? { ...s, title: updated.title, content_text: updated.content_text, summary: updated.summary }
           : s
       ));
-      toast({ title: 'Slide re-analyzed', description: 'AI content has been updated using vision analysis.' });
+      toast({ title: t('lecture:regenerate.success'), description: t('lecture:regenerate.successDescription') });
     } catch (err: any) {
-      toast({ title: 'Re-analysis failed', description: err.message || 'Could not regenerate content.', variant: 'destructive' });
+      toast({ title: t('lecture:regenerate.failure'), description: err.message || t('lecture:regenerate.failureDescription'), variant: 'destructive' });
     } finally {
       setIsRegeneratingContent(false);
     }
@@ -690,8 +690,8 @@ export default function LectureView() {
     }
 
     toast({
-      title: 'Lecture Complete! 🎉',
-      description: `You earned ${xpEarned} XP and got ${correctAnswers}/${questions.length || slides.length} correct!`,
+      title: t('lecture:toasts.lectureCompleteTitle'),
+      description: t('lecture:toasts.lectureCompleteDescription', { xp: xpEarned, correct: correctAnswers, total: questions.length || slides.length }),
     });
 
     // The recap card now owns the "Back to dashboard" CTA — no auto-navigate
@@ -743,20 +743,20 @@ export default function LectureView() {
               size="icon"
               onClick={() => navigate('/dashboard')}
               className="rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
-              title="Exit Lecture"
+              title={t('lecture:chrome.exitLecture')}
             >
               <X className="w-5 h-5" />
             </Button>
             <div className="flex flex-col">
               <nav className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">
                 <span className="opacity-50 truncate max-w-[160px]">
-                  {(lecture as { course?: { title?: string } | null } | null)?.course?.title || 'Uncategorized'}
+                  {(lecture as { course?: { title?: string } | null } | null)?.course?.title || t('lecture:chrome.uncategorized')}
                 </span>
                 <span className="opacity-30">/</span>
-                <span className="truncate max-w-[200px]">{lecture?.title || 'Loading...'}</span>
+                <span className="truncate max-w-[200px]">{lecture?.title || t('lecture:chrome.lectureLoading')}</span>
               </nav>
               <h1 className="text-sm font-bold text-foreground truncate max-w-[300px]">
-                {currentSlide?.title || 'Slide View'}
+                {currentSlide?.title || t('lecture:chrome.slideView')}
               </h1>
             </div>
           </div>
@@ -782,7 +782,7 @@ export default function LectureView() {
                 className="hidden md:flex gap-2 rounded-xl px-4 text-muted-foreground hover:text-foreground hover:bg-white/5"
               >
                 <ExternalLink className="w-4 h-4" />
-                <span className="text-xs font-bold">Source PDF</span>
+                <span className="text-xs font-bold">{t('lecture:chrome.sourcePdf')}</span>
               </Button>
             )}
             
@@ -838,15 +838,15 @@ export default function LectureView() {
                         generateMindMap.mutate(aiModel, {
                           onError: (error: any) => {
                             toast({
-                              title: "Generation Failed",
-                              description: error.message || "Could not generate mind map. Check your AI configuration.",
+                              title: t('lecture:toasts.mindMapErrorTitle'),
+                              description: error.message || t('lecture:toasts.mindMapErrorDescription'),
                               variant: "destructive"
                             });
                           },
                           onSuccess: () => {
                             toast({
-                              title: "Mind Map Generated",
-                              description: "The knowledge tree has been successfully constructed.",
+                              title: t('lecture:toasts.mindMapSuccessTitle'),
+                              description: t('lecture:toasts.mindMapSuccessDescription'),
                             });
                           }
                         });
@@ -899,10 +899,10 @@ export default function LectureView() {
                         </div>
                         <div>
                           <h2 className="text-base font-bold text-foreground">
-                            Review missed questions
+                            {t('lecture:chrome.reviewMissed')}
                           </h2>
                           <p className="text-xs text-muted-foreground">
-                            {reviewIndex + 1} of {missedQueueRef.current.length} · second attempt
+                            {t('lecture:chrome.reviewProgress', { current: reviewIndex + 1, total: missedQueueRef.current.length })}
                           </p>
                         </div>
                       </div>
@@ -915,8 +915,8 @@ export default function LectureView() {
                         onContinue={handleReviewContinue}
                         continueLabel={
                           reviewIndex < missedQueueRef.current.length - 1
-                            ? 'Next question'
-                            : 'Finish lecture'
+                            ? t('lecture:navigation.next')
+                            : t('lecture:navigation.finishLecture')
                         }
                         questionNumber={reviewIndex + 1}
                         totalQuestions={missedQueueRef.current.length}
@@ -939,9 +939,9 @@ export default function LectureView() {
                         </div>
                         <div>
                           <h2 className="text-base font-bold text-foreground truncate max-w-[200px]">
-                            {currentSlide?.title || 'Quiz'}
+                            {currentSlide?.title || t('lecture:chrome.quizFallback')}
                           </h2>
-                          <p className="text-xs text-muted-foreground">Knowledge Check</p>
+                          <p className="text-xs text-muted-foreground">{t('lecture:chrome.knowledgeCheck')}</p>
                         </div>
                       </div>
                       <QuizCard
@@ -950,7 +950,7 @@ export default function LectureView() {
                         correctAnswer={currentQuestion.correct_answer}
                         onAnswer={handleQuizAnswer}
                         onContinue={handleQuizContinue}
-                        continueLabel={currentSlideIndex < slides.length - 1 ? 'Continue' : 'Finish lecture'}
+                        continueLabel={currentSlideIndex < slides.length - 1 ? t('lecture:navigation.continue') : t('lecture:navigation.finishLecture')}
                         questionNumber={currentSlideIndex + 1}
                         totalQuestions={slides.length}
                         initialSelectedAnswer={quizAnswers[currentSlideIndex]}
@@ -983,13 +983,13 @@ export default function LectureView() {
                           </div>
                           <div>
                             <h1 className="text-xl font-bold text-foreground">
-                              {currentSlide?.title || 'Lecture Slide'}
+                              {currentSlide?.title || t('lecture:chrome.slideFallback')}
                             </h1>
                           </div>
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mt-4">
-                        Read through the slide and click "Next" to answer a quiz question about the content.
+                        {t('lecture:chrome.readSlideHint')}
                       </p>
                     </motion.div>
                   )}
