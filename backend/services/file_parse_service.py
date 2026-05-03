@@ -9,7 +9,9 @@ Pass 1 — structural analysis (no LLM, no pixmap renders):
   - RoutingManifest built: TEXT / VISION / TABLE_LLM / TABLE_ODL / SKIP.
 
 Pass 2 — routed processing (skip already_done checkpoint):
-  - TEXT + TABLE_ODL: batched 12 at a time, max 2 concurrent batches (Semaphore).
+  - TEXT + TABLE_ODL: batched in overlapping windows
+    (`QUIZ_BATCH_SIZE` slides per call, last `QUIZ_BATCH_OVERLAP` reused as
+    read-only context in the next batch), max 2 concurrent batches (Semaphore).
   - VISION + TABLE_LLM: individual VLM calls, max 3 concurrent (Semaphore).
   - SKIP: yielded immediately as is_metadata=True, no LLM call.
   - OCR fallback: Tesseract injected for scanned slides when VLM unavailable.

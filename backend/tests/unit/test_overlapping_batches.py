@@ -291,11 +291,12 @@ class TestBatchAnalyzeContextOnly:
         assert by_idx[2].get("title") == "Slide 3"
 
     @pytest.mark.asyncio
-    async def test_llm_failure_returns_active_slides_only(self, monkeypatch):
-        slides = [
-            _slide(0, context_only=True),
-            _slide(1, "active"),
-        ]
+    async def test_llm_failure_raises_for_outer_per_slide_retry(self, monkeypatch):
+        # Contract: on LLM failure batch_analyze_text_slides RAISES so the
+        # caller (e.g. _process_text_batch_safe) can fall back to per-slide
+        # retry for active slides only. We used to swallow this and return
+        # parse_error rows, which silently skipped the retry path.
+        slides = [_slide(0, context_only=True), _slide(1, "active")]
 
         async def fake_call_llm(_fn):
             raise RuntimeError("boom")
@@ -304,6 +305,231 @@ class TestBatchAnalyzeContextOnly:
             "backend.services.llm_client.call_llm", fake_call_llm,
         )
 
-        results = await batch_analyze_text_slides(slides)
-        assert [r["index"] for r in results] == [1]
-        assert results[0]["parse_error"] == "boom"
+        with pytest.raises(RuntimeError, match="boom"):
+            await batch_analyze_text_slides(slides)
+
+    @pytest.mark.asyncio
+    async def test_unusable_json_raises_for_outer_per_slide_retry(self, monkeypatch):
+        slides = [_slide(0), _slide(1)]
+
+        async def fake_call_llm(fn):
+            return fn()
+
+        def fake_rotation(_prompt: str, _chain):
+            return "literally not json at all"
+
+        monkeypatch.setattr(
+            "backend.services.llm_client.call_llm", fake_call_llm,
+        )
+        monkeypatch.setattr(
+            "backend.services.ai.orchestrator._generate_with_rotation",
+            fake_rotation,
+        )
+
+        with pytest.raises(ValueError, match="unusable JSON"):
+            await batch_analyze_text_slides(slides)
+
+
+# ---------------------------------------------------------------------------
+# Cross-batch context regression: 8-slide "EM algorithm" scenario
+# ---------------------------------------------------------------------------
+
+class TestCrossBatchContextRegression:
+    """When a long sequence is handed to ``batch_analyze_text_slides``
+    without pre-chunking, internal overlapping windows must (a) emit a
+    prompt for the second batch that contains slide 5 as <context_only>
+    so slide 6's "this method" reference is grounded, and (b) produce
+    each slide exactly once with no duplicates."""
+
+    @pytest.mark.asyncio
+    async def test_8_slide_em_algorithm_window_carries_context(self, monkeypatch):
+        import json
+        # Slides 1..5 introduce the EM algorithm; slide 6 says "this method"
+        # back-referring to it. With batch_size=5/overlap=1, slide 5 should
+        # appear as <context_only> in the second window so the model has
+        # the EM definition when interpreting slide 6.
+        bodies = [
+            "Lecture intro: probabilistic models",
+            "Mixture models and latent variables",
+            "Maximum likelihood for mixtures",
+            "Introducing the EM algorithm",
+            "EM algorithm: E-step and M-step in detail",
+            "Convergence properties of this method",
+            "Applications of this method to clustering",
+            "Comparison with k-means",
+        ]
+        slides = [
+            {"index": i, "page_number": i + 1, "text": bodies[i]}
+            for i in range(8)
+        ]
+
+        prompts: List[str] = []
+
+        def _good_q(pn: int) -> Dict[str, Any]:
+            return {
+                "page_number": pn,
+                "title": f"T{pn}",
+                "content": f"c{pn}",
+                "summary": "s",
+                "questions": [{
+                    "question": f"Q{pn}?",
+                    "options": [
+                        "Correct concept-level statement here",
+                        "Wrong distractor about something else",
+                        "Another wrong distractor on a tangent",
+                        "Final unrelated wrong distractor",
+                    ],
+                    "answer": "A",
+                    "explanation": "Because the first option captures the concept.",
+                    "concept": "c",
+                    "cognitive_level": "apply",
+                }],
+            }
+
+        def fake_rotation(prompt: str, _chain):
+            prompts.append(prompt)
+            # Identify which window we're in by which page numbers appear
+            # OUTSIDE <context_only> blocks.
+            import re
+            ctx_blocks = re.findall(
+                r"<context_only>(.*?)</context_only>", prompt, re.DOTALL,
+            )
+            ctx_text = "\n".join(ctx_blocks)
+            active_pns = [
+                int(m.group(1)) for m in re.finditer(
+                    r"=== SLIDE (\d+) \(", prompt,
+                )
+                if f"=== SLIDE {m.group(1)} (" not in ctx_text
+            ]
+            return json.dumps([_good_q(pn) for pn in active_pns])
+
+        async def passthrough(fn):
+            return fn()
+
+        monkeypatch.setattr(
+            "backend.services.llm_client.call_llm", passthrough,
+        )
+        monkeypatch.setattr(
+            "backend.services.ai.orchestrator._generate_with_rotation",
+            fake_rotation,
+        )
+
+        results = await batch_analyze_text_slides(
+            slides, batch_size=5, context_overlap=1,
+        )
+
+        # Two windows for 8 slides at batch=5 / overlap=1.
+        assert len(prompts) == 2
+
+        # First prompt: no context block, slides 1..5.
+        assert "<context_only>" not in prompts[0]
+        for pn in range(1, 6):
+            assert f"=== SLIDE {pn} (" in prompts[0]
+
+        # Second prompt: slide 5 wrapped in <context_only>; slides 6..8
+        # active. The EM definition (slide 5 body) MUST be present so
+        # "this method" on slides 6/7 is grounded.
+        assert "<context_only>" in prompts[1]
+        assert "EM algorithm: E-step and M-step in detail" in prompts[1]
+        assert "Do NOT generate a question" in prompts[1]
+        for pn in (6, 7, 8):
+            assert f"=== SLIDE {pn} (" in prompts[1]
+
+        # Each slide produced exactly once, in order, with no duplicates.
+        out_indices = [r["index"] for r in results]
+        assert out_indices == list(range(8))
+
+
+# ---------------------------------------------------------------------------
+# _regenerate_failing_slide_quizzes still honours one-retry under windows
+# ---------------------------------------------------------------------------
+
+class TestPerSlideRegenWithOverlap:
+    @pytest.mark.asyncio
+    async def test_one_retry_per_window_under_overlapping_chunks(self, monkeypatch):
+        # 7 slides → with batch_size=5/overlap=1 we get 2 windows. Each
+        # window gets at most one regen call when any of its slides has a
+        # failing MCQ. So total LLM calls <= 2 * 2 = 4 (2 batches + up to
+        # 2 regens), never N per failing slide.
+        import json
+        slides = [
+            {"index": i, "page_number": i + 1, "text": f"body {i}"}
+            for i in range(7)
+        ]
+
+        def _bad_q(pn: int) -> Dict[str, Any]:
+            return {
+                "page_number": pn, "title": f"T{pn}", "content": "c",
+                "summary": "s",
+                "questions": [{
+                    "question": f"Q{pn}?",
+                    "options": ["dup", "dup", "x", "All of the above"],
+                    "answer": "D",
+                }],
+            }
+
+        def _good_q(pn: int) -> Dict[str, Any]:
+            return {
+                "page_number": pn, "title": f"T{pn}", "content": "c",
+                "summary": "s",
+                "questions": [{
+                    "question": f"Q{pn}?",
+                    "options": [
+                        "Correct option here",
+                        "First wrong option",
+                        "Second wrong option",
+                        "Third wrong option",
+                    ],
+                    "answer": "A",
+                    "explanation": "Because option A states the concept.",
+                    "concept": "c",
+                    "cognitive_level": "apply",
+                }],
+            }
+
+        prompts: List[str] = []
+
+        def fake_rotation(prompt: str, _chain):
+            prompts.append(prompt)
+            import re
+            is_regen = "regenerate" in prompt.lower()
+            ctx_blocks = re.findall(
+                r"<context_only>(.*?)</context_only>", prompt, re.DOTALL,
+            )
+            ctx_text = "\n".join(ctx_blocks)
+            active_pns = [
+                int(m.group(1)) for m in re.finditer(
+                    r"=== SLIDE (\d+)", prompt,
+                )
+                if f"=== SLIDE {m.group(1)}" not in ctx_text
+            ]
+            # First-time batches return BAD MCQs (so regen will fire);
+            # regen calls return GOOD ones.
+            maker = _good_q if is_regen else _bad_q
+            return json.dumps([maker(pn) for pn in active_pns])
+
+        async def passthrough(fn):
+            return fn()
+
+        monkeypatch.setattr(
+            "backend.services.llm_client.call_llm", passthrough,
+        )
+        monkeypatch.setattr(
+            "backend.services.ai.orchestrator._generate_with_rotation",
+            fake_rotation,
+        )
+
+        results = await batch_analyze_text_slides(
+            slides, batch_size=5, context_overlap=1,
+        )
+
+        # Bounded cost: at most 2 calls per window (initial + 1 regen).
+        # 2 windows → at most 4 LLM calls regardless of failure count.
+        assert len(prompts) <= 4
+        # Coverage: every slide produced exactly once.
+        assert sorted(r["index"] for r in results) == list(range(7))
+        # Each slide ended up with the regenerated good MCQ.
+        for r in results:
+            opts = r["questions"][0]["options"]
+            assert "All of the above" not in opts
+            assert opts[0] == "Correct option here"
