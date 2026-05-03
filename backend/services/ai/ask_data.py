@@ -133,7 +133,12 @@ JSON:"""
 
 
 async def classify_intent(question: str, ai_model: str = "cerebras") -> Dict[str, Any]:
-    """Return {intent, params}. Falls back to 'unknown' on parse failure."""
+    """Return {intent, params, _parse_failed?}. Falls back to 'unknown' on parse failure.
+
+    When the LLM returns malformed JSON twice we set ``_parse_failed=True``
+    so the caller can surface a distinct "couldn't understand" message
+    instead of the generic out-of-scope fallback.
+    """
     prompt = _build_classifier_prompt(question)
     for attempt in range(2):
         try:
@@ -146,7 +151,7 @@ async def classify_intent(question: str, ai_model: str = "cerebras") -> Dict[str
                 return {"intent": "unknown", "params": {}}
         except Exception as e:
             logger.warning("ask_data classify_intent attempt %d failed: %s", attempt + 1, e)
-    return {"intent": "unknown", "params": {}}
+    return {"intent": "unknown", "params": {}, "_parse_failed": True}
 
 
 # ── Param validation helpers ─────────────────────────────────────────────────
@@ -358,12 +363,19 @@ async def ask_lecture_data(
     params = classified.get("params") or {}
 
     if intent == "unknown" or intent not in _EXECUTORS:
+        if classified.get("_parse_failed"):
+            answer = (
+                "I couldn't understand that question. Try rephrasing it, "
+                "or pick one of the suggested questions below."
+            )
+        else:
+            answer = SAFE_FALLBACK_TEXT
         return {
             "intent": "unknown",
-            "answer_text": SAFE_FALLBACK_TEXT,
+            "answer_text": answer,
             "table": [],
             "chart": None,
-            "debug": {"classified_params": params},
+            "debug": {"classified_params": params, "parse_failed": bool(classified.get("_parse_failed"))},
         }
 
     try:
