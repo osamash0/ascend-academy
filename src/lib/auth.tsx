@@ -39,7 +39,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<UserRole>(null);
-  const [loading, setLoading] = useState(true);
+  // Two-phase loading. The auth context is only "ready" once BOTH the
+  // session check and (when a user is present) the role lookup have settled
+  // — success, failure, or timeout. Route guards key off the unified
+  // `loading` below so they never see `user` set but `role` still null,
+  // which is the race that causes student→/professor lockups and the
+  // professor login flash on the student dashboard.
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(false);
+  const loading = sessionLoading || roleLoading;
 
   const fetchProfile = async (userId: string): Promise<boolean> => {
     const { data: profileData, error } = await supabase
@@ -107,14 +115,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const isLoginEvent = event === 'INITIAL_SESSION' || event === 'SIGNED_IN';
             if (isLoginEvent && !hasFetchedProfile.current) {
               hasFetchedProfile.current = true;
-              const profilePromise = withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => true);
-              const rolePromise = withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
-              const hasProfile = await profilePromise;
-              if (!hasProfile) {
-                console.warn("User has session but no profile. Signing out.");
-                await signOut().catch(() => {});
-              } else {
-                await rolePromise;
+              setRoleLoading(true);
+              try {
+                const profilePromise = withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => true);
+                const rolePromise = withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
+                const hasProfile = await profilePromise;
+                if (!hasProfile) {
+                  console.warn("User has session but no profile. Signing out.");
+                  await signOut().catch(() => {});
+                } else {
+                  // Wait for role too. On timeout/error the catch above
+                  // resolves the promise; we then leave `role` as whatever
+                  // fetchRole managed to set (null if nothing), but mark the
+                  // lookup as resolved so guards stop spinning.
+                  await rolePromise;
+                }
+              } finally {
+                setRoleLoading(false);
               }
             }
           } else {
@@ -122,11 +139,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             hasFetchedProfile.current = false;
             setProfile(null);
             setRole(null);
+            setRoleLoading(false);
           }
         } catch (error: unknown) {
           console.error("Auth state change error:", error);
+          // Defensive: don't pin the UI on the spinner if the handler itself
+          // throws before reaching the role-loading finally above.
+          setRoleLoading(false);
         } finally {
-          setLoading(false);
+          setSessionLoading(false);
         }
       }
     );
