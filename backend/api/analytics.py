@@ -355,6 +355,51 @@ async def get_professor_overview(
         raise HTTPException(status_code=500, detail="Failed to load professor overview.")
 
 
+@router.post("/course/{course_id}/cache/refresh", response_model=AnalyticsResponse)
+async def refresh_course_analytics_cache(
+    course_id: str,
+    days: int = Query(7, ge=1, le=90),
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Force-invalidate the cached professor overview for a course.
+
+    Professor-only. Drops every ``professor_overview`` cache row for the
+    course, then warms the cache by recomputing the overview so the next
+    dashboard load is already populated. Returns the number of rows
+    dropped and whether the recompute succeeded.
+    """
+    await run_in_threadpool(_assert_course_owner, course_id, user.id)
+    try:
+        deleted = await run_in_threadpool(
+            analytics_cache.invalidate_course_overview, course_id
+        )
+        recomputed = False
+        try:
+            await run_in_threadpool(
+                analytics_service.get_professor_overview,
+                course_id,
+                days,
+                creds.credentials,
+            )
+            recomputed = True
+        except Exception as e:
+            logger.warning(
+                "Course cache refresh recompute failed (will lazy-fill): %s", e
+            )
+        return AnalyticsResponse(
+            success=True,
+            data={"invalidated_rows": deleted, "recomputed": recomputed},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Course cache refresh failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="Failed to refresh course analytics cache."
+        )
+
+
 @router.post("/lecture/{lecture_id}/cache/refresh", response_model=AnalyticsResponse)
 async def refresh_analytics_cache(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """Force-invalidate every cached analytics aggregate for a lecture.

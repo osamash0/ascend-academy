@@ -172,6 +172,52 @@ def test_overview_endpoint_recomputes_after_invalidation(app, patch_supabase, pr
     assert third["total_students"] == 2
 
 
+def test_invalidate_course_overview_only_drops_overview_rows(patch_supabase):
+    """Course-overview invalidation must not nuke unrelated cached views
+    that happen to share the lecture_id slot."""
+    # Pretend "C1" is both a course id (used for professor_overview) and
+    # — adversarially — also matches a per-lecture row keyed under L1.
+    analytics_cache.get_or_compute("C1", "professor_overview", lambda: {"v": 1})
+    analytics_cache.get_or_compute("C1", "overview", lambda: {"v": 2})  # not the course view
+    analytics_cache.get_or_compute("C2", "professor_overview", lambda: {"v": 3})
+
+    deleted = analytics_cache.invalidate_course_overview("C1")
+    assert deleted == 1
+
+    rows = patch_supabase.tables.get("analytics_cache", [])
+    # The lecture-style "overview" row for C1 must survive, only
+    # professor_overview/C1 is gone.
+    assert any(r["lecture_id"] == "C1" and r["view_name"] == "overview" for r in rows)
+    assert not any(
+        r["lecture_id"] == "C1" and r["view_name"] == "professor_overview"
+        for r in rows
+    )
+    # Other course's overview is untouched.
+    assert any(
+        r["lecture_id"] == "C2" and r["view_name"] == "professor_overview"
+        for r in rows
+    )
+
+
+def test_invalidate_course_overview_for_lecture_resolves_parent(patch_supabase):
+    patch_supabase.seed("lectures", [
+        {"id": "L1", "course_id": "C1"},
+        {"id": "L2", "course_id": None},
+    ])
+    analytics_cache.get_or_compute("C1", "professor_overview", lambda: {"v": 1})
+
+    # Lecture with course → drops the overview row.
+    assert analytics_cache.invalidate_course_overview_for_lecture("L1") == 1
+    assert patch_supabase.tables.get("analytics_cache", []) == []
+
+    # Lecture with no course → no-op, no error.
+    assert analytics_cache.invalidate_course_overview_for_lecture("L2") == 0
+    # Unknown lecture → no-op.
+    assert analytics_cache.invalidate_course_overview_for_lecture("missing") == 0
+    # Empty / None → no-op.
+    assert analytics_cache.invalidate_course_overview_for_lecture(None) == 0
+
+
 def test_refresh_endpoint_invalidates_and_responds(app, patch_supabase, professor_user):
     from fastapi.testclient import TestClient
     from backend.core.auth_middleware import verify_token

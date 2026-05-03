@@ -136,6 +136,71 @@ async def get_or_compute_async(
     return result
 
 
+def invalidate_course_overview(course_id: Optional[str]) -> int:
+    """Drop the cached ``professor_overview`` rows for ``course_id``.
+
+    The course-wide overview is stored in ``analytics_cache`` under the
+    ``lecture_id`` slot keyed by ``course_id`` (see
+    :func:`analytics_service.get_professor_overview`). We filter on both
+    that id and ``view_name='professor_overview'`` so we only ever clear
+    rows that belong to the course-overview view — never any per-lecture
+    aggregate that happens to share the slot.
+
+    Best-effort: failures are logged but never raised. Returns the number
+    of rows deleted (0 on error).
+    """
+    if not course_id:
+        return 0
+    try:
+        res = (
+            supabase_admin.table("analytics_cache")
+            .delete()
+            .eq("lecture_id", course_id)
+            .eq("view_name", "professor_overview")
+            .execute()
+        )
+        return res.count if getattr(res, "count", None) is not None else len(res.data or [])
+    except Exception as e:
+        logger.warning(
+            "analytics_cache invalidate_course_overview failed for %s: %s",
+            course_id,
+            e,
+        )
+        return 0
+
+
+def invalidate_course_overview_for_lecture(lecture_id: Optional[str]) -> int:
+    """Resolve the parent course of ``lecture_id`` and invalidate its overview.
+
+    Convenience wrapper for the mutation paths (slide edits, quiz
+    regeneration) that only know the lecture they touched. Looks up
+    ``lectures.course_id`` and forwards to :func:`invalidate_course_overview`.
+    Returns 0 when the lecture has no course assigned or on lookup error.
+    """
+    if not lecture_id:
+        return 0
+    try:
+        res = (
+            supabase_admin.table("lectures")
+            .select("course_id")
+            .eq("id", lecture_id)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        course_id = rows[0].get("course_id") if rows else None
+    except Exception as e:
+        logger.warning(
+            "analytics_cache course lookup failed for lecture %s: %s",
+            lecture_id,
+            e,
+        )
+        return 0
+    if not course_id:
+        return 0
+    return invalidate_course_overview(course_id)
+
+
 def invalidate(lecture_id: Optional[str]) -> int:
     """Drop every cached aggregate row for ``lecture_id``.
 

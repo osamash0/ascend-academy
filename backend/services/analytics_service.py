@@ -1010,10 +1010,13 @@ def get_professor_overview(
 ) -> Dict[str, Any]:
     """Course-wide aggregate for the professor dashboard (cached).
 
-    Cache key uses the course_id slot in `analytics_cache` so an existing
-    per-lecture invalidate (which only drops rows for one lecture_id) will
-    NOT clear it. Course-level invalidation can be added later as a
-    follow-up; for now the 5-minute TTL keeps stale data bounded.
+    Cache key reuses the ``analytics_cache.lecture_id`` slot but stores
+    the course id, paired with ``view_name='professor_overview'``. The
+    per-lecture ``invalidate(lecture_id)`` does NOT touch this row;
+    course-level invalidation flows through
+    :func:`analytics_cache.invalidate_course_overview` (called from the
+    backend mutation paths and the DB triggers on
+    ``lectures`` / ``slides`` / ``quiz_questions``).
     """
     return analytics_cache.get_or_compute(
         course_id,

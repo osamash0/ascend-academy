@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from backend.core.auth_middleware import require_professor
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
+from backend.services import analytics_cache
 from backend.services.ai_service import (
     enhance_slide_content,
     generate_deck_quiz,
@@ -173,6 +174,7 @@ async def regenerate_title_endpoint(
     except Exception as e:
         logger.error("Persist regenerated title failed: %s", e)
         raise HTTPException(status_code=500, detail="Saved title to nowhere.")
+    analytics_cache.invalidate_course_overview_for_lecture(slide.get("lecture_id"))
     return {"title": title}
 
 
@@ -203,6 +205,7 @@ async def rewrite_content_endpoint(
     except Exception as e:
         logger.error("Persist rewritten content failed: %s", e)
         raise HTTPException(status_code=500, detail="Could not save rewrite.")
+    analytics_cache.invalidate_course_overview_for_lecture(slide.get("lecture_id"))
     return {"content": new_content, "summary": new_summary or ""}
 
 
@@ -254,6 +257,7 @@ async def generate_slide_quiz_endpoint(
         logger.error("Persist generated slide quiz failed: %s", e)
         raise HTTPException(status_code=500, detail="Could not save quiz.")
     _mark_ai_enhanced(slide_id)
+    analytics_cache.invalidate_course_overview_for_lecture(slide.get("lecture_id"))
     return {"quiz": quiz}
 
 
@@ -356,4 +360,6 @@ async def generate_deck_quiz_endpoint(
             persisted += 1
         except Exception as e:
             logger.warning("Persist deck quiz item failed: %s", e)
+    if persisted:
+        analytics_cache.invalidate_course_overview_for_lecture(lecture_id)
     return {"quiz": quiz, "summary": summary, "persisted": persisted}

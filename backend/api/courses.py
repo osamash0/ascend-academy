@@ -28,6 +28,7 @@ from backend.core.auth_middleware import (
 )
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
+from backend.services import analytics_cache
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/courses", tags=["courses"])
@@ -388,6 +389,9 @@ async def delete_course(
                 supabase_admin.table("lectures").update(
                     {"course_id": reassign_to}
                 ).eq("course_id", course_id).execute()
+                # Lectures moved between courses → both overviews are stale.
+                analytics_cache.invalidate_course_overview(course_id)
+                analytics_cache.invalidate_course_overview(reassign_to)
             else:
                 raise HTTPException(
                     status_code=409,
@@ -427,9 +431,15 @@ async def assign_lecture(
             raise HTTPException(status_code=404, detail="Lecture not found.")
         if lecture["professor_id"] != uid:
             raise HTTPException(status_code=403, detail="You do not own this lecture.")
+        prev_course_id = lecture.get("course_id")
         supabase_admin.table("lectures").update({"course_id": course_id}).eq(
             "id", lecture_id
         ).execute()
+        # New course definitely changed; if the lecture was previously
+        # under another course, that overview is now stale too.
+        analytics_cache.invalidate_course_overview(course_id)
+        if prev_course_id and prev_course_id != course_id:
+            analytics_cache.invalidate_course_overview(prev_course_id)
         return {"course_id": course_id, "lecture_id": lecture_id}
 
     try:
@@ -467,6 +477,7 @@ async def unassign_lecture(
         supabase_admin.table("lectures").update({"course_id": None}).eq(
             "id", lecture_id
         ).execute()
+        analytics_cache.invalidate_course_overview(course_id)
 
     try:
         await run_in_threadpool(_unassign)

@@ -587,4 +587,5 @@ async def regenerate_slide_content(
             "metadata": metadata,
         }).execute()
 
+    analytics_cache.invalidate_course_overview_for_lecture(res.data.get("lecture_id"))
     return {"success": True, "analysis": analysis}
