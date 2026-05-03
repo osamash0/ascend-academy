@@ -46,6 +46,32 @@
     "savedDescription": "Deine Spracheinstellung wurde aktualisiert."
   },
   "ai": {
+    "models": {
+      "cerebras": {
+        "name": "Cerebras (empfohlen)",
+        "description": "Primäres Modell: GPT-OSS-120B auf Cerebras-Inferenz – extrem schnell, hochwertig und mit dem höchsten kostenlosen Tageskontingent aller Anbieter."
+      },
+      "groq": {
+        "name": "Groq (Llama 3.3 70B)",
+        "description": "Hochwertiges Cloud-LLM über Groq. Wird als erste Qualitäts-Alternative verwendet, wenn Cerebras nicht verfügbar ist."
+      },
+      "openrouter": {
+        "name": "OpenRouter (Llama 3.3 70B)",
+        "description": "Robuste Reserveoption über OpenRouter. Kostenloses Kontingent von 50 Anfragen/Tag; ideal als Backup, wenn andere Anbieter limitiert sind."
+      },
+      "cloudflare": {
+        "name": "Cloudflare Workers AI",
+        "description": "Robuste Reserveoption mit Llama 3.3 70B auf Cloudflare Workers AI. Großzügiges Free-Tier und globales Edge-Deployment."
+      },
+      "gemini-2.5-flash": {
+        "name": "Gemini",
+        "description": "Blitzschnelle Antworten mit Google AI Studio. Nützlich, wenn du gezielt Googles Modellverhalten nutzen möchtest."
+      },
+      "llama3": {
+        "name": "Llama 3 (lokal)",
+        "description": "Läuft lokal über Ollama. Komplett privat und offline, aber langsamer und nur verfügbar, wenn Ollama installiert ist."
+      }
+    },
     "title": "KI-Modell",
     "description": "Wähle, welches KI-Modell deinen Tutor und die Inhaltserstellung antreibt.",
     "saved": "KI-Modell aktualisiert",

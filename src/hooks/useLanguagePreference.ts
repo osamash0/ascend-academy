@@ -28,30 +28,56 @@ export function useLanguagePreference() {
   const appliedProfileLangRef = useRef<string | null>(null);
   const initialFallbackAppliedRef = useRef(false);
 
-  // Initial browser-language fallback (only when nothing is stored locally yet).
-  useEffect(() => {
-    if (initialFallbackAppliedRef.current) return;
-    initialFallbackAppliedRef.current = true;
-    if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    if (stored && isSupportedLanguage(stored)) return;
-    const browser = (navigator.language || 'en').toLowerCase();
-    const fallback: SupportedLanguage = browser.startsWith('de') ? 'de' : 'en';
-    if (i18n.language?.split('-')[0] !== fallback) {
-      void i18n.changeLanguage(fallback);
-    }
-  }, [i18n]);
-
-  // When the auth profile becomes available (or changes), prefer the
-  // server-stored language over the locally-detected one.
+  // Resolution priority (per spec):
+  //   1. Authenticated profile.preferred_language (when available)
+  //   2. localStorage (i18next-browser-languagedetector cache)
+  //   3. Browser language → 'de' if German, otherwise 'en'
+  //
+  // The profile effect runs first whenever a profile is present, so signed-in
+  // users always converge to their server-stored preference. The browser
+  // fallback only fires when there is no stored value AND no profile preference.
   useEffect(() => {
     if (!profile) return;
     const profileLang = profile.preferred_language ?? null;
     if (!isSupportedLanguage(profileLang)) return;
     if (appliedProfileLangRef.current === profileLang) return;
     appliedProfileLangRef.current = profileLang;
+    // Mark fallback as resolved so the browser-language effect cannot override.
+    initialFallbackAppliedRef.current = true;
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, profileLang);
+    }
     if (i18n.language?.split('-')[0] !== profileLang) {
       void i18n.changeLanguage(profileLang);
+    }
+  }, [profile, i18n]);
+
+  // Browser-language fallback — only when no stored value and no profile pref.
+  useEffect(() => {
+    if (initialFallbackAppliedRef.current) return;
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored && isSupportedLanguage(stored)) {
+      initialFallbackAppliedRef.current = true;
+      return;
+    }
+    // Defer the fallback while a profile is still loading to avoid flicker.
+    if (profile && !isSupportedLanguage(profile.preferred_language ?? null)) {
+      initialFallbackAppliedRef.current = true;
+    } else if (!profile) {
+      // No auth context — apply browser fallback now.
+      initialFallbackAppliedRef.current = true;
+      const browser = (navigator.language || 'en').toLowerCase();
+      const fallback: SupportedLanguage = browser.startsWith('de') ? 'de' : 'en';
+      if (i18n.language?.split('-')[0] !== fallback) {
+        void i18n.changeLanguage(fallback);
+      }
+      return;
+    }
+    const browser = (navigator.language || 'en').toLowerCase();
+    const fallback: SupportedLanguage = browser.startsWith('de') ? 'de' : 'en';
+    if (i18n.language?.split('-')[0] !== fallback) {
+      void i18n.changeLanguage(fallback);
     }
   }, [profile, i18n]);
 

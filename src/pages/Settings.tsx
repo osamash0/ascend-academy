@@ -45,37 +45,13 @@ const PRESET_AVATARS = [
     { url: 'https://api.dicebear.com/7.x/personas/svg?seed=Riley&backgroundColor=ffdfbf', label: 'Persona Riley' },
 ] as const;
 
-const AI_MODELS: { id: AiModelOption; name: string; description: string }[] = [
-    {
-        id: 'cerebras',
-        name: 'Cerebras (Recommended)',
-        description: 'Primary engine: GPT-OSS-120B on Cerebras inference — extremely fast, high quality, and the highest free-tier daily quota of any provider.'
-    },
-    {
-        id: 'groq',
-        name: 'Groq (Llama 3.3 70B)',
-        description: 'High-quality cloud LLM via Groq. Used as the first quality fallback when Cerebras is unavailable.'
-    },
-    {
-        id: 'openrouter',
-        name: 'OpenRouter (Llama 3.3 70B)',
-        description: 'Deep-resilience fallback via OpenRouter. Free tier of 50 req/day; ideal as a backup when other providers are rate-limited.'
-    },
-    {
-        id: 'cloudflare',
-        name: 'Cloudflare Workers AI',
-        description: 'Deep-resilience fallback running Llama 3.3 70B on Cloudflare Workers AI. Generous free tier and global edge deployment.'
-    },
-    {
-        id: 'gemini-2.5-flash',
-        name: 'Gemini',
-        description: 'Lightning-fast responses powered by Google AI Studio. Useful when you want Google\'s model behavior specifically.'
-    },
-    {
-        id: 'llama3',
-        name: 'Llama 3 (Local)',
-        description: 'Runs locally via Ollama. Completely private and offline, but slower and only available when Ollama is installed.'
-    },
+const AI_MODEL_IDS: AiModelOption[] = [
+    'cerebras',
+    'groq',
+    'openrouter',
+    'cloudflare',
+    'gemini-2.5-flash',
+    'llama3',
 ];
 
 // ─── Custom Hook: Safe Async State ───────────────────────────────────────────
@@ -797,7 +773,7 @@ function AiPreferencesSection() {
         setAiModel(pendingModel);
         toast({
             title: t('settings:ai.savedTitle'),
-            description: t('settings:ai.savedDescription', { name: AI_MODELS.find(m => m.id === pendingModel)?.name })
+            description: t('settings:ai.savedDescription', { name: t(`settings:ai.models.${pendingModel}.name`) })
         });
     }, [pendingModel, setAiModel, toast, t]);
 
@@ -817,26 +793,26 @@ function AiPreferencesSection() {
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                {AI_MODELS.map((model) => (
+                {AI_MODEL_IDS.map((modelId) => (
                     <div
-                        key={model.id}
-                        onClick={() => setPendingModel(model.id)}
+                        key={modelId}
+                        onClick={() => setPendingModel(modelId)}
                         role="radio"
-                        aria-checked={pendingModel === model.id}
+                        aria-checked={pendingModel === modelId}
                         tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setPendingModel(model.id); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setPendingModel(modelId); }}
                         className={`cursor-pointer rounded-xl border-2 p-4 transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
-                            ${pendingModel === model.id
+                            ${pendingModel === modelId
                                 ? 'border-primary bg-primary/10 shadow-sm'
                                 : 'border-border bg-card hover:border-primary/50'}`}
                     >
                         <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-semibold text-foreground">{model.name}</h3>
-                            {pendingModel === model.id && (
+                            <h3 className="font-semibold text-foreground">{t(`settings:ai.models.${modelId}.name`)}</h3>
+                            {pendingModel === modelId && (
                                 <CheckCircle2 className="w-5 h-5 text-primary" aria-hidden="true" />
                             )}
                         </div>
-                        <p className="text-xs text-muted-foreground">{model.description}</p>
+                        <p className="text-xs text-muted-foreground">{t(`settings:ai.models.${modelId}.description`)}</p>
                     </div>
                 ))}
             </div>
