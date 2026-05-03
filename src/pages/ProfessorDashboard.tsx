@@ -15,6 +15,7 @@ import { StatsCard } from '@/components/StatsCard';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { ProfessorAssignmentsTab } from '@/features/assignments/ProfessorAssignmentsTab';
+import { ProfessorOverviewSection } from '@/features/analytics/components/ProfessorOverviewSection';
 
 
 interface StudentStats {
@@ -229,6 +230,9 @@ export default function ProfessorDashboard() {
             </motion.div>
           </div>
         </motion.div>
+
+        {/* ── Course Overview (whole-course aggregate) ── */}
+        <ProfessorOverviewSection courses={courses} />
 
         {/* ── Stats Grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

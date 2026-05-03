@@ -2,15 +2,16 @@
 Analytics API Endpoints
 """
 import logging
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, status
 
 logger = logging.getLogger(__name__)
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
 from backend.services import analytics_service, analytics_cache
-from backend.core.auth_middleware import verify_token, security
+from backend.core.auth_middleware import verify_token, require_professor, security
 from backend.core.database import supabase
+from backend.core.rate_limit import limiter
 from fastapi.security import HTTPAuthorizationCredentials
 
 
@@ -24,6 +25,41 @@ class AnalyticsResponse(BaseModel):
 class AnalyticsListResponse(BaseModel):
     success: bool
     data: List[Any]
+
+
+class WeakestConceptItem(BaseModel):
+    concept: str
+    miss_rate: float
+    attempts: int
+
+
+class WeakestSlideItem(BaseModel):
+    slide_id: str
+    title: str
+    miss_rate: float
+    attempts: int
+
+
+class SparklinePoint(BaseModel):
+    date: str
+    count: int
+
+
+class ProfessorOverviewData(BaseModel):
+    active_students: int
+    average_completion: float
+    average_quiz_accuracy: float
+    median_time_minutes: float
+    weakest_concepts: List[WeakestConceptItem]
+    weakest_slides: List[WeakestSlideItem]
+    activity_sparkline: List[SparklinePoint]
+    lecture_count: int
+    days: int
+
+
+class ProfessorOverviewResponse(BaseModel):
+    success: bool
+    data: ProfessorOverviewData
 
 
 # ── Typed item models ────────────────────────────────────────────────────────
@@ -90,6 +126,15 @@ class AIQueryItem(BaseModel):
 # ── Router ───────────────────────────────────────────────────────────────────
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+
+def _assert_course_owner(course_id: str, user_id: str) -> None:
+    """Raise 403 if the authenticated user is not the professor who owns this course."""
+    res = supabase.table("courses").select("professor_id").eq("id", course_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+    if res.data[0].get("professor_id") != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
 
 def _assert_lecture_owner(lecture_id: str, user_id: str, token: str = None) -> None:
@@ -264,6 +309,38 @@ async def get_retry_performance(lecture_id: str, user=Depends(verify_token), cre
     except Exception as e:
         logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load retry-performance data.")
+
+
+@router.get("/professor/overview", response_model=ProfessorOverviewResponse)
+@limiter.limit("60/minute")
+async def get_professor_overview(
+    request: Request,
+    course_id: str = Query(..., min_length=1),
+    days: int = Query(7, ge=1, le=90),
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Course-wide aggregate metrics for the professor dashboard.
+
+    Returns active students (last N days), average completion %, average
+    quiz accuracy, median time, weakest concepts (degrades to weakest
+    slides if the concept graph has nothing to say), and an N-day
+    activity sparkline.
+    """
+    await run_in_threadpool(_assert_course_owner, course_id, user.id)
+    try:
+        data = await run_in_threadpool(
+            analytics_service.get_professor_overview,
+            course_id,
+            days,
+            creds.credentials,
+        )
+        return ProfessorOverviewResponse(success=True, data=ProfessorOverviewData(**data))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Professor overview endpoint error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load professor overview.")
 
 
 @router.post("/lecture/{lecture_id}/cache/refresh", response_model=AnalyticsResponse)

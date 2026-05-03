@@ -935,6 +935,236 @@ def _generate_live_feeds(events_data: list) -> tuple:
     return ticker, queries
 
 
+# ── Professor course-wide overview ───────────────────────────────────────────
+
+
+def get_professor_overview(
+    course_id: str,
+    days: int = 7,
+    token: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Course-wide aggregate for the professor dashboard (cached).
+
+    Cache key uses the course_id slot in `analytics_cache` so an existing
+    per-lecture invalidate (which only drops rows for one lecture_id) will
+    NOT clear it. Course-level invalidation can be added later as a
+    follow-up; for now the 5-minute TTL keeps stale data bounded.
+    """
+    return analytics_cache.get_or_compute(
+        course_id,
+        "professor_overview",
+        lambda: _compute_professor_overview(course_id, days, token),
+        params={"days": days},
+    )
+
+
+def _compute_professor_overview(
+    course_id: str,
+    days: int,
+    token: Optional[str],
+) -> Dict[str, Any]:
+    from collections import defaultdict
+    client = get_auth_client(token) if token else supabase_admin
+
+    # 1. Lectures in this course
+    lec_rows = _fetch_all(
+        client.table("lectures")
+        .select("id, title, total_slides")
+        .eq("course_id", course_id)
+    )
+    lecture_ids = [l["id"] for l in lec_rows]
+
+    empty: Dict[str, Any] = {
+        "active_students": 0,
+        "average_completion": 0.0,
+        "average_quiz_accuracy": 0.0,
+        "median_time_minutes": 0.0,
+        "weakest_concepts": [],
+        "weakest_slides": [],
+        "activity_sparkline": _empty_sparkline(days),
+        "lecture_count": 0,
+        "days": days,
+    }
+    if not lecture_ids:
+        return empty
+
+    total_slides_by_lec = {
+        l["id"]: max(1, int(l.get("total_slides") or 1)) for l in lec_rows
+    }
+
+    # 2. Progress rows across all lectures in course
+    progress = _fetch_all(
+        client.table("student_progress")
+        .select(
+            "user_id, lecture_id, quiz_score, total_questions_answered, "
+            "correct_answers, completed_slides, completed_at"
+        )
+        .in_("lecture_id", lecture_ids)
+    )
+
+    # 3. Recent learning events (last `days` days), scoped at the query
+    #    level so a high-volume `learning_events` table can never truncate
+    #    or skew this course's metrics. We fetch per lecture using a JSONB
+    #    `contains` filter on `event_data->lectureId` so the database — not
+    #    Python — does the course-scoping before pagination caps apply.
+    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    course_events: List[Dict[str, Any]] = []
+    for lid in lecture_ids:
+        course_events.extend(
+            _fetch_all(
+                client.table("learning_events")
+                .select("user_id, event_type, event_data, created_at")
+                .gte("created_at", cutoff)
+                .contains("event_data", {"lectureId": lid})
+            )
+        )
+
+    active_students = len({
+        e["user_id"] for e in course_events if e.get("user_id")
+    })
+
+    # 4. Average completion across progress rows
+    completion_pcts: List[float] = []
+    for p in progress:
+        total = total_slides_by_lec.get(p.get("lecture_id"), 1)
+        completed = len(p.get("completed_slides") or [])
+        completion_pcts.append(min(100.0, round((completed / total) * 100, 1)))
+    avg_completion = (
+        round(sum(completion_pcts) / len(completion_pcts), 1)
+        if completion_pcts else 0.0
+    )
+
+    # 5. Average quiz accuracy (weighted by attempts — ties to per-lecture views)
+    total_q = sum(int(p.get("total_questions_answered") or 0) for p in progress)
+    total_c = sum(int(p.get("correct_answers") or 0) for p in progress)
+    avg_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0.0
+
+    # 6. Median lecture-completion time (minutes)
+    durations: List[float] = []
+    for e in course_events:
+        if e.get("event_type") != "lecture_complete":
+            continue
+        d = (e.get("event_data") or {}).get("total_duration_seconds")
+        if isinstance(d, (int, float)) and d > 0:
+            durations.append(d / 60.0)
+    median_time = _median(durations)
+
+    # 7. Weakest concepts (degrades to weakest slides)
+    slides = _fetch_all(
+        client.table("slides")
+        .select("id, title, lecture_id")
+        .in_("lecture_id", lecture_ids)
+    )
+    slide_ids = [s["id"] for s in slides]
+    questions = _fetch_all(
+        client.table("quiz_questions")
+        .select("id, metadata, slide_id")
+        .in_("slide_id", slide_ids)
+    ) if slide_ids else []
+
+    q_concept = {
+        q["id"]: ((q.get("metadata") or {}).get("concept") or "").strip()
+        for q in questions
+    }
+
+    concept_stats: Dict[str, Dict[str, int]] = defaultdict(
+        lambda: {"attempts": 0, "correct": 0}
+    )
+    slide_stats: Dict[str, Dict[str, int]] = defaultdict(
+        lambda: {"attempts": 0, "correct": 0}
+    )
+    for e in course_events:
+        if e.get("event_type") != "quiz_attempt":
+            continue
+        ed = e.get("event_data") or {}
+        qid = ed.get("questionId")
+        is_correct = bool(ed.get("correct"))
+        concept = q_concept.get(qid)
+        if concept:
+            concept_stats[concept]["attempts"] += 1
+            if is_correct:
+                concept_stats[concept]["correct"] += 1
+        sid = ed.get("slideId")
+        if sid:
+            slide_stats[sid]["attempts"] += 1
+            if is_correct:
+                slide_stats[sid]["correct"] += 1
+
+    weakest_concepts = sorted(
+        [
+            {
+                "concept": c,
+                "miss_rate": round((1 - s["correct"] / s["attempts"]) * 100, 1),
+                "attempts": s["attempts"],
+            }
+            for c, s in concept_stats.items() if s["attempts"] > 0
+        ],
+        key=lambda r: (-r["miss_rate"], -r["attempts"]),
+    )[:5]
+
+    weakest_slides: List[Dict[str, Any]] = []
+    if not weakest_concepts:
+        title_map = {s["id"]: s.get("title") or "Untitled" for s in slides}
+        weakest_slides = sorted(
+            [
+                {
+                    "slide_id": sid,
+                    "title": title_map.get(sid) or "Untitled",
+                    "miss_rate": round((1 - s["correct"] / s["attempts"]) * 100, 1),
+                    "attempts": s["attempts"],
+                }
+                for sid, s in slide_stats.items() if s["attempts"] > 0
+            ],
+            key=lambda r: (-r["miss_rate"], -r["attempts"]),
+        )[:5]
+
+    # 8. 7-day activity sparkline (counts learning_events tied to course)
+    by_day: Dict[str, int] = defaultdict(int)
+    for e in course_events:
+        if e.get("event_type") not in (
+            "quiz_attempt", "slide_view", "ai_tutor_query",
+            "lecture_complete", "confidence_rating",
+        ):
+            continue
+        day = (e.get("created_at") or "")[:10]
+        if day:
+            by_day[day] += 1
+    today = datetime.utcnow().date()
+    sparkline = []
+    for i in range(days - 1, -1, -1):
+        d = (today - timedelta(days=i)).isoformat()
+        sparkline.append({"date": d, "count": by_day.get(d, 0)})
+
+    return {
+        "active_students": active_students,
+        "average_completion": avg_completion,
+        "average_quiz_accuracy": avg_accuracy,
+        "median_time_minutes": round(median_time, 1),
+        "weakest_concepts": weakest_concepts,
+        "weakest_slides": weakest_slides,
+        "activity_sparkline": sparkline,
+        "lecture_count": len(lecture_ids),
+        "days": days,
+    }
+
+
+def _median(values: List[float]) -> float:
+    if not values:
+        return 0.0
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    return s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2
+
+
+def _empty_sparkline(days: int) -> List[Dict[str, Any]]:
+    today = datetime.utcnow().date()
+    return [
+        {"date": (today - timedelta(days=i)).isoformat(), "count": 0}
+        for i in range(days - 1, -1, -1)
+    ]
+
+
 def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, Any]:
     """
     Calculate the best time to study for a specific student based on:

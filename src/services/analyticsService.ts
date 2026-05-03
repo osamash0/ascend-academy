@@ -77,6 +77,25 @@ export async function getAiQueryFeed(lectureId: string): Promise<AiQueryFeedItem
   return apiClient.get<AiQueryFeedItem[]>(`/api/analytics/lecture/${lectureId}/ai-queries`);
 }
 
+export interface ProfessorOverview {
+  active_students: number;
+  average_completion: number;
+  average_quiz_accuracy: number;
+  median_time_minutes: number;
+  weakest_concepts: { concept: string; miss_rate: number; attempts: number }[];
+  weakest_slides: { slide_id: string; title: string; miss_rate: number; attempts: number }[];
+  activity_sparkline: { date: string; count: number }[];
+  lecture_count: number;
+  days: number;
+}
+
+export async function getProfessorOverview(courseId: string, days = 7): Promise<ProfessorOverview> {
+  const res = await apiClient.get<{ success: boolean; data: ProfessorOverview }>(
+    `/api/analytics/professor/overview?course_id=${encodeURIComponent(courseId)}&days=${days}`,
+  );
+  return res.data;
+}
+
 export async function getAiInsights(lectureId: string, context: Record<string, unknown>): Promise<{ summary: string; suggestions: string[] }> {
   return apiClient.post(`/api/ai/analytics-insights`, { lecture_id: lectureId, ...context });
 }
