@@ -110,6 +110,18 @@ selected id is moved to the head of the failover chain by `_resolve_preferred`
 
 ## Recent changes
 
+- 2026-05-03: Practice Sheets feature. New `practice_sheets`, `practice_sheet_questions`,
+  and `practice_attempts` tables (migration `20260503000019_practice_sheets.sql`).
+  Backend router `backend/api/practice_sheets.py` provides: list, create manual,
+  generate/regenerate auto sheet from quiz_questions, CRUD questions, publish/unpublish,
+  submit attempt (auto-grades MC/short-answer; free-form is self-assessed), and fetch
+  own attempts. Professors see a "Practice Sheets" section in LectureEdit with
+  `ProfessorPracticeSheetsTab`, `PracticeSheetEditor` (MC/short-answer/free-form questions
+  with drag-reorder), and "Preview as student" (preview attempts are flagged
+  `is_preview=true` and excluded from analytics). Students see `StudentPracticeSheetsPanel`
+  on LectureView listing published sheets; `PracticeSheetTaker` renders the sheet,
+  collects answers, shows score + explanations on submit, and is print-friendly.
+  Frontend service: `src/services/practiceSheetsService.ts`.
 - 2026-05-02: End-of-lecture recap. After the (optional) replay stage,
   learners now see a `LectureRecap` card listing every question they
   missed on the first try, with their first answer, retry answer,

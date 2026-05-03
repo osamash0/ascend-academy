@@ -8,6 +8,7 @@ import { insertQuizQuestion, updateQuizQuestion, deleteSlideWithQuestions } from
 import { apiClient } from '@/lib/apiClient';
 import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Course } from '@/services/coursesService';
 import { WorksheetsPanel } from '@/components/WorksheetsPanel';
+import { ProfessorPracticeSheetsTab } from '@/features/practice_sheets/ProfessorPracticeSheetsTab';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -544,6 +545,17 @@ export default function LectureEdit() {
                 {lectureId && (
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-6">
                         <WorksheetsPanel lectureId={lectureId} editable />
+                    </motion.div>
+                )}
+
+                {/* Practice Sheets */}
+                {lectureId && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-6">
+                        <h2 className="text-lg font-semibold text-foreground mb-1">Practice Sheets</h2>
+                        <p className="text-xs text-muted-foreground mb-5">
+                            Auto-generate a sheet from quiz questions or author your own. Students see published sheets on this lecture's page.
+                        </p>
+                        <ProfessorPracticeSheetsTab lectureId={lectureId} />
                     </motion.div>
                 )}
 

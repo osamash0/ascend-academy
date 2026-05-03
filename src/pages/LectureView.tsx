@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
 import { WorksheetsPanel } from '@/components/WorksheetsPanel';
+import { StudentPracticeSheetsPanel } from '@/features/practice_sheets/StudentPracticeSheetsPanel';
 import { LectureRecap, type RecapItem } from '@/components/LectureRecap';
 import { RelatedAcrossCoursesPanel } from '@/components/RelatedAcrossCoursesPanel';
 import { useToast } from '@/hooks/use-toast';
@@ -901,6 +902,13 @@ export default function LectureView() {
               {lectureId && (
                 <div className="bg-card/40 rounded-2xl border border-border p-5">
                   <WorksheetsPanel lectureId={lectureId} editable={role === 'professor'} />
+                </div>
+              )}
+
+              {/* Practice Sheets — students see published sheets; professors see their own via LectureEdit */}
+              {lectureId && role !== 'professor' && (
+                <div className="bg-card/40 rounded-2xl border border-border p-5">
+                  <StudentPracticeSheetsPanel lectureId={lectureId} />
                 </div>
               )}
 

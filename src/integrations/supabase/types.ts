@@ -361,6 +361,111 @@ export interface Database {
           }
         ]
       }
+      practice_attempts: {
+        Row: {
+          id: string
+          sheet_id: string
+          student_id: string
+          answers: Json
+          score: number | null
+          is_preview: boolean
+          submitted_at: string
+        }
+        Insert: {
+          id?: string
+          sheet_id: string
+          student_id: string
+          answers?: Json
+          score?: number | null
+          is_preview?: boolean
+          submitted_at?: string
+        }
+        Update: {
+          id?: string
+          sheet_id?: string
+          student_id?: string
+          answers?: Json
+          score?: number | null
+          is_preview?: boolean
+          submitted_at?: string
+        }
+        Relationships: []
+      }
+      practice_sheet_questions: {
+        Row: {
+          id: string
+          sheet_id: string
+          order_index: number
+          type: string
+          prompt: string
+          choices: Json | null
+          correct_answer: string | null
+          explanation: string | null
+          source_quiz_question_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          sheet_id: string
+          order_index?: number
+          type: string
+          prompt: string
+          choices?: Json | null
+          correct_answer?: string | null
+          explanation?: string | null
+          source_quiz_question_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          sheet_id?: string
+          order_index?: number
+          type?: string
+          prompt?: string
+          choices?: Json | null
+          correct_answer?: string | null
+          explanation?: string | null
+          source_quiz_question_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      practice_sheets: {
+        Row: {
+          id: string
+          lecture_id: string
+          kind: string
+          title: string
+          status: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lecture_id: string
+          kind: string
+          title: string
+          status?: string
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lecture_id?: string
+          kind?: string
+          title?: string
+          status?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
