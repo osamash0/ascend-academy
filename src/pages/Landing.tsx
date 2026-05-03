@@ -23,21 +23,9 @@ interface StarField {
   twinkle: boolean;
 }
 
-interface NavLink {
-  label: string;
-  href: string;
-}
-
 /* ═══════════════════════════════════════════════════════════════
    CONSTANTS
    ═══════════════════════════════════════════════════════════════ */
-
-const NAV_LINKS: NavLink[] = [
-  { label: 'Features', href: '#features' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'For Professors', href: '#professors' },
-  { label: 'Pricing', href: '#pricing' },
-];
 
 const FEATURES: { icon: React.ElementType; key: string; color: string; glowColor: string }[] = [
   { icon: Brain, key: 'aiTutor', color: 'from-cyan-400 to-blue-500', glowColor: 'shadow-cyan-500/30' },

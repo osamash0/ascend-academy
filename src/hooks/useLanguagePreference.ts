@@ -94,11 +94,17 @@ export function useLanguagePreference() {
       // choice still applies for this session.
       if (user?.id) {
         try {
-          await supabase
+          const { error } = await supabase
             .from('profiles')
             .update({ preferred_language: lng })
             .eq('user_id', user.id);
-          appliedProfileLangRef.current = lng;
+          if (error) {
+            // Surface the persistence failure explicitly. The local choice
+            // still applies for this session via i18n + localStorage.
+            console.warn('Failed to persist language preference to profile', error);
+          } else {
+            appliedProfileLangRef.current = lng;
+          }
         } catch (err) {
           console.warn('Failed to persist language preference to profile', err);
         }
