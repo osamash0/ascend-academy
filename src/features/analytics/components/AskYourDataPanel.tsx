@@ -142,6 +142,8 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
                       Answers come from your lecture analytics only. The AI
                       picks from a fixed list of questions it knows how to
                       answer — it never writes raw queries against your data.
+                      Always spot-check important numbers against the
+                      dashboards before acting on them.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -149,6 +151,7 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               Type a question in plain English — get a summary, a table, and a chart.
+              AI answers can be off; spot-check important numbers against the dashboards.
             </p>
           </div>
         </div>

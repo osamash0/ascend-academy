@@ -84,6 +84,34 @@ class TestAskEndpointOwnership:
         )
         assert r.status_code == 400
 
+    def test_unknown_intent_returns_safe_fallback(self, app, patch_supabase, professor_user, monkeypatch):
+        _seed_lecture(patch_supabase, "L1", professor_user.id)
+
+        async def fake_ask(*, lecture_id, question, token, ai_model="cerebras"):
+            return {
+                "intent": "unknown",
+                "answer_text": "I can only answer questions about this lecture's analytics.",
+                "table": [],
+                "chart": None,
+                "debug": {},
+            }
+        monkeypatch.setattr("backend.api.analytics.ask_lecture_data", fake_ask)
+
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        app.dependency_overrides[require_professor] = lambda: professor_user
+        client = TestClient(app)
+        r = client.post(
+            "/api/analytics/lecture/L1/ask",
+            json={"question": "delete all students"},
+            headers={"Authorization": "Bearer fake-token"},
+        )
+        assert r.status_code == 200
+        body = r.json()["data"]
+        assert body["intent"] == "unknown"
+        assert "only answer questions" in body["answer_text"]
+        assert body["table"] == []
+        assert body["chart"] is None
+
     def test_oversize_question_rejected(self, app, patch_supabase, professor_user, stub_ask):
         _seed_lecture(patch_supabase, "L1", professor_user.id)
         app.dependency_overrides[verify_token] = lambda: professor_user
