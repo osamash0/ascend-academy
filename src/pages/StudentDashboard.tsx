@@ -14,6 +14,7 @@ import { AchievementCard } from '@/components/AchievementCard';
 import { Button } from '@/components/ui/button';
 import { AssignmentsPanel } from '@/features/assignments/AssignmentsPanel';
 import { KnowledgeMapCard } from '@/components/KnowledgeMapCard';
+import { NudgeBanner } from '@/components/NudgeBanner';
 
 import type { Lecture, StudentProgress as Progress, Achievement } from '@/types/domain';
 
@@ -220,6 +221,9 @@ export default function StudentDashboard() {
       <FloatingParticles />
       
       <div className="relative z-10 p-6 lg:p-8 max-w-7xl mx-auto space-y-10">
+
+        {/* ── Nudge engine banner (highest-priority active nudge) ── */}
+        <NudgeBanner />
 
         {/* ── Streak Celebration Banner ── */}
         <AnimatePresence>
