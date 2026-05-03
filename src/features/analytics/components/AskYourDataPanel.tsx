@@ -214,8 +214,8 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
       {/* Answer */}
       {current && !loading && (
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-1 duration-300">
-          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
-            <p className="text-sm font-medium text-foreground leading-relaxed">{current.answer_text}</p>
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 max-h-64 overflow-y-auto">
+            <p className="text-sm font-medium text-foreground leading-relaxed whitespace-pre-wrap break-words">{current.answer_text}</p>
             {current.intent !== 'unknown' && (
               <p className="text-[10px] mt-2 uppercase tracking-widest text-muted-foreground">
                 Intent: {current.intent.replace(/_/g, ' ')}
