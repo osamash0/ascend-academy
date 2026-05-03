@@ -308,12 +308,22 @@ async def slide_recommendation_endpoint(
         raise HTTPException(status_code=404, detail="Slide metrics unavailable.")
 
     label = metrics.get("recommendation_label")
-    if label not in ("needs_review", "satisfactory", "outstanding"):
-        # No useful suggestion possible (insufficient_data) — surface a
-        # static helper instead of burning a token.
+    if label == "insufficient_data" or label is None:
+        # No useful suggestion possible — surface a static helper instead
+        # of burning a token.
         return SlideSuggestionResponse(
             suggestion="Not enough student activity yet to give a tailored tip. Encourage a few students to complete the slide first.",
             label=label or "insufficient_data",
+            reasons=metrics.get("recommendation_reasons", []),
+            cached=False,
+        )
+    if label != "needs_review":
+        # Hard-gate AI generation to slides flagged for review so off-path
+        # calls (e.g. direct API hits) don't burn tokens for satisfactory
+        # or outstanding slides where no tip is needed.
+        return SlideSuggestionResponse(
+            suggestion="This slide is performing well — no AI suggestion needed.",
+            label=label,
             reasons=metrics.get("recommendation_reasons", []),
             cached=False,
         )
