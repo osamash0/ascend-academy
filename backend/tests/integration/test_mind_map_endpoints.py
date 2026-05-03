@@ -23,8 +23,14 @@ class TestMindMapGet:
             [
                 {
                     "lecture_id": "L1",
-                    "tree_data": {"name": "Root", "children": []},
+                    "tree_data": {
+                        "id": "root",
+                        "label": "Root",
+                        "type": "root",
+                        "children": [],
+                    },
                     "generated_at": "2026-01-01",
+                    "schema_version": 2,
                 }
             ],
         )
@@ -36,7 +42,34 @@ class TestMindMapGet:
         )
         assert r.status_code == 200
         body = r.json()
-        assert body["data"]["name"] == "Root"
+        assert body["data"]["label"] == "Root"
+        assert body["data"]["type"] == "root"
+        assert body["schema_version"] == 2
+
+    def test_returns_null_for_stale_schema_version(
+        self, app, patch_supabase, professor_user
+    ):
+        patch_supabase.seed(
+            "lecture_mind_maps",
+            [
+                {
+                    "lecture_id": "L1",
+                    "tree_data": {"name": "Old format"},
+                    "generated_at": "2025-01-01",
+                    "schema_version": 1,
+                }
+            ],
+        )
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        client = TestClient(app)
+        r = client.get(
+            "/api/mind-map/L1",
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["data"] is None
+        assert body.get("stale") is True
 
 
 class TestMindMapGenerate:

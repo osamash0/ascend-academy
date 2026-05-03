@@ -98,7 +98,22 @@ export const defaultHandlers = [
   http.post(`${API}/api/mind-map/:id/generate`, () =>
     HttpResponse.json({
       success: true,
-      data: { name: "Root", children: [{ name: "Topic A" }] },
+      data: {
+        id: "root",
+        label: "Root",
+        type: "root",
+        children: [
+          {
+            id: "cluster-1",
+            label: "Topic A",
+            type: "cluster",
+            children: [
+              { id: "slide-1", label: "Slide 1", type: "slide" },
+            ],
+          },
+        ],
+      },
+      schema_version: 2,
     }),
   ),
 

@@ -116,6 +116,9 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
 
     monkeypatch.setattr(mind_map_api, "create_client", lambda url, key: fake_supabase, raising=True)
     monkeypatch.setattr(ai_api, "create_client", lambda url, key: fake_supabase, raising=True)
+    # mind_map.py imports supabase_admin by name at module-load — patch the
+    # local binding so the admin-client ownership check uses the fake.
+    monkeypatch.setattr(mind_map_api, "supabase_admin", fake_supabase, raising=False)
 
     return fake_supabase
 

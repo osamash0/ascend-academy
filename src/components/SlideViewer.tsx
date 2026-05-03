@@ -10,7 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { MindMap } from '@/components/MindMap';
+import { MindMap, type MindMapState } from '@/components/MindMap';
 import { useTTS } from '@/hooks/useTTS';
 import type { TreeNode } from '@/features/mindmap/hooks/useMindMap';
 import 'katex/dist/katex.min.css';
@@ -39,6 +39,12 @@ interface SlideViewerProps {
   onConfidenceRate?: (rating: Confidence) => void;
   initialConfidence?: Confidence;
   mindMapData?: TreeNode | null;
+  /** Discriminated state — preferred over the legacy `mindMapData` prop. */
+  mindMapState?: MindMapState;
+  /** Called when the user clicks a slide-typed node in the tree. */
+  onMindMapSlideClick?: (slideId: string) => void;
+  /** Called when the user clicks "Retry" on the error state. */
+  onMindMapRetry?: () => void;
   currentSlideId?: string;
   onGenerateMindMap?: () => void;
   isMindMapLoading?: boolean;
@@ -88,6 +94,9 @@ export function SlideViewer({
   onConfidenceRate,
   initialConfidence = null,
   mindMapData,
+  mindMapState,
+  onMindMapSlideClick,
+  onMindMapRetry,
   currentSlideId,
   onGenerateMindMap,
   isMindMapLoading = false,
@@ -116,10 +125,24 @@ export function SlideViewer({
     [title, summary, content, slideNumber]
   );
 
-  // Auto-expand mind map on last slide
+  // Resolved state — prefer the explicit discriminated prop; fall back to
+  // deriving from the legacy mindMapData/isMindMapLoading pair so existing
+  // callers (and tests) continue to work during the migration.
+  const resolvedMindMapState: MindMapState = useMemo(() => {
+    if (mindMapState) return mindMapState;
+    if (mindMapData) return { kind: 'ready', tree: mindMapData };
+    return {
+      kind: 'empty',
+      canGenerate: !!onGenerateMindMap,
+      isGenerating: isMindMapLoading,
+      onGenerate: onGenerateMindMap,
+    };
+  }, [mindMapState, mindMapData, onGenerateMindMap, isMindMapLoading]);
+
+  // Auto-expand mind map on last slide if we actually have something to show.
   useEffect(() => {
-    if (isLast && mindMapData) setMindMapOpen(true);
-  }, [isLast, mindMapData]);
+    if (isLast && resolvedMindMapState.kind === 'ready') setMindMapOpen(true);
+  }, [isLast, resolvedMindMapState.kind]);
 
   // Reset per slide
   useEffect(() => {
@@ -302,9 +325,13 @@ export function SlideViewer({
               <div className="text-left">
                 <p className="text-sm font-bold text-foreground">Lecture Mind Map</p>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                  {mindMapData
-                    ? 'Interactive knowledge tree — click to explore'
-                    : 'AI knowledge tree not yet generated'}
+                  {resolvedMindMapState.kind === 'ready'
+                    ? 'Interactive knowledge tree — click a slide to open it'
+                    : resolvedMindMapState.kind === 'loading'
+                      ? 'Loading knowledge tree…'
+                      : resolvedMindMapState.kind === 'error'
+                        ? 'Knowledge tree failed to load — retry inside'
+                        : 'AI knowledge tree not yet generated'}
                 </p>
               </div>
             </div>
@@ -327,38 +354,39 @@ export function SlideViewer({
                 style={{ overflow: 'hidden' }}
               >
                 <div className="mt-3 glass-panel border-white/5 rounded-2xl overflow-hidden relative">
-                  {mindMapData ? (
-                    <MindMap
-                      treeData={mindMapData}
-                      currentSlideId={currentSlideId}
-                      height={480}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-16 gap-5">
-                      <div className="text-4xl">🧠</div>
-                      <div className="text-center">
-                        <p className="text-sm font-bold text-foreground mb-1">No mind map yet</p>
-                        <p className="text-xs text-muted-foreground">Generate a visual knowledge tree from all lecture slides</p>
-                      </div>
-                      {onGenerateMindMap && (
-                        <button
-                          onClick={onGenerateMindMap}
-                          disabled={isMindMapLoading}
-                          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-sm font-bold shadow-glow-primary border-none hover:opacity-90 transition-all disabled:opacity-50"
-                        >
-                          {isMindMapLoading ? (
-                            <>
-                              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-4 h-4" />
-                              Generate Mind Map
-                            </>
-                          )}
-                        </button>
+                  <MindMap
+                    state={resolvedMindMapState}
+                    currentSlideId={currentSlideId}
+                    onSlideClick={onMindMapSlideClick}
+                    onErrorBoundaryRetry={onMindMapRetry}
+                    height={480}
+                  />
+                  {/* Professor-only Regenerate affordance for the ready state. */}
+                  {resolvedMindMapState.kind === 'ready' && isProfessor && onGenerateMindMap && (
+                    <div className="px-4 py-2 border-t border-white/5 flex items-center justify-end gap-3 bg-surface-1/40">
+                      {isMindMapLoading && (
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                          Regenerating… 20–40s
+                        </span>
                       )}
+                      <button
+                        onClick={onGenerateMindMap}
+                        disabled={isMindMapLoading}
+                        data-testid="mindmap-regenerate"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-primary text-[11px] font-bold transition-colors disabled:opacity-50"
+                      >
+                        {isMindMapLoading ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Regenerating…
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3 h-3" />
+                            Regenerate
+                          </>
+                        )}
+                      </button>
                     </div>
                   )}
                 </div>

@@ -17,6 +17,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mind-map", tags=["mind-map"])
 security = HTTPBearer()
 
+# Bump this when the canonical tree shape changes; cached rows with a lower
+# version are treated as missing so they get regenerated against the new
+# normaliser/UI rather than crashing it.
+CURRENT_SCHEMA_VERSION = 2
+
+# Hard upper bound on slides considered for a single mind map. Previously
+# this was 100 which silently dropped slides for long lectures; we raise it
+# to a safer ceiling and pass them through the AI in chunks if needed.
+MAX_SLIDES = 1000
+
 
 def get_auth_client(token: str) -> Client:
     """Creates a Supabase client authenticated with the user's JWT."""
@@ -37,23 +47,84 @@ async def get_mind_map(
     user: Any = Depends(verify_token),
     creds: HTTPAuthorizationCredentials = Depends(security)
 ):
-    """Return cached mind map tree_data, or null if not yet generated."""
+    """Return cached mind map tree_data, or null if not yet generated.
+
+    Rows whose `schema_version` is below CURRENT_SCHEMA_VERSION are treated as
+    not-yet-generated so the client renders the empty state and the professor
+    can regenerate against the current normaliser.
+    """
     try:
         client = get_auth_client(creds.credentials)
         res = client.table("lecture_mind_maps") \
-            .select("tree_data, generated_at") \
+            .select("tree_data, generated_at, schema_version") \
             .eq("lecture_id", lecture_id) \
             .maybe_single() \
             .execute()
 
-        if res.data:
-            return {"success": True, "data": res.data["tree_data"], "generated_at": res.data["generated_at"]}
-        return {"success": True, "data": None}
+        if not res.data:
+            return {"success": True, "data": None}
+
+        version = res.data.get("schema_version") or 1
+        if version < CURRENT_SCHEMA_VERSION:
+            return {"success": True, "data": None, "stale": True}
+
+        return {
+            "success": True,
+            "data": res.data["tree_data"],
+            "generated_at": res.data["generated_at"],
+            "schema_version": version,
+        }
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Mind map GET error for lecture %s: %s", lecture_id, e, exc_info=True)
         raise HTTPException(status_code=503, detail="Mind map service is temporarily unavailable.")
+
+
+def _ensure_all_slides_present(tree: dict, slides: list[dict], lecture_title: str) -> dict:
+    """Walk the AI-produced tree and append any missing slide ids under an
+    "Other slides" cluster so every slide is represented exactly once."""
+    if not isinstance(tree, dict):
+        # Hard fallback if the model returned something truly unusable.
+        tree = {"id": "root", "label": lecture_title, "type": "root", "children": []}
+
+    tree.setdefault("id", "root")
+    tree.setdefault("label", lecture_title)
+    tree.setdefault("type", "root")
+    tree.setdefault("children", [])
+
+    present: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "slide":
+            sid = node.get("id")
+            if isinstance(sid, str):
+                present.add(sid)
+        for c in node.get("children") or []:
+            walk(c)
+
+    walk(tree)
+
+    missing = [s for s in slides if s.get("id") not in present]
+    if missing:
+        tree["children"].append({
+            "id": "cluster-other-slides",
+            "label": "Other slides",
+            "type": "cluster",
+            "children": [
+                {
+                    "id": s["id"],
+                    "label": s.get("title") or f"Slide {s.get('slide_number')}",
+                    "type": "slide",
+                    "summary": s.get("summary"),
+                }
+                for s in missing
+            ],
+        })
+
+    return tree
 
 
 @router.post("/{lecture_id}/generate")
@@ -89,7 +160,7 @@ async def generate_lecture_mind_map(
             .select("id, title, summary, slide_number") \
             .eq("lecture_id", lecture_id) \
             .order("slide_number", desc=False) \
-            .limit(100) \
+            .limit(MAX_SLIDES) \
             .execute()
 
         slides = slides_res.data or []
@@ -107,17 +178,21 @@ async def generate_lecture_mind_map(
             body.ai_model
         )
 
-        # 3. Upsert results
+        # 3. Post-validate: guarantee every slide is represented.
+        tree_data = _ensure_all_slides_present(tree_data, slides, lecture_title)
+
+        # 4. Upsert results with current schema version.
         client.table("lecture_mind_maps").upsert(
             {
                 "lecture_id": lecture_id,
                 "tree_data": tree_data,
-                "generated_at": "now()"
+                "generated_at": "now()",
+                "schema_version": CURRENT_SCHEMA_VERSION,
             },
             on_conflict="lecture_id"
         ).execute()
 
-        return {"success": True, "data": tree_data}
+        return {"success": True, "data": tree_data, "schema_version": CURRENT_SCHEMA_VERSION}
 
     except HTTPException:
         raise

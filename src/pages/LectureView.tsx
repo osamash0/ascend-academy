@@ -870,7 +870,41 @@ export default function LectureView() {
                           timestamp: new Date().toISOString(),
                         });
                       }}
-                      mindMapData={mindMap.data ?? null}
+                      mindMapState={
+                        mindMap.isLoading
+                          ? { kind: 'loading' }
+                          : mindMap.isError
+                            ? {
+                                kind: 'error',
+                                message: (mindMap.error as Error | null)?.message
+                                  || 'Network error while loading mind map.',
+                                onRetry: () => mindMap.refetch(),
+                              }
+                            : mindMap.data
+                              ? { kind: 'ready', tree: mindMap.data }
+                              : {
+                                  kind: 'empty',
+                                  canGenerate: role === 'professor',
+                                  isGenerating: generateMindMap.isPending,
+                                  onGenerate: () => generateMindMap.mutate(aiModel, {
+                                    onError: (error: any) => {
+                                      toast({
+                                        title: t('lecture:toasts.mindMapErrorTitle'),
+                                        description: error.message || t('lecture:toasts.mindMapErrorDescription'),
+                                        variant: 'destructive',
+                                      });
+                                    },
+                                  }),
+                                }
+                      }
+                      onMindMapSlideClick={(slideId) => {
+                        const idx = slides.findIndex((s) => s.id === slideId);
+                        if (idx >= 0) {
+                          setCurrentSlideIndex(idx);
+                          setShowQuiz(quizAnswers[idx] !== undefined);
+                        }
+                      }}
+                      onMindMapRetry={() => mindMap.refetch()}
                       currentSlideId={currentSlide.id}
                       onGenerateMindMap={() => {
                         generateMindMap.mutate(aiModel, {
