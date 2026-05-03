@@ -2,7 +2,7 @@
 Mind Map API — generates and caches per-lecture knowledge tree structures.
 """
 import logging
-from typing import Any
+from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -82,10 +82,15 @@ async def get_mind_map(
 
 
 def _ensure_all_slides_present(tree: dict, slides: list[dict], lecture_title: str) -> dict:
-    """Walk the AI-produced tree and append any missing slide ids under an
-    "Other slides" cluster so every slide is represented exactly once."""
+    """Repair the AI-produced tree:
+      1. Drop slide-typed nodes whose id is NOT a real slide id (synthetic /
+         hallucinated ids would render nodes that the UI cannot click-jump
+         to).
+      2. Dedupe slide nodes — keep only the first occurrence of each id.
+      3. Append any still-missing slide ids under an "Other slides" cluster
+         so every real slide is represented exactly once.
+    """
     if not isinstance(tree, dict):
-        # Hard fallback if the model returned something truly unusable.
         tree = {"id": "root", "label": lecture_title, "type": "root", "children": []}
 
     tree.setdefault("id", "root")
@@ -93,21 +98,35 @@ def _ensure_all_slides_present(tree: dict, slides: list[dict], lecture_title: st
     tree.setdefault("type", "root")
     tree.setdefault("children", [])
 
-    present: set[str] = set()
+    valid_slide_ids = {
+        s["id"] for s in slides if isinstance(s.get("id"), str)
+    }
+    seen: set[str] = set()
 
-    def walk(node: Any) -> None:
+    def repair(node: Any) -> Optional[dict]:
         if not isinstance(node, dict):
-            return
+            return None
         if node.get("type") == "slide":
             sid = node.get("id")
-            if isinstance(sid, str):
-                present.add(sid)
-        for c in node.get("children") or []:
-            walk(c)
+            # Drop hallucinated / duplicate slide ids.
+            if not isinstance(sid, str) or sid not in valid_slide_ids or sid in seen:
+                return None
+            seen.add(sid)
+        children = node.get("children") or []
+        repaired_children: list[dict] = []
+        for c in children:
+            r = repair(c)
+            if r is not None:
+                repaired_children.append(r)
+        node["children"] = repaired_children
+        return node
 
-    walk(tree)
+    repair(tree)
 
-    missing = [s for s in slides if s.get("id") not in present]
+    missing = [
+        s for s in slides
+        if isinstance(s.get("id"), str) and s["id"] not in seen
+    ]
     if missing:
         tree["children"].append({
             "id": "cluster-other-slides",

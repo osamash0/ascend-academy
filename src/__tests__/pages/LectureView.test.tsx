@@ -484,7 +484,6 @@ describe("LectureView mind map ↔ slide focus", () => {
     fetchQuizQuestionsMock.mockResolvedValue([]);
 
     vi.mocked(useMindMap).mockReturnValue({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       map: {
         data: {
           id: "root",
@@ -499,11 +498,9 @@ describe("LectureView mind map ↔ slide focus", () => {
         isError: false,
         error: null,
         refetch: vi.fn(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      generate: { mutate: vi.fn(), isPending: false } as any,
-    });
+      },
+      generate: { mutate: vi.fn(), isPending: false },
+    } as unknown as ReturnType<typeof useMindMap>);
 
     renderAtRoute();
     await waitFor(() =>

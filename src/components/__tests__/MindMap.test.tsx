@@ -3,14 +3,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MindMap, type MindMapState } from '@/components/MindMap';
 import type { TreeNode } from '@/types/domain';
 
-function makeLargeTree(): TreeNode {
-  const clusters: TreeNode[] = Array.from({ length: 6 }).map((_, ci) => ({
+function makeLargeTree(slidesPerCluster = 25, clusterCount = 10): TreeNode {
+  const clusters: TreeNode[] = Array.from({ length: clusterCount }).map((_, ci) => ({
     id: `c-${ci}`,
     label: `Cluster ${ci}`,
     type: 'cluster',
-    children: Array.from({ length: 25 }).map((_, si) => ({
+    children: Array.from({ length: slidesPerCluster }).map((_, si) => ({
       id: `s-${ci}-${si}`,
-      label: `Slide ${ci * 25 + si + 1}`,
+      label: `Slide ${ci * slidesPerCluster + si + 1}`,
       type: 'slide',
     })),
   }));
@@ -152,11 +152,11 @@ describe('MindMap states', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('renders large lectures (150 slides) without throwing', () => {
-    const tree = makeLargeTree();
+  it('renders large lectures (250 slides) without throwing', () => {
+    const tree = makeLargeTree(25, 10);
     const state: MindMapState = { kind: 'ready', tree };
     render(<MindMap state={state} />);
     expect(screen.getByTestId('mindmap-ready')).toBeInTheDocument();
-    expect(screen.getAllByTestId('mindmap-node-slide')).toHaveLength(150);
+    expect(screen.getAllByTestId('mindmap-node-slide')).toHaveLength(250);
   });
 });

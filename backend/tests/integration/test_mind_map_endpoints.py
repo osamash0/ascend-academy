@@ -144,3 +144,81 @@ class TestMindMapGenerate:
             r["lecture_id"] == "L1"
             for r in patch_supabase.tables.get("lecture_mind_maps", [])
         )
+
+    def test_repairs_synthetic_and_duplicate_slide_ids_for_large_lecture(
+        self, app, patch_supabase, professor_user, monkeypatch
+    ):
+        """For a 200-slide lecture: hallucinated 's-0' style ids must be
+        dropped, duplicate real ids deduped, and any genuinely missing slide
+        ids must appear under the 'Other slides' cluster."""
+        N = 200
+        slides = [
+            {
+                "id": f"slide-{i}",
+                "lecture_id": "L1",
+                "title": f"Slide {i + 1}",
+                "slide_number": i + 1,
+                "summary": "",
+            }
+            for i in range(N)
+        ]
+
+        async def _gen(*a, **k):
+            return {
+                "id": "root",
+                "label": "T",
+                "type": "root",
+                "children": [
+                    # Cluster contains a real id, a duplicate of it, and a
+                    # hallucinated synthetic id that is NOT in the slides
+                    # table.
+                    {
+                        "id": "c-1",
+                        "label": "Theme A",
+                        "type": "cluster",
+                        "children": [
+                            {"id": "slide-0", "label": "Slide 1", "type": "slide"},
+                            {"id": "slide-0", "label": "Dup", "type": "slide"},
+                            {"id": "s-fake", "label": "Hallucinated", "type": "slide"},
+                        ],
+                    },
+                ],
+            }
+
+        from backend.api import mind_map as mod
+
+        monkeypatch.setattr(mod, "generate_mind_map", _gen)
+        patch_supabase.seed(
+            "lectures",
+            [{"id": "L1", "title": "T", "professor_id": professor_user.id}],
+        )
+        patch_supabase.seed("slides", slides)
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        client = TestClient(app)
+        r = client.post(
+            "/api/mind-map/L1/generate",
+            json={"ai_model": "groq"},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 200
+        tree = r.json()["data"]
+
+        def collect_slide_ids(node):
+            ids = []
+            if node.get("type") == "slide":
+                ids.append(node["id"])
+            for c in node.get("children") or []:
+                ids.extend(collect_slide_ids(c))
+            return ids
+
+        slide_ids = collect_slide_ids(tree)
+        valid = {s["id"] for s in slides}
+
+        # Every slide-typed node points at a real slide id.
+        assert all(sid in valid for sid in slide_ids), (
+            f"Tree contains synthetic slide ids: {set(slide_ids) - valid}"
+        )
+        # No duplicates.
+        assert len(slide_ids) == len(set(slide_ids)), "Duplicate slide nodes leaked through"
+        # Every real slide is represented exactly once.
+        assert set(slide_ids) == valid

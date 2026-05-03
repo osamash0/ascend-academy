@@ -887,7 +887,7 @@ export default function LectureView() {
                                   canGenerate: role === 'professor',
                                   isGenerating: generateMindMap.isPending,
                                   onGenerate: () => generateMindMap.mutate(aiModel, {
-                                    onError: (error: any) => {
+                                    onError: (error: Error) => {
                                       toast({
                                         title: t('lecture:toasts.mindMapErrorTitle'),
                                         description: error.message || t('lecture:toasts.mindMapErrorDescription'),
@@ -908,7 +908,7 @@ export default function LectureView() {
                       currentSlideId={currentSlide.id}
                       onGenerateMindMap={() => {
                         generateMindMap.mutate(aiModel, {
-                          onError: (error: any) => {
+                          onError: (error: Error) => {
                             toast({
                               title: t('lecture:toasts.mindMapErrorTitle'),
                               description: error.message || t('lecture:toasts.mindMapErrorDescription'),
