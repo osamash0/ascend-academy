@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
-from backend.services import analytics_service
+from backend.services import analytics_service, analytics_cache
 from backend.core.auth_middleware import verify_token, security
 from backend.core.database import supabase
 from fastapi.security import HTTPAuthorizationCredentials
@@ -264,6 +264,39 @@ async def get_retry_performance(lecture_id: str, user=Depends(verify_token), cre
     except Exception as e:
         logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load retry-performance data.")
+
+
+@router.post("/lecture/{lecture_id}/cache/refresh", response_model=AnalyticsResponse)
+async def refresh_analytics_cache(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+    """Force-invalidate every cached analytics aggregate for a lecture.
+
+    Professor-only. Returns the number of cache rows dropped so the UI can
+    surface a confirmation. The next dashboard load will recompute and
+    repopulate the cache from scratch.
+    """
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+    try:
+        deleted = await run_in_threadpool(analytics_cache.invalidate, lecture_id)
+        # Force-recompute the dashboard so the next read is already warm.
+        # Other per-feature aggregates repopulate lazily on first read.
+        recomputed = False
+        try:
+            await analytics_service.get_dashboard_data(
+                lecture_id, creds.credentials, force_refresh=True
+            )
+            recomputed = True
+        except Exception as e:
+            logger.warning("Cache refresh recompute failed (will lazy-fill): %s", e)
+
+        return AnalyticsResponse(
+            success=True,
+            data={"invalidated_rows": deleted, "recomputed": recomputed},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Cache refresh failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to refresh analytics cache.")
 
 
 @router.get("/personal/optimal-schedule", response_model=AnalyticsResponse)

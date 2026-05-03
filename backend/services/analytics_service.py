@@ -3,6 +3,7 @@ from backend.services.utils.analytics_utils import calculate_student_typology, g
 from supabase import create_client, Client
 from functools import lru_cache
 from backend.services import cache
+from backend.services import analytics_cache
 import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
@@ -44,9 +45,18 @@ def get_auth_client(token: Optional[str]) -> Client:
     return client
 
 
-def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
+def get_lecture_overview(lecture_id: str, token: str = None, force_refresh: bool = False) -> Dict[str, Any]:
+    """Get high-level metrics for a lecture (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "overview",
+        lambda: _compute_lecture_overview(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     client = get_auth_client(token)
-    """Get high-level metrics for a lecture"""
 
     progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id, completed_at, quiz_score")\
@@ -98,9 +108,18 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     }
 
 
-def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_slide_analytics(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Get per-slide analytics (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "slides",
+        lambda: _compute_slide_analytics(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """Get per-slide analytics"""
 
     slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
@@ -142,9 +161,18 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
     return slide_analytics
 
 
-def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_quiz_analytics(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Get quiz difficulty analytics (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "quizzes",
+        lambda: _compute_quiz_analytics(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """Get quiz difficulty analytics"""
 
     quiz_data = _fetch_all(client.table("quiz_questions")\
         .select("id, question_text, slides!inner(lecture_id)")\
@@ -183,9 +211,18 @@ def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any
     return sorted(quiz_analytics, key=lambda x: x["success_rate"])
 
 
-def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_student_performance(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Get per-student performance breakdown (anonymized, cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "students",
+        lambda: _compute_student_performance(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_student_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """Get per-student performance breakdown (anonymized)"""
 
     progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id, quiz_score, total_questions_answered, correct_answers, completed_slides, completed_at")\
@@ -235,12 +272,18 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
     return sorted(students_matrix, key=lambda x: x["quiz_score"], reverse=True)
 
 
-def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_distractor_analysis(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Show which wrong answer options students pick most per question (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "distractors",
+        lambda: _compute_distractor_analysis(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """
-    Show which wrong answer options students pick most per question.
-    Derived from selectedAnswer field in quiz_attempt events.
-    """
 
     quiz_data = _fetch_all(client.table("quiz_questions")\
         .select("id, question_text, options, correct_answer, slides!inner(lecture_id)")\
@@ -349,8 +392,17 @@ def _calculate_retry_performance(
     return rows
 
 
-def get_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
-    """Per-question first-attempt vs second-attempt miss rates for a lecture."""
+def get_retry_performance(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Per-question first-attempt vs second-attempt miss rates for a lecture (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "retry_performance",
+        lambda: _compute_retry_performance(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
 
     quiz_data = _fetch_all(client.table("quiz_questions")
@@ -370,12 +422,18 @@ def get_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, 
     return _calculate_retry_performance(quiz_data, first_events, retry_events)
 
 
-def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_dropoff_map(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Show which slide most students abandon the lecture on (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "dropoff",
+        lambda: _compute_dropoff_map(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """
-    Show which slide most students abandon the lecture on.
-    Uses last_slide_viewed from student_progress for non-completers.
-    """
 
     progress_data = _fetch_all(client.table("student_progress")\
         .select("user_id, last_slide_viewed, completed_at")\
@@ -412,12 +470,18 @@ def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     return result
 
 
-def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_confidence_by_slide(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Per-slide confidence breakdown (got_it / unsure / confused; cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "confidence_by_slide",
+        lambda: _compute_confidence_by_slide(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """
-    Per-slide confidence breakdown (got_it / unsure / confused).
-    Currently only the aggregate total is shown; this gives per-slide granularity.
-    """
 
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
@@ -462,12 +526,18 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
     return sorted(result, key=lambda x: x["confusion_rate"], reverse=True)
 
 
-def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+def get_ai_query_feed(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """Return the latest student AI tutor queries for this lecture (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "ai_queries",
+        lambda: _compute_ai_query_feed(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
-    """
-    Return the latest student AI tutor queries for this lecture (anonymized).
-    The query text is collected but never shown to professors — this surfaces it.
-    """
 
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data, created_at")\
@@ -490,16 +560,17 @@ def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]
     return result
 
 
-async def get_dashboard_data(lecture_id: str, token: str = None):
+async def get_dashboard_data(lecture_id: str, token: str = None, force_refresh: bool = False):
     """Get comprehensive advanced dashboard analytics in a single call using high-performance SQL."""
-    cache_key = f"dashboard_data:{lecture_id}"
-    
-    # 1. Try cache first
-    cached_data = await cache.get_cache(cache_key)
-    if cached_data:
-        return cached_data
+    return await analytics_cache.get_or_compute_async(
+        lecture_id,
+        "dashboard",
+        lambda: _compute_dashboard_data(lecture_id, token),
+        force_refresh=force_refresh,
+    )
 
-    # 2. Direct SQL Aggregation (Lighter on Python, faster on DB)
+
+async def _compute_dashboard_data(lecture_id: str, token: str = None):
     try:
         async with await get_db_connection() as conn:
             # Overview Stats
@@ -708,9 +779,6 @@ async def get_dashboard_data(lecture_id: str, token: str = None):
         "confidenceBySlide": [] # Can be added similarly
     }
 
-    # 4. Store in cache
-    await cache.set_cache(cache_key, result, ttl_seconds=300)
-    
     return result
 
 

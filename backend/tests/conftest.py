@@ -64,6 +64,9 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     monkeypatch.setattr(analytics_api, "supabase", fake_supabase, raising=True)
     monkeypatch.setattr(cache_module, "supabase_admin", fake_supabase, raising=True)
 
+    from backend.services import analytics_cache as analytics_cache_module
+    monkeypatch.setattr(analytics_cache_module, "supabase_admin", fake_supabase, raising=True)
+
     # upload.py imports supabase_admin by name at module-load — patch the
     # local reference so each test's fresh fake is the one used.
     try:
