@@ -379,7 +379,10 @@ async def ask_lecture_data(
         }
 
     try:
-        result = _EXECUTORS[intent](lecture_id, token, params)
+        # Executors hit synchronous Supabase clients; offload to a worker
+        # thread so we don't block the event loop under concurrent load.
+        from fastapi.concurrency import run_in_threadpool
+        result = await run_in_threadpool(_EXECUTORS[intent], lecture_id, token, params)
     except Exception as e:
         logger.error("ask_data executor '%s' failed: %s", intent, e, exc_info=True)
         return {
