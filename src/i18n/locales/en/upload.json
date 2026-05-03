@@ -1,0 +1,66 @@
+{
+  "header": {
+    "title": "Create Lecture",
+    "subtitle": "Build interactive learning experiences",
+    "exit": "Exit"
+  },
+  "form": {
+    "titleLabel": "Lecture Title",
+    "titlePlaceholder": "e.g., Introduction to Machine Learning",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe what students will learn..."
+  },
+  "empty": {
+    "title": "Start Building Your Lecture",
+    "description": "Create slides from scratch or import a PDF to auto-generate structured content with AI-powered summaries and quizzes.",
+    "createFirstSlide": "Create First Slide",
+    "importPdf": "Import PDF"
+  },
+  "actions": {
+    "addSlide": "Add Slide",
+    "deleteSlide": "Delete Slide",
+    "save": "Save Lecture",
+    "saving": "Saving...",
+    "generateAll": "Generate All",
+    "generateSummary": "Generate Summary",
+    "generateQuiz": "Generate Quiz",
+    "generateTitle": "Generate Title",
+    "generateContent": "Generate Content"
+  },
+  "slide": {
+    "titleLabel": "Slide Title",
+    "titlePlaceholder": "Enter a clear, concise title",
+    "contentLabel": "Slide Content",
+    "contentPlaceholder": "Write the main content of this slide...",
+    "summaryLabel": "AI Summary",
+    "summaryPlaceholder": "A short summary will appear here, or click Generate Summary.",
+    "quizLabel": "Quiz Questions",
+    "addQuestion": "Add Question",
+    "questionLabel": "Question",
+    "questionPlaceholder": "Write a comprehension question about this slide...",
+    "answerOptions": "Answer Options",
+    "answerHelp": "click to mark correct",
+    "answerHint": "Click any option card to mark it as the correct answer",
+    "optionPlaceholder": "Option {{label}}"
+  },
+  "upload": {
+    "uploading": "Uploading PDF...",
+    "processing": "Processing slides ({{current}} of {{total}})...",
+    "phaseExtracting": "Extracting text",
+    "phaseAnalyzing": "Analyzing content",
+    "phaseQuizzing": "Generating quizzes",
+    "phaseFinalizing": "Finalizing",
+    "completed": "Upload complete",
+    "close": "Close",
+    "duplicateTitle": "We've seen this PDF before",
+    "duplicateDescription": "Open the existing lecture, or upload as a new one.",
+    "useExisting": "Open Existing",
+    "uploadAsNew": "Upload as New"
+  },
+  "toasts": {
+    "saved": "Lecture saved",
+    "savedDescription": "Your lecture has been saved successfully.",
+    "saveError": "Failed to save lecture",
+    "exitConfirm": "You have unsaved changes. Are you sure you want to exit? All progress will be lost."
+  }
+}

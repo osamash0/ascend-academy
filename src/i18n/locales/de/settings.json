@@ -1,0 +1,86 @@
+{
+  "title": "Einstellungen",
+  "subtitle": "Verwalte dein Profil, deine Einstellungen und dein Konto.",
+  "tabs": {
+    "profile": "Profil",
+    "ai": "KI-Modell",
+    "appearance": "Darstellung",
+    "security": "Sicherheit",
+    "data": "Daten & Datenschutz"
+  },
+  "profile": {
+    "personalInfo": "Persönliche Informationen",
+    "fullName": "Vollständiger Name",
+    "fullNamePlaceholder": "Gib deinen vollständigen Namen ein",
+    "displayName": "Anzeigename (öffentlich)",
+    "displayNamePlaceholder": "Anonym (nur Avatar)",
+    "displayNameHelp": "Wird in der Bestenliste anstelle nur deines Avatars angezeigt.",
+    "email": "E-Mail-Adresse",
+    "emailHelp": "Deine E-Mail-Adresse kann hier nicht geändert werden."
+  },
+  "avatar": {
+    "anonymousUser": "Anonyme:r Nutzer:in",
+    "uploadPhoto": "Foto hochladen",
+    "changeAvatar": "Avatar ändern",
+    "presetsTitle": "Oder wähle eine lustige Vorlage:",
+    "updated": "Avatar aktualisiert",
+    "updatedDescription": "Dein neues Profilbild sieht super aus!",
+    "uploadError": "Fehler beim Hochladen des Avatars",
+    "uploadErrorDescription": "Bitte stelle sicher, dass der Storage-Bucket 'avatars' existiert und öffentlich ist.",
+    "presetUpdated": "Dein neuer Avatar wurde gesetzt!",
+    "presetError": "Fehler beim Aktualisieren des Avatars",
+    "presetErrorDescription": "Avatar konnte nicht aktualisiert werden."
+  },
+  "language": {
+    "title": "Sprache",
+    "description": "Wähle die Sprache der Oberfläche. Diese Einstellung wird in deinem Profil gespeichert und gilt geräteübergreifend.",
+    "english": "English (Englisch)",
+    "german": "Deutsch",
+    "saved": "Sprache gespeichert",
+    "savedDescription": "Deine Spracheinstellung wurde aktualisiert."
+  },
+  "ai": {
+    "title": "KI-Modell",
+    "description": "Wähle, welches KI-Modell deinen Tutor und die Inhaltserstellung antreibt.",
+    "saved": "KI-Modell aktualisiert"
+  },
+  "security": {
+    "title": "Sicherheit",
+    "currentPassword": "Aktuelles Passwort",
+    "currentPasswordPlaceholder": "Gib dein aktuelles Passwort ein",
+    "newPassword": "Neues Passwort",
+    "newPasswordPlaceholder": "Mindestens 6 Zeichen",
+    "confirmPassword": "Neues Passwort bestätigen",
+    "confirmPasswordPlaceholder": "Neues Passwort erneut eingeben",
+    "passwordsDontMatch": "Passwörter stimmen nicht überein.",
+    "changePassword": "Passwort ändern",
+    "changing": "Wird geändert...",
+    "currentIncorrect": "Aktuelles Passwort falsch",
+    "currentIncorrectDescription": "Bitte überprüfe dein aktuelles Passwort und versuche es erneut.",
+    "passwordChangeFailed": "Passwortänderung fehlgeschlagen",
+    "passwordUpdated": "Passwort aktualisiert!",
+    "passwordUpdatedDescription": "Dein Passwort wurde erfolgreich geändert."
+  },
+  "data": {
+    "title": "Daten & Datenschutz",
+    "exportTitle": "Daten exportieren",
+    "exportDescription": "Lade eine JSON-Datei mit allen auf Learnstation gespeicherten Daten herunter.",
+    "exportButton": "Meine Daten exportieren",
+    "exporting": "Wird exportiert...",
+    "exportSuccess": "Daten exportiert",
+    "exportSuccessDescription": "Deine Daten wurden heruntergeladen.",
+    "exportError": "Export fehlgeschlagen",
+    "deleteTitle": "Konto löschen",
+    "deleteDescription": "Lösche dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "deleteButton": "Mein Konto löschen",
+    "deleting": "Wird gelöscht...",
+    "deleteConfirm": "Bist du absolut sicher? Dies löscht dein Konto und alle deine Daten dauerhaft. Tippe DELETE zur Bestätigung.",
+    "deleteSuccess": "Konto gelöscht",
+    "deleteError": "Löschung fehlgeschlagen"
+  },
+  "save": "Änderungen speichern",
+  "saving": "Wird gespeichert...",
+  "saved": "Profil aktualisiert",
+  "savedDescription": "Deine Einstellungen wurden erfolgreich gespeichert.",
+  "saveError": "Fehler beim Speichern des Profils"
+}

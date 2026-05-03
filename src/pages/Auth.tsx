@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { GraduationCap, BookOpen, User, Mail, Lock, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,15 +11,12 @@ import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { logLearningEvent } from '@/services/studentService';
-
-const authSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
+import { LanguageToggle } from '@/components/LanguageToggle';
 
 type UserRole = 'student' | 'professor';
 
 export default function Auth() {
+  const { t } = useTranslation(['auth']);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +30,11 @@ export default function Auth() {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const authSchema = z.object({
+    email: z.string().email(t('auth:validation.invalidEmail')),
+    password: z.string().min(6, t('auth:validation.passwordMin')),
+  });
 
   const validateForm = () => {
     try {
@@ -58,9 +61,12 @@ export default function Auth() {
 
     setLoading(true);
 
-    // Require privacy consent for signup
     if (!isLogin && !privacyConsent) {
-      toast({ title: 'Privacy consent required', description: 'Please agree to the Datenschutzerklärung.', variant: 'destructive' });
+      toast({
+        title: t('auth:toasts.consentRequiredTitle'),
+        description: t('auth:toasts.consentRequiredDescription'),
+        variant: 'destructive',
+      });
       setLoading(false);
       return;
     }
@@ -70,19 +76,18 @@ export default function Auth() {
         const { error } = await signIn(email, password);
         if (error) {
           toast({
-            title: 'Login failed',
+            title: t('auth:toasts.loginFailed'),
             description: error.message === 'Invalid login credentials'
-              ? 'Invalid email or password. Please try again.'
+              ? t('auth:toasts.loginInvalid')
               : error.message,
             variant: 'destructive',
           });
         } else {
           toast({
-            title: 'Welcome back!',
-            description: 'Successfully logged in.',
+            title: t('auth:toasts.welcomeBack'),
+            description: t('auth:toasts.loginSuccess'),
           });
-          
-          // Log login event for circadian pattern analysis (non-critical)
+
           try {
             const { data: { user: authUser } } = await supabase.auth.getUser();
             if (authUser) {
@@ -101,24 +106,24 @@ export default function Auth() {
         const { error } = await signUp(email, password, selectedRole);
         if (error) {
           toast({
-            title: 'Sign up failed',
+            title: t('auth:toasts.signupFailed'),
             description: error.message.includes('already registered')
-              ? 'This email is already registered. Please log in instead.'
+              ? t('auth:toasts.alreadyRegistered')
               : error.message,
             variant: 'destructive',
           });
         } else {
           toast({
-            title: 'Account created!',
-            description: 'Welcome to Ascend Academy. Let\'s start learning!',
+            title: t('auth:toasts.accountCreated'),
+            description: t('auth:toasts.welcomeMessage'),
           });
           navigate('/dashboard');
         }
       }
-    } catch (error) {
+    } catch {
       toast({
-        title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        title: t('auth:toasts.loginFailed'),
+        description: t('auth:toasts.genericError'),
         variant: 'destructive',
       });
     } finally {
@@ -128,7 +133,7 @@ export default function Auth() {
 
   const handleForgotPassword = async () => {
     if (!email) {
-      setErrors({ email: 'Please enter your email address first.' });
+      setErrors({ email: t('auth:validation.missingEmailForReset') });
       return;
     }
     setForgotLoading(true);
@@ -138,13 +143,13 @@ export default function Auth() {
       });
       if (error) throw error;
       toast({
-        title: 'Password reset email sent!',
-        description: 'Check your inbox for a link to reset your password.',
+        title: t('auth:toasts.resetEmailSent'),
+        description: t('auth:toasts.resetEmailDescription'),
       });
     } catch (error: unknown) {
       toast({
-        title: 'Failed to send reset email',
-        description: error instanceof Error ? error.message : 'Please try again.',
+        title: t('auth:toasts.resetFailed'),
+        description: error instanceof Error ? error.message : t('auth:toasts.genericError'),
         variant: 'destructive',
       });
     } finally {
@@ -154,6 +159,11 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen bg-background flex relative overflow-hidden">
+      {/* Top-right language toggle */}
+      <div className="absolute top-6 right-6 z-20">
+        <LanguageToggle variant="icon-dark" />
+      </div>
+
       {/* Animated Background for Auth */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[120px] animate-pulse" />
@@ -164,7 +174,7 @@ export default function Auth() {
       <div className="hidden lg:flex lg:w-5/12 p-12 flex-col justify-between relative z-10">
         <div className="glass-panel h-full w-full rounded-[48px] border-white/5 p-16 flex flex-col justify-between overflow-hidden relative group">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-50" />
-          
+
           <div className="relative z-10">
             <div className="flex items-center gap-4 mb-16 cursor-pointer" onClick={() => navigate('/')}>
               <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center shadow-glow-primary">
@@ -182,13 +192,13 @@ export default function Auth() {
               transition={{ delay: 0.2 }}
             >
               <h1 className="text-5xl lg:text-6xl font-bold text-foreground mb-8 leading-[1.1] tracking-tight">
-                Cognitive<br />
-                Mastery Starts<br />
-                <span className="text-primary">Here.</span>
+                {t('auth:branding.headlineLine1')}<br />
+                {t('auth:branding.headlineLine2')}<br />
+                <span className="text-primary">{t('auth:branding.headlineLine3')}</span>
               </h1>
 
               <p className="text-xl text-muted-foreground max-w-md font-medium leading-relaxed">
-                Initiate your orbital mission. Synchronize with AI-driven summaries and climb the global leaderboard.
+                {t('auth:branding.subtitle')}
               </p>
             </motion.div>
           </div>
@@ -201,9 +211,9 @@ export default function Auth() {
           >
             <div className="grid grid-cols-2 gap-4">
               {[
-                { icon: '🧠', label: 'Neural Sync', color: 'primary' },
-                { icon: '⚡', label: 'XP Protocol', color: 'xp' },
-              ].map((feature, i) => (
+                { icon: '🧠', label: t('auth:branding.neuralSync') },
+                { icon: '⚡', label: t('auth:branding.xpProtocol') },
+              ].map((feature) => (
                 <div
                   key={feature.label}
                   className="glass-panel-strong border-white/10 rounded-[24px] p-6 flex flex-col items-center text-center group hover:border-primary/50 transition-all duration-300"
@@ -239,23 +249,21 @@ export default function Auth() {
 
           <div className="space-y-2 mb-10">
             <h2 className="text-4xl font-bold text-foreground tracking-tight">
-              {isLogin ? 'Initiate Session' : 'Enlist Operator'}
+              {isLogin ? t('auth:signIn') : t('auth:signUp')}
             </h2>
             <p className="text-muted-foreground font-medium">
-              {isLogin
-                ? 'Synchronize credentials to access your terminal'
-                : 'Join the next generation of cognitive explorers'}
+              {isLogin ? t('auth:signInSubtitle') : t('auth:signUpSubtitle')}
             </p>
           </div>
 
           {/* Role selector (signup only) */}
           {!isLogin && (
             <div className="mb-8">
-              <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">Designation</Label>
+              <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">{t('auth:designation')}</Label>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { role: 'student' as UserRole, icon: BookOpen, label: 'Student' },
-                  { role: 'professor' as UserRole, icon: User, label: 'Professor' },
+                  { role: 'student' as UserRole, icon: BookOpen, label: t('auth:roles.student') },
+                  { role: 'professor' as UserRole, icon: User, label: t('auth:roles.professor') },
                 ].map(({ role, icon: Icon, label }) => (
                   <button
                     key={role}
@@ -280,13 +288,13 @@ export default function Auth() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Email Identity</Label>
+              <Label htmlFor="email" className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('auth:fields.emailLabel')}</Label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="operator@orbital.network"
+                  placeholder={t('auth:fields.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
@@ -300,7 +308,7 @@ export default function Auth() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Access Key</Label>
+                <Label htmlFor="password" className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('auth:fields.passwordLabel')}</Label>
                 {isLogin && (
                   <button
                     type="button"
@@ -308,7 +316,7 @@ export default function Auth() {
                     disabled={forgotLoading}
                     className="text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest"
                   >
-                    {forgotLoading ? 'Resetting...' : 'Lost Access?'}
+                    {forgotLoading ? t('auth:resetting') : t('auth:forgotPassword')}
                   </button>
                 )}
               </div>
@@ -317,7 +325,7 @@ export default function Auth() {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder={t('auth:fields.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={isLogin ? 'current-password' : 'new-password'}
@@ -346,11 +354,11 @@ export default function Auth() {
               {loading ? (
                 <span className="flex items-center gap-3">
                   <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                  Synchronizing...
+                  {t('auth:submit.loading')}
                 </span>
               ) : (
                 <>
-                  {isLogin ? 'Initiate Session' : 'Authorize Enlistment'}
+                  {isLogin ? t('auth:submit.signIn') : t('auth:submit.signUp')}
                   <ArrowRight className="w-5 h-5 ml-3" />
                 </>
               )}
@@ -365,7 +373,11 @@ export default function Auth() {
                   className="mt-1 h-4 w-4 rounded border-white/10 bg-white/2 accent-primary transition-all"
                 />
                 <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                  I acknowledge the <a href="/datenschutz" target="_blank" className="text-primary font-bold hover:underline">Orbital Privacy Protocol</a> and consent to data synchronization.
+                  {t('auth:consent.prefix')}
+                  <a href="/datenschutz" target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline">
+                    {t('auth:consent.linkText')}
+                  </a>
+                  {t('auth:consent.suffix')}
                 </span>
               </label>
             )}
@@ -382,18 +394,20 @@ export default function Auth() {
             >
               {isLogin ? (
                 <>
-                  New to the Academy? <span className="text-primary group-hover:underline">Join the Mission</span>
+                  {t('auth:switch.toSignUpPrefix')}
+                  <span className="text-primary group-hover:underline">{t('auth:switch.toSignUpAction')}</span>
                 </>
               ) : (
                 <>
-                  Existing Operator? <span className="text-primary group-hover:underline">Initiate Session</span>
+                  {t('auth:switch.toSignInPrefix')}
+                  <span className="text-primary group-hover:underline">{t('auth:switch.toSignInAction')}</span>
                 </>
               )}
             </button>
           </div>
 
           {/* Performance Hint */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
@@ -403,9 +417,7 @@ export default function Auth() {
               <Sparkles className="w-5 h-5 text-xp" />
             </div>
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
-              {isLogin
-                ? 'Your cognitive profile is ready for synchronization.'
-                : 'Enlistment grants access to neural metrics and global status.'}
+              {isLogin ? t('auth:performanceHint.signIn') : t('auth:performanceHint.signUp')}
             </p>
           </motion.div>
         </motion.div>

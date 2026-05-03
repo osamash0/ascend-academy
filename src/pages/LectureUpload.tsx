@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -286,6 +287,7 @@ function QuizBuilder({
 /* ────────────────────────────────────────────────────────────────────────── */
 
 export default function LectureUpload() {
+  const { t } = useTranslation(['upload']);
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -467,12 +469,12 @@ export default function LectureUpload() {
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-foreground">Create Lecture</h1>
-                <p className="text-xs text-muted-foreground">Build interactive learning experiences</p>
+                <h1 className="text-lg font-bold text-foreground">{t('upload:header.title')}</h1>
+                <p className="text-xs text-muted-foreground">{t('upload:header.subtitle')}</p>
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={handleExit} className="text-xs font-medium">
-              Exit
+              {t('upload:header.exit')}
             </Button>
           </div>
         </div>
@@ -883,14 +885,14 @@ export default function LectureUpload() {
                     loading={isAiLoading(activeSlideIndex, 'summary')}
                     variant="subtle"
                   >
-                    Generate Summary
+                    {t('upload:actions.generateSummary')}
                   </AIActionButton>
                   <AIActionButton
                     onClick={() => handleGenerateQuiz(activeSlideIndex)}
                     loading={isAiLoading(activeSlideIndex, 'quiz')}
                     variant="subtle"
                   >
-                    Generate Quiz
+                    {t('upload:actions.generateQuiz')}
                   </AIActionButton>
                 </div>
 

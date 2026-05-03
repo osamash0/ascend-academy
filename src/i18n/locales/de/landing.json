@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "features": "Funktionen",
+    "howItWorks": "So funktioniert's",
+    "forProfessors": "Für Dozenten",
+    "pricing": "Preise",
+    "signIn": "Anmelden",
+    "launchMission": "Mission starten"
+  },
+  "hero": {
+    "badge": "v2.0 jetzt im Orbit",
+    "headlineLine1": "Dein Lern-",
+    "headlineLine2": "Kontrollzentrum",
+    "subtitle": "Die Plattform der nächsten Generation von Ascend Academy. KI-gestützte Tutoren, Echtzeit-Analysen und immersive Kurserlebnisse — alles aus deinem Kommandozentrum.",
+    "ctaPrimary": "Mission starten",
+    "ctaSecondary": "Demo ansehen",
+    "systemOnline": "SYSTEM ONLINE",
+    "stats": {
+      "xpEarned": "XP gesammelt",
+      "currentStreak": "Aktuelle Serie",
+      "accuracy": "Genauigkeit",
+      "days": "{{count}} Tage"
+    }
+  },
+  "stats": {
+    "activeLearners": "Aktive Lernende",
+    "questionsAnswered": "Beantwortete Fragen",
+    "retentionRate": "Behaltensrate",
+    "userRating": "Nutzerbewertung"
+  },
+  "features": {
+    "title": "Missionskritische Funktionen",
+    "subtitle": "Alle Werkzeuge, die du für deine Lernreise brauchst.",
+    "aiTutor": {
+      "title": "KI-Tutor",
+      "description": "Dein persönlicher KI-Begleiter, der sich an deinen Lernstil anpasst, Fragen in Echtzeit beantwortet und dich durch komplexe Themen führt."
+    },
+    "liveAnalytics": {
+      "title": "Live-Analytik",
+      "description": "Mission-Control-Dashboards verfolgen deinen Fortschritt präzise. Sieh XP, Serien und dein Können in Echtzeit."
+    },
+    "adaptiveQuizzes": {
+      "title": "Adaptive Quizze",
+      "description": "Intelligente Tests, die mit deinem Wissen wachsen. Falsche Antworten werden zu Lernchancen, nicht zu Rückschritten."
+    },
+    "professorCommand": {
+      "title": "Dozenten-Kommando",
+      "description": "Dozenten erhalten ein komplettes Mission-Control-Paket: Vorlesungen hochladen, Klassenleistung verfolgen und KI-Einblicke nutzen."
+    },
+    "secureVault": {
+      "title": "Sicherer Tresor",
+      "description": "Deine Lerndaten werden verschlüsselt und geschützt. Sicherheit auf Enterprise-Niveau mit Datenschutz-First-Architektur."
+    },
+    "universalAccess": {
+      "title": "Universeller Zugriff",
+      "description": "Lerne überall, auf jedem Gerät. Fortschritt geräteübergreifend synchronisieren, mit Offline-Funktion für Deep-Space-Lernen."
+    }
+  },
+  "footer": {
+    "tagline": "Dein Lern-Kontrollzentrum.",
+    "imprint": "Impressum",
+    "privacy": "Datenschutz",
+    "copyright": "© {{year}} Learnstation. Alle Rechte vorbehalten."
+  }
+}

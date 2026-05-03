@@ -1,0 +1,50 @@
+{
+  "language": "Sprache",
+  "languageEnglish": "Englisch",
+  "languageGerman": "Deutsch",
+  "actions": {
+    "save": "Speichern",
+    "saveChanges": "Änderungen speichern",
+    "saving": "Wird gespeichert...",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "continue": "Weiter",
+    "back": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertig",
+    "submit": "Absenden",
+    "close": "Schließen",
+    "retry": "Erneut versuchen",
+    "loading": "Wird geladen...",
+    "exit": "Beenden",
+    "upload": "Hochladen",
+    "download": "Herunterladen",
+    "confirm": "Bestätigen",
+    "yes": "Ja",
+    "no": "Nein"
+  },
+  "states": {
+    "loading": "Wird geladen...",
+    "empty": "Hier ist noch nichts.",
+    "error": "Etwas ist schiefgelaufen.",
+    "errorRetry": "Bitte aktualisieren Sie die Seite. Falls das Problem weiterhin besteht, wenden Sie sich an den Support.",
+    "refresh": "Aktualisieren",
+    "noResults": "Keine Ergebnisse gefunden.",
+    "saved": "Gespeichert",
+    "upToDate": "Aktuell",
+    "unsavedChanges": "Ungespeicherte Änderungen",
+    "comingSoon": "Demnächst verfügbar"
+  },
+  "toasts": {
+    "errorTitle": "Fehler",
+    "successTitle": "Erfolg",
+    "tryAgain": "Bitte versuchen Sie es erneut."
+  },
+  "greetings": {
+    "morning": "Guten Morgen",
+    "afternoon": "Guten Tag",
+    "evening": "Guten Abend"
+  }
+}

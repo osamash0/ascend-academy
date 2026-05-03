@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, BookOpen, TrendingUp, BarChart3, Plus, Eye, Settings, 
@@ -51,6 +52,7 @@ function ProfessorOrbitalBackground() {
 }
 
 export default function ProfessorDashboard() {
+  const { t } = useTranslation(['professor', 'common']);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -143,9 +145,9 @@ export default function ProfessorDashboard() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return t('common:greetings.morning');
+    if (hour < 17) return t('common:greetings.afternoon');
+    return t('common:greetings.evening');
   };
 
   const profName = user?.email?.split('@')[0] || 'Professor';
@@ -198,7 +200,7 @@ export default function ProfessorDashboard() {
                 transition={{ delay: 0.2 }}
                 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] mb-3 opacity-60"
               >
-                Command Center Dashboard
+                {t('professor:commandCenter')}
               </motion.p>
               <motion.h1
                 initial={{ opacity: 0, x: -20 }}
@@ -206,7 +208,19 @@ export default function ProfessorDashboard() {
                 transition={{ delay: 0.3 }}
                 className="text-4xl md:text-5xl font-black text-foreground tracking-tight"
               >
-                {getGreeting()}, <span className="text-gradient">{profName}.</span>
+                {(() => {
+                  const parts = t('professor:greeting', {
+                    greeting: getGreeting(),
+                    name: '__NAME__',
+                  }).split('__NAME__');
+                  return (
+                    <>
+                      {parts[0]}
+                      <span className="text-gradient">{profName}</span>
+                      {parts[1] ?? ''}
+                    </>
+                  );
+                })()}
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0 }}
@@ -214,7 +228,19 @@ export default function ProfessorDashboard() {
                 transition={{ delay: 0.4 }}
                 className="text-lg text-muted-foreground mt-4 max-w-2xl font-medium leading-relaxed"
               >
-                System analysis confirms <strong className="text-foreground">{stats.totalStudents} students</strong> are actively engaged. Global accuracy is holding at <strong className="text-success">{stats.averageScore}%</strong> across your <strong className="text-foreground">{lectures.length} academic streams</strong>.
+                {(() => {
+                  const raw = t('professor:summary', {
+                    students: stats.totalStudents,
+                    accuracy: stats.averageScore,
+                    lectures: lectures.length,
+                  });
+                  const segments = raw.split(/<bold>|<\/bold>/);
+                  return segments.map((seg, idx) =>
+                    idx % 2 === 1
+                      ? <strong key={idx} className="text-foreground">{seg}</strong>
+                      : <span key={idx}>{seg}</span>
+                  );
+                })()}
               </motion.p>
             </div>
 
@@ -225,7 +251,7 @@ export default function ProfessorDashboard() {
               className="flex-shrink-0"
             >
               <Button onClick={() => navigate('/professor/upload')} className="h-16 px-10 rounded-2xl gap-3 shadow-glow-primary gradient-primary text-base font-black uppercase tracking-widest hover:opacity-90 transition-all border-none text-white">
-                <Plus className="w-6 h-6" /> Create Lecture
+                <Plus className="w-6 h-6" /> {t('professor:createLecture')}
               </Button>
             </motion.div>
           </div>
@@ -237,25 +263,25 @@ export default function ProfessorDashboard() {
         {/* ── Stats Grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatsCard
-            title="Total Students"
+            title={t('professor:stats.totalStudents')}
             value={stats.totalStudents}
             icon={Users}
             variant="primary"
           />
           <StatsCard
-            title="Your Lectures"
+            title={t('professor:stats.yourLectures')}
             value={lectures.length}
             icon={BookOpen}
             variant="default"
           />
           <StatsCard
-            title="Average Score"
+            title={t('professor:stats.averageScore')}
             value={`${stats.averageScore}%`}
             icon={TrendingUp}
             variant="success"
           />
           <StatsCard
-            title="Quiz Attempts"
+            title={t('professor:stats.quizAttempts')}
             value={stats.totalQuizAttempts}
             icon={Activity}
             variant="xp"
@@ -270,13 +296,13 @@ export default function ProfessorDashboard() {
                 <GraduationCap className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-foreground tracking-tight">Active Academic Streams</h2>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-1 opacity-60">Manage your interactive learning materials</p>
+                <h2 className="text-2xl font-black text-foreground tracking-tight">{t('professor:lectures.sectionTitle')}</h2>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-1 opacity-60">{t('professor:lectures.sectionSubtitle')}</p>
               </div>
             </div>
             <Button variant="ghost" className="rounded-xl glass-card border-white/5 font-black uppercase text-[10px] tracking-widest h-10 px-6 hover:bg-primary/10 hover:text-primary transition-all" onClick={() => navigate('/professor/analytics')}>
               <BarChart3 className="w-4 h-4 mr-2" />
-              Global Analytics
+              {t('professor:lectures.globalAnalytics')}
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
@@ -290,16 +316,16 @@ export default function ProfessorDashboard() {
               <div className="w-20 h-20 rounded-[2.5rem] bg-surface-2 border border-white/5 flex items-center justify-center mx-auto mb-6">
                 <BookOpen className="w-10 h-10 text-muted-foreground/30" />
               </div>
-              <h3 className="text-2xl font-black text-foreground mb-3 tracking-tight">No lectures detected</h3>
+              <h3 className="text-2xl font-black text-foreground mb-3 tracking-tight">{t('professor:lectures.empty.title')}</h3>
               <p className="text-muted-foreground max-w-md mx-auto font-medium mb-10">
-                Upload your first lecture to initiate automated quiz generation and real-time student neural tracking.
+                {t('professor:lectures.empty.description')}
               </p>
               <Button 
                 onClick={() => navigate('/professor/upload')}
                 className="h-14 px-8 rounded-xl shadow-glow-primary gradient-primary font-black uppercase tracking-widest border-none text-white"
               >
                 <Plus className="w-5 h-5 mr-3" />
-                Upload Your First Lecture
+                {t('professor:lectures.empty.cta')}
               </Button>
             </motion.div>
           ) : (
@@ -309,19 +335,19 @@ export default function ProfessorDashboard() {
                   <thead>
                     <tr className="border-b border-white/5 bg-white/5">
                       <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Lecture Details
+                        {t('professor:lectures.table.details')}
                       </th>
                       <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Slide Count
+                        {t('professor:lectures.table.slideCount')}
                       </th>
                       <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Launch Date
+                        {t('professor:lectures.table.launchDate')}
                       </th>
                       <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Protocol Status
+                        {t('professor:lectures.table.status')}
                       </th>
                       <th className="px-10 py-6 text-right text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Executive Actions
+                        {t('professor:lectures.table.actions')}
                       </th>
                     </tr>
                   </thead>

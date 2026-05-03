@@ -1,0 +1,66 @@
+{
+  "header": {
+    "title": "Vorlesung erstellen",
+    "subtitle": "Interaktive Lernerlebnisse gestalten",
+    "exit": "Beenden"
+  },
+  "form": {
+    "titleLabel": "Vorlesungstitel",
+    "titlePlaceholder": "z. B. Einführung in maschinelles Lernen",
+    "descriptionLabel": "Beschreibung",
+    "descriptionPlaceholder": "Beschreibe, was die Studierenden lernen werden..."
+  },
+  "empty": {
+    "title": "Beginne mit dem Aufbau deiner Vorlesung",
+    "description": "Erstelle Folien von Grund auf oder importiere eine PDF, um strukturierte Inhalte mit KI-Zusammenfassungen und Quizzen zu erzeugen.",
+    "createFirstSlide": "Erste Folie erstellen",
+    "importPdf": "PDF importieren"
+  },
+  "actions": {
+    "addSlide": "Folie hinzufügen",
+    "deleteSlide": "Folie löschen",
+    "save": "Vorlesung speichern",
+    "saving": "Wird gespeichert...",
+    "generateAll": "Alles generieren",
+    "generateSummary": "Zusammenfassung generieren",
+    "generateQuiz": "Quiz generieren",
+    "generateTitle": "Titel generieren",
+    "generateContent": "Inhalt generieren"
+  },
+  "slide": {
+    "titleLabel": "Folientitel",
+    "titlePlaceholder": "Gib einen klaren, prägnanten Titel ein",
+    "contentLabel": "Folieninhalt",
+    "contentPlaceholder": "Schreibe den Hauptinhalt dieser Folie...",
+    "summaryLabel": "KI-Zusammenfassung",
+    "summaryPlaceholder": "Eine kurze Zusammenfassung erscheint hier, oder klicke auf Zusammenfassung generieren.",
+    "quizLabel": "Quizfragen",
+    "addQuestion": "Frage hinzufügen",
+    "questionLabel": "Frage",
+    "questionPlaceholder": "Schreibe eine Verständnisfrage zu dieser Folie...",
+    "answerOptions": "Antwortmöglichkeiten",
+    "answerHelp": "klicken, um als richtig zu markieren",
+    "answerHint": "Klicke auf eine Antwortkarte, um sie als richtige Antwort zu markieren",
+    "optionPlaceholder": "Option {{label}}"
+  },
+  "upload": {
+    "uploading": "PDF wird hochgeladen...",
+    "processing": "Folien werden verarbeitet ({{current}} von {{total}})...",
+    "phaseExtracting": "Text wird extrahiert",
+    "phaseAnalyzing": "Inhalt wird analysiert",
+    "phaseQuizzing": "Quizze werden erstellt",
+    "phaseFinalizing": "Wird abgeschlossen",
+    "completed": "Upload abgeschlossen",
+    "close": "Schließen",
+    "duplicateTitle": "Diese PDF kennen wir schon",
+    "duplicateDescription": "Öffne die bestehende Vorlesung oder lade sie als neue hoch.",
+    "useExisting": "Bestehende öffnen",
+    "uploadAsNew": "Als neue hochladen"
+  },
+  "toasts": {
+    "saved": "Vorlesung gespeichert",
+    "savedDescription": "Deine Vorlesung wurde erfolgreich gespeichert.",
+    "saveError": "Vorlesung konnte nicht gespeichert werden",
+    "exitConfirm": "Du hast nicht gespeicherte Änderungen. Möchtest du wirklich beenden? Der Fortschritt geht verloren."
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "title": "Settings",
+  "subtitle": "Manage your profile, preferences, and account.",
+  "tabs": {
+    "profile": "Profile",
+    "ai": "AI Model",
+    "appearance": "Appearance",
+    "security": "Security",
+    "data": "Data & Privacy"
+  },
+  "profile": {
+    "personalInfo": "Personal Information",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Enter your full name",
+    "displayName": "Display Name (public)",
+    "displayNamePlaceholder": "Anonymous (Avatar Only)",
+    "displayNameHelp": "Shown on the leaderboard instead of your avatar only.",
+    "email": "Email Address",
+    "emailHelp": "Your email address cannot be changed here."
+  },
+  "avatar": {
+    "anonymousUser": "Anonymous User",
+    "uploadPhoto": "Upload Photo",
+    "changeAvatar": "Change Avatar",
+    "presetsTitle": "Or choose a fun preset:",
+    "updated": "Avatar updated",
+    "updatedDescription": "Your new profile picture looks great!",
+    "uploadError": "Error uploading avatar",
+    "uploadErrorDescription": "Please make sure the 'avatars' storage bucket exists and is public.",
+    "presetUpdated": "Your fun new avatar is set!",
+    "presetError": "Error updating avatar",
+    "presetErrorDescription": "Failed to update your avatar."
+  },
+  "language": {
+    "title": "Language",
+    "description": "Choose the language for the interface. This setting is saved on your profile and follows you across devices.",
+    "english": "English",
+    "german": "Deutsch (German)",
+    "saved": "Language saved",
+    "savedDescription": "Your language preference has been updated."
+  },
+  "ai": {
+    "title": "AI Model",
+    "description": "Choose which AI model powers your tutor and content generation.",
+    "saved": "AI model updated"
+  },
+  "security": {
+    "title": "Security",
+    "currentPassword": "Current Password",
+    "currentPasswordPlaceholder": "Enter your current password",
+    "newPassword": "New Password",
+    "newPasswordPlaceholder": "At least 6 characters",
+    "confirmPassword": "Confirm New Password",
+    "confirmPasswordPlaceholder": "Re-enter the new password",
+    "passwordsDontMatch": "Passwords don't match.",
+    "changePassword": "Change Password",
+    "changing": "Changing...",
+    "currentIncorrect": "Current password incorrect",
+    "currentIncorrectDescription": "Please check your current password and try again.",
+    "passwordChangeFailed": "Password change failed",
+    "passwordUpdated": "Password updated!",
+    "passwordUpdatedDescription": "Your password has been changed successfully."
+  },
+  "data": {
+    "title": "Data & Privacy",
+    "exportTitle": "Export your data",
+    "exportDescription": "Download a JSON file containing all your data stored on Learnstation.",
+    "exportButton": "Export my data",
+    "exporting": "Exporting...",
+    "exportSuccess": "Data exported",
+    "exportSuccessDescription": "Your data has been downloaded.",
+    "exportError": "Export failed",
+    "deleteTitle": "Delete your account",
+    "deleteDescription": "Permanently delete your account and all associated data. This action cannot be undone.",
+    "deleteButton": "Delete my account",
+    "deleting": "Deleting...",
+    "deleteConfirm": "Are you absolutely sure? This will permanently delete your account and all your data. Type DELETE to confirm.",
+    "deleteSuccess": "Account deleted",
+    "deleteError": "Deletion failed"
+  },
+  "save": "Save Changes",
+  "saving": "Saving...",
+  "saved": "Profile updated",
+  "savedDescription": "Your settings have been saved successfully.",
+  "saveError": "Error saving profile"
+}

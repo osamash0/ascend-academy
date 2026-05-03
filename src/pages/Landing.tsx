@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, useScroll, useTransform, useSpring, useMotionValue, AnimatePresence } from 'framer-motion';
+import { LanguageToggle } from '@/components/LanguageToggle';
 import { 
   Rocket, BookOpen, Brain, Zap, Shield, ChevronRight, Star, 
   Users, BarChart3, Sparkles, ArrowRight, Play, X, Menu,
@@ -306,8 +308,15 @@ function HUDGrid() {
 /* ── Navigation ── */
 function Navigation() {
   const navigate = useNavigate();
+  const { t } = useTranslation(['landing']);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navLinks = [
+    { label: t('landing:nav.features'), href: '#features' },
+    { label: t('landing:nav.howItWorks'), href: '#how-it-works' },
+    { label: t('landing:nav.forProfessors'), href: '#professors' },
+    { label: t('landing:nav.pricing'), href: '#pricing' },
+  ];
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -351,7 +360,7 @@ function Navigation() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
@@ -365,11 +374,12 @@ function Navigation() {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-4">
+            <LanguageToggle variant="icon-light" />
             <button
               onClick={() => navigate('/auth')}
               className="text-sm text-slate-300 hover:text-white transition-colors"
             >
-              Sign In
+              {t('landing:nav.signIn')}
             </button>
             <motion.button
               onClick={() => navigate('/auth')}
@@ -377,7 +387,7 @@ function Navigation() {
               whileTap={{ scale: 0.95 }}
               className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-shadow"
             >
-              Launch Mission
+              {t('landing:nav.launchMission')}
             </motion.button>
           </div>
 
@@ -401,7 +411,7 @@ function Navigation() {
             className="md:hidden bg-[#060a14]/95 backdrop-blur-xl border-b border-white/5"
           >
             <div className="px-6 py-6 space-y-4">
-              {NAV_LINKS.map((link) => (
+              {navLinks.map((link) => (
                 <a
                   key={link.label}
                   href={link.href}
@@ -412,12 +422,13 @@ function Navigation() {
                 </a>
               ))}
               <div className="pt-4 border-t border-white/10 space-y-3">
-                <button onClick={() => { navigate('/auth'); setMobileOpen(false); }} className="block text-slate-300 py-2 w-full text-left">Sign In</button>
+                <div className="flex justify-center"><LanguageToggle variant="icon-light" /></div>
+                <button onClick={() => { navigate('/auth'); setMobileOpen(false); }} className="block text-slate-300 py-2 w-full text-left">{t('landing:nav.signIn')}</button>
                 <button
                   onClick={() => { navigate('/auth'); setMobileOpen(false); }}
                   className="block px-5 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-center font-semibold rounded-xl w-full"
                 >
-                  Launch Mission
+                  {t('landing:nav.launchMission')}
                 </button>
               </div>
             </div>

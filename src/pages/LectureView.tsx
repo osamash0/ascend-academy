@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -33,6 +34,7 @@ import { useAiModel } from '@/hooks/use-ai-model';
 import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
 
 export default function LectureView() {
+  const { t } = useTranslation(['lecture']);
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
@@ -789,7 +791,7 @@ export default function LectureView() {
               className="gap-2 rounded-xl px-5 bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary border-none hover:opacity-90"
             >
               <Bot className="w-4 h-4" />
-              <span className="text-xs font-bold">AI Tutor</span>
+              <span className="text-xs font-bold">{t('lecture:tutor.title')}</span>
             </Button>
           </div>
         </header>

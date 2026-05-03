@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Mail, Camera, Save, Loader2, Trash2, Download,
-    Lock, Eye, EyeOff, BrainCircuit, Shield, CheckCircle2
+    Lock, Eye, EyeOff, BrainCircuit, Shield, CheckCircle2, Languages
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth, Profile } from '@/lib/auth';
+import { useLanguagePreference } from '@/hooks/useLanguagePreference';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -733,6 +735,52 @@ function DataPrivacySection({
     );
 }
 
+function LanguageSection() {
+    const { t } = useTranslation(['settings']);
+    const { language, setLanguage } = useLanguagePreference();
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22 }}
+            className="bg-card rounded-2xl border border-border p-6"
+        >
+            <div className="flex items-center gap-3 mb-2">
+                <Languages className="w-6 h-6 text-primary" aria-hidden="true" />
+                <h2 className="text-xl font-semibold text-foreground">{t('settings:language.title')}</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">{t('settings:language.description')}</p>
+            <div className="grid grid-cols-2 gap-3">
+                {(['en', 'de'] as const).map((lng) => {
+                    const active = language === lng;
+                    return (
+                        <button
+                            key={lng}
+                            type="button"
+                            onClick={() => setLanguage(lng)}
+                            aria-pressed={active}
+                            className={`p-4 rounded-xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                                active
+                                    ? 'border-primary bg-primary/10 shadow-sm'
+                                    : 'border-border bg-card hover:border-primary/50'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-2xl" aria-hidden="true">{lng === 'en' ? '🇬🇧' : '🇩🇪'}</span>
+                                {active && <CheckCircle2 className="w-5 h-5 text-primary" aria-hidden="true" />}
+                            </div>
+                            <p className="mt-2 font-semibold text-foreground">
+                                {lng === 'en' ? t('settings:language.english') : t('settings:language.german')}
+                            </p>
+                        </button>
+                    );
+                })}
+            </div>
+        </motion.div>
+    );
+}
+
 function AiPreferencesSection() {
     const { aiModel, setAiModel } = useAiModel();
     const { toast } = useToast();
@@ -861,6 +909,7 @@ export default function Settings() {
                 />
             </div>
 
+            <LanguageSection />
             <AiPreferencesSection />
         </div>
     );

@@ -1,0 +1,50 @@
+{
+  "navigation": {
+    "back": "Zurück",
+    "previous": "Vorherige",
+    "next": "Nächste",
+    "showQuiz": "Quiz starten",
+    "continue": "Weiter",
+    "finishLecture": "Vorlesung abschließen",
+    "slideOf": "Folie {{current}} von {{total}}"
+  },
+  "quiz": {
+    "submit": "Antwort absenden",
+    "correct": "Richtig!",
+    "incorrect": "Nicht ganz",
+    "tryAgain": "Erneut versuchen",
+    "explanation": "Erklärung",
+    "showExplanation": "Erklärung anzeigen",
+    "hideExplanation": "Erklärung ausblenden"
+  },
+  "tutor": {
+    "title": "KI-Tutor",
+    "placeholder": "Frag alles zu dieser Folie...",
+    "send": "Senden",
+    "thinking": "Denkt nach...",
+    "open": "KI-Tutor öffnen",
+    "close": "Schließen"
+  },
+  "recap": {
+    "title": "Vorlesungs-Zusammenfassung",
+    "missedQuestions": "Fragen, die du verpasst hast",
+    "yourFirstAnswer": "Deine erste Antwort",
+    "yourRetryAnswer": "Deine zweite Antwort",
+    "correctAnswer": "Richtige Antwort",
+    "backToDashboard": "Zurück zum Dashboard"
+  },
+  "completion": {
+    "completed": "Vorlesung abgeschlossen!",
+    "xpEarned": "Verdiente XP: {{xp}}",
+    "accuracy": "Genauigkeit: {{percent}}%",
+    "continueButton": "Weiter"
+  },
+  "regenerate": {
+    "button": "Folie neu analysieren",
+    "loading": "Wird neu analysiert...",
+    "success": "Folie neu analysiert",
+    "successDescription": "Die KI-Inhalte wurden mittels Bildanalyse aktualisiert.",
+    "failure": "Neuanalyse fehlgeschlagen",
+    "failureDescription": "Inhalt konnte nicht neu generiert werden."
+  }
+}

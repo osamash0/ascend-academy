@@ -1,0 +1,46 @@
+{
+  "commandCenter": "Kommandozentrum",
+  "greeting": "{{greeting}}, {{name}}.",
+  "summary": "Die Systemanalyse bestätigt: <bold>{{students}} Studierende</bold> sind aktiv engagiert. Die globale Genauigkeit liegt bei <bold>{{accuracy}}%</bold> in deinen <bold>{{lectures}} akademischen Strömen</bold>.",
+  "createLecture": "Vorlesung erstellen",
+  "stats": {
+    "totalStudents": "Gesamtzahl Studierender",
+    "yourLectures": "Deine Vorlesungen",
+    "averageScore": "Durchschnittsnote",
+    "quizAttempts": "Quiz-Versuche"
+  },
+  "lectures": {
+    "sectionTitle": "Aktive akademische Ströme",
+    "sectionSubtitle": "Verwalte deine interaktiven Lernmaterialien",
+    "globalAnalytics": "Globale Analytik",
+    "table": {
+      "details": "Vorlesungsdetails",
+      "slideCount": "Folienanzahl",
+      "launchDate": "Veröffentlicht am",
+      "status": "Protokollstatus",
+      "actions": "Aktionen"
+    },
+    "status": {
+      "active": "Aktives Protokoll",
+      "noPdf": "Keine Quell-PDF"
+    },
+    "uncategorized": "Ohne Kategorie",
+    "courseAssignment": "Kurszuordnung",
+    "actions": {
+      "analytics": "Vorlesungs-Analytik",
+      "preview": "Vorlesung ansehen",
+      "edit": "Parameter bearbeiten",
+      "delete": "Strom löschen"
+    },
+    "empty": {
+      "title": "Keine Vorlesungen erkannt",
+      "description": "Lade deine erste Vorlesung hoch, um automatische Quiz-Erstellung und Echtzeit-Tracking zu starten.",
+      "cta": "Erste Vorlesung hochladen"
+    },
+    "deleteConfirm": "Möchtest du diese Vorlesung wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
+    "deleted": "Vorlesung erfolgreich gelöscht.",
+    "deleteFailed": "Vorlesung konnte nicht gelöscht werden.",
+    "courseUpdated": "Kurs aktualisiert",
+    "courseUpdateFailed": "Kursänderung fehlgeschlagen"
+  }
+}

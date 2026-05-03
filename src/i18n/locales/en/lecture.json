@@ -1,0 +1,50 @@
+{
+  "navigation": {
+    "back": "Back",
+    "previous": "Previous",
+    "next": "Next",
+    "showQuiz": "Take Quiz",
+    "continue": "Continue",
+    "finishLecture": "Finish Lecture",
+    "slideOf": "Slide {{current}} of {{total}}"
+  },
+  "quiz": {
+    "submit": "Submit Answer",
+    "correct": "Correct!",
+    "incorrect": "Not quite",
+    "tryAgain": "Try Again",
+    "explanation": "Explanation",
+    "showExplanation": "Show Explanation",
+    "hideExplanation": "Hide Explanation"
+  },
+  "tutor": {
+    "title": "AI Tutor",
+    "placeholder": "Ask anything about this slide...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "open": "Open AI Tutor",
+    "close": "Close"
+  },
+  "recap": {
+    "title": "Lecture Recap",
+    "missedQuestions": "Questions you missed",
+    "yourFirstAnswer": "Your first answer",
+    "yourRetryAnswer": "Your retry answer",
+    "correctAnswer": "Correct answer",
+    "backToDashboard": "Back to dashboard"
+  },
+  "completion": {
+    "completed": "Lecture completed!",
+    "xpEarned": "XP earned: {{xp}}",
+    "accuracy": "Accuracy: {{percent}}%",
+    "continueButton": "Continue"
+  },
+  "regenerate": {
+    "button": "Re-analyze slide",
+    "loading": "Re-analyzing...",
+    "success": "Slide re-analyzed",
+    "successDescription": "AI content has been updated using vision analysis.",
+    "failure": "Re-analysis failed",
+    "failureDescription": "Could not regenerate content."
+  }
+}

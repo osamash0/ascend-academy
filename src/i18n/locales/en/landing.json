@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "features": "Features",
+    "howItWorks": "How It Works",
+    "forProfessors": "For Professors",
+    "pricing": "Pricing",
+    "signIn": "Sign In",
+    "launchMission": "Launch Mission"
+  },
+  "hero": {
+    "badge": "v2.0 Now Orbiting",
+    "headlineLine1": "Your Learning",
+    "headlineLine2": "Mission Control",
+    "subtitle": "Ascend Academy's next-generation platform. AI-powered tutoring, real-time analytics, and immersive course experiences — all from your command center.",
+    "ctaPrimary": "Launch Your Mission",
+    "ctaSecondary": "Watch Demo",
+    "systemOnline": "SYSTEM ONLINE",
+    "stats": {
+      "xpEarned": "XP Earned",
+      "currentStreak": "Current Streak",
+      "accuracy": "Accuracy",
+      "days": "{{count}} Days"
+    }
+  },
+  "stats": {
+    "activeLearners": "Active Learners",
+    "questionsAnswered": "Questions Answered",
+    "retentionRate": "Retention Rate",
+    "userRating": "User Rating"
+  },
+  "features": {
+    "title": "Mission-Critical Features",
+    "subtitle": "Every tool you need to navigate your learning journey.",
+    "aiTutor": {
+      "title": "AI Tutor",
+      "description": "Your personal AI companion that adapts to your learning style, answers questions in real-time, and guides you through complex topics."
+    },
+    "liveAnalytics": {
+      "title": "Live Analytics",
+      "description": "Mission-control dashboards track your progress with precision. See your XP, streaks, and skill mastery in real-time."
+    },
+    "adaptiveQuizzes": {
+      "title": "Adaptive Quizzes",
+      "description": "Smart assessments that evolve with your knowledge. Wrong answers become learning opportunities, not setbacks."
+    },
+    "professorCommand": {
+      "title": "Professor Command",
+      "description": "Instructors get a full mission control suite: upload lectures, track class performance, and deploy AI-powered insights."
+    },
+    "secureVault": {
+      "title": "Secure Vault",
+      "description": "Your learning data is encrypted and protected. Enterprise-grade security with privacy-first architecture."
+    },
+    "universalAccess": {
+      "title": "Universal Access",
+      "description": "Learn anywhere, on any device. Sync progress across platforms with offline capability for deep-space learning."
+    }
+  },
+  "footer": {
+    "tagline": "Your learning mission control.",
+    "imprint": "Imprint",
+    "privacy": "Privacy Policy",
+    "copyright": "© {{year}} Learnstation. All rights reserved."
+  }
+}

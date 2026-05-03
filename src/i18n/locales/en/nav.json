@@ -1,0 +1,26 @@
+{
+  "student": {
+    "dashboard": "Dashboard",
+    "achievements": "Achievements",
+    "leaderboard": "Leaderboard",
+    "insights": "Learning Insights",
+    "settings": "Settings"
+  },
+  "professor": {
+    "dashboard": "Dashboard",
+    "courses": "Courses",
+    "analytics": "Analytics",
+    "upload": "Upload Lecture",
+    "settings": "Settings"
+  },
+  "sidebar": {
+    "navigationHub": "Navigation Hub",
+    "currentTier": "Current Tier",
+    "telemetry": "Telemetry",
+    "level": "Level {{level}}",
+    "protocolProgress": "Protocol Progress",
+    "signOut": "Sign out",
+    "version": "v2.0 Orbital",
+    "brand": "Ascend"
+  }
+}

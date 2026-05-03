@@ -1,0 +1,50 @@
+{
+  "language": "Language",
+  "languageEnglish": "English",
+  "languageGerman": "German",
+  "actions": {
+    "save": "Save",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "continue": "Continue",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "submit": "Submit",
+    "close": "Close",
+    "retry": "Retry",
+    "loading": "Loading...",
+    "exit": "Exit",
+    "upload": "Upload",
+    "download": "Download",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "states": {
+    "loading": "Loading...",
+    "empty": "Nothing here yet.",
+    "error": "Something went wrong.",
+    "errorRetry": "Please refresh the page. If the problem persists, contact support.",
+    "refresh": "Refresh",
+    "noResults": "No results found.",
+    "saved": "Saved",
+    "upToDate": "Up to date",
+    "unsavedChanges": "Unsaved changes",
+    "comingSoon": "Coming soon"
+  },
+  "toasts": {
+    "errorTitle": "Error",
+    "successTitle": "Success",
+    "tryAgain": "Please try again."
+  },
+  "greetings": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening"
+  }
+}
