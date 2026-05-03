@@ -43,7 +43,7 @@ INTENTS: Dict[str, Dict[str, Any]] = {
         "description": "List students whose quiz accuracy is below a threshold.",
         "params": {"max_accuracy_percent": "int 0-100, default 40"},
         "examples": [
-            "Show me students who answered less than 40% of quiz questions",
+            "Show me students whose quiz accuracy is below 40%",
             "Who is failing the quizzes?",
             "Students under 50% accuracy",
         ],
@@ -91,7 +91,7 @@ def list_suggested_questions() -> List[str]:
     return [
         "Which slide had the highest drop-off rate?",
         "Which 3 quiz questions had the lowest correct rate?",
-        "Show me students who answered less than 40% of quiz questions",
+        "Show me students whose quiz accuracy is below 40%",
         "How many students finished the lecture?",
         "What concepts are students most confused about?",
     ]
