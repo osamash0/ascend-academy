@@ -5,7 +5,7 @@
  * `state` (loading | empty | error | ready) so the renderer always shows the
  * correct UX for the four lifecycle stages, never a blank panel.
  */
-import React, { useMemo, useRef, useState, useCallback } from 'react';
+import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { hierarchy, tree as d3tree, type HierarchyPointNode } from 'd3-hierarchy';
 import type { TreeNode } from '@/types/domain';
 import { MindMapErrorBoundary } from '@/features/mindmap/MindMapErrorBoundary';
@@ -118,9 +118,13 @@ function MindMapTree({
   }, [tree, collapsed]);
 
   const padX = NODE_W.root;
+  // Add a top pad so the root node tile (centered around y=0) is never
+  // clipped on first render, and a matching bottom pad for symmetry.
+  const padY = NODE_H.root;
   const width = Math.max(400, layout.maxX - layout.minX + padX * 2);
-  const svgHeight = Math.max(height, layout.maxY + NODE_H.root + 32);
+  const svgHeight = Math.max(height, layout.maxY + padY * 2 + 32);
   const offsetX = -layout.minX + padX;
+  const offsetY = padY;
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     isPanning.current = true;
@@ -148,12 +152,31 @@ function MindMapTree({
 
   const linkPath = (l: { source: HierarchyPointNode<TreeNode>; target: HierarchyPointNode<TreeNode> }) => {
     const sx = l.source.x + offsetX;
-    const sy = l.source.y + NODE_H[l.source.data.type] / 2;
+    const sy = l.source.y + offsetY + NODE_H[l.source.data.type] / 2;
     const tx = l.target.x + offsetX;
-    const ty = l.target.y - NODE_H[l.target.data.type] / 2;
+    const ty = l.target.y + offsetY - NODE_H[l.target.data.type] / 2;
     const my = (sy + ty) / 2;
     return `M ${sx} ${sy} C ${sx} ${my}, ${tx} ${my}, ${tx} ${ty}`;
   };
+
+  // Auto-pan so the currently-focused slide node is centered in the viewport
+  // when the parent updates `currentSlideId`. Only runs on slide changes; the
+  // user can still freely pan/zoom afterwards.
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!currentSlideId) return;
+    const target = layout.nodes.find(
+      (n) => n.data.type === 'slide' && n.data.id === currentSlideId,
+    );
+    const vp = viewportRef.current;
+    if (!target || !vp) return;
+    const rect = vp.getBoundingClientRect();
+    setTransform((prev) => {
+      const tx = rect.width / 2 - (target.x + offsetX) * prev.scale;
+      const ty = rect.height / 2 - (target.y + offsetY) * prev.scale;
+      return { ...prev, x: tx, y: ty };
+    });
+  }, [currentSlideId, layout.nodes, offsetX, offsetY]);
 
   return (
     <div
@@ -185,6 +208,7 @@ function MindMapTree({
       </div>
 
       <div
+        ref={viewportRef}
         className="absolute inset-0 overflow-hidden"
         style={{ cursor: isPanning.current ? 'grabbing' : 'grab' }}
         onMouseDown={onMouseDown}
@@ -215,7 +239,7 @@ function MindMapTree({
               const w = NODE_W[n.data.type];
               const h = NODE_H[n.data.type];
               const x = n.x + offsetX - w / 2;
-              const y = n.y - h / 2;
+              const y = n.y + offsetY - h / 2;
               const isSlide = n.data.type === 'slide';
               const active = !!currentSlideId && n.data.id === currentSlideId;
               const clickable = isSlide && !!onSlideClick;
