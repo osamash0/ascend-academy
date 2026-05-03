@@ -110,15 +110,24 @@ vi.mock("@/components/SlideViewer", () => ({
     title,
     onNext,
     onPrevious,
+    onMindMapSlideClick,
   }: {
     title?: string;
     onNext?: () => void;
     onPrevious?: () => void;
+    onMindMapSlideClick?: (id: string) => void;
   }) => (
     <div data-testid="slide-viewer-stub">
-      <span>{title}</span>
+      <span data-testid="current-slide-title">{title}</span>
       <button type="button" onClick={onPrevious}>Previous</button>
       <button type="button" onClick={onNext}>Next</button>
+      <button
+        type="button"
+        data-testid="trigger-mindmap-jump"
+        onClick={() => onMindMapSlideClick?.('slide-2')}
+      >
+        Jump via mind map
+      </button>
     </div>
   ),
 }));
@@ -166,15 +175,18 @@ vi.mock("@/services/studentService", async () => {
   };
 });
 
+// The default mock returns no mind map; tests that need ready-state data
+// override this via `vi.mocked(useMindMap).mockReturnValueOnce(...)`.
 vi.mock("@/features/mindmap/hooks/useMindMap", () => ({
-  useMindMap: () => ({
-    map: { data: null, isLoading: false, isError: false },
+  useMindMap: vi.fn(() => ({
+    map: { data: null, isLoading: false, isError: false, error: null, refetch: vi.fn() },
     generate: { mutate: vi.fn(), isPending: false },
-  }),
+  })),
 }));
 
 import LectureView from "@/pages/LectureView";
 import { renderWithProviders } from "@/test/renderWithProviders";
+import { useMindMap } from "@/features/mindmap/hooks/useMindMap";
 
 function renderAtRoute() {
   return renderWithProviders(
@@ -451,5 +463,57 @@ describe("LectureView replay stage", () => {
     await waitFor(() => screen.getByTestId("lecture-recap"));
     expect(screen.queryAllByTestId("recap-item")).toHaveLength(0);
     expect(screen.getByTestId("lecture-recap")).toHaveTextContent(/Perfect run/i);
+  });
+});
+
+describe("LectureView mind map ↔ slide focus", () => {
+  it("changes the active slide when a slide-typed mind map node is clicked", async () => {
+    fetchLectureMock.mockResolvedValue({
+      id: "lec-1",
+      title: "Mind Map Lecture",
+      description: null,
+      total_slides: 2,
+      professor_id: "prof-1",
+      created_at: "2025-01-01T00:00:00Z",
+      pdf_url: null,
+    });
+    fetchSlidesMock.mockResolvedValue([
+      { id: "slide-1", slide_number: 1, title: "Slide One", content_text: "a", summary: "" },
+      { id: "slide-2", slide_number: 2, title: "Slide Two", content_text: "b", summary: "" },
+    ]);
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+
+    vi.mocked(useMindMap).mockReturnValue({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map: {
+        data: {
+          id: "root",
+          label: "Lecture",
+          type: "root",
+          children: [
+            { id: "slide-1", label: "Slide One", type: "slide" },
+            { id: "slide-2", label: "Slide Two", type: "slide" },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      generate: { mutate: vi.fn(), isPending: false } as any,
+    });
+
+    renderAtRoute();
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide One"),
+    );
+
+    fireEvent.click(screen.getByTestId("trigger-mindmap-jump"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide Two"),
+    );
   });
 });

@@ -75,11 +75,25 @@ function MindMapTree({
   height: number;
 }) {
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const isPanning = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
 
+  const toggleCollapse = useCallback((id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   const layout = useMemo(() => {
-    const root = hierarchy<TreeNode>(tree, (d) => d.children ?? []);
+    // Children accessor honors the collapsed set so the tidy-tree relayouts
+    // on every toggle without losing pan/zoom transform state.
+    const root = hierarchy<TreeNode>(tree, (d) =>
+      collapsed.has(d.id) ? [] : (d.children ?? []),
+    );
     // Tidy tree, vertical (root at top). nodeSize gives us a per-node tile so
     // siblings never overlap regardless of depth or label length.
     const layoutFn = d3tree<TreeNode>().nodeSize([
@@ -101,7 +115,7 @@ function MindMapTree({
       maxX: Math.max(...xs),
       maxY: Math.max(...ys),
     };
-  }, [tree]);
+  }, [tree, collapsed]);
 
   const padX = NODE_W.root;
   const width = Math.max(400, layout.maxX - layout.minX + padX * 2);
@@ -205,6 +219,12 @@ function MindMapTree({
               const isSlide = n.data.type === 'slide';
               const active = !!currentSlideId && n.data.id === currentSlideId;
               const clickable = isSlide && !!onSlideClick;
+              // A node is collapsible when it has children in the source tree
+              // (independent of whether they are currently hidden) and is not
+              // itself a clickable slide leaf.
+              const hasChildren = !!(n.data.children && n.data.children.length > 0);
+              const collapsible = hasChildren && !isSlide;
+              const isCollapsed = collapsed.has(n.data.id);
               const handleClick = () => {
                 if (clickable) onSlideClick?.(n.data.id);
               };
@@ -223,11 +243,27 @@ function MindMapTree({
                         handleClick();
                       }
                     }}
-                    className={nodeClass(n.data.type, active, clickable)}
+                    className={`relative ${nodeClass(n.data.type, active, clickable)}`}
                   >
                     <span className="text-[11px] truncate w-full leading-tight">
                       {n.data.label}
                     </span>
+                    {collapsible && (
+                      <button
+                        type="button"
+                        data-testid="mindmap-toggle"
+                        data-node-id={n.data.id}
+                        aria-label={isCollapsed ? 'Expand subtree' : 'Collapse subtree'}
+                        aria-expanded={!isCollapsed}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCollapse(n.data.id);
+                        }}
+                        className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-background border border-border text-foreground text-[10px] font-bold flex items-center justify-center shadow hover:bg-primary hover:text-white transition"
+                      >
+                        {isCollapsed ? '+' : '−'}
+                      </button>
+                    )}
                   </div>
                 </foreignObject>
               );
@@ -237,7 +273,7 @@ function MindMapTree({
       </div>
 
       <p className="absolute bottom-2 left-3 z-10 text-[9px] text-muted-foreground/40 uppercase tracking-widest pointer-events-none">
-        Drag to pan · Scroll to zoom · Click a slide to open it
+        Drag to pan · Scroll to zoom · ± to collapse · Click a slide to open it
       </p>
     </div>
   );

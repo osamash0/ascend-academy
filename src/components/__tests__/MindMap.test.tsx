@@ -120,6 +120,38 @@ describe('MindMap states', () => {
     expect(onSlideClick).not.toHaveBeenCalled();
   });
 
+  it('collapses and re-expands a cluster subtree, hiding/showing its slide nodes', () => {
+    const tree: TreeNode = {
+      id: 'root',
+      label: 'Lecture',
+      type: 'root',
+      children: [
+        {
+          id: 'c-1',
+          label: 'Topic',
+          type: 'cluster',
+          children: [
+            { id: 's-1', label: 'Slide A', type: 'slide' },
+            { id: 's-2', label: 'Slide B', type: 'slide' },
+          ],
+        },
+      ],
+    };
+    render(<MindMap state={{ kind: 'ready', tree }} />);
+    expect(screen.getAllByTestId('mindmap-node-slide')).toHaveLength(2);
+
+    const toggle = screen
+      .getAllByTestId('mindmap-toggle')
+      .find((b) => b.getAttribute('data-node-id') === 'c-1')!;
+    fireEvent.click(toggle);
+    expect(screen.queryAllByTestId('mindmap-node-slide')).toHaveLength(0);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(toggle);
+    expect(screen.getAllByTestId('mindmap-node-slide')).toHaveLength(2);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('renders large lectures (150 slides) without throwing', () => {
     const tree = makeLargeTree();
     const state: MindMapState = { kind: 'ready', tree };
