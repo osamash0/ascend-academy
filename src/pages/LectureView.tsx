@@ -811,7 +811,7 @@ export default function LectureView() {
                     transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <SlideViewer
-                      title={currentSlide.title || `Slide ${currentSlide.slide_number}`}
+                      title={currentSlide.title || t('lecture:chrome.slideNumberFallback', { number: currentSlide.slide_number })}
                       content={currentSlide.content_text || ''}
                       summary={currentSlide.summary || ''}
                       slideNumber={currentSlideIndex + 1}
@@ -1017,7 +1017,7 @@ export default function LectureView() {
             isOpen={isChatOpen}
             onClose={() => setIsChatOpen(false)}
             slideText={currentSlide?.content_text || ''}
-            slideTitle={currentSlide?.title || t('lecture:slideFallback')}
+            slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
             lectureId={lectureId}
             currentSlideIndex={currentSlideIndex}
             onSlideJump={(idx) => {

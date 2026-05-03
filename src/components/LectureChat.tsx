@@ -93,7 +93,7 @@ export function LectureChat({
             {
                 id: generateMsgId(),
                 role: 'model',
-                content: `Hi! I'm your AI Tutor. I'm ready to answer any questions you have about **"${slideTitle}"**. What would you like to explore?`,
+                content: t('lecture:chat.welcome', { slide: slideTitle }),
                 timestamp: new Date(),
             }
         ]);
@@ -343,7 +343,7 @@ export function LectureChat({
                                         <SelectValue placeholder={t('lecture:chat.modelPlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent className="glass-panel-strong border-white/10">
-                                        <SelectItem value="cerebras">Cerebras (Recommended)</SelectItem>
+                                        <SelectItem value="cerebras">{t('lecture:chat.modelCerebras')}</SelectItem>
                                         <SelectItem value="groq">Groq Llama 3.3</SelectItem>
                                         <SelectItem value="openrouter">OpenRouter</SelectItem>
                                         <SelectItem value="cloudflare">Cloudflare</SelectItem>

@@ -162,6 +162,7 @@ export interface Database {
           email: string
           full_name: string | null
           id: string
+          preferred_language: string | null
           total_xp: number | null
           user_id: string
         }
@@ -174,6 +175,7 @@ export interface Database {
           email: string
           full_name?: string | null
           id?: string
+          preferred_language?: string | null
           total_xp?: number | null
           user_id: string
         }
@@ -186,6 +188,7 @@ export interface Database {
           email?: string
           full_name?: string | null
           id?: string
+          preferred_language?: string | null
           total_xp?: number | null
           user_id?: string
         }

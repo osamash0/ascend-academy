@@ -45,6 +45,7 @@
     "knowledgeCheck": "Wissens-Check",
     "quizFallback": "Quiz",
     "slideFallback": "Vorlesungsfolie",
+    "slideNumberFallback": "Folie {{number}}",
     "readSlideHint": "Lies die Folie durch und klicke auf „Weiter\", um eine Quizfrage zum Inhalt zu beantworten.",
     "exitLecture": "Vorlesung verlassen",
     "uncategorized": "Nicht kategorisiert",
@@ -64,9 +65,10 @@
     "mindMapSuccessTitle": "Mindmap generiert",
     "mindMapSuccessDescription": "Der Wissensbaum wurde erfolgreich erstellt."
   },
-  "slideFallback": "Vorlesungsfolie",
   "chat": {
     "title": "KI-Tutor",
+    "welcome": "Hallo! Ich bin dein KI-Tutor und beantworte gerne deine Fragen zu **„{{slide}}“**. Was möchtest du erkunden?",
+    "modelCerebras": "Cerebras (empfohlen)",
     "online": "Online",
     "modelPlaceholder": "Modell",
     "context": "Kontext:",

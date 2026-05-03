@@ -45,6 +45,7 @@
     "knowledgeCheck": "Knowledge Check",
     "quizFallback": "Quiz",
     "slideFallback": "Lecture Slide",
+    "slideNumberFallback": "Slide {{number}}",
     "readSlideHint": "Read through the slide and click \"Next\" to answer a quiz question about the content.",
     "exitLecture": "Exit Lecture",
     "uncategorized": "Uncategorized",
@@ -64,9 +65,10 @@
     "mindMapSuccessTitle": "Mind Map Generated",
     "mindMapSuccessDescription": "The knowledge tree has been successfully constructed."
   },
-  "slideFallback": "Lecture Slide",
   "chat": {
     "title": "AI Tutor",
+    "welcome": "Hi! I'm your AI Tutor. I'm ready to answer any questions you have about **\"{{slide}}\"**. What would you like to explore?",
+    "modelCerebras": "Cerebras (Recommended)",
     "online": "Online",
     "modelPlaceholder": "Model",
     "context": "Context:",
