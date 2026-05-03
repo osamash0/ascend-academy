@@ -32,6 +32,13 @@ interface PDFUploadOverlayProps {
    * the step active until the parse pipeline really is finished.
    */
   parseCompleted?: boolean;
+  /**
+   * When 'on_demand' the AI Enhance step is hidden — the deterministic
+   * pipeline goes straight from extract to finalize and never invokes
+   * an LLM during import (Task #58). Defaults to 'ai' so existing
+   * callers see no change.
+   */
+  parsingMode?: 'ai' | 'on_demand';
   onClose?: () => void;
 }
 
@@ -44,8 +51,10 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
   parserUsed,
   parsePhase,
   parseCompleted = false,
+  parsingMode = 'ai',
   onClose
 }: PDFUploadOverlayProps) {
+  const isOnDemand = parsingMode === 'on_demand';
   const slideListRef = useRef<HTMLDivElement>(null);
 
   const completedCount = processedSlides.filter(Boolean).length;
@@ -87,11 +96,16 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
     }
   }, [processedSlides]);
 
-  const phases = [
-    { label: 'Upload', done: !isUploadPhase, active: isUploadPhase },
-    { label: 'Extract', done: isAiPhase || isComplete, active: isExtractPhase },
-    { label: 'AI Enhance', done: isComplete, active: isAiPhase },
-  ] as const;
+  const phases = isOnDemand
+    ? ([
+        { label: 'Upload', done: !isUploadPhase, active: isUploadPhase },
+        { label: 'Extract', done: isComplete, active: isExtractPhase || (!isComplete && !isUploadPhase) },
+      ] as const)
+    : ([
+        { label: 'Upload', done: !isUploadPhase, active: isUploadPhase },
+        { label: 'Extract', done: isAiPhase || isComplete, active: isExtractPhase },
+        { label: 'AI Enhance', done: isComplete, active: isAiPhase },
+      ] as const);
 
   return (
     <AnimatePresence>

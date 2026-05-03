@@ -43,6 +43,7 @@ import { useSlideManager } from '@/hooks/useSlideManager';
 import { usePDFUpload } from '@/hooks/usePDFUpload';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
 import { useLectureSubmit } from '@/hooks/useLectureSubmit';
+import { useParsingMode } from '@/hooks/useParsingMode';
 import {
   getSlideStatus,
   getCompletionPercent,
@@ -332,6 +333,13 @@ export default function LectureUpload() {
     closeUploadOverlay,
   } = usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle });
 
+  // Task #58: deterministic-vs-AI ingestion toggle. Persisted in
+  // localStorage via useParsingMode so the choice survives reloads.
+  // The same hook is also called inside usePDFUpload — they share
+  // localStorage but each has its own React state. We pass our value
+  // down so a toggle here is reflected on the very next upload.
+  const { parsingMode, setParsingMode } = useParsingMode();
+
   /* ── Duplicate-PDF dialog state ────────────────────────────────────────── */
   const [duplicateState, setDuplicateState] = useState<{
     file: File;
@@ -380,7 +388,7 @@ export default function LectureUpload() {
     handleGenerateContent,
   } = useAIGeneration({ slides, updateSlide });
 
-  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz });
+  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode });
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];
@@ -527,6 +535,57 @@ export default function LectureUpload() {
           </motion.div>
         </div>
 
+        {/* Parsing-mode selector (Task #58) */}
+        <div
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border bg-card/60 p-4"
+          data-testid="parsing-mode-selector"
+        >
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium">PDF parsing mode</Label>
+            <p className="text-xs text-muted-foreground">
+              {parsingMode === 'on_demand'
+                ? 'Skip AI during import — extract text only. Use the editor to generate titles, content, and quizzes per slide.'
+                : 'Default: full AI parsing (titles, summaries, and quizzes are generated automatically).'}
+            </p>
+          </div>
+          <div
+            role="radiogroup"
+            aria-label="PDF parsing mode"
+            className="inline-flex rounded-lg border border-border bg-background p-0.5 shrink-0"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={parsingMode === 'ai'}
+              onClick={() => setParsingMode('ai')}
+              data-testid="parsing-mode-ai"
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                parsingMode === 'ai'
+                  ? 'bg-violet-500 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              AI parsing
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={parsingMode === 'on_demand'}
+              onClick={() => setParsingMode('on_demand')}
+              data-testid="parsing-mode-on-demand"
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                parsingMode === 'on_demand'
+                  ? 'bg-violet-500 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Skip AI
+            </button>
+          </div>
+        </div>
+
         {/* Empty State */}
         <EmptySlideState
           onAddSlide={() => addSlide()}
@@ -558,6 +617,7 @@ export default function LectureUpload() {
           parserUsed={parserUsed}
           parsePhase={parsePhase}
           parseCompleted={parseCompleted}
+          parsingMode={parsingMode}
           onClose={closeUploadOverlay}
         />
       </div>
@@ -1249,6 +1309,7 @@ export default function LectureUpload() {
         parserUsed={parserUsed}
         parsePhase={parsePhase}
         parseCompleted={parseCompleted}
+        parsingMode={parsingMode}
         onClose={closeUploadOverlay}
       />
     </div>

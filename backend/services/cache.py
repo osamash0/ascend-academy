@@ -63,11 +63,30 @@ def compute_pdf_hash(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
-async def get_cached_parse(pdf_hash: str) -> Optional[Dict[str, Any]]:
+def _scoped_cache_key(pdf_hash: str, parsing_mode: str = "ai") -> str:
+    """Namespace a pdf_hash by parsing_mode.
+
+    The AI and on-demand pipelines emit different slide payloads (the
+    on-demand path skips LLM-generated titles/summaries/quizzes), so a
+    cache row written under one mode must never satisfy a lookup from
+    the other. We solve this by prefixing the key for non-default modes
+    rather than altering the table schema. The default 'ai' mode keeps
+    the bare hash so existing cache rows continue to satisfy lookups
+    without a one-off rewrite.
+    """
+    if not pdf_hash:
+        return pdf_hash
+    if parsing_mode == "ai" or not parsing_mode:
+        return pdf_hash
+    return f"{parsing_mode}:{pdf_hash}"
+
+
+async def get_cached_parse(pdf_hash: str, parsing_mode: str = "ai") -> Optional[Dict[str, Any]]:
     """Retrieve full parse result from database using SUPABASE_ADMIN."""
+    key = _scoped_cache_key(pdf_hash, parsing_mode)
     try:
         # Use supabase_admin for background caching to bypass RLS if necessary
-        res = supabase_admin.table("pdf_parse_cache").select("result").eq("pdf_hash", pdf_hash).execute()
+        res = supabase_admin.table("pdf_parse_cache").select("result").eq("pdf_hash", key).execute()
         if res.data:
             return res.data[0]["result"]
     except Exception as e:
@@ -75,10 +94,11 @@ async def get_cached_parse(pdf_hash: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-async def store_cached_parse(pdf_hash: str, data: Dict[str, Any]) -> None:
+async def store_cached_parse(pdf_hash: str, data: Dict[str, Any], parsing_mode: str = "ai") -> None:
     """Store full parse result in database."""
+    key = _scoped_cache_key(pdf_hash, parsing_mode)
     try:
-        payload = {"pdf_hash": pdf_hash, "result": data, "created_at": "now()"}
+        payload = {"pdf_hash": key, "result": data, "created_at": "now()"}
         supabase_admin.table("pdf_parse_cache").upsert(payload, on_conflict="pdf_hash").execute()
     except Exception as e:
         logger.error("Failed to store cached parse: %s", e)

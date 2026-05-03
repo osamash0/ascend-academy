@@ -85,6 +85,10 @@ export default function LectureEdit() {
     const [aiTitleLoading, setAiTitleLoading] = useState<Record<number, boolean>>({});
     const [aiContentLoading, setAiContentLoading] = useState<Record<number, boolean>>({});
 
+    // Task #58: deck-level on-demand quiz generation. Persists results
+    // server-side; we re-fetch the lecture to refresh question lists.
+    const [deckQuizLoading, setDeckQuizLoading] = useState(false);
+
     // ── Load existing lecture data ─────────────────────────────────────────────
     useEffect(() => {
         if (lectureId) fetchLecture();
@@ -383,6 +387,26 @@ export default function LectureEdit() {
         }
     };
 
+    // ── Deck-level on-demand AI (Task #58) ─────────────────────────────────────
+    const handleGenerateDeckQuiz = async () => {
+        if (!lectureId) return;
+        if (slides.length < 2) {
+            toast({ title: 'Need at least 2 slides', description: 'Cross-slide quizzes require multiple slides.', variant: 'destructive' });
+            return;
+        }
+        setDeckQuizLoading(true);
+        try {
+            await apiClient.post(`/api/ai/decks/${lectureId}/generate-quiz`, { ai_model: aiModel });
+            toast({ title: 'Cross-slide quiz generated!', description: 'Refreshing slides…' });
+            await fetchLecture();
+        } catch (err) {
+            console.error(err);
+            toast({ title: 'AI Error', description: 'Failed to generate cross-slide quiz.', variant: 'destructive' });
+        } finally {
+            setDeckQuizLoading(false);
+        }
+    };
+
     // ── Slide helpers ───────────────────────────────────────────────────────────
     const addSlide = () => setSlides([...slides, { title: '', content: '', summary: '', questions: [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }] }]);
 
@@ -667,6 +691,35 @@ export default function LectureEdit() {
                             )}
                         </div>
                     )}
+                </motion.div>
+
+                {/* Deck-level AI actions (Task #58) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-card rounded-2xl border border-border p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                >
+                    <div>
+                        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-primary" />
+                            Cross-slide quiz
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Generate a quiz that ties together concepts from multiple slides. Useful when slides were imported with AI parsing turned off.
+                        </p>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateDeckQuiz}
+                        disabled={deckQuizLoading || slides.length < 2}
+                        data-testid="deck-quiz-generate"
+                        className="gap-1.5 shrink-0"
+                    >
+                        {deckQuizLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-primary" />}
+                        {deckQuizLoading ? 'Generating…' : 'Generate cross-slide quiz'}
+                    </Button>
                 </motion.div>
 
                 {/* Slide Cards */}

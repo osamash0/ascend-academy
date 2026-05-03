@@ -46,6 +46,10 @@ from backend.services.cache import (
 )
 from backend.services.ai.embeddings import generate_embeddings
 from backend.services.content_filter import is_metadata_slide
+from backend.services.deterministic_extractor import (
+    ENGINE_NAME as DETERMINISTIC_ENGINE,
+    build_slides_from_layouts,
+)
 from backend.services.layout_analyzer import (
     PageLayout,
     analyze_page_layout_async,
@@ -81,6 +85,7 @@ async def parse_pdf_stream(
     ai_model: str = "cerebras",
     use_blueprint: bool = True,
     odl_pages: Optional[Dict[int, Dict[str, Any]]] = None,
+    parsing_mode: str = "ai",
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Streaming PDF parser.  Yields SSE-compatible dicts:
@@ -132,9 +137,15 @@ async def parse_pdf_stream(
     ])
     layouts: Dict[int, PageLayout] = {l.index: l for l in layouts_list}
 
-    # Metadata detection (synchronous heuristic, no I/O)
+    # Metadata detection (synchronous heuristic, no I/O).
+    # In on-demand mode we deliberately skip the LLM-classifier
+    # fallback inside is_metadata_slide so the import path is truly
+    # zero-LLM (Task #58).
     metadata_flags: Dict[int, bool] = {}
     for idx, layout in layouts.items():
+        if parsing_mode == "on_demand":
+            metadata_flags[idx] = False
+            continue
         txt, _ = safe_truncate_text(layout.raw_text)
         meta = is_metadata_slide(txt, idx, total_pages, ai_model)
         metadata_flags[idx] = meta.get("is_metadata", False)
@@ -146,6 +157,37 @@ async def parse_pdf_stream(
         len(manifest.text_indices), len(manifest.vision_indices),
         len(manifest.table_llm_indices), len(manifest.skip_indices),
     )
+
+    # ------------------------------------------------------------------
+    # On-demand AI parsing mode (Task #58): emit deterministically-built
+    # slides immediately. No blueprint, no batched LLM calls, no deck
+    # summary/quiz. Professors can later trigger AI per slide or
+    # deck-wide from the editor UI. Cache results under the on_demand
+    # namespace so this never collides with the AI mode's payload.
+    # ------------------------------------------------------------------
+    if parsing_mode == "on_demand":
+        slides = build_slides_from_layouts(
+            layouts, filename=filename,
+            metadata_flags=metadata_flags, manifest=manifest,
+        )
+        for slide in slides:
+            yield {
+                "type": "progress",
+                "current": slide["index"] + 1,
+                "total": total_pages,
+                "message": f"Extracted {slide['index'] + 1}/{total_pages} slides…",
+            }
+            yield {"type": "slide", "index": slide["index"], "slide": slide}
+        # Skip the AI-Enhance phase entirely so the overlay tracks
+        # extract → finalize.
+        yield {"type": "phase", "phase": "finalize"}
+        yield {"type": "deck_complete", "deck_summary": "", "deck_quiz": []}
+        yield {"type": "complete", "total": total_pages}
+        logger.info(
+            "On-demand pipeline complete: %d slides in %.1fs",
+            total_pages, time.monotonic() - t_start,
+        )
+        return
 
     # ------------------------------------------------------------------
     # Telemetry counters — incremented in-place at fallback sites.

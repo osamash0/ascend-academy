@@ -21,11 +21,18 @@ interface UseLectureSubmitOptions {
    * so the player can render slide-jump chips.
    */
   deckQuiz?: DeckQuizItem[];
+  /**
+   * Which extractor produced these slides. When 'on_demand', persisted
+   * slides are stamped with ``ai_enhanced=false`` and ``parser_engine``
+   * so the editor knows which slides still need an LLM pass (Task #58).
+   * Defaults to 'ai' for backward compatibility.
+   */
+  parsingMode?: 'ai' | 'on_demand';
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz }: UseLectureSubmitOptions) {
+export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode = 'ai' }: UseLectureSubmitOptions) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -109,15 +116,26 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
 
         for (let i = 0; i < slides.length; i++) {
           const slideData = slides[i];
+          const slideInsert: Record<string, unknown> = {
+            lecture_id: lecture.id,
+            slide_number: i + 1,
+            title: slideData.title || `Slide ${i + 1}`,
+            content_text: slideData.content,
+            summary: slideData.summary,
+          };
+          if (parsingMode === 'on_demand') {
+            // Stamp these so the editor can surface "AI not yet run"
+            // affordances (Task #58). Insert raw — the new columns
+            // exist via migration 20260503000019_slides_ai_enhanced.sql
+            // even if generated supabase types are regenerated lazily.
+            slideInsert.ai_enhanced = false;
+            slideInsert.parser_engine = 'heuristic-v1';
+          }
           const { data: slide, error: slideError } = await supabase
             .from('slides')
-            .insert({
-              lecture_id: lecture.id,
-              slide_number: i + 1,
-              title: slideData.title || `Slide ${i + 1}`,
-              content_text: slideData.content,
-              summary: slideData.summary,
-            })
+            // Cast here because the generated types are regenerated out of
+            // band; the new columns exist in the migration above.
+            .insert(slideInsert as never)
             .select()
             .single();
 
@@ -188,7 +206,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         setLoading(false);
       }
     },
-    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, user, navigate, toast]
+    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, user, navigate, toast]
   );
 
   return { loading, handleSubmit };

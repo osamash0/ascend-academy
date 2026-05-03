@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAiModel } from '@/hooks/use-ai-model';
+import { useParsingMode } from '@/hooks/useParsingMode';
 import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
 import type { DuplicateMatch } from '@/components/DuplicatePDFDialog';
 
@@ -51,6 +52,7 @@ function validatePdfFile(
 export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }: UsePDFUploadOptions) {
   const { toast } = useToast();
   const { aiModel } = useAiModel();
+  const { parsingMode } = useParsingMode();
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -99,6 +101,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
       const formData = new FormData();
       formData.append('file', file);
       formData.append('ai_model', aiModel);
+      formData.append('parsing_mode', parsingMode);
       if (opts.forceReparse) formData.append('force_reparse', 'true');
 
       const controller = new AbortController();
@@ -267,7 +270,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
         abortControllerRef.current = null;
       }
     },
-    [aiModel, setSlides, setActiveSlideIndex, title, setTitle, toast],
+    [aiModel, parsingMode, setSlides, setActiveSlideIndex, title, setTitle, toast],
   );
 
   /**
@@ -366,6 +369,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
     parsePhase,
     parseCompleted,
     deckQuiz,
+    parsingMode,
     handleFileUpload,
     startUpload,
     checkDuplicate,

@@ -98,6 +98,7 @@ async def parse_pdf_stream_endpoint(
     ai_model: str = Form("cerebras"),
     use_blueprint: bool = Form(True),
     force_reparse: bool = Form(False),
+    parsing_mode: str = Form("ai"),
     user: Any = Depends(require_professor),
 ):
     """
@@ -126,10 +127,15 @@ async def parse_pdf_stream_endpoint(
     filename = file.filename or "upload.pdf"
     pdf_hash = compute_pdf_hash(content)
 
+    # Sanitize parsing_mode early so an unrecognized value can't bypass
+    # the cache namespace. Anything other than "on_demand" falls back to
+    # the default AI pipeline.
+    parsing_mode = parsing_mode if parsing_mode in {"ai", "on_demand"} else "ai"
+
     # 1. Check cache (skipped when the user explicitly opts to re-parse a
     #    PDF they've already uploaded — the duplicate dialog uses this to
     #    guarantee a genuinely fresh parse for the "Upload as new" choice).
-    cached = None if force_reparse else await get_cached_parse(pdf_hash)
+    cached = None if force_reparse else await get_cached_parse(pdf_hash, parsing_mode=parsing_mode)
     if cached:
         logger.info("Cache hit for %s", filename)
         async def cached_stream():
@@ -145,7 +151,12 @@ async def parse_pdf_stream_endpoint(
             # after the lecture row is created — matches the non-cache path.
             yield f"data: {json.dumps({'type': 'meta', 'pdf_hash': pdf_hash})}\n\n"
             yield f"data: {json.dumps({'type': 'progress', 'current': 0, 'total': total, 'message': 'Loading from cache...'})}\n\n"
-            yield f"data: {json.dumps({'type': 'phase', 'phase': 'enhance'})}\n\n"
+            # On-demand replays jump straight to finalize — no LLM ran
+            # during the original parse so there is no "AI Enhance"
+            # phase to mirror (Task #58). Default cache replays keep
+            # the original three-phase shape.
+            if parsing_mode != "on_demand":
+                yield f"data: {json.dumps({'type': 'phase', 'phase': 'enhance'})}\n\n"
             # Best-effort: schedule embedding jobs for the cached slides so
             # the grounded tutor still has vectors to retrieve from for PDFs
             # whose parse was cached before embeddings existed (or whose
@@ -197,7 +208,7 @@ async def parse_pdf_stream_endpoint(
         # overlay's "Extraction engine" pill resolves immediately.
         yield f"data: {json.dumps({'type': 'info', 'parser': parser_used})}\n\n"
         try:
-            async for update in parse_pdf_stream(content, filename=filename, ai_model=ai_model, use_blueprint=use_blueprint, odl_pages=odl_pages):
+            async for update in parse_pdf_stream(content, filename=filename, ai_model=ai_model, use_blueprint=use_blueprint, odl_pages=odl_pages, parsing_mode=parsing_mode):
                 if update.get("type") == "slide":
                     collected_slides.append(update["slide"])
                 elif update.get("type") == "deck_complete":
@@ -217,7 +228,8 @@ async def parse_pdf_stream_endpoint(
             if collected_slides:
                 await store_cached_parse(
                     pdf_hash,
-                    {"slides": collected_slides, "deck": collected_deck, "parser": parser_used},
+                    {"slides": collected_slides, "deck": collected_deck, "parser": parser_used, "parsing_mode": parsing_mode},
+                    parsing_mode=parsing_mode,
                 )
 
     return StreamingResponse(
