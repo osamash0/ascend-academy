@@ -142,12 +142,24 @@ export interface LectureOverview {
   engagement_level: string;
 }
 
+export type SlideRecommendationLabel =
+  | 'needs_review'
+  | 'satisfactory'
+  | 'outstanding'
+  | 'insufficient_data';
+
 export interface SlideAnalytics {
+  slide_id?: string;
   slide_number: number;
   title: string;
   view_count: number;
   average_time_seconds: number;
   drop_off_rate: number;
+  confusion_rate?: number;
+  quiz_attempts?: number;
+  quiz_success_rate?: number | null;
+  recommendation_label?: SlideRecommendationLabel;
+  recommendation_reasons?: string[];
 }
 
 export interface QuizAnalytics {

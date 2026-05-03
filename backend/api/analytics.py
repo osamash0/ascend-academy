@@ -83,11 +83,17 @@ class QuizAnalyticsItem(BaseModel):
 
 
 class SlideAnalyticsItem(BaseModel):
+    slide_id: Optional[str] = None
     slide_number: int
     title: str
     view_count: int
     average_time_seconds: float
     drop_off_rate: float
+    confusion_rate: Optional[float] = 0.0
+    quiz_attempts: Optional[int] = 0
+    quiz_success_rate: Optional[float] = None
+    recommendation_label: Optional[str] = None
+    recommendation_reasons: List[str] = []
 
 
 class DistractorQuestion(BaseModel):

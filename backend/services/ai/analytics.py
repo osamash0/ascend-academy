@@ -28,6 +28,61 @@ Return ONLY valid JSON: {{"summary": "...", "suggestions": ["...", "...", "..."]
         }
 
 
+async def generate_slide_recommendation(
+    *,
+    slide_title: str,
+    slide_text: str,
+    drop_off_rate: float,
+    confusion_rate: float,
+    quiz_success_rate: float | None,
+    view_count: int,
+    reasons: List[str],
+    ai_model: str = "cerebras",
+) -> str:
+    """Return a 1–3 sentence pedagogical improvement tip for a problematic slide.
+
+    Always falls back to a deterministic message if the LLM call errors so
+    the UI degrades gracefully without leaking stack traces.
+    """
+    snippet = (slide_text or "").strip().replace("\n", " ")
+    if len(snippet) > 1200:
+        snippet = snippet[:1200] + "…"
+
+    quiz_str = (
+        f"{quiz_success_rate:.0f}%" if isinstance(quiz_success_rate, (int, float))
+        else "no quiz data"
+    )
+    reasons_str = ", ".join(reasons) if reasons else "general weak signals"
+
+    prompt = f"""You are an instructional design coach helping a professor improve a single lecture slide.
+
+Slide title: {slide_title}
+Slide content: {snippet or '(no extracted text)'}
+Metrics:
+- Views: {view_count}
+- Drop-off rate: {drop_off_rate:.0f}%
+- Confusion rate: {confusion_rate:.0f}%
+- Quiz success rate: {quiz_str}
+Detected issues: {reasons_str}
+
+Write 1–3 short sentences (max ~70 words) of concrete, actionable advice the professor can apply
+to this specific slide (e.g., split into two slides, add a worked example, simplify the diagram,
+rewrite the quiz prompt). Do NOT restate the metrics. Plain text only — no markdown, no lists."""
+
+    try:
+        text = await generate_text(prompt, ai_model)
+        text = (text or "").strip()
+        if not text:
+            raise ValueError("empty LLM response")
+        return text
+    except Exception as e:
+        logger.error("Slide recommendation generation failed: %s", e)
+        return (
+            "Consider breaking this slide into smaller chunks and adding a worked "
+            "example before the quiz so students can practice the concept in context."
+        )
+
+
 async def generate_metric_feedback(
     metric_name: str, 
     metric_value: Union[int, float, str], 

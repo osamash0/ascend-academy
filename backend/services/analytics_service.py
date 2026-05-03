@@ -119,6 +119,8 @@ def get_slide_analytics(lecture_id: str, token: str = None, force_refresh: bool 
 
 
 def _compute_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
+    from backend.services.recommendations import compute_slide_recommendation
+
     client = get_auth_client(token)
 
     slides_data = _fetch_all(client.table("slides")\
@@ -132,30 +134,91 @@ def _compute_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[st
         .eq("lecture_id", lecture_id))
     total_students = len(progress_data)
 
-    # Fixed: was querying 'slide_viewed' (wrong); correct type is 'slide_view'
-    events_data = _fetch_all(client.table("learning_events")\
+    # Slide views (camelCase 'slideId' in event_data)
+    view_events = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "slide_view")\
         .contains("event_data", {"lectureId": lecture_id}))
 
+    # Confidence ratings — used to compute confusion_rate per slide
+    confidence_events = _fetch_all(client.table("learning_events")\
+        .select("event_data")\
+        .eq("event_type", "confidence_rating")\
+        .contains("event_data", {"lectureId": lecture_id}))
+
+    # Quiz attempts joined with their slide via quiz_questions
+    quiz_questions = _fetch_all(client.table("quiz_questions")\
+        .select("id, slide_id, slides!inner(lecture_id)")\
+        .eq("slides.lecture_id", lecture_id))
+    qid_to_slide = {q["id"]: q["slide_id"] for q in quiz_questions}
+
+    quiz_events = _fetch_all(client.table("learning_events")\
+        .select("event_data")\
+        .eq("event_type", "quiz_attempt")\
+        .contains("event_data", {"lectureId": lecture_id}))
+
+    # Aggregate per-slide quiz totals/correct
+    quiz_by_slide: Dict[str, Dict[str, int]] = {}
+    for ev in quiz_events:
+        ed = ev.get("event_data") or {}
+        sid = qid_to_slide.get(ed.get("questionId"))
+        if not sid:
+            continue
+        bucket = quiz_by_slide.setdefault(sid, {"attempts": 0, "correct": 0})
+        bucket["attempts"] += 1
+        if ed.get("correct"):
+            bucket["correct"] += 1
+
+    # Aggregate confusion per slide
+    conf_by_slide: Dict[str, Dict[str, int]] = {}
+    for ev in confidence_events:
+        ed = ev.get("event_data") or {}
+        sid = ed.get("slideId")
+        rating = ed.get("rating")
+        if not sid or rating not in ("got_it", "unsure", "confused"):
+            continue
+        b = conf_by_slide.setdefault(sid, {"got_it": 0, "unsure": 0, "confused": 0})
+        b[rating] += 1
+
     slide_analytics = []
     for slide in slides_data:
-        # Fixed: event_data key is camelCase 'slideId', not 'slide_id'
-        slide_events = [e for e in events_data
-                       if e.get("event_data", {}).get("slideId") == slide["id"]]
+        sid = slide["id"]
+        slide_views = [e for e in view_events
+                       if e.get("event_data", {}).get("slideId") == sid]
 
-        view_count = len(slide_events)
+        view_count = len(slide_views)
         avg_time = sum(e.get("event_data", {}).get("duration_seconds", 0)
-                      for e in slide_events) / view_count if view_count > 0 else 0
-
+                      for e in slide_views) / view_count if view_count > 0 else 0
         drop_off = 100 * (1 - (view_count / total_students)) if total_students > 0 else 0
 
+        cb = conf_by_slide.get(sid, {"got_it": 0, "unsure": 0, "confused": 0})
+        conf_total = cb["got_it"] + cb["unsure"] + cb["confused"]
+        confusion_rate = round((cb["confused"] / conf_total * 100), 1) if conf_total > 0 else 0.0
+
+        qb = quiz_by_slide.get(sid, {"attempts": 0, "correct": 0})
+        quiz_attempts = qb["attempts"]
+        quiz_success_rate = round((qb["correct"] / quiz_attempts * 100), 1) if quiz_attempts > 0 else None
+
+        label, reasons = compute_slide_recommendation(
+            drop_off_rate=max(0.0, drop_off),
+            confusion_rate=confusion_rate,
+            quiz_success_rate=quiz_success_rate,
+            view_count=view_count,
+            quiz_attempts=quiz_attempts,
+        )
+
         slide_analytics.append({
+            "slide_id": sid,
             "slide_number": slide["slide_number"],
             "title": slide.get("title", f"Slide {slide['slide_number']}"),
             "view_count": view_count,
             "average_time_seconds": round(avg_time, 1),
-            "drop_off_rate": round(max(0, drop_off), 1)
+            "drop_off_rate": round(max(0, drop_off), 1),
+            "confusion_rate": confusion_rate,
+            "quiz_attempts": quiz_attempts,
+            "quiz_success_rate": quiz_success_rate,
+            "recommendation_label": label,
+            "recommendation_reasons": reasons,
         })
 
     return slide_analytics
