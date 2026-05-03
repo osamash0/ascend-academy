@@ -1136,7 +1136,7 @@ export default function LectureUpload() {
                     >
                       <div className="flex items-center gap-2">
                         <span className="opacity-50">{i + 1}</span>
-                        <span className="truncate">{s.title || `Slide ${i + 1}`}</span>
+                        <span className="truncate">{s.title || t('upload:slideFallback', { number: i + 1 })}</span>
                       </div>
                     </div>
                   ))}

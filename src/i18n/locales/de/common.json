@@ -68,5 +68,51 @@
     "minutesAgo": "vor {{count}} Min.",
     "hoursAgo": "vor {{count}} Std.",
     "daysAgo": "vor {{count}} T."
+  },
+  "errorBoundary": {
+    "title": "Etwas ist schiefgelaufen.",
+    "description": "Bitte lade die Seite neu. Falls das Problem weiterhin besteht, kontaktiere den Support.",
+    "refresh": "Neu laden"
+  },
+  "loader": {
+    "syncing": "Neural Edge wird synchronisiert..."
+  },
+  "achievements": {
+    "level5": {
+      "name": "Level-5-Gelehrter",
+      "description": "Level 5 erreicht!"
+    },
+    "level10": {
+      "name": "Level-10-Experte",
+      "description": "Level 10 erreicht!"
+    },
+    "streak5": {
+      "name": "5er-Serien-Meister"
+    },
+    "streak10": {
+      "name": "10er-Serien-Champion"
+    },
+    "streakDescription": "Serie von {{count}} richtigen Antworten erreicht!",
+    "firstQuiz": {
+      "name": "Erstes Quiz abgeschlossen",
+      "description": "Du hast dein erstes Vorlesungs-Quiz abgeschlossen!",
+      "notificationTitle": "Erstes Quiz abgeschlossen 🎯"
+    },
+    "perfectScore": {
+      "name": "Perfekte Punktzahl",
+      "description": "100 % in einem Vorlesungs-Quiz erreicht!"
+    },
+    "bookworm": {
+      "name": "Leseratte",
+      "description": "Schließe 5 Vorlesungen ab"
+    },
+    "graduate": {
+      "name": "Absolvent",
+      "description": "Schließe 10 Vorlesungen ab"
+    },
+    "levelUp": {
+      "title": "Level {{level}}!",
+      "description": "Du bist auf Level {{level}} aufgestiegen. Weiter so!"
+    }
   }
 }

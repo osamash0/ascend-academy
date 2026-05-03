@@ -68,5 +68,51 @@
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
     "daysAgo": "{{count}}d ago"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong.",
+    "description": "Please refresh the page. If the problem persists, contact support.",
+    "refresh": "Refresh"
+  },
+  "loader": {
+    "syncing": "Neural Edge Syncing..."
+  },
+  "achievements": {
+    "level5": {
+      "name": "Level 5 Scholar",
+      "description": "Reached level 5!"
+    },
+    "level10": {
+      "name": "Level 10 Expert",
+      "description": "Reached level 10!"
+    },
+    "streak5": {
+      "name": "5 Streak Master"
+    },
+    "streak10": {
+      "name": "10 Streak Champion"
+    },
+    "streakDescription": "Achieved a streak of {{count}} correct answers!",
+    "firstQuiz": {
+      "name": "First Quiz Completed",
+      "description": "Completed your first lecture quiz!",
+      "notificationTitle": "First Quiz Completed 🎯"
+    },
+    "perfectScore": {
+      "name": "Perfect Score",
+      "description": "Got 100% on a lecture quiz!"
+    },
+    "bookworm": {
+      "name": "Bookworm",
+      "description": "Complete 5 lectures"
+    },
+    "graduate": {
+      "name": "Graduate",
+      "description": "Complete 10 lectures"
+    },
+    "levelUp": {
+      "title": "Level {{level}}!",
+      "description": "You leveled up to Level {{level}}. Keep going!"
+    }
   }
 }
