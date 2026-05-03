@@ -484,10 +484,12 @@ async def ask_lecture_question(
         logger.error("Ask Your Data pipeline failed: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail="Could not answer that question. Please retry.")
 
-    # Hide internal debug payload outside development to avoid leaking
-    # implementation details (classified params, error excerpts, etc).
+    # Hide internal debug payload by default; only expose when the
+    # environment is *explicitly* marked as a development/test context.
+    # This makes production misconfiguration safe-by-default.
     debug_payload: Dict[str, Any] = {}
-    if (_os.getenv("ENVIRONMENT") or _os.getenv("APP_ENV") or "development").lower() in {"development", "dev", "local", "test"}:
+    _env = (_os.getenv("ENVIRONMENT") or _os.getenv("APP_ENV") or "").lower()
+    if _env in {"development", "dev", "local", "test"}:
         debug_payload = result.get("debug", {}) or {}
 
     payload = AskResponseData(
