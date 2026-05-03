@@ -438,12 +438,15 @@ def _ask_rate_limit_key(request: Request) -> str:
     anyway, but defends against pre-auth flooding).
     """
     import hashlib
+    from slowapi.util import get_remote_address
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
         token = auth[7:].strip()
-        if token:
+        # Sanity-check the token shape (JWT: three dot-separated segments,
+        # reasonable length). Malformed/garbage tokens fall back to the IP
+        # bucket so pre-auth abuse can't spray new keys past the limiter.
+        if token and 20 <= len(token) <= 4096 and token.count(".") == 2:
             return "user:" + hashlib.sha256(token.encode("utf-8")).hexdigest()[:32]
-    from slowapi.util import get_remote_address
     return get_remote_address(request)
 
 

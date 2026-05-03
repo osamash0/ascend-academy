@@ -232,9 +232,13 @@ class TestAskRateLimitKey:
             return SimpleNamespace(headers={k.lower(): v for k, v in headers.items()},
                                    client=SimpleNamespace(host="10.0.0.1"))
 
-        k1 = _ask_rate_limit_key(_make({"authorization": "Bearer prof-token-A"}))
-        k2 = _ask_rate_limit_key(_make({"authorization": "Bearer prof-token-B"}))
-        k_same = _ask_rate_limit_key(_make({"authorization": "Bearer prof-token-A"}))
+        # Use realistic JWT-shaped tokens (three dot-separated segments,
+        # length within bounds) so the per-user keying path activates.
+        jwt_a = "header-aaaaaaaaaaaaaaaa.payload-aaaaaaaa.sig-aaaa"
+        jwt_b = "header-bbbbbbbbbbbbbbbb.payload-bbbbbbbb.sig-bbbb"
+        k1 = _ask_rate_limit_key(_make({"authorization": f"Bearer {jwt_a}"}))
+        k2 = _ask_rate_limit_key(_make({"authorization": f"Bearer {jwt_b}"}))
+        k_same = _ask_rate_limit_key(_make({"authorization": f"Bearer {jwt_a}"}))
 
         assert k1.startswith("user:") and k2.startswith("user:")
         assert k1 != k2, "Two different professor tokens must produce different rate-limit keys"
