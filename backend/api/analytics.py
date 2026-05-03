@@ -506,6 +506,51 @@ async def ask_lecture_question(
     return AskResponse(success=True, data=payload)
 
 
+# ── Comparative Benchmarks (Task #50) ────────────────────────────────────────
+
+@router.get("/lecture/{lecture_id}/benchmarks", response_model=AnalyticsResponse)
+async def get_lecture_benchmarks(
+    lecture_id: str,
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Compare a lecture against its sibling lectures in the same course.
+
+    Ownership-enforced: professors can only see their own lectures' siblings.
+    """
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+    try:
+        data = await run_in_threadpool(
+            analytics_service.get_lecture_benchmarks, lecture_id, creds.credentials
+        )
+        return AnalyticsResponse(success=True, data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Lecture benchmarks endpoint error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load benchmarks.")
+
+
+@router.get("/course/{course_id}/benchmarks", response_model=AnalyticsResponse)
+async def get_course_benchmarks(
+    course_id: str,
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Compare a course against the professor's other courses."""
+    await run_in_threadpool(_assert_course_owner, course_id, user.id)
+    try:
+        data = await run_in_threadpool(
+            analytics_service.get_course_benchmarks, course_id, creds.credentials
+        )
+        return AnalyticsResponse(success=True, data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Course benchmarks endpoint error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load course benchmarks.")
+
+
 @router.get("/personal/optimal-schedule", response_model=AnalyticsResponse)
 async def get_personal_optimal_schedule(user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
     """

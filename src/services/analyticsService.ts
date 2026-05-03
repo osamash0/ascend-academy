@@ -131,6 +131,72 @@ export async function askLectureData(
   return res.data;
 }
 
+// ── Comparative Benchmarks (Task #50) ─────────────────────────────────────
+
+export interface BenchmarkMetricPack {
+  avg_time_minutes: number;
+  completion_rate: number;
+  unique_students: number;
+  drop_off_rate: number;
+  avg_score: number;
+  mastery_rate: number;
+  struggle_rate: number;
+  distractor_confusion: number;
+  concept_count: number;
+  needs_review_share: number;
+}
+
+export interface BenchmarkPeerSummary {
+  avg: number;
+  min: number;
+  max: number;
+  count: number;
+}
+
+export interface LectureBenchmarkRow {
+  lecture_id: string;
+  title: string;
+  metrics: BenchmarkMetricPack;
+}
+
+export interface CourseBenchmarkRow {
+  course_id: string;
+  title: string;
+  lecture_count: number;
+  metrics: BenchmarkMetricPack;
+}
+
+export interface LectureBenchmarks {
+  scope: 'lecture';
+  lecture_id: string;
+  course_id: string | null;
+  current: LectureBenchmarkRow | null;
+  peers: LectureBenchmarkRow[];
+  summary: Record<keyof BenchmarkMetricPack, BenchmarkPeerSummary>;
+}
+
+export interface CourseBenchmarks {
+  scope: 'course';
+  course_id: string;
+  current: CourseBenchmarkRow | null;
+  peers: CourseBenchmarkRow[];
+  summary: Record<keyof BenchmarkMetricPack, BenchmarkPeerSummary>;
+}
+
+export async function getLectureBenchmarks(lectureId: string): Promise<LectureBenchmarks> {
+  const res = await apiClient.get<{ success: boolean; data: LectureBenchmarks }>(
+    `/api/analytics/lecture/${lectureId}/benchmarks`,
+  );
+  return res.data;
+}
+
+export async function getCourseBenchmarks(courseId: string): Promise<CourseBenchmarks> {
+  const res = await apiClient.get<{ success: boolean; data: CourseBenchmarks }>(
+    `/api/analytics/course/${courseId}/benchmarks`,
+  );
+  return res.data;
+}
+
 export async function getAskSuggestions(lectureId: string): Promise<string[]> {
   const res = await apiClient.get<{ success: boolean; data: { questions: string[] } }>(
     `/api/analytics/lecture/${lectureId}/ask/suggestions`,
