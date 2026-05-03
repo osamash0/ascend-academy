@@ -79,6 +79,13 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     except Exception:
         pass
 
+    # schedule.py imports supabase_admin by name at module-load.
+    try:
+        from backend.api import schedule as schedule_api
+        monkeypatch.setattr(schedule_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+
     # courses.py / worksheets.py import supabase_admin at module load too.
     try:
         from backend.api import courses as courses_api
