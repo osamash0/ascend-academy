@@ -25,6 +25,7 @@ import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
 import { WorksheetsPanel } from '@/components/WorksheetsPanel';
 import { LectureRecap, type RecapItem } from '@/components/LectureRecap';
+import { RelatedAcrossCoursesPanel } from '@/components/RelatedAcrossCoursesPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
@@ -862,6 +863,12 @@ export default function LectureView() {
                 <div className="bg-card/40 rounded-2xl border border-border p-5">
                   <WorksheetsPanel lectureId={lectureId} editable={role === 'professor'} />
                 </div>
+              )}
+
+              {/* Cross-course concept overlap: surfaces other lectures that
+                  cover concepts present on this lecture. */}
+              {lectureId && (
+                <RelatedAcrossCoursesPanel lectureId={lectureId} />
               )}
 
               {/* Sidebar - Quiz */}

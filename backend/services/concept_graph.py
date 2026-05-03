@@ -579,6 +579,59 @@ async def compute_student_mastery(
     return {"vector": vector, "mastered": mastered, "weak": weak}
 
 
+async def concepts_for_lecture(
+    lecture_id: str,
+    *,
+    client=None,
+) -> List[Dict[str, Any]]:
+    """Return canonical concepts touched by ``lecture_id``.
+
+    Each row contains ``concept_id``, ``name``, ``weight`` and ``slide_indices``
+    so the in-lecture panel can rank concepts and (optionally) hint which
+    slides introduced them.
+    """
+    cli = client or supabase_admin
+    try:
+        cl = cli.table("concept_lectures").select(
+            "concept_id, slide_indices, weight"
+        ).eq("lecture_id", lecture_id).execute()
+        links = cl.data or []
+    except Exception as e:
+        logger.error("Failed to load concept_lectures for lecture %s: %s", lecture_id, e)
+        return []
+
+    if not links:
+        return []
+
+    concept_ids = list({l["concept_id"] for l in links if l.get("concept_id")})
+    if not concept_ids:
+        return []
+
+    try:
+        cres = cli.table("concepts").select(
+            "id, canonical_name"
+        ).in_("id", concept_ids).execute()
+        c_rows = {r["id"]: r for r in (cres.data or [])}
+    except Exception as e:
+        logger.error("Failed to load concepts for lecture %s: %s", lecture_id, e)
+        return []
+
+    out: List[Dict[str, Any]] = []
+    for link in links:
+        c = c_rows.get(link["concept_id"])
+        if not c:
+            continue
+        out.append({
+            "concept_id": c["id"],
+            "name": c.get("canonical_name") or "",
+            "weight": float(link.get("weight") or 0.0),
+            "slide_indices": link.get("slide_indices") or [],
+        })
+
+    out.sort(key=lambda r: (-r["weight"], r["name"].lower()))
+    return out
+
+
 async def related_lectures_for_concept(
     concept_id: str,
     *,

@@ -18,6 +18,7 @@ from backend.core.auth_middleware import require_professor, verify_token
 from backend.core.database import supabase_admin
 from backend.services.concept_graph import (
     compute_student_mastery,
+    concepts_for_lecture,
     ingest_lecture_concepts,
     related_lectures_for_concept,
 )
@@ -78,6 +79,23 @@ async def get_student_mastery(user_id: str, user: Any = Depends(verify_token)):
     except Exception as e:
         logger.error("Failed to compute mastery for %s: %s", user_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to compute mastery.")
+    return _Envelope(success=True, data=data)
+
+
+# ── Concepts touched by a single lecture ────────────────────────────────────
+
+@router.get("/lecture/{lecture_id}", response_model=_Envelope)
+async def get_lecture_concepts(lecture_id: str, user: Any = Depends(verify_token)):
+    """Return the canonical concepts tagged on a given lecture.
+
+    Powers the in-lecture "Related across your courses" panel by giving the
+    client the concept ids it needs to call ``/related-lectures`` for each.
+    """
+    try:
+        data = await concepts_for_lecture(lecture_id)
+    except Exception as e:
+        logger.error("Failed to load concepts for lecture %s: %s", lecture_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load lecture concepts.")
     return _Envelope(success=True, data=data)
 
 

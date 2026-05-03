@@ -141,6 +141,43 @@ class TestStudentMasteryEndpoint:
         assert {v["concept_id"] for v in r.json()["data"]["vector"]} == {"C_LR", "C_BP"}
 
 
+# ── GET /api/concepts/lecture/{lecture_id} ───────────────────────────────────
+
+class TestLectureConceptsEndpoint:
+    def test_returns_concepts_ranked_by_weight(
+        self, app, patch_concepts_modules, student_user, fake_supabase,
+    ):
+        fake_supabase.seed("concepts", [
+            {"id": "C_A", "canonical_name": "Alpha"},
+            {"id": "C_B", "canonical_name": "Beta"},
+        ])
+        fake_supabase.seed("concept_lectures", [
+            {"concept_id": "C_A", "lecture_id": "L1",
+             "slide_indices": [0], "weight": 1.0},
+            {"concept_id": "C_B", "lecture_id": "L1",
+             "slide_indices": [1, 2], "weight": 3.0},
+        ])
+        _auth_as(app, student_user)
+        client = TestClient(app)
+        r = client.get("/api/concepts/lecture/L1",
+                       headers={"Authorization": "Bearer t"})
+        assert r.status_code == 200
+        data = r.json()["data"]
+        assert [row["concept_id"] for row in data] == ["C_B", "C_A"]
+        assert data[0]["name"] == "Beta"
+        assert data[0]["slide_indices"] == [1, 2]
+
+    def test_empty_when_lecture_has_no_concepts(
+        self, app, patch_concepts_modules, student_user, fake_supabase,
+    ):
+        _auth_as(app, student_user)
+        client = TestClient(app)
+        r = client.get("/api/concepts/lecture/none",
+                       headers={"Authorization": "Bearer t"})
+        assert r.status_code == 200
+        assert r.json()["data"] == []
+
+
 # ── GET /api/concepts/{concept_id}/related-lectures ──────────────────────────
 
 class TestRelatedLecturesEndpoint:

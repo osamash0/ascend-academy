@@ -46,6 +46,21 @@ export async function fetchStudentMastery(userId: string): Promise<StudentMaster
   };
 }
 
+export interface LectureConcept {
+  concept_id: string;
+  name: string;
+  weight: number;
+  slide_indices: number[];
+}
+
+export async function fetchLectureConcepts(lectureId: string): Promise<LectureConcept[]> {
+  const headers = await authHeader();
+  const res = await fetch(`${API_BASE}/api/concepts/lecture/${lectureId}`, { headers });
+  if (!res.ok) throw new Error(`lecture-concepts fetch failed: ${res.status}`);
+  const json = await res.json();
+  return json?.data || [];
+}
+
 export async function fetchRelatedLectures(
   conceptId: string,
   limit = 10,
