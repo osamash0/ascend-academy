@@ -88,6 +88,13 @@
     "useExisting": "Vorhandene öffnen",
     "uploadAsNew": "Als neue hochladen"
   },
+  "statusDots": {
+    "title": "Titel",
+    "content": "Inhalt",
+    "summary": "Zusammenfassung",
+    "quiz": "Quiz"
+  },
+  "slideFallback": "Folie {{number}}",
   "toasts": {
     "saved": "Vorlesung gespeichert",
     "savedDescription": "Deine Vorlesung wurde erfolgreich gespeichert.",

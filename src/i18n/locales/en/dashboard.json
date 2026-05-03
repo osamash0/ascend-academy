@@ -36,5 +36,12 @@
   "slidesProgress": "{{completed}} / {{total}} Slides",
   "noCourses": "No courses yet",
   "noCoursesDescription": "Lectures uploaded by your professors will appear here.",
-  "streakBanner": "You're on a {{count}}-day streak! Keep the momentum going!"
+  "streakBanner": "You're on a {{count}}-day streak! Keep the momentum going!",
+  "fallbackName": "Student",
+  "uncategorized": "Uncategorized",
+  "courseFallback": "Course",
+  "lectureCount_one": "{{count}} lecture",
+  "lectureCount_other": "{{count}} lectures",
+  "recentAchievements": "Recent Achievements",
+  "viewAll": "View all"
 }

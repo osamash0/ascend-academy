@@ -8,6 +8,8 @@ import {
   type SupportedLanguage,
 } from '@/i18n';
 
+type ProfileWithLanguage = { preferred_language?: string | null };
+
 /**
  * Centralised language preference hook.
  *
@@ -46,7 +48,7 @@ export function useLanguagePreference() {
   // server-stored language over the locally-detected one.
   useEffect(() => {
     if (!profile) return;
-    const profileLang = (profile as unknown as { preferred_language?: string }).preferred_language;
+    const profileLang = (profile as ProfileWithLanguage).preferred_language;
     if (!isSupportedLanguage(profileLang)) return;
     if (appliedProfileLangRef.current === profileLang) return;
     appliedProfileLangRef.current = profileLang;
@@ -68,9 +70,11 @@ export function useLanguagePreference() {
       // choice still applies for this session.
       if (user?.id) {
         try {
+          const update: Partial<ProfileWithLanguage> = { preferred_language: lng };
           await supabase
             .from('profiles')
-            .update({ preferred_language: lng } as never)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .update(update as any)
             .eq('user_id', user.id);
           appliedProfileLangRef.current = lng;
         } catch (err) {

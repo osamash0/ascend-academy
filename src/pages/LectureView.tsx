@@ -1017,7 +1017,7 @@ export default function LectureView() {
             isOpen={isChatOpen}
             onClose={() => setIsChatOpen(false)}
             slideText={currentSlide?.content_text || ''}
-            slideTitle={currentSlide?.title || 'Lecture Slide'}
+            slideTitle={currentSlide?.title || t('lecture:slideFallback')}
             lectureId={lectureId}
             currentSlideIndex={currentSlideIndex}
             onSlideJump={(idx) => {

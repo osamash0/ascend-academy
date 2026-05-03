@@ -36,5 +36,12 @@
   "slidesProgress": "{{completed}} / {{total}} Folien",
   "noCourses": "Noch keine Kurse",
   "noCoursesDescription": "Von deinen Dozent:innen hochgeladene Vorlesungen erscheinen hier.",
-  "streakBanner": "Du hast eine {{count}}-Tage-Serie! Bleib dran!"
+  "streakBanner": "Du hast eine {{count}}-Tage-Serie! Bleib dran!",
+  "fallbackName": "Studierende:r",
+  "uncategorized": "Nicht kategorisiert",
+  "courseFallback": "Kurs",
+  "lectureCount_one": "{{count}} Vorlesung",
+  "lectureCount_other": "{{count}} Vorlesungen",
+  "recentAchievements": "Aktuelle Erfolge",
+  "viewAll": "Alle anzeigen"
 }

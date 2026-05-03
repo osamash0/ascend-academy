@@ -10,6 +10,10 @@
     "averageScore": "Durchschnittsnote",
     "quizAttempts": "Quiz-Versuche"
   },
+  "lectures_status": {
+    "activeProtocol": "Aktives Protokoll",
+    "noSourcePdf": "Kein Quell-PDF"
+  },
   "lectures": {
     "sectionTitle": "Aktive akademische Ströme",
     "sectionSubtitle": "Verwalte deine interaktiven Lernmaterialien",

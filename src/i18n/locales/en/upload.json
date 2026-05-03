@@ -88,6 +88,13 @@
     "useExisting": "Open Existing",
     "uploadAsNew": "Upload as New"
   },
+  "statusDots": {
+    "title": "Title",
+    "content": "Content",
+    "summary": "Summary",
+    "quiz": "Quiz"
+  },
+  "slideFallback": "Slide {{number}}",
   "toasts": {
     "saved": "Lecture saved",
     "savedDescription": "Your lecture has been saved successfully.",

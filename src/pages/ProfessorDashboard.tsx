@@ -52,7 +52,7 @@ function ProfessorOrbitalBackground() {
 }
 
 export default function ProfessorDashboard() {
-  const { t } = useTranslation(['professor', 'common']);
+  const { t, i18n } = useTranslation(['professor', 'common']);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -383,7 +383,7 @@ export default function ProfessorDashboard() {
                         </td>
                         <td className="px-10 py-6">
                           <span className="font-bold text-muted-foreground">
-                            {new Date(lecture.created_at).toLocaleDateString('en-US', { 
+                            {new Date(lecture.created_at).toLocaleDateString(i18n.language || undefined, { 
                               month: 'short', 
                               day: 'numeric', 
                               year: 'numeric' 
@@ -397,7 +397,7 @@ export default function ProfessorDashboard() {
                               : 'bg-warning/10 text-warning border-warning/20'
                             }`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${lecture.pdf_url ? 'bg-success animate-pulse' : 'bg-warning'}`} />
-                              {lecture.pdf_url ? 'Active Protocol' : 'No Source PDF'}
+                              {lecture.pdf_url ? t('professor:lectures_status.activeProtocol') : t('professor:lectures_status.noSourcePdf')}
                             </span>
                             <select
                               value={lecture.course_id ?? ''}

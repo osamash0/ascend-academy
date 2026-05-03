@@ -103,11 +103,12 @@ function ProgressRing({ percent, size = 36, stroke = 3 }: { percent: number; siz
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function StatusDots({ status }: { status: SlideStatus }) {
+  const { t } = useTranslation(['upload']);
   const items = [
-    { key: 'hasTitle', label: 'Title', icon: Type },
-    { key: 'hasContent', label: 'Content', icon: FileText },
-    { key: 'hasSummary', label: 'Summary', icon: Sparkles },
-    { key: 'hasQuiz', label: 'Quiz', icon: ListChecks },
+    { key: 'hasTitle', label: t('upload:statusDots.title'), icon: Type },
+    { key: 'hasContent', label: t('upload:statusDots.content'), icon: FileText },
+    { key: 'hasSummary', label: t('upload:statusDots.summary'), icon: Sparkles },
+    { key: 'hasQuiz', label: t('upload:statusDots.quiz'), icon: ListChecks },
   ] as const;
 
   return (
@@ -744,7 +745,7 @@ export default function LectureUpload() {
                           "text-sm font-medium truncate",
                           isActive ? "text-foreground" : "text-muted-foreground"
                         )}>
-                          {slide.title || `Slide ${index + 1}`}
+                          {slide.title || t('upload:slideFallback', { number: index + 1 })}
                         </p>
                         <div className="flex items-center gap-2 mt-1.5">
                           <StatusDots status={status} />

@@ -208,7 +208,7 @@ export default function StudentDashboard() {
   const level = profile?.current_level || 1;
   const displayName = profile?.full_name
     ? profile.full_name.split(' ')[0]
-    : user?.email?.split('@')[0] || 'Student';
+    : user?.email?.split('@')[0] || t('dashboard:fallbackName');
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -627,7 +627,7 @@ export default function StudentDashboard() {
               const groups = new Map<string, { title: string; lectures: typeof filteredLectures }>();
               for (const l of filteredLectures) {
                 const key = l.course?.id ?? l.course_id ?? '__uncat__';
-                const title = l.course?.title ?? (key === '__uncat__' ? 'Uncategorized' : 'Course');
+                const title = l.course?.title ?? (key === '__uncat__' ? t('dashboard:uncategorized') : t('dashboard:courseFallback'));
                 if (!groups.has(key)) groups.set(key, { title, lectures: [] });
                 groups.get(key)!.lectures.push(l);
               }
@@ -643,7 +643,7 @@ export default function StudentDashboard() {
                       <div className="flex items-center gap-3">
                         <h3 className="text-heading-sm text-foreground">{group.title}</h3>
                         <span className="text-xs text-muted-foreground">
-                          {group.lectures.length} {group.lectures.length === 1 ? 'lecture' : 'lectures'}
+                          {t('dashboard:lectureCount', { count: group.lectures.length })}
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -696,14 +696,14 @@ export default function StudentDashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Award className="w-5 h-5 text-xp" />
-                <h2 className="text-heading-lg text-foreground">Recent Achievements</h2>
+                <h2 className="text-heading-lg text-foreground">{t('dashboard:recentAchievements')}</h2>
               </div>
               <Button 
                 variant="ghost" 
                 onClick={() => navigate('/achievements')}
                 className="group text-primary hover:text-primary/80"
               >
-                View all
+                {t('dashboard:viewAll')}
                 <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
               </Button>
             </div>

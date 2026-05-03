@@ -64,6 +64,7 @@
     "mindMapSuccessTitle": "Mindmap generiert",
     "mindMapSuccessDescription": "Der Wissensbaum wurde erfolgreich erstellt."
   },
+  "slideFallback": "Vorlesungsfolie",
   "chat": {
     "title": "KI-Tutor",
     "online": "Online",

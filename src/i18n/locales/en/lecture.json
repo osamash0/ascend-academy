@@ -64,6 +64,7 @@
     "mindMapSuccessTitle": "Mind Map Generated",
     "mindMapSuccessDescription": "The knowledge tree has been successfully constructed."
   },
+  "slideFallback": "Lecture Slide",
   "chat": {
     "title": "AI Tutor",
     "online": "Online",

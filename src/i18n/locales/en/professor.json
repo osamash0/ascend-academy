@@ -10,6 +10,10 @@
     "averageScore": "Average Score",
     "quizAttempts": "Quiz Attempts"
   },
+  "lectures_status": {
+    "activeProtocol": "Active Protocol",
+    "noSourcePdf": "No Source PDF"
+  },
   "lectures": {
     "sectionTitle": "Active Academic Streams",
     "sectionSubtitle": "Manage your interactive learning materials",
