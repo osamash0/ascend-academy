@@ -82,6 +82,9 @@ export default function LectureView() {
       secondSelectedIndex: number | null;
     }>
   >([]);
+  // Mirror set of question ids already in `missedQueueRef` for O(1) dedup
+  // during first-pass queueing. Kept in sync alongside the queue itself.
+  const missedQueuedIdsRef = useRef<Set<string>>(new Set());
   const [reviewStage, setReviewStage] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewSelectedAnswer, setReviewSelectedAnswer] = useState<number | null>(null);
@@ -159,6 +162,7 @@ export default function LectureView() {
     // doesn't leak its missed-question queue or review progress into the
     // newly loaded one.
     missedQueueRef.current = [];
+    missedQueuedIdsRef.current = new Set();
     reviewAnsweredRef.current = new Set();
     reviewContinueLockRef.current = false;
     setReviewStage(false);
@@ -439,19 +443,17 @@ export default function LectureView() {
 
     // Track wrong answers for the end-of-lecture replay stage. Each missed
     // question is queued exactly once per run; second-pass attempts during
-    // the replay are tracked separately via handleReviewAnswer.
-    if (!isCorrect && currentQuestion) {
-      const alreadyQueued = missedQueueRef.current.some(
-        (m) => m.question.id === currentQuestion.id,
-      );
-      if (!alreadyQueued) {
-        missedQueueRef.current.push({
-          question: currentQuestion,
-          slideIndex: currentSlideIndex,
-          firstSelectedIndex: selectedIndex,
-          secondSelectedIndex: null,
-        });
-      }
+    // the replay are tracked separately via handleReviewAnswer. Membership
+    // is verified via a Set-backed lookup so the queue is deterministic
+    // even if multiple wrong answers land in the same tick.
+    if (!isCorrect && !missedQueuedIdsRef.current.has(currentQuestion.id)) {
+      missedQueuedIdsRef.current.add(currentQuestion.id);
+      missedQueueRef.current.push({
+        question: currentQuestion,
+        slideIndex: currentSlideIndex,
+        firstSelectedIndex: selectedIndex,
+        secondSelectedIndex: null,
+      });
     }
 
     if (isCorrect) {
@@ -590,9 +592,11 @@ export default function LectureView() {
   const handleReviewAnswer = (isCorrect: boolean, selectedIndex: number) => {
     const item = currentReviewItem;
     if (!item) return;
-    const key = `${item.question.id}#${reviewIndex}`;
-    if (reviewAnsweredRef.current.has(key)) return;
-    reviewAnsweredRef.current.add(key);
+    // Idempotency: dedup by question id alone so a stray reviewIndex
+    // re-render cannot cause `quiz_retry_attempt` to be emitted twice
+    // for the same retry question.
+    if (reviewAnsweredRef.current.has(item.question.id)) return;
+    reviewAnsweredRef.current.add(item.question.id);
 
     setReviewSelectedAnswer(selectedIndex);
     reviewContinueLockRef.current = false;
