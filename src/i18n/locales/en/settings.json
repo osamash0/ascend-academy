@@ -24,6 +24,12 @@
     "saveError": "Error saving profile",
     "saveErrorDescription": "An unexpected error occurred."
   },
+  "aria": {
+    "uploadAvatar": "Upload avatar image",
+    "toggleCurrentPassword": "Toggle current password visibility",
+    "toggleNewPassword": "Toggle new password visibility",
+    "toggleConfirmPassword": "Toggle confirm password visibility"
+  },
   "avatar": {
     "anonymousUser": "Anonymous User",
     "uploadPhoto": "Upload Photo",

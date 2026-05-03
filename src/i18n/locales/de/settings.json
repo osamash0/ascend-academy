@@ -24,6 +24,12 @@
     "saveError": "Fehler beim Speichern",
     "saveErrorDescription": "Ein unerwarteter Fehler ist aufgetreten."
   },
+  "aria": {
+    "uploadAvatar": "Avatarbild hochladen",
+    "toggleCurrentPassword": "Sichtbarkeit des aktuellen Passworts umschalten",
+    "toggleNewPassword": "Sichtbarkeit des neuen Passworts umschalten",
+    "toggleConfirmPassword": "Sichtbarkeit der Passwortbestätigung umschalten"
+  },
   "avatar": {
     "anonymousUser": "Anonyme:r Nutzer:in",
     "uploadPhoto": "Foto hochladen",

@@ -211,7 +211,7 @@ function AvatarSection({
                     accept="image/*"
                     onChange={handleFileUpload}
                     disabled={isUploading}
-                    aria-label="Upload avatar image"
+                    aria-label={t('settings:aria.uploadAvatar')}
                 />
 
                 <Button
@@ -494,7 +494,7 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                             onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                             aria-pressed={showCurrentPassword}
-                            aria-label="Toggle current password visibility"
+                            aria-label={t('settings:aria.toggleCurrentPassword')}
                         >
                             {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -520,7 +520,7 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                             onClick={() => setShowNewPassword(!showNewPassword)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                             aria-pressed={showNewPassword}
-                            aria-label="Toggle new password visibility"
+                            aria-label={t('settings:aria.toggleNewPassword')}
                         >
                             {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -548,7 +548,7 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                             aria-pressed={showConfirmPassword}
-                            aria-label="Toggle confirm password visibility"
+                            aria-label={t('settings:aria.toggleConfirmPassword')}
                         >
                             {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
