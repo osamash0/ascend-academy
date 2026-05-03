@@ -1030,6 +1030,10 @@ async def batch_analyze_text_slides(
     if failing:
         await _regenerate_failing_slide_quizzes(failing, slides, idx_to_plan)
 
+    # Stable order by slide index — model output order is not guaranteed,
+    # and downstream SSE consumers (and our own coverage assertions) read
+    # cleaner when results match input order.
+    results.sort(key=lambda r: r.get("index", 0))
     return results
 
 
