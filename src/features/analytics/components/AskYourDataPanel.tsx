@@ -16,12 +16,45 @@ import {
 } from '@/services/analyticsService';
 import { useAiModel } from '@/hooks/use-ai-model';
 
-interface RecentItem {
-  question: string;
-  answer: AskAnswer;
+const MAX_LEN = 300;
+const MAX_RECENT = 5;
+
+const recentStorageKey = (lectureId: string) => `ask-your-data:recent:${lectureId}`;
+
+function loadRecent(lectureId: string): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.sessionStorage.getItem(recentStorageKey(lectureId));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((s): s is string => typeof s === 'string').slice(0, MAX_RECENT);
+    }
+  } catch {
+    /* ignore corrupted storage */
+  }
+  return [];
 }
 
-const MAX_LEN = 300;
+function saveRecent(lectureId: string, list: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(recentStorageKey(lectureId), JSON.stringify(list));
+  } catch {
+    /* quota / disabled — silently ignore */
+  }
+}
+
+function extractErrorMessage(err: unknown): string {
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object') {
+    const maybeAxios = err as { response?: { data?: { detail?: unknown } }; message?: unknown };
+    const detail = maybeAxios.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (typeof maybeAxios.message === 'string') return maybeAxios.message;
+  }
+  return 'Could not answer that question.';
+}
 
 export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
   const { aiModel } = useAiModel();
@@ -29,7 +62,7 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [current, setCurrent] = useState<AskAnswer | null>(null);
-  const [recent, setRecent] = useState<RecentItem[]>([]);
+  const [recent, setRecent] = useState<string[]>(() => loadRecent(lectureId));
   const [suggestions, setSuggestions] = useState<string[]>([
     'Which slide had the highest drop-off rate?',
     'Which 3 quiz questions had the lowest correct rate?',
@@ -47,6 +80,13 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
     return () => { alive = false; };
   }, [lectureId]);
 
+  // Re-load recents when switching lectures.
+  useEffect(() => {
+    setRecent(loadRecent(lectureId));
+    setCurrent(null);
+    setError(null);
+  }, [lectureId]);
+
   const submit = async (q: string) => {
     const trimmed = q.trim();
     if (!trimmed) return;
@@ -56,14 +96,15 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
       const ans = await askLectureData(lectureId, trimmed.slice(0, MAX_LEN), aiModel || 'cerebras');
       setCurrent(ans);
       setRecent((prev) => {
-        const next = [{ question: trimmed, answer: ans }, ...prev.filter((r) => r.question !== trimmed)];
-        return next.slice(0, 5);
+        const next = [trimmed, ...prev.filter((r) => r !== trimmed)].slice(0, MAX_RECENT);
+        saveRecent(lectureId, next);
+        return next;
       });
       setQuestion('');
-    } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || 'Could not answer that question.';
-      setError(typeof msg === 'string' ? msg : 'Could not answer that question.');
-      toast.error('Ask Your Data failed', { description: typeof msg === 'string' ? msg : undefined });
+    } catch (err: unknown) {
+      const msg = extractErrorMessage(err);
+      setError(msg);
+      toast.error('Ask Your Data failed', { description: msg });
     } finally {
       setLoading(false);
     }
@@ -244,17 +285,27 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
       {/* Recent */}
       {recent.length > 0 && (
         <div className="pt-4 border-t border-border space-y-2">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Recent questions</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Recent questions</p>
+            <button
+              type="button"
+              onClick={() => { setRecent([]); saveRecent(lectureId, []); }}
+              className="text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+            >
+              Clear
+            </button>
+          </div>
           <div className="flex flex-wrap gap-2">
-            {recent.map((r) => (
+            {recent.map((q) => (
               <button
-                key={r.question}
+                key={q}
                 type="button"
-                onClick={() => { setCurrent(r.answer); setQuestion(''); }}
-                className="text-xs px-3 py-1.5 rounded-full border border-border bg-background hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors max-w-[260px] truncate"
-                title={r.question}
+                disabled={loading}
+                onClick={() => submit(q)}
+                className="text-xs px-3 py-1.5 rounded-full border border-border bg-background hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors max-w-[260px] truncate disabled:opacity-50"
+                title={`Re-run: ${q}`}
               >
-                {r.question}
+                {q}
               </button>
             ))}
           </div>
