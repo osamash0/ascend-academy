@@ -28,6 +28,7 @@ import { CustomTooltip } from '@/components/charts/CustomTooltip';
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { NeuralBackground } from '@/components/NeuralBackground';
 import { ThreeDScatterPlot } from '@/components/ThreeDScatterPlot';
+import { AskYourDataPanel } from '@/features/analytics/components/AskYourDataPanel';
 
 import type { Lecture, SlideAnalytics, SlideRecommendationLabel } from '@/types/domain';
 import {
@@ -871,6 +872,9 @@ export default function ProfessorAnalytics() {
                 </motion.div>
               ))}
             </div>
+
+            {/* Ask Your Data (Task #45) */}
+            {selectedLectureId && <AskYourDataPanel lectureId={selectedLectureId} />}
 
             {/* Slide-Level Recommendations (Task #44) */}
             <SlideRecommendationsSection

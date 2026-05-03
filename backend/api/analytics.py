@@ -9,6 +9,10 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
 from backend.services import analytics_service, analytics_cache
+from backend.services.ai.ask_data import (
+    ask_lecture_data,
+    list_suggested_questions,
+)
 from backend.core.auth_middleware import verify_token, require_professor, security
 from backend.core.database import supabase
 from backend.core.rate_limit import limiter
@@ -380,6 +384,89 @@ async def refresh_analytics_cache(lecture_id: str, user=Depends(verify_token), c
     except Exception as e:
         logger.error("Cache refresh failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to refresh analytics cache.")
+
+
+class AskRequest(BaseModel):
+    question: str
+    ai_model: Optional[str] = "cerebras"
+
+
+class AskChartSpec(BaseModel):
+    type: str
+    x_key: str
+    y_key: str
+    y_label: Optional[str] = None
+    data: List[Dict[str, Any]] = []
+
+
+class AskResponseData(BaseModel):
+    intent: str
+    answer_text: str
+    table: List[Dict[str, Any]] = []
+    chart: Optional[AskChartSpec] = None
+    debug: Dict[str, Any] = {}
+    suggested_questions: List[str] = []
+
+
+class AskResponse(BaseModel):
+    success: bool
+    data: AskResponseData
+
+
+@router.get("/lecture/{lecture_id}/ask/suggestions", response_model=AnalyticsResponse)
+async def get_ask_suggestions(
+    lecture_id: str,
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Static list of suggested example questions for the empty-state chips."""
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+    return AnalyticsResponse(success=True, data={"questions": list_suggested_questions()})
+
+
+@router.post("/lecture/{lecture_id}/ask", response_model=AskResponse)
+@limiter.limit("20/minute")
+async def ask_lecture_question(
+    lecture_id: str,
+    body: AskRequest,
+    request: Request,
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Natural-language analytics query.
+
+    The LLM picks one of a fixed catalog of intents; we run the matching
+    analytics function server-side. No raw SQL is ever generated.
+    """
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+
+    if not body.question or not body.question.strip():
+        raise HTTPException(status_code=400, detail="Question text is required.")
+    if len(body.question) > 1000:
+        raise HTTPException(status_code=400, detail="Question is too long (max 1000 chars).")
+
+    try:
+        result = await ask_lecture_data(
+            lecture_id=lecture_id,
+            question=body.question,
+            token=creds.credentials,
+            ai_model=body.ai_model or "cerebras",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Ask Your Data pipeline failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Could not answer that question. Please retry.")
+
+    payload = AskResponseData(
+        intent=result.get("intent", "unknown"),
+        answer_text=result.get("answer_text", ""),
+        table=result.get("table", []) or [],
+        chart=result.get("chart"),
+        debug=result.get("debug", {}) or {},
+        suggested_questions=list_suggested_questions(),
+    )
+    return AskResponse(success=True, data=payload)
 
 
 @router.get("/personal/optimal-schedule", response_model=AnalyticsResponse)

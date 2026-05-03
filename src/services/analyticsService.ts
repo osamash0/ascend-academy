@@ -99,3 +99,41 @@ export async function getProfessorOverview(courseId: string, days = 7): Promise<
 export async function getAiInsights(lectureId: string, context: Record<string, unknown>): Promise<{ summary: string; suggestions: string[] }> {
   return apiClient.post(`/api/ai/analytics-insights`, { lecture_id: lectureId, ...context });
 }
+
+// ── Ask Your Data ──────────────────────────────────────────────────────────
+
+export interface AskChartSpec {
+  type: 'bar';
+  x_key: string;
+  y_key: string;
+  y_label?: string;
+  data: Record<string, unknown>[];
+}
+
+export interface AskAnswer {
+  intent: string;
+  answer_text: string;
+  table: Record<string, unknown>[];
+  chart: AskChartSpec | null;
+  debug: Record<string, unknown>;
+  suggested_questions: string[];
+}
+
+export async function askLectureData(
+  lectureId: string,
+  question: string,
+  aiModel = 'cerebras',
+): Promise<AskAnswer> {
+  const res = await apiClient.post<{ success: boolean; data: AskAnswer }>(
+    `/api/analytics/lecture/${lectureId}/ask`,
+    { question, ai_model: aiModel },
+  );
+  return res.data;
+}
+
+export async function getAskSuggestions(lectureId: string): Promise<string[]> {
+  const res = await apiClient.get<{ success: boolean; data: { questions: string[] } }>(
+    `/api/analytics/lecture/${lectureId}/ask/suggestions`,
+  );
+  return res.data?.questions ?? [];
+}
