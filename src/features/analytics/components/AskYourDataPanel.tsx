@@ -195,8 +195,9 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
         </Button>
       </form>
 
-      {/* Suggested chips */}
-      {!current && !loading && (
+      {/* Suggested chips — shown whenever the input is empty so a professor
+          can pick another question after seeing a prior answer. */}
+      {question.trim() === '' && !loading && (
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Try asking</p>
           <div className="flex flex-wrap gap-2">
