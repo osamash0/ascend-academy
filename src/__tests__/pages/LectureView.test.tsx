@@ -24,7 +24,7 @@ if (!Element.prototype.scrollIntoView) {
 // inline with no transitions.
 vi.mock("framer-motion", async () => {
   const actual = await vi.importActual<typeof import("framer-motion")>("framer-motion");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const Passthrough = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const motionProxy = new Proxy({} as any, {

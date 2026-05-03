@@ -171,7 +171,7 @@ export default function LectureView() {
     setLectureCompleted(false);
     setRecapItems([]);
 
-    let currentLectureId = lectureId;
+    const currentLectureId = lectureId;
     if (!currentLectureId) return;
 
     try {
