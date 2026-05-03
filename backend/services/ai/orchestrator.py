@@ -35,7 +35,7 @@ import datetime
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -64,6 +64,69 @@ GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 CEREBRAS_MODEL    = "gpt-oss-120b"
 
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
+
+# ---------------------------------------------------------------------------
+# Per-slide quiz batching configuration
+# ---------------------------------------------------------------------------
+# Smaller batches with overlap give the LLM cross-slide context (so slide N+1
+# can resolve "this method" / "this algorithm" referring back to slide N)
+# without growing the token budget of any single call. See replit.md
+# "Quiz batch tuning" for the trade-off.
+
+@dataclass(frozen=True)
+class QuizBatchConfig:
+    batch_size: int        # max slides per LLM call (including context)
+    context_overlap: int   # last K slides of batch N reappear as context in N+1
+
+
+def _load_quiz_batch_config() -> QuizBatchConfig:
+    try:
+        bs = int(os.environ.get("QUIZ_BATCH_SIZE", "5"))
+    except (TypeError, ValueError):
+        bs = 5
+    try:
+        ov = int(os.environ.get("QUIZ_BATCH_OVERLAP", "1"))
+    except (TypeError, ValueError):
+        ov = 1
+    if bs < 1:
+        logger.warning("QUIZ_BATCH_SIZE %d invalid, falling back to 5", bs)
+        bs = 5
+    if ov < 0 or ov >= bs:
+        logger.warning(
+            "QUIZ_BATCH_OVERLAP %d invalid for batch_size %d, clamping",
+            ov, bs,
+        )
+        ov = min(max(ov, 0), bs - 1)
+    return QuizBatchConfig(batch_size=bs, context_overlap=ov)
+
+
+QUIZ_BATCH_CONFIG: QuizBatchConfig = _load_quiz_batch_config()
+
+
+def iter_overlapping_windows(
+    items: List[Any],
+    batch_size: int,
+    overlap: int,
+) -> Iterator[Tuple[List[Any], int]]:
+    """Yield ``(window, context_count)`` pairs covering ``items``.
+
+    The first ``context_count`` entries of each window are read-only context
+    carried over from the previous window; the remaining entries are new
+    items the caller is responsible for processing. Every input item appears
+    as a non-context entry in exactly one window.
+    """
+    if batch_size < 1:
+        raise ValueError("batch_size must be >= 1")
+    if overlap < 0 or overlap >= batch_size:
+        raise ValueError("overlap must satisfy 0 <= overlap < batch_size")
+    n = len(items)
+    pos = 0
+    while pos < n:
+        ctx = 0 if pos == 0 else min(overlap, pos)
+        new_capacity = batch_size - ctx
+        end = min(pos + new_capacity, n)
+        yield items[pos - ctx:end], ctx
+        pos = end
 
 # ---------------------------------------------------------------------------
 # Provider registry
@@ -782,7 +845,13 @@ async def batch_analyze_text_slides(
             )
         idx_to_plan = {p["index"]: p for p in blueprint.get("slide_plans", [])}
 
-    # Build === SLIDE N === sections
+    # Build === SLIDE N === sections. Slides flagged ``context_only`` are
+    # carried over from a previous overlapping window — they exist purely so
+    # the LLM can resolve back-references like "this method" / "as shown
+    # earlier" without us having to expand the active batch. We must NOT
+    # generate questions for them, and we drop any returned object whose
+    # index lands in ``context_only_indices`` below.
+    context_only_indices = {s["index"] for s in slides if s.get("context_only")}
     slide_sections: List[str] = []
     for s in slides:
         body = s["text"] or "(no extracted text)"
@@ -791,12 +860,23 @@ async def batch_analyze_text_slides(
             proposed = plan.get("proposed_title", "")
             concepts = ", ".join(plan.get("concepts", [])[:4])
             body = f"[Proposed title: {proposed}] [Key concepts: {concepts}]\n" + body
-        slide_sections.append(
-            f"=== SLIDE {s['page_number']} (index={s['index']}) ===\n{body}"
+        section = f"=== SLIDE {s['page_number']} (index={s['index']}) ===\n{body}"
+        if s.get("context_only"):
+            section = f"<context_only>\n{section}\n</context_only>"
+        slide_sections.append(section)
+
+    context_header = ""
+    if context_only_indices:
+        context_header = (
+            "\n\nIMPORTANT: Slides wrapped in <context_only>...</context_only> "
+            "are provided ONLY so you can resolve references in the other "
+            "slides. Do NOT generate a question for any slide inside a "
+            "<context_only> block; omit them from your JSON array entirely.\n"
         )
 
     full_prompt = (
-        BATCH_SLIDE_PROMPT + bp_header + "\n\n" + "\n\n".join(slide_sections)
+        BATCH_SLIDE_PROMPT + bp_header + context_header + "\n\n"
+        + "\n\n".join(slide_sections)
     )
 
     # Single LLM call via BULK chain
@@ -813,18 +893,29 @@ async def batch_analyze_text_slides(
                 "content": s["text"], "summary": "", "questions": [],
                 "slide_type": "content_slide", "parse_error": str(exc),
             }
-            for s in slides
+            for s in slides if s["index"] not in context_only_indices
         ]
 
     parsed = parse_json_response(raw)
     if isinstance(parsed, dict):
         parsed = [parsed]
 
-    page_to_idx = {s["page_number"]: s["index"] for s in slides}
+    # Only the non-context (active) slides should appear in the output.
+    active_slides = [s for s in slides if s["index"] not in context_only_indices]
+    page_to_idx = {s["page_number"]: s["index"] for s in active_slides}
     results: List[Dict] = []
 
-    if isinstance(parsed, list) and len(parsed) == len(slides):
-        for s, item in zip(slides, parsed):
+    # When there are context slides we cannot trust positional alignment:
+    # a misbehaving model might include a context entry and drop an active
+    # one while still returning a list of equal length, which would silently
+    # attach context content to an active index. Force the page_number-keyed
+    # branch in that case so context entries get filtered out.
+    if (
+        isinstance(parsed, list)
+        and len(parsed) == len(active_slides)
+        and not context_only_indices
+    ):
+        for s, item in zip(active_slides, parsed):
             if isinstance(item, dict):
                 item["index"] = s["index"]
                 results.append(item)
@@ -839,8 +930,11 @@ async def batch_analyze_text_slides(
             if idx is not None:
                 item["index"] = idx
                 results.append(item)
+        # Drop any LLM-emitted entries for context-only slides (the prompt
+        # forbids them, but defensively filter in case the model misbehaves).
+        results = [r for r in results if r["index"] not in context_only_indices]
         found = {r["index"] for r in results}
-        for s in slides:
+        for s in active_slides:
             if s["index"] not in found:
                 logger.warning("Slide %d missing from batch response — using fallback", s["index"])
                 results.append({"index": s["index"], "title": f"Slide {s['index']+1}",
@@ -848,7 +942,7 @@ async def batch_analyze_text_slides(
     else:
         results = [{"index": s["index"], "title": f"Slide {s['index']+1}",
                     "content": s["text"], "summary": "", "questions": []}
-                   for s in slides]
+                   for s in active_slides]
 
     # Validate the per-slide MCQ. To honour the one-shot regenerate contract
     # for per-slide quizzes too — without burning N extra LLM calls — we

@@ -89,8 +89,26 @@ network, no real Supabase.**
   `src/test/sharedSupabaseMock.ts`, `src/test/handlers/`) before inventing new
   ones. See `project_docs/testing.md` for the cookbook.
 
+## Quiz batch tuning
+
+Per-slide quiz generation runs through `batch_analyze_text_slides` in
+`backend/services/ai/orchestrator.py`. Slides are grouped into overlapping
+windows by `iter_overlapping_windows`:
+
+- `QUIZ_BATCH_SIZE` (env, default `5`) — max slides per LLM call (context + new).
+- `QUIZ_BATCH_OVERLAP` (env, default `1`) — last K slides of batch N are
+  re-injected into batch N+1 wrapped in `<context_only>` markers so the model
+  can resolve back-references like "this method" / "as shown earlier".
+  Context-only slides are excluded from the JSON response and never produce
+  duplicate output. Each slide is generated (non-context) exactly once.
+
 ## Recent changes
 
+- 2026-05-02: Overlapping-batch quiz generation — replaced the fixed
+  12-slide chunker in `file_parse_service` with `iter_overlapping_windows`
+  (default `batch_size=5`, `overlap=1`). The orchestrator wraps overlap
+  slides in `<context_only>` so the LLM has cross-batch context without
+  duplicating output. SSE event shape and frontend untouched.
 - 2026-05-02: Parse-cache opt-in dialog — `POST /api/upload/check-parse-cache`
   surfaces global `pdf_parse_cache` hits to the upload UI. New
   `ParseCacheDialog` lets professors choose "use saved parse" vs.

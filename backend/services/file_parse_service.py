@@ -69,7 +69,6 @@ from backend.services.summarizer_service import generate_hierarchical_summary
 
 logger = logging.getLogger(__name__)
 
-TEXT_BATCH_SIZE  = 12
 TEXT_BATCH_SEM   = 2    # max concurrent text-batch LLM calls (rate-limit guard)
 VISION_SEM_LIMIT = 3    # max concurrent VLM calls
 LAYOUT_SEM_LIMIT = 8    # max concurrent Pass-1 layout analyses (memory guard)
@@ -240,13 +239,27 @@ async def parse_pdf_stream(
             except Exception as e:
                 logger.warning("OCR fallback failed for slide %d: %s", idx, e)
 
+        # Overlapping windows: each batch beyond the first reuses the last
+        # ``context_overlap`` slides of the previous batch as <context_only>
+        # entries so the LLM can resolve back-references like "this method"
+        # spanning the chunk boundary. The chunker guarantees each slide is
+        # produced (non-context) exactly once across the full sequence.
+        from backend.services.ai.orchestrator import (
+            QUIZ_BATCH_CONFIG,
+            iter_overlapping_windows,
+        )
         batch_inputs = [
             _build_text_batch(
-                pending_text[s:s + TEXT_BATCH_SIZE],
+                window,
                 layouts, manifest.odl_table_indices, ai_model,
                 ocr_overrides=ocr_text_overrides,
+                context_count=ctx,
             )
-            for s in range(0, len(pending_text), TEXT_BATCH_SIZE)
+            for window, ctx in iter_overlapping_windows(
+                pending_text,
+                QUIZ_BATCH_CONFIG.batch_size,
+                QUIZ_BATCH_CONFIG.context_overlap,
+            )
         ]
         text_tasks = [
             _process_text_batch_safe(batch, ai_model, blueprint, text_sem, fallback_counters)
@@ -340,11 +353,17 @@ def _build_text_batch(
     odl_table_indices: List[int],
     ai_model: str,
     ocr_overrides: Optional[Dict[int, str]] = None,
+    context_count: int = 0,
 ) -> List[Dict]:
-    """Assembles slide dicts for batch_analyze_text_slides, injecting ODL/OCR text."""
+    """Assembles slide dicts for batch_analyze_text_slides, injecting ODL/OCR text.
+
+    The first ``context_count`` entries of ``batch_indices`` are flagged
+    ``context_only=True`` so the orchestrator wraps them in a
+    ``<context_only>`` block and excludes them from the response.
+    """
     slides_input = []
     overrides = ocr_overrides or {}
-    for idx in batch_indices:
+    for pos, idx in enumerate(batch_indices):
         layout = layouts[idx]
 
         if idx in odl_table_indices and layout.odl_table_md:
@@ -362,11 +381,14 @@ def _build_text_batch(
         else:
             txt, _ = safe_truncate_text(layout.raw_text)
 
-        slides_input.append({
+        entry: Dict[str, Any] = {
             "index": idx,
             "page_number": idx + 1,
             "text": txt,
-        })
+        }
+        if pos < context_count:
+            entry["context_only"] = True
+        slides_input.append(entry)
     return slides_input
 
 
@@ -394,12 +416,16 @@ async def _process_text_batch_safe(
             logger.warning(
                 "Batch of %d failed (%s), retrying per-slide", len(slides_input), e
             )
+            # Per-slide retry only covers active (non-context) slides — the
+            # context_only entries already produced output in the previous
+            # window, so re-running them would duplicate results.
+            active_inputs = [s for s in slides_input if not s.get("context_only")]
             per_slide_tasks = [
-                _single_slide_text(s, ai_model, blueprint) for s in slides_input
+                _single_slide_text(s, ai_model, blueprint) for s in active_inputs
             ]
             results = await asyncio.gather(*per_slide_tasks, return_exceptions=True)
             out = []
-            for s, r in zip(slides_input, results):
+            for s, r in zip(active_inputs, results):
                 if isinstance(r, list) and r:
                     out.extend(r)
                 elif isinstance(r, dict):
