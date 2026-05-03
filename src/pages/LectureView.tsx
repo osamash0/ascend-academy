@@ -977,15 +977,6 @@ export default function LectureView() {
                           <HelpCircle className="w-5 h-5 text-primary-foreground" />
                         </div>
                         <div>
-                          {/* Headings are translated via lecture.json. The
-                              quiz-replay tests assert the literal English
-                              copy ("Review missed questions" / "X of N"),
-                              so i18next must be initialized in the test
-                              setup (src/test/setup.ts imports "@/i18n");
-                              otherwise t() returns the key and the replay
-                              flow assertions fail even though the
-                              missedQueueRef / reviewAnsweredRef state
-                              machine below is correct. */}
                           <h2 className="text-base font-bold text-foreground">
                             {t('lecture:chrome.reviewMissed')}
                           </h2>
