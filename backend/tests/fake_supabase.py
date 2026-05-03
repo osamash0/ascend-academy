@@ -333,6 +333,48 @@ class FakeSupabaseClient:
         self.auth = _Auth(self)
         self.storage = _Storage()
         self._rpc_handlers: dict[str, Any] = {}
+        self._register_default_rpcs()
+
+    def _register_default_rpcs(self) -> None:
+        """Register fakes for RPCs that mirror pure-SQL helpers in production.
+
+        Keeps tests in sync with real Supabase behaviour without forcing each
+        test to wire up a handler manually.
+        """
+        def match_concepts(params: dict) -> list[dict]:
+            q = params.get("query_embedding") or []
+            threshold = float(params.get("match_threshold") or 0.0)
+            limit = int(params.get("match_count") or 1)
+            if not q:
+                return []
+
+            def cosine(a, b):
+                if not a or not b or len(a) != len(b):
+                    return 0.0
+                dot = sum(x * y for x, y in zip(a, b))
+                na = sum(x * x for x in a) ** 0.5
+                nb = sum(y * y for y in b) ** 0.5
+                if na <= 0.0 or nb <= 0.0:
+                    return 0.0
+                return dot / (na * nb)
+
+            scored = []
+            for row in self.tables.get("concepts", []):
+                emb = row.get("embedding")
+                if not emb:
+                    continue
+                sim = cosine(q, emb)
+                if sim > threshold:
+                    scored.append({
+                        "id": row["id"],
+                        "canonical_name": row.get("canonical_name"),
+                        "name_key": row.get("name_key"),
+                        "similarity": sim,
+                    })
+            scored.sort(key=lambda r: r["similarity"], reverse=True)
+            return scored[:limit]
+
+        self._rpc_handlers["match_concepts"] = match_concepts
 
     # ── Public test helpers ────────────────────────────────────────────────
     def seed(self, table: str, rows: list[dict]) -> None:

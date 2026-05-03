@@ -222,29 +222,89 @@ def _load_catalog(client=None) -> List[Dict[str, Any]]:
         return []
 
 
+def _rpc_find_match(
+    client, embedding: List[float], threshold: float
+) -> Optional[Dict[str, Any]]:
+    """Call the ``match_concepts`` pgvector RPC and return the top match.
+
+    Returns a dict with ``id``, ``canonical_name``, ``name_key``, ``aliases``
+    and ``similarity`` so the caller can run the alias bookkeeping just like
+    the in-memory path.  Raises on transport/SQL errors so the caller can
+    decide whether to fall back to the in-memory dedupe.
+    """
+    if not embedding:
+        return None
+    rpc_res = client.rpc("match_concepts", {
+        "query_embedding": embedding,
+        "match_threshold": threshold,
+        "match_count": 1,
+    }).execute()
+    rows = rpc_res.data or []
+    if not rows:
+        return None
+    top = rows[0]
+    # The RPC returns id/name/similarity but no aliases — fetch them so the
+    # downstream alias bookkeeping has the current array to extend.
+    full = client.table("concepts").select(
+        "id, canonical_name, name_key, aliases"
+    ).eq("id", top["id"]).execute()
+    full_rows = full.data or []
+    if not full_rows:
+        return None
+    out = dict(full_rows[0])
+    out["similarity"] = top.get("similarity")
+    return out
+
+
 async def _ensure_concept(
     *,
     name_key: str,
     display_name: str,
     embedding: List[float],
-    catalog: List[Dict[str, Any]],
     client=None,
     embed_fn: Optional[Callable[[str], Awaitable[List[float]]]] = None,
-) -> Optional[str]:
-    """Find or create a canonical concept row.  Returns its id."""
+) -> Tuple[Optional[str], bool]:
+    """Find or create a canonical concept row.
+
+    Returns ``(concept_id, created)`` where ``created`` is True only when a
+    new row was inserted.  Dedupe goes through the ``match_concepts`` pgvector
+    RPC so we don't need to load the entire catalog into memory; if the RPC
+    errors we fall back to the in-memory ``find_match`` over a freshly-loaded
+    catalog so ingestion still completes.
+    """
     cli = client or supabase_admin
 
     # Fast-path: name_key collision → reuse without touching pgvector.
-    for row in catalog:
-        if row.get("name_key") == name_key:
-            _maybe_add_alias(cli, row, display_name)
-            return row["id"]
+    try:
+        nk_res = cli.table("concepts").select(
+            "id, canonical_name, name_key, aliases"
+        ).eq("name_key", name_key).limit(1).execute()
+        nk_rows = nk_res.data or []
+        if nk_rows:
+            _maybe_add_alias(cli, nk_rows[0], display_name)
+            return nk_rows[0]["id"], False
+    except Exception as e:
+        logger.warning("name_key lookup failed for %s: %s", name_key, e)
 
-    # Embedding-similarity dedupe.
-    match = find_match(embedding, catalog)
+    # Embedding-similarity dedupe via RPC, with an in-memory fallback.
+    match: Optional[Dict[str, Any]] = None
+    if embedding:
+        try:
+            match = _rpc_find_match(cli, embedding, MATCH_THRESHOLD)
+        except Exception as e:
+            logger.warning(
+                "match_concepts RPC failed for %s; falling back to in-memory dedupe: %s",
+                name_key, e,
+            )
+            try:
+                catalog = _load_catalog(cli)
+                match = find_match(embedding, catalog)
+            except Exception as e2:
+                logger.error("In-memory dedupe fallback failed for %s: %s", name_key, e2)
+
     if match:
         _maybe_add_alias(cli, match, display_name)
-        return match["id"]
+        return match["id"], False
 
     # Insert new canonical concept.
     try:
@@ -257,19 +317,11 @@ async def _ensure_concept(
         rows = res.data or []
         if not rows:
             logger.warning("Concept insert returned no row for %s", name_key)
-            return None
-        new_row = {
-            "id": rows[0]["id"],
-            "canonical_name": display_name,
-            "name_key": name_key,
-            "aliases": [display_name],
-            "embedding": embedding,
-        }
-        catalog.append(new_row)
-        return new_row["id"]
+            return None, False
+        return rows[0]["id"], True
     except Exception as e:
         logger.error("Failed to insert concept %s: %s", name_key, e)
-        return None
+        return None, False
 
 
 def _maybe_add_alias(client, concept_row: Dict[str, Any], alias: str) -> None:
@@ -353,9 +405,8 @@ async def ingest_lecture_concepts(
     if not tags:
         return {"lecture_id": lecture_id, "concepts": 0, "linked": 0, "created": 0}
 
-    catalog = _load_catalog(cli)
-    pre_count = len(catalog)
     linked = 0
+    created = 0
 
     for name_key, (display_name, slide_indices) in tags.items():
         try:
@@ -367,15 +418,16 @@ async def ingest_lecture_concepts(
             # Embedding service degraded — fall back to the name_key path
             # only.  We can still link if a name_key collision exists.
             embedding = []
-        cid = await _ensure_concept(
+        cid, was_created = await _ensure_concept(
             name_key=name_key,
             display_name=display_name,
             embedding=embedding,
-            catalog=catalog,
             client=cli,
         )
         if not cid:
             continue
+        if was_created:
+            created += 1
         weight = 1.0 + 0.5 * len(slide_indices)
         ok = await _upsert_concept_lecture(
             concept_id=cid,
@@ -387,7 +439,6 @@ async def ingest_lecture_concepts(
         if ok:
             linked += 1
 
-    created = max(0, len(catalog) - pre_count)
     logger.info(
         "Concept graph: lecture=%s tags=%d linked=%d created=%d",
         lecture_id, len(tags), linked, created,
