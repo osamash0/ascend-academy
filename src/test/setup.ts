@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
 import { server } from "./server";
+// Initialize i18next with the project's English/German resources so any
+// component that calls `useTranslation()` renders real localized strings
+// in tests instead of bare i18n keys.
+import "@/i18n";
 
 // ── jsdom polyfills ─────────────────────────────────────────────────────────
 Object.defineProperty(window, "matchMedia", {
