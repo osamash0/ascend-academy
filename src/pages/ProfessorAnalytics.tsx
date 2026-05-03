@@ -29,6 +29,7 @@ import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { NeuralBackground } from '@/components/NeuralBackground';
 import { ThreeDScatterPlot } from '@/components/ThreeDScatterPlot';
 import { AskYourDataPanel } from '@/features/analytics/components/AskYourDataPanel';
+import { BenchmarksSection } from '@/features/analytics/components/BenchmarksSection';
 
 import type { Lecture, SlideAnalytics, SlideRecommendationLabel } from '@/types/domain';
 import {
@@ -875,6 +876,9 @@ export default function ProfessorAnalytics() {
 
             {/* Ask Your Data (Task #45) */}
             {selectedLectureId && <AskYourDataPanel lectureId={selectedLectureId} />}
+
+            {/* Comparative Benchmarks (Task #50) */}
+            {selectedLectureId && <BenchmarksSection lectureId={selectedLectureId} />}
 
             {/* Slide-Level Recommendations (Task #44) */}
             <SlideRecommendationsSection

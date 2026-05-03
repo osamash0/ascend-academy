@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, db_pool, get_db_connection
 from backend.services.utils.analytics_utils import calculate_student_typology, generate_anon_name
 from supabase import create_client, Client
@@ -1226,6 +1228,319 @@ def _empty_sparkline(days: int) -> List[Dict[str, Any]]:
         {"date": (today - timedelta(days=i)).isoformat(), "count": 0}
         for i in range(days - 1, -1, -1)
     ]
+
+
+# ── Comparative Benchmarks (Task #50) ────────────────────────────────────────
+#
+# Compute a uniform metric pack per lecture so we can compare:
+#   • a lecture against its sibling lectures within the same course
+#   • a course against the professor's other courses
+#
+# Every metric is sourced from existing aggregates so numbers match what the
+# rest of the dashboard already shows (no double-counting, same time windows).
+
+_BENCHMARK_METRIC_KEYS = (
+    "avg_time_minutes",
+    "completion_rate",
+    "unique_students",
+    "drop_off_rate",
+    "avg_score",
+    "mastery_rate",
+    "struggle_rate",
+    "distractor_confusion",
+    "concept_count",
+    "needs_review_share",
+)
+
+
+def _compute_lecture_benchmark_metrics(
+    lecture_id: str,
+    token: Optional[str],
+) -> Dict[str, float]:
+    """Single metric pack for one lecture, reusing cached analytics."""
+    overview = get_lecture_overview(lecture_id, token) or {}
+    quizzes = get_quiz_analytics(lecture_id, token) or []
+    distractors = get_distractor_analysis(lecture_id, token) or []
+    slides = get_slide_analytics(lecture_id, token) or []
+
+    # Engagement
+    avg_time = float(overview.get("average_time_minutes") or 0)
+    completion = float(overview.get("completion_rate") or 0)
+    students = int(overview.get("total_students") or 0)
+    # Lecture-level drop-off mirrors what the dashboard shows: students who
+    # started but didn't finish (= 100% − completion rate). Per-slide
+    # percentages from get_dropoff_map are NOT additive and can't be averaged
+    # into a meaningful lecture-level number, so we don't use them here.
+    drop_off = round(max(0.0, 100.0 - completion), 1)
+
+    # Quiz performance
+    avg_score = float(overview.get("average_score") or 0)
+    answered = [q for q in quizzes if (q.get("attempts") or 0) > 0]
+    mastery = (
+        round(sum(1 for q in answered if (q.get("success_rate") or 0) >= 80)
+              / len(answered) * 100, 1)
+        if answered else 0.0
+    )
+    struggle = (
+        round(sum(1 for q in answered if (q.get("success_rate") or 0) < 60)
+              / len(answered) * 100, 1)
+        if answered else 0.0
+    )
+    # Distractor confusion: questions where the most-picked wrong answer
+    # accounts for >= 50% of all wrong picks (a clear pile-up on one
+    # distractor — usually a sign of an ambiguous option or shared misconception).
+    confused_qs = 0
+    relevant_qs = 0
+    for d in distractors:
+        dist = d.get("answer_distribution") or {}
+        correct_idx = str(d.get("correct_answer", -1))
+        wrong_total = sum(v for k, v in dist.items() if k != correct_idx)
+        if wrong_total <= 0:
+            continue
+        relevant_qs += 1
+        top_wrong = max(
+            (v for k, v in dist.items() if k != correct_idx),
+            default=0,
+        )
+        if (top_wrong / wrong_total) >= 0.5:
+            confused_qs += 1
+    distractor_confusion = (
+        round(confused_qs / relevant_qs * 100, 1) if relevant_qs else 0.0
+    )
+
+    # Concept coverage — distinct non-empty concept tags on this lecture's questions.
+    concept_count = 0
+    if token:
+        try:
+            client = get_auth_client(token)
+            qs = _fetch_all(
+                client.table("quiz_questions")
+                .select("metadata, slides!inner(lecture_id)")
+                .eq("slides.lecture_id", lecture_id)
+            )
+            concepts = {
+                ((q.get("metadata") or {}).get("concept") or "").strip()
+                for q in qs
+            }
+            concepts.discard("")
+            concept_count = len(concepts)
+        except Exception:
+            concept_count = 0
+
+    # Slide quality — share of slides flagged 'needs_review'.
+    rated = [s for s in slides if s.get("recommendation_label")]
+    needs_review_share = (
+        round(sum(1 for s in rated
+                  if s.get("recommendation_label") == "needs_review")
+              / len(rated) * 100, 1)
+        if rated else 0.0
+    )
+
+    return {
+        "avg_time_minutes": round(avg_time, 1),
+        "completion_rate": round(completion, 1),
+        "unique_students": students,
+        "drop_off_rate": drop_off,
+        "avg_score": round(avg_score, 1),
+        "mastery_rate": mastery,
+        "struggle_rate": struggle,
+        "distractor_confusion": distractor_confusion,
+        "concept_count": concept_count,
+        "needs_review_share": needs_review_share,
+    }
+
+
+def _summarize_metric_pack(packs: List[Dict[str, float]]) -> Dict[str, Dict[str, float]]:
+    """avg/min/max/count for each benchmark metric across a peer set."""
+    summary: Dict[str, Dict[str, float]] = {}
+    for k in _BENCHMARK_METRIC_KEYS:
+        vals = [float(p.get(k) or 0) for p in packs]
+        if not vals:
+            summary[k] = {"avg": 0.0, "min": 0.0, "max": 0.0, "count": 0}
+            continue
+        summary[k] = {
+            "avg": round(sum(vals) / len(vals), 1),
+            "min": round(min(vals), 1),
+            "max": round(max(vals), 1),
+            "count": len(vals),
+        }
+    return summary
+
+
+def _aggregate_course_metrics(
+    lecture_packs: List[Dict[str, Any]],
+) -> Dict[str, float]:
+    """Course-level metric pack = average of its lectures' packs.
+
+    Empty courses get zeros so they still render in the comparison table.
+    """
+    if not lecture_packs:
+        return {k: 0 for k in _BENCHMARK_METRIC_KEYS}
+    out: Dict[str, float] = {}
+    for k in _BENCHMARK_METRIC_KEYS:
+        vals = [float(p.get(k) or 0) for p in lecture_packs]
+        out[k] = round(sum(vals) / len(vals), 1) if vals else 0.0
+    # unique_students is more meaningful as a sum across the course
+    out["unique_students"] = int(sum(int(p.get("unique_students") or 0)
+                                     for p in lecture_packs))
+    return out
+
+
+def get_lecture_benchmarks(lecture_id: str, token: Optional[str]) -> Dict[str, Any]:
+    """Lecture metric pack + sibling lectures (same course) + peer summary."""
+    if not token:
+        raise ValueError("token required")
+    client = get_auth_client(token)
+
+    lec_res = (
+        client.table("lectures")
+        .select("id, title, course_id, professor_id")
+        .eq("id", lecture_id)
+        .execute()
+    )
+    if not lec_res.data:
+        return {
+            "scope": "lecture",
+            "lecture_id": lecture_id,
+            "course_id": None,
+            "current": None,
+            "peers": [],
+            "summary": _summarize_metric_pack([]),
+        }
+    lec = lec_res.data[0]
+    course_id = lec.get("course_id")
+
+    sibling_rows: List[Dict[str, Any]] = []
+    if course_id:
+        sib_res = (
+            client.table("lectures")
+            .select("id, title")
+            .eq("course_id", course_id)
+            .execute()
+        )
+        sibling_rows = sib_res.data or []
+    else:
+        sibling_rows = [{"id": lec["id"], "title": lec.get("title") or ""}]
+
+    rows = []
+    current_pack: Optional[Dict[str, Any]] = None
+    for s in sibling_rows:
+        try:
+            metrics = _compute_lecture_benchmark_metrics(s["id"], token)
+        except Exception as e:  # don't let one bad sibling break the whole view
+            logger.warning("Benchmark metric compute failed for %s: %s", s["id"], e)
+            metrics = {k: 0 for k in _BENCHMARK_METRIC_KEYS}
+        row = {
+            "lecture_id": s["id"],
+            "title": s.get("title") or "Untitled",
+            "metrics": metrics,
+        }
+        rows.append(row)
+        if s["id"] == lecture_id:
+            current_pack = row
+
+    if current_pack is None:
+        # current lecture not in sibling set (course mismatch); compute it standalone
+        current_pack = {
+            "lecture_id": lecture_id,
+            "title": lec.get("title") or "Untitled",
+            "metrics": _compute_lecture_benchmark_metrics(lecture_id, token),
+        }
+        rows.append(current_pack)
+
+    peers = [r for r in rows if r["lecture_id"] != lecture_id]
+    summary = _summarize_metric_pack([r["metrics"] for r in peers])
+
+    return {
+        "scope": "lecture",
+        "lecture_id": lecture_id,
+        "course_id": course_id,
+        "current": current_pack,
+        "peers": peers,
+        "summary": summary,
+    }
+
+
+def get_course_benchmarks(course_id: str, token: Optional[str]) -> Dict[str, Any]:
+    """Course aggregate metric pack + every other course owned by the same
+    professor + peer summary."""
+    if not token:
+        raise ValueError("token required")
+    client = get_auth_client(token)
+
+    course_res = (
+        client.table("courses")
+        .select("id, title, professor_id")
+        .eq("id", course_id)
+        .execute()
+    )
+    if not course_res.data:
+        return {
+            "scope": "course",
+            "course_id": course_id,
+            "current": None,
+            "peers": [],
+            "summary": _summarize_metric_pack([]),
+        }
+    professor_id = course_res.data[0].get("professor_id")
+    course_title = course_res.data[0].get("title") or "Untitled"
+
+    sibling_courses_res = (
+        client.table("courses")
+        .select("id, title")
+        .eq("professor_id", professor_id)
+        .execute()
+    )
+    sibling_courses = sibling_courses_res.data or []
+
+    rows: List[Dict[str, Any]] = []
+    current_pack: Optional[Dict[str, Any]] = None
+    for c in sibling_courses:
+        cid = c["id"]
+        # Lectures in this course
+        lec_res = (
+            client.table("lectures")
+            .select("id, title")
+            .eq("course_id", cid)
+            .execute()
+        )
+        lecs = lec_res.data or []
+        lec_packs: List[Dict[str, Any]] = []
+        for l in lecs:
+            try:
+                lec_packs.append(_compute_lecture_benchmark_metrics(l["id"], token))
+            except Exception as e:
+                logger.warning("Benchmark compute failed for lecture %s: %s", l["id"], e)
+        agg = _aggregate_course_metrics(lec_packs)
+        row = {
+            "course_id": cid,
+            "title": c.get("title") or "Untitled",
+            "lecture_count": len(lecs),
+            "metrics": agg,
+        }
+        rows.append(row)
+        if cid == course_id:
+            current_pack = row
+
+    if current_pack is None:
+        current_pack = {
+            "course_id": course_id,
+            "title": course_title,
+            "lecture_count": 0,
+            "metrics": _aggregate_course_metrics([]),
+        }
+        rows.append(current_pack)
+
+    peers = [r for r in rows if r["course_id"] != course_id]
+    summary = _summarize_metric_pack([r["metrics"] for r in peers])
+
+    return {
+        "scope": "course",
+        "course_id": course_id,
+        "current": current_pack,
+        "peers": peers,
+        "summary": summary,
+    }
 
 
 def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, Any]:
