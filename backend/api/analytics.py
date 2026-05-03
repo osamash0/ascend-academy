@@ -427,13 +427,22 @@ async def get_ask_suggestions(
 
 
 def _ask_rate_limit_key(request: Request) -> str:
-    """Per-professor key when authenticated; falls back to IP. Avoids NAT
-    false-throttling by keying on the user id whenever the bearer token
-    has been resolved by `require_professor`."""
-    user = getattr(request.state, "user", None)
-    uid = getattr(user, "id", None) if user is not None else None
-    if uid:
-        return f"user:{uid}"
+    """Per-professor rate-limit key.
+
+    SlowAPI runs ``key_func`` *before* route dependencies execute, so we
+    cannot rely on a resolved user object here. We instead derive a
+    stable per-user key from the bearer token itself: a SHA-256 of the
+    raw token. This means two professors sharing the same NAT'd IP each
+    get their own bucket. Falls back to the remote IP for unauthenticated
+    requests (which would be rejected downstream by ``require_professor``
+    anyway, but defends against pre-auth flooding).
+    """
+    import hashlib
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        token = auth[7:].strip()
+        if token:
+            return "user:" + hashlib.sha256(token.encode("utf-8")).hexdigest()[:32]
     from slowapi.util import get_remote_address
     return get_remote_address(request)
 
@@ -452,9 +461,6 @@ async def ask_lecture_question(
     The LLM picks one of a fixed catalog of intents; we run the matching
     analytics function server-side. No raw SQL is ever generated.
     """
-    # Stash the resolved user on request.state so the per-user rate-limit
-    # key function above can read it on subsequent requests.
-    request.state.user = user
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
 
     if not body.question or not body.question.strip():

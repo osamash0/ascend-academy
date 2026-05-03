@@ -125,6 +125,24 @@ class TestAskEndpointOwnership:
         assert r.status_code == 400
 
 
+class TestAskRateLimitKey:
+    def test_key_derives_from_bearer_token(self):
+        from backend.api.analytics import _ask_rate_limit_key
+        from types import SimpleNamespace
+
+        def _make(headers):
+            return SimpleNamespace(headers={k.lower(): v for k, v in headers.items()},
+                                   client=SimpleNamespace(host="10.0.0.1"))
+
+        k1 = _ask_rate_limit_key(_make({"authorization": "Bearer prof-token-A"}))
+        k2 = _ask_rate_limit_key(_make({"authorization": "Bearer prof-token-B"}))
+        k_same = _ask_rate_limit_key(_make({"authorization": "Bearer prof-token-A"}))
+
+        assert k1.startswith("user:") and k2.startswith("user:")
+        assert k1 != k2, "Two different professor tokens must produce different rate-limit keys"
+        assert k1 == k_same, "Same token must produce a stable key across calls"
+
+
 class TestAskSuggestionsEndpoint:
     def test_403_for_other_professor(self, app, patch_supabase, professor_user, other_professor_user):
         _seed_lecture(patch_supabase, "L1", professor_user.id)
