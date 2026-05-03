@@ -18,7 +18,11 @@
     "email": "E-Mail-Adresse",
     "emailHelp": "Deine E-Mail-Adresse kann hier nicht geändert werden.",
     "unsavedChanges": "● Ungespeicherte Änderungen",
-    "upToDate": "Aktuell"
+    "upToDate": "Aktuell",
+    "updated": "Profil aktualisiert",
+    "updatedDescription": "Deine Einstellungen wurden erfolgreich gespeichert.",
+    "saveError": "Fehler beim Speichern",
+    "saveErrorDescription": "Ein unerwarteter Fehler ist aufgetreten."
   },
   "avatar": {
     "anonymousUser": "Anonyme:r Nutzer:in",

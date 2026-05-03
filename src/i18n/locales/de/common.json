@@ -51,5 +51,22 @@
     "morning": "Guten Morgen",
     "afternoon": "Guten Tag",
     "evening": "Guten Abend"
+  },
+  "shell": {
+    "toggleSidebar": "Seitenleiste umschalten",
+    "switchToLight": "Zum hellen Modus wechseln",
+    "switchToDark": "Zum dunklen Modus wechseln"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "ariaUnread": "Benachrichtigungen ({{count}} ungelesen)",
+    "ariaNone": "Benachrichtigungen",
+    "markAllRead": "Alle als gelesen markieren",
+    "close": "Benachrichtigungen schließen",
+    "empty": "Noch keine Benachrichtigungen",
+    "justNow": "gerade eben",
+    "minutesAgo": "vor {{count}} Min.",
+    "hoursAgo": "vor {{count}} Std.",
+    "daysAgo": "vor {{count}} T."
   }
 }

@@ -68,6 +68,7 @@
   "chat": {
     "title": "KI-Tutor",
     "welcome": "Hallo! Ich bin dein KI-Tutor und beantworte gerne deine Fragen zu **„{{slide}}“**. Was möchtest du erkunden?",
+    "connectionError": "Es liegt ein Verbindungsproblem vor. Bitte versuche es gleich erneut.",
     "modelCerebras": "Cerebras (empfohlen)",
     "online": "Online",
     "modelPlaceholder": "Modell",

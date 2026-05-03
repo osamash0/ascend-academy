@@ -249,7 +249,7 @@ export function LectureChat({
                     {
                         id: generateMsgId(),
                         role: 'model',
-                        content: "I'm experiencing a connection issue. Please try again in a moment.",
+                        content: t('lecture:chat.connectionError'),
                         timestamp: new Date(),
                     }
                 ]);

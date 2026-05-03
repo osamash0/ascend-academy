@@ -51,5 +51,22 @@
     "morning": "Good morning",
     "afternoon": "Good afternoon",
     "evening": "Good evening"
+  },
+  "shell": {
+    "toggleSidebar": "Toggle sidebar",
+    "switchToLight": "Switch to Light Mode",
+    "switchToDark": "Switch to Dark Mode"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "ariaUnread": "Notifications ({{count}} unread)",
+    "ariaNone": "Notifications",
+    "markAllRead": "Mark all read",
+    "close": "Close notifications",
+    "empty": "No notifications yet",
+    "justNow": "just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
   }
 }

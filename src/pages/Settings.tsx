@@ -141,13 +141,13 @@ function AvatarSection({
 
             await onUpdate();
             toast({
-                title: "Avatar updated",
-                description: "Your new profile picture looks great!",
+                title: t('settings:avatar.updated'),
+                description: t('settings:avatar.updatedDescription'),
             });
         } catch (error: unknown) {
             toast({
-                title: "Error uploading avatar",
-                description: error instanceof Error ? error.message : "Please make sure the 'avatars' storage bucket exists and is public.",
+                title: t('settings:avatar.uploadError'),
+                description: error instanceof Error ? error.message : t('settings:avatar.uploadErrorDescription'),
                 variant: "destructive"
             });
         } finally {
@@ -170,13 +170,13 @@ function AvatarSection({
 
             await onUpdate();
             toast({
-                title: "Avatar updated",
-                description: "Your fun new avatar is set!",
+                title: t('settings:avatar.updated'),
+                description: t('settings:avatar.presetUpdated'),
             });
         } catch {
             toast({
-                title: "Error updating avatar",
-                description: "Failed to update your avatar.",
+                title: t('settings:avatar.presetError'),
+                description: t('settings:avatar.presetErrorDescription'),
                 variant: "destructive"
             });
         } finally {
@@ -325,13 +325,13 @@ function ProfileForm({
 
             await onUpdate();
             toast({
-                title: "Profile updated",
-                description: "Your settings have been saved successfully.",
+                title: t('settings:profile.updated'),
+                description: t('settings:profile.updatedDescription'),
             });
         } catch (error: unknown) {
             toast({
-                title: "Error saving profile",
-                description: error instanceof Error ? error.message : "An unexpected error occurred.",
+                title: t('settings:profile.saveError'),
+                description: error instanceof Error ? error.message : t('settings:profile.saveErrorDescription'),
                 variant: "destructive"
             });
         } finally {

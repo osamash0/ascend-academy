@@ -18,7 +18,11 @@
     "email": "Email Address",
     "emailHelp": "Your email address cannot be changed here.",
     "unsavedChanges": "● Unsaved changes",
-    "upToDate": "Up to date"
+    "upToDate": "Up to date",
+    "updated": "Profile updated",
+    "updatedDescription": "Your settings have been saved successfully.",
+    "saveError": "Error saving profile",
+    "saveErrorDescription": "An unexpected error occurred."
   },
   "avatar": {
     "anonymousUser": "Anonymous User",
