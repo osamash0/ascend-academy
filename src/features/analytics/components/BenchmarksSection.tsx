@@ -38,7 +38,7 @@ const METRICS: MetricDef[] = [
   { key: 'needs_review_share',    label: 'Slides Needing Review', unit: '%', group: 'slides', lowerIsBetter: true },
 ];
 
-const GROUPS: { id: MetricDef['group']; title: string; icon: any }[] = [
+const GROUPS: { id: MetricDef['group']; title: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'engagement', title: 'Student Engagement',  icon: Users },
   { id: 'quiz',       title: 'Quiz Performance',    icon: Target },
   { id: 'concepts',   title: 'Concept Coverage',    icon: Layers },

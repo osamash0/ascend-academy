@@ -648,10 +648,10 @@ function DataPrivacySection({
             await signOut();
             navigate('/');
             toast({ title: t('settings:data.deleteSuccess'), description: t('settings:data.deleteSuccessDescription') });
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({ 
                 title: t('settings:data.deleteError'), 
-                description: error.message || t('settings:data.deleteErrorDescription'), 
+                description: (error instanceof Error ? error.message : '') || t('settings:data.deleteErrorDescription'), 
                 variant: 'destructive' 
             });
             safeSetState(setIsDeleting, false);

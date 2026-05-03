@@ -180,6 +180,7 @@ export function PracticeSheetEditor({ sheet, onBack, onPreview, onSheetChange }:
       try {
         await reorderQuestions(sheet.id, ids);
       } catch {
+        // Best-effort reorder; UI already updated optimistically.
       }
     }
     if (expandedIdx === idx) setExpandedIdx(other);

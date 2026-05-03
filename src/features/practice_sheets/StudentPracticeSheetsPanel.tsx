@@ -24,6 +24,7 @@ export function StudentPracticeSheetsPanel({ lectureId }: Props) {
       const all = await listPracticeSheets(lectureId);
       setSheets(all);
     } catch {
+      // Network/RLS error: fall through to empty state.
     } finally {
       setLoading(false);
     }

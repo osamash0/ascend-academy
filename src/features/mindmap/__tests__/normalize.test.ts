@@ -42,8 +42,8 @@ describe('normalizeTree', () => {
   });
 
   it('breaks cycles instead of recursing forever', () => {
-    const a: any = { id: 'a', label: 'A', type: 'cluster', children: [] };
-    const b: any = { id: 'b', label: 'B', type: 'cluster', children: [a] };
+    const a: { id: string; label: string; type: string; children: unknown[] } = { id: 'a', label: 'A', type: 'cluster', children: [] };
+    const b: { id: string; label: string; type: string; children: unknown[] } = { id: 'b', label: 'B', type: 'cluster', children: [a] };
     a.children.push(b); // cycle a → b → a
     const tree = normalizeTree({ id: 'r', label: 'Root', type: 'root', children: [a] });
     expect(tree).not.toBeNull();

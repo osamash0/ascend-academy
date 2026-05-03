@@ -329,8 +329,8 @@ export default function LectureView() {
           : s
       ));
       toast({ title: t('lecture:regenerate.success'), description: t('lecture:regenerate.successDescription') });
-    } catch (err: any) {
-      toast({ title: t('lecture:regenerate.failure'), description: err.message || t('lecture:regenerate.failureDescription'), variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: t('lecture:regenerate.failure'), description: (err instanceof Error ? err.message : '') || t('lecture:regenerate.failureDescription'), variant: 'destructive' });
     } finally {
       setIsRegeneratingContent(false);
     }

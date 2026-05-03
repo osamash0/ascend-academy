@@ -19,7 +19,7 @@ describe("apiClient", () => {
         return HttpResponse.json({ auth: request.headers.get("authorization") });
       }),
     );
-    const out: any = await apiClient.get("/api/echo");
+    const out: Record<string, unknown> = await apiClient.get("/api/echo");
     expect(out.auth).toBe("Bearer test-token");
   });
 
@@ -47,7 +47,7 @@ describe("apiClient", () => {
         return HttpResponse.json({ received: body });
       }),
     );
-    const out: any = await apiClient.post("/api/items", { x: 1 });
+    const out: Record<string, unknown> = await apiClient.post("/api/items", { x: 1 });
     expect(out.received).toEqual({ x: 1 });
   });
 
@@ -55,7 +55,7 @@ describe("apiClient", () => {
     server.use(
       http.put("http://api.test/api/items/1", () => HttpResponse.json({ ok: true })),
     );
-    const out: any = await apiClient.put("/api/items/1", { x: 2 });
+    const out: Record<string, unknown> = await apiClient.put("/api/items/1", { x: 2 });
     expect(out.ok).toBe(true);
   });
 
@@ -63,7 +63,7 @@ describe("apiClient", () => {
     server.use(
       http.delete("http://api.test/api/items/1", () => HttpResponse.json({ deleted: 1 })),
     );
-    const out: any = await apiClient.delete("/api/items/1");
+    const out: Record<string, unknown> = await apiClient.delete("/api/items/1");
     expect(out.deleted).toBe(1);
   });
 

@@ -33,10 +33,11 @@ vi.mock("@/features/analytics/hooks/useAnalytics", () => ({
 
 import { ProfessorOverviewSection } from "@/features/analytics/components/ProfessorOverviewSection";
 import { renderWithProviders } from "@/test/renderWithProviders";
+import type { Course } from "@/services/coursesService";
 
-const courses = [
-  { id: "c1", title: "CS 101", description: "", professor_id: "p1", created_at: "2026-01-01" } as any,
-  { id: "c2", title: "Linear Algebra", description: "", professor_id: "p1", created_at: "2026-01-02" } as any,
+const courses: Course[] = [
+  { id: "c1", title: "CS 101", description: "", professor_id: "p1", color: null, icon: null, created_at: "2026-01-01", updated_at: null, lecture_count: 0 },
+  { id: "c2", title: "Linear Algebra", description: "", professor_id: "p1", color: null, icon: null, created_at: "2026-01-02", updated_at: null, lecture_count: 0 },
 ];
 
 describe("ProfessorOverviewSection", () => {

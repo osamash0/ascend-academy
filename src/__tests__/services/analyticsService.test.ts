@@ -35,7 +35,7 @@ describe("getLectureOverview", () => {
       ),
     );
     // Service returns the raw envelope today; assert it contains .data
-    const out: any = await getLectureOverview("L1");
+    const out: Record<string, unknown> = await getLectureOverview("L1");
     expect(out.data?.uniqueStudents ?? out.uniqueStudents).toBe(7);
   });
 
@@ -59,36 +59,36 @@ describe("getLectureOverview", () => {
 
 describe("getSlideAnalytics / getStudentPerformance", () => {
   it("getSlideAnalytics returns the envelope", async () => {
-    const out: any = await getSlideAnalytics("L1");
+    const out: Record<string, unknown> = await getSlideAnalytics("L1");
     expect(out).toBeTruthy();
   });
 
   it("getStudentPerformance returns the envelope", async () => {
-    const out: any = await getStudentPerformance("L1");
+    const out: Record<string, unknown> = await getStudentPerformance("L1");
     expect(out).toBeTruthy();
   });
 });
 
 describe("dropoff / distractors / ai-queries", () => {
   it("getDropoffMap → list", async () => {
-    const out: any = await getDropoffMap("L1");
+    const out: Record<string, unknown> = await getDropoffMap("L1");
     expect(out).toBeTruthy();
   });
 
   it("getDistratorAnalysis → list", async () => {
-    const out: any = await getDistratorAnalysis("L1");
+    const out: Record<string, unknown> = await getDistratorAnalysis("L1");
     expect(out).toBeTruthy();
   });
 
   it("getAiQueryFeed → list", async () => {
-    const out: any = await getAiQueryFeed("L1");
+    const out: Record<string, unknown> = await getAiQueryFeed("L1");
     expect(out).toBeTruthy();
   });
 });
 
 describe("getDashboardData", () => {
   it("returns overview, slidePerformance, etc", async () => {
-    const out: any = await getDashboardData("L1");
+    const out: Record<string, unknown> = await getDashboardData("L1");
     expect(out).toBeTruthy();
   });
 });

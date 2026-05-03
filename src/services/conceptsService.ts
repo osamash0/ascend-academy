@@ -3,7 +3,7 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = (import.meta as ImportMeta).env?.VITE_API_URL || 'http://localhost:8000';
 
 export interface ConceptMasteryItem {
   concept_id: string;

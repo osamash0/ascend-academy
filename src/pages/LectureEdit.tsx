@@ -230,7 +230,7 @@ export default function LectureEdit() {
                     description,
                     total_slides: slides.length,
                     pdf_url: finalPdfUrl
-                } as any)
+                })
                 .eq('id', lectureId);
             if (lErr) throw lErr;
 

@@ -63,10 +63,10 @@ export function FeedbackWidget() {
         setOpen(false);
         reset();
       }, 1200);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Could not send feedback',
-        description: err?.message || 'Please try again in a moment.',
+        description: (err instanceof Error ? err.message : '') || 'Please try again in a moment.',
         variant: 'destructive',
       });
     } finally {

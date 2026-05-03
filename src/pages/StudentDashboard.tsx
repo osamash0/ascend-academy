@@ -416,7 +416,7 @@ export default function StudentDashboard() {
                 value={stat.value}
                 subtitle={stat.subtitle}
                 icon={stat.icon}
-                variant={stat.variant as any}
+                variant={stat.variant as 'default' | 'xp' | 'level' | 'streak'}
                 className={stat.glow}
                 onClick={() => {
                   if (stat.key === 'coursesStarted') {

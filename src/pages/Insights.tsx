@@ -173,7 +173,7 @@ export default function Insights() {
   );
 }
 
-function InsightMiniCard({ icon, title, value, description, color }: { icon: any, title: string, value: string, description: string, color: string }) {
+function InsightMiniCard({ icon, title, value, description, color }: { icon: React.ComponentType<{ className?: string }>, title: string, value: string, description: string, color: string }) {
   const colorMap: Record<string, string> = {
     xp: 'bg-xp/10',
     success: 'bg-success/10',

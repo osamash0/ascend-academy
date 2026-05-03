@@ -134,7 +134,7 @@ function Section({
 }: { 
   title: string; 
   subtitle?: string; 
-  icon: any; 
+  icon: React.ComponentType<{ className?: string }>; 
   children: React.ReactNode; 
   className?: string;
   interpretation?: string | null;
@@ -198,7 +198,7 @@ function Section({
   );
 }
 
-const ThreeDBar = (props: any) => {
+const ThreeDBar = (props: { x?: number; y?: number; width?: number; height?: number; fill?: string }) => {
   const { x, y, width, height, fill } = props;
   if (!width || !height) return null;
   
@@ -527,7 +527,7 @@ export default function ProfessorAnalytics() {
   const [metricInterpretations, setMetricInterpretations] = useState<Record<string, string>>({});
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
-  const handleMetricClick = async (id: string, title: string, value: any) => {
+  const handleMetricClick = async (id: string, title: string, value: unknown) => {
     // Check local cache first
     if (metricInterpretations[id]) {
       // If it's a small stat card, still set the feedback from cache
