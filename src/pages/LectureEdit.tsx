@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAiModel } from '@/hooks/use-ai-model';
 import { motion } from 'framer-motion';
 import { Save, Plus, Trash2, CheckCircle2, Loader2, Sparkles, ArrowLeft, FileText, Upload, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertQuizQuestion, updateQuizQuestion, deleteSlideWithQuestions } from '@/services/lectureService';
+import { apiClient } from '@/lib/apiClient';
+import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Course } from '@/services/coursesService';
+import { WorksheetsPanel } from '@/components/WorksheetsPanel';
+import { ProfessorPracticeSheetsTab } from '@/features/practice_sheets/ProfessorPracticeSheetsTab';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-
-const API_BASE = 'http://localhost:8000';
 
 interface QuestionData {
     id?: string;     // existing DB id (undefined for new)
@@ -26,13 +30,40 @@ interface SlideData {
     questions: QuestionData[];
 }
 
+interface DiagnosticsSlide {
+    slide_index: number;
+    route: string;
+    route_reason: string;
+    layout_features: Record<string, number | boolean>;
+    has_parse_error?: boolean;
+}
+
+interface DiagnosticsRunMetrics {
+    started_at?: string;
+    finished_at?: string;
+    totals?: Record<string, number>;
+    fallbacks?: Record<string, number>;
+}
+
+interface DiagnosticsResponse {
+    pdf_hash: string;
+    pipeline_version: string;
+    run_metrics: DiagnosticsRunMetrics | null;
+    per_slide: DiagnosticsSlide[];
+    flags: { slide_index: number; reason: string }[];
+}
+
 export default function LectureEdit() {
     const { lectureId } = useParams<{ lectureId: string }>();
     const navigate = useNavigate();
     const { toast } = useToast();
+    const { aiModel } = useAiModel();
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [courseId, setCourseId] = useState<string | null>(null);
+    const [originalCourseId, setOriginalCourseId] = useState<string | null>(null);
     const [slides, setSlides] = useState<SlideData[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -41,10 +72,23 @@ export default function LectureEdit() {
     const [pdfFile, setPdfFile] = useState<File | null>(null);
     const [existingPdfUrl, setExistingPdfUrl] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [pdfHash, setPdfHash] = useState<string | null>(null);
+
+    // Diagnostics state — read-only routing telemetry panel
+    const [diagnostics, setDiagnostics] = useState<DiagnosticsResponse | null>(null);
+    const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+    const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+    const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
 
     // Per-slide AI loading states
     const [aiSummaryLoading, setAiSummaryLoading] = useState<Record<number, boolean>>({});
     const [aiQuizLoading, setAiQuizLoading] = useState<Record<number, boolean>>({});
+    const [aiTitleLoading, setAiTitleLoading] = useState<Record<number, boolean>>({});
+    const [aiContentLoading, setAiContentLoading] = useState<Record<number, boolean>>({});
+
+    // Task #58: deck-level on-demand quiz generation. Persists results
+    // server-side; we re-fetch the lecture to refresh question lists.
+    const [deckQuizLoading, setDeckQuizLoading] = useState(false);
 
     // ── Load existing lecture data ─────────────────────────────────────────────
     useEffect(() => {
@@ -65,6 +109,12 @@ export default function LectureEdit() {
             setTitle(lecture.title);
             setDescription(lecture.description ?? '');
             setExistingPdfUrl(lecture.pdf_url);
+            const cid = (lecture as { course_id?: string | null }).course_id ?? null;
+            setCourseId(cid);
+            setOriginalCourseId(cid);
+            try { setCourses(await listCourses()); } catch (e) { console.error(e); }
+            const lectureWithHash = lecture as typeof lecture & { pdf_hash?: string | null };
+            setPdfHash(lectureWithHash.pdf_hash ?? null);
 
             // Fetch slides ordered by slide_number
             const { data: slidesData, error: sErr } = await supabase
@@ -111,6 +161,24 @@ export default function LectureEdit() {
         }
     };
 
+    // ── Diagnostics ─────────────────────────────────────────────────────────
+    const fetchDiagnostics = async () => {
+        if (!pdfHash) return;
+        setDiagnosticsLoading(true);
+        setDiagnosticsError(null);
+        try {
+            const data = await apiClient.get<DiagnosticsResponse>(
+                `/api/upload/diagnostics/${pdfHash}`,
+            );
+            setDiagnostics(data);
+        } catch (err) {
+            console.error(err);
+            setDiagnosticsError('Failed to load diagnostics.');
+        } finally {
+            setDiagnosticsLoading(false);
+        }
+    };
+
     // ── PDF Upload Helpers ───────────────────────────────────────────────────
     const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -141,8 +209,9 @@ export default function LectureEdit() {
                     .upload(filePath, pdfFile, { contentType: 'application/pdf', upsert: true });
 
                 if (!uploadError) {
-                    const { data: urlData } = supabase.storage.from('lecture-pdfs').getPublicUrl(filePath);
-                    finalPdfUrl = urlData.publicUrl;
+                    // Store only the storage path (not a public URL) — the bucket is private.
+                    // Signed URLs are generated on demand when the PDF must be accessed.
+                    finalPdfUrl = filePath;
                 } else {
                     console.error('PDF Upload Error:', uploadError);
                     toast({
@@ -161,7 +230,7 @@ export default function LectureEdit() {
                     description,
                     total_slides: slides.length,
                     pdf_url: finalPdfUrl
-                } as any)
+                })
                 .eq('id', lectureId);
             if (lErr) throw lErr;
 
@@ -185,14 +254,14 @@ export default function LectureEdit() {
                     for (const q of s.questions) {
                         if (!q.question.trim()) continue;
                         if (q.id) {
-                            await supabase.from('quiz_questions').update({
+                            await updateQuizQuestion(q.id, {
                                 question_text: q.question,
                                 options: q.options,
                                 correct_answer: q.correctAnswer,
-                            }).eq('id', q.id);
+                            });
                         } else {
-                            await supabase.from('quiz_questions').insert({
-                                slide_id: s.id,
+                            await insertQuizQuestion({
+                                slide_id: s.id!,
                                 question_text: q.question,
                                 options: q.options,
                                 correct_answer: q.correctAnswer,
@@ -216,7 +285,7 @@ export default function LectureEdit() {
 
                     for (const q of s.questions) {
                         if (q.question.trim()) {
-                            await supabase.from('quiz_questions').insert({
+                            await insertQuizQuestion({
                                 slide_id: newSlide.id,
                                 question_text: q.question,
                                 options: q.options,
@@ -246,17 +315,7 @@ export default function LectureEdit() {
         }
         setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(`${API_BASE}/api/ai/generate-summary`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
-                },
-                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq' }),
-            });
-            if (!res.ok) throw new Error();
-            const data = await res.json();
+            const data = await apiClient.post<{ summary: string }>('/api/ai/generate-summary', { slide_text: content, ai_model: aiModel });
             updateSlide(slideIndex, 'summary', data.summary);
             toast({ title: 'Summary generated!' });
         } catch {
@@ -274,17 +333,7 @@ export default function LectureEdit() {
         }
         setAiQuizLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(`${API_BASE}/api/ai/generate-quiz`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
-                },
-                body: JSON.stringify({ slide_text: content, ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq' }),
-            });
-            if (!res.ok) throw new Error();
-            const quiz = await res.json();
+            const quiz = await apiClient.post<{ question: string; options: string[]; correctAnswer: number }>('/api/ai/generate-quiz', { slide_text: content, ai_model: aiModel });
             const newSlides = [...slides];
             // keep existing id if there was one
             const existingId = newSlides[slideIndex].questions[0]?.id;
@@ -303,6 +352,62 @@ export default function LectureEdit() {
         }
     };
 
+    const handleGenerateTitle = async (slideIndex: number) => {
+        const content = slides[slideIndex].content;
+        if (!content.trim()) {
+            toast({ title: 'No content', description: 'Add slide content first.', variant: 'destructive' });
+            return;
+        }
+        setAiTitleLoading(prev => ({ ...prev, [slideIndex]: true }));
+        try {
+            const data = await apiClient.post<{ title: string }>('/api/ai/suggest-title', { slide_text: content, ai_model: aiModel });
+            updateSlide(slideIndex, 'title', data.title);
+            toast({ title: 'Title generated!' });
+        } catch {
+            toast({ title: 'AI Error', variant: 'destructive' });
+        } finally {
+            setAiTitleLoading(prev => ({ ...prev, [slideIndex]: false }));
+        }
+    };
+
+    const handleGenerateContent = async (slideIndex: number) => {
+        const existingContent = slides[slideIndex].content;
+        const existingTitle = slides[slideIndex].title;
+        setAiContentLoading(prev => ({ ...prev, [slideIndex]: true }));
+        try {
+            const data = await apiClient.post<{ content: string }>('/api/ai/suggest-content', { 
+                slide_text: existingContent || existingTitle || "Educational topic", 
+                ai_model: aiModel 
+            });
+            updateSlide(slideIndex, 'content', data.content);
+            toast({ title: 'Content enhanced!' });
+        } catch {
+            toast({ title: 'AI Error', variant: 'destructive' });
+        } finally {
+            setAiContentLoading(prev => ({ ...prev, [slideIndex]: false }));
+        }
+    };
+
+    // ── Deck-level on-demand AI (Task #58) ─────────────────────────────────────
+    const handleGenerateDeckQuiz = async () => {
+        if (!lectureId) return;
+        if (slides.length < 2) {
+            toast({ title: 'Need at least 2 slides', description: 'Cross-slide quizzes require multiple slides.', variant: 'destructive' });
+            return;
+        }
+        setDeckQuizLoading(true);
+        try {
+            await apiClient.post(`/api/ai/decks/${lectureId}/generate-quiz`, { ai_model: aiModel });
+            toast({ title: 'Cross-slide quiz generated!', description: 'Refreshing slides…' });
+            await fetchLecture();
+        } catch (err) {
+            console.error(err);
+            toast({ title: 'AI Error', description: 'Failed to generate cross-slide quiz.', variant: 'destructive' });
+        } finally {
+            setDeckQuizLoading(false);
+        }
+    };
+
     // ── Slide helpers ───────────────────────────────────────────────────────────
     const addSlide = () => setSlides([...slides, { title: '', content: '', summary: '', questions: [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }] }]);
 
@@ -318,9 +423,7 @@ export default function LectureEdit() {
         if (slides.length <= 1) return;
         const slide = slides[index];
         if (slide.id) {
-            // Delete from DB
-            await supabase.from('quiz_questions').delete().eq('slide_id', slide.id);
-            await supabase.from('slides').delete().eq('id', slide.id);
+            await deleteSlideWithQuestions(slide.id);
         }
         setSlides(slides.filter((_, i) => i !== index));
     };
@@ -372,6 +475,27 @@ export default function LectureEdit() {
 
             <form onSubmit={handleSave} className="space-y-8">
 
+                {/* Sticky Save Bar — always visible while scrolling so professors
+                    can save from anywhere on the page (no more scroll-to-bottom). */}
+                <div
+                    className="sticky top-0 z-30 -mx-6 lg:-mx-8 px-6 lg:px-8 py-3 bg-background/85 backdrop-blur-md border-b border-border flex items-center justify-end gap-3 shadow-sm"
+                    data-testid="lecture-edit-sticky-save"
+                >
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => navigate('/professor/dashboard')}
+                        disabled={saving}
+                    >
+                        Cancel
+                    </Button>
+                    <Button type="submit" variant="hero" disabled={saving} data-testid="lecture-edit-save-top">
+                        {saving
+                            ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Saving…</span>
+                            : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}
+                    </Button>
+                </div>
+
                 {/* Lecture Details */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-6">
                     <h2 className="text-lg font-semibold text-foreground mb-4">Lecture Details</h2>
@@ -384,8 +508,56 @@ export default function LectureEdit() {
                             <Label htmlFor="description">Description (optional)</Label>
                             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief overview..." className="mt-1.5" rows={3} />
                         </div>
+                        <div>
+                            <Label htmlFor="course">Course</Label>
+                            <select
+                                id="course"
+                                value={courseId ?? ''}
+                                onChange={async (e) => {
+                                    const next = e.target.value || null;
+                                    setCourseId(next);
+                                    if (!lectureId) return;
+                                    try {
+                                        if (originalCourseId && originalCourseId !== next) {
+                                            await unassignLectureFromCourse(originalCourseId, lectureId);
+                                        }
+                                        if (next && next !== originalCourseId) {
+                                            await assignLectureToCourse(next, lectureId);
+                                        }
+                                        setOriginalCourseId(next);
+                                        toast({ title: 'Course updated' });
+                                    } catch (err) {
+                                        toast({ title: 'Failed to change course', description: String(err), variant: 'destructive' });
+                                    }
+                                }}
+                                className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                            >
+                                <option value="">Uncategorized</option>
+                                {courses.map(c => (
+                                    <option key={c.id} value={c.id}>{c.title}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </motion.div>
+
+                {/* Worksheets */}
+                {lectureId && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-6">
+                        <WorksheetsPanel lectureId={lectureId} editable />
+                    </motion.div>
+                )}
+
+                {/* Practice Sheets */}
+                {lectureId && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-6">
+                        <h2 className="text-lg font-semibold text-foreground mb-1">Practice Sheets</h2>
+                        <p className="text-xs text-muted-foreground mb-5">
+                            Auto-generate a sheet from quiz questions or author your own. Students see published sheets on this lecture's page.
+                        </p>
+                        <ProfessorPracticeSheetsTab lectureId={lectureId} />
+                    </motion.div>
+                )}
 
                 {/* PDF Upload / Replace */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-6 font-geist">
@@ -421,6 +593,145 @@ export default function LectureEdit() {
                             </div>
                         )}
                     </div>
+                </motion.div>
+
+                {/* Pipeline Diagnostics — read-only routing telemetry */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-card rounded-2xl border border-border p-6"
+                >
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const next = !diagnosticsOpen;
+                            setDiagnosticsOpen(next);
+                            if (next && !diagnostics && !diagnosticsLoading && pdfHash) {
+                                void fetchDiagnostics();
+                            }
+                        }}
+                        className="flex items-center justify-between w-full text-left"
+                        disabled={!pdfHash}
+                    >
+                        <div>
+                            <h2 className="text-lg font-semibold text-foreground">Pipeline Diagnostics</h2>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {pdfHash
+                                    ? 'Routing telemetry for the most recent parse of this PDF.'
+                                    : 'No parsed PDF on this lecture yet.'}
+                            </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                            {diagnosticsOpen ? 'Hide' : 'Show'}
+                        </span>
+                    </button>
+
+                    {diagnosticsOpen && pdfHash && (
+                        <div className="mt-4 space-y-3 text-sm">
+                            {diagnosticsLoading && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Loader2 className="w-4 h-4 animate-spin" /> Loading diagnostics…
+                                </div>
+                            )}
+                            {diagnosticsError && (
+                                <p className="text-xs text-destructive">{diagnosticsError}</p>
+                            )}
+                            {diagnostics && (
+                                <>
+                                    {diagnostics.run_metrics && (
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                            {Object.entries(diagnostics.run_metrics.totals ?? {}).map(([k, v]) => (
+                                                <div key={`t-${k}`} className="bg-muted/50 rounded-lg p-2 text-xs">
+                                                    <div className="text-muted-foreground">{k}</div>
+                                                    <div className="font-semibold">{v}</div>
+                                                </div>
+                                            ))}
+                                            {Object.entries(diagnostics.run_metrics.fallbacks ?? {}).map(([k, v]) => (
+                                                <div key={`f-${k}`} className="bg-amber-500/10 rounded-lg p-2 text-xs">
+                                                    <div className="text-muted-foreground">fallback: {k}</div>
+                                                    <div className="font-semibold">{v}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {diagnostics.flags.length > 0 && (
+                                        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                                            <p className="text-xs font-semibold text-amber-700 mb-1">
+                                                {diagnostics.flags.length} suspected misclassification(s)
+                                            </p>
+                                            <ul className="text-xs text-amber-700 space-y-0.5">
+                                                {diagnostics.flags.map(f => (
+                                                    <li key={f.slide_index}>
+                                                        Slide {f.slide_index + 1}: {f.reason}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-xs">
+                                            <thead className="text-muted-foreground">
+                                                <tr className="text-left">
+                                                    <th className="py-1 pr-2">#</th>
+                                                    <th className="py-1 pr-2">Route</th>
+                                                    <th className="py-1 pr-2">Reason</th>
+                                                    <th className="py-1 pr-2">Words</th>
+                                                    <th className="py-1 pr-2">Img cov</th>
+                                                    <th className="py-1 pr-2">Alpha</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {diagnostics.per_slide.map(s => {
+                                                    const f = s.layout_features || {};
+                                                    return (
+                                                        <tr key={s.slide_index} className="border-t border-border">
+                                                            <td className="py-1 pr-2">{s.slide_index + 1}</td>
+                                                            <td className="py-1 pr-2 font-mono">{s.route || '—'}</td>
+                                                            <td className="py-1 pr-2 font-mono text-muted-foreground">{s.route_reason || '—'}</td>
+                                                            <td className="py-1 pr-2">{Number(f.word_count ?? 0)}</td>
+                                                            <td className="py-1 pr-2">{Number(f.image_coverage ?? 0).toFixed(2)}</td>
+                                                            <td className="py-1 pr-2">{Number(f.alpha_ratio ?? 0).toFixed(2)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </motion.div>
+
+                {/* Deck-level AI actions (Task #58) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-card rounded-2xl border border-border p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                >
+                    <div>
+                        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-primary" />
+                            Cross-slide quiz
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Generate a quiz that ties together concepts from multiple slides. Useful when slides were imported with AI parsing turned off.
+                        </p>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateDeckQuiz}
+                        disabled={deckQuizLoading || slides.length < 2}
+                        data-testid="deck-quiz-generate"
+                        className="gap-1.5 shrink-0"
+                    >
+                        {deckQuizLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-primary" />}
+                        {deckQuizLoading ? 'Generating…' : 'Generate cross-slide quiz'}
+                    </Button>
                 </motion.div>
 
                 {/* Slide Cards */}
@@ -470,12 +781,38 @@ export default function LectureEdit() {
 
                         <div className="space-y-4">
                             <div>
-                                <Label>Slide Title</Label>
-                                <Input value={slide.title} onChange={e => updateSlide(slideIndex, 'title', e.target.value)} placeholder="Slide title" className="mt-1.5" />
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <Label>Slide Title</Label>
+                                    <Button 
+                                        type="button" 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => handleGenerateTitle(slideIndex)} 
+                                        disabled={aiTitleLoading[slideIndex]} 
+                                        className="gap-1.5 text-xs h-7"
+                                    >
+                                        {aiTitleLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                        {slide.title ? 'Regenerate' : 'AI Generate'}
+                                    </Button>
+                                </div>
+                                <Input value={slide.title} onChange={e => updateSlide(slideIndex, 'title', e.target.value)} placeholder="Slide title" />
                             </div>
                             <div>
-                                <Label>Content</Label>
-                                <Textarea value={slide.content} onChange={e => updateSlide(slideIndex, 'content', e.target.value)} placeholder="Slide content..." className="mt-1.5" rows={4} />
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <Label>Content</Label>
+                                    <Button 
+                                        type="button" 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => handleGenerateContent(slideIndex)} 
+                                        disabled={aiContentLoading[slideIndex]} 
+                                        className="gap-1.5 text-xs h-7"
+                                    >
+                                        {aiContentLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                        {slide.content ? 'Enhance Content' : 'AI Generate'}
+                                    </Button>
+                                </div>
+                                <Textarea value={slide.content} onChange={e => updateSlide(slideIndex, 'content', e.target.value)} placeholder="Slide content..." rows={4} />
                             </div>
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">

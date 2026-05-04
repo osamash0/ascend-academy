@@ -1,0 +1,7 @@
+Apart from newly developed slides, the slides in this chapter are an 
+adaptation, combination, or modification of slides of the following 
+persons: 
+•
+Slides of Dominik Heider, University of Marburg, Germany 
+•
+Slides of Andrew Ng, Stanford University, USA

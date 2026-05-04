@@ -64,7 +64,9 @@ const SidebarProvider = React.forwardRef<
       }
 
       // Persist sidebar state in localStorage (no cookies needed).
-      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(openState)); } catch { }
+      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(openState)); } catch {
+        // localStorage may be unavailable (private mode); ignore.
+      }
     },
     [setOpenProp, open],
   );

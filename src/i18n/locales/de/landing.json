@@ -1,0 +1,142 @@
+{
+  "nav": {
+    "features": "Funktionen",
+    "howItWorks": "So funktioniert's",
+    "forProfessors": "Für Professoren",
+    "pricing": "Preise",
+    "signIn": "Anmelden",
+    "launchMission": "Mission starten"
+  },
+  "hero": {
+    "badge": "v2.0 jetzt im Orbit",
+    "headlineLine1": "Deine Lern-",
+    "headlineLine2": "Kommandozentrale",
+    "subtitle": "Die Plattform der nächsten Generation von Ascend Academy. KI-gestütztes Tutoring, Echtzeit-Analysen und immersive Kurserlebnisse – alles aus deiner Kommandozentrale.",
+    "ctaPrimary": "Mission starten",
+    "ctaSecondary": "Demo ansehen",
+    "systemOnline": "SYSTEM ONLINE",
+    "scrollToExplore": "Scrolle, um zu entdecken",
+    "stats": {
+      "xpEarned": "XP gesammelt",
+      "currentStreak": "Aktuelle Serie",
+      "accuracy": "Genauigkeit",
+      "days": "{{count}} Tage"
+    },
+    "preview": {
+      "activeCourse": "Aktiver Kurs",
+      "inProgress": "LÄUFT",
+      "courseTitle": "Fortgeschrittenes Maschinelles Lernen",
+      "courseSubtitle": "Modul 4 von 12 • Neuronale Netze",
+      "aiTutorActive": "KI-Tutor aktiv",
+      "tutorQuestion": "„Wie fließen Backpropagation-Gradienten durch ein neuronales Netz?\"",
+      "generatingResponse": "Antwort wird erstellt..."
+    }
+  },
+  "stats": {
+    "activeLearners": "Aktive Lernende",
+    "questionsAnswered": "Beantwortete Fragen",
+    "retentionRate": "Behaltensquote",
+    "userRating": "Nutzerbewertung"
+  },
+  "features": {
+    "eyebrow": "Bordsysteme",
+    "headlineLeft": "Alles, was du brauchst, um",
+    "headlineHighlight": "den Orbit zu erreichen",
+    "subtitle": "Sechs leistungsstarke Systeme, die im Einklang arbeiten, um das fortschrittlichste Lernerlebnis der Galaxie zu bieten.",
+    "learnMore": "Mehr erfahren",
+    "aiTutor": {
+      "title": "KI-Tutor",
+      "description": "Dein persönlicher KI-Begleiter, der sich deinem Lernstil anpasst, Fragen in Echtzeit beantwortet und dich durch komplexe Themen führt."
+    },
+    "liveAnalytics": {
+      "title": "Live-Analysen",
+      "description": "Kommandozentralen-Dashboards verfolgen deinen Fortschritt präzise. Sieh deine XP, Serien und Fähigkeitsbeherrschung in Echtzeit."
+    },
+    "adaptiveQuizzes": {
+      "title": "Adaptive Quizze",
+      "description": "Intelligente Tests, die sich an dein Wissen anpassen. Falsche Antworten werden zu Lernchancen, nicht zu Rückschlägen."
+    },
+    "professorCommand": {
+      "title": "Professor-Kommando",
+      "description": "Lehrende erhalten eine komplette Kommandozentrale: Vorlesungen hochladen, Klassenleistung verfolgen und KI-Erkenntnisse nutzen."
+    },
+    "secureVault": {
+      "title": "Sicherer Tresor",
+      "description": "Deine Lerndaten sind verschlüsselt und geschützt. Sicherheit auf Unternehmensebene mit Privacy-First-Architektur."
+    },
+    "universalAccess": {
+      "title": "Universeller Zugang",
+      "description": "Lerne überall, auf jedem Gerät. Synchronisiere den Fortschritt plattformübergreifend mit Offline-Funktion für tiefes Lernen."
+    }
+  },
+  "howItWorks": {
+    "eyebrow": "Flugbahn",
+    "headlineLeft": "Vier Stufen bis zum",
+    "headlineHighlight": "Abheben",
+    "step1": {
+      "title": "Profil starten",
+      "description": "Erstelle dein Astronauten-Profil. Setze Lernziele, wähle deinen Missionspfad und kalibriere deinen KI-Tutor."
+    },
+    "step2": {
+      "title": "Kurse starten",
+      "description": "Tauche ein in immersive Vorlesungsumgebungen. Navigiere Folien, interagiere mit Inhalten und lass die KI dich führen."
+    },
+    "step3": {
+      "title": "KI-gestützte Meisterschaft",
+      "description": "Stelle Fragen in Echtzeit. Erhalte personalisierte Erklärungen, übe mit adaptiven Quizzen und steigere deine Fähigkeiten."
+    },
+    "step4": {
+      "title": "Verfolgen & Feiern",
+      "description": "Beobachte deinen Fortschritt in der Kommandozentrale. Sammle XP, halte Serien, schalte Erfolge frei und erreiche neue Level."
+    }
+  },
+  "professors": {
+    "eyebrow": "Für Kommandanten",
+    "headlineLeft": "Professoren-",
+    "headlineHighlight": "Kommandozentrale",
+    "subtitle": "Veröffentliche Kurse, beobachte den Studienfortschritt in Echtzeit und nutze KI-Analysen, um Lernergebnisse zu optimieren. Dein Klassenzimmer, neu gedacht als Kommandozentrale.",
+    "bullet1": "Vorlesungen mit intelligentem Folien-Parsing hochladen",
+    "bullet2": "Echtzeit-Analysen zur Studierenden-Beteiligung",
+    "bullet3": "KI-generierte Quizfragen pro Folie",
+    "bullet4": "Leistungs-Dashboards mit exportierbaren Berichten",
+    "cta": "Jetzt unterrichten",
+    "preview": {
+      "title": "Klassen-Analytik",
+      "live": "● LIVE",
+      "avgScore": "Ø Note",
+      "attendance": "Anwesenheit",
+      "engagement": "Engagement",
+      "high": "Hoch"
+    }
+  },
+  "cta": {
+    "headlineLeft": "Bereit zum",
+    "headlineHighlight": "Abheben?",
+    "subtitle": "Schließe dich 50.000+ Lernenden an, die schon auf Mission sind. Dein KI-Tutor steht bereit, dein Dashboard ist kalibriert und die Sterne warten.",
+    "primary": "Mission beginnen",
+    "secondary": "Vertrieb kontaktieren"
+  },
+  "footer": {
+    "tagline": "Die Lernplattform der nächsten Generation. KI-gestützt, datenbasiert und gebaut für die Zukunft der Bildung.",
+    "platform": "Plattform",
+    "resources": "Ressourcen",
+    "company": "Unternehmen",
+    "links": {
+      "features": "Funktionen",
+      "pricing": "Preise",
+      "security": "Sicherheit",
+      "enterprise": "Enterprise",
+      "documentation": "Dokumentation",
+      "apiReference": "API-Referenz",
+      "community": "Community",
+      "blog": "Blog",
+      "about": "Über uns",
+      "careers": "Karriere",
+      "contact": "Kontakt",
+      "privacy": "Datenschutz"
+    },
+    "imprint": "Impressum",
+    "privacyPolicy": "Datenschutz",
+    "copyright": "© {{year}} Ascend Academy. Alle Systeme nominal."
+  }
+}

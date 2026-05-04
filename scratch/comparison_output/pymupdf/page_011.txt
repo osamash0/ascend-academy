@@ -1,0 +1,16 @@
+How to choose     ‘s ?
+Training data
+Hypothesis:
+‘s:   Parameters
+Size in feet2 (x)
+Price ($) in 1000's (y)
+2104
+460
+1416
+232
+1534
+315
+852
+178
+…
+…

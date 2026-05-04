@@ -1,0 +1,142 @@
+{
+  "title": "Einstellungen",
+  "subtitle": "Verwalte dein Profil, deine Einstellungen und dein Konto.",
+  "tabs": {
+    "profile": "Profil",
+    "ai": "KI-Modell",
+    "appearance": "Darstellung",
+    "security": "Sicherheit",
+    "data": "Daten & Datenschutz"
+  },
+  "profile": {
+    "personalInfo": "Persönliche Informationen",
+    "fullName": "Vollständiger Name",
+    "fullNamePlaceholder": "Gib deinen vollständigen Namen ein",
+    "displayName": "Anzeigename (öffentlich)",
+    "displayNamePlaceholder": "Anonym (nur Avatar)",
+    "displayNameHelp": "Wird in der Bestenliste anstelle nur deines Avatars angezeigt.",
+    "email": "E-Mail-Adresse",
+    "emailHelp": "Deine E-Mail-Adresse kann hier nicht geändert werden.",
+    "unsavedChanges": "● Ungespeicherte Änderungen",
+    "upToDate": "Aktuell",
+    "updated": "Profil aktualisiert",
+    "updatedDescription": "Deine Einstellungen wurden erfolgreich gespeichert.",
+    "saveError": "Fehler beim Speichern",
+    "saveErrorDescription": "Ein unerwarteter Fehler ist aufgetreten."
+  },
+  "aria": {
+    "uploadAvatar": "Avatarbild hochladen",
+    "toggleCurrentPassword": "Sichtbarkeit des aktuellen Passworts umschalten",
+    "toggleNewPassword": "Sichtbarkeit des neuen Passworts umschalten",
+    "toggleConfirmPassword": "Sichtbarkeit der Passwortbestätigung umschalten"
+  },
+  "avatar": {
+    "anonymousUser": "Anonyme:r Nutzer:in",
+    "uploadPhoto": "Foto hochladen",
+    "changeAvatar": "Avatar ändern",
+    "presetsTitle": "Oder wähle eine lustige Vorlage:",
+    "updated": "Avatar aktualisiert",
+    "updatedDescription": "Dein neues Profilbild sieht super aus!",
+    "uploadError": "Fehler beim Hochladen des Avatars",
+    "uploadErrorDescription": "Bitte stelle sicher, dass der Storage-Bucket 'avatars' existiert und öffentlich ist.",
+    "presetUpdated": "Dein neuer Avatar wurde gesetzt!",
+    "presetError": "Fehler beim Aktualisieren des Avatars",
+    "presetErrorDescription": "Avatar konnte nicht aktualisiert werden."
+  },
+  "language": {
+    "title": "Sprache",
+    "description": "Wähle die Sprache der Oberfläche. Diese Einstellung wird in deinem Profil gespeichert und gilt geräteübergreifend.",
+    "english": "English (Englisch)",
+    "german": "Deutsch",
+    "saved": "Sprache gespeichert",
+    "savedDescription": "Deine Spracheinstellung wurde aktualisiert."
+  },
+  "ai": {
+    "models": {
+      "cerebras": {
+        "name": "Cerebras (empfohlen)",
+        "description": "Primäres Modell: GPT-OSS-120B auf Cerebras-Inferenz – extrem schnell, hochwertig und mit dem höchsten kostenlosen Tageskontingent aller Anbieter."
+      },
+      "groq": {
+        "name": "Groq (Llama 3.3 70B)",
+        "description": "Hochwertiges Cloud-LLM über Groq. Wird als erste Qualitäts-Alternative verwendet, wenn Cerebras nicht verfügbar ist."
+      },
+      "openrouter": {
+        "name": "OpenRouter (Llama 3.3 70B)",
+        "description": "Robuste Reserveoption über OpenRouter. Kostenloses Kontingent von 50 Anfragen/Tag; ideal als Backup, wenn andere Anbieter limitiert sind."
+      },
+      "cloudflare": {
+        "name": "Cloudflare Workers AI",
+        "description": "Robuste Reserveoption mit Llama 3.3 70B auf Cloudflare Workers AI. Großzügiges Free-Tier und globales Edge-Deployment."
+      },
+      "gemini-2.5-flash": {
+        "name": "Gemini",
+        "description": "Blitzschnelle Antworten mit Google AI Studio. Nützlich, wenn du gezielt Googles Modellverhalten nutzen möchtest."
+      },
+      "llama3": {
+        "name": "Llama 3 (lokal)",
+        "description": "Läuft lokal über Ollama. Komplett privat und offline, aber langsamer und nur verfügbar, wenn Ollama installiert ist."
+      }
+    },
+    "title": "KI-Modell",
+    "description": "Wähle, welches KI-Modell deinen Tutor und die Inhaltserstellung antreibt.",
+    "saved": "KI-Modell aktualisiert",
+    "preferences": "KI-Einstellungen",
+    "preferencesDescription": "Wähle, welches KI-Modell deinen intelligenten Tutor, Quiz und Zusammenfassungen antreibt.",
+    "savedTitle": "KI-Einstellung gespeichert",
+    "savedDescription": "Dein Tutor wird jetzt von {{name}} angetrieben.",
+    "savePreference": "KI-Einstellung speichern"
+  },
+  "header": {
+    "title": "Einstellungen",
+    "subtitle": "Verwalte deine Kontoeinstellungen und Profildaten"
+  },
+  "security": {
+    "title": "Sicherheit",
+    "currentPassword": "Aktuelles Passwort",
+    "currentPasswordPlaceholder": "Gib dein aktuelles Passwort ein",
+    "newPassword": "Neues Passwort",
+    "newPasswordPlaceholder": "Mindestens 6 Zeichen",
+    "confirmPassword": "Passwort bestätigen",
+    "confirmPasswordPlaceholder": "Neues Passwort erneut eingeben",
+    "passwordsDontMatch": "Passwörter stimmen nicht überein",
+    "passwordTooShort": "Das Passwort muss mindestens 6 Zeichen lang sein",
+    "changePassword": "Passwort ändern",
+    "changing": "Wird aktualisiert...",
+    "currentIncorrect": "Aktuelles Passwort falsch",
+    "currentIncorrectDescription": "Bitte überprüfe dein aktuelles Passwort und versuche es erneut.",
+    "passwordChangeFailed": "Passwortänderung fehlgeschlagen",
+    "passwordChangeFailedDescription": "Ein unerwarteter Fehler ist aufgetreten.",
+    "passwordUpdated": "Passwort aktualisiert!",
+    "passwordUpdatedDescription": "Dein Passwort wurde erfolgreich geändert."
+  },
+  "data": {
+    "title": "Daten & Datenschutz",
+    "exportTitle": "Meine Daten exportieren",
+    "exportDescription": "Lade alle deine Daten als JSON-Datei herunter (Art. 20 DSGVO)",
+    "exportButton": "Exportieren",
+    "exporting": "Wird exportiert...",
+    "exportSuccess": "Daten exportiert!",
+    "exportSuccessDescription": "Deine Daten wurden heruntergeladen.",
+    "exportError": "Export fehlgeschlagen",
+    "exportErrorDescription": "Bitte versuche es erneut.",
+    "dangerZone": "Gefahrenzone",
+    "deleteTitle": "Konto löschen",
+    "deleteDescription": "Lösche dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "deleteButton": "Mein Konto löschen",
+    "deleteConfirmShort": "Bist du sicher? Alle Daten werden dauerhaft gelöscht.",
+    "cancel": "Abbrechen",
+    "deleteFinal": "Ja, alles löschen",
+    "deleting": "Wird gelöscht...",
+    "deleteConfirm": "Bist du absolut sicher? Dies löscht dein Konto und alle deine Daten dauerhaft. Tippe DELETE zur Bestätigung.",
+    "deleteSuccess": "Konto gelöscht",
+    "deleteSuccessDescription": "Dein Konto und alle Daten wurden entfernt.",
+    "deleteError": "Löschung fehlgeschlagen",
+    "deleteErrorDescription": "Bitte kontaktiere den Support."
+  },
+  "save": "Änderungen speichern",
+  "saving": "Wird gespeichert...",
+  "saved": "Profil aktualisiert",
+  "savedDescription": "Deine Einstellungen wurden erfolgreich gespeichert.",
+  "saveError": "Fehler beim Speichern des Profils"
+}

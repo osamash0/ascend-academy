@@ -1,0 +1,3826 @@
+{
+  "file name" : "ML_VL_08_Linear_Regression-1-30.pdf",
+  "number of pages" : 30,
+  "author" : null,
+  "title" : null,
+  "creation date" : null,
+  "modification date" : "D:20260320041307Z",
+  "kids" : [ {
+    "type" : "header",
+    "id" : 144,
+    "page number" : 1,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 102,
+      "page number" : 1,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile1.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 148,
+    "level" : "Doctitle",
+    "page number" : 1,
+    "bounding box" : [ 61.2, 269.122, 359.074, 301.989 ],
+    "heading level" : 1,
+    "font" : "Arial-BoldMT",
+    "font size" : 35.04,
+    "text color" : "[0.0]",
+    "content" : "Machine Learning"
+  }, {
+    "type" : "paragraph",
+    "id" : 149,
+    "page number" : 1,
+    "bounding box" : [ 61.2, 244.912, 150.122, 263.709 ],
+    "font" : "Arial-BoldMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "Lecture 8"
+  }, {
+    "type" : "heading",
+    "id" : 150,
+    "level" : "Subtitle",
+    "page number" : 1,
+    "bounding box" : [ 58.584, 148.99, 281.424, 171.502 ],
+    "heading level" : 5,
+    "font" : "Arial-BoldMT",
+    "font size" : 24.0,
+    "text color" : "[0.502]",
+    "content" : "Dr. Markus Mühling"
+  }, {
+    "type" : "paragraph",
+    "id" : 151,
+    "page number" : 1,
+    "bounding box" : [ 58.584, 123.005, 398.517, 139.911 ],
+    "font" : "Arial-BoldMT",
+    "font size" : 18.024,
+    "text color" : "[0.502]",
+    "content" : "Fachbereich Mathematik und Informatik"
+  }, {
+    "type" : "paragraph",
+    "id" : 152,
+    "page number" : 1,
+    "bounding box" : [ 58.584, 79.788, 380.452, 118.274 ],
+    "font" : "Arial-BoldMT",
+    "font size" : 18.0,
+    "text color" : "[0.502]",
+    "content" : "Philipps-Universität Marburg muehling@informatik.uni-marburg.de"
+  }, {
+    "type" : "paragraph",
+    "id" : 153,
+    "page number" : 1,
+    "bounding box" : [ 582.74, 18.103, 671.274, 35.009 ],
+    "font" : "ArialMT",
+    "font size" : 18.024,
+    "text color" : "[0.0]",
+    "content" : "26.11.2024"
+  }, {
+    "type" : "header",
+    "id" : 154,
+    "page number" : 2,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 103,
+      "page number" : 2,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile2.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 157,
+    "level" : "Subtitle",
+    "page number" : 2,
+    "bounding box" : [ 66.072, 335.967, 697.584, 401.707 ],
+    "heading level" : 9,
+    "font" : "Arial-BoldMT",
+    "font size" : 19.68,
+    "text color" : "[0.0]",
+    "content" : "Apart from newly developed slides, the slides in this chapter are an adaptation, combination, or modification of slides of the following persons:"
+  }, {
+    "type" : "list",
+    "id" : 158,
+    "level" : "1",
+    "page number" : 2,
+    "bounding box" : [ 66.072, 250.71, 634.92, 301.136 ],
+    "numbering style" : "unordered",
+    "number of list items" : 2,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 2,
+      "bounding box" : [ 66.072, 279.15, 634.92, 301.136 ],
+      "font" : "ArialMT",
+      "font size" : 19.68,
+      "text color" : "[0.373]",
+      "content" : "• Slides of Dominik Heider, University of Marburg, Germany",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 2,
+      "bounding box" : [ 66.072, 250.71, 528.617, 272.696 ],
+      "font" : "ArialMT",
+      "font size" : 19.68,
+      "text color" : "[0.373]",
+      "content" : "• Slides of Andrew Ng, Stanford University, USA",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 159,
+    "page number" : 3,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 104,
+      "page number" : 3,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile3.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 162,
+    "level" : "Subtitle",
+    "page number" : 3,
+    "bounding box" : [ 230.26, 279.567, 489.978, 309.643 ],
+    "heading level" : 2,
+    "font" : "ArialMT",
+    "font size" : 32.064,
+    "text color" : "[0.0]",
+    "content" : "Linear Regression"
+  }, {
+    "type" : "header",
+    "id" : 163,
+    "page number" : 4,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 105,
+      "page number" : 4,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile4.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 167,
+    "level" : "Subtitle",
+    "page number" : 4,
+    "bounding box" : [ 32.688, 469.44, 263.566, 491.952 ],
+    "heading level" : 5,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 24.0,
+    "text color" : "[0.0]",
+    "content" : "Review: Scatter Plot"
+  }, {
+    "type" : "image",
+    "id" : 166,
+    "page number" : 4,
+    "bounding box" : [ 11.28, 84.24, 705.84, 434.4 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile5.png"
+  }, {
+    "type" : "header",
+    "id" : 168,
+    "page number" : 5,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 106,
+      "page number" : 5,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile6.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 171,
+    "level" : "Subtitle",
+    "page number" : 5,
+    "bounding box" : [ 32.688, 460.682, 435.404, 516.307 ],
+    "heading level" : 4,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 26.04,
+    "text color" : "[0.0]",
+    "content" : "Review: Pearson's correlation coefficient"
+  }, {
+    "type" : "paragraph",
+    "id" : 177,
+    "page number" : 5,
+    "bounding box" : [ 202.51, 372.151, 212.842, 409.729 ],
+    "font" : "CambriaMath",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "1 \uD835\uDC5B"
+  }, {
+    "type" : "paragraph",
+    "id" : 178,
+    "page number" : 5,
+    "bounding box" : [ 216.19, 349.217, 392.41, 402.75 ],
+    "font" : "CambriaMath",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "σ\uD835\uDC56=1\uD835\uDC5B (\uD835\uDC65\uD835\uDC56 − \uD835\uDC65)ǉ ∗ (\uD835\uDC66\uD835\uDC56 − \uD835\uDC66)ǉ \uD835\uDC60\uD835\uDC65 ∗ \uD835\uDC60\uD835\uDC66"
+  }, {
+    "type" : "paragraph",
+    "id" : 181,
+    "page number" : 5,
+    "bounding box" : [ 415.9, 349.217, 464.936, 396.169 ],
+    "font" : "CambriaMath",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "\uD835\uDC60\uD835\uDC65\uD835\uDC66 \uD835\uDC60\uD835\uDC65 ∗ \uD835\uDC60\uD835\uDC66"
+  }, {
+    "type" : "paragraph",
+    "id" : 175,
+    "page number" : 5,
+    "bounding box" : [ 154.51, 361.217, 197.476, 381.889 ],
+    "font" : "CambriaMath",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "\uD835\uDC5F\uD835\uDC4B\uD835\uDC4C ="
+  }, {
+    "type" : "paragraph",
+    "id" : 179,
+    "level" : "5",
+    "page number" : 5,
+    "bounding box" : [ 397.42, 363.871, 410.866, 381.889 ],
+    "font" : "CambriaMath",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "="
+  }, {
+    "type" : "list",
+    "id" : 172,
+    "level" : "2",
+    "page number" : 5,
+    "bounding box" : [ 43.2, 191.822, 660.461, 293.267 ],
+    "numbering style" : "unordered",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 5,
+      "bounding box" : [ 43.2, 270.327, 215.725, 293.267 ],
+      "font" : "CambriaMath",
+      "font size" : 20.04,
+      "text color" : "[0.0]",
+      "content" : "• \uD835\uDC60\uD835\uDC4B\uD835\uDC4C : Covariance",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 5,
+      "bounding box" : [ 43.2, 241.527, 401.868, 264.467 ],
+      "font" : "CambriaMath",
+      "font size" : 20.04,
+      "text color" : "[0.0]",
+      "content" : "• \uD835\uDC5F\uD835\uDC4B\uD835\uDC4C is normalized in the interval [-1,1].",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 5,
+      "bounding box" : [ 43.2, 191.822, 660.461, 238.223 ],
+      "font" : "ArialMT",
+      "font size" : 20.064,
+      "text color" : "[0.0]",
+      "content" : "• If there is a linear dependency between the features, \uD835\uDC5F\uD835\uDC4B\uD835\uDC4C is positive or negative",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 173,
+    "level" : "3",
+    "page number" : 5,
+    "bounding box" : [ 79.224, 81.702, 399.57, 184.46 ],
+    "numbering style" : "unordered",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 5,
+      "bounding box" : [ 79.224, 166.204, 399.57, 184.46 ],
+      "font" : "CambriaMath",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "– \uD835\uDC5F\uD835\uDC4B\uD835\uDC4C ≈ 0 : no linear correlation",
+      "kids" : [ {
+        "type" : "paragraph",
+        "id" : 142,
+        "level" : "4",
+        "page number" : 5,
+        "bounding box" : [ 259.25, 149.463, 495.367, 167.177 ],
+        "font" : "ArialMT",
+        "font size" : 15.96,
+        "text color" : "[0.0]",
+        "content" : "→ Point cloud shows no direction"
+      } ]
+    }, {
+      "type" : "list item",
+      "page number" : 5,
+      "bounding box" : [ 79.224, 123.964, 392.468, 142.22 ],
+      "font" : "CambriaMath",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "– 1 ≥ \uD835\uDC5F\uD835\uDC4B\uD835\uDC4C > 0 : positive correlation",
+      "kids" : [ {
+        "type" : "paragraph",
+        "id" : 143,
+        "level" : "4",
+        "page number" : 5,
+        "bounding box" : [ 263.69, 107.203, 535.348, 124.917 ],
+        "font" : "ArialMT",
+        "font size" : 15.96,
+        "text color" : "[0.0]",
+        "content" : "→ Point cloud shows SW-NE direction"
+      } ]
+    }, {
+      "type" : "list item",
+      "page number" : 5,
+      "bounding box" : [ 79.224, 81.702, 398.708, 99.958 ],
+      "font" : "CambriaMath",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "– 0 ≥ \uD835\uDC5F\uD835\uDC4B\uD835\uDC4C > −1 : negative correlation",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 174,
+    "level" : "4",
+    "page number" : 5,
+    "bounding box" : [ 263.69, 64.961, 535.326, 82.675 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "→ Point cloud shows NW-SE direction"
+  }, {
+    "type" : "header",
+    "id" : 182,
+    "page number" : 6,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 107,
+      "page number" : 6,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile7.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 185,
+    "level" : "Subtitle",
+    "page number" : 6,
+    "bounding box" : [ 32.688, 469.44, 241.92, 491.952 ],
+    "heading level" : 5,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 24.0,
+    "text color" : "[0.0]",
+    "content" : "Linear Regression"
+  }, {
+    "type" : "heading",
+    "id" : 186,
+    "level" : "Subtitle",
+    "page number" : 6,
+    "bounding box" : [ 43.2, 382.176, 442.168, 402.285 ],
+    "heading level" : 10,
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "• Discover relationships between numerical data"
+  }, {
+    "type" : "paragraph",
+    "id" : 187,
+    "level" : "6",
+    "page number" : 6,
+    "bounding box" : [ 79.224, 317.598, 481.234, 366.958 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "– Analyze dependencies between a dependent variable and one or more independent variables"
+  }, {
+    "type" : "heading",
+    "id" : 188,
+    "level" : "Subtitle",
+    "page number" : 6,
+    "bounding box" : [ 43.2, 257.356, 113.166, 277.465 ],
+    "heading level" : 10,
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "• Goal:"
+  }, {
+    "type" : "paragraph",
+    "id" : 189,
+    "level" : "6",
+    "page number" : 6,
+    "bounding box" : [ 79.224, 224.308, 353.645, 242.138 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "– Determine cause-effect relationship"
+  }, {
+    "type" : "heading",
+    "id" : 190,
+    "level" : "Subtitle",
+    "page number" : 6,
+    "bounding box" : [ 43.2, 155.326, 167.112, 175.435 ],
+    "heading level" : 10,
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "• Applications"
+  }, {
+    "type" : "list",
+    "id" : 191,
+    "level" : "3",
+    "page number" : 6,
+    "bounding box" : [ 79.224, 89.618, 452.27, 140.108 ],
+    "numbering style" : "unordered",
+    "number of list items" : 2,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 6,
+      "bounding box" : [ 79.224, 122.278, 447.28, 140.108 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "– Describing and explaining relations quantitatively",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 6,
+      "bounding box" : [ 79.224, 89.618, 452.27, 107.448 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "– Estimate or predict values of dependent variables",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 192,
+    "page number" : 7,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 108,
+      "page number" : 7,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile8.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 195,
+    "level" : "Subtitle",
+    "page number" : 7,
+    "bounding box" : [ 32.688, 469.44, 311.302, 491.952 ],
+    "heading level" : 5,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 24.0,
+    "text color" : "[0.0]",
+    "content" : "Simple linear regression"
+  }, {
+    "type" : "heading",
+    "id" : 208,
+    "level" : "Subtitle",
+    "page number" : 7,
+    "bounding box" : [ 421.2, 410.958, 650.497, 425.929 ],
+    "heading level" : 11,
+    "font" : "Arial-BoldMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "Housing Prices (Portland, OR)"
+  }, {
+    "type" : "list",
+    "id" : 196,
+    "level" : "5",
+    "page number" : 7,
+    "bounding box" : [ 32.688, 248.838, 269.996, 412.628 ],
+    "numbering style" : "unordered",
+    "number of list items" : 4,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 7,
+      "bounding box" : [ 32.688, 356.423, 210.854, 412.628 ],
+      "font" : "ArialMT",
+      "font size" : 15.984,
+      "text color" : "[0.0, 0.439, 0.753]",
+      "content" : "• Assumption: House price depends on the size",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 7,
+      "bounding box" : [ 32.688, 314.168, 269.996, 351.168 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "• Price is called the dependent variable",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 7,
+      "bounding box" : [ 32.688, 271.923, 232.637, 308.928 ],
+      "font" : "ArialMT",
+      "font size" : 15.984,
+      "text color" : "[0.0]",
+      "content" : "• Size is the independent variable",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 7,
+      "bounding box" : [ 32.688, 248.838, 205.626, 266.668 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "• Is there a model that",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 207,
+    "page number" : 7,
+    "bounding box" : [ 307.039, 236.02, 320.208, 394.504 ],
+    "font" : "ArialMT",
+    "font size" : 14.04,
+    "text color" : "[0.0]",
+    "content" : "Price(in1000sofdollars)"
+  }, {
+    "type" : "paragraph",
+    "id" : 204,
+    "page number" : 7,
+    "bounding box" : [ 338.21, 374.408, 364.844, 389.379 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "500"
+  }, {
+    "type" : "table",
+    "id" : 198,
+    "level" : "6",
+    "page number" : 7,
+    "bounding box" : [ 373.8, 233.4, 676.695, 383.295 ],
+    "number of rows" : 6,
+    "number of columns" : 4,
+    "rows" : [ {
+      "type" : "table row",
+      "row number" : 1,
+      "cells" : [ {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 374.175, 354.0, 378.6, 382.733 ],
+        "row number" : 1,
+        "column number" : 1,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 378.6, 354.0, 676.133, 382.733 ],
+        "row number" : 1,
+        "column number" : 2,
+        "row span" : 1,
+        "column span" : 3,
+        "kids" : [ ]
+      } ]
+    }, {
+      "type" : "table row",
+      "row number" : 2,
+      "cells" : [ {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 374.175, 325.08, 378.6, 354.0 ],
+        "row number" : 2,
+        "column number" : 1,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 378.6, 325.08, 676.133, 354.0 ],
+        "row number" : 2,
+        "column number" : 2,
+        "row span" : 1,
+        "column span" : 3,
+        "kids" : [ ]
+      } ]
+    }, {
+      "type" : "table row",
+      "row number" : 3,
+      "cells" : [ {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 374.175, 296.16, 378.6, 325.08 ],
+        "row number" : 3,
+        "column number" : 1,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 378.6, 296.16, 676.133, 325.08 ],
+        "row number" : 3,
+        "column number" : 2,
+        "row span" : 1,
+        "column span" : 3,
+        "kids" : [ ]
+      } ]
+    }, {
+      "type" : "table row",
+      "row number" : 4,
+      "cells" : [ {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 374.175, 267.24, 378.6, 296.16 ],
+        "row number" : 4,
+        "column number" : 1,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 378.6, 267.24, 676.133, 296.16 ],
+        "row number" : 4,
+        "column number" : 2,
+        "row span" : 1,
+        "column span" : 3,
+        "kids" : [ ]
+      } ]
+    }, {
+      "type" : "table row",
+      "row number" : 5,
+      "cells" : [ {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 374.175, 238.32, 378.6, 267.24 ],
+        "row number" : 5,
+        "column number" : 1,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 378.6, 238.32, 676.133, 267.24 ],
+        "row number" : 5,
+        "column number" : 2,
+        "row span" : 1,
+        "column span" : 3,
+        "kids" : [ ]
+      } ]
+    }, {
+      "type" : "table row",
+      "row number" : 6,
+      "cells" : [ {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 374.175, 233.775, 378.6, 238.32 ],
+        "row number" : 6,
+        "column number" : 1,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 378.6, 233.775, 477.84, 238.32 ],
+        "row number" : 6,
+        "column number" : 2,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 477.84, 233.775, 577.08, 238.32 ],
+        "row number" : 6,
+        "column number" : 3,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 7,
+        "bounding box" : [ 577.08, 233.775, 676.133, 238.32 ],
+        "row number" : 6,
+        "column number" : 4,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      } ]
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 203,
+    "page number" : 7,
+    "bounding box" : [ 338.21, 345.483, 364.857, 360.476 ],
+    "font" : "ArialMT",
+    "font size" : 15.984,
+    "text color" : "[0.0]",
+    "content" : "400"
+  }, {
+    "type" : "paragraph",
+    "id" : 202,
+    "page number" : 7,
+    "bounding box" : [ 338.21, 316.548, 364.844, 331.519 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "300"
+  }, {
+    "type" : "paragraph",
+    "id" : 201,
+    "page number" : 7,
+    "bounding box" : [ 338.21, 287.598, 364.844, 302.569 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "200"
+  }, {
+    "type" : "paragraph",
+    "id" : 200,
+    "page number" : 7,
+    "bounding box" : [ 338.21, 258.678, 364.844, 273.649 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "100"
+  }, {
+    "type" : "paragraph",
+    "id" : 199,
+    "page number" : 7,
+    "bounding box" : [ 356.02, 229.738, 364.894, 244.709 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "0"
+  }, {
+    "type" : "paragraph",
+    "id" : 197,
+    "page number" : 7,
+    "bounding box" : [ 59.688, 229.668, 257.592, 244.639 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "describes this dependency?"
+  }, {
+    "type" : "paragraph",
+    "id" : 205,
+    "page number" : 7,
+    "bounding box" : [ 374.23, 210.678, 694.251, 225.649 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "0 1000 2000 3000"
+  }, {
+    "type" : "paragraph",
+    "id" : 206,
+    "page number" : 7,
+    "bounding box" : [ 497.69, 184.062, 566.805, 198.024 ],
+    "font" : "ArialMT",
+    "font size" : 14.04,
+    "text color" : "[0.0]",
+    "content" : "Size (feet2)"
+  }, {
+    "type" : "heading",
+    "id" : 209,
+    "level" : "Subtitle",
+    "page number" : 7,
+    "bounding box" : [ 101.18, 108.472, 284.807, 127.269 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "Supervised Learning"
+  }, {
+    "type" : "heading",
+    "id" : 212,
+    "level" : "Subtitle",
+    "page number" : 7,
+    "bounding box" : [ 416.23, 108.472, 517.753, 127.269 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "Regression"
+  }, {
+    "type" : "paragraph",
+    "id" : 211,
+    "page number" : 7,
+    "bounding box" : [ 101.18, 53.22, 297.092, 94.895 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "the “right answers” are given in the training data"
+  }, {
+    "type" : "paragraph",
+    "id" : 214,
+    "page number" : 7,
+    "bounding box" : [ 416.23, 74.82, 621.172, 91.704 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "Predict real-valued output"
+  }, {
+    "type" : "header",
+    "id" : 216,
+    "page number" : 8,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 109,
+      "page number" : 8,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile9.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 227,
+    "level" : "Subtitle",
+    "page number" : 8,
+    "bounding box" : [ 32.688, 469.44, 229.896, 491.952 ],
+    "heading level" : 5,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 24.0,
+    "text color" : "[0.0]",
+    "content" : "Training samples"
+  }, {
+    "type" : "paragraph",
+    "id" : 228,
+    "page number" : 8,
+    "bounding box" : [ 138.96, 415.43, 475.19, 432.314 ],
+    "font" : "Arial-BoldMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "Housing Prices Datensatz Portland, OR"
+  }, {
+    "type" : "heading",
+    "id" : 223,
+    "level" : "Subtitle",
+    "page number" : 8,
+    "bounding box" : [ 141.55, 363.868, 505.665, 379.195 ],
+    "heading level" : 11,
+    "font" : "Arial-BoldMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "Size in feet2 (x) Price ($) in 1000's (y)"
+  }, {
+    "type" : "paragraph",
+    "id" : 224,
+    "page number" : 8,
+    "bounding box" : [ 180.07, 322.083, 440.237, 337.076 ],
+    "font" : "ArialMT",
+    "font size" : 15.984,
+    "text color" : "[0.0]",
+    "content" : "2104 460"
+  }, {
+    "type" : "paragraph",
+    "id" : 225,
+    "page number" : 8,
+    "bounding box" : [ 180.07, 257.958, 440.224, 304.999 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "1416 232 1534 315"
+  }, {
+    "type" : "paragraph",
+    "id" : 226,
+    "page number" : 8,
+    "bounding box" : [ 184.54, 193.798, 440.224, 240.869 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "852 178 … …"
+  }, {
+    "type" : "heading",
+    "id" : 219,
+    "level" : "Subtitle",
+    "page number" : 8,
+    "bounding box" : [ 54.024, 135.902, 134.224, 154.699 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "Notation:"
+  }, {
+    "type" : "paragraph",
+    "id" : 220,
+    "page number" : 8,
+    "bounding box" : [ 126.05, 107.17, 450.392, 124.054 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "m = number of training samples"
+  }, {
+    "type" : "list",
+    "id" : 221,
+    "level" : "7",
+    "page number" : 8,
+    "bounding box" : [ 126.05, 41.028, 672.279, 104.327 ],
+    "numbering style" : "english letters",
+    "number of list items" : 2,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 8,
+      "bounding box" : [ 126.05, 84.218, 605.408, 104.327 ],
+      "font" : "Arial-BoldMT",
+      "font size" : 18.0,
+      "text color" : "[0.0]",
+      "content" : "x’s = “input” variable / independent variable / feature",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 8,
+      "bounding box" : [ 126.05, 41.028, 672.279, 82.749 ],
+      "font" : "Arial-BoldMT",
+      "font size" : 18.024,
+      "text color" : "[0.0]",
+      "content" : "y’s = “output” variable / dependent variable / “target variable” (x(i),y(i)) = i-th training sample",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 229,
+    "page number" : 9,
+    "bounding box" : [ 32.688, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 110,
+      "page number" : 9,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile10.png"
+    }, {
+      "type" : "heading",
+      "id" : 111,
+      "page number" : 9,
+      "bounding box" : [ 32.688, 469.44, 264.694, 491.952 ],
+      "heading level" : 5,
+      "font" : "Arial-BoldItalicMT",
+      "font size" : 24.0,
+      "text color" : "[0.0]",
+      "content" : "How to represent h?"
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 233,
+    "page number" : 9,
+    "bounding box" : [ 296.71, 389.938, 379.59, 404.909 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "Training set"
+  }, {
+    "type" : "paragraph",
+    "id" : 235,
+    "page number" : 9,
+    "bounding box" : [ 271.94, 309.848, 404.201, 324.819 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "Learning algorithm"
+  }, {
+    "type" : "paragraph",
+    "id" : 237,
+    "page number" : 9,
+    "bounding box" : [ 176.47, 220.038, 521.505, 256.006 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "Sizehouseof h Estimatedprice"
+  }, {
+    "type" : "image",
+    "id" : 243,
+    "page number" : 9,
+    "bounding box" : [ 253.68, 146.52, 425.88, 170.52 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile11.png"
+  }, {
+    "type" : "heading",
+    "id" : 242,
+    "level" : "Subtitle",
+    "page number" : 9,
+    "bounding box" : [ 163.1, 40.312, 473.139, 95.109 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "Linear regression with one variable Univariate linear regression"
+  }, {
+    "type" : "header",
+    "id" : 244,
+    "page number" : 10,
+    "bounding box" : [ 32.688, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 112,
+      "page number" : 10,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile12.png"
+    }, {
+      "type" : "heading",
+      "id" : 113,
+      "page number" : 10,
+      "bounding box" : [ 32.688, 469.44, 264.694, 491.952 ],
+      "heading level" : 5,
+      "font" : "Arial-BoldItalicMT",
+      "font size" : 24.0,
+      "text color" : "[0.0]",
+      "content" : "How to represent h?"
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 247,
+    "level" : "2",
+    "page number" : 10,
+    "bounding box" : [ 43.2, 188.741, 508.594, 409.125 ],
+    "numbering style" : "unordered",
+    "number of list items" : 2,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 10,
+      "bounding box" : [ 43.2, 388.831, 508.594, 409.125 ],
+      "font" : "ArialMT",
+      "font size" : 18.0,
+      "text color" : "[0.0]",
+      "content" : "• Dependency is modeled using a regression function ℎ :",
+      "kids" : [ {
+        "type" : "paragraph",
+        "id" : 136,
+        "page number" : 10,
+        "bounding box" : [ 70.2, 300.866, 573.555, 321.75 ],
+        "font" : "ArialMT",
+        "font size" : 18.024,
+        "text color" : "[0.0]",
+        "content" : "with \uD835\uDC5A training samples \uD835\uDC65 \uD835\uDC56 ,\uD835\uDC66 \uD835\uDC56 and \uD835\uDC5A residuals (errors) \uD835\uDC52(\uD835\uDC56)."
+      } ]
+    }, {
+      "type" : "list item",
+      "page number" : 10,
+      "bounding box" : [ 43.2, 188.741, 271.424, 209.035 ],
+      "font" : "ArialMT",
+      "font size" : 18.0,
+      "text color" : "[0.0, 0.439, 0.753]",
+      "content" : "• Regression coefficients \uD835\uDF03",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 267,
+    "page number" : 10,
+    "bounding box" : [ 234.53, 346.147, 396.268, 369.68 ],
+    "font" : "CambriaMath",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "\uD835\uDC66(\uD835\uDC56) = ℎ\uD835\uDF03 \uD835\uDC65 \uD835\uDC56 + \uD835\uDC52(\uD835\uDC56)"
+  }, {
+    "type" : "image",
+    "id" : 249,
+    "page number" : 10,
+    "bounding box" : [ 499.56, 240.84, 633.0, 259.44 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile13.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 252,
+    "page number" : 10,
+    "bounding box" : [ 384.6, 154.435, 396.612, 176.969 ],
+    "font" : "ArialMT",
+    "font size" : 24.024,
+    "text color" : "[0.0]",
+    "content" : "y"
+  }, {
+    "type" : "list",
+    "id" : 248,
+    "level" : "3",
+    "page number" : 10,
+    "bounding box" : [ 79.224, 112.647, 203.546, 170.039 ],
+    "numbering style" : "unordered",
+    "number of list items" : 2,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 10,
+      "bounding box" : [ 79.224, 149.367, 203.546, 170.039 ],
+      "font" : "CambriaMath",
+      "font size" : 18.0,
+      "text color" : "[0.0]",
+      "content" : "– \uD835\uDF030 : intercept",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 10,
+      "bounding box" : [ 79.224, 112.647, 177.095, 133.337 ],
+      "font" : "CambriaMath",
+      "font size" : 18.024,
+      "text color" : "[0.0]",
+      "content" : "– \uD835\uDF031 : slope",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 253,
+    "page number" : 10,
+    "bounding box" : [ 500.14, 64.411, 512.152, 86.945 ],
+    "font" : "ArialMT",
+    "font size" : 24.024,
+    "text color" : "[0.0]",
+    "content" : "x"
+  }, {
+    "type" : "header",
+    "id" : 270,
+    "page number" : 11,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 114,
+      "page number" : 11,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile14.png"
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 274,
+    "page number" : 11,
+    "bounding box" : [ 102.41, 398.972, 218.542, 417.769 ],
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Training data"
+  }, {
+    "type" : "heading",
+    "id" : 279,
+    "level" : "Subtitle",
+    "page number" : 11,
+    "bounding box" : [ 324.12, 400.808, 652.235, 416.135 ],
+    "heading level" : 11,
+    "font" : "Arial-BoldMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "Size in feet2 (x) Price ($) in 1000's (y)"
+  }, {
+    "type" : "paragraph",
+    "id" : 280,
+    "page number" : 11,
+    "bounding box" : [ 362.66, 359.023, 586.807, 374.016 ],
+    "font" : "ArialMT",
+    "font size" : 15.984,
+    "text color" : "[0.0]",
+    "content" : "2104 460"
+  }, {
+    "type" : "paragraph",
+    "id" : 281,
+    "page number" : 11,
+    "bounding box" : [ 362.66, 294.898, 586.794, 341.929 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "1416 232 1534 315"
+  }, {
+    "type" : "paragraph",
+    "id" : 282,
+    "page number" : 11,
+    "bounding box" : [ 367.1, 230.738, 586.794, 277.799 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "852 178 … …"
+  }, {
+    "type" : "image",
+    "id" : 275,
+    "page number" : 11,
+    "bounding box" : [ 235.32, 164.04, 417.96, 189.36 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile15.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 277,
+    "page number" : 11,
+    "bounding box" : [ 102.41, 120.453, 270.487, 185.229 ],
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Hypothesis: ‘s: Parameters"
+  }, {
+    "type" : "image",
+    "id" : 276,
+    "page number" : 11,
+    "bounding box" : [ 104.88, 122.4, 123.24, 145.92 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile16.png"
+  }, {
+    "type" : "image",
+    "id" : 283,
+    "page number" : 11,
+    "bounding box" : [ 240.96, 75.72, 259.32, 99.24 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile17.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 273,
+    "page number" : 11,
+    "bounding box" : [ 102.41, 75.841, 293.291, 98.23 ],
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "How to choose ‘s ?"
+  }, {
+    "type" : "header",
+    "id" : 284,
+    "page number" : 12,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 115,
+      "page number" : 12,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile18.png"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 287,
+    "page number" : 12,
+    "bounding box" : [ 226.2, 390.24, 421.68, 417.36 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile19.png"
+  }, {
+    "type" : "list",
+    "id" : 289,
+    "level" : "4",
+    "page number" : 12,
+    "bounding box" : [ 23.448, 199.088, 32.335, 343.399 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 4,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 23.448, 199.088, 32.322, 214.059 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "0",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 23.448, 242.213, 32.335, 257.206 ],
+      "font" : "ArialMT",
+      "font size" : 15.984,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 23.448, 285.318, 32.322, 300.289 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 23.448, 328.428, 32.322, 343.399 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 292,
+    "level" : "4",
+    "page number" : 12,
+    "bounding box" : [ 261.94, 199.088, 270.827, 343.399 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 4,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 261.94, 199.088, 270.814, 214.059 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "0",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 261.94, 242.213, 270.827, 257.206 ],
+      "font" : "ArialMT",
+      "font size" : 15.984,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 261.94, 285.318, 270.814, 300.289 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 261.94, 328.428, 270.814, 343.399 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 295,
+    "level" : "4",
+    "page number" : 12,
+    "bounding box" : [ 506.26, 199.088, 515.147, 343.399 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 4,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 506.26, 199.088, 515.134, 214.059 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "0",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 506.26, 242.213, 515.147, 257.206 ],
+      "font" : "ArialMT",
+      "font size" : 15.984,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 506.26, 285.318, 515.134, 300.289 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 12,
+      "bounding box" : [ 506.26, 328.428, 515.134, 343.399 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 290,
+    "page number" : 12,
+    "bounding box" : [ 41.688, 180.028, 215.154, 194.999 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "0 1 2 3"
+  }, {
+    "type" : "paragraph",
+    "id" : 293,
+    "page number" : 12,
+    "bounding box" : [ 280.15, 180.028, 453.644, 194.999 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "0 1 2 3"
+  }, {
+    "type" : "paragraph",
+    "id" : 296,
+    "page number" : 12,
+    "bounding box" : [ 524.47, 180.028, 697.964, 194.999 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "0 1 2 3"
+  }, {
+    "type" : "footer",
+    "id" : 297,
+    "page number" : 12,
+    "bounding box" : [ 116.16, 105.6, 646.2, 146.4 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 42,
+      "page number" : 12,
+      "bounding box" : [ 116.16, 105.6, 184.32, 146.4 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile20.png"
+    }, {
+      "type" : "image",
+      "id" : 43,
+      "page number" : 12,
+      "bounding box" : [ 350.16, 105.6, 418.2, 146.4 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile21.png"
+    }, {
+      "type" : "image",
+      "id" : 44,
+      "page number" : 12,
+      "bounding box" : [ 578.16, 105.6, 646.2, 146.4 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile22.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 298,
+    "page number" : 13,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 116,
+      "page number" : 13,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile23.png"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 301,
+    "page number" : 13,
+    "bounding box" : [ 226.2, 390.24, 421.68, 417.36 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile24.png"
+  }, {
+    "type" : "list",
+    "id" : 303,
+    "level" : "4",
+    "page number" : 13,
+    "bounding box" : [ 23.448, 199.088, 32.335, 343.399 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 4,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 23.448, 199.088, 32.322, 214.059 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "0",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 23.448, 242.213, 32.335, 257.206 ],
+      "font" : "ArialMT",
+      "font size" : 15.984,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 23.448, 285.318, 32.322, 300.289 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 23.448, 328.428, 32.322, 343.399 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 306,
+    "level" : "4",
+    "page number" : 13,
+    "bounding box" : [ 261.94, 199.088, 270.827, 343.399 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 4,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 261.94, 199.088, 270.814, 214.059 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "0",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 261.94, 242.213, 270.827, 257.206 ],
+      "font" : "ArialMT",
+      "font size" : 15.984,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 261.94, 285.318, 270.814, 300.289 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 261.94, 328.428, 270.814, 343.399 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 309,
+    "level" : "4",
+    "page number" : 13,
+    "bounding box" : [ 506.26, 199.088, 515.147, 343.399 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 4,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 506.26, 199.088, 515.134, 214.059 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "0",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 506.26, 242.213, 515.147, 257.206 ],
+      "font" : "ArialMT",
+      "font size" : 15.984,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 506.26, 285.318, 515.134, 300.289 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 13,
+      "bounding box" : [ 506.26, 328.428, 515.134, 343.399 ],
+      "font" : "ArialMT",
+      "font size" : 15.96,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "table",
+    "id" : 302,
+    "level" : "5",
+    "page number" : 13,
+    "bounding box" : [ 29.46, 202.86, 216.57, 338.4 ],
+    "number of rows" : 2,
+    "number of columns" : 2,
+    "rows" : [ {
+      "type" : "table row",
+      "row number" : 1,
+      "cells" : [ {
+        "type" : "table cell",
+        "page number" : 13,
+        "bounding box" : [ 30.46, 273.54, 46.14, 336.15 ],
+        "row number" : 1,
+        "column number" : 1,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 13,
+        "bounding box" : [ 46.14, 273.54, 212.115, 336.15 ],
+        "row number" : 1,
+        "column number" : 2,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      } ]
+    }, {
+      "type" : "table row",
+      "row number" : 2,
+      "cells" : [ {
+        "type" : "table cell",
+        "page number" : 13,
+        "bounding box" : [ 30.46, 207.66, 46.14, 273.54 ],
+        "row number" : 2,
+        "column number" : 1,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      }, {
+        "type" : "table cell",
+        "page number" : 13,
+        "bounding box" : [ 46.14, 207.66, 212.115, 273.54 ],
+        "row number" : 2,
+        "column number" : 2,
+        "row span" : 1,
+        "column span" : 1,
+        "kids" : [ ]
+      } ]
+    } ]
+  }, {
+    "type" : "caption",
+    "id" : 304,
+    "page number" : 13,
+    "bounding box" : [ 41.688, 180.028, 215.154, 194.999 ],
+    "linked content id" : 302,
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "0 1 2 3"
+  }, {
+    "type" : "paragraph",
+    "id" : 307,
+    "page number" : 13,
+    "bounding box" : [ 280.15, 180.028, 453.644, 194.999 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "0 1 2 3"
+  }, {
+    "type" : "paragraph",
+    "id" : 310,
+    "page number" : 13,
+    "bounding box" : [ 524.47, 180.028, 697.964, 194.999 ],
+    "font" : "ArialMT",
+    "font size" : 15.96,
+    "text color" : "[0.0]",
+    "content" : "0 1 2 3"
+  }, {
+    "type" : "footer",
+    "id" : 313,
+    "page number" : 13,
+    "bounding box" : [ 116.16, 105.6, 646.2, 146.4 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 45,
+      "page number" : 13,
+      "bounding box" : [ 116.16, 105.6, 184.32, 146.4 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile25.png"
+    }, {
+      "type" : "image",
+      "id" : 46,
+      "page number" : 13,
+      "bounding box" : [ 350.16, 105.6, 418.2, 146.4 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile26.png"
+    }, {
+      "type" : "image",
+      "id" : 47,
+      "page number" : 13,
+      "bounding box" : [ 578.16, 105.6, 646.2, 146.4 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile27.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 314,
+    "page number" : 14,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 117,
+      "page number" : 14,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile28.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 323,
+    "level" : "Subtitle",
+    "page number" : 14,
+    "bounding box" : [ 32.688, 469.44, 496.684, 491.952 ],
+    "heading level" : 5,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 24.0,
+    "text color" : "[0.0]",
+    "content" : "Determination of the regression function"
+  }, {
+    "type" : "image",
+    "id" : 325,
+    "page number" : 14,
+    "bounding box" : [ 19.8, 76.08, 373.23, 392.88 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile29.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 324,
+    "page number" : 14,
+    "bounding box" : [ 431.23, 290.24, 471.154, 307.124 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Idea:"
+  }, {
+    "type" : "image",
+    "id" : 320,
+    "page number" : 14,
+    "bounding box" : [ 621.72, 245.88, 666.12, 266.04 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile30.png"
+  }, {
+    "type" : "heading",
+    "id" : 317,
+    "level" : "Subtitle",
+    "page number" : 14,
+    "bounding box" : [ 429.94, 246.467, 613.044, 265.287 ],
+    "heading level" : 7,
+    "font" : "ArialMT",
+    "font size" : 20.064,
+    "text color" : "[0.0]",
+    "content" : "Choose so that"
+  }, {
+    "type" : "image",
+    "id" : 319,
+    "page number" : 14,
+    "bounding box" : [ 509.16, 247.8, 547.08, 264.12 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile31.png"
+  }, {
+    "type" : "caption",
+    "id" : 318,
+    "page number" : 14,
+    "bounding box" : [ 432.22, 181.12, 593.266, 230.404 ],
+    "linked content id" : 319,
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "is close to for the training samples"
+  }, {
+    "type" : "image",
+    "id" : 321,
+    "page number" : 14,
+    "bounding box" : [ 519.0, 212.04, 530.04, 227.4 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile32.png"
+  }, {
+    "type" : "image",
+    "id" : 322,
+    "page number" : 14,
+    "bounding box" : [ 577.2, 181.2, 617.52, 200.4 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile33.png"
+  }, {
+    "type" : "header",
+    "id" : 326,
+    "page number" : 15,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 118,
+      "page number" : 15,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile34.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 329,
+    "level" : "Subtitle",
+    "page number" : 15,
+    "bounding box" : [ 32.688, 469.44, 307.198, 491.952 ],
+    "heading level" : 5,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 24.0,
+    "text color" : "[0.0]",
+    "content" : "Method of least squares"
+  }, {
+    "type" : "image",
+    "id" : 330,
+    "page number" : 15,
+    "bounding box" : [ 19.8, 76.08, 373.23, 392.88 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile35.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 331,
+    "page number" : 15,
+    "bounding box" : [ 424.68, 310.212, 541.317, 330.907 ],
+    "font" : "ArialMT",
+    "font size" : 18.024,
+    "text color" : "[0.149]",
+    "content" : "Choose \uD835\uDF030, \uD835\uDF031"
+  }, {
+    "type" : "paragraph",
+    "id" : 332,
+    "page number" : 15,
+    "bounding box" : [ 424.68, 262.79, 575.696, 312.01 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.149]",
+    "content" : "so that σ\uD835\uDC56 \uD835\uDC52(\uD835\uDC56) 2 is minimized."
+  }, {
+    "type" : "image",
+    "id" : 334,
+    "page number" : 15,
+    "bounding box" : [ 494.28, 178.2, 662.76, 219.0 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile36.png"
+  }, {
+    "type" : "image",
+    "id" : 335,
+    "page number" : 15,
+    "bounding box" : [ 418.32, 180.48, 494.28, 208.56 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile37.png"
+  }, {
+    "type" : "header",
+    "id" : 336,
+    "page number" : 16,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 119,
+      "page number" : 16,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile38.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 346,
+    "level" : "Subtitle",
+    "page number" : 16,
+    "bounding box" : [ 32.688, 468.292, 464.928, 492.717 ],
+    "heading level" : 4,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 26.04,
+    "text color" : "[0.0]",
+    "content" : "Cost function: Mean Squared Error"
+  }, {
+    "type" : "paragraph",
+    "id" : 340,
+    "page number" : 16,
+    "bounding box" : [ 31.2, 356.26, 126.452, 378.772 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Hypothesis:"
+  }, {
+    "type" : "image",
+    "id" : 339,
+    "page number" : 16,
+    "bounding box" : [ 52.8, 312.0, 230.88, 336.72 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile39.png"
+  }, {
+    "type" : "caption",
+    "id" : 342,
+    "page number" : 16,
+    "bounding box" : [ 31.2, 273.132, 129.671, 291.929 ],
+    "linked content id" : 341,
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Parameters:"
+  }, {
+    "type" : "image",
+    "id" : 341,
+    "page number" : 16,
+    "bounding box" : [ 52.8, 230.76, 104.16, 252.6 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile40.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 344,
+    "page number" : 16,
+    "bounding box" : [ 31.2, 185.252, 141.671, 204.049 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Cost function:"
+  }, {
+    "type" : "image",
+    "id" : 343,
+    "page number" : 16,
+    "bounding box" : [ 48.72, 126.24, 348.72, 168.36 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile41.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 345,
+    "page number" : 16,
+    "bounding box" : [ 31.2, 88.144, 74.691, 106.941 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Goal:"
+  }, {
+    "type" : "footer",
+    "id" : 347,
+    "page number" : 16,
+    "bounding box" : [ 48.48, 30.96, 215.64, 63.96 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 48,
+      "page number" : 16,
+      "bounding box" : [ 48.48, 30.96, 215.64, 63.96 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile42.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 348,
+    "page number" : 17,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 120,
+      "page number" : 17,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile43.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 365,
+    "level" : "Subtitle",
+    "page number" : 17,
+    "bounding box" : [ 32.688, 468.292, 310.054, 492.717 ],
+    "heading level" : 4,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 26.04,
+    "text color" : "[0.0]",
+    "content" : "Cost function intuition"
+  }, {
+    "type" : "paragraph",
+    "id" : 363,
+    "page number" : 17,
+    "bounding box" : [ 480.67, 403.052, 567.463, 421.849 ],
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "Simplified"
+  }, {
+    "type" : "paragraph",
+    "id" : 352,
+    "page number" : 17,
+    "bounding box" : [ 31.2, 356.26, 126.452, 378.772 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Hypothesis:"
+  }, {
+    "type" : "image",
+    "id" : 359,
+    "page number" : 17,
+    "bounding box" : [ 420.96, 315.0, 540.96, 338.64 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile44.png"
+  }, {
+    "type" : "image",
+    "id" : 351,
+    "page number" : 17,
+    "bounding box" : [ 52.8, 312.0, 230.88, 336.72 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile45.png"
+  }, {
+    "type" : "caption",
+    "id" : 354,
+    "page number" : 17,
+    "bounding box" : [ 31.2, 273.132, 129.671, 291.929 ],
+    "linked content id" : 353,
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Parameters:"
+  }, {
+    "type" : "image",
+    "id" : 360,
+    "page number" : 17,
+    "bounding box" : [ 420.96, 231.48, 440.28, 253.32 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile46.png"
+  }, {
+    "type" : "image",
+    "id" : 353,
+    "page number" : 17,
+    "bounding box" : [ 52.8, 230.76, 104.16, 252.6 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile47.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 356,
+    "page number" : 17,
+    "bounding box" : [ 31.2, 185.252, 141.671, 204.049 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Cost function:"
+  }, {
+    "type" : "image",
+    "id" : 361,
+    "page number" : 17,
+    "bounding box" : [ 409.2, 126.72, 691.56, 170.28 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile48.png"
+  }, {
+    "type" : "image",
+    "id" : 355,
+    "page number" : 17,
+    "bounding box" : [ 48.72, 126.24, 348.72, 168.36 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile49.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 357,
+    "page number" : 17,
+    "bounding box" : [ 31.2, 88.144, 74.691, 106.941 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Goal:"
+  }, {
+    "type" : "image",
+    "id" : 362,
+    "page number" : 17,
+    "bounding box" : [ 409.2, 30.96, 556.92, 65.4 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile50.png"
+  }, {
+    "type" : "footer",
+    "id" : 366,
+    "page number" : 17,
+    "bounding box" : [ 48.48, 30.96, 215.64, 63.96 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 49,
+      "page number" : 17,
+      "bounding box" : [ 48.48, 30.96, 215.64, 63.96 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile51.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 367,
+    "page number" : 18,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 121,
+      "page number" : 18,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile52.png"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 372,
+    "page number" : 18,
+    "bounding box" : [ 154.2, 404.64, 207.6, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile53.png"
+  }, {
+    "type" : "image",
+    "id" : 379,
+    "page number" : 18,
+    "bounding box" : [ 515.76, 404.64, 567.96, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile54.png"
+  }, {
+    "type" : "image",
+    "id" : 377,
+    "page number" : 18,
+    "bounding box" : [ 124.32, 376.32, 138.84, 392.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile55.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 376,
+    "page number" : 18,
+    "bounding box" : [ 49.848, 374.75, 649.376, 391.634 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "(for fixed , this is a function of x) (function of the parameter )"
+  }, {
+    "type" : "list",
+    "id" : 381,
+    "level" : "4",
+    "page number" : 18,
+    "bounding box" : [ 462.0, 174.602, 469.806, 299.851 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 18,
+      "bounding box" : [ 462.0, 174.602, 469.806, 187.771 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 18,
+      "bounding box" : [ 462.0, 230.642, 469.806, 243.811 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 18,
+      "bounding box" : [ 462.0, 286.682, 469.806, 299.851 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 374,
+    "page number" : 18,
+    "bounding box" : [ 300.0, 275.52, 342.72, 294.84 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile56.png"
+  }, {
+    "type" : "list",
+    "id" : 371,
+    "level" : "4",
+    "page number" : 18,
+    "bounding box" : [ 48.504, 169.542, 56.31, 294.791 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 18,
+      "bounding box" : [ 48.504, 169.542, 56.31, 182.711 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 18,
+      "bounding box" : [ 48.504, 225.582, 56.31, 238.751 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 18,
+      "bounding box" : [ 48.504, 281.622, 56.31, 294.791 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 375,
+    "page number" : 18,
+    "bounding box" : [ 261.6, 210.48, 312.0, 226.8 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile57.png"
+  }, {
+    "type" : "image",
+    "id" : 382,
+    "page number" : 18,
+    "bounding box" : [ 398.16, 210.48, 432.0, 226.08 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile58.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 373,
+    "page number" : 18,
+    "bounding box" : [ 25.2, 201.112, 35.22, 219.909 ],
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "y"
+  }, {
+    "type" : "footer",
+    "id" : 384,
+    "page number" : 18,
+    "bounding box" : [ 48.504, 76.92, 685.105, 131.731 ],
+    "kids" : [ {
+      "type" : "paragraph",
+      "id" : 50,
+      "page number" : 18,
+      "bounding box" : [ 462.0, 118.562, 469.806, 131.731 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 51,
+      "page number" : 18,
+      "bounding box" : [ 48.504, 113.502, 56.31, 126.671 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 52,
+      "page number" : 18,
+      "bounding box" : [ 431.06, 101.877, 685.105, 115.069 ],
+      "font" : "ArialMT",
+      "font size" : 14.064,
+      "text color" : "[0.0]",
+      "content" : "-0,5 0 0,5 1 1,5 2 2,5"
+    }, {
+      "type" : "paragraph",
+      "id" : 53,
+      "page number" : 18,
+      "bounding box" : [ 64.44, 96.796, 280.666, 109.965 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0 1 2 3"
+    }, {
+      "type" : "heading",
+      "id" : 54,
+      "page number" : 18,
+      "bounding box" : [ 163.34, 78.832, 173.36, 97.629 ],
+      "heading level" : 8,
+      "font" : "ArialMT",
+      "font size" : 20.04,
+      "text color" : "[0.0]",
+      "content" : "x"
+    }, {
+      "type" : "image",
+      "id" : 55,
+      "page number" : 18,
+      "bounding box" : [ 552.96, 76.92, 567.96, 93.96 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile59.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 385,
+    "page number" : 19,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 122,
+      "page number" : 19,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile60.png"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 390,
+    "page number" : 19,
+    "bounding box" : [ 154.2, 404.64, 207.6, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile61.png"
+  }, {
+    "type" : "image",
+    "id" : 396,
+    "page number" : 19,
+    "bounding box" : [ 515.76, 404.64, 567.96, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile62.png"
+  }, {
+    "type" : "heading",
+    "id" : 400,
+    "level" : "Subtitle",
+    "page number" : 19,
+    "bounding box" : [ 49.848, 374.75, 649.376, 391.634 ],
+    "heading level" : 10,
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "(for fixed , this is a function of x (function of the parameter )"
+  }, {
+    "type" : "list",
+    "id" : 398,
+    "level" : "4",
+    "page number" : 19,
+    "bounding box" : [ 462.0, 174.602, 469.806, 299.851 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 19,
+      "bounding box" : [ 462.0, 174.602, 469.806, 187.771 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 19,
+      "bounding box" : [ 462.0, 230.642, 469.806, 243.811 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 19,
+      "bounding box" : [ 462.0, 286.682, 469.806, 299.851 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 393,
+    "page number" : 19,
+    "bounding box" : [ 300.0, 275.52, 342.72, 294.84 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile63.png"
+  }, {
+    "type" : "list",
+    "id" : 389,
+    "level" : "4",
+    "page number" : 19,
+    "bounding box" : [ 48.504, 169.542, 56.31, 294.791 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 19,
+      "bounding box" : [ 48.504, 169.542, 56.31, 182.711 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 19,
+      "bounding box" : [ 48.504, 225.582, 56.31, 238.751 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 19,
+      "bounding box" : [ 48.504, 281.622, 56.31, 294.791 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 394,
+    "page number" : 19,
+    "bounding box" : [ 261.6, 210.48, 312.0, 226.8 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile64.png"
+  }, {
+    "type" : "image",
+    "id" : 399,
+    "page number" : 19,
+    "bounding box" : [ 398.16, 210.48, 432.0, 226.08 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile65.png"
+  }, {
+    "type" : "heading",
+    "id" : 391,
+    "level" : "Subtitle",
+    "page number" : 19,
+    "bounding box" : [ 25.2, 201.112, 35.22, 219.909 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "y"
+  }, {
+    "type" : "footer",
+    "id" : 401,
+    "page number" : 19,
+    "bounding box" : [ 48.504, 76.92, 685.105, 136.841 ],
+    "kids" : [ {
+      "type" : "heading",
+      "id" : 56,
+      "page number" : 19,
+      "bounding box" : [ 551.54, 112.818, 568.676, 136.841 ],
+      "heading level" : 6,
+      "font" : "CambriaMath",
+      "font size" : 24.0,
+      "text color" : "[0.753, 0.0, 0.0]",
+      "content" : "×"
+    }, {
+      "type" : "paragraph",
+      "id" : 57,
+      "page number" : 19,
+      "bounding box" : [ 462.0, 118.562, 469.806, 131.731 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 58,
+      "page number" : 19,
+      "bounding box" : [ 48.504, 113.502, 56.31, 126.671 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 59,
+      "page number" : 19,
+      "bounding box" : [ 431.06, 101.877, 685.105, 115.069 ],
+      "font" : "ArialMT",
+      "font size" : 14.064,
+      "text color" : "[0.0]",
+      "content" : "-0,5 0 0,5 1 1,5 2 2,5"
+    }, {
+      "type" : "paragraph",
+      "id" : 60,
+      "page number" : 19,
+      "bounding box" : [ 64.44, 96.796, 280.666, 109.965 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0 1 2 3"
+    }, {
+      "type" : "heading",
+      "id" : 61,
+      "page number" : 19,
+      "bounding box" : [ 163.34, 78.832, 173.36, 97.629 ],
+      "heading level" : 8,
+      "font" : "ArialMT",
+      "font size" : 20.04,
+      "text color" : "[0.0]",
+      "content" : "x"
+    }, {
+      "type" : "image",
+      "id" : 62,
+      "page number" : 19,
+      "bounding box" : [ 552.96, 76.92, 567.96, 93.96 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile66.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 402,
+    "page number" : 20,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 123,
+      "page number" : 20,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile67.png"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 407,
+    "page number" : 20,
+    "bounding box" : [ 154.2, 404.64, 207.6, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile68.png"
+  }, {
+    "type" : "image",
+    "id" : 413,
+    "page number" : 20,
+    "bounding box" : [ 515.76, 404.64, 567.96, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile69.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 418,
+    "page number" : 20,
+    "bounding box" : [ 49.848, 374.75, 649.376, 391.634 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "(for fixed , this is a function of x (function of the parameter )"
+  }, {
+    "type" : "list",
+    "id" : 415,
+    "level" : "4",
+    "page number" : 20,
+    "bounding box" : [ 462.0, 174.602, 469.806, 299.851 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 20,
+      "bounding box" : [ 462.0, 174.602, 469.806, 187.771 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 20,
+      "bounding box" : [ 462.0, 230.642, 469.806, 243.811 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 20,
+      "bounding box" : [ 462.0, 286.682, 469.806, 299.851 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 406,
+    "level" : "4",
+    "page number" : 20,
+    "bounding box" : [ 48.504, 169.542, 56.31, 294.791 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 20,
+      "bounding box" : [ 48.504, 169.542, 56.31, 182.711 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 20,
+      "bounding box" : [ 48.504, 225.582, 56.31, 238.751 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 20,
+      "bounding box" : [ 48.504, 281.622, 56.31, 294.791 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 410,
+    "page number" : 20,
+    "bounding box" : [ 290.28, 219.36, 333.0, 238.56 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile70.png"
+  }, {
+    "type" : "image",
+    "id" : 416,
+    "page number" : 20,
+    "bounding box" : [ 398.16, 210.48, 432.0, 226.08 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile71.png"
+  }, {
+    "type" : "heading",
+    "id" : 408,
+    "level" : "Subtitle",
+    "page number" : 20,
+    "bounding box" : [ 25.2, 201.112, 35.22, 219.909 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "y"
+  }, {
+    "type" : "paragraph",
+    "id" : 417,
+    "level" : "5",
+    "page number" : 20,
+    "bounding box" : [ 292.87, 166.756, 335.135, 184.797 ],
+    "font" : "CambriaMath",
+    "font size" : 18.024,
+    "text color" : "[0.0]",
+    "content" : "= 0,5"
+  }, {
+    "type" : "image",
+    "id" : 411,
+    "page number" : 20,
+    "bounding box" : [ 273.36, 167.64, 290.399, 183.96 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile72.png"
+  }, {
+    "type" : "footer",
+    "id" : 419,
+    "page number" : 20,
+    "bounding box" : [ 48.504, 76.92, 685.105, 136.841 ],
+    "kids" : [ {
+      "type" : "heading",
+      "id" : 63,
+      "page number" : 20,
+      "bounding box" : [ 551.54, 112.818, 568.676, 136.841 ],
+      "heading level" : 6,
+      "font" : "CambriaMath",
+      "font size" : 24.0,
+      "text color" : "[0.753, 0.0, 0.0]",
+      "content" : "×"
+    }, {
+      "type" : "paragraph",
+      "id" : 64,
+      "page number" : 20,
+      "bounding box" : [ 462.0, 118.562, 469.806, 131.731 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 65,
+      "page number" : 20,
+      "bounding box" : [ 48.504, 113.502, 56.31, 126.671 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 66,
+      "page number" : 20,
+      "bounding box" : [ 431.06, 101.877, 685.105, 115.069 ],
+      "font" : "ArialMT",
+      "font size" : 14.064,
+      "text color" : "[0.0]",
+      "content" : "-0,5 0 0,5 1 1,5 2 2,5"
+    }, {
+      "type" : "paragraph",
+      "id" : 67,
+      "page number" : 20,
+      "bounding box" : [ 64.44, 96.796, 280.666, 109.965 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0 1 2 3"
+    }, {
+      "type" : "heading",
+      "id" : 68,
+      "page number" : 20,
+      "bounding box" : [ 163.34, 78.832, 173.36, 97.629 ],
+      "heading level" : 8,
+      "font" : "ArialMT",
+      "font size" : 20.04,
+      "text color" : "[0.0]",
+      "content" : "x"
+    }, {
+      "type" : "image",
+      "id" : 69,
+      "page number" : 20,
+      "bounding box" : [ 552.96, 76.92, 567.96, 93.96 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile73.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 420,
+    "page number" : 21,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 124,
+      "page number" : 21,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile74.png"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 425,
+    "page number" : 21,
+    "bounding box" : [ 154.2, 404.64, 207.6, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile75.png"
+  }, {
+    "type" : "image",
+    "id" : 431,
+    "page number" : 21,
+    "bounding box" : [ 515.76, 404.64, 567.96, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile76.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 437,
+    "page number" : 21,
+    "bounding box" : [ 49.848, 374.75, 649.376, 391.634 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "(for fixed , this is a function of x (function of the parameter )"
+  }, {
+    "type" : "list",
+    "id" : 433,
+    "level" : "4",
+    "page number" : 21,
+    "bounding box" : [ 462.0, 174.602, 469.806, 299.851 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 21,
+      "bounding box" : [ 462.0, 174.602, 469.806, 187.771 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 21,
+      "bounding box" : [ 462.0, 230.642, 469.806, 243.811 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 21,
+      "bounding box" : [ 462.0, 286.682, 469.806, 299.851 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 424,
+    "level" : "4",
+    "page number" : 21,
+    "bounding box" : [ 48.504, 169.542, 56.31, 294.791 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 21,
+      "bounding box" : [ 48.504, 169.542, 56.31, 182.711 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 21,
+      "bounding box" : [ 48.504, 225.582, 56.31, 238.751 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 21,
+      "bounding box" : [ 48.504, 281.622, 56.31, 294.791 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 428,
+    "page number" : 21,
+    "bounding box" : [ 290.28, 219.36, 333.0, 238.56 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile77.png"
+  }, {
+    "type" : "image",
+    "id" : 434,
+    "page number" : 21,
+    "bounding box" : [ 398.16, 210.48, 432.0, 226.08 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile78.png"
+  }, {
+    "type" : "heading",
+    "id" : 426,
+    "level" : "Subtitle",
+    "page number" : 21,
+    "bounding box" : [ 25.2, 201.112, 35.22, 219.909 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "y"
+  }, {
+    "type" : "paragraph",
+    "id" : 435,
+    "level" : "5",
+    "page number" : 21,
+    "bounding box" : [ 292.87, 166.756, 335.135, 184.797 ],
+    "font" : "CambriaMath",
+    "font size" : 18.024,
+    "text color" : "[0.0]",
+    "content" : "= 0,5"
+  }, {
+    "type" : "image",
+    "id" : 429,
+    "page number" : 21,
+    "bounding box" : [ 273.36, 167.64, 290.399, 183.96 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile79.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 436,
+    "page number" : 21,
+    "bounding box" : [ 511.94, 141.133, 529.093, 165.18 ],
+    "font" : "CambriaMath",
+    "font size" : 24.024,
+    "text color" : "[0.753, 0.0, 0.0]",
+    "content" : "×"
+  }, {
+    "type" : "footer",
+    "id" : 438,
+    "page number" : 21,
+    "bounding box" : [ 48.504, 76.92, 685.105, 136.841 ],
+    "kids" : [ {
+      "type" : "heading",
+      "id" : 70,
+      "page number" : 21,
+      "bounding box" : [ 551.54, 112.818, 568.676, 136.841 ],
+      "heading level" : 6,
+      "font" : "CambriaMath",
+      "font size" : 24.0,
+      "text color" : "[0.753, 0.0, 0.0]",
+      "content" : "×"
+    }, {
+      "type" : "paragraph",
+      "id" : 71,
+      "page number" : 21,
+      "bounding box" : [ 462.0, 118.562, 469.806, 131.731 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 72,
+      "page number" : 21,
+      "bounding box" : [ 48.504, 113.502, 56.31, 126.671 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 73,
+      "page number" : 21,
+      "bounding box" : [ 431.06, 101.877, 685.105, 115.069 ],
+      "font" : "ArialMT",
+      "font size" : 14.064,
+      "text color" : "[0.0]",
+      "content" : "-0,5 0 0,5 1 1,5 2 2,5"
+    }, {
+      "type" : "paragraph",
+      "id" : 74,
+      "page number" : 21,
+      "bounding box" : [ 64.44, 96.796, 280.666, 109.965 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0 1 2 3"
+    }, {
+      "type" : "heading",
+      "id" : 75,
+      "page number" : 21,
+      "bounding box" : [ 163.34, 78.832, 173.36, 97.629 ],
+      "heading level" : 8,
+      "font" : "ArialMT",
+      "font size" : 20.04,
+      "text color" : "[0.0]",
+      "content" : "x"
+    }, {
+      "type" : "image",
+      "id" : 76,
+      "page number" : 21,
+      "bounding box" : [ 552.96, 76.92, 567.96, 93.96 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile80.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 439,
+    "page number" : 22,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 125,
+      "page number" : 22,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile81.png"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 444,
+    "page number" : 22,
+    "bounding box" : [ 154.2, 404.64, 207.6, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile82.png"
+  }, {
+    "type" : "image",
+    "id" : 449,
+    "page number" : 22,
+    "bounding box" : [ 515.76, 404.64, 567.96, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile83.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 456,
+    "page number" : 22,
+    "bounding box" : [ 49.848, 374.75, 649.376, 391.634 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "(for fixed , this is a function of x (function of the parameter )"
+  }, {
+    "type" : "image",
+    "id" : 446,
+    "page number" : 22,
+    "bounding box" : [ 157.68, 304.56, 200.4, 323.88 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile84.png"
+  }, {
+    "type" : "list",
+    "id" : 451,
+    "level" : "4",
+    "page number" : 22,
+    "bounding box" : [ 462.0, 174.602, 469.806, 299.851 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 22,
+      "bounding box" : [ 462.0, 174.602, 469.806, 187.771 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 22,
+      "bounding box" : [ 462.0, 230.642, 469.806, 243.811 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 22,
+      "bounding box" : [ 462.0, 286.682, 469.806, 299.851 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 443,
+    "level" : "4",
+    "page number" : 22,
+    "bounding box" : [ 48.504, 169.542, 56.31, 294.791 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 22,
+      "bounding box" : [ 48.504, 169.542, 56.31, 182.711 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 22,
+      "bounding box" : [ 48.504, 225.582, 56.31, 238.751 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 22,
+      "bounding box" : [ 48.504, 281.622, 56.31, 294.791 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 453,
+    "level" : "5",
+    "page number" : 22,
+    "bounding box" : [ 128.74, 269.581, 170.992, 287.599 ],
+    "font" : "CambriaMath",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "= 1,5"
+  }, {
+    "type" : "image",
+    "id" : 447,
+    "page number" : 22,
+    "bounding box" : [ 108.96, 268.92, 125.999, 285.24 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile85.png"
+  }, {
+    "type" : "image",
+    "id" : 452,
+    "page number" : 22,
+    "bounding box" : [ 398.16, 210.48, 432.0, 226.08 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile86.png"
+  }, {
+    "type" : "heading",
+    "id" : 445,
+    "level" : "Subtitle",
+    "page number" : 22,
+    "bounding box" : [ 25.2, 201.112, 35.22, 219.909 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "y"
+  }, {
+    "type" : "paragraph",
+    "id" : 454,
+    "page number" : 22,
+    "bounding box" : [ 511.94, 141.133, 606.573, 165.18 ],
+    "font" : "CambriaMath",
+    "font size" : 24.024,
+    "text color" : "[0.753, 0.0, 0.0]",
+    "content" : "× ×"
+  }, {
+    "type" : "footer",
+    "id" : 457,
+    "page number" : 22,
+    "bounding box" : [ 48.504, 76.92, 685.105, 136.841 ],
+    "kids" : [ {
+      "type" : "heading",
+      "id" : 77,
+      "page number" : 22,
+      "bounding box" : [ 551.54, 112.818, 568.676, 136.841 ],
+      "heading level" : 6,
+      "font" : "CambriaMath",
+      "font size" : 24.0,
+      "text color" : "[0.753, 0.0, 0.0]",
+      "content" : "×"
+    }, {
+      "type" : "paragraph",
+      "id" : 78,
+      "page number" : 22,
+      "bounding box" : [ 462.0, 118.562, 469.806, 131.731 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 79,
+      "page number" : 22,
+      "bounding box" : [ 48.504, 113.502, 56.31, 126.671 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 80,
+      "page number" : 22,
+      "bounding box" : [ 431.06, 101.877, 685.105, 115.069 ],
+      "font" : "ArialMT",
+      "font size" : 14.064,
+      "text color" : "[0.0]",
+      "content" : "-0,5 0 0,5 1 1,5 2 2,5"
+    }, {
+      "type" : "paragraph",
+      "id" : 81,
+      "page number" : 22,
+      "bounding box" : [ 64.44, 96.796, 280.666, 109.965 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0 1 2 3"
+    }, {
+      "type" : "heading",
+      "id" : 82,
+      "page number" : 22,
+      "bounding box" : [ 163.34, 78.832, 173.36, 97.629 ],
+      "heading level" : 8,
+      "font" : "ArialMT",
+      "font size" : 20.04,
+      "text color" : "[0.0]",
+      "content" : "x"
+    }, {
+      "type" : "image",
+      "id" : 83,
+      "page number" : 22,
+      "bounding box" : [ 552.96, 76.92, 567.96, 93.96 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile87.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 458,
+    "page number" : 23,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 126,
+      "page number" : 23,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile88.png"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 463,
+    "page number" : 23,
+    "bounding box" : [ 154.2, 404.64, 207.6, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile89.png"
+  }, {
+    "type" : "image",
+    "id" : 467,
+    "page number" : 23,
+    "bounding box" : [ 515.76, 404.64, 567.96, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile90.png"
+  }, {
+    "type" : "heading",
+    "id" : 471,
+    "level" : "Subtitle",
+    "page number" : 23,
+    "bounding box" : [ 49.848, 374.75, 649.376, 391.634 ],
+    "heading level" : 10,
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "(for fixed , this is a function of x (function of the parameter )"
+  }, {
+    "type" : "list",
+    "id" : 469,
+    "level" : "4",
+    "page number" : 23,
+    "bounding box" : [ 462.0, 174.602, 469.806, 299.851 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 23,
+      "bounding box" : [ 462.0, 174.602, 469.806, 187.771 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 23,
+      "bounding box" : [ 462.0, 230.642, 469.806, 243.811 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 23,
+      "bounding box" : [ 462.0, 286.682, 469.806, 299.851 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 462,
+    "level" : "4",
+    "page number" : 23,
+    "bounding box" : [ 48.504, 169.542, 56.31, 294.791 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 23,
+      "bounding box" : [ 48.504, 169.542, 56.31, 182.711 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 23,
+      "bounding box" : [ 48.504, 225.582, 56.31, 238.751 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 23,
+      "bounding box" : [ 48.504, 281.622, 56.31, 294.791 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 470,
+    "page number" : 23,
+    "bounding box" : [ 398.16, 210.48, 432.0, 226.08 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile91.png"
+  }, {
+    "type" : "heading",
+    "id" : 464,
+    "level" : "Subtitle",
+    "page number" : 23,
+    "bounding box" : [ 25.2, 201.112, 35.22, 219.909 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "y"
+  }, {
+    "type" : "footer",
+    "id" : 472,
+    "page number" : 23,
+    "bounding box" : [ 48.504, 76.92, 685.105, 165.18 ],
+    "kids" : [ {
+      "type" : "paragraph",
+      "id" : 84,
+      "page number" : 23,
+      "bounding box" : [ 511.94, 141.133, 606.573, 165.18 ],
+      "font" : "CambriaMath",
+      "font size" : 24.024,
+      "text color" : "[0.753, 0.0, 0.0]",
+      "content" : "× ×"
+    }, {
+      "type" : "image",
+      "id" : 85,
+      "page number" : 23,
+      "bounding box" : [ 286.44, 138.96, 337.56, 155.4 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile92.png"
+    }, {
+      "type" : "paragraph",
+      "id" : 86,
+      "page number" : 23,
+      "bounding box" : [ 551.54, 112.818, 568.676, 136.841 ],
+      "font" : "CambriaMath",
+      "font size" : 24.0,
+      "text color" : "[0.753, 0.0, 0.0]",
+      "content" : "×"
+    }, {
+      "type" : "paragraph",
+      "id" : 87,
+      "page number" : 23,
+      "bounding box" : [ 462.0, 118.562, 469.806, 131.731 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 88,
+      "page number" : 23,
+      "bounding box" : [ 48.504, 113.502, 56.31, 126.671 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 89,
+      "page number" : 23,
+      "bounding box" : [ 431.06, 101.877, 685.105, 115.069 ],
+      "font" : "ArialMT",
+      "font size" : 14.064,
+      "text color" : "[0.0]",
+      "content" : "-0,5 0 0,5 1 1,5 2 2,5"
+    }, {
+      "type" : "paragraph",
+      "id" : 90,
+      "page number" : 23,
+      "bounding box" : [ 64.44, 96.796, 280.666, 109.965 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0 1 2 3"
+    }, {
+      "type" : "heading",
+      "id" : 91,
+      "page number" : 23,
+      "bounding box" : [ 163.34, 78.832, 173.36, 97.629 ],
+      "heading level" : 8,
+      "font" : "ArialMT",
+      "font size" : 20.04,
+      "text color" : "[0.0]",
+      "content" : "x"
+    }, {
+      "type" : "image",
+      "id" : 92,
+      "page number" : 23,
+      "bounding box" : [ 552.96, 76.92, 567.96, 93.96 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile93.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 473,
+    "page number" : 24,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 127,
+      "page number" : 24,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile94.png"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 480,
+    "page number" : 24,
+    "bounding box" : [ 154.2, 404.64, 207.6, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile95.png"
+  }, {
+    "type" : "image",
+    "id" : 484,
+    "page number" : 24,
+    "bounding box" : [ 515.76, 404.64, 567.96, 428.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile96.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 489,
+    "page number" : 24,
+    "bounding box" : [ 49.848, 374.75, 649.376, 391.634 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "(for fixed , this is a function of x (function of the parameter )"
+  }, {
+    "type" : "list",
+    "id" : 486,
+    "level" : "4",
+    "page number" : 24,
+    "bounding box" : [ 462.0, 174.602, 469.806, 299.851 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 24,
+      "bounding box" : [ 462.0, 174.602, 469.806, 187.771 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 24,
+      "bounding box" : [ 462.0, 230.642, 469.806, 243.811 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 24,
+      "bounding box" : [ 462.0, 286.682, 469.806, 299.851 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "list",
+    "id" : 479,
+    "level" : "4",
+    "page number" : 24,
+    "bounding box" : [ 48.504, 169.542, 56.31, 294.791 ],
+    "numbering style" : "arabic numbers",
+    "number of list items" : 3,
+    "list items" : [ {
+      "type" : "list item",
+      "page number" : 24,
+      "bounding box" : [ 48.504, 169.542, 56.31, 182.711 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "1",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 24,
+      "bounding box" : [ 48.504, 225.582, 56.31, 238.751 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "2",
+      "kids" : [ ]
+    }, {
+      "type" : "list item",
+      "page number" : 24,
+      "bounding box" : [ 48.504, 281.622, 56.31, 294.791 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "3",
+      "kids" : [ ]
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 488,
+    "page number" : 24,
+    "bounding box" : [ 472.97, 243.258, 642.386, 267.281 ],
+    "font" : "CambriaMath",
+    "font size" : 24.0,
+    "text color" : "[0.753, 0.0, 0.0]",
+    "content" : "× ×"
+  }, {
+    "type" : "image",
+    "id" : 487,
+    "page number" : 24,
+    "bounding box" : [ 398.16, 210.48, 432.0, 226.08 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile97.png"
+  }, {
+    "type" : "heading",
+    "id" : 481,
+    "level" : "Subtitle",
+    "page number" : 24,
+    "bounding box" : [ 25.2, 201.112, 35.22, 219.909 ],
+    "heading level" : 8,
+    "font" : "ArialMT",
+    "font size" : 20.04,
+    "text color" : "[0.0]",
+    "content" : "y"
+  }, {
+    "type" : "footer",
+    "id" : 490,
+    "page number" : 24,
+    "bounding box" : [ 48.504, 76.92, 685.105, 165.18 ],
+    "kids" : [ {
+      "type" : "paragraph",
+      "id" : 93,
+      "page number" : 24,
+      "bounding box" : [ 511.94, 141.133, 607.243, 165.18 ],
+      "font" : "CambriaMath",
+      "font size" : 24.024,
+      "text color" : "[0.753, 0.0, 0.0]",
+      "content" : "× ×"
+    }, {
+      "type" : "image",
+      "id" : 94,
+      "page number" : 24,
+      "bounding box" : [ 286.44, 138.96, 337.56, 155.4 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile98.png"
+    }, {
+      "type" : "paragraph",
+      "id" : 95,
+      "page number" : 24,
+      "bounding box" : [ 551.54, 112.818, 568.676, 136.841 ],
+      "font" : "CambriaMath",
+      "font size" : 24.0,
+      "text color" : "[0.753, 0.0, 0.0]",
+      "content" : "×"
+    }, {
+      "type" : "paragraph",
+      "id" : 96,
+      "page number" : 24,
+      "bounding box" : [ 462.0, 118.562, 469.806, 131.731 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 97,
+      "page number" : 24,
+      "bounding box" : [ 48.504, 113.502, 56.31, 126.671 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0"
+    }, {
+      "type" : "paragraph",
+      "id" : 98,
+      "page number" : 24,
+      "bounding box" : [ 431.06, 101.877, 685.105, 115.069 ],
+      "font" : "ArialMT",
+      "font size" : 14.064,
+      "text color" : "[0.0]",
+      "content" : "-0,5 0 0,5 1 1,5 2 2,5"
+    }, {
+      "type" : "paragraph",
+      "id" : 99,
+      "page number" : 24,
+      "bounding box" : [ 64.44, 96.796, 280.666, 109.965 ],
+      "font" : "ArialMT",
+      "font size" : 14.04,
+      "text color" : "[0.0]",
+      "content" : "0 1 2 3"
+    }, {
+      "type" : "heading",
+      "id" : 100,
+      "page number" : 24,
+      "bounding box" : [ 163.34, 78.832, 173.36, 97.629 ],
+      "heading level" : 8,
+      "font" : "ArialMT",
+      "font size" : 20.04,
+      "text color" : "[0.0]",
+      "content" : "x"
+    }, {
+      "type" : "image",
+      "id" : 101,
+      "page number" : 24,
+      "bounding box" : [ 552.96, 76.92, 567.96, 93.96 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile99.png"
+    } ]
+  }, {
+    "type" : "header",
+    "id" : 491,
+    "page number" : 25,
+    "bounding box" : [ 32.688, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 128,
+      "page number" : 25,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile100.png"
+    }, {
+      "type" : "heading",
+      "id" : 129,
+      "page number" : 25,
+      "bounding box" : [ 32.688, 469.44, 364.584, 491.952 ],
+      "heading level" : 5,
+      "font" : "Arial-BoldItalicMT",
+      "font size" : 24.0,
+      "text color" : "[0.0]",
+      "content" : "Univariate Linear Regression"
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 502,
+    "page number" : 25,
+    "bounding box" : [ 56.208, 393.84, 158.88, 416.352 ],
+    "font" : "ArialMT",
+    "font size" : 24.0,
+    "text color" : "[0.149]",
+    "content" : "Summary"
+  }, {
+    "type" : "paragraph",
+    "id" : 495,
+    "page number" : 25,
+    "bounding box" : [ 56.208, 333.07, 181.488, 355.582 ],
+    "font" : "ArialMT",
+    "font size" : 24.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Hypothesis:"
+  }, {
+    "type" : "image",
+    "id" : 494,
+    "page number" : 25,
+    "bounding box" : [ 276.24, 329.52, 458.64, 354.84 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile101.png"
+  }, {
+    "type" : "image",
+    "id" : 496,
+    "page number" : 25,
+    "bounding box" : [ 278.88, 262.8, 331.08, 285.0 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile102.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 497,
+    "page number" : 25,
+    "bounding box" : [ 56.208, 259.605, 186.947, 282.139 ],
+    "font" : "ArialMT",
+    "font size" : 24.024,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Parameters:"
+  }, {
+    "type" : "image",
+    "id" : 498,
+    "page number" : 25,
+    "bounding box" : [ 276.24, 168.36, 651.96, 221.16 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile103.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 499,
+    "page number" : 25,
+    "bounding box" : [ 56.208, 189.05, 202.944, 211.562 ],
+    "font" : "ArialMT",
+    "font size" : 24.0,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Cost function:"
+  }, {
+    "type" : "image",
+    "id" : 500,
+    "page number" : 25,
+    "bounding box" : [ 276.24, 94.2, 458.64, 130.32 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile104.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 501,
+    "page number" : 25,
+    "bounding box" : [ 56.208, 103.745, 113.529, 126.279 ],
+    "font" : "ArialMT",
+    "font size" : 24.024,
+    "text color" : "[0.0, 0.439, 0.753]",
+    "content" : "Goal:"
+  }, {
+    "type" : "header",
+    "id" : 503,
+    "page number" : 26,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 130,
+      "page number" : 26,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile105.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 513,
+    "level" : "Subtitle",
+    "page number" : 26,
+    "bounding box" : [ 32.688, 469.44, 378.024, 491.952 ],
+    "heading level" : 5,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 24.0,
+    "text color" : "[0.0]",
+    "content" : "Univariate Lineare Regression"
+  }, {
+    "type" : "image",
+    "id" : 508,
+    "page number" : 26,
+    "bounding box" : [ 176.64, 399.12, 230.04, 423.24 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile106.png"
+  }, {
+    "type" : "image",
+    "id" : 510,
+    "page number" : 26,
+    "bounding box" : [ 515.76, 399.12, 600.6, 423.24 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile107.png"
+  }, {
+    "type" : "image",
+    "id" : 511,
+    "page number" : 26,
+    "bounding box" : [ 638.88, 373.56, 675.0, 388.92 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile108.png"
+  }, {
+    "type" : "paragraph",
+    "id" : 512,
+    "page number" : 26,
+    "bounding box" : [ 44.016, 371.89, 681.41, 388.774 ],
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "(for fixed , this is a function of x) (function of the parameters )"
+  }, {
+    "type" : "image",
+    "id" : 509,
+    "page number" : 26,
+    "bounding box" : [ 121.92, 373.56, 153.84, 387.24 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile109.png"
+  }, {
+    "type" : "image",
+    "id" : 507,
+    "page number" : 26,
+    "bounding box" : [ 21.84, 77.28, 367.44, 336.36 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile110.png"
+  }, {
+    "type" : "image",
+    "id" : 506,
+    "page number" : 26,
+    "bounding box" : [ 360.24, 77.28, 705.84, 336.36 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile111.png"
+  }, {
+    "type" : "header",
+    "id" : 514,
+    "page number" : 27,
+    "bounding box" : [ 32.688, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 131,
+      "page number" : 27,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile112.png"
+    }, {
+      "type" : "heading",
+      "id" : 132,
+      "page number" : 27,
+      "bounding box" : [ 32.688, 469.44, 364.584, 491.952 ],
+      "heading level" : 5,
+      "font" : "Arial-BoldItalicMT",
+      "font size" : 24.0,
+      "text color" : "[0.0]",
+      "content" : "Univariate Linear Regression"
+    } ]
+  }, {
+    "type" : "image",
+    "id" : 519,
+    "page number" : 27,
+    "bounding box" : [ 176.64, 399.12, 230.04, 423.24 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile113.png"
+  }, {
+    "type" : "image",
+    "id" : 520,
+    "page number" : 27,
+    "bounding box" : [ 515.76, 399.12, 600.6, 423.24 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile114.png"
+  }, {
+    "type" : "image",
+    "id" : 522,
+    "page number" : 27,
+    "bounding box" : [ 638.88, 373.56, 675.0, 388.92 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile115.png"
+  }, {
+    "type" : "heading",
+    "id" : 523,
+    "level" : "Subtitle",
+    "page number" : 27,
+    "bounding box" : [ 44.016, 371.89, 681.41, 388.774 ],
+    "heading level" : 10,
+    "font" : "ArialMT",
+    "font size" : 18.0,
+    "text color" : "[0.0]",
+    "content" : "(for fixed , this is a function of x) (function of the parameters )"
+  }, {
+    "type" : "image",
+    "id" : 521,
+    "page number" : 27,
+    "bounding box" : [ 121.92, 373.56, 153.84, 387.24 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile116.png"
+  }, {
+    "type" : "image",
+    "id" : 518,
+    "page number" : 27,
+    "bounding box" : [ 21.84, 77.28, 367.44, 336.48 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile117.png"
+  }, {
+    "type" : "image",
+    "id" : 517,
+    "page number" : 27,
+    "bounding box" : [ 360.24, 77.28, 705.84, 336.48 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile118.png"
+  }, {
+    "type" : "header",
+    "id" : 524,
+    "page number" : 28,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 133,
+      "page number" : 28,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile119.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 527,
+    "level" : "Subtitle",
+    "page number" : 28,
+    "bounding box" : [ 49.704, 273.662, 606.209, 350.882 ],
+    "heading level" : 3,
+    "font" : "ArialMT",
+    "font size" : 32.04,
+    "text color" : "[0.0, 0.0, 1.0]",
+    "content" : "How do we find the parameters (best ) that minimize the cost function?"
+  }, {
+    "type" : "header",
+    "id" : 528,
+    "page number" : 29,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 134,
+      "page number" : 29,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile120.png"
+    } ]
+  }, {
+    "type" : "paragraph",
+    "id" : 532,
+    "page number" : 29,
+    "bounding box" : [ 49.704, 273.662, 606.209, 350.882 ],
+    "font" : "ArialMT",
+    "font size" : 32.04,
+    "text color" : "[0.0, 0.0, 1.0]",
+    "content" : "How do we find the parameters (best ) that minimize the cost function?"
+  }, {
+    "type" : "paragraph",
+    "id" : 531,
+    "level" : "5",
+    "page number" : 29,
+    "bounding box" : [ 72.429, 180.786, 415.385, 225.163 ],
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 39.984,
+    "text color" : "[0.0]",
+    "content" : "➔OPTIMIZATION"
+  }, {
+    "type" : "header",
+    "id" : 533,
+    "page number" : 30,
+    "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+    "kids" : [ {
+      "type" : "image",
+      "id" : 135,
+      "page number" : 30,
+      "bounding box" : [ 508.68, 464.16, 692.28, 527.16 ],
+      "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile121.png"
+    } ]
+  }, {
+    "type" : "heading",
+    "id" : 536,
+    "level" : "Subtitle",
+    "page number" : 30,
+    "bounding box" : [ 26.448, 468.94, 287.544, 491.452 ],
+    "heading level" : 5,
+    "font" : "Arial-BoldItalicMT",
+    "font size" : 24.0,
+    "text color" : "[0.0]",
+    "content" : "Idea: Gradient Descent"
+  }, {
+    "type" : "image",
+    "id" : 537,
+    "page number" : 30,
+    "bounding box" : [ 65.4, 66.0, 646.8, 425.76 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile122.png"
+  }, {
+    "type" : "image",
+    "id" : 538,
+    "page number" : 30,
+    "bounding box" : [ 198.12, 99.84, 274.92, 188.52 ],
+    "source" : "ML_VL_08_Linear_Regression-1-30_images/imageFile123.png"
+  } ]
+}

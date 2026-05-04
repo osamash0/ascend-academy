@@ -1,335 +1,401 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import type { TreeNode } from '@/features/mindmap/hooks/useMindMap';
+/**
+ * Lecture mind map — d3-hierarchy tidy-tree layout.
+ *
+ * This component is intentionally state-aware: callers pass a discriminated
+ * `state` (loading | empty | error | ready) so the renderer always shows the
+ * correct UX for the four lifecycle stages, never a blank panel.
+ */
+import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
+import { hierarchy, tree as d3tree, type HierarchyPointNode } from 'd3-hierarchy';
+import type { TreeNode } from '@/types/domain';
+import { MindMapErrorBoundary } from '@/features/mindmap/MindMapErrorBoundary';
 
-// ─── Layout Engine ──────────────────────────────────────────────────────────
+// ─── State contract ────────────────────────────────────────────────────────
 
-interface PositionedNode extends TreeNode {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  children?: PositionedNode[];
-}
-
-const NODE_W: Record<string, number> = { root: 160, cluster: 140, slide: 130, concept: 110 };
-const NODE_H: Record<string, number> = { root: 56, cluster: 44, slide: 40, concept: 32 };
-const H_GAP = 80;  // horizontal gap between levels
-const V_GAP = 16;  // vertical gap between siblings
-
-/** Recursively compute subtree height */
-function subtreeHeight(node: TreeNode, collapsed: Set<string>): number {
-  const h = NODE_H[node.type] ?? 36;
-  if (!node.children?.length || collapsed.has(node.id)) return h;
-  const childrenH = node.children.reduce(
-    (sum, c, i) => sum + subtreeHeight(c, collapsed) + (i > 0 ? V_GAP : 0),
-    0
-  );
-  return Math.max(h, childrenH);
-}
-
-/** Assign x,y positions, returns total height used */
-function positionNode(
-  node: TreeNode,
-  x: number,
-  y: number,
-  collapsed: Set<string>
-): PositionedNode {
-  const w = NODE_W[node.type] ?? 120;
-  const h = NODE_H[node.type] ?? 36;
-
-  if (!node.children?.length || collapsed.has(node.id)) {
-    return { ...node, x, y, width: w, height: h, children: [] };
-  }
-
-  const childX = x + w + H_GAP;
-  const totalChildH = node.children.reduce(
-    (sum, c, i) => sum + subtreeHeight(c, collapsed) + (i > 0 ? V_GAP : 0),
-    0
-  );
-
-  const startY = y + h / 2 - totalChildH / 2;
-  const positioned: PositionedNode[] = [];
-  let curY = startY;
-
-  for (const child of node.children) {
-    const childH = subtreeHeight(child, collapsed);
-    const pos = positionNode(child, childX, curY + childH / 2 - (NODE_H[child.type] ?? 36) / 2, collapsed);
-    positioned.push(pos);
-    curY += childH + V_GAP;
-  }
-
-  return { ...node, x, y, width: w, height: h, children: positioned };
-}
-
-/** Collect all nodes flat */
-function flatten(node: PositionedNode): PositionedNode[] {
-  return [node, ...(node.children?.flatMap(flatten) ?? [])];
-}
-
-/** Collect all edges */
-function edges(node: PositionedNode): { from: PositionedNode; to: PositionedNode }[] {
-  return (node.children ?? []).flatMap((c) => [{ from: node, to: c }, ...edges(c)]);
-}
-
-// ─── Bezier edge path ───────────────────────────────────────────────────────
-
-function edgePath(from: PositionedNode, to: PositionedNode) {
-  const x1 = from.x + from.width;
-  const y1 = from.y + from.height / 2;
-  const x2 = to.x;
-  const y2 = to.y + to.height / 2;
-  const cx = (x1 + x2) / 2;
-  return `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`;
-}
-
-// ─── Node style config ──────────────────────────────────────────────────────
-
-const nodeStyles: Record<string, { fill: string; stroke: string; text: string; rx: number }> = {
-  root:    { fill: 'from-primary to-secondary',      stroke: 'hsl(var(--primary))',   text: 'text-white',         rx: 28 },
-  cluster: { fill: 'from-secondary/60 to-primary/40', stroke: 'hsl(var(--secondary))', text: 'text-foreground',    rx: 20 },
-  slide:   { fill: 'from-surface-2 to-surface-1',    stroke: 'hsl(var(--border))',    text: 'text-foreground',    rx: 12 },
-  concept: { fill: 'from-xp/20 to-warning/10',       stroke: 'hsl(var(--xp))',        text: 'text-muted-foreground', rx: 99 },
-};
-
-// ─── Single node rendering ──────────────────────────────────────────────────
-
-function NodeRect({
-  node,
-  isActive,
-  isCollapsed,
-  onToggle,
-  onHover,
-}: {
-  node: PositionedNode;
-  isActive: boolean;
-  isCollapsed: boolean;
-  onToggle: (id: string) => void;
-  onHover: (node: PositionedNode | null) => void;
-}) {
-  const s = nodeStyles[node.type] ?? nodeStyles.concept;
-  const hasChildren = (node.children?.length ?? 0) > 0 || isCollapsed;
-
-  return (
-    <motion.g
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.5 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-      style={{ cursor: hasChildren ? 'pointer' : 'default' }}
-      onClick={() => hasChildren && onToggle(node.id)}
-      onMouseEnter={() => onHover(node)}
-      onMouseLeave={() => onHover(null)}
-    >
-      {/* Active ring */}
-      {isActive && (
-        <motion.rect
-          x={node.x - 4}
-          y={node.y - 4}
-          width={node.width + 8}
-          height={node.height + 8}
-          rx={s.rx + 4}
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeWidth={2}
-          strokeDasharray="6 3"
-          animate={{ strokeDashoffset: [0, -18] }}
-          transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
-        />
-      )}
-
-      {/* Body */}
-      <foreignObject x={node.x} y={node.y} width={node.width} height={node.height}>
-        <div
-          className={`w-full h-full flex items-center justify-center rounded-full bg-gradient-to-r ${s.fill} border`}
-          style={{
-            borderRadius: s.rx,
-            borderColor: s.stroke,
-            borderWidth: isActive ? 2 : 1,
-            boxShadow: isActive ? `0 0 12px ${s.stroke}55` : undefined,
-          }}
-        >
-          <span className={`text-[10px] font-bold px-2 text-center leading-tight ${s.text} truncate w-full text-center`}>
-            {node.label}
-          </span>
-        </div>
-      </foreignObject>
-
-      {/* Collapse indicator */}
-      {isCollapsed && (
-        <text
-          x={node.x + node.width + 6}
-          y={node.y + node.height / 2 + 4}
-          fontSize={10}
-          fill="hsl(var(--muted-foreground))"
-        >
-          ▸
-        </text>
-      )}
-    </motion.g>
-  );
-}
-
-// ─── Tooltip ────────────────────────────────────────────────────────────────
-
-function Tooltip({ node, svgRect }: { node: PositionedNode; svgRect: DOMRect | null }) {
-  if (!node.summary || !svgRect) return null;
-  return (
-    <div
-      className="absolute z-50 max-w-[220px] glass-panel-strong border-primary/20 p-3 rounded-xl shadow-2xl text-xs text-muted-foreground pointer-events-none"
-      style={{
-        left: node.x + node.width / 2,
-        top: node.y - 8,
-        transform: 'translate(-50%, -100%)',
-      }}
-    >
-      <p className="font-bold text-foreground mb-1">{node.label}</p>
-      <p>{node.summary}</p>
-    </div>
-  );
-}
-
-// ─── Main component ─────────────────────────────────────────────────────────
+export type MindMapState =
+  | { kind: 'loading' }
+  | { kind: 'empty'; canGenerate: boolean; isGenerating: boolean; onGenerate?: () => void }
+  | { kind: 'error'; message: string; onRetry?: () => void }
+  | { kind: 'ready'; tree: TreeNode };
 
 interface MindMapProps {
-  treeData: TreeNode;
+  state: MindMapState;
   currentSlideId?: string;
+  onSlideClick?: (slideId: string) => void;
+  /** Called when the user clicks "Retry" inside the render-crash error boundary. */
+  onErrorBoundaryRetry?: () => void;
   height?: number;
 }
 
-export function MindMap({ treeData, currentSlideId, height = 460 }: MindMapProps) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [hovered, setHovered] = useState<PositionedNode | null>(null);
-  const [transform, setTransform] = useState({ x: 24, y: 0, scale: 1 });
+// ─── Style per node type ───────────────────────────────────────────────────
+
+const NODE_W: Record<TreeNode['type'], number> = {
+  root: 180,
+  cluster: 160,
+  slide: 150,
+  concept: 130,
+};
+const NODE_H: Record<TreeNode['type'], number> = {
+  root: 56,
+  cluster: 44,
+  slide: 40,
+  concept: 36,
+};
+const ROW_GAP = 28;
+const COL_GAP = 60;
+
+function nodeClass(type: TreeNode['type'], active: boolean, clickable: boolean) {
+  const base = 'flex items-center justify-center rounded-2xl border w-full h-full px-3 text-center transition';
+  const cursor = clickable ? 'cursor-pointer hover:brightness-110' : 'cursor-default';
+  const ring = active ? 'ring-2 ring-primary shadow-glow-primary' : '';
+  switch (type) {
+    case 'root':
+      return `${base} ${cursor} ${ring} bg-gradient-to-r from-primary to-secondary text-white border-primary/40 font-bold`;
+    case 'cluster':
+      return `${base} ${cursor} ${ring} bg-secondary/20 text-foreground border-secondary/40 font-semibold`;
+    case 'slide':
+      return `${base} ${cursor} ${ring} bg-surface-2 text-foreground border-border`;
+    case 'concept':
+    default:
+      return `${base} ${cursor} ${ring} bg-xp/10 text-muted-foreground border-xp/30 italic`;
+  }
+}
+
+// ─── Inner renderer (only invoked in 'ready' state) ────────────────────────
+
+function MindMapTree({
+  tree,
+  currentSlideId,
+  onSlideClick,
+  height,
+}: {
+  tree: TreeNode;
+  currentSlideId?: string;
+  onSlideClick?: (slideId: string) => void;
+  height: number;
+}) {
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const isPanning = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
-  const svgRef = useRef<SVGSVGElement>(null);
 
   const toggleCollapse = useCallback((id: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
 
-  // Build layout
-  const positioned = positionNode(treeData, 24, 24, collapsed);
-  const allNodes = flatten(positioned);
-  const allEdges = edges(positioned);
+  const layout = useMemo(() => {
+    // Children accessor honors the collapsed set so the tidy-tree relayouts
+    // on every toggle without losing pan/zoom transform state.
+    const root = hierarchy<TreeNode>(tree, (d) =>
+      collapsed.has(d.id) ? [] : (d.children ?? []),
+    );
+    // Tidy tree, vertical (root at top). nodeSize gives us a per-node tile so
+    // siblings never overlap regardless of depth or label length.
+    const layoutFn = d3tree<TreeNode>().nodeSize([
+      NODE_W.cluster + COL_GAP,
+      NODE_H.cluster + ROW_GAP * 4,
+    ]);
+    const positioned = layoutFn(root);
+    const nodes = positioned.descendants();
+    const links = positioned.links();
+    if (nodes.length === 0) {
+      return { nodes, links, minX: 0, maxX: 0, maxY: 0 };
+    }
+    const xs = nodes.map((n) => n.x);
+    const ys = nodes.map((n) => n.y);
+    return {
+      nodes,
+      links,
+      minX: Math.min(...xs),
+      maxX: Math.max(...xs),
+      maxY: Math.max(...ys),
+    };
+  }, [tree, collapsed]);
 
-  // Compute SVG viewBox
-  const maxX = Math.max(...allNodes.map((n) => n.x + n.width)) + 32;
-  const maxY = Math.max(...allNodes.map((n) => n.y + n.height)) + 32;
+  const padX = NODE_W.root;
+  // Add a top pad so the root node tile (centered around y=0) is never
+  // clipped on first render, and a matching bottom pad for symmetry.
+  const padY = NODE_H.root;
+  const width = Math.max(400, layout.maxX - layout.minX + padX * 2);
+  const svgHeight = Math.max(height, layout.maxY + padY * 2 + 32);
+  const offsetX = -layout.minX + padX;
+  const offsetY = padY;
 
-  // Pan & zoom handlers
-  const onMouseDown = (e: React.MouseEvent) => {
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
     isPanning.current = true;
     lastPos.current = { x: e.clientX, y: e.clientY };
-  };
-  const onMouseMove = (e: React.MouseEvent) => {
+  }, []);
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isPanning.current) return;
     const dx = e.clientX - lastPos.current.x;
     const dy = e.clientY - lastPos.current.y;
     lastPos.current = { x: e.clientX, y: e.clientY };
     setTransform((t) => ({ ...t, x: t.x + dx, y: t.y + dy }));
-  };
-  const onMouseUp = () => { isPanning.current = false; };
-  const onWheel = (e: React.WheelEvent) => {
+  }, []);
+  const onMouseUp = useCallback(() => {
+    isPanning.current = false;
+  }, []);
+  const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = -e.deltaY * 0.001;
-    setTransform((t) => ({ ...t, scale: Math.min(2, Math.max(0.3, t.scale + delta)) }));
+    setTransform((t) => ({
+      ...t,
+      scale: Math.min(2, Math.max(0.3, t.scale + delta)),
+    }));
+  }, []);
+  const reset = useCallback(() => setTransform({ x: 0, y: 0, scale: 1 }), []);
+
+  const linkPath = (l: { source: HierarchyPointNode<TreeNode>; target: HierarchyPointNode<TreeNode> }) => {
+    const sx = l.source.x + offsetX;
+    const sy = l.source.y + offsetY + NODE_H[l.source.data.type] / 2;
+    const tx = l.target.x + offsetX;
+    const ty = l.target.y + offsetY - NODE_H[l.target.data.type] / 2;
+    const my = (sy + ty) / 2;
+    return `M ${sx} ${sy} C ${sx} ${my}, ${tx} ${my}, ${tx} ${ty}`;
   };
 
-  const resetView = () => setTransform({ x: 24, y: 0, scale: 1 });
+  // Auto-pan so the currently-focused slide node is centered in the viewport
+  // when the parent updates `currentSlideId`. Only runs on slide changes; the
+  // user can still freely pan/zoom afterwards.
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!currentSlideId) return;
+    const target = layout.nodes.find(
+      (n) => n.data.type === 'slide' && n.data.id === currentSlideId,
+    );
+    const vp = viewportRef.current;
+    if (!target || !vp) return;
+    const rect = vp.getBoundingClientRect();
+    setTransform((prev) => {
+      const tx = rect.width / 2 - (target.x + offsetX) * prev.scale;
+      const ty = rect.height / 2 - (target.y + offsetY) * prev.scale;
+      return { ...prev, x: tx, y: ty };
+    });
+  }, [currentSlideId, layout.nodes, offsetX, offsetY]);
 
   return (
-    <div className="relative select-none" style={{ height }}>
-      {/* Controls */}
+    <div
+      className="relative select-none"
+      style={{ height }}
+      data-testid="mindmap-ready"
+    >
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
           onClick={() => setTransform((t) => ({ ...t, scale: Math.min(2, t.scale + 0.15) }))}
           className="w-8 h-8 glass-card border-white/10 rounded-lg text-muted-foreground hover:text-foreground text-sm font-bold flex items-center justify-center"
-        >+</button>
+          aria-label="Zoom in"
+        >
+          +
+        </button>
         <button
           onClick={() => setTransform((t) => ({ ...t, scale: Math.max(0.3, t.scale - 0.15) }))}
           className="w-8 h-8 glass-card border-white/10 rounded-lg text-muted-foreground hover:text-foreground text-sm font-bold flex items-center justify-center"
-        >−</button>
+          aria-label="Zoom out"
+        >
+          −
+        </button>
         <button
-          onClick={resetView}
+          onClick={reset}
           className="px-3 h-8 glass-card border-white/10 rounded-lg text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase tracking-widest"
-        >Reset</button>
+        >
+          Reset
+        </button>
       </div>
 
-      {/* Hint */}
-      <p className="absolute bottom-3 left-3 z-10 text-[9px] text-muted-foreground/40 uppercase tracking-widest pointer-events-none">
-        Drag to pan · Scroll to zoom · Click nodes to expand
-      </p>
-
-      {/* SVG Canvas */}
-      <svg
-        ref={svgRef}
-        width="100%"
-        height="100%"
-        style={{ cursor: isPanning.current ? 'grabbing' : 'grab', overflow: 'hidden' }}
+      <div
+        ref={viewportRef}
+        className="absolute inset-0 overflow-hidden"
+        style={{ cursor: isPanning.current ? 'grabbing' : 'grab' }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
         onWheel={onWheel}
       >
-        <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
-          {/* Edges */}
-          {allEdges.map(({ from, to }, i) => (
-            <motion.path
-              key={`edge-${from.id}-${to.id}`}
-              d={edgePath(from, to)}
-              fill="none"
-              stroke="hsl(var(--border))"
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 1 }}
-              transition={{ duration: 0.4, delay: i * 0.02 }}
-            />
-          ))}
-
-          {/* Nodes */}
-          <AnimatePresence>
-            {allNodes.map((node) => (
-              <NodeRect
-                key={node.id}
-                node={node}
-                isActive={!!currentSlideId && node.id === currentSlideId}
-                isCollapsed={collapsed.has(node.id)}
-                onToggle={toggleCollapse}
-                onHover={setHovered}
-              />
-            ))}
-          </AnimatePresence>
-        </g>
-      </svg>
-
-      {/* Tooltip — rendered outside SVG in DOM so it can overflow */}
-      {hovered?.summary && (
-        <div
-          className="absolute z-50 max-w-[220px] glass-panel-strong border-primary/20 p-3 rounded-xl shadow-2xl text-xs text-muted-foreground pointer-events-none"
+        <svg
+          width={width}
+          height={svgHeight}
           style={{
-            left: (hovered.x + hovered.width / 2) * transform.scale + transform.x,
-            top: hovered.y * transform.scale + transform.y - 12,
-            transform: 'translate(-50%, -100%)',
+            transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+            transformOrigin: '0 0',
           }}
         >
-          <p className="font-bold text-foreground mb-1 text-[11px]">{hovered.label}</p>
-          <p>{hovered.summary}</p>
-        </div>
-      )}
+          <g>
+            {layout.links.map((l, i) => (
+              <path
+                key={`edge-${i}`}
+                d={linkPath(l)}
+                fill="none"
+                stroke="hsl(var(--border))"
+                strokeWidth={1.5}
+              />
+            ))}
+            {layout.nodes.map((n) => {
+              const w = NODE_W[n.data.type];
+              const h = NODE_H[n.data.type];
+              const x = n.x + offsetX - w / 2;
+              const y = n.y + offsetY - h / 2;
+              const isSlide = n.data.type === 'slide';
+              const active = !!currentSlideId && n.data.id === currentSlideId;
+              const clickable = isSlide && !!onSlideClick;
+              // A node is collapsible when it has children in the source tree
+              // (independent of whether they are currently hidden) and is not
+              // itself a clickable slide leaf.
+              const hasChildren = !!(n.data.children && n.data.children.length > 0);
+              const collapsible = hasChildren && !isSlide;
+              const isCollapsed = collapsed.has(n.data.id);
+              const handleClick = () => {
+                if (clickable) onSlideClick?.(n.data.id);
+              };
+              return (
+                <foreignObject key={n.data.id} x={x} y={y} width={w} height={h}>
+                  <div
+                    role={clickable ? 'button' : undefined}
+                    tabIndex={clickable ? 0 : -1}
+                    title={n.data.summary || n.data.label}
+                    data-testid={`mindmap-node-${n.data.type}`}
+                    data-node-id={n.data.id}
+                    onClick={handleClick}
+                    onKeyDown={(e) => {
+                      if (clickable && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        handleClick();
+                      }
+                    }}
+                    className={`relative ${nodeClass(n.data.type, active, clickable)}`}
+                  >
+                    <span className="text-[11px] truncate w-full leading-tight">
+                      {n.data.label}
+                    </span>
+                    {collapsible && (
+                      <button
+                        type="button"
+                        data-testid="mindmap-toggle"
+                        data-node-id={n.data.id}
+                        aria-label={isCollapsed ? 'Expand subtree' : 'Collapse subtree'}
+                        aria-expanded={!isCollapsed}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCollapse(n.data.id);
+                        }}
+                        className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-background border border-border text-foreground text-[10px] font-bold flex items-center justify-center shadow hover:bg-primary hover:text-white transition"
+                      >
+                        {isCollapsed ? '+' : '−'}
+                      </button>
+                    )}
+                  </div>
+                </foreignObject>
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+
+      <p className="absolute bottom-2 left-3 z-10 text-[9px] text-muted-foreground/40 uppercase tracking-widest pointer-events-none">
+        Drag to pan · Scroll to zoom · ± to collapse · Click a slide to open it
+      </p>
     </div>
+  );
+}
+
+// ─── State router ──────────────────────────────────────────────────────────
+
+export function MindMap({
+  state,
+  currentSlideId,
+  onSlideClick,
+  onErrorBoundaryRetry,
+  height = 480,
+}: MindMapProps) {
+  if (state.kind === 'loading') {
+    return (
+      <div
+        data-testid="mindmap-loading"
+        className="flex flex-col items-center justify-center py-16 gap-4"
+        style={{ minHeight: height }}
+      >
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-muted-foreground">Loading mind map…</p>
+      </div>
+    );
+  }
+
+  if (state.kind === 'empty') {
+    return (
+      <div
+        data-testid="mindmap-empty"
+        className="flex flex-col items-center justify-center py-16 gap-5"
+        style={{ minHeight: height }}
+      >
+        <div className="text-4xl">🧠</div>
+        <div className="text-center">
+          <p className="text-sm font-bold text-foreground mb-1">No mind map yet</p>
+          <p className="text-xs text-muted-foreground">
+            {state.canGenerate
+              ? 'Generate a visual knowledge tree from all lecture slides'
+              : 'Your professor has not generated a mind map for this lecture yet.'}
+          </p>
+        </div>
+        {state.canGenerate && state.onGenerate && (
+          <button
+            onClick={state.onGenerate}
+            disabled={state.isGenerating}
+            data-testid="mindmap-generate"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-sm font-bold disabled:opacity-50"
+          >
+            {state.isGenerating ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Generating… this can take 20–40 seconds
+              </>
+            ) : (
+              <>✨ Generate Mind Map</>
+            )}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <div
+        data-testid="mindmap-error-state"
+        className="flex flex-col items-center justify-center py-16 gap-4 text-center"
+        style={{ minHeight: height }}
+      >
+        <div className="text-3xl">⚠️</div>
+        <div>
+          <p className="text-sm font-bold text-foreground mb-1">
+            We couldn’t load the mind map
+          </p>
+          <p className="text-xs text-muted-foreground max-w-xs">{state.message}</p>
+        </div>
+        {state.onRetry && (
+          <button
+            onClick={state.onRetry}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:opacity-90"
+          >
+            Retry
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <MindMapErrorBoundary onRetry={onErrorBoundaryRetry}>
+      <MindMapTree
+        tree={state.tree}
+        currentSlideId={currentSlideId}
+        onSlideClick={onSlideClick}
+        height={height}
+      />
+    </MindMapErrorBoundary>
   );
 }

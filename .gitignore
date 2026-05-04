@@ -20,6 +20,9 @@ __pycache__/
 .env
 .env.*
 
+# Claude Code developer-local settings (machine-specific paths)
+.claude/settings.local.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,0 +1,22 @@
+Notation:
+m
+=     number of training samples
+x’s 
+=     “input” variable / independent variable / feature
+y’s 
+=     “output” variable / dependent variable / “target variable”
+(x(i),y(i)) =     i-th training sample
+Size in feet2 (x)
+Price ($) in 1000's (y)
+2104
+460
+1416
+232
+1534
+315
+852
+178
+…
+…
+Training samples
+Housing Prices Datensatz Portland, OR

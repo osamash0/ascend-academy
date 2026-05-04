@@ -1,8 +1,9 @@
 /**
  * Pseudonymize a user ID using SHA-256 for DSGVO-compliant analytics.
  * The hash is deterministic (same user = same hash) but non-reversible.
+ * VITE_ANON_SALT must be set per deployment to prevent hash reversal if source is exposed.
  */
-const SALT = 'learnstation-analytics-2026';
+const SALT = import.meta.env.VITE_ANON_SALT || 'learnstation-analytics-2026';
 
 export async function pseudonymizeId(userId: string): Promise<string> {
     const data = new TextEncoder().encode(SALT + userId);

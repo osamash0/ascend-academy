@@ -1,0 +1,93 @@
+{
+  "navigation": {
+    "back": "Back",
+    "previous": "Previous",
+    "next": "Next",
+    "showQuiz": "Take Quiz",
+    "continue": "Continue",
+    "finishLecture": "Finish Lecture",
+    "slideOf": "Slide {{current}} of {{total}}"
+  },
+  "quiz": {
+    "submit": "Submit Answer",
+    "correct": "Correct!",
+    "incorrect": "Not quite",
+    "tryAgain": "Try Again",
+    "explanation": "Explanation",
+    "showExplanation": "Show Explanation",
+    "hideExplanation": "Hide Explanation"
+  },
+  "tutor": {
+    "title": "AI Tutor",
+    "placeholder": "Ask anything about this slide...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "open": "Open AI Tutor",
+    "close": "Close"
+  },
+  "recap": {
+    "title": "Lecture Recap",
+    "missedQuestions": "Questions you missed",
+    "yourFirstAnswer": "Your first answer",
+    "yourRetryAnswer": "Your retry answer",
+    "correctAnswer": "Correct answer",
+    "backToDashboard": "Back to dashboard"
+  },
+  "completion": {
+    "completed": "Lecture completed!",
+    "xpEarned": "XP earned: {{xp}}",
+    "accuracy": "Accuracy: {{percent}}%",
+    "continueButton": "Continue"
+  },
+  "chrome": {
+    "reviewMissed": "Review missed questions",
+    "reviewProgress": "{{current}} of {{total}} · second attempt",
+    "knowledgeCheck": "Knowledge Check",
+    "quizFallback": "Quiz",
+    "slideFallback": "Lecture Slide",
+    "slideNumberFallback": "Slide {{number}}",
+    "readSlideHint": "Read through the slide and click \"Next\" to answer a quiz question about the content.",
+    "exitLecture": "Exit Lecture",
+    "uncategorized": "Uncategorized",
+    "lectureLoading": "Loading...",
+    "slideView": "Slide View",
+    "sourcePdf": "Source PDF"
+  },
+  "toasts": {
+    "notFoundTitle": "Not Found",
+    "notFoundDescription": "Lecture not found or error loading data.",
+    "errorTitle": "Error",
+    "systemError": "A system error occurred.",
+    "lectureCompleteTitle": "Lecture Complete! 🎉",
+    "lectureCompleteDescription": "You earned {{xp}} XP and got {{correct}}/{{total}} correct!",
+    "mindMapErrorTitle": "Generation Failed",
+    "mindMapErrorDescription": "Could not generate mind map. Check your AI configuration.",
+    "mindMapSuccessTitle": "Mind Map Generated",
+    "mindMapSuccessDescription": "The knowledge tree has been successfully constructed."
+  },
+  "chat": {
+    "title": "AI Tutor",
+    "welcome": "Hi! I'm your AI Tutor. I'm ready to answer any questions you have about **\"{{slide}}\"**. What would you like to explore?",
+    "connectionError": "I'm experiencing a connection issue. Please try again in a moment.",
+    "modelCerebras": "Cerebras (Recommended)",
+    "online": "Online",
+    "modelPlaceholder": "Model",
+    "context": "Context:",
+    "cancel": "Cancel",
+    "inputPlaceholder": "Ask about this slide...",
+    "sendMessage": "Send message",
+    "disclaimer": "AI responses are generated and may require verification",
+    "jumpTo": "Jump to slide {{number}}",
+    "slideRef": "Slide {{number}}",
+    "requestFailed": "Chat request failed",
+    "noReader": "No reader available"
+  },
+  "regenerate": {
+    "button": "Re-analyze slide",
+    "loading": "Re-analyzing...",
+    "success": "Slide re-analyzed",
+    "successDescription": "AI content has been updated using vision analysis.",
+    "failure": "Re-analysis failed",
+    "failureDescription": "Could not regenerate content."
+  }
+}

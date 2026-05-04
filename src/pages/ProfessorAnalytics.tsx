@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Fragment } from 'react';
+import { useAiModel } from '@/hooks/use-ai-model';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,7 +10,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchProfessorLectures } from '@/services/lectureService';
+import { apiClient } from '@/lib/apiClient';
 import { StatsCard } from '@/components/StatsCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,18 +28,15 @@ import { CustomTooltip } from '@/components/charts/CustomTooltip';
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { NeuralBackground } from '@/components/NeuralBackground';
 import { ThreeDScatterPlot } from '@/components/ThreeDScatterPlot';
+import { AskYourDataPanel } from '@/features/analytics/components/AskYourDataPanel';
+import { BenchmarksSection } from '@/features/analytics/components/BenchmarksSection';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import type { Lecture, SlideAnalytics, SlideRecommendationLabel } from '@/types/domain';
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
-
-interface Lecture {
-  id: string;
-  title: string;
-  description: string | null;
-  total_slides: number | null;
-  created_at: string | null;
-}
 
 interface AIInsights {
   summary: string;
@@ -75,7 +74,21 @@ interface DashboardData {
   funnel: { stage: string; count: number }[];
   confidenceMap: { got_it: number; unsure: number; confused: number };
   liveTicker: { type: string; description: string; time: string }[];
-  completionTimes: { bucket: string; count: number }[];
+  dropoffData: DropoffPoint[];
+  aiQueryFeed: AIQueryItem[];
+  confidenceBySlide: SlideConfidence[];
+  retryPerformance: RetryPerformanceItem[];
+}
+
+interface RetryPerformanceItem {
+  question_id: string;
+  question_text: string;
+  first_attempt_total: number;
+  first_attempt_misses: number;
+  first_attempt_miss_rate: number;
+  retry_total: number;
+  retry_misses: number;
+  retry_miss_rate: number;
 }
 
 interface DropoffPoint {
@@ -108,24 +121,76 @@ const COLORS = [
 
 // ── Helper Components ─────────────────────────────────────────────────────────
 
-function Section({ title, subtitle, icon: Icon, children, className = '' }: { title: string; subtitle?: string; icon: any; children: React.ReactNode; className?: string }) {
+function Section({ 
+  title, 
+  subtitle, 
+  icon: Icon, 
+  children, 
+  className = '', 
+  interpretation,
+  isLoading,
+  isOpen,
+  onToggle
+}: { 
+  title: string; 
+  subtitle?: string; 
+  icon: React.ComponentType<{ className?: string }>; 
+  children: React.ReactNode; 
+  className?: string;
+  interpretation?: string | null;
+  isLoading?: boolean;
+  isOpen?: boolean;
+  onToggle?: () => void;
+}) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.01, rotateX: 1, rotateY: 1 }}
+      whileHover={{ scale: 1.005 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className={`glass-card border-white/5 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden perspective-1000 ${className}`}
+      className={`glass-card border-border/50 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden perspective-1000 ${className}`}
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16" />
       <div className="flex justify-between items-start mb-8 relative z-10">
-        <div>
-          <h3 className="text-2xl font-black text-foreground flex items-center gap-3 tracking-tight">
+        <div 
+          className="cursor-pointer group/title"
+          onClick={onToggle}
+        >
+          <h3 className="text-2xl font-black text-foreground flex items-center gap-3 tracking-tight group-hover/title:text-primary transition-colors">
             <Icon className="w-7 h-7 text-primary" /> {title}
+            <div className="w-4 h-4 rounded-full border border-primary/30 flex items-center justify-center text-[10px] opacity-0 group-hover/title:opacity-100 transition-opacity">?</div>
           </h3>
           {subtitle && <p className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-[0.2em] opacity-60">{subtitle}</p>}
         </div>
       </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-8 p-6 rounded-2xl bg-violet-500/10 border border-violet-500/20 overflow-hidden"
+          >
+            <div className="flex items-center gap-2 mb-3 text-primary">
+              <Sparkles className="w-4 h-4 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Neural Interpretation</span>
+            </div>
+            {isLoading ? (
+              <div className="flex gap-1.5 items-center py-2">
+                <div className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+                <div className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+                <div className="w-2 h-2 rounded-full bg-primary animate-bounce" />
+              </div>
+            ) : (
+              <p className="text-sm font-medium text-foreground/90 leading-relaxed animate-in fade-in slide-in-from-top-2 duration-500">
+                {interpretation || "Select a mission to begin interpretation."}
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="relative z-10">
         {children}
       </div>
@@ -133,7 +198,7 @@ function Section({ title, subtitle, icon: Icon, children, className = '' }: { ti
   );
 }
 
-const ThreeDBar = (props: any) => {
+const ThreeDBar = (props: { x?: number; y?: number; width?: number; height?: number; fill?: string }) => {
   const { x, y, width, height, fill } = props;
   if (!width || !height) return null;
   
@@ -200,13 +265,13 @@ function LecturePicker({ lectures, onSelect }: { lectures: Lecture[]; onSelect: 
             <motion.button key={lec.id} onClick={() => onSelect(lec.id)}
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }} whileHover={{ y: -8, scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="group text-left glass-card border-white/5 rounded-3xl p-8 transition-all duration-300 flex flex-col gap-5 relative overflow-hidden">
+              className="group text-left glass-card border-border rounded-3xl p-8 transition-all duration-300 flex flex-col gap-5 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-start justify-between relative z-10">
-                <div className="w-12 h-12 rounded-2xl bg-surface-2 border border-white/5 flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                <div className="w-12 h-12 rounded-2xl bg-surface-2 border border-border flex items-center justify-center group-hover:border-primary/50 transition-colors">
                   <BookOpen className="w-6 h-6 text-primary" />
                 </div>
-                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-surface-1 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
                 </div>
               </div>
@@ -216,7 +281,7 @@ function LecturePicker({ lectures, onSelect }: { lectures: Lecture[]; onSelect: 
                   <p className="text-sm text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{lec.description}</p>
                 )}
               </div>
-              <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-auto pt-4 border-t border-white/5 relative z-10">
+              <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-auto pt-4 border-t border-border relative z-10">
                 <span className="flex items-center gap-1.5"><Users className="w-3 h-3" /> Heuristics Active</span>
                 <span className="text-primary">•</span>
                 <span>{lec.total_slides ?? 0} Slides</span>
@@ -229,15 +294,217 @@ function LecturePicker({ lectures, onSelect }: { lectures: Lecture[]; onSelect: 
   );
 }
 
+// ── Slide Recommendations (Task #44) ──────────────────────────────────────────
+
+const REASON_LABELS: Record<string, string> = {
+  high_dropoff: 'Drop-off rate is above the safe threshold',
+  high_confusion: 'Many students rated this slide "confused"',
+  low_quiz_success: 'Quiz success rate is below 50%',
+  low_view_count: 'Too few students have viewed this slide yet',
+  low_dropoff: 'Almost no one drops off here',
+  low_confusion: 'Confidence ratings are overwhelmingly positive',
+  high_quiz_success: 'Quiz success rate is excellent',
+};
+
+const LABEL_META: Record<SlideRecommendationLabel, { text: string; cls: string }> = {
+  needs_review:     { text: 'Needs Review',      cls: 'bg-destructive/15 text-destructive border-destructive/40' },
+  satisfactory:     { text: 'Satisfactory',      cls: 'bg-surface-2 text-muted-foreground border-border' },
+  outstanding:      { text: 'Outstanding',       cls: 'bg-success/15 text-success border-success/40' },
+  insufficient_data:{ text: 'Insufficient Data', cls: 'bg-muted/40 text-muted-foreground border-border' },
+};
+
+function SlideRecommendationBadge({ label, reasons }: { label: SlideRecommendationLabel; reasons: string[] }) {
+  const meta = LABEL_META[label] ?? LABEL_META.satisfactory;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          variant="outline"
+          className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm cursor-help ${meta.cls}`}
+        >
+          {meta.text}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        <div className="space-y-1.5">
+          <p className="font-bold text-xs">Why this label?</p>
+          {reasons.length > 0 ? (
+            <ul className="text-xs space-y-1 list-disc list-inside">
+              {reasons.map((r) => (
+                <li key={r}>{REASON_LABELS[r] || r.replace(/_/g, ' ')}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs opacity-80">All metrics are within healthy ranges.</p>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function SlideRecommendationsSection({
+  slides,
+  isLoading,
+  suggestions,
+  onRequestSuggestion,
+}: {
+  slides: SlideAnalytics[];
+  isLoading: boolean;
+  suggestions: Record<string, { text: string; loading: boolean; error?: string }>;
+  onRequestSuggestion: (slideId: string) => void;
+}) {
+  const counts = {
+    needs_review: 0,
+    satisfactory: 0,
+    outstanding: 0,
+    insufficient_data: 0,
+  } as Record<SlideRecommendationLabel, number>;
+  for (const s of slides) {
+    const l = (s.recommendation_label || 'satisfactory') as SlideRecommendationLabel;
+    counts[l] = (counts[l] || 0) + 1;
+  }
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card border-border/50 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16" />
+        <div className="relative z-10 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-black text-foreground flex items-center gap-3 tracking-tight">
+              <Lightbulb className="w-7 h-7 text-primary" /> Slide Recommendations
+            </h3>
+            <p className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-[0.2em] opacity-60">
+              Per-slide health rubric
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-widest">
+            <span className="px-3 py-1.5 rounded-xl bg-destructive/10 text-destructive border border-destructive/30">
+              {counts.needs_review} Needs Review
+            </span>
+            <span className="px-3 py-1.5 rounded-xl bg-surface-2 text-muted-foreground border border-border">
+              {counts.satisfactory} Satisfactory
+            </span>
+            <span className="px-3 py-1.5 rounded-xl bg-success/10 text-success border border-success/30">
+              {counts.outstanding} Outstanding
+            </span>
+            {counts.insufficient_data > 0 && (
+              <span className="px-3 py-1.5 rounded-xl bg-muted/40 text-muted-foreground border border-border">
+                {counts.insufficient_data} Insufficient Data
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="relative z-10 overflow-x-auto">
+          {isLoading ? (
+            <div className="space-y-3 py-4">
+              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          ) : slides.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground/60 text-sm font-bold uppercase tracking-widest">
+              No slide analytics yet
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em]">#</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em]">Slide</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-center">Views</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-center">Drop-off</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-center">Confusion</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-center">Quiz</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em]">Status</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {slides.map((s) => {
+                  const label = (s.recommendation_label || 'satisfactory') as SlideRecommendationLabel;
+                  const reasons = s.recommendation_reasons || [];
+                  const sid = s.slide_id || '';
+                  const sug = sid ? suggestions[sid] : undefined;
+                  const canSuggest = label === 'needs_review' && !!sid;
+                  return (
+                    <Fragment key={`${s.slide_number}-${sid}`}>
+                      <TableRow className="border-border/60 hover:bg-white/5">
+                        <TableCell className="font-black text-muted-foreground">{s.slide_number}</TableCell>
+                        <TableCell className="font-bold text-foreground max-w-[280px] truncate">
+                          {s.title}
+                        </TableCell>
+                        <TableCell className="text-center text-sm">{s.view_count}</TableCell>
+                        <TableCell className="text-center text-sm">{s.drop_off_rate.toFixed(0)}%</TableCell>
+                        <TableCell className="text-center text-sm">{(s.confusion_rate ?? 0).toFixed(0)}%</TableCell>
+                        <TableCell className="text-center text-sm">
+                          {s.quiz_attempts && s.quiz_success_rate != null
+                            ? `${s.quiz_success_rate.toFixed(0)}%`
+                            : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          <SlideRecommendationBadge label={label} reasons={reasons} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canSuggest ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onRequestSuggestion(sid)}
+                              disabled={sug?.loading}
+                              className="rounded-xl text-[10px] font-black uppercase tracking-widest h-9 px-4 border-primary/30 hover:bg-primary/10"
+                            >
+                              {sug?.loading ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <><Sparkles className="w-3.5 h-3.5 mr-2" />{sug?.text ? 'Refresh' : 'Get AI suggestion'}</>
+                              )}
+                            </Button>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/40 uppercase tracking-widest">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                      {sid && (sug?.text || sug?.error) && (
+                        <TableRow className="border-border/60 hover:bg-transparent">
+                          <TableCell colSpan={8} className="bg-primary/5">
+                            <div className="flex gap-3 items-start py-2">
+                              <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                              {sug.error ? (
+                                <p className="text-sm text-destructive">{sug.error}</p>
+                              ) : (
+                                <p className="text-sm leading-relaxed text-foreground/90">{sug.text}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </motion.div>
+    </TooltipProvider>
+  );
+}
+
 // ── Main Page Component ───────────────────────────────────────────────────────
 
 export default function ProfessorAnalytics() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { lectureId: selectedLectureId } = useParams();
+  const { aiModel } = useAiModel();
 
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [lecturesLoading, setLecturesLoading] = useState(true);
+  const [isGamingMode, setIsGamingMode] = useState(false);
   const [selectedTitle, setSelectedTitle] = useState('');
 
   // New endpoint data
@@ -246,30 +513,130 @@ export default function ProfessorAnalytics() {
   const [aiQueryFeed, setAiQueryFeed] = useState<AIQueryItem[]>([]);
   const [extraLoading, setExtraLoading] = useState(false);
 
+  // Slide-level recommendations (Task #44)
+  const [slideAnalytics, setSlideAnalytics] = useState<SlideAnalytics[]>([]);
+  const [slideAnalyticsLoading, setSlideAnalyticsLoading] = useState(false);
+  const [slideSuggestions, setSlideSuggestions] = useState<Record<string, { text: string; loading: boolean; error?: string }>>({});
+
   const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [matrixView, setMatrixView] = useState<'2d' | '3d'>('3d');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
   const [metricFeedback, setMetricFeedback] = useState<string | null>(null);
   const [metricLoading, setMetricLoading] = useState(false);
+  const [metricInterpretations, setMetricInterpretations] = useState<Record<string, string>>({});
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  const handleMetricClick = async (id: string, title: string, value: unknown) => {
+    // Check local cache first
+    if (metricInterpretations[id]) {
+      // If it's a small stat card, still set the feedback from cache
+      if (!['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution', 'retryPerformance'].includes(id)) {
+        setSelectedMetric(title === selectedMetric ? null : title);
+        setMetricFeedback(metricInterpretations[id]);
+      } else {
+        setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+      }
+      return;
+    }
+
+    const isSection = ['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution', 'retryPerformance'].includes(id);
+    
+    if (isSection) {
+      setOpenSections(prev => ({ ...prev, [id]: true }));
+    } else {
+      setSelectedMetric(title);
+      setMetricFeedback(null);
+    }
+
+    setMetricLoading(true);
+
+    try {
+      const context = {
+        average_score: dashboardData?.overview?.averageScore,
+        total_students: dashboardData?.overview?.uniqueStudents,
+        hard_slides: dashboardData?.slidePerformance
+          ?.sort((a: { correctRate: number }, b: { correctRate: number }) => a.correctRate - b.correctRate)
+          .slice(0, 2)
+          .map((s: { name: string }) => s.name)
+          .join(', '),
+      };
+
+      const data = await apiClient.post<{ feedback: string }>('/api/ai/metric-feedback', {
+        metric_name: title,
+        metric_value: value,
+        context_stats: context,
+        ai_model: aiModel,
+      });
+      setMetricInterpretations(prev => ({ ...prev, [id]: data.feedback }));
+      if (!isSection) setMetricFeedback(data.feedback);
+    } catch (err) {
+      console.error(err);
+      const errorMsg = "Could not establish neural link for this metric.";
+      setMetricInterpretations(prev => ({ ...prev, [id]: errorMsg }));
+      if (!isSection) setMetricFeedback(errorMsg);
+    } finally {
+      setMetricLoading(false);
+    }
+  };
 
   // Dashboard hook
   const { dashboard } = useAnalytics(selectedLectureId ?? null);
   const dashboardData = dashboard.data as DashboardData | null;
+
+  // Sync state with dashboard data when it arrives
+  useEffect(() => {
+    if (dashboardData) {
+      setDropoffData(dashboardData.dropoffData || []);
+      setConfidenceBySlide(dashboardData.confidenceBySlide || []);
+      setAiQueryFeed(dashboardData.aiQueryFeed || []);
+    }
+  }, [dashboardData]);
+
+  // Fetch slide analytics (with recommendation labels)
+  useEffect(() => {
+    if (!selectedLectureId) return;
+    let cancelled = false;
+    setSlideAnalyticsLoading(true);
+    apiClient.get<{ success: boolean; data: SlideAnalytics[] }>(
+      `/api/analytics/lecture/${selectedLectureId}/slides`
+    ).then((res) => {
+      if (cancelled) return;
+      const rows = Array.isArray(res?.data) ? res.data : [];
+      setSlideAnalytics(rows);
+    }).catch((err) => {
+      console.error('Slide analytics fetch failed:', err);
+    }).finally(() => { if (!cancelled) setSlideAnalyticsLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedLectureId]);
+
+  const requestSlideSuggestion = useCallback(async (slideId: string) => {
+    setSlideSuggestions((prev) => ({ ...prev, [slideId]: { text: '', loading: true } }));
+    try {
+      const res = await apiClient.post<{ suggestion: string }>(
+        `/api/ai/slides/${slideId}/recommendation`,
+        { ai_model: aiModel },
+      );
+      setSlideSuggestions((prev) => ({
+        ...prev,
+        [slideId]: { text: res?.suggestion || '', loading: false },
+      }));
+    } catch (err) {
+      console.error('Slide suggestion failed:', err);
+      setSlideSuggestions((prev) => ({
+        ...prev,
+        [slideId]: { text: '', loading: false, error: 'AI suggestion unavailable. Please retry shortly.' },
+      }));
+    }
+  }, [aiModel]);
 
   // Fetch lecture list
   useEffect(() => {
     if (!user) return;
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('lectures')
-          .select('id, title, description, total_slides, created_at')
-          .eq('professor_id', user.id)
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        setLectures(data || []);
+        const data = await fetchProfessorLectures(user.id);
+        setLectures(data);
       } catch (err) {
         console.error("Failed to fetch lectures:", err);
       } finally {
@@ -277,32 +644,6 @@ export default function ProfessorAnalytics() {
       }
     })();
   }, [user]);
-
-  // Fetch extra data from endpoints
-  useEffect(() => {
-    if (!selectedLectureId) return;
-    setExtraLoading(true);
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) { setExtraLoading(false); return; }
-
-      const headers = { Authorization: `Bearer ${token}` };
-      const base = `${API_BASE}/api/analytics/lecture/${selectedLectureId}`;
-
-      const [dropoffRes, confRes, aiRes] = await Promise.allSettled([
-        fetch(`${base}/dropoff`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${base}/confidence-by-slide`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${base}/ai-queries`, { headers }).then(r => r.ok ? r.json() : null),
-      ]);
-
-      if (dropoffRes.status === 'fulfilled' && dropoffRes.value?.data) setDropoffData(dropoffRes.value.data);
-      if (confRes.status === 'fulfilled' && confRes.value?.data) setConfidenceBySlide(confRes.value.data);
-      if (aiRes.status === 'fulfilled' && aiRes.value?.data) setAiQueryFeed(aiRes.value.data);
-
-      setExtraLoading(false);
-    })();
-  }, [selectedLectureId]);
 
   useEffect(() => {
     if (dashboard.isError) {
@@ -330,32 +671,22 @@ export default function ProfessorAnalytics() {
     setAiInsights(null);
 
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
-      
       const hardSlides = dashboardData.slidePerformance
-        ?.filter(s => s.quizAttempts > 0)
-        .sort((a, b) => a.correctRate - b.correctRate)
+        ?.filter((s: { quizAttempts: number }) => s.quizAttempts > 0)
+        .sort((a: { correctRate: number }, b: { correctRate: number }) => a.correctRate - b.correctRate)
         .slice(0, 3)
-        .map(s => s.name)
+        .map((s: { name: string }) => s.name)
         .join(', ');
 
-      const res = await fetch(`${API_BASE}/api/ai/analytics-insights`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          total_students: dashboardData?.overview?.uniqueStudents,
-          average_score: dashboardData?.overview?.averageScore,
-          total_attempts: dashboardData?.overview?.totalAttempts,
-          total_correct: dashboardData?.overview?.totalCorrect,
-          hard_slides: hardSlides,
-          ai_model: model
-        }),
+      const result = await apiClient.post<AIInsights>('/api/ai/analytics-insights', {
+        total_students: dashboardData?.overview?.uniqueStudents,
+        average_score: dashboardData?.overview?.averageScore,
+        total_attempts: dashboardData?.overview?.totalAttempts,
+        total_correct: dashboardData?.overview?.totalCorrect,
+        hard_slides: hardSlides,
+        ai_model: aiModel,
       });
-      if (res.ok) setAiInsights(await res.json());
+      setAiInsights(result);
     } catch {
       setAiInsights({
         summary: 'AI insights unavailable — orbital connection interrupted.',
@@ -369,53 +700,6 @@ export default function ProfessorAnalytics() {
     setAiLoading(false);
   }, [dashboardData]);
 
-  const handleMetricClick = async (title: string, value: any) => {
-    if (selectedMetric === title) {
-      setSelectedMetric(null);
-      setMetricFeedback(null);
-      return;
-    }
-
-    setSelectedMetric(title);
-    setMetricLoading(true);
-    setMetricFeedback(null);
-
-    try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const model = localStorage.getItem('ascend-academy-ai-model') || 'gemini-2.5-flash';
-      
-      const context = {
-        average_score: dashboardData?.overview?.averageScore,
-        total_students: dashboardData?.overview?.uniqueStudents,
-        hard_slides: dashboardData?.slidePerformance
-          ?.sort((a, b) => a.correctRate - b.correctRate)
-          .slice(0, 2)
-          .map(s => s.name)
-          .join(', ')
-      };
-
-      const res = await fetch(`${API_BASE}/api/ai/metric-feedback`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          metric_name: title,
-          metric_value: value,
-          context_stats: context,
-          ai_model: model
-        }),
-      });
-      const data = await res.json();
-      setMetricFeedback(data.feedback);
-    } catch (err) {
-      console.error(err);
-      setMetricFeedback("Could not establish neural link for this metric.");
-    } finally {
-      setMetricLoading(false);
-    }
-  };
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
 
@@ -429,7 +713,7 @@ export default function ProfessorAnalytics() {
 
   if (!selectedLectureId) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-black">
+      <div className="min-h-screen relative overflow-hidden bg-background">
         <div className="fixed inset-0 pointer-events-none z-0">
            <NeuralBackground />
         </div>
@@ -439,7 +723,7 @@ export default function ProfessorAnalytics() {
   }
 
   return (
-    <div className="min-h-screen relative pb-32 bg-black max-w-[1600px] mx-auto overflow-hidden">
+    <div className={`min-h-screen relative pb-32 bg-background max-w-[1600px] mx-auto overflow-hidden ${isGamingMode ? 'gaming-mode' : ''}`}>
       <div className="fixed inset-0 pointer-events-none z-0">
          <NeuralBackground />
       </div>
@@ -447,13 +731,13 @@ export default function ProfessorAnalytics() {
       <div className="p-6 lg:p-10 space-y-10 relative z-10">
         
         {/* Neural Header Controls */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 glass-panel p-6 rounded-[2rem] border-white/5 shadow-xl">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 glass-panel p-6 rounded-[2rem] border-border/50 shadow-xl">
           <div className="flex items-center gap-5">
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={() => navigate('/professor/analytics')} 
-              className="rounded-full w-12 h-12 shadow-sm glass-card hover:bg-white/10 border-white/10"
+              className="rounded-full w-12 h-12 shadow-sm glass-card hover:bg-primary/10 border-border"
             >
               <ArrowLeft className="w-5 h-5"/>
             </Button>
@@ -464,14 +748,24 @@ export default function ProfessorAnalytics() {
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1 opacity-70">Neural Edge Semantic Dashboard</p>
             </div>
           </div>
-          <Button 
-            onClick={fetchAiInsights} 
-            disabled={aiLoading || dashboard.isLoading} 
-            className="rounded-2xl h-14 px-8 shadow-glow-primary gradient-primary hover:opacity-90 transition-all font-bold text-base border-none text-white"
-          >
-            {aiLoading ? <RefreshCw className="w-5 h-5 animate-spin mr-3" /> : <Sparkles className="w-5 h-5 mr-3" />}
-            Generate Predictive Intervention
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => setIsGamingMode(!isGamingMode)}
+              variant="outline"
+              className={`rounded-2xl h-14 px-6 border-border/50 font-bold transition-all ${isGamingMode ? 'bg-primary/20 text-primary border-primary/40 shadow-glow-primary' : ''}`}
+            >
+              <Zap className={`w-5 h-5 mr-3 ${isGamingMode ? 'fill-primary' : ''}`} />
+              {isGamingMode ? 'Gaming Mode ON' : 'Standard HUD'}
+            </Button>
+            <Button 
+              onClick={fetchAiInsights} 
+              disabled={aiLoading || dashboard.isLoading} 
+              className="rounded-2xl h-14 px-8 shadow-glow-primary gradient-primary hover:opacity-90 transition-all font-bold text-base border-none text-white"
+            >
+              {aiLoading ? <RefreshCw className="w-5 h-5 animate-spin mr-3" /> : <Sparkles className="w-5 h-5 mr-3" />}
+              Generate Predictive Intervention
+            </Button>
+          </div>
         </div>
 
         {dashboard.isLoading ? (
@@ -488,33 +782,33 @@ export default function ProfessorAnalytics() {
                   initial={{ opacity: 0, scale: 0.95 }} 
                   animate={{ opacity: 1, scale: 1 }} 
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="glass-panel-strong border-primary/20 p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden"
+                  className="intelligence-hub p-10 rounded-[2.5rem] relative overflow-hidden"
                 >
-                  <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 blur-[100px] rounded-full -mr-20 -mt-20" />
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 blur-[100px] rounded-full -mr-20 -mt-20 dark:block hidden" />
                   <div className="flex flex-col lg:flex-row gap-10 items-start relative z-10">
-                    <div className="w-16 h-16 rounded-[24px] bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-glow-primary animate-float">
+                    <div className="w-16 h-16 rounded-[24px] bg-primary flex items-center justify-center flex-shrink-0 shadow-glow-primary animate-float dark:bg-gradient-to-br dark:from-primary dark:to-secondary">
                       <BrainCircuit className="w-8 h-8 text-white" />
                     </div>
                     <div className="flex-1 w-full">
-                      <h2 className="text-2xl font-black flex items-center gap-4 text-foreground mb-6">Neural Synthesizer Report</h2>
+                      <h2 className="text-2xl font-black flex items-center gap-4 text-white mb-6">Neural Synthesizer Report</h2>
                       {aiLoading ? (
                         <div className="space-y-4">
-                          <Skeleton className="h-4 w-full bg-white/5 rounded-full" />
-                          <Skeleton className="h-4 w-3/4 bg-white/5 rounded-full" />
-                          <Skeleton className="h-4 w-1/2 bg-white/5 rounded-full" />
+                          <Skeleton className="h-4 w-full bg-surface-2 rounded-full" />
+                          <Skeleton className="h-4 w-3/4 bg-surface-2 rounded-full" />
+                          <Skeleton className="h-4 w-1/2 bg-surface-2 rounded-full" />
                         </div>
                       ) : (
                         <div className="space-y-8">
-                          <p className="text-xl leading-relaxed text-foreground/90 font-medium max-w-5xl border-l-4 border-primary/30 pl-6 italic">
+                          <p className="text-xl leading-relaxed text-white/90 font-medium max-w-5xl border-l-4 border-primary/30 pl-6 italic">
                             "{aiInsights?.summary || 'Synthesizing neural data...'}"
                           </p>
                           <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {aiInsights?.suggestions?.map((s, i) => (
-                              <div key={i} className="glass-card hover:bg-white/5 p-5 rounded-2xl border-white/5 flex flex-col gap-4 group transition-all">
+                              <div key={i} className="glass-card hover:bg-surface-1 p-5 rounded-2xl border-border flex flex-col gap-4 group transition-all">
                                 <div className="w-8 h-8 gradient-primary rounded-lg text-sm font-black flex text-white items-center justify-center shadow-glow-primary group-hover:scale-110 transition-transform">
                                   {i + 1}
                                 </div>
-                                <p className="text-sm font-bold leading-relaxed text-muted-foreground group-hover:text-foreground transition-colors">
+                                <p className="text-sm font-bold leading-relaxed text-white/60 group-hover:text-white transition-colors">
                                   {s}
                                 </p>
                               </div>
@@ -547,7 +841,7 @@ export default function ProfessorAnalytics() {
                 >
                   <StatsCard 
                     {...stat} 
-                    onClick={() => handleMetricClick(stat.title, stat.value)}
+                    onClick={() => handleMetricClick(stat.title, stat.title, stat.value)}
                     className={selectedMetric === stat.title ? 'ring-2 ring-primary shadow-glow-primary' : ''}
                   />
                   <AnimatePresence>
@@ -580,6 +874,20 @@ export default function ProfessorAnalytics() {
               ))}
             </div>
 
+            {/* Ask Your Data (Task #45) */}
+            {selectedLectureId && <AskYourDataPanel lectureId={selectedLectureId} />}
+
+            {/* Comparative Benchmarks (Task #50) */}
+            {selectedLectureId && <BenchmarksSection lectureId={selectedLectureId} />}
+
+            {/* Slide-Level Recommendations (Task #44) */}
+            <SlideRecommendationsSection
+              slides={slideAnalytics}
+              isLoading={slideAnalyticsLoading}
+              suggestions={slideSuggestions}
+              onRequestSuggestion={requestSlideSuggestion}
+            />
+
             {/* Row 1: Confusion Matrix + Neural Confidence */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <Section 
@@ -587,6 +895,10 @@ export default function ProfessorAnalytics() {
                 subtitle={matrixView === '3d' ? "Interactive Volumetric Telemetry" : "Bubble size = AI Queries + Revisions"} 
                 icon={Target} 
                 className="lg:col-span-2"
+                interpretation={metricInterpretations.matrix}
+                isLoading={metricLoading && openSections.matrix}
+                isOpen={openSections.matrix}
+                onToggle={() => handleMetricClick('matrix', 'Spatial Neural Matrix', dashboardData.slidePerformance)}
               >
                 <div className="absolute top-8 right-8 z-20 flex gap-2">
                   <Button 
@@ -618,15 +930,15 @@ export default function ProfessorAnalytics() {
                           if (active && payload && payload.length) {
                             const d = payload[0].payload;
                             return (
-                              <div className="glass-panel-strong p-5 rounded-2xl shadow-2xl min-w-[240px] border-white/10 animate-scale-in">
-                                <p className="font-black text-lg mb-3 border-b border-white/10 pb-2 text-foreground">{d.name}</p>
+                              <div className="glass-panel-strong p-5 rounded-2xl shadow-2xl min-w-[240px] border-border animate-scale-in">
+                                <p className="font-black text-lg mb-3 border-b border-border pb-2 text-foreground">{d.name}</p>
                                 <div className="space-y-2">
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Accuracy</span><span className="font-black text-foreground">{d.correctRate}%</span></div>
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</span><span className="font-black text-muted-foreground">{d.avgDuration}s</span></div>
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Queries</span><span className="font-black text-primary">{d.aiQueries}</span></div>
                                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Revisions</span><span className="font-black text-warning">{d.revisions}</span></div>
                                 </div>
-                                <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center -mx-5 -mb-5 px-5 py-3 rounded-b-2xl bg-destructive/10">
+                                <div className="mt-4 pt-3 border-t border-border flex justify-between items-center -mx-5 -mb-5 px-5 py-3 rounded-b-2xl bg-destructive/10">
                                    <span className="text-[10px] uppercase font-black tracking-[0.2em] text-destructive">Confusion Index</span>
                                    <span className="text-xl font-black text-destructive">{d.confusionIndex}</span>
                                 </div>
@@ -649,23 +961,33 @@ export default function ProfessorAnalytics() {
                 </div>
               </Section>
 
-              <Section title="Neural Confidence" subtitle="Aggregate Comprehension" icon={Brain}>
+              <Section 
+                title="Neural Confidence" 
+                subtitle="Aggregate Comprehension" 
+                icon={Brain}
+                interpretation={metricInterpretations.confidence}
+                isLoading={metricLoading && openSections.confidence}
+                isOpen={openSections.confidence}
+                onToggle={() => handleMetricClick('confidence', 'Neural Confidence', dashboardData.confidenceMap)}
+              >
                 <div className="space-y-6">
-                  <div className="h-6 w-full rounded-full overflow-hidden flex bg-surface-2 p-1">
-                    <div style={{ width: `${(dashboardData.confidenceMap.got_it / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
-                      className="h-full bg-success rounded-l-full transition-all duration-1000 shadow-glow-success" />
-                    <div style={{ width: `${(dashboardData.confidenceMap.unsure / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
-                      className="h-full bg-warning transition-all duration-1000" />
-                    <div style={{ width: `${(dashboardData.confidenceMap.confused / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
-                      className="h-full bg-destructive rounded-r-full transition-all duration-1000" />
+                  <div className="mastery-track w-full">
+                    <div className="flex h-full">
+                      <div style={{ width: `${(dashboardData.confidenceMap.got_it / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
+                        className="mastery-fill h-full transition-all duration-1000" />
+                      <div style={{ width: `${(dashboardData.confidenceMap.unsure / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
+                        className="bg-warning/50 h-full transition-all duration-1000" />
+                      <div style={{ width: `${(dashboardData.confidenceMap.confused / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
+                        className="bg-destructive/50 h-full transition-all duration-1000" />
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     {[
-                      { emoji: '✅', label: 'Synthesized', count: dashboardData.confidenceMap.got_it, color: 'text-success', bg: 'bg-success/10' },
-                      { emoji: '🤔', label: 'Processing', count: dashboardData.confidenceMap.unsure, color: 'text-warning', bg: 'bg-warning/10' },
-                      { emoji: '❌', label: 'Anomalies', count: dashboardData.confidenceMap.confused, color: 'text-destructive', bg: 'bg-destructive/10' },
+                      { emoji: '✅', label: 'Synthesized', count: dashboardData.confidenceMap.got_it, color: 'text-success', bg: 'bg-success/5' },
+                      { emoji: '🤔', label: 'Processing', count: dashboardData.confidenceMap.unsure, color: 'text-warning', bg: 'bg-warning/5' },
+                      { emoji: '❌', label: 'Anomalies', count: dashboardData.confidenceMap.confused, color: 'text-destructive', bg: 'bg-destructive/5' },
                     ].map(r => (
-                      <div key={r.label} className={`flex items-center justify-between p-4 rounded-2xl ${r.bg} border border-white/5`}>
+                      <div key={r.label} className={`flex items-center justify-between p-4 rounded-2xl ${r.bg} border border-border`}>
                         <div className="flex items-center gap-3">
                           <span className="text-xl">{r.emoji}</span>
                           <span className="text-xs font-bold uppercase tracking-widest text-foreground">{r.label}</span>
@@ -678,9 +1000,81 @@ export default function ProfessorAnalytics() {
               </Section>
             </div>
 
+            {/* Most-Missed Questions (retry performance) */}
+            <Section
+              title="Most-Missed Questions"
+              subtitle="Ranked by first-attempt miss rate · second-attempt miss rate shown alongside"
+              icon={Target}
+              interpretation={metricInterpretations.retryPerformance}
+              isLoading={metricLoading && openSections.retryPerformance}
+              isOpen={openSections.retryPerformance}
+              onToggle={() => handleMetricClick('retryPerformance', 'Most-Missed Questions', dashboardData.retryPerformance)}
+            >
+              {!dashboardData.retryPerformance || dashboardData.retryPerformance.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground/50 text-xs font-bold uppercase tracking-widest">
+                  No quiz attempts yet
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table className="w-full">
+                    <TableHeader>
+                      <TableRow className="border-border hover:bg-transparent">
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em]">Question</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">1st Miss Rate</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">1st Attempts</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">Retry Miss Rate</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">Retries</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dashboardData.retryPerformance.slice(0, 15).map((q) => {
+                        const firstColor =
+                          q.first_attempt_total === 0 ? 'text-muted-foreground/50'
+                          : q.first_attempt_miss_rate >= 60 ? 'text-destructive'
+                          : q.first_attempt_miss_rate >= 30 ? 'text-warning'
+                          : 'text-success';
+                        const retryColor =
+                          q.retry_total === 0 ? 'text-muted-foreground/50'
+                          : q.retry_miss_rate >= 50 ? 'text-destructive'
+                          : q.retry_miss_rate > 0 ? 'text-warning'
+                          : 'text-success';
+                        return (
+                          <TableRow key={q.question_id} className="border-border hover:bg-white/5">
+                            <TableCell className="px-6 py-4 font-medium text-sm text-foreground max-w-md">
+                              <span className="line-clamp-2">{q.question_text}</span>
+                            </TableCell>
+                            <TableCell className={`px-6 py-4 text-right font-black text-base ${firstColor}`}>
+                              {q.first_attempt_total > 0 ? `${q.first_attempt_miss_rate}%` : '—'}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-right text-xs font-bold text-muted-foreground">
+                              {q.first_attempt_misses} / {q.first_attempt_total}
+                            </TableCell>
+                            <TableCell className={`px-6 py-4 text-right font-black text-base ${retryColor}`}>
+                              {q.retry_total > 0 ? `${q.retry_miss_rate}%` : '—'}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-right text-xs font-bold text-muted-foreground">
+                              {q.retry_misses} / {q.retry_total}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Section>
+
             {/* Row 2: Drop-off Map + Per-Slide Confidence */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Section title="Where Students Quit" subtitle="Drop-off per slide (non-completers)" icon={TrendingDown}>
+              <Section 
+                title="Where Students Quit" 
+                subtitle="Drop-off per slide (non-completers)" 
+                icon={TrendingDown}
+                interpretation={metricInterpretations.dropoff}
+                isLoading={metricLoading && openSections.dropoff}
+                isOpen={openSections.dropoff}
+                onToggle={() => handleMetricClick('dropoff', 'Where Students Quit', dropoffData)}
+              >
                 {extraLoading ? (
                   <Skeleton className="h-64 w-full" />
                 ) : dropoffData?.length === 0 ? (
@@ -707,7 +1101,15 @@ export default function ProfessorAnalytics() {
                 )}
               </Section>
 
-              <Section title="Confidence By Slide" subtitle="Comprehension breakdown per node" icon={Lightbulb}>
+              <Section 
+                title="Confidence By Slide" 
+                subtitle="Comprehension breakdown per node" 
+                icon={Lightbulb}
+                interpretation={metricInterpretations.bySlide}
+                isLoading={metricLoading && openSections.bySlide}
+                isOpen={openSections.bySlide}
+                onToggle={() => handleMetricClick('bySlide', 'Confidence By Slide', confidenceBySlide)}
+              >
                 {extraLoading ? (
                   <Skeleton className="h-64 w-full" />
                 ) : confidenceBySlide?.length === 0 ? (
@@ -732,7 +1134,15 @@ export default function ProfessorAnalytics() {
 
             {/* Row 3: Interaction Velocity + Score Distribution */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Section title="Interaction Velocity" subtitle="Event density over 7 days" icon={TrendingUp}>
+              <Section 
+                title="Interaction Velocity" 
+                subtitle="Event density over 7 days" 
+                icon={TrendingUp}
+                interpretation={metricInterpretations.velocity}
+                isLoading={metricLoading && openSections.velocity}
+                isOpen={openSections.velocity}
+                onToggle={() => handleMetricClick('velocity', 'Interaction Velocity', dashboardData.activityByDay)}
+              >
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={dashboardData.activityByDay} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -752,7 +1162,15 @@ export default function ProfessorAnalytics() {
                 </div>
               </Section>
 
-              <Section title="Score Distribution" subtitle="Learner population per band" icon={BarChart3}>
+              <Section 
+                title="Score Distribution" 
+                subtitle="Learner population per band" 
+                icon={BarChart3}
+                interpretation={metricInterpretations.distribution}
+                isLoading={metricLoading && openSections.distribution}
+                isOpen={openSections.distribution}
+                onToggle={() => handleMetricClick('distribution', 'Score Distribution', dashboardData.studentsMatrix)}
+              >
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart 
@@ -781,9 +1199,9 @@ export default function ProfessorAnalytics() {
             </div>
 
             {/* Predictive Intervention Hub */}
-            <div className="glass-panel-strong rounded-[2.5rem] border-destructive/20 shadow-2xl overflow-hidden mt-12 relative">
-              <div className="absolute top-0 left-0 w-3 h-full bg-gradient-to-b from-destructive via-destructive/50 to-destructive/20 shadow-glow-destructive/40"></div>
-              <div className="p-8 md:px-10 border-b border-white/5 flex justify-between items-center bg-white/5">
+            <div className="intelligence-hub rounded-[2.5rem] overflow-hidden mt-12 relative">
+              <div className="absolute top-0 left-0 w-3 h-full bg-destructive shadow-glow-destructive/20 dark:block hidden"></div>
+              <div className="p-8 md:px-10 border-b border-border flex justify-between items-center bg-surface-1/50">
                  <div>
                     <h3 className="text-2xl font-black text-foreground flex items-center gap-4 tracking-tight">
                       <AlertTriangle className="w-8 h-8 text-destructive animate-pulse" /> Predictive Intervention Hub
@@ -813,10 +1231,10 @@ export default function ProfessorAnalytics() {
                           <Badge 
                             variant="outline" 
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm ${
-                              student.typology.includes('Risk') || student.typology.includes('Critical') ? 'bg-destructive/10 text-destructive border-destructive/20 shadow-glow-destructive/10' 
-                              : student.typology.includes('Reviser') ? 'bg-warning/10 text-warning border-warning/20' 
-                              : student.typology.includes('Natural') ? 'bg-success/10 text-success border-success/20'
-                              : 'bg-white/5 text-muted-foreground border-white/10'
+                              student.typology.includes('Risk') || student.typology.includes('Critical') ? 'badge-advanced' 
+                              : student.typology.includes('Reviser') ? 'badge-intermediate' 
+                              : student.typology.includes('Natural') ? 'badge-beginner'
+                              : 'bg-surface-2 text-muted-foreground border-border'
                             }`}
                           >
                             {student.typology}

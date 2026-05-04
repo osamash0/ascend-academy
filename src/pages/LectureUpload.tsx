@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -24,10 +25,13 @@ import {
   FileUp,
   ListChecks,
   Type,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  EyeOff,
+  PartyPopper
 } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
+import { PDFUploadOverlay } from '@/components/PDFUploadOverlay';
+import { DuplicatePDFDialog, type DuplicateMatch } from '@/components/DuplicatePDFDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,55 +39,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-const API_BASE = 'http://localhost:8000';
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  TYPES                                                                    */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-interface SlideData {
-  title: string;
-  content: string;
-  summary: string;
-  questions: QuestionData[];
-}
-
-interface QuestionData {
-  question: string;
-  options: string[];
-  correctAnswer: number;
-}
-
-interface SlideStatus {
-  hasTitle: boolean;
-  hasContent: boolean;
-  hasSummary: boolean;
-  hasQuiz: boolean;
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  UTILITY: Slide completion calculator                                     */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function getSlideStatus(slide: SlideData): SlideStatus {
-  return {
-    hasTitle: slide.title.trim().length > 0,
-    hasContent: slide.content.trim().length > 0,
-    hasSummary: slide.summary.trim().length > 0,
-    hasQuiz: slide.questions.some(q => q.question.trim().length > 0 && q.options.some(o => o.trim().length > 0)),
-  };
-}
-
-function getCompletionPercent(status: SlideStatus): number {
-  const values = Object.values(status);
-  return Math.round((values.filter(Boolean).length / values.length) * 100);
-}
-
-function getOverallCompletion(slides: SlideData[]): number {
-  if (slides.length === 0) return 0;
-  const total = slides.reduce((acc, s) => acc + getCompletionPercent(getSlideStatus(s)), 0);
-  return Math.round(total / slides.length);
-}
+import { useSlideManager } from '@/hooks/useSlideManager';
+import { usePDFUpload } from '@/hooks/usePDFUpload';
+import { useAIGeneration } from '@/hooks/useAIGeneration';
+import { useLectureSubmit } from '@/hooks/useLectureSubmit';
+import { useParsingMode } from '@/hooks/useParsingMode';
+import {
+  getSlideStatus,
+  getCompletionPercent,
+  getOverallCompletion,
+} from '@/types/lectureUpload';
+import type { SlideStatus } from '@/types/lectureUpload';
+import { listCourses, type Course } from '@/services/coursesService';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  COMPONENT: Progress Ring                                                 */
@@ -137,11 +104,12 @@ function ProgressRing({ percent, size = 36, stroke = 3 }: { percent: number; siz
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function StatusDots({ status }: { status: SlideStatus }) {
+  const { t } = useTranslation(['upload']);
   const items = [
-    { key: 'hasTitle', label: 'Title', icon: Type },
-    { key: 'hasContent', label: 'Content', icon: FileText },
-    { key: 'hasSummary', label: 'Summary', icon: Sparkles },
-    { key: 'hasQuiz', label: 'Quiz', icon: ListChecks },
+    { key: 'hasTitle', label: t('upload:statusDots.title'), icon: Type },
+    { key: 'hasContent', label: t('upload:statusDots.content'), icon: FileText },
+    { key: 'hasSummary', label: t('upload:statusDots.summary'), icon: Sparkles },
+    { key: 'hasQuiz', label: t('upload:statusDots.quiz'), icon: ListChecks },
   ] as const;
 
   return (
@@ -208,6 +176,7 @@ function AIActionButton({
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function EmptySlideState({ onAddSlide, onUploadPDF }: { onAddSlide: () => void; onUploadPDF: () => void }) {
+  const { t } = useTranslation(['upload']);
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -217,18 +186,18 @@ function EmptySlideState({ onAddSlide, onUploadPDF }: { onAddSlide: () => void; 
       <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-950/50 dark:to-indigo-950/50 flex items-center justify-center mb-6 shadow-inner">
         <LayoutTemplate className="w-10 h-10 text-violet-500" />
       </div>
-      <h3 className="text-xl font-semibold text-foreground mb-2">Start Building Your Lecture</h3>
+      <h3 className="text-xl font-semibold text-foreground mb-2">{t('upload:empty.title')}</h3>
       <p className="text-muted-foreground max-w-sm mb-8">
-        Create slides from scratch or import a PDF to auto-generate structured content with AI-powered summaries and quizzes.
+        {t('upload:empty.description')}
       </p>
       <div className="flex gap-3">
         <Button onClick={onAddSlide} size="lg" className="gap-2">
           <Plus className="w-5 h-5" />
-          Create First Slide
+          {t('upload:empty.createFirstSlide')}
         </Button>
         <Button onClick={onUploadPDF} variant="outline" size="lg" className="gap-2">
           <FileUp className="w-5 h-5" />
-          Import PDF
+          {t('upload:empty.importPdf')}
         </Button>
       </div>
     </motion.div>
@@ -239,6 +208,8 @@ function EmptySlideState({ onAddSlide, onUploadPDF }: { onAddSlide: () => void; 
 /*  COMPONENT: Quiz Builder                                                  */
 /* ────────────────────────────────────────────────────────────────────────── */
 
+const optionLabels = ['A', 'B', 'C', 'D'] as const;
+
 function QuizBuilder({
   question,
   questionIndex,
@@ -247,59 +218,58 @@ function QuizBuilder({
   onUpdateOption,
   onUpdateCorrectAnswer,
 }: {
-  question: QuestionData;
+  question: { question: string; options: string[]; correctAnswer: number };
   questionIndex: number;
   slideIndex: number;
-  onUpdateQuestion: (si: number, qi: number, val: string) => void;
-  onUpdateOption: (si: number, qi: number, oi: number, val: string) => void;
-  onUpdateCorrectAnswer: (si: number, qi: number, val: number) => void;
+  onUpdateQuestion: (slideIndex: number, questionIndex: number, value: string) => void;
+  onUpdateOption: (slideIndex: number, questionIndex: number, optionIndex: number, value: string) => void;
+  onUpdateCorrectAnswer: (slideIndex: number, questionIndex: number, value: number) => void;
 }) {
-  const optionLabels = ['A', 'B', 'C', 'D'];
-
+  const { t } = useTranslation(['upload']);
   return (
-    <div className="space-y-4">
-      <div className="relative">
-        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">
-          Question
-        </Label>
-        <Input
+    <div className="space-y-4 p-5 rounded-2xl bg-card border border-border shadow-sm">
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('upload:slide.questionLabel')}</Label>
+        <Textarea
           value={question.question}
           onChange={(e) => onUpdateQuestion(slideIndex, questionIndex, e.target.value)}
-          placeholder="What is the main concept discussed in this slide?"
-          className="bg-background border-input focus:border-violet-500 focus:ring-violet-500/20"
+          placeholder={t('upload:slide.questionPlaceholder')}
+          className="min-h-[80px] resize-none bg-muted/30 border-0 focus-visible:ring-1"
+          rows={2}
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          {t('upload:slide.answerOptions')}
+          <span className="text-[10px] font-normal normal-case">— {t('upload:slide.answerHelp')}</span>
+        </Label>
         {question.options.map((option, oIndex) => {
-          const isCorrect = question.correctAnswer === oIndex;
+          const isCorrect = oIndex === question.correctAnswer;
           return (
             <motion.div
               key={oIndex}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={{ scale: 1.005 }}
               onClick={() => onUpdateCorrectAnswer(slideIndex, questionIndex, oIndex)}
               className={cn(
-                "relative flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 group",
+                "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200",
                 isCorrect
-                  ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm"
-                  : "border-border bg-muted/30 hover:border-violet-300 hover:bg-violet-50/50 dark:hover:bg-violet-950/10"
+                  ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-600"
+                  : "border-border hover:border-violet-300 hover:bg-violet-50/50 dark:hover:bg-violet-950/10"
               )}
             >
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-all duration-200",
-                  isCorrect
-                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
-                    : "bg-muted text-muted-foreground group-hover:bg-violet-100 group-hover:text-violet-700 dark:group-hover:bg-violet-900/30"
-                )}
-              >
+              <div className={cn(
+                "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300",
+                isCorrect
+                  ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
+                  : "bg-muted text-muted-foreground group-hover:bg-violet-100 group-hover:text-violet-700 dark:group-hover:bg-violet-900/30"
+              )}>
                 {isCorrect ? <CheckCircle2 className="w-4 h-4" /> : optionLabels[oIndex]}
               </div>
               <Input
                 value={option}
                 onChange={(e) => onUpdateOption(slideIndex, questionIndex, oIndex, e.target.value)}
-                placeholder={`Option ${optionLabels[oIndex]}`}
+                placeholder={t('upload:slide.optionPlaceholder', { label: optionLabels[oIndex] })}
                 className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-0 text-sm"
                 onClick={(e) => e.stopPropagation()}
               />
@@ -310,7 +280,7 @@ function QuizBuilder({
 
       <p className="text-xs text-muted-foreground flex items-center gap-1.5">
         <AlertCircle className="w-3 h-3" />
-        Click any option card to mark it as the correct answer
+        {t('upload:slide.answerHint')}
       </p>
     </div>
   );
@@ -321,29 +291,127 @@ function QuizBuilder({
 /* ────────────────────────────────────────────────────────────────────────── */
 
 export default function LectureUpload() {
-  const { user } = useAuth();
+  const { t } = useTranslation(['upload', 'common']);
   const navigate = useNavigate();
-  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const slideListRef = useRef<HTMLDivElement>(null);
 
-  /* ── State ─────────────────────────────────────────────────────────────── */
+  const { toast } = useToast();
+
+  /* ── Lecture metadata ──────────────────────────────────────────────────── */
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [slides, setSlides] = useState<SlideData[]>([]);
-  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [showPDFPanel, setShowPDFPanel] = useState(false);
-  const [aiSummaryLoading, setAiSummaryLoading] = useState<Record<number, boolean>>({});
-  const [aiQuizLoading, setAiQuizLoading] = useState<Record<number, boolean>>({});
+  const [searchParams] = useSearchParams();
+  const prefilledCourseId = searchParams.get('courseId');
+  const [courseId, setCourseId] = useState<string | null>(prefilledCourseId);
+  const [courses, setCourses] = useState<Course[]>([]);
+  useEffect(() => {
+    listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
+  }, []);
+
+  /* ── UI state ──────────────────────────────────────────────────────────── */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showFullPreview, setShowFullPreview] = useState(false);
+
+  /* ── Hooks ─────────────────────────────────────────────────────────────── */
+  const {
+    slides, setSlides,
+    activeSlideIndex, setActiveSlideIndex,
+    addSlide, removeSlide,
+    updateSlide, updateQuestionText, updateCorrectAnswer, updateOption,
+  } = useSlideManager();
+
+  const {
+    isUploading, setIsUploading,
+    uploadProgress, uploadTotal, uploadStatus,
+    processedSlides, pdfFile, pdfHash, parserUsed, parsePhase, parseCompleted,
+    deckQuiz,
+    handleFileUpload,
+    startUpload,
+    closeUploadOverlay,
+  } = usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle });
+
+  // Task #58: deterministic-vs-AI ingestion toggle. Persisted in
+  // localStorage via useParsingMode so the choice survives reloads.
+  // The same hook is also called inside usePDFUpload — they share
+  // localStorage but each has its own React state. We pass our value
+  // down so a toggle here is reflected on the very next upload.
+  const { parsingMode, setParsingMode } = useParsingMode();
+
+  /* ── Duplicate-PDF dialog state ────────────────────────────────────────── */
+  const [duplicateState, setDuplicateState] = useState<{
+    file: File;
+    hash: string;
+    matches: DuplicateMatch[];
+  } | null>(null);
+
+  const onDuplicateDetected = useCallback(
+    (file: File, matches: DuplicateMatch[], hash: string) => {
+      setDuplicateState({ file, matches, hash });
+    },
+    [],
+  );
+
+  const onPickFile = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      handleFileUpload(e, { onDuplicate: onDuplicateDetected }),
+    [handleFileUpload, onDuplicateDetected],
+  );
+
+  const handleDuplicateUseExisting = useCallback(
+    (lectureId: string) => {
+      setDuplicateState(null);
+      navigate(`/professor/lecture/${lectureId}`);
+    },
+    [navigate],
+  );
+
+  const handleDuplicateUploadAsNew = useCallback(async () => {
+    const state = duplicateState;
+    setDuplicateState(null);
+    if (!state) return;
+    await startUpload(state.file, { forceReparse: true, precomputedHash: state.hash });
+  }, [duplicateState, startUpload]);
+
+  const handleDuplicateCancel = useCallback(() => {
+    setDuplicateState(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  const {
+    isAiLoading,
+    handleGenerateSummary,
+    handleGenerateQuiz,
+    handleGenerateTitle,
+    handleGenerateContent,
+  } = useAIGeneration({ slides, updateSlide });
+
+  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode });
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];
-  const overallCompletion = getOverallCompletion(slides);
   const totalSlides = slides.length;
+  const overallCompletion = useMemo(() => getOverallCompletion(slides), [slides]);
+
+  /* ── Stable nav callbacks ──────────────────────────────────────────────── */
+  const handlePrevSlide = useCallback(
+    () => setActiveSlideIndex(p => Math.max(0, p - 1)),
+    [setActiveSlideIndex]
+  );
+  const handleNextSlide = useCallback(
+    () => setActiveSlideIndex(p => Math.min(totalSlides - 1, p + 1)),
+    [setActiveSlideIndex, totalSlides]
+  );
+
+  const handleExit = useCallback(() => {
+    if (slides.length > 0) {
+      const confirm = window.confirm(t('upload:toasts.exitConfirm'));
+      if (!confirm) return;
+    }
+    navigate('/professor/dashboard');
+  }, [slides.length, navigate, t]);
 
   /* ── Scroll active slide into view ─────────────────────────────────────── */
   useEffect(() => {
@@ -353,309 +421,44 @@ export default function LectureUpload() {
     }
   }, [activeSlideIndex]);
 
-  /* ── Keyboard Navigation ───────────────────────────────────────────────── */
+  /* ── Keyboard navigation (stable — uses functional updaters) ───────────── */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey) {
-        if (e.key === 'ArrowUp' && activeSlideIndex > 0) {
-          e.preventDefault();
-          setActiveSlideIndex(prev => prev - 1);
-        }
-        if (e.key === 'ArrowDown' && activeSlideIndex < slides.length - 1) {
-          e.preventDefault();
-          setActiveSlideIndex(prev => prev + 1);
-        }
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveSlideIndex(p => Math.max(0, p - 1));
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveSlideIndex(p => p + 1); // clamped below via Math.min when rendering
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSlideIndex, slides.length]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── PDF Import ────────────────────────────────────────────────────────── */
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type !== 'application/pdf') {
-      toast({ title: 'Invalid file type', description: 'Please upload a PDF file.', variant: 'destructive' });
-      return;
+  /* ── Auto-scroll slide log during upload ──────────────────────────────── */
+  useEffect(() => {
+    if (slideListRef.current) {
+      slideListRef.current.scrollTop = slideListRef.current.scrollHeight;
     }
+  }, [processedSlides]);
 
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('ai_model', localStorage.getItem('ascend-academy-ai-model') || 'groq');
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${API_BASE}/api/upload/parse-pdf`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session?.access_token}` },
-        body: formData
-      });
-
-      if (!res.ok) {
-        if (res.status === 401) throw new Error('Unauthorized - Please log in again');
-        throw new Error('Failed to parse PDF');
+  /* ── Unsaved-changes guard ─────────────────────────────────────────────── */
+  useEffect(() => {
+    const dirty = slides.some(
+      s => s.title || s.content || s.summary || s.questions.some(q => q.question)
+    );
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = '';
       }
-
-      interface ParsedSlideFromAPI {
-        title: string;
-        content: string;
-        summary?: string;
-        questions?: QuestionData[];
-      }
-      const data: { slides: ParsedSlideFromAPI[] } = await res.json();
-      const newSlides: SlideData[] = data.slides.map((s) => ({
-        title: s.title,
-        content: s.content,
-        summary: s.summary || '',
-        questions: s.questions || [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
-      }));
-
-      setSlides(newSlides);
-      setActiveSlideIndex(0);
-      if (!title) setTitle(file.name.replace('.pdf', ''));
-      setPdfFile(file);
-      setShowPDFPanel(false);
-
-      toast({
-        title: 'PDF Imported Successfully',
-        description: `${newSlides.length} slides extracted and structured.`,
-      });
-    } catch {
-      toast({ title: 'Upload Failed', description: 'Could not parse the PDF. Make sure the backend is running.', variant: 'destructive' });
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  /* ── AI: Generate Summary ──────────────────────────────────────────────── */
-  const handleGenerateSummary = async (slideIndex: number) => {
-    const content = slides[slideIndex].content;
-    if (!content.trim()) {
-      toast({ title: 'No content', description: 'Add slide content before generating a summary.', variant: 'destructive' });
-      return;
-    }
-
-    setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: true }));
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${API_BASE}/api/ai/generate-summary`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({
-          slide_text: content,
-          ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq'
-        }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      updateSlide(slideIndex, 'summary', data.summary);
-      toast({ title: 'Summary Generated', description: 'AI has distilled the key points for you.' });
-    } catch {
-      toast({ title: 'AI Error', description: 'Summary generation failed. Is Ollama running?', variant: 'destructive' });
-    } finally {
-      setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: false }));
-    }
-  };
-
-  /* ── AI: Generate Quiz ─────────────────────────────────────────────────── */
-  const handleGenerateQuiz = async (slideIndex: number) => {
-    const content = slides[slideIndex].content;
-    if (!content.trim()) {
-      toast({ title: 'No content', description: 'Add slide content before generating a quiz.', variant: 'destructive' });
-      return;
-    }
-
-    setAiQuizLoading(prev => ({ ...prev, [slideIndex]: true }));
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${API_BASE}/api/ai/generate-quiz`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({
-          slide_text: content,
-          ai_model: localStorage.getItem('ascend-academy-ai-model') || 'groq'
-        }),
-      });
-      if (!res.ok) throw new Error();
-      const quiz = await res.json();
-      const newSlides = [...slides];
-      newSlides[slideIndex].questions = [{
-        question: quiz.question,
-        options: quiz.options,
-        correctAnswer: quiz.correctAnswer,
-      }];
-      setSlides(newSlides);
-      toast({ title: 'Quiz Generated', description: 'A new question has been crafted from your content.' });
-    } catch {
-      toast({ title: 'AI Error', description: 'Quiz generation failed. Is Ollama running?', variant: 'destructive' });
-    } finally {
-      setAiQuizLoading(prev => ({ ...prev, [slideIndex]: false }));
-    }
-  };
-
-  /* ── Slide Helpers ─────────────────────────────────────────────────────── */
-  const addSlide = (insertAfterIndex?: number) => {
-    const newSlide: SlideData = {
-      title: '',
-      content: '',
-      summary: '',
-      questions: [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
     };
-
-    if (insertAfterIndex !== undefined) {
-      const newSlides = [...slides];
-      newSlides.splice(insertAfterIndex + 1, 0, newSlide);
-      setSlides(newSlides);
-      setActiveSlideIndex(insertAfterIndex + 1);
-    } else {
-      setSlides([...slides, newSlide]);
-      setActiveSlideIndex(slides.length);
-    }
-  };
-
-  const removeSlide = (index: number) => {
-    if (slides.length <= 1) {
-      setSlides([]);
-      setActiveSlideIndex(0);
-      return;
-    }
-    const newSlides = slides.filter((_, i) => i !== index);
-    setSlides(newSlides);
-    if (activeSlideIndex >= index && activeSlideIndex > 0) {
-      setActiveSlideIndex(activeSlideIndex - 1);
-    }
-  };
-
-  const updateSlide = (index: number, field: keyof SlideData, value: string | QuestionData[]) => {
-    const newSlides = [...slides];
-    newSlides[index] = { ...newSlides[index], [field]: value };
-    setSlides(newSlides);
-  };
-
-  const updateQuestionText = (slideIndex: number, questionIndex: number, value: string) => {
-    const newSlides = [...slides];
-    const newQuestions = [...newSlides[slideIndex].questions];
-    newQuestions[questionIndex] = { ...newQuestions[questionIndex], question: value };
-    newSlides[slideIndex].questions = newQuestions;
-    setSlides(newSlides);
-  };
-
-  const updateCorrectAnswer = (slideIndex: number, questionIndex: number, value: number) => {
-    const newSlides = [...slides];
-    const newQuestions = [...newSlides[slideIndex].questions];
-    newQuestions[questionIndex] = { ...newQuestions[questionIndex], correctAnswer: value };
-    newSlides[slideIndex].questions = newQuestions;
-    setSlides(newSlides);
-  };
-
-  const updateOption = (slideIndex: number, questionIndex: number, optionIndex: number, value: string) => {
-    const newSlides = [...slides];
-    const newOptions = [...newSlides[slideIndex].questions[questionIndex].options];
-    newOptions[optionIndex] = value;
-    newSlides[slideIndex].questions[questionIndex].options = newOptions;
-    setSlides(newSlides);
-  };
-
-  /* ── Submit ────────────────────────────────────────────────────────────── */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!title.trim()) {
-      toast({ title: 'Error', description: 'Please enter a lecture title.', variant: 'destructive' });
-      return;
-    }
-
-    if (slides.length === 0) {
-      toast({ title: 'Error', description: 'Add at least one slide.', variant: 'destructive' });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      let pdfUrl: string | null = null;
-      const lectureId = crypto.randomUUID();
-
-      if (pdfFile) {
-        const filePath = `lectures/${lectureId}/${pdfFile.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('lecture-pdfs')
-          .upload(filePath, pdfFile, { contentType: 'application/pdf', upsert: true });
-
-        if (uploadError) {
-          toast({
-            title: 'PDF Upload Failed',
-            description: 'Could not upload PDF to storage. Please check Supabase Storage RLS policies.',
-            variant: 'destructive'
-          });
-          throw uploadError;
-        }
-        const { data: urlData } = supabase.storage.from('lecture-pdfs').getPublicUrl(filePath);
-        pdfUrl = urlData.publicUrl;
-      }
-
-      const { data: lecture, error: lectureError } = await supabase
-        .from('lectures')
-        .insert({
-          id: lectureId,
-          title,
-          description,
-          professor_id: user?.id,
-          total_slides: slides.length,
-          pdf_url: pdfUrl,
-        })
-        .select()
-        .single();
-
-      if (lectureError) throw lectureError;
-
-      for (let i = 0; i < slides.length; i++) {
-        const slideData = slides[i];
-        const { data: slide, error: slideError } = await supabase
-          .from('slides')
-          .insert({
-            lecture_id: lecture.id,
-            slide_number: i + 1,
-            title: slideData.title || `Slide ${i + 1}`,
-            content_text: slideData.content,
-            summary: slideData.summary,
-          })
-          .select()
-          .single();
-
-        if (slideError) throw slideError;
-
-        for (const q of slideData.questions) {
-          if (q.question.trim()) {
-            await supabase.from('quiz_questions').insert({
-              slide_id: slide.id,
-              question_text: q.question,
-              options: q.options.filter(o => o.trim()),
-              correct_answer: q.correctAnswer,
-            });
-          }
-        }
-      }
-
-      toast({ title: 'Success!', description: 'Lecture created successfully.' });
-      navigate('/professor/dashboard');
-    } catch (error) {
-      console.error('Error creating lecture:', error);
-      toast({ title: 'Error', description: 'Failed to create lecture. Please try again.', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [slides]);
 
   /* ── Render: Empty State ───────────────────────────────────────────────── */
   if (slides.length === 0) {
@@ -665,16 +468,24 @@ export default function LectureUpload() {
         <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleExit}
+                className="rounded-full h-8 w-8"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-foreground">Create Lecture</h1>
-                <p className="text-xs text-muted-foreground">Build interactive learning experiences</p>
+                <h1 className="text-lg font-bold text-foreground">{t('upload:header.title')}</h1>
+                <p className="text-xs text-muted-foreground">{t('upload:header.subtitle')}</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/professor/dashboard')}>
-              Cancel
+            <Button variant="outline" size="sm" onClick={handleExit} className="text-xs font-medium">
+              {t('upload:header.exit')}
             </Button>
           </div>
         </div>
@@ -687,27 +498,92 @@ export default function LectureUpload() {
             className="space-y-4"
           >
             <div>
-              <Label htmlFor="title" className="text-sm font-medium">Lecture Title</Label>
+              <Label htmlFor="title" className="text-sm font-medium">{t('upload:form.titleLabel')}</Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Introduction to Machine Learning"
+                placeholder={t('upload:form.titlePlaceholder')}
                 className="mt-1.5 text-lg h-12"
               />
             </div>
             <div>
-              <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+              <Label htmlFor="description" className="text-sm font-medium">{t('upload:form.descriptionLabel')}</Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief overview of what students will learn..."
+                placeholder={t('upload:form.descriptionPlaceholder')}
                 className="mt-1.5"
                 rows={3}
               />
             </div>
+            <div>
+              <Label htmlFor="course" className="text-sm font-medium">{t('upload:empty.courseLabel')}</Label>
+              <select
+                id="course"
+                value={courseId ?? ''}
+                onChange={(e) => setCourseId(e.target.value || null)}
+                className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">{t('upload:empty.uncategorized')}</option>
+                {courses.map(c => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
+            </div>
           </motion.div>
+        </div>
+
+        {/* Parsing-mode selector (Task #58) */}
+        <div
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border bg-card/60 p-4"
+          data-testid="parsing-mode-selector"
+        >
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium">PDF parsing mode</Label>
+            <p className="text-xs text-muted-foreground">
+              {parsingMode === 'on_demand'
+                ? 'Skip AI during import — extract text only. Use the editor to generate titles, content, and quizzes per slide.'
+                : 'Default: full AI parsing (titles, summaries, and quizzes are generated automatically).'}
+            </p>
+          </div>
+          <div
+            role="radiogroup"
+            aria-label="PDF parsing mode"
+            className="inline-flex rounded-lg border border-border bg-background p-0.5 shrink-0"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={parsingMode === 'ai'}
+              onClick={() => setParsingMode('ai')}
+              data-testid="parsing-mode-ai"
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                parsingMode === 'ai'
+                  ? 'bg-violet-500 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              AI parsing
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={parsingMode === 'on_demand'}
+              onClick={() => setParsingMode('on_demand')}
+              data-testid="parsing-mode-on-demand"
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                parsingMode === 'on_demand'
+                  ? 'bg-violet-500 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Skip AI
+            </button>
+          </div>
         </div>
 
         {/* Empty State */}
@@ -720,8 +596,29 @@ export default function LectureUpload() {
           ref={fileInputRef}
           type="file"
           accept=".pdf"
-          onChange={handleFileUpload}
+          onChange={onPickFile}
           className="hidden"
+        />
+
+        <DuplicatePDFDialog
+          open={duplicateState !== null}
+          matches={duplicateState?.matches ?? []}
+          onUseExisting={handleDuplicateUseExisting}
+          onUploadAsNew={handleDuplicateUploadAsNew}
+          onCancel={handleDuplicateCancel}
+        />
+
+        <PDFUploadOverlay
+          isOpen={isUploading}
+          uploadProgress={uploadProgress}
+          uploadTotal={uploadTotal}
+          uploadStatus={uploadStatus}
+          processedSlides={processedSlides}
+          parserUsed={parserUsed}
+          parsePhase={parsePhase}
+          parseCompleted={parseCompleted}
+          parsingMode={parsingMode}
+          onClose={closeUploadOverlay}
         />
       </div>
     );
@@ -735,6 +632,15 @@ export default function LectureUpload() {
         <div className="flex items-center justify-between px-4 lg:px-6 h-16">
           {/* Left: Brand + Title Input */}
           <div className="flex items-center gap-4 flex-1 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleExit}
+              className="rounded-full h-8 w-8 hover:bg-muted/80"
+              title={t('upload:chrome.backToDashboard')}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-md shadow-violet-500/20 shrink-0">
               <BookOpen className="w-4 h-4 text-white" />
             </div>
@@ -742,13 +648,13 @@ export default function LectureUpload() {
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Lecture Title"
+                placeholder={t('upload:form.titleLabel')}
                 className="border-0 bg-transparent text-lg font-semibold placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-auto"
               />
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add a brief description..."
+                placeholder={t('upload:form.descriptionPlaceholder')}
                 className="border-0 bg-transparent text-xs text-muted-foreground placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-auto py-0"
               />
             </div>
@@ -759,7 +665,7 @@ export default function LectureUpload() {
             <ProgressRing percent={overallCompletion} size={32} stroke={2.5} />
             <div className="text-xs">
               <span className="font-semibold text-foreground">{overallCompletion}%</span>
-              <span className="text-muted-foreground ml-1">complete</span>
+              <span className="text-muted-foreground ml-1">{t('upload:chrome.complete')}</span>
             </div>
           </div>
 
@@ -773,14 +679,24 @@ export default function LectureUpload() {
               className="hidden sm:flex gap-2"
             >
               {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
-              Import PDF
+              {t('upload:empty.importPdf')}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('/professor/dashboard')}
+              onClick={handleExit}
+              className="text-xs font-medium"
             >
-              Cancel
+              {t('upload:header.exit')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFullPreview(true)}
+              className="gap-2 border-violet-200 text-violet-700 hover:bg-violet-50"
+            >
+              <BookOpen className="w-4 h-4" />
+              {t('upload:actions.preview')}
             </Button>
             <Button
               size="sm"
@@ -793,39 +709,11 @@ export default function LectureUpload() {
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              Publish
+              {loading ? t('upload:actions.saving') : t('upload:actions.save')}
             </Button>
           </div>
         </div>
 
-        {/* PDF Upload Progress Bar */}
-        <AnimatePresence>
-          {isUploading && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-violet-500/10 border-y border-violet-200/50 dark:border-violet-800/30 px-6 py-3">
-                <div className="flex items-center gap-3 max-w-4xl mx-auto">
-                  <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center animate-pulse">
-                    <BrainCircuit className="w-4 h-4 text-violet-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-violet-900 dark:text-violet-200">
-                      AI is analyzing your PDF...
-                    </p>
-                    <p className="text-xs text-violet-700/70 dark:text-violet-300/70">
-                      Extracting text, generating summaries, and crafting quiz questions
-                    </p>
-                  </div>
-                  <Loader2 className="w-5 h-5 text-violet-500 animate-spin" />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* ═══════ MAIN LAYOUT ═══════ */}
@@ -844,7 +732,7 @@ export default function LectureUpload() {
               <div className="p-4 border-b border-border">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Slides ({totalSlides})
+                    {t('upload:chrome.slides', { count: totalSlides })}
                   </span>
                   <div className="flex gap-1">
                     <Button
@@ -852,7 +740,7 @@ export default function LectureUpload() {
                       size="icon"
                       className="h-7 w-7"
                       onClick={() => fileInputRef.current?.click()}
-                      title="Import PDF"
+                      title={t('upload:empty.importPdf')}
                     >
                       <FileUp className="w-3.5 h-3.5" />
                     </Button>
@@ -861,7 +749,7 @@ export default function LectureUpload() {
                       size="icon"
                       className="h-7 w-7"
                       onClick={() => addSlide(activeSlideIndex)}
-                      title="Add slide after current"
+                      title={t('upload:chrome.addSlideAfter')}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </Button>
@@ -875,7 +763,7 @@ export default function LectureUpload() {
                   onClick={() => addSlide()}
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Add New Slide
+                  {t('upload:chrome.addNewSlide')}
                 </Button>
               </div>
 
@@ -917,7 +805,7 @@ export default function LectureUpload() {
                           "text-sm font-medium truncate",
                           isActive ? "text-foreground" : "text-muted-foreground"
                         )}>
-                          {slide.title || `Slide ${index + 1}`}
+                          {slide.title || t('upload:slideFallback', { number: index + 1 })}
                         </p>
                         <div className="flex items-center gap-2 mt-1.5">
                           <StatusDots status={status} />
@@ -975,9 +863,9 @@ export default function LectureUpload() {
                       </span>
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-foreground">Slide Editor</h2>
+                      <h2 className="text-lg font-semibold text-foreground">{t('upload:chrome.slideEditor')}</h2>
                       <p className="text-xs text-muted-foreground">
-                        {getCompletionPercent(getSlideStatus(activeSlide))}% complete
+                        {getCompletionPercent(getSlideStatus(activeSlide))}% {t('upload:chrome.complete')}
                       </p>
                     </div>
                   </div>
@@ -986,11 +874,23 @@ export default function LectureUpload() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setShowPreview(!showPreview)}
+                      className={cn(
+                        "gap-1.5 transition-all duration-300",
+                        showPreview ? "bg-violet-50 text-violet-600 border-violet-200" : ""
+                      )}
+                    >
+                      {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showPreview ? t('upload:chrome.previewClose') : t('upload:chrome.previewOpen')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => addSlide(activeSlideIndex)}
                       className="gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      Insert After
+                      {t('upload:chrome.insertAfter')}
                     </Button>
                     {slides.length > 1 && (
                       <Button
@@ -1009,12 +909,12 @@ export default function LectureUpload() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <Type className="w-3.5 h-3.5 text-muted-foreground" />
-                    Slide Title
+                    {t('upload:slide.titleLabel')}
                   </Label>
                   <Input
                     value={activeSlide.title}
                     onChange={(e) => updateSlide(activeSlideIndex, 'title', e.target.value)}
-                    placeholder="Enter a clear, descriptive title..."
+                    placeholder={t('upload:slide.titlePlaceholder')}
                     className="h-11 text-base"
                   />
                 </div>
@@ -1023,16 +923,16 @@ export default function LectureUpload() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                    Content
+                    {t('upload:slide.contentLabel')}
                   </Label>
                   <Textarea
                     value={activeSlide.content}
                     onChange={(e) => updateSlide(activeSlideIndex, 'content', e.target.value)}
-                    placeholder="Write the main content for this slide..."
+                    placeholder={t('upload:slide.contentPlaceholder')}
                     className="min-h-[160px] resize-y text-base leading-relaxed"
                   />
                   <p className="text-xs text-muted-foreground">
-                    {activeSlide.content.length} characters
+                    {t('upload:chrome.characters', { count: activeSlide.content.length })}
                   </p>
                 </div>
 
@@ -1040,22 +940,22 @@ export default function LectureUpload() {
                 <div className="flex flex-wrap gap-3 p-4 rounded-xl bg-gradient-to-r from-violet-50/80 to-indigo-50/80 dark:from-violet-950/20 dark:to-indigo-950/20 border border-violet-100 dark:border-violet-800/30">
                   <div className="flex items-center gap-2 text-sm text-violet-800 dark:text-violet-300 font-medium">
                     <Zap className="w-4 h-4" />
-                    AI Assistant
+                    {t('upload:chrome.aiAssistant')}
                   </div>
                   <div className="flex-1" />
                   <AIActionButton
                     onClick={() => handleGenerateSummary(activeSlideIndex)}
-                    loading={!!aiSummaryLoading[activeSlideIndex]}
+                    loading={isAiLoading(activeSlideIndex, 'summary')}
                     variant="subtle"
                   >
-                    Generate Summary
+                    {t('upload:actions.generateSummary')}
                   </AIActionButton>
                   <AIActionButton
                     onClick={() => handleGenerateQuiz(activeSlideIndex)}
-                    loading={!!aiQuizLoading[activeSlideIndex]}
+                    loading={isAiLoading(activeSlideIndex, 'quiz')}
                     variant="subtle"
                   >
-                    Generate Quiz
+                    {t('upload:actions.generateQuiz')}
                   </AIActionButton>
                 </div>
 
@@ -1063,17 +963,17 @@ export default function LectureUpload() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    Summary
+                    {t('upload:slide.summaryLabel')}
                     {activeSlide.summary && (
                       <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
-                        AI Generated
+                        {t('upload:chrome.aiGenerated')}
                       </span>
                     )}
                   </Label>
                   <Textarea
                     value={activeSlide.summary}
                     onChange={(e) => updateSlide(activeSlideIndex, 'summary', e.target.value)}
-                    placeholder="Key takeaways from this slide (or use AI to generate)..."
+                    placeholder={t('upload:slide.summaryPlaceholder')}
                     className="min-h-[100px] resize-y bg-amber-50/30 dark:bg-amber-950/10 border-amber-200/50 dark:border-amber-800/30 focus:border-amber-400"
                     rows={3}
                   />
@@ -1084,11 +984,11 @@ export default function LectureUpload() {
                   <div className="flex items-center gap-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <ListChecks className="w-3.5 h-3.5 text-emerald-500" />
-                      Quiz Questions
+                      {t('upload:slide.quizLabel')}
                     </Label>
                     {activeSlide.questions[0]?.question && (
                       <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
-                        Configured
+                        {t('upload:chrome.configured')}
                       </span>
                     )}
                   </div>
@@ -1111,26 +1011,26 @@ export default function LectureUpload() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setActiveSlideIndex(Math.max(0, activeSlideIndex - 1))}
+                    onClick={handlePrevSlide}
                     disabled={activeSlideIndex === 0}
                     className="gap-2"
                   >
                     <ChevronLeft className="w-4 h-4" />
-                    Previous Slide
+                    {t('common:actions.back')}
                   </Button>
 
                   <span className="text-xs text-muted-foreground">
-                    Slide {activeSlideIndex + 1} of {totalSlides}
+                    {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })} / {totalSlides}
                   </span>
 
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setActiveSlideIndex(Math.min(totalSlides - 1, activeSlideIndex + 1))}
+                    onClick={handleNextSlide}
                     disabled={activeSlideIndex === totalSlides - 1}
                     className="gap-2"
                   >
-                    Next Slide
+                    {t('common:actions.next')}
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -1138,15 +1038,279 @@ export default function LectureUpload() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* ─── RIGHT SIDEBAR: Live Preview ─── */}
+        <AnimatePresence>
+          {showPreview && activeSlide && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 450, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="border-l border-border bg-card/50 backdrop-blur-xl flex flex-col shrink-0 overflow-hidden shadow-2xl"
+            >
+              <div className="p-4 border-b border-border flex items-center justify-between bg-muted/20">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    {t('upload:chrome.livePreview')}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 hover:bg-muted"
+                  onClick={() => setShowPreview(false)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8">
+                {/* Simulated Tablet Frame */}
+                <div className="relative aspect-[4/3] w-full bg-background rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
+
+                  {/* Status Bar */}
+                  <div className="h-6 px-4 flex items-center justify-between text-[8px] font-medium text-muted-foreground border-b border-border/50">
+                    <span>9:41 AM</span>
+                    <div className="flex gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full border border-current opacity-50" />
+                      <div className="w-2.5 h-2.5 rounded-sm border border-current opacity-50" />
+                    </div>
+                  </div>
+
+                  {/* Content Preview */}
+                  <div className="flex-1 p-8 flex flex-col">
+                    <div className="space-y-4">
+                      <motion.h1
+                        key={`title-${activeSlideIndex}`}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-2xl font-black text-foreground tracking-tight leading-none"
+                      >
+                        {activeSlide.title || t('upload:slide.untitledSlide')}
+                      </motion.h1>
+                      <div className="h-1 w-12 bg-violet-500 rounded-full" />
+                    </div>
+
+                    <motion.div
+                      key={`content-${activeSlideIndex}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="mt-6 flex-1 text-sm text-muted-foreground leading-relaxed overflow-y-auto pr-2 custom-scrollbar"
+                    >
+                      {activeSlide.content ? (
+                        <div className="prose prose-sm dark:prose-invert">
+                          {activeSlide.content.split('\n').map((line, i) => (
+                            <p key={i}>{line}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full opacity-30 italic">
+                          <LayoutTemplate className="w-8 h-8 mb-2" />
+                          {t('upload:chrome.noContentPreview')}
+                        </div>
+                      )}
+                    </motion.div>
+
+                    {/* Quick Stats Overlay */}
+                    <div className="mt-auto pt-4 flex gap-3">
+                      <div className="px-2 py-1 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[10px] font-bold uppercase tracking-wider">
+                        {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })}
+                      </div>
+                      {activeSlide.questions[0]?.question && (
+                        <div className="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> {t('upload:chrome.quizIncluded')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary Peek */}
+                <div className="mt-8 space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    {t('upload:chrome.keyTakeaway')}
+                  </h4>
+                  <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-800/30">
+                    <p className="text-xs text-amber-800 dark:text-amber-200 italic leading-relaxed">
+                      {activeSlide.summary || t('upload:chrome.summaryWillAppear')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* ═══════ FULL LECTURE PREVIEW MODAL ═══════ */}
+      <AnimatePresence>
+        {showFullPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-background flex flex-col overflow-hidden"
+          >
+            {/* Preview Header */}
+            <header className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
+              <div className="flex items-center gap-4">
+                <div className="px-3 py-1 bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[10px] font-black uppercase tracking-widest rounded-full">
+                  {t('upload:chrome.studentViewPreview')}
+                </div>
+                <h3 className="font-bold text-sm truncate max-w-md">
+                  {title || t('upload:chrome.untitledLecture')}
+                </h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFullPreview(false)}
+                className="gap-2"
+              >
+                <X className="w-4 h-4" />
+                {t('upload:actions.exitPreview')}
+              </Button>
+            </header>
+
+            {/* Preview Content (Simplified LectureView) */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Sidebar */}
+              <div className="w-64 border-r border-border bg-muted/20 flex flex-col hidden md:flex">
+                <div className="p-4 border-b border-border text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {t('upload:chrome.lectureContents')}
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                  {slides.map((s, i) => (
+                    <div
+                      key={i}
+                      onClick={() => setActiveSlideIndex(i)}
+                      className={cn(
+                        "p-3 rounded-lg cursor-pointer text-xs transition-colors",
+                        i === activeSlideIndex ? "bg-violet-500 text-white font-bold" : "hover:bg-muted"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="opacity-50">{i + 1}</span>
+                        <span className="truncate">{s.title || t('upload:slideFallback', { number: i + 1 })}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Slide Viewer */}
+              <div className="flex-1 overflow-y-auto bg-muted/10 p-12 flex flex-col items-center">
+                <div className="max-w-4xl w-full space-y-12">
+                  <div className="bg-card border border-border shadow-2xl rounded-3xl overflow-hidden flex flex-col min-h-[500px]">
+                    <div className="p-10 flex-1 space-y-8">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1 w-12 bg-violet-600 rounded-full" />
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-600">
+                            {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })}
+                          </span>
+                        </div>
+                        <h2 className="text-4xl font-black text-foreground tracking-tight leading-tight">
+                          {activeSlide?.title}
+                        </h2>
+                      </div>
+
+                      <div className="prose prose-lg dark:prose-invert max-w-none text-muted-foreground leading-relaxed">
+                        {activeSlide?.content.split('\n').map((p, i) => (
+                          <p key={i}>{p}</p>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Quiz Preview Area if exists */}
+                    {activeSlide?.questions[0]?.question && (
+                      <div className="p-10 bg-emerald-50/30 dark:bg-emerald-950/10 border-t border-emerald-100 dark:border-emerald-800/20">
+                        <div className="flex items-center gap-2 mb-6">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          <span className="text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                            {t('upload:chrome.practiceQuiz')}
+                          </span>
+                        </div>
+                        <div className="space-y-6">
+                          <p className="text-lg font-bold text-foreground">
+                            {activeSlide.questions[0].question}
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {activeSlide.questions[0].options.map((opt, i) => (
+                              <div key={i} className={cn(
+                                "p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/30 text-sm font-medium",
+                                i === activeSlide.questions[0].correctAnswer ? "bg-emerald-500 text-white border-transparent" : "bg-card text-muted-foreground opacity-60"
+                              )}>
+                                {opt}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Navigation */}
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="outline"
+                      onClick={handlePrevSlide}
+                      disabled={activeSlideIndex === 0}
+                      className="rounded-xl px-8"
+                    >
+                      <ChevronLeft className="mr-2 h-4 w-4" /> {t('common:actions.back')}
+                    </Button>
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                      {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })} / {slides.length}
+                    </span>
+                    <Button
+                      onClick={handleNextSlide}
+                      disabled={activeSlideIndex === slides.length - 1}
+                      className="rounded-xl px-8 bg-violet-600 hover:bg-violet-700 text-white border-none"
+                    >
+                      {t('common:actions.next')} <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hidden File Input */}
       <input
         ref={fileInputRef}
         type="file"
         accept=".pdf"
-        onChange={handleFileUpload}
+        onChange={onPickFile}
         className="hidden"
+      />
+
+      <DuplicatePDFDialog
+        open={duplicateState !== null}
+        matches={duplicateState?.matches ?? []}
+        onUseExisting={handleDuplicateUseExisting}
+        onUploadAsNew={handleDuplicateUploadAsNew}
+        onCancel={handleDuplicateCancel}
+      />
+
+      <PDFUploadOverlay
+        isOpen={isUploading}
+        uploadProgress={uploadProgress}
+        uploadTotal={uploadTotal}
+        uploadStatus={uploadStatus}
+        processedSlides={processedSlides}
+        parserUsed={parserUsed}
+        parsePhase={parsePhase}
+        parseCompleted={parseCompleted}
+        parsingMode={parsingMode}
+        onClose={closeUploadOverlay}
       />
     </div>
   );

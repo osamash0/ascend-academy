@@ -1,0 +1,32 @@
+Simple linear regression
+•
+Assumption: 
+House price depends
+on the size
+•
+Price is called the dependent
+variable
+•
+Size is the independent
+variable
+•
+Is there a model that 
+describes this dependency?
+0
+100
+200
+300
+400
+500
+0
+1000
+2000
+3000
+Size (feet2)
+Price (in 1000s of dollars)
+Housing Prices (Portland, OR)
+Supervised Learning
+the “right answers” are 
+given in the training data
+Regression 
+Predict real-valued output

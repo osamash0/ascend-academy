@@ -1,0 +1,118 @@
+{
+  "language": "Sprache",
+  "languageEnglish": "Englisch",
+  "languageGerman": "Deutsch",
+  "actions": {
+    "save": "Speichern",
+    "saveChanges": "Änderungen speichern",
+    "saving": "Wird gespeichert...",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "continue": "Weiter",
+    "back": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertig",
+    "submit": "Absenden",
+    "close": "Schließen",
+    "retry": "Erneut versuchen",
+    "loading": "Wird geladen...",
+    "exit": "Beenden",
+    "upload": "Hochladen",
+    "download": "Herunterladen",
+    "confirm": "Bestätigen",
+    "yes": "Ja",
+    "no": "Nein"
+  },
+  "states": {
+    "loading": "Wird geladen...",
+    "empty": "Hier ist noch nichts.",
+    "error": "Etwas ist schiefgelaufen.",
+    "errorRetry": "Bitte aktualisieren Sie die Seite. Falls das Problem weiterhin besteht, wenden Sie sich an den Support.",
+    "refresh": "Aktualisieren",
+    "noResults": "Keine Ergebnisse gefunden.",
+    "saved": "Gespeichert",
+    "upToDate": "Aktuell",
+    "unsavedChanges": "Ungespeicherte Änderungen",
+    "comingSoon": "Demnächst verfügbar"
+  },
+  "status": {
+    "deleted": "Gelöscht",
+    "error": "Fehler",
+    "success": "Erfolg"
+  },
+  "toasts": {
+    "errorTitle": "Fehler",
+    "successTitle": "Erfolg",
+    "tryAgain": "Bitte versuchen Sie es erneut."
+  },
+  "greetings": {
+    "morning": "Guten Morgen",
+    "afternoon": "Guten Tag",
+    "evening": "Guten Abend"
+  },
+  "shell": {
+    "toggleSidebar": "Seitenleiste umschalten",
+    "switchToLight": "Zum hellen Modus wechseln",
+    "switchToDark": "Zum dunklen Modus wechseln"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "ariaUnread": "Benachrichtigungen ({{count}} ungelesen)",
+    "ariaNone": "Benachrichtigungen",
+    "markAllRead": "Alle als gelesen markieren",
+    "close": "Benachrichtigungen schließen",
+    "empty": "Noch keine Benachrichtigungen",
+    "justNow": "gerade eben",
+    "minutesAgo": "vor {{count}} Min.",
+    "hoursAgo": "vor {{count}} Std.",
+    "daysAgo": "vor {{count}} T."
+  },
+  "errorBoundary": {
+    "title": "Etwas ist schiefgelaufen.",
+    "description": "Bitte lade die Seite neu. Falls das Problem weiterhin besteht, kontaktiere den Support.",
+    "refresh": "Neu laden"
+  },
+  "loader": {
+    "syncing": "Neural Edge wird synchronisiert..."
+  },
+  "achievements": {
+    "level5": {
+      "name": "Level-5-Gelehrter",
+      "description": "Level 5 erreicht!"
+    },
+    "level10": {
+      "name": "Level-10-Experte",
+      "description": "Level 10 erreicht!"
+    },
+    "streak5": {
+      "name": "5er-Serien-Meister"
+    },
+    "streak10": {
+      "name": "10er-Serien-Champion"
+    },
+    "streakDescription": "Serie von {{count}} richtigen Antworten erreicht!",
+    "firstQuiz": {
+      "name": "Erstes Quiz abgeschlossen",
+      "description": "Du hast dein erstes Vorlesungs-Quiz abgeschlossen!",
+      "notificationTitle": "Erstes Quiz abgeschlossen 🎯"
+    },
+    "perfectScore": {
+      "name": "Perfekte Punktzahl",
+      "description": "100 % in einem Vorlesungs-Quiz erreicht!"
+    },
+    "bookworm": {
+      "name": "Leseratte",
+      "description": "Schließe 5 Vorlesungen ab"
+    },
+    "graduate": {
+      "name": "Absolvent",
+      "description": "Schließe 10 Vorlesungen ab"
+    },
+    "levelUp": {
+      "title": "Level {{level}}!",
+      "description": "Du bist auf Level {{level}} aufgestiegen. Weiter so!"
+    }
+  }
+}

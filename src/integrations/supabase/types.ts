@@ -39,7 +39,15 @@ export type Database = {
           id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       learning_events: {
         Row: {
@@ -63,7 +71,15 @@ export type Database = {
           id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "learning_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       lectures: {
         Row: {
@@ -93,7 +109,53 @@ export type Database = {
           title?: string
           total_slides?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lectures_professor_id_fkey"
+            columns: ["professor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          read: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          read?: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       profiles: {
         Row: {
@@ -105,6 +167,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          preferred_language: string | null
           total_xp: number | null
           user_id: string
         }
@@ -117,6 +180,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id?: string
+          preferred_language?: string | null
           total_xp?: number | null
           user_id: string
         }
@@ -129,10 +193,19 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          preferred_language?: string | null
           total_xp?: number | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       quiz_questions: {
         Row: {
@@ -166,7 +239,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "slides"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       slides: {
@@ -207,7 +280,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lectures"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       student_progress: {
@@ -258,6 +331,13 @@ export type Database = {
             referencedRelation: "lectures"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "student_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
         ]
       }
       user_roles: {
@@ -275,6 +355,119 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      practice_attempts: {
+        Row: {
+          id: string
+          sheet_id: string
+          student_id: string
+          answers: Json
+          score: number | null
+          is_preview: boolean
+          submitted_at: string
+        }
+        Insert: {
+          id?: string
+          sheet_id: string
+          student_id: string
+          answers?: Json
+          score?: number | null
+          is_preview?: boolean
+          submitted_at?: string
+        }
+        Update: {
+          id?: string
+          sheet_id?: string
+          student_id?: string
+          answers?: Json
+          score?: number | null
+          is_preview?: boolean
+          submitted_at?: string
+        }
+        Relationships: []
+      }
+      practice_sheet_questions: {
+        Row: {
+          id: string
+          sheet_id: string
+          order_index: number
+          type: string
+          prompt: string
+          choices: Json | null
+          correct_answer: string | null
+          explanation: string | null
+          source_quiz_question_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          sheet_id: string
+          order_index?: number
+          type: string
+          prompt: string
+          choices?: Json | null
+          correct_answer?: string | null
+          explanation?: string | null
+          source_quiz_question_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          sheet_id?: string
+          order_index?: number
+          type?: string
+          prompt?: string
+          choices?: Json | null
+          correct_answer?: string | null
+          explanation?: string | null
+          source_quiz_question_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      practice_sheets: {
+        Row: {
+          id: string
+          lecture_id: string
+          kind: string
+          title: string
+          status: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lecture_id: string
+          kind: string
+          title: string
+          status?: string
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lecture_id?: string
+          kind?: string
+          title?: string
+          status?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

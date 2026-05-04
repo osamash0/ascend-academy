@@ -1,8 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useAiModel, type AiModelChoice } from '@/hooks/use-ai-model';
+import { useAuth } from '@/lib/auth';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Bot, User, Loader2, Sparkles, ChevronDown, BookOpen, StopCircle } from 'lucide-react';
+import { X, Send, Bot, User, Loader2, Sparkles, BookOpen, StopCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/apiClient';
+import { logLearningEvent } from '@/services/studentService';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -15,12 +19,17 @@ import {
 } from "@/components/ui/select";
 import 'katex/dist/katex.min.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+interface Citation {
+    slide_index: number;
+    similarity: number;
+}
 
 interface Message {
     role: 'user' | 'model';
     content: string;
     timestamp?: Date;
+    id: string;
+    citations?: Citation[];
 }
 
 interface LectureChatProps {
@@ -28,6 +37,12 @@ interface LectureChatProps {
     onClose: () => void;
     slideText: string;
     slideTitle: string;
+    /** UUID of the active lecture; enables grounded retrieval over its slides. */
+    lectureId?: string;
+    /** 0-indexed slide the student is currently looking at (used as anchor). */
+    currentSlideIndex?: number;
+    /** Optional callback fired when a citation chip is clicked. */
+    onSlideJump?: (slideIndex: number) => void;
 }
 
 /* ── Typing Indicator Animation ── */
@@ -46,141 +61,236 @@ function TypingIndicator() {
   );
 }
 
-export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureChatProps) {
+/** Generate unique message ID */
+function generateMsgId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+export function LectureChat({
+    isOpen,
+    onClose,
+    slideText,
+    slideTitle,
+    lectureId,
+    currentSlideIndex,
+    onSlideJump,
+}: LectureChatProps) {
+    const { t } = useTranslation(['lecture']);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [selectedModel, setSelectedModel] = useState(localStorage.getItem('ascend-academy-ai-model') || 'llama3');
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [streamingContent, setStreamingContent] = useState('');
+    const { aiModel: selectedModel, setAiModel: setSelectedModel } = useAiModel();
+    const { user } = useAuth();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const streamingRef = useRef(false);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages, isLoading]);
-
+    // Initialize welcome message when slide changes
     useEffect(() => {
         setMessages([
             {
+                id: generateMsgId(),
                 role: 'model',
-                content: `Hi! I'm your AI Tutor. I'm ready to answer any questions you have about **"${slideTitle}"**. What would you like to explore?`,
+                content: t('lecture:chat.welcome', { slide: slideTitle }),
                 timestamp: new Date(),
             }
         ]);
+        setStreamingContent('');
     }, [slideTitle, slideText]);
 
+    // Auto-scroll to bottom
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, streamingContent, isLoading]);
+
+    // Focus input when opened
     useEffect(() => {
         if (isOpen && inputRef.current) {
-            setTimeout(() => inputRef.current?.focus(), 300);
+            const timer = setTimeout(() => inputRef.current?.focus(), 300);
+            return () => clearTimeout(timer);
         }
     }, [isOpen]);
 
-    const handleSend = async () => {
-        if (!input.trim() || isLoading) return;
+    // Cleanup abort controller on unmount
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, []);
+
+    const scrollToBottom = useCallback(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, []);
+
+    const handleSend = useCallback(async () => {
+        if (!input.trim() || isLoading || streamingRef.current) return;
 
         const userMsg = input.trim();
-        const newMessages: Message[] = [...messages, { 
-            role: 'user', 
+        const userMessage: Message = {
+            id: generateMsgId(),
+            role: 'user',
             content: userMsg,
             timestamp: new Date(),
-        }];
+        };
 
-        setMessages(newMessages);
+        setMessages(prev => [...prev, userMessage]);
         setInput('');
         setIsLoading(true);
+        setStreamingContent('');
+        streamingRef.current = true;
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            const historyToPass = newMessages.slice(1, -1);
+            const historyToPass = messages.slice(1).map(m => ({ 
+                role: m.role, 
+                content: m.content 
+            }));
 
-            // Create new AbortController for this request
             abortControllerRef.current = new AbortController();
 
-            const res = await fetch(`${API_BASE}/api/ai/chat`, {
+            // Try streaming first
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/ai/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Accept': 'text/event-stream',
                 },
                 body: JSON.stringify({
                     slide_text: slideText,
                     user_message: userMsg,
                     chat_history: historyToPass,
-                    ai_model: selectedModel
+                    ai_model: selectedModel,
+                    lecture_id: lectureId,
+                    current_slide_index: currentSlideIndex,
                 }),
                 signal: abortControllerRef.current.signal,
             });
 
-            // Log the query event for analytics
-            supabase.from('learning_events').insert({
-                user_id: session?.user?.id,
-                event_type: 'ai_tutor_query',
-                event_data: {
-                    lectureId: window.location.pathname.split('/').pop(), // Best effort to get lectureId from URL
-                    slideTitle: slideTitle,
-                    query: userMsg,
-                    timestamp: new Date().toISOString()
+            if (!res.ok) throw new Error(t('lecture:chat.requestFailed'));
+
+            // Check if response is streaming
+            const contentType = res.headers.get('content-type');
+
+            if (contentType?.includes('text/event-stream')) {
+                // Handle SSE streaming
+                const reader = res.body?.getReader();
+                const decoder = new TextDecoder();
+                let fullContent = '';
+
+                if (!reader) throw new Error(t('lecture:chat.noReader'));
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') {
+                                streamingRef.current = false;
+                                setMessages(prev => [...prev, {
+                                    id: generateMsgId(),
+                                    role: 'model',
+                                    content: fullContent,
+                                    timestamp: new Date(),
+                                }]);
+                                setStreamingContent('');
+                            } else {
+                                try {
+                                    const parsed = JSON.parse(data);
+                                    if (parsed.content) {
+                                        fullContent += parsed.content;
+                                        setStreamingContent(fullContent);
+                                    }
+                                } catch {
+                                    // Handle plain text chunks
+                                    fullContent += data;
+                                    setStreamingContent(fullContent);
+                                }
+                            }
+                        }
+                    }
                 }
-            }).then(() => console.log('DEBUG: AI Query logged'));
+            } else {
+                // JSON response (this is what the grounded /api/ai/chat returns).
+                const data = await res.json();
+                setMessages(prev => [...prev, {
+                    id: generateMsgId(),
+                    role: 'model',
+                    content: data.reply,
+                    citations: Array.isArray(data.citations) ? data.citations : [],
+                    timestamp: new Date(),
+                }]);
+            }
 
-            if (!res.ok) throw new Error('Failed to get response');
-            const data = await res.json();
-
-            setMessages((prev) => [
-                ...prev,
-                { role: 'model', content: data.reply, timestamp: new Date() }
-            ]);
+            // Fire-and-forget analytics
+            if (user) {
+                logLearningEvent(user.id, 'ai_tutor_query', {
+                    lectureId: window.location.pathname.split('/').pop(),
+                    slideTitle,
+                    query: userMsg,
+                    timestamp: new Date().toISOString(),
+                }).catch(err => console.error('Failed to log AI tutor query event:', err));
+            }
 
         } catch (err: unknown) {
             if (err instanceof Error && err.name === 'AbortError') {
-                // User cancelled — remove the pending user message
                 setMessages((prev) => prev.slice(0, -1));
             } else {
-                console.error(err);
+                console.error('Chat error:', err);
                 setMessages((prev) => [
                     ...prev,
                     {
+                        id: generateMsgId(),
                         role: 'model',
-                        content: "I'm experiencing a connection issue. Please try again in a moment.",
+                        content: t('lecture:chat.connectionError'),
                         timestamp: new Date(),
                     }
                 ]);
             }
         } finally {
             setIsLoading(false);
+            streamingRef.current = false;
             abortControllerRef.current = null;
         }
-    };
+    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, user, lectureId, currentSlideIndex]);
 
-    const handleCancel = () => {
+    const handleCancel = useCallback(() => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
+            abortControllerRef.current = null;
         }
-    };
+        streamingRef.current = false;
+        setIsLoading(false);
+        setStreamingContent('');
+    }, []);
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
         }
-    };
+    }, [handleSend]);
 
-    const formatTime = (date?: Date) => {
+    const formatTime = useCallback((date?: Date) => {
         if (!date) return '';
         return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    };
+    }, []);
+
+    // Memoize message rendering to prevent unnecessary re-renders
+    const renderedMessages = useMemo(() => messages, [messages]);
 
     return (
         <AnimatePresence>
             {isOpen && (
                 <>
-                    {/* Mobile Overlay with blur */}
+                    {/* Mobile Overlay */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -190,7 +300,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                         className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 md:hidden"
                     />
 
-                    {/* Chat Panel — Orbital Design */}
+                    {/* Chat Panel */}
                     <motion.div
                         initial={{ x: '100%', opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
@@ -200,11 +310,10 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                     >
                         {/* Glassmorphism Panel */}
                         <div className="absolute inset-0 glass-panel-strong border-l border-white/10" />
-                        
+
                         {/* Header */}
                         <div className="relative flex shrink-0 items-center justify-between px-5 py-4 border-b border-white/5">
                             <div className="flex items-center gap-3">
-                                {/* Animated AI Avatar */}
                                 <div className="relative">
                                     <motion.div
                                         className="absolute inset-0 bg-gradient-to-tr from-primary to-secondary rounded-full blur-lg"
@@ -214,33 +323,32 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                     <div className="relative w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary">
                                         <Sparkles className="w-5 h-5 text-white" />
                                     </div>
-                                    {/* Online indicator */}
                                     <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-success border-2 border-surface-1" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-foreground leading-none text-sm">AI Tutor</h3>
+                                    <h3 className="font-semibold text-foreground leading-none text-sm">{t('lecture:chat.title')}</h3>
                                     <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                                        Online
+                                        {t('lecture:chat.online')}
                                     </p>
                                 </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-2">
                                 <Select 
                                     value={selectedModel} 
-                                    onValueChange={(val) => {
-                                        setSelectedModel(val);
-                                        localStorage.setItem('ascend-academy-ai-model', val);
-                                    }}
+                                    onValueChange={(val) => setSelectedModel(val as AiModelChoice)}
                                 >
                                     <SelectTrigger className="h-8 w-[150px] text-xs glass-card border-none focus:ring-1 focus:ring-primary/30">
-                                        <SelectValue placeholder="Model" />
+                                        <SelectValue placeholder={t('lecture:chat.modelPlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent className="glass-panel-strong border-white/10">
-                                        <SelectItem value="llama3">Llama 3 (Local)</SelectItem>
-                                        <SelectItem value="gemini-1.5-flash">Gemini Flash</SelectItem>
+                                        <SelectItem value="cerebras">{t('lecture:chat.modelCerebras')}</SelectItem>
                                         <SelectItem value="groq">Groq Llama 3.3</SelectItem>
+                                        <SelectItem value="openrouter">OpenRouter</SelectItem>
+                                        <SelectItem value="cloudflare">Cloudflare</SelectItem>
+                                        <SelectItem value="gemini-2.5-flash">Gemini Flash</SelectItem>
+                                        <SelectItem value="llama3">Llama 3 (Local)</SelectItem>
                                     </SelectContent>
                                 </Select>
 
@@ -259,15 +367,17 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                         <div className="relative px-5 py-3 border-b border-white/5 bg-primary/5">
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <BookOpen className="w-3.5 h-3.5" />
-                                <span className="truncate">Context: <span className="text-foreground font-medium">{slideTitle}</span></span>
+                                <span className="truncate">
+                                    {t('lecture:chat.context')} <span className="text-foreground font-medium">{slideTitle}</span>
+                                </span>
                             </div>
                         </div>
 
                         {/* Chat Messages */}
                         <div className="relative flex-1 min-h-0 overflow-y-auto p-5 space-y-6 custom-scrollbar">
-                            {messages.map((msg, idx) => (
+                            {renderedMessages.map((msg) => (
                                 <motion.div
-                                    key={idx}
+                                    key={msg.id}
                                     initial={{ opacity: 0, y: 10, scale: 0.98 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
@@ -275,10 +385,11 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                 >
                                     <div className={`flex items-start gap-3 max-w-[88%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                                         {/* Avatar */}
-                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${msg.role === 'user'
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                                            msg.role === 'user'
                                                 ? 'bg-primary/20 text-primary'
                                                 : 'bg-surface-2 text-secondary-foreground border border-white/5'
-                                            }`}>
+                                        }`}>
                                             {msg.role === 'user' ? (
                                                 <User className="w-3.5 h-3.5" />
                                             ) : (
@@ -288,10 +399,11 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
 
                                         {/* Message Bubble */}
                                         <div className="space-y-1">
-                                            <div className={`px-4 py-3 rounded-2xl ${msg.role === 'user'
+                                            <div className={`px-4 py-3 rounded-2xl ${
+                                                msg.role === 'user'
                                                     ? 'bg-primary text-primary-foreground rounded-tr-sm shadow-glow-primary/20'
                                                     : 'glass-card rounded-tl-sm'
-                                                }`}>
+                                            }`}>
                                                 {msg.role === 'user' ? (
                                                     <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
                                                 ) : (
@@ -312,6 +424,31 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                                     </div>
                                                 )}
                                             </div>
+                                            {msg.role === 'model' && msg.citations && msg.citations.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 px-1 pt-1">
+                                                    {msg.citations.map((c) => (
+                                                        <button
+                                                            key={`${msg.id}-cite-${c.slide_index}`}
+                                                            type="button"
+                                                            onClick={() => onSlideJump?.(c.slide_index)}
+                                                            disabled={!onSlideJump}
+                                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                                                                bg-primary/10 text-primary text-[10px] font-medium
+                                                                border border-primary/20 hover:bg-primary/20
+                                                                transition-colors disabled:cursor-default
+                                                                disabled:hover:bg-primary/10"
+                                                            title={
+                                                                onSlideJump
+                                                                    ? t('lecture:chat.jumpTo', { number: c.slide_index + 1 })
+                                                                    : t('lecture:chat.slideRef', { number: c.slide_index + 1 })
+                                                            }
+                                                        >
+                                                            <BookOpen className="w-2.5 h-2.5" />
+                                                            {t('lecture:chat.slideRef', { number: c.slide_index + 1 })}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                             <span className="text-[10px] text-muted-foreground/60 px-1">
                                                 {formatTime(msg.timestamp)}
                                             </span>
@@ -320,7 +457,30 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                 </motion.div>
                             ))}
 
-                            {isLoading && (
+                            {/* Streaming message */}
+                            {streamingContent && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="flex justify-start"
+                                >
+                                    <div className="flex items-start gap-3 max-w-[88%]">
+                                        <div className="w-7 h-7 rounded-full bg-surface-2 text-secondary-foreground border border-white/5 flex items-center justify-center flex-shrink-0 mt-1">
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                        </div>
+                                        <div className="glass-card rounded-2xl rounded-tl-sm px-4 py-3">
+                                            <div className="prose prose-sm dark:prose-invert max-w-none text-sm break-words">
+                                                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                    {streamingContent}
+                                                </ReactMarkdown>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* Loading indicator */}
+                            {isLoading && !streamingContent && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -334,7 +494,6 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                             <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-4">
                                                 <TypingIndicator />
                                             </div>
-                                            {/* Cancel button */}
                                             <motion.button
                                                 initial={{ opacity: 0, scale: 0.9 }}
                                                 animate={{ opacity: 1, scale: 1 }}
@@ -343,7 +502,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                                 className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground hover:text-destructive uppercase tracking-widest transition-colors self-start px-1"
                                             >
                                                 <StopCircle className="w-3 h-3" />
-                                                Cancel
+                                                {t('lecture:chat.cancel')}
                                             </motion.button>
                                         </div>
                                     </div>
@@ -364,7 +523,7 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Ask about this slide..."
+                                    placeholder={t('lecture:chat.inputPlaceholder')}
                                     className="w-full bg-surface-2/50 text-foreground rounded-2xl pl-5 pr-14 py-3.5 text-sm 
                                         placeholder:text-muted-foreground/50
                                         focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface-2/80
@@ -378,13 +537,13 @@ export function LectureChat({ isOpen, onClose, slideText, slideTitle }: LectureC
                                     className="absolute right-1.5 w-10 h-10 rounded-xl bg-gradient-to-r from-primary to-secondary 
                                         hover:opacity-90 text-white shadow-glow-primary/30 
                                         transition-all duration-200 disabled:opacity-30 disabled:shadow-none"
-                                    title="Send message"
+                                    title={t('lecture:chat.sendMessage')}
                                 >
                                     <Send className="w-4 h-4" />
                                 </Button>
                             </form>
                             <p className="text-[10px] text-muted-foreground/40 text-center mt-2">
-                                AI responses are generated and may require verification
+                                {t('lecture:chat.disclaimer')}
                             </p>
                         </div>
                     </motion.div>

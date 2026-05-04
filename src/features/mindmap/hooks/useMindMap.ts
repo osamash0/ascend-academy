@@ -1,57 +1,41 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/apiClient';
+import type { TreeNode, Slide } from '@/types/domain';
+import { normalizeTree } from '@/features/mindmap/normalize';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export type { TreeNode };
 
-export interface TreeNode {
-  id: string;
-  label: string;
-  type: 'root' | 'cluster' | 'slide' | 'concept';
-  summary?: string;
-  children?: TreeNode[];
-}
-
-async function getAuthHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('No session');
-  return { Authorization: `Bearer ${session.access_token}` };
-}
-
-export function useMindMap(lectureId: string | null) {
+export function useMindMap(
+  lectureId: string | null,
+  opts: { slides?: Slide[]; lectureTitle?: string } = {},
+) {
   const queryClient = useQueryClient();
 
   const map = useQuery({
     queryKey: ['mind-map', lectureId],
     queryFn: async (): Promise<TreeNode | null> => {
       if (!lectureId) return null;
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${API_BASE}/api/mind-map/${lectureId}`, { headers });
-      if (!res.ok) throw new Error('Failed to fetch mind map');
-      const json = await res.json();
-      return json.data ?? null;
+      const json = await apiClient.get<{ data: unknown }>(`/api/mind-map/${lectureId}`);
+      if (json.data == null) return null;
+      return normalizeTree(json.data, opts);
     },
     enabled: !!lectureId,
-    staleTime: 1000 * 60 * 10, // Mind maps rarely change — 10 min cache
+    staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
-    retry: false,
+    retry: 1,
   });
 
   const generate = useMutation({
     mutationFn: async (aiModel: string = 'groq') => {
       if (!lectureId) throw new Error('No lecture ID');
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${API_BASE}/api/mind-map/${lectureId}/generate`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ai_model: aiModel }),
-      });
-      if (!res.ok) throw new Error('Generation failed');
-      const json = await res.json();
-      return json.data as TreeNode;
+      const json = await apiClient.post<{ data: unknown }>(`/api/mind-map/${lectureId}/generate`, { ai_model: aiModel });
+      return normalizeTree(json.data, opts);
     },
     onSuccess: (data) => {
-      // Populate the cache immediately so the map renders without a refetch
       queryClient.setQueryData(['mind-map', lectureId], data);
+    },
+    onError: (error) => {
+      console.error('Mind map generation error:', error);
     },
   });
 

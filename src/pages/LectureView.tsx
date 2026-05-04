@@ -1,9 +1,22 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchLecture, fetchSlides, fetchQuizQuestions, resolvePdfUrl } from '@/services/lectureService';
+import {
+  fetchLectureProgress,
+  upsertLectureProgress,
+  logLearningEvent,
+  checkAchievementExists,
+  awardAchievement,
+  insertNotification,
+  countCompletedLectures,
+} from '@/services/studentService';
+import { apiClient } from '@/lib/apiClient';
+import { checkLevelUp } from '@/domain/gamification';
 import { SlideViewer } from '@/components/SlideViewer';
 import { QuizCard } from '@/components/QuizCard';
 import { LevelUpModal } from '@/components/LevelUpModal';
@@ -11,40 +24,25 @@ import { BadgeEarnedModal } from '@/components/BadgeEarnedModal';
 import { Button } from '@/components/ui/button';
 import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
+import { WorksheetsPanel } from '@/components/WorksheetsPanel';
+import { StudentPracticeSheetsPanel } from '@/features/practice_sheets/StudentPracticeSheetsPanel';
+import { LectureRecap, type RecapItem } from '@/components/LectureRecap';
+import { RelatedAcrossCoursesPanel } from '@/components/RelatedAcrossCoursesPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
+import { useAiModel } from '@/hooks/use-ai-model';
 
-interface Slide {
-  id: string;
-  slide_number: number;
-  title: string | null;
-  content_text: string | null;
-  summary: string | null;
-}
-
-interface QuizQuestion {
-  id: string;
-  slide_id: string;
-  question_text: string;
-  options: string[];
-  correct_answer: number;
-}
-
-interface Lecture {
-  id: string;
-  title: string;
-  description: string | null;
-  total_slides: number;
-  pdf_url?: string | null;
-}
+import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
 
 export default function LectureView() {
+  const { t } = useTranslation(['lecture', 'common']);
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
 
   const [lecture, setLecture] = useState<Lecture | null>(null);
+  const [resolvedPdfUrl, setResolvedPdfUrl] = useState<string | null>(null);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -63,6 +61,40 @@ export default function LectureView() {
   const slideStartRef = useRef<number>(Date.now());
   const quizRef = useRef<HTMLDivElement>(null);
   const answeredQuestionsRef = useRef<Set<string>>(new Set());
+  // Authoritative post-answer counters. handleQuizAnswer writes the freshly
+  // computed values here so handleQuizContinue can read them synchronously
+  // without depending on possibly-stale React state.
+  const committedXpRef = useRef<number>(0);
+  const committedCorrectRef = useRef<number>(0);
+  // One-shot guards so a fast double-click on Continue / Finish lecture
+  // cannot double-fire advancement or completion side effects.
+  const continueLockRef = useRef<boolean>(false);
+  const lectureCompleteLockRef = useRef<boolean>(false);
+
+  // Review stage: every wrong answer during the run is pushed here so the
+  // student can re-attempt them after the last slide. Stored in a ref so
+  // handleQuizAnswer can append synchronously without a re-render race.
+  const missedQueueRef = useRef<
+    Array<{
+      question: QuizQuestion;
+      slideIndex: number;
+      firstSelectedIndex: number;
+      secondSelectedIndex: number | null;
+    }>
+  >([]);
+  // Mirror set of question ids already in `missedQueueRef` for O(1) dedup
+  // during first-pass queueing. Kept in sync alongside the queue itself.
+  const missedQueuedIdsRef = useRef<Set<string>>(new Set());
+  const [reviewStage, setReviewStage] = useState(false);
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [reviewSelectedAnswer, setReviewSelectedAnswer] = useState<number | null>(null);
+  const reviewAnsweredRef = useRef<Set<string>>(new Set());
+  const reviewContinueLockRef = useRef<boolean>(false);
+  // End-of-lecture recap: snapshot of every question the student missed on
+  // their first attempt, with their first answer + their retry answer + the
+  // correct answer. Populated when the lecture completes.
+  const [lectureCompleted, setLectureCompleted] = useState(false);
+  const [recapItems, setRecapItems] = useState<RecapItem[]>([]);
 
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -71,6 +103,10 @@ export default function LectureView() {
 
   // Mind map
   const { map: mindMap, generate: generateMindMap } = useMindMap(lectureId ?? null);
+  const { aiModel } = useAiModel();
+
+  // Slide content regeneration (professor only)
+  const [isRegeneratingContent, setIsRegeneratingContent] = useState(false);
 
   useEffect(() => {
     if (lectureId && user) {
@@ -85,35 +121,28 @@ export default function LectureView() {
     if (!slides.length || !user) return;
 
     const currentSlideId = slides[currentSlideIndex]?.id;
+    const currentSlideTitle = slides[currentSlideIndex]?.title || '';
     const now = Date.now();
 
-    // Logic to log previous slide duration
-    const logSlideView = async (slideId: string, title: string, startTime: number) => {
-      const duration = Math.round((Date.now() - startTime) / 1000); // seconds
-      if (duration < 1) return; // Ignore very short views
-
-      console.log(`DEBUG: Logging slide_view for ${slideId}, duration: ${duration}s`);
-      await supabase.from('learning_events').insert({
-        user_id: user.id,
-        event_type: 'slide_view',
-        event_data: {
-          lectureId,
-          slideId,
-          slideTitle: title,
-          duration_seconds: duration,
-          timestamp: new Date().toISOString()
-        },
-      });
+    const logSlideView = (slideId: string, title: string, durationSeconds: number) => {
+      if (durationSeconds < 1) return;
+      // Fire-and-forget — telemetry must never block the UI or crash the lecture.
+      logLearningEvent(user.id, 'slide_view', {
+        lectureId,
+        slideId,
+        slideTitle: title,
+        duration_seconds: durationSeconds,
+        timestamp: new Date().toISOString(),
+      }).catch((err) => console.warn('slide_view telemetry failed', err));
     };
 
-    // Update the state for other logic (like quiz answer timing)
     setSlideStartTime(now);
     slideStartRef.current = now;
 
-    // When slide changes, log the previous one
     return () => {
       if (currentSlideId) {
-        logSlideView(currentSlideId, slides[currentSlideIndex]?.title || '', now);
+        const elapsed = Math.round((Date.now() - slideStartRef.current) / 1000);
+        logSlideView(currentSlideId, currentSlideTitle, elapsed);
       }
     };
   }, [currentSlideIndex, slides, user, lectureId]);
@@ -129,36 +158,38 @@ export default function LectureView() {
     setXpEarned(0);
     setCorrectAnswers(0);
 
-    let currentLectureId = lectureId;
+    // Reset replay/review session state so a previously-loaded lecture
+    // doesn't leak its missed-question queue or review progress into the
+    // newly loaded one.
+    missedQueueRef.current = [];
+    missedQueuedIdsRef.current = new Set();
+    reviewAnsweredRef.current = new Set();
+    reviewContinueLockRef.current = false;
+    setReviewStage(false);
+    setReviewIndex(0);
+    setReviewSelectedAnswer(null);
+    setLectureCompleted(false);
+    setRecapItems([]);
+
+    const currentLectureId = lectureId;
     if (!currentLectureId) return;
 
     try {
-      // Fetch lecture - We removed slug resolution as the slug column was deleted
-      const { data: lectureData, error: lectureError } = await supabase
-        .from('lectures')
-        .select('*, pdf_url')
-        .eq('id', currentLectureId)
-        .single();
-
-      if (lectureError) {
-        console.error('Error fetching lecture:', lectureError);
-        toast({ title: 'Not Found', description: 'Lecture not found or error loading data.', variant: 'destructive' });
+      const lectureData = await fetchLecture(currentLectureId);
+      if (!lectureData) {
+        toast({ title: t('lecture:toasts.notFoundTitle'), description: t('lecture:toasts.notFoundDescription'), variant: 'destructive' });
         navigate('/dashboard');
         return;
       }
+      setLecture(lectureData);
 
-      if (lectureData) {
-        console.log('DEBUG: Fetched lecture data:', lectureData);
-        setLecture(lectureData);
-      }
+    // Resolve the stored pdf_url (path or legacy public URL) to an authenticated
+    // signed URL so the private bucket is accessible in the browser.
+    resolvePdfUrl(lectureData.pdf_url).then(setResolvedPdfUrl).catch(() => setResolvedPdfUrl(null));
 
     // Fetch slides
-    const { data: slidesData } = await supabase
-      .from('slides')
-      .select('id, slide_number, title, content_text, summary')
-      .eq('lecture_id', currentLectureId)
-      .order('slide_number', { ascending: true })
-      .limit(200);
+    const slidesFromService = await fetchSlides(currentLectureId);
+    const slidesData = slidesFromService.length > 0 ? slidesFromService : null;
 
     if (slidesData && slidesData.length > 0) {
       setSlides(slidesData);
@@ -198,10 +229,8 @@ export default function LectureView() {
     }
 
     // Fetch questions
-    const { data: questionsData } = await supabase
-      .from('quiz_questions')
-      .select('*')
-      .in('slide_id', slidesData?.map(s => s.id) || []);
+    const questionsFromService = await fetchQuizQuestions(currentLectureId);
+    const questionsData = questionsFromService.length > 0 ? questionsFromService : null;
 
     if (questionsData && questionsData.length > 0) {
       setQuestions(questionsData.map(q => ({
@@ -245,15 +274,10 @@ export default function LectureView() {
 
     // Fetch user progress
     if (user?.id) {
-      const { data: progressData } = await supabase
-        .from('student_progress')
-        .select('*')
-        .eq('lecture_id', currentLectureId)
-        .eq('user_id', user.id)
-        .single();
+      const progressData = await fetchLectureProgress(user.id, currentLectureId);
 
       if (progressData) {
-        if (progressData.last_slide_viewed !== null && progressData.last_slide_viewed >= 0) {
+        if (progressData.last_slide_viewed !== null && progressData.last_slide_viewed !== undefined && progressData.last_slide_viewed >= 0) {
           const maxSlides = slidesData && slidesData.length > 0 ? slidesData.length : 4;
           const lastIndex = Math.min(progressData.last_slide_viewed, maxSlides - 1);
           setCurrentSlideIndex(lastIndex);
@@ -267,8 +291,6 @@ export default function LectureView() {
           progressData.completed_slides.forEach((slideNum: number) => {
             const slideIndex = slideNum - 1;
             restoredAnswers[slideIndex] = -1;
-            
-            // Map slide number to actual question ID if possible
             const slideId = slidesData?.[slideIndex]?.id;
             const qId = questionsData?.find(q => q.slide_id === slideId)?.id;
             if (qId) answeredQuestionsRef.current.add(qId);
@@ -278,42 +300,67 @@ export default function LectureView() {
       }
     }
 
-    // Log lecture start event
-    await supabase.from('learning_events').insert({
-      user_id: user?.id,
-      event_type: 'lecture_start',
-      event_data: { lectureId: currentLectureId },
-    });
+    // Log lecture start event (fire-and-forget; never block lecture load)
+    if (user?.id) {
+      logLearningEvent(user.id, 'lecture_start', { lectureId: currentLectureId })
+        .catch((err) => console.warn('lecture_start telemetry failed', err));
+    }
 
     setLoading(false);
     } catch (err) {
       console.error('Fatal error in fetchLectureData:', err);
-      toast({ title: 'Error', description: 'A system error occurred.', variant: 'destructive' });
+      toast({ title: t('lecture:toasts.errorTitle'), description: t('lecture:toasts.systemError'), variant: 'destructive' });
       setLoading(false);
     }
   };
 
   const currentSlide = slides[currentSlideIndex];
 
-  // Refined: Only get questions for the REALLY current slide ID
-  const currentSlideQuestions = questions.filter(q => q.slide_id === currentSlide?.id);
-  const currentQuestion = currentSlideQuestions[0]; // Assuming 1 question per slide for now
+  const handleRegenerateContent = async () => {
+    if (!currentSlide || !user) return;
+    setIsRegeneratingContent(true);
+    try {
+      const json = await apiClient.post<{ slide: Slide }>(`/api/ai/slides/${currentSlide.id}/regenerate-content`, { ai_model: aiModel });
+      const updated = json.slide;
+      // Patch the slide in local state so the UI updates immediately
+      setSlides(prev => prev.map(s =>
+        s.id === currentSlide.id
+          ? { ...s, title: updated.title, content_text: updated.content_text, summary: updated.summary }
+          : s
+      ));
+      toast({ title: t('lecture:regenerate.success'), description: t('lecture:regenerate.successDescription') });
+    } catch (err: unknown) {
+      toast({ title: t('lecture:regenerate.failure'), description: (err instanceof Error ? err.message : '') || t('lecture:regenerate.failureDescription'), variant: 'destructive' });
+    } finally {
+      setIsRegeneratingContent(false);
+    }
+  };
+
+  // Get questions for the current slide. When a slide has both a per-slide
+  // quiz AND an anchored cross-slide deck quiz item, we surface the deck
+  // (cross-slide) question first — it's the more pedagogically valuable
+  // assessment and otherwise gets shadowed by the [0] selection below.
+  const currentSlideQuestions = questions
+    .filter(q => q.slide_id === currentSlide?.id)
+    .slice()
+    .sort((a, b) => {
+      const aCross = (a.linked_slides?.length ?? 0) >= 2 ? 0 : 1;
+      const bCross = (b.linked_slides?.length ?? 0) >= 2 ? 0 : 1;
+      return aCross - bCross;
+    });
+  const currentQuestion = currentSlideQuestions[0];
 
   const saveProgress = async (newSlideIndex: number, newXp: number, newCorrectAnswers: number) => {
     if (!user || !lectureId || !lecture) return;
 
-    const totalQuestions = questions.length || slides.length; // Fallback only if no questions
+    const totalQuestions = questions.length || slides.length;
     const cappedCorrect = Math.min(newCorrectAnswers, totalQuestions);
 
-    await supabase.from('student_progress').upsert({
-      user_id: user.id,
-      lecture_id: lecture.id,
+    await upsertLectureProgress(user.id, lecture.id, {
       last_slide_viewed: newSlideIndex,
       xp_earned: Math.min(newXp, totalQuestions * 10),
       correct_answers: cappedCorrect,
       completed_slides: slides.slice(0, Math.max(0, newSlideIndex + 1)).map(s => s.slide_number),
-    }, {
-      onConflict: 'user_id,lecture_id',
     });
   };
 
@@ -350,17 +397,15 @@ export default function LectureView() {
     if (currentSlideIndex > 0) {
       const prevIndex = currentSlideIndex - 1;
       
-      // Log revision event
-      supabase.from('learning_events').insert({
-        user_id: user?.id,
-        event_type: 'slide_back_navigation',
-        event_data: {
+      // Fire-and-forget revision event
+      if (user) {
+        logLearningEvent(user.id, 'slide_back_navigation', {
           lectureId,
           fromSlideId: slides[currentSlideIndex]?.id,
           toSlideId: slides[prevIndex]?.id,
-          timestamp: new Date().toISOString()
-        }
-      });
+          timestamp: new Date().toISOString(),
+        }).catch(() => {});
+      }
 
       setCurrentSlideIndex(prevIndex);
       setShowQuiz(quizAnswers[prevIndex] !== undefined);
@@ -380,13 +425,11 @@ export default function LectureView() {
     // Record this selection for UI state (async update)
     setQuizAnswers(prev => ({ ...prev, [currentSlideIndex]: selectedIndex }));
 
-    // Log quiz attempt
     const timeToAnswer = Math.round((Date.now() - slideStartTime) / 1000);
 
-    await supabase.from('learning_events').insert({
-      user_id: user?.id,
-      event_type: 'quiz_attempt',
-      event_data: {
+    if (user) {
+      // Fire-and-forget telemetry; never block the quiz flow on a network blip.
+      logLearningEvent(user.id, 'quiz_attempt', {
         lectureId,
         slideId: currentSlide?.id,
         slideTitle: currentSlide?.title,
@@ -394,9 +437,24 @@ export default function LectureView() {
         correct: isCorrect,
         selectedAnswer: selectedIndex,
         time_to_answer_seconds: timeToAnswer,
-        timestamp: new Date().toISOString()
-      },
-    });
+        timestamp: new Date().toISOString(),
+      }).catch((err) => console.warn('quiz_attempt telemetry failed', err));
+    }
+
+    // Track wrong answers for the end-of-lecture replay stage. Each missed
+    // question is queued exactly once per run; second-pass attempts during
+    // the replay are tracked separately via handleReviewAnswer. Membership
+    // is verified via a Set-backed lookup so the queue is deterministic
+    // even if multiple wrong answers land in the same tick.
+    if (!isCorrect && !missedQueuedIdsRef.current.has(currentQuestion.id)) {
+      missedQueuedIdsRef.current.add(currentQuestion.id);
+      missedQueueRef.current.push({
+        question: currentQuestion,
+        slideIndex: currentSlideIndex,
+        firstSelectedIndex: selectedIndex,
+        secondSelectedIndex: null,
+      });
+    }
 
     if (isCorrect) {
       const newXp = xpEarned + 10;
@@ -407,286 +465,279 @@ export default function LectureView() {
         return Math.min(next, totalQ);
       });
 
-      // Add XP to user — RPC should use auth.uid() internally
-      await supabase.rpc('add_xp_to_user', {
-        p_xp: 10,
-      } as never);
+      // Add XP to user — function uses auth.uid() internally; no user ID argument needed.
+      await supabase.rpc('add_xp_to_user', { p_xp: 10 } as never);
 
-      // Update streak — RPC should use auth.uid() internally
+      // Update streak — function uses auth.uid() internally; no user ID argument needed.
       const newStreak = await supabase.rpc('update_user_streak', {
         p_correct: true,
       } as never);
 
-      // Check for level up
-      const oldLevel = profile?.current_level || 1;
-      const newTotalXp = (profile?.total_xp || 0) + 10;
-      const calculatedLevel = Math.floor(newTotalXp / 100) + 1;
-
-      if (calculatedLevel > oldLevel) {
+      // Check for level up using pure domain function
+      const { newLevel: calculatedLevel, leveledUp } = checkLevelUp(profile?.total_xp || 0, 10);
+      if (leveledUp && user) {
         setNewLevel(calculatedLevel);
         setShowLevelUp(true);
-        // Notification: level up
-        await supabase.from('notifications').insert({
-          user_id: user?.id,
-          title: `Level ${calculatedLevel}!`,
-          message: `You leveled up to Level ${calculatedLevel}. Keep going!`,
-          type: 'level_up',
-        });
+        await insertNotification(
+          user.id,
+          t('common:achievements.levelUp.title', { level: calculatedLevel }),
+          t('common:achievements.levelUp.description', { level: calculatedLevel }),
+          'level_up'
+        );
       }
-        // Badge: Level 5 Scholar
-        if (calculatedLevel >= 5) {
-          const { data: lvl5Badge } = await supabase
-            .from('achievements')
-            .select('id')
-            .eq('user_id', user?.id)
-            .eq('badge_name', 'Level 5 Scholar')
-            .single();
 
-          if (!lvl5Badge) {
-            await supabase.from('achievements').insert({
-              user_id: user?.id,
-              badge_name: 'Level 5 Scholar',
-              badge_description: 'Reached level 5!',
-              badge_icon: '⭐',
-            });
-            setBadgeInfo({
-              name: 'Level 5 Scholar',
-              description: 'Reached level 5!',
-              icon: '⭐',
-            });
-            setTimeout(() => setShowBadge(true), 500);
-          }
+      if (user) {
+        // Achievement IDs (canonical, English) are persisted in the DB so that
+        // checkAchievementExists / awardAchievement remain stable across locales.
+        // The displayed name/description are localized for the user.
+        // Badge: Level 5 Scholar
+        if (calculatedLevel >= 5 && !(await checkAchievementExists(user.id, 'Level 5 Scholar'))) {
+          await awardAchievement(user.id, { name: 'Level 5 Scholar', description: 'Reached level 5!', icon: '⭐' });
+          setBadgeInfo({
+            name: t('common:achievements.level5.name'),
+            description: t('common:achievements.level5.description'),
+            icon: '⭐',
+          });
+          setTimeout(() => setShowBadge(true), 500);
         }
 
         // Badge: Level 10 Expert
-        if (calculatedLevel >= 10) {
-          const { data: lvl10Badge } = await supabase
-            .from('achievements')
-            .select('id')
-            .eq('user_id', user?.id)
-            .eq('badge_name', 'Level 10 Expert')
-            .single();
-
-          if (!lvl10Badge) {
-            await supabase.from('achievements').insert({
-              user_id: user?.id,
-              badge_name: 'Level 10 Expert',
-              badge_description: 'Reached level 10!',
-              badge_icon: '🌟',
-            });
-            setBadgeInfo({
-              name: 'Level 10 Expert',
-              description: 'Reached level 10!',
-              icon: '🌟',
-            });
-            setTimeout(() => setShowBadge(true), 500);
-          }
+        if (calculatedLevel >= 10 && !(await checkAchievementExists(user.id, 'Level 10 Expert'))) {
+          await awardAchievement(user.id, { name: 'Level 10 Expert', description: 'Reached level 10!', icon: '🌟' });
+          setBadgeInfo({
+            name: t('common:achievements.level10.name'),
+            description: t('common:achievements.level10.description'),
+            icon: '🌟',
+          });
+          setTimeout(() => setShowBadge(true), 500);
         }
 
-      // Check for achievements
-      if (newStreak.data === 5 || newStreak.data === 10) {
-        const badgeName = newStreak.data === 5 ? '5 Streak Master' : '10 Streak Champion';
-        const { data: existingBadge } = await supabase
-          .from('achievements')
-          .select('id')
-          .eq('user_id', user?.id)
-          .eq('badge_name', badgeName)
-          .single();
-
-        if (!existingBadge) {
-          await supabase.from('achievements').insert({
-            user_id: user?.id,
-            badge_name: badgeName,
-            badge_description: `Achieved a streak of ${newStreak.data} correct answers!`,
-            badge_icon: '🔥',
-          });
-
-          setBadgeInfo({
-            name: badgeName,
-            description: `Achieved a streak of ${newStreak.data} correct answers!`,
-            icon: '🔥',
-          });
-          setTimeout(() => setShowBadge(true), 1000);
-          // Notification: streak badge
-          await supabase.from('notifications').insert({
-            user_id: user?.id,
-            title: badgeName,
-            message: `Achieved a streak of ${newStreak.data} correct answers!`,
-            type: 'streak',
-          });
+        // Streak badges
+        if (newStreak.data === 5 || newStreak.data === 10) {
+          const badgeName = newStreak.data === 5 ? '5 Streak Master' : '10 Streak Champion';
+          const localizedName = newStreak.data === 5
+            ? t('common:achievements.streak5.name')
+            : t('common:achievements.streak10.name');
+          const localizedDescription = t('common:achievements.streakDescription', { count: newStreak.data });
+          if (!(await checkAchievementExists(user.id, badgeName))) {
+            await awardAchievement(user.id, {
+              name: badgeName,
+              description: `Achieved a streak of ${newStreak.data} correct answers!`,
+              icon: '🔥',
+            });
+            setBadgeInfo({ name: localizedName, description: localizedDescription, icon: '🔥' });
+            setTimeout(() => setShowBadge(true), 1000);
+            await insertNotification(user.id, localizedName, localizedDescription, 'streak');
+          }
         }
       }
 
       await refreshProfile();
     } else {
-      // Reset streak — RPC should use auth.uid() internally
-      await supabase.rpc('update_user_streak', {
-        p_correct: false,
-      } as never);
+      // Reset streak — function uses auth.uid() internally; no user ID argument needed.
+      await supabase.rpc('update_user_streak', { p_correct: false } as never);
       await refreshProfile();
     }
 
     // Persist progress immediately so reload cannot re-award XP for this question
     const finalXpNow = isCorrect ? xpEarned + 10 : xpEarned;
     const finalCorrectNow = isCorrect ? correctAnswers + 1 : correctAnswers;
+    // Stash authoritative values for handleQuizContinue — React state may not
+    // yet reflect the setXpEarned / setCorrectAnswers calls above.
+    committedXpRef.current = finalXpNow;
+    committedCorrectRef.current = finalCorrectNow;
+    // A new question was just answered → re-arm the continue lock.
+    continueLockRef.current = false;
     await saveProgress(currentSlideIndex, finalXpNow, finalCorrectNow);
 
-    // Move to next slide after quiz
-    setTimeout(() => {
-      const isCorrectNow = isCorrect ? 1 : 0;
-      const currentFinalXp = isCorrect ? xpEarned + 10 : xpEarned;
-      const currentFinalCorrect = correctAnswers + isCorrectNow;
+    // Advancement is now driven by the Continue button (see handleQuizContinue),
+    // so we no longer auto-advance on a 1.5s timer. The student controls the pace.
+  };
 
-      if (currentSlideIndex < slides.length - 1) {
-        const nextIndex = currentSlideIndex + 1;
-        setCurrentSlideIndex(nextIndex);
-        setShowQuiz(quizAnswers[nextIndex] !== undefined);
-        saveProgress(nextIndex, currentFinalXp, currentFinalCorrect);
-      } else {
-        setShowQuiz(false);
-        handleLectureComplete(currentFinalXp, currentFinalCorrect);
+  const handleQuizContinue = () => {
+    // Idempotency guard — a fast double-click must not advance/complete twice.
+    if (continueLockRef.current) return;
+    continueLockRef.current = true;
+
+    // Read committed values from refs (set in handleQuizAnswer) so we never
+    // race against pending setState calls.
+    const xp = committedXpRef.current || xpEarned;
+    const correct = committedCorrectRef.current || correctAnswers;
+
+    if (currentSlideIndex < slides.length - 1) {
+      const nextIndex = currentSlideIndex + 1;
+      setCurrentSlideIndex(nextIndex);
+      setShowQuiz(quizAnswers[nextIndex] !== undefined);
+      saveProgress(nextIndex, xp, correct);
+    } else {
+      setShowQuiz(false);
+      // If the student got anything wrong during the run, route them through
+      // the replay stage before firing completion. Otherwise complete now.
+      if (missedQueueRef.current.length > 0) {
+        setReviewStage(true);
+        setReviewIndex(0);
+        setReviewSelectedAnswer(null);
+        reviewContinueLockRef.current = false;
+        return;
       }
-    }, 1500);
+      handleLectureComplete(xp, correct);
+    }
+  };
+
+  const currentReviewItem =
+    reviewStage && missedQueueRef.current.length > 0
+      ? missedQueueRef.current[reviewIndex]
+      : null;
+
+  const handleReviewAnswer = (isCorrect: boolean, selectedIndex: number) => {
+    const item = currentReviewItem;
+    if (!item) return;
+    // Idempotency: dedup by question id alone so a stray reviewIndex
+    // re-render cannot cause `quiz_retry_attempt` to be emitted twice
+    // for the same retry question.
+    if (reviewAnsweredRef.current.has(item.question.id)) return;
+    reviewAnsweredRef.current.add(item.question.id);
+
+    setReviewSelectedAnswer(selectedIndex);
+    reviewContinueLockRef.current = false;
+    // Capture the retry answer for the end-of-lecture recap. We overwrite on
+    // every retry click so the recap reflects the last attempt the student
+    // made on this question.
+    item.secondSelectedIndex = selectedIndex;
+
+    if (user) {
+      // Separate event type so analytics can distinguish first-attempt
+      // accuracy from eventual mastery. Retry attempts deliberately do NOT
+      // award XP or bump correctAnswers — saveProgress is not re-called.
+      logLearningEvent(user.id, 'quiz_retry_attempt', {
+        lectureId,
+        slideId: item.question.slide_id,
+        slideTitle: slides[item.slideIndex]?.title,
+        questionId: item.question.id,
+        correct: isCorrect,
+        selectedAnswer: selectedIndex,
+        firstAttemptAnswer: item.firstSelectedIndex,
+        reviewIndex,
+        timestamp: new Date().toISOString(),
+      }).catch((err) => console.warn('quiz_retry_attempt telemetry failed', err));
+    }
+  };
+
+  const handleReviewContinue = () => {
+    if (reviewContinueLockRef.current) return;
+    reviewContinueLockRef.current = true;
+
+    const next = reviewIndex + 1;
+    if (next < missedQueueRef.current.length) {
+      setReviewIndex(next);
+      setReviewSelectedAnswer(null);
+    } else {
+      setReviewStage(false);
+      handleLectureComplete(committedXpRef.current || xpEarned, committedCorrectRef.current || correctAnswers);
+    }
   };
 
   const handleLectureComplete = async (finalXp: number = xpEarned, finalCorrect: number = correctAnswers) => {
     if (!lecture) return;
+    // One-shot guard — double-clicking Finish must not fire completion (XP cap,
+    // achievements, notifications, navigate) twice.
+    if (lectureCompleteLockRef.current) return;
+    lectureCompleteLockRef.current = true;
+
+    // Snapshot the missed-question queue for the recap UI before any
+    // post-completion side effects run. Items already carry first/second
+    // attempt indices populated during the run + replay stages.
+    setRecapItems(
+      missedQueueRef.current.map((m) => ({
+        question: m.question,
+        slideIndex: m.slideIndex,
+        slideTitle: slides[m.slideIndex]?.title,
+        firstSelectedIndex: m.firstSelectedIndex,
+        secondSelectedIndex: m.secondSelectedIndex,
+      })),
+    );
+    setLectureCompleted(true);
 
     const sessionDuration = Math.round((Date.now() - sessionStartRef.current) / 1000);
 
-    // Log completion
-    await supabase.from('learning_events').insert({
-      user_id: user?.id,
-      event_type: 'lecture_complete',
-      event_data: {
-        lectureId: lecture.id,
-        xpEarned: finalXp,
-        correctAnswers: finalCorrect,
-        total_duration_seconds: sessionDuration,
-        completed_at: new Date().toISOString()
-      },
-    });
+    if (!user) return;
+
+    // Fire-and-forget telemetry — completion flow must finish even if logging fails.
+    logLearningEvent(user.id, 'lecture_complete', {
+      lectureId: lecture.id,
+      xpEarned: finalXp,
+      correctAnswers: finalCorrect,
+      total_duration_seconds: sessionDuration,
+      completed_at: new Date().toISOString(),
+    }).catch((err) => console.warn('lecture_complete telemetry failed', err));
 
     const cappedXp = slides.length > 0 ? Math.min(finalXp, slides.length * 10) : finalXp;
     const cappedCorrect = slides.length > 0 ? Math.min(finalCorrect, slides.length) : finalCorrect;
 
-    // Update progress
-    await supabase.from('student_progress').upsert({
-      user_id: user?.id,
-      lecture_id: lecture.id,
+    await upsertLectureProgress(user.id, lecture.id, {
       xp_earned: cappedXp,
       completed_slides: slides.map((_, i) => i + 1),
       quiz_score: slides.length > 0 ? Math.round((cappedCorrect / slides.length) * 100) : 0,
       total_questions_answered: slides.length,
       correct_answers: cappedCorrect,
       completed_at: new Date().toISOString(),
-    }, {
-      onConflict: 'user_id,lecture_id',
     });
 
-    // Check for first completion achievement
-    const { data: firstQuizBadge } = await supabase
-      .from('achievements')
-      .select('id')
-      .eq('user_id', user?.id)
-      .eq('badge_name', 'First Quiz Completed')
-      .single();
-
-    if (!firstQuizBadge) {
-      await supabase.from('achievements').insert({
-        user_id: user?.id,
-        badge_name: 'First Quiz Completed',
-        badge_description: 'Completed your first lecture quiz!',
-        badge_icon: '🎯',
-      });
-
+    // Badge: First Quiz Completed (canonical English name persisted in DB; UI localized)
+    if (!(await checkAchievementExists(user.id, 'First Quiz Completed'))) {
+      await awardAchievement(user.id, { name: 'First Quiz Completed', description: 'Completed your first lecture quiz!', icon: '🎯' });
       setBadgeInfo({
-        name: 'First Quiz Completed',
-        description: 'Completed your first lecture quiz!',
+        name: t('common:achievements.firstQuiz.name'),
+        description: t('common:achievements.firstQuiz.description'),
         icon: '🎯',
       });
       setShowBadge(true);
-      // Notification: first quiz badge
-      await (supabase as any).from('notifications').insert({
-        user_id: user?.id,
-        title: 'First Quiz Completed 🎯',
-        message: 'Completed your first lecture quiz!',
-        type: 'achievement',
-      });
+      await insertNotification(
+        user.id,
+        t('common:achievements.firstQuiz.notificationTitle'),
+        t('common:achievements.firstQuiz.description'),
+        'achievement'
+      );
     }
 
     // Badge: Perfect Score
     if (finalCorrect === slides.length && slides.length > 0) {
-      const { data: perfectScoreBadge } = await supabase
-        .from('achievements')
-        .select('id')
-        .eq('user_id', user?.id)
-        .eq('badge_name', 'Perfect Score')
-        .single();
-
-      if (!perfectScoreBadge) {
-        await supabase.from('achievements').insert({
-          user_id: user?.id,
-          badge_name: 'Perfect Score',
-          badge_description: 'Got 100% on a lecture quiz!',
-          badge_icon: '💯',
-        });
-
+      if (!(await checkAchievementExists(user.id, 'Perfect Score'))) {
+        await awardAchievement(user.id, { name: 'Perfect Score', description: 'Got 100% on a lecture quiz!', icon: '💯' });
         setBadgeInfo({
-          name: 'Perfect Score',
-          description: 'Got 100% on a lecture quiz!',
+          name: t('common:achievements.perfectScore.name'),
+          description: t('common:achievements.perfectScore.description'),
           icon: '💯',
         });
         setTimeout(() => setShowBadge(true), 1500);
       }
     }
 
-    // Badge: Bookworm (5 lectures) & Graduate (10 lectures)
-    const { count } = await supabase
-      .from('student_progress')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id);
-
-    if (count && (count >= 5 || count >= 10)) {
-      const badgesToCheck = [
-        { name: 'Bookworm', threshold: 5, description: 'Complete 5 lectures', icon: '📚' },
-        { name: 'Graduate', threshold: 10, description: 'Complete 10 lectures', icon: '🎓' }
-      ];
-
-      for (const badge of badgesToCheck) {
-        if (count >= badge.threshold) {
-          const { data: existingBadge } = await supabase
-            .from('achievements')
-            .select('id')
-            .eq('user_id', user?.id)
-            .eq('badge_name', badge.name)
-            .single();
-
-          if (!existingBadge) {
-            await supabase.from('achievements').insert({
-              user_id: user?.id,
-              badge_name: badge.name,
-              badge_description: badge.description,
-              badge_icon: badge.icon,
-            });
-
-            setBadgeInfo({
-              name: badge.name,
-              description: badge.description,
-              icon: badge.icon,
-            });
-            setTimeout(() => setShowBadge(true), 3000);
-          }
-        }
+    // Badges: Bookworm (5 lectures) & Graduate (10 lectures)
+    const count = await countCompletedLectures(user.id);
+    const milestoneBadges = [
+      { name: 'Bookworm', threshold: 5, description: 'Complete 5 lectures', icon: '📚', i18nKey: 'bookworm' },
+      { name: 'Graduate', threshold: 10, description: 'Complete 10 lectures', icon: '🎓', i18nKey: 'graduate' },
+    ] as const;
+    for (const badge of milestoneBadges) {
+      if (count >= badge.threshold && !(await checkAchievementExists(user.id, badge.name))) {
+        await awardAchievement(user.id, { name: badge.name, description: badge.description, icon: badge.icon });
+        setBadgeInfo({
+          name: t(`common:achievements.${badge.i18nKey}.name`),
+          description: t(`common:achievements.${badge.i18nKey}.description`),
+          icon: badge.icon,
+        });
+        setTimeout(() => setShowBadge(true), 3000);
       }
     }
 
     toast({
-      title: 'Lecture Complete! 🎉',
-      description: `You earned ${xpEarned} XP and got ${correctAnswers}/${questions.length || slides.length} correct!`,
+      title: t('lecture:toasts.lectureCompleteTitle'),
+      description: t('lecture:toasts.lectureCompleteDescription', { xp: xpEarned, correct: correctAnswers, total: questions.length || slides.length }),
     });
 
-    setTimeout(() => navigate('/dashboard'), 2000);
+    // The recap card now owns the "Back to dashboard" CTA — no auto-navigate
+    // so students can review which questions they had to retry.
   };
 
   if (loading) {
@@ -734,18 +785,20 @@ export default function LectureView() {
               size="icon"
               onClick={() => navigate('/dashboard')}
               className="rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
-              title="Exit Lecture"
+              title={t('lecture:chrome.exitLecture')}
             >
               <X className="w-5 h-5" />
             </Button>
             <div className="flex flex-col">
               <nav className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">
-                <span className="opacity-50">Course</span>
+                <span className="opacity-50 truncate max-w-[160px]">
+                  {(lecture as { course?: { title?: string } | null } | null)?.course?.title || t('lecture:chrome.uncategorized')}
+                </span>
                 <span className="opacity-30">/</span>
-                <span className="truncate max-w-[200px]">{lecture?.title || 'Loading...'}</span>
+                <span className="truncate max-w-[200px]">{lecture?.title || t('lecture:chrome.lectureLoading')}</span>
               </nav>
               <h1 className="text-sm font-bold text-foreground truncate max-w-[300px]">
-                {currentSlide?.title || 'Slide View'}
+                {currentSlide?.title || t('lecture:chrome.slideView')}
               </h1>
             </div>
           </div>
@@ -764,14 +817,14 @@ export default function LectureView() {
               </div>
             </div>
 
-            {lecture?.pdf_url && (
+            {resolvedPdfUrl && (
               <Button
-                onClick={() => window.open(lecture.pdf_url!, '_blank', 'noopener noreferrer')}
+                onClick={() => window.open(resolvedPdfUrl, '_blank', 'noopener noreferrer')}
                 variant="ghost"
                 className="hidden md:flex gap-2 rounded-xl px-4 text-muted-foreground hover:text-foreground hover:bg-white/5"
               >
                 <ExternalLink className="w-4 h-4" />
-                <span className="text-xs font-bold">Source PDF</span>
+                <span className="text-xs font-bold">{t('lecture:chrome.sourcePdf')}</span>
               </Button>
             )}
             
@@ -780,7 +833,7 @@ export default function LectureView() {
               className="gap-2 rounded-xl px-5 bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary border-none hover:opacity-90"
             >
               <Bot className="w-4 h-4" />
-              <span className="text-xs font-bold">AI Tutor</span>
+              <span className="text-xs font-bold">{t('lecture:tutor.title')}</span>
             </Button>
           </div>
         </header>
@@ -800,7 +853,7 @@ export default function LectureView() {
                     transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <SlideViewer
-                      title={currentSlide.title || `Slide ${currentSlide.slide_number}`}
+                      title={currentSlide.title || t('lecture:chrome.slideNumberFallback', { number: currentSlide.slide_number })}
                       content={currentSlide.content_text || ''}
                       summary={currentSlide.summary || ''}
                       slideNumber={currentSlideIndex + 1}
@@ -809,35 +862,153 @@ export default function LectureView() {
                       onNext={handleNextSlide}
                       isFirst={currentSlideIndex === 0}
                       isLast={currentSlideIndex === slides.length - 1}
-                      pdfUrl={lecture?.pdf_url}
+                      pdfUrl={resolvedPdfUrl}
                       pageNumber={currentSlide.slide_number}
                       onConfidenceRate={async (rating) => {
                         if (!user || !currentSlide) return;
-                        await supabase.from('learning_events').insert({
-                          user_id: user.id,
-                          event_type: 'confidence_rating',
-                          event_data: {
-                            lectureId,
-                              slideId: currentSlide.id,
-                              slideTitle: currentSlide.title,
-                              rating,
-                              timestamp: new Date().toISOString(),
-                            },
-                          });
-                        }}
-                      mindMapData={mindMap.data ?? null}
+                        await logLearningEvent(user.id, 'confidence_rating', {
+                          lectureId,
+                          slideId: currentSlide.id,
+                          slideTitle: currentSlide.title,
+                          rating,
+                          timestamp: new Date().toISOString(),
+                        });
+                      }}
+                      mindMapState={
+                        mindMap.isLoading
+                          ? { kind: 'loading' }
+                          : mindMap.isError
+                            ? {
+                                kind: 'error',
+                                message: (mindMap.error as Error | null)?.message
+                                  || 'Network error while loading mind map.',
+                                onRetry: () => mindMap.refetch(),
+                              }
+                            : mindMap.data
+                              ? { kind: 'ready', tree: mindMap.data }
+                              : {
+                                  kind: 'empty',
+                                  canGenerate: role === 'professor',
+                                  isGenerating: generateMindMap.isPending,
+                                  onGenerate: () => generateMindMap.mutate(aiModel, {
+                                    onError: (error: Error) => {
+                                      toast({
+                                        title: t('lecture:toasts.mindMapErrorTitle'),
+                                        description: error.message || t('lecture:toasts.mindMapErrorDescription'),
+                                        variant: 'destructive',
+                                      });
+                                    },
+                                  }),
+                                }
+                      }
+                      onMindMapSlideClick={(slideId) => {
+                        const idx = slides.findIndex((s) => s.id === slideId);
+                        if (idx >= 0) {
+                          setCurrentSlideIndex(idx);
+                          setShowQuiz(quizAnswers[idx] !== undefined);
+                        }
+                      }}
+                      onMindMapRetry={() => mindMap.refetch()}
                       currentSlideId={currentSlide.id}
-                      onGenerateMindMap={() => generateMindMap.mutate(localStorage.getItem('ascend-academy-ai-model') || 'groq')}
+                      onGenerateMindMap={() => {
+                        generateMindMap.mutate(aiModel, {
+                          onError: (error: Error) => {
+                            toast({
+                              title: t('lecture:toasts.mindMapErrorTitle'),
+                              description: error.message || t('lecture:toasts.mindMapErrorDescription'),
+                              variant: "destructive"
+                            });
+                          },
+                          onSuccess: () => {
+                            toast({
+                              title: t('lecture:toasts.mindMapSuccessTitle'),
+                              description: t('lecture:toasts.mindMapSuccessDescription'),
+                            });
+                          }
+                        });
+                      }}
                       isMindMapLoading={generateMindMap.isPending}
+                      isProfessor={role === 'professor'}
+                      onRegenerateContent={role === 'professor' ? handleRegenerateContent : undefined}
+                      isRegeneratingContent={isRegeneratingContent}
                     />
                     </motion.div>
                   )}
                 </AnimatePresence>
 
+              {/* Worksheets attached to this lecture (read-only for students) */}
+              {lectureId && (
+                <div className="bg-card/40 rounded-2xl border border-border p-5">
+                  <WorksheetsPanel lectureId={lectureId} editable={role === 'professor'} />
+                </div>
+              )}
+
+              {/* Practice Sheets — students see published sheets; professors see their own via LectureEdit */}
+              {lectureId && role !== 'professor' && (
+                <div className="bg-card/40 rounded-2xl border border-border p-5">
+                  <StudentPracticeSheetsPanel lectureId={lectureId} />
+                </div>
+              )}
+
+              {/* Cross-course concept overlap: surfaces other lectures that
+                  cover concepts present on this lecture. */}
+              {lectureId && (
+                <RelatedAcrossCoursesPanel lectureId={lectureId} />
+              )}
+
               {/* Sidebar - Quiz */}
               <div ref={quizRef}>
                 <AnimatePresence mode="wait">
-                  {showQuiz && currentQuestion ? (
+                  {lectureCompleted ? (
+                    <LectureRecap
+                      items={recapItems}
+                      xpEarned={xpEarned}
+                      correctOnFirstTry={correctAnswers}
+                      totalQuestions={questions.length || slides.length}
+                      onDone={() => navigate('/dashboard')}
+                    />
+                  ) : reviewStage && currentReviewItem ? (
+                    <motion.div
+                      key={`review-${reviewIndex}`}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-4"
+                      data-testid="review-stage"
+                    >
+                      <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
+                        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
+                          <HelpCircle className="w-5 h-5 text-primary-foreground" />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-bold text-foreground">
+                            {t('lecture:chrome.reviewMissed')}
+                          </h2>
+                          <p className="text-xs text-muted-foreground">
+                            {t('lecture:chrome.reviewProgress', { current: reviewIndex + 1, total: missedQueueRef.current.length })}
+                          </p>
+                        </div>
+                      </div>
+                      <QuizCard
+                        key={`review-card-${reviewIndex}`}
+                        question={currentReviewItem.question.question_text}
+                        options={currentReviewItem.question.options}
+                        correctAnswer={currentReviewItem.question.correct_answer}
+                        onAnswer={handleReviewAnswer}
+                        onContinue={handleReviewContinue}
+                        continueLabel={
+                          reviewIndex < missedQueueRef.current.length - 1
+                            ? t('lecture:navigation.next')
+                            : t('lecture:navigation.finishLecture')
+                        }
+                        questionNumber={reviewIndex + 1}
+                        totalQuestions={missedQueueRef.current.length}
+                        initialSelectedAnswer={reviewSelectedAnswer}
+                        explanation={currentReviewItem.question.explanation}
+                        concept={currentReviewItem.question.concept}
+                      />
+                    </motion.div>
+                  ) : showQuiz && currentQuestion ? (
                     <motion.div
                       key={`quiz-${currentSlideIndex}`}
                       initial={{ opacity: 0, x: 20 }}
@@ -851,9 +1022,9 @@ export default function LectureView() {
                         </div>
                         <div>
                           <h2 className="text-base font-bold text-foreground truncate max-w-[200px]">
-                            {currentSlide?.title || 'Quiz'}
+                            {currentSlide?.title || t('lecture:chrome.quizFallback')}
                           </h2>
-                          <p className="text-xs text-muted-foreground">Knowledge Check</p>
+                          <p className="text-xs text-muted-foreground">{t('lecture:chrome.knowledgeCheck')}</p>
                         </div>
                       </div>
                       <QuizCard
@@ -861,9 +1032,25 @@ export default function LectureView() {
                         options={currentQuestion.options}
                         correctAnswer={currentQuestion.correct_answer}
                         onAnswer={handleQuizAnswer}
+                        onContinue={handleQuizContinue}
+                        continueLabel={currentSlideIndex < slides.length - 1 ? t('lecture:navigation.continue') : t('lecture:navigation.finishLecture')}
                         questionNumber={currentSlideIndex + 1}
                         totalQuestions={slides.length}
                         initialSelectedAnswer={quizAnswers[currentSlideIndex]}
+                        explanation={currentQuestion.explanation}
+                        concept={currentQuestion.concept}
+                        // ``linked_slides`` are 0-based indices from the
+                        // planner; chip labels use 1-based slide numbers.
+                        linkedSlides={
+                          currentQuestion.linked_slides && currentQuestion.linked_slides.length > 0
+                            ? currentQuestion.linked_slides.map((i) => i + 1)
+                            : undefined
+                        }
+                        onJumpToSlide={(slideNumber) => {
+                          const idx = Math.max(0, Math.min(slides.length - 1, slideNumber - 1));
+                          setCurrentSlideIndex(idx);
+                          setShowQuiz(quizAnswers[idx] !== undefined);
+                        }}
                       />
                     </motion.div>
                   ) : (
@@ -879,13 +1066,13 @@ export default function LectureView() {
                           </div>
                           <div>
                             <h1 className="text-xl font-bold text-foreground">
-                              {currentSlide?.title || 'Lecture Slide'}
+                              {currentSlide?.title || t('lecture:chrome.slideFallback')}
                             </h1>
                           </div>
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mt-4">
-                        Read through the slide and click "Next" to answer a quiz question about the content.
+                        {t('lecture:chrome.readSlideHint')}
                       </p>
                     </motion.div>
                   )}
@@ -913,7 +1100,14 @@ export default function LectureView() {
             isOpen={isChatOpen}
             onClose={() => setIsChatOpen(false)}
             slideText={currentSlide?.content_text || ''}
-            slideTitle={currentSlide?.title || 'Lecture Slide'}
+            slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
+            lectureId={lectureId}
+            currentSlideIndex={currentSlideIndex}
+            onSlideJump={(idx) => {
+              if (idx >= 0 && idx < slides.length) {
+                setCurrentSlideIndex(idx);
+              }
+            }}
           />
         </div>
       </div>

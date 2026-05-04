@@ -1,19 +1,22 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { AUTH_INIT_TIMEOUT_MS, AUTH_PROFILE_TIMEOUT_MS } from '@/lib/constants';
 
 type UserRole = 'student' | 'professor' | null;
 
-interface Profile {
+export interface Profile {
   id: string;
   user_id: string;
   email: string;
   full_name: string | null;
+  display_name: string | null;
   avatar_url: string | null;
   total_xp: number;
   current_level: number;
   current_streak: number;
   best_streak: number;
+  preferred_language?: 'en' | 'de' | null;
 }
 
 interface AuthContextType {
@@ -36,12 +39,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<UserRole>(null);
-  const [loading, setLoading] = useState(true);
+  // Two-phase loading. The auth context is only "ready" once BOTH the
+  // session check and (when a user is present) the role lookup have settled
+  // — success, failure, or timeout. Route guards key off the unified
+  // `loading` below so they never see `user` set but `role` still null,
+  // which is the race that causes student→/professor lockups and the
+  // professor login flash on the student dashboard.
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(false);
+  const loading = sessionLoading || roleLoading;
 
   const fetchProfile = async (userId: string): Promise<boolean> => {
     const { data: profileData, error } = await supabase
       .from('profiles')
-      .select('id, user_id, email, full_name, avatar_url, total_xp, current_level, current_streak, best_streak')
+      .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak, preferred_language')
       .eq('user_id', userId)
       .single();
 
@@ -82,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const withTimeout = <T,>(promise: Promise<T>, ms: number = 5000): Promise<T> => {
+  const withTimeout = <T,>(promise: Promise<T>, ms: number = AUTH_INIT_TIMEOUT_MS): Promise<T> => {
     return Promise.race([
       promise,
       new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Supabase deadlock timeout')), ms))
@@ -98,24 +109,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(session?.user ?? null);
 
           if (session?.user) {
-            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || !hasFetchedProfile.current) {
-                hasFetchedProfile.current = true;
-                const hasProfile = await withTimeout(fetchProfile(session.user.id), 15000).catch(() => true);
+            // Race-safe: only fetch profile/role once per session. INITIAL_SESSION
+            // and SIGNED_IN often fire back-to-back on cold start, and we don't
+            // want two parallel fetches both racing to set state.
+            const isLoginEvent = event === 'INITIAL_SESSION' || event === 'SIGNED_IN';
+            if (isLoginEvent && !hasFetchedProfile.current) {
+              hasFetchedProfile.current = true;
+              setRoleLoading(true);
+              try {
+                const profilePromise = withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => true);
+                const rolePromise = withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
+                const hasProfile = await profilePromise;
                 if (!hasProfile) {
                   console.warn("User has session but no profile. Signing out.");
                   await signOut().catch(() => {});
                 } else {
-                  await withTimeout(fetchRole(session.user.id), 15000).catch(() => {});
+                  // Wait for role too. On timeout/error the catch above
+                  // resolves the promise; we then leave `role` as whatever
+                  // fetchRole managed to set (null if nothing), but mark the
+                  // lookup as resolved so guards stop spinning.
+                  await rolePromise;
                 }
+              } finally {
+                setRoleLoading(false);
+              }
             }
           } else {
+            // Reset on sign-out so the next session re-fetches cleanly
+            hasFetchedProfile.current = false;
             setProfile(null);
             setRole(null);
+            setRoleLoading(false);
           }
         } catch (error: unknown) {
           console.error("Auth state change error:", error);
+          // Defensive: don't pin the UI on the spinner if the handler itself
+          // throws before reaching the role-loading finally above.
+          setRoleLoading(false);
         } finally {
-          setLoading(false);
+          setSessionLoading(false);
         }
       }
     );
@@ -141,16 +173,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error };
     }
 
-    // Role is now stored in user_metadata.role
-    // A Supabase database trigger (on_auth_user_created) should read
-    // raw_user_meta_data->>'role' and insert into user_roles.
-    // Fallback: insert from client if trigger is not yet set up.
-    if (data.user && selectedRole) {
-      await supabase
-        .from('user_roles')
-        .upsert({ user_id: data.user.id, role: selectedRole }, { onConflict: 'user_id' });
-    }
-
+    // Role is stored in user_metadata.role and propagated to user_roles
+    // by the on_auth_user_created database trigger. We deliberately do
+    // NOT upsert into user_roles from the client — that would let any
+    // user grant themselves the 'professor' role and bypass server-side
+    // role checks. If signups are succeeding but no role is assigned,
+    // verify the trigger exists in Supabase.
     return { error: null };
   };
 

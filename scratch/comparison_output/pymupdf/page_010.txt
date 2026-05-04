@@ -1,0 +1,13 @@
+How to represent h?
+•
+Dependency is modeled using a regression function ℎ:
+with 𝑚training samples 𝑥𝑖, 𝑦𝑖
+and 𝑚residuals (errors) 𝑒(𝑖).
+•
+Regression coefficients 𝜃
+– 𝜃0 : intercept
+– 𝜃1 : slope
+y
+x
+𝑦(𝑖) = ℎ𝜃𝑥𝑖
++ 𝑒(𝑖)

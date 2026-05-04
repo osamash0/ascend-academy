@@ -1,0 +1,142 @@
+{
+  "title": "Settings",
+  "subtitle": "Manage your profile, preferences, and account.",
+  "tabs": {
+    "profile": "Profile",
+    "ai": "AI Model",
+    "appearance": "Appearance",
+    "security": "Security",
+    "data": "Data & Privacy"
+  },
+  "profile": {
+    "personalInfo": "Personal Information",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Enter your full name",
+    "displayName": "Display Name (public)",
+    "displayNamePlaceholder": "Anonymous (Avatar Only)",
+    "displayNameHelp": "Shown on the leaderboard instead of your avatar only.",
+    "email": "Email Address",
+    "emailHelp": "Your email address cannot be changed here.",
+    "unsavedChanges": "● Unsaved changes",
+    "upToDate": "Up to date",
+    "updated": "Profile updated",
+    "updatedDescription": "Your settings have been saved successfully.",
+    "saveError": "Error saving profile",
+    "saveErrorDescription": "An unexpected error occurred."
+  },
+  "aria": {
+    "uploadAvatar": "Upload avatar image",
+    "toggleCurrentPassword": "Toggle current password visibility",
+    "toggleNewPassword": "Toggle new password visibility",
+    "toggleConfirmPassword": "Toggle confirm password visibility"
+  },
+  "avatar": {
+    "anonymousUser": "Anonymous User",
+    "uploadPhoto": "Upload Photo",
+    "changeAvatar": "Change Avatar",
+    "presetsTitle": "Or choose a fun preset:",
+    "updated": "Avatar updated",
+    "updatedDescription": "Your new profile picture looks great!",
+    "uploadError": "Error uploading avatar",
+    "uploadErrorDescription": "Please make sure the 'avatars' storage bucket exists and is public.",
+    "presetUpdated": "Your fun new avatar is set!",
+    "presetError": "Error updating avatar",
+    "presetErrorDescription": "Failed to update your avatar."
+  },
+  "language": {
+    "title": "Language",
+    "description": "Choose the language for the interface. This setting is saved on your profile and follows you across devices.",
+    "english": "English",
+    "german": "Deutsch (German)",
+    "saved": "Language saved",
+    "savedDescription": "Your language preference has been updated."
+  },
+  "ai": {
+    "title": "AI Model",
+    "description": "Choose which AI model powers your tutor and content generation.",
+    "saved": "AI model updated",
+    "preferences": "AI Preferences",
+    "preferencesDescription": "Choose which AI model powers your intelligent tutor, quizzes, and summaries.",
+    "models": {
+      "cerebras": {
+        "name": "Cerebras (Recommended)",
+        "description": "Primary engine: GPT-OSS-120B on Cerebras inference — extremely fast, high quality, and the highest free-tier daily quota of any provider."
+      },
+      "groq": {
+        "name": "Groq (Llama 3.3 70B)",
+        "description": "High-quality cloud LLM via Groq. Used as the first quality fallback when Cerebras is unavailable."
+      },
+      "openrouter": {
+        "name": "OpenRouter (Llama 3.3 70B)",
+        "description": "Deep-resilience fallback via OpenRouter. Free tier of 50 req/day; ideal as a backup when other providers are rate-limited."
+      },
+      "cloudflare": {
+        "name": "Cloudflare Workers AI",
+        "description": "Deep-resilience fallback running Llama 3.3 70B on Cloudflare Workers AI. Generous free tier and global edge deployment."
+      },
+      "gemini-2.5-flash": {
+        "name": "Gemini",
+        "description": "Lightning-fast responses powered by Google AI Studio. Useful when you want Google's model behavior specifically."
+      },
+      "llama3": {
+        "name": "Llama 3 (Local)",
+        "description": "Runs locally via Ollama. Completely private and offline, but slower and only available when Ollama is installed."
+      }
+    },
+    "savedTitle": "AI Preference saved",
+    "savedDescription": "Your tutor is now powered by {{name}}.",
+    "savePreference": "Save AI Preference"
+  },
+  "header": {
+    "title": "Settings",
+    "subtitle": "Manage your account preferences and profile details"
+  },
+  "security": {
+    "title": "Security",
+    "currentPassword": "Current Password",
+    "currentPasswordPlaceholder": "Enter your current password",
+    "newPassword": "New Password",
+    "newPasswordPlaceholder": "Min. 6 characters",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Re-enter your new password",
+    "passwordsDontMatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "changePassword": "Change Password",
+    "changing": "Updating...",
+    "currentIncorrect": "Current password incorrect",
+    "currentIncorrectDescription": "Please check your current password and try again.",
+    "passwordChangeFailed": "Password change failed",
+    "passwordChangeFailedDescription": "An unexpected error occurred.",
+    "passwordUpdated": "Password updated!",
+    "passwordUpdatedDescription": "Your password has been changed successfully."
+  },
+  "data": {
+    "title": "Data & Privacy",
+    "exportTitle": "Export My Data",
+    "exportDescription": "Download all your data as a JSON file (Art. 20 GDPR)",
+    "exportButton": "Export",
+    "exporting": "Exporting...",
+    "exportSuccess": "Data exported!",
+    "exportSuccessDescription": "Your data has been downloaded.",
+    "exportError": "Export failed",
+    "exportErrorDescription": "Please try again.",
+    "dangerZone": "Danger Zone",
+    "deleteTitle": "Delete your account",
+    "deleteDescription": "Permanently delete your account and all associated data. This action cannot be undone.",
+    "deleteButton": "Delete My Account",
+    "deleteConfirmShort": "Are you sure? All data will be permanently deleted.",
+    "cancel": "Cancel",
+    "deleteFinal": "Yes, Delete Everything",
+    "deleting": "Deleting...",
+    "deleteConfirm": "Are you absolutely sure? This will permanently delete your account and all your data. Type DELETE to confirm.",
+    "deleteSuccess": "Account deleted",
+    "deleteSuccessDescription": "Your account and all data have been removed.",
+    "deleteError": "Deletion failed",
+    "deleteErrorDescription": "Please contact support."
+  },
+  "save": "Save Changes",
+  "saving": "Saving...",
+  "saved": "Profile updated",
+  "savedDescription": "Your settings have been saved successfully.",
+  "saveError": "Error saving profile"
+}
