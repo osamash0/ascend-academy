@@ -15,6 +15,7 @@ vi.mock("@/hooks/use-toast", () => ({
 vi.mock("@/lib/auth", () => {
   const user = { id: "prof-1", email: "prof@test.com" };
   return {
+    AuthProvider: ({ children }: { children: React.ReactNode }) => children,
     useAuth: () => ({
       user,
       session: null,

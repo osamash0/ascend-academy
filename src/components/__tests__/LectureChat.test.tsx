@@ -54,10 +54,11 @@ vi.mock("@/hooks/use-ai-model", () => ({
 }));
 
 vi.mock("@/lib/auth", () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: () => ({
     user: { id: "u1", email: "s@s.com" },
-    session: null,
-    profile: null,
+    session: { access_token: "test-token" },
+    profile: { id: "p1", full_name: "Stu Dent", role: "student" },
     role: "student",
     loading: false,
     signIn: vi.fn(),
@@ -112,7 +113,7 @@ async function sendQuestion(user: ReturnType<typeof userEvent.setup>) {
 describe("LectureChat citation chips", () => {
   it("renders a clickable [Slide N] chip and forwards the 0-indexed slide_index to onSlideJump", async () => {
     server.use(
-      http.post("http://api.test/api/ai/chat", () =>
+      http.post("*/api/ai/chat", () =>
         HttpResponse.json({
           reply: "See the cited slide for context.",
           citations: [{ slide_index: 2, similarity: 0.9 }],
@@ -136,7 +137,7 @@ describe("LectureChat citation chips", () => {
 
   it("renders no chips and never invokes onSlideJump when the response carries no citations", async () => {
     server.use(
-      http.post("http://api.test/api/ai/chat", () =>
+      http.post("*/api/ai/chat", () =>
         HttpResponse.json({
           reply: "I cannot answer from the provided slides.",
           citations: [],

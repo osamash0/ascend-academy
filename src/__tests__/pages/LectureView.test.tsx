@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Routes, Route } from "react-router-dom";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
+
 // The shared mock does not natively expose `.rpc()` — LectureView calls
 // `supabase.rpc('update_user_streak'|'add_xp_to_user')` inside handleQuizAnswer.
 // We attach a permissive stub so quiz interaction tests can run without
@@ -91,6 +92,7 @@ vi.mock("@/lib/auth", () => {
     best_streak: 0,
   };
   return {
+    AuthProvider: ({ children }: { children: React.ReactNode }) => children,
     useAuth: () => ({
       user,
       session: null,

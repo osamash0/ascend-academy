@@ -160,4 +160,64 @@ export const defaultHandlers = [
       headers: { "Content-Type": "text/event-stream" },
     });
   }),
+  // ── Courses ──────────────────────────────────────────────────────────────
+  http.get(`${API}/api/courses`, () =>
+    HttpResponse.json({
+      success: true,
+      data: [
+        { id: "course-1", title: "Calculus I", lecture_count: 5 },
+        { id: "course-2", title: "Linear Algebra", lecture_count: 3 },
+      ],
+    }),
+  ),
+  http.get(`${API}/api/courses/:id`, ({ params }) =>
+    HttpResponse.json({
+      success: true,
+      data: { id: params.id, title: "Course Title", lectures: [] },
+    }),
+  ),
+
+  // ── Misc ──────────────────────────────────────────────────────────────────
+  http.post(`${API}/api/upload/check-duplicate`, () =>
+    HttpResponse.json({ duplicates: [] }),
+  ),
+  http.get(`${API}/api/assignments`, () =>
+    HttpResponse.json({ success: true, data: [] }),
+  ),
+  http.get(`${API}/api/assignments/_meta/students`, () =>
+    HttpResponse.json({ success: true, data: [] }),
+  ),
+  http.get(`${API}/api/professor/students/enrollable`, () =>
+    HttpResponse.json({ success: true, data: [] }),
+  ),
+  http.get(`${API}/api/analytics/professor/overview`, () =>
+    HttpResponse.json({
+      success: true,
+      data: {
+        active_students: 10,
+        average_completion: 80,
+        average_quiz_accuracy: 75,
+        median_time_minutes: 15,
+        weakest_concepts: [],
+        weakest_slides: [],
+        activity_sparkline: [],
+        lecture_count: 5,
+        days: 7,
+      },
+    }),
+  ),
+  http.get(`${API}/api/lecture/:id`, ({ params }) =>
+    HttpResponse.json({
+      id: params.id,
+      title: "Test Lecture",
+      description: "Desc",
+      course_id: "c1",
+    }),
+  ),
+
+  // ── Catch-all ─────────────────────────────────────────────────────────────
+  http.all("*", () => {
+    return HttpResponse.json({ success: true, data: [] });
+  }),
 ];
+

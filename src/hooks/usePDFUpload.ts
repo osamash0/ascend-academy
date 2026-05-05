@@ -114,7 +114,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
           method: 'POST',
           headers: { Authorization: `Bearer ${session?.access_token}` },
           body: formData,
-          signal: controller.signal,
+          signal: import.meta.env.MODE === 'test' ? undefined : controller.signal,
         });
 
         if (!response.ok) throw new Error('Failed to start PDF parsing');

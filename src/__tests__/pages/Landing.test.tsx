@@ -11,6 +11,22 @@ import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
 import Landing from "@/pages/Landing";
 import { renderWithProviders } from "@/test/renderWithProviders";
+import { vi } from "vitest";
+
+vi.mock("@/lib/auth", () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+  useAuth: vi.fn(() => ({
+    user: null,
+    session: null,
+    profile: null,
+    role: null,
+    loading: false,
+    signIn: vi.fn(),
+    signUp: vi.fn(),
+    signOut: vi.fn(),
+    refreshProfile: vi.fn(),
+  })),
+}));
 
 describe("Landing page (smoke)", () => {
   it("mount: renders the brand wordmark and primary CTA", () => {

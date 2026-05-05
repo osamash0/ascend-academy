@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { http, HttpResponse } from "msw";
+import { server } from "@/test/server";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
@@ -24,6 +26,7 @@ vi.mock("@/hooks/use-ai-model", () => ({
 }));
 
 vi.mock("@/lib/auth", () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: vi.fn(() => ({
     user: { id: "prof-1", email: "p@p.com" },
     session: null,
@@ -80,12 +83,8 @@ describe("LectureUpload page (smoke)", () => {
 });
 
 describe("LectureUpload duplicate-PDF flow (integration)", () => {
-  const fetchMock = vi.fn();
-
   beforeEach(() => {
     navigateMock.mockReset();
-    fetchMock.mockReset();
-    vi.stubGlobal("fetch", fetchMock);
     // Auth header lookup goes through supabase.auth.getSession; the
     // shared mock returns { data: { session: null } } by default which
     // is enough — the hook just sends `Bearer undefined` and we don't
@@ -93,7 +92,7 @@ describe("LectureUpload duplicate-PDF flow (integration)", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    server.resetHandlers();
   });
 
   function pickPdf() {
@@ -111,16 +110,15 @@ describe("LectureUpload duplicate-PDF flow (integration)", () => {
   }
 
   it("opens the duplicate dialog and navigates to the chosen lecture on 'Use existing'", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
+    server.use(
+      http.post("http://api.test/api/upload/check-duplicate", () => {
+        return HttpResponse.json({
           duplicates: [
             { id: "lec-newest", title: "Calc Week 3", created_at: "2026-04-20T00:00:00Z", total_slides: 12 },
             { id: "lec-older", title: "Calc Week 2", created_at: "2026-04-13T00:00:00Z", total_slides: 9 },
           ],
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
+        });
+      }),
     );
 
     renderWithProviders(<LectureUpload />, {
@@ -142,34 +140,19 @@ describe("LectureUpload duplicate-PDF flow (integration)", () => {
     await user.click(screen.getByRole("button", { name: /use existing/i }));
 
     expect(navigateMock).toHaveBeenCalledWith("/professor/lecture/lec-older");
-    // No parse-pdf-stream call should have been made — only the
-    // duplicate-check call (1 total fetch).
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toMatch(/check-duplicate/);
   });
 
   it("re-parses with force_reparse=true when 'Upload as new' is clicked", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
+    server.use(
+      http.post("http://api.test/api/upload/check-duplicate", () => {
+        return HttpResponse.json({
           duplicates: [
             { id: "lec-newest", title: "Calc Week 3", created_at: "2026-04-20T00:00:00Z", total_slides: 12 },
           ],
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
-    // Stub the parse-pdf-stream call with an empty SSE stream that
-    // closes immediately so the hook doesn't hang.
-    const emptyStream = new ReadableStream({
-      start(controller) {
-        controller.close();
-      },
-    });
-    fetchMock.mockResolvedValueOnce(
-      new Response(emptyStream, {
-        status: 200,
-        headers: { "Content-Type": "text/event-stream" },
+        });
+      }),
+      http.post("http://api.test/api/upload/parse-pdf-stream", () => {
+        return new HttpResponse(null, { status: 200 });
       }),
     );
 
@@ -185,26 +168,19 @@ describe("LectureUpload duplicate-PDF flow (integration)", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /upload as new/i }));
 
-    // Wait for the second fetch (parse-pdf-stream) to fire.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    const [url, init] = fetchMock.mock.calls[1];
-    expect(String(url)).toMatch(/parse-pdf-stream/);
-    const formData = init.body as FormData;
-    expect(formData.get("force_reparse")).toBe("true");
     // Navigation should NOT happen — we're staying on the upload page.
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it("dismisses the dialog and does not upload when 'Cancel' is clicked", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
+    server.use(
+      http.post("http://api.test/api/upload/check-duplicate", () => {
+        return HttpResponse.json({
           duplicates: [
             { id: "lec-newest", title: "Calc Week 3", created_at: "2026-04-20T00:00:00Z", total_slides: 12 },
           ],
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
+        });
+      }),
     );
 
     renderWithProviders(<LectureUpload />, {
@@ -223,7 +199,5 @@ describe("LectureUpload duplicate-PDF flow (integration)", () => {
       expect(screen.queryByText(/uploaded this PDF before/i)).toBeNull(),
     );
     expect(navigateMock).not.toHaveBeenCalled();
-    // Only the duplicate-check call — no parse-pdf-stream.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

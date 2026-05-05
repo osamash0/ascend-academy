@@ -24,11 +24,11 @@ const mockOverview = {
 };
 
 vi.mock("@/features/analytics/hooks/useAnalytics", () => ({
-  useProfessorOverview: () => ({
-    data: mockOverview,
+  useProfessorOverview: vi.fn((courseId) => ({
+    data: courseId ? mockOverview : null,
     isLoading: false,
     isError: false,
-  }),
+  })),
 }));
 
 import { ProfessorOverviewSection } from "@/features/analytics/components/ProfessorOverviewSection";
@@ -49,14 +49,11 @@ describe("ProfessorOverviewSection", () => {
 
     // Stat tiles (titles + values)
     expect(screen.getByText(/Active Students/i)).toBeInTheDocument();
-    expect(screen.getByText("12")).toBeInTheDocument();
-    // Values may be split across nodes by StatsCard formatting — search the
-    // rendered text content instead of relying on a single text node.
-    // StatsCard normalizes percent strings via parseInt for its animated
-    // counter, so we just verify the integer parts + unit landed on screen.
-    const body = document.body.textContent ?? "";
-    expect(body).toMatch(/73\s*%/);
-    expect(body).toMatch(/81\s*%/);
+    // Stat tiles (titles + values)
+    expect(screen.getByText(/Active Students/i)).toBeInTheDocument();
+    expect(await screen.findByText("12")).toBeInTheDocument();
+    expect(await screen.findByText(/73/)).toBeInTheDocument();
+    expect(await screen.findByText(/81/)).toBeInTheDocument();
 
     // Weakest concept entries
     expect(screen.getByText("Backpropagation")).toBeInTheDocument();

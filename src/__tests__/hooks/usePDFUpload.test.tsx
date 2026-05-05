@@ -22,6 +22,14 @@ vi.mock("@/hooks/use-ai-model", () => ({
   useAiModel: () => ({ aiModel: "groq" }),
 }));
 
+// Mock AbortController to fix undici/jsdom mismatch
+const originalAbortController = globalThis.AbortController;
+vi.stubGlobal("AbortController", class extends originalAbortController {
+  constructor() {
+    super();
+  }
+});
+
 import { usePDFUpload } from "@/hooks/usePDFUpload";
 
 beforeEach(() => supabaseMock.reset());

@@ -8,6 +8,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    env: {
+      VITE_API_URL: "http://api.test",
+    },
+
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     exclude: [
       "node_modules/**",
