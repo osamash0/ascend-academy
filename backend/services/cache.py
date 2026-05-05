@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import time
 from datetime import datetime, timedelta
@@ -98,7 +99,10 @@ async def store_cached_parse(pdf_hash: str, data: Dict[str, Any], parsing_mode: 
     """Store full parse result in database."""
     key = _scoped_cache_key(pdf_hash, parsing_mode)
     try:
-        payload = {"pdf_hash": key, "result": data, "created_at": "now()"}
+        # Ensure data is JSON serializable (handles datetime objects)
+        serializable_data = json.loads(json.dumps(data, default=str))
+        
+        payload = {"pdf_hash": key, "result": serializable_data, "created_at": "now()"}
         supabase_admin.table("pdf_parse_cache").upsert(payload, on_conflict="pdf_hash").execute()
     except Exception as e:
         logger.error("Failed to store cached parse: %s", e)
@@ -120,9 +124,12 @@ async def get_cached_blueprint(pdf_hash: str, version: int = 1) -> Optional[Dict
 async def store_cached_blueprint(pdf_hash: str, blueprint: Dict[str, Any], version: int = 1) -> None:
     """Upsert blueprint to Supabase."""
     try:
+        # Ensure blueprint is JSON serializable (handles datetime objects)
+        serializable_blueprint = json.loads(json.dumps(blueprint, default=str))
+
         data = {
             "pdf_hash": pdf_hash,
-            "blueprint_json": blueprint,
+            "blueprint_json": serializable_blueprint,
             "version": version,
             "created_at": "now()"
         }
@@ -246,11 +253,14 @@ async def store_slide_parse_result(
     can skip already-stored slides by querying get_cached_slide_results().
     """
     try:
+        # Ensure slide_data is JSON serializable (handles datetime objects)
+        serializable_slide_data = json.loads(json.dumps(slide_data, default=str))
+
         payload = {
             "pdf_hash": pdf_hash,
             "slide_index": slide_index,
             "pipeline_version": pipeline_version,
-            "slide_data": slide_data,
+            "slide_data": serializable_slide_data,
         }
         supabase_admin.table("slide_parse_cache").upsert(
             payload, on_conflict="pdf_hash,slide_index,pipeline_version"
@@ -360,9 +370,12 @@ async def set_cache(key: str, data: Any, ttl_seconds: int = 300) -> None:
     try:
         expires_at = (datetime.utcnow() + timedelta(seconds=ttl_seconds)).isoformat()
         
+        # Ensure data is JSON serializable (handles datetime objects)
+        serializable_data = json.loads(json.dumps(data, default=str))
+
         payload = {
             "cache_key": key,
-            "data": data,
+            "data": serializable_data,
             "expires_at": expires_at
         }
         supabase_admin.table("backend_cache").upsert(payload, on_conflict="cache_key").execute()

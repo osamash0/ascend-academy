@@ -78,11 +78,22 @@ def _app_metadata(user: Any) -> dict:
     return meta or {}
 
 
-def _lookup_role_from_db(uid: str) -> Optional[set]:
+def _lookup_role_from_db(uid: str, token: Optional[str] = None) -> Optional[set]:
     """Look up the user's role(s) from the user_roles table. Returns None on error."""
     try:
+        # If we have a token, we can use an RLS-enforcing client to look up the
+        # user's own roles. This is critical in development environments where
+        # SUPABASE_SERVICE_ROLE_KEY is missing and the global supabase_admin
+        # client is actually just an anon client restricted by RLS.
+        if token:
+            from backend.core.database import SUPABASE_URL, ANON_KEY, create_client
+            client = create_client(SUPABASE_URL, ANON_KEY)
+            client.postgrest.auth(token)
+        else:
+            client = supabase_admin
+
         res = (
-            supabase_admin.table("user_roles")
+            client.table("user_roles")
             .select("role")
             .eq("user_id", uid)
             .execute()
@@ -105,7 +116,10 @@ def require_role(*allowed_roles: str):
         async def endpoint(user=Depends(require_role("professor"))): ...
     """
 
-    async def _checker(user: Any = Depends(verify_token)) -> Any:
+    async def _checker(
+        user: Any = Depends(verify_token),
+        creds: HTTPAuthorizationCredentials = Depends(security)
+    ) -> Any:
         uid = _user_id(user)
         if not uid:
             raise HTTPException(
@@ -125,7 +139,10 @@ def require_role(*allowed_roles: str):
         #    locked down by RLS to the SECURITY DEFINER signup trigger
         #    (see migration 20260502000003), so this is also trustworthy.
         if not roles.intersection(allowed_roles):
-            db_roles = _lookup_role_from_db(uid)
+            # Pass the token so we can read our own roles even if 
+            # supabase_admin is restricted by RLS.
+            token = getattr(creds, "credentials", None)
+            db_roles = _lookup_role_from_db(uid, token=token)
             if db_roles is not None:
                 roles |= db_roles
 

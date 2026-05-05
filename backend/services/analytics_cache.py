@@ -72,12 +72,15 @@ def _read(lecture_id: str, view_name: str, params_hash: str) -> Optional[Any]:
 
 def _write(lecture_id: str, view_name: str, params_hash: str, payload: Any, ttl: int) -> None:
     try:
+        # Ensure payload is JSON serializable (handles datetime objects)
+        serializable_payload = json.loads(json.dumps(payload, default=str))
+
         supabase_admin.table("analytics_cache").upsert(
             {
                 "lecture_id": lecture_id,
                 "view_name": view_name,
                 "params_hash": params_hash,
-                "payload": payload,
+                "payload": serializable_payload,
                 "computed_at": _now_utc().isoformat(),
                 "ttl_seconds": ttl,
             },
