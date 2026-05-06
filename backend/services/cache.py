@@ -278,7 +278,12 @@ async def attach_lecture_id_to_embeddings(
         return 0
 
 
-# --- Per-slide parse cache (for checkpoint/resume) ---
+# Checkpoint rows are only useful during the resume window: a professor is
+# unlikely to retry a failed upload more than 7 days later, and holding
+# them indefinitely wastes storage. Bump this down for faster cleanup or
+# up if your professors need longer retry windows.
+_CHECKPOINT_TTL_DAYS = 7
+
 
 async def store_slide_parse_result(
     pdf_hash: str,
@@ -287,16 +292,24 @@ async def store_slide_parse_result(
     slide_data: Dict[str, Any],
 ) -> None:
     """
-    Upsert a single slide's full parse output.
+    Upsert a single slide's full parse output with a 7-day TTL.
+
     Used for checkpoint/resume: if a pipeline run times out, the next run
     can skip already-stored slides by querying get_cached_slide_results().
+    Rows older than ``_CHECKPOINT_TTL_DAYS`` are considered stale and are
+    excluded from reads; the ``purge_expired_slide_checkpoints`` helper
+    (or the ``cleanup_slide_parse_cache`` DB function) removes them.
     """
     try:
+        expires_at = (
+            datetime.utcnow() + timedelta(days=_CHECKPOINT_TTL_DAYS)
+        ).isoformat()
         payload = {
             "pdf_hash": pdf_hash,
             "slide_index": slide_index,
             "pipeline_version": pipeline_version,
             "slide_data": slide_data,
+            "expires_at": expires_at,
         }
         supabase_admin.table("slide_parse_cache").upsert(
             payload, on_conflict="pdf_hash,slide_index,pipeline_version"
@@ -363,22 +376,52 @@ async def get_cached_slide_results(
     pipeline_version: str,
 ) -> Dict[int, Dict[str, Any]]:
     """
-    Returns {slide_index → slide_data} for all slides cached at the given
-    pipeline_version.  Used by file_parse_service to skip already-processed
-    slides when resuming after a timeout.
+    Returns {slide_index → slide_data} for all non-expired slides cached at
+    the given pipeline_version.  Used by file_parse_service to skip
+    already-processed slides when resuming after a timeout.
+
+    Expired rows (``expires_at < NOW()``) are silently excluded so stale
+    checkpoints never surface as valid results after their TTL window.
     """
     try:
+        now = datetime.utcnow().isoformat()
         res = (
             supabase_admin.table("slide_parse_cache")
             .select("slide_index,slide_data")
             .eq("pdf_hash", pdf_hash)
             .eq("pipeline_version", pipeline_version)
+            # Exclude expired rows. Rows without expires_at (pre-migration
+            # legacy rows) are treated as non-expired via the OR clause so
+            # existing checkpoints keep working until the migration lands.
+            .or_(f"expires_at.gt.{now},expires_at.is.null")
             .execute()
         )
         return {row["slide_index"]: row["slide_data"] for row in (res.data or [])}
     except Exception as e:
         logger.warning("Checkpoint lookup failed (non-fatal): %s", e)
         return {}
+
+
+async def purge_expired_slide_checkpoints() -> int:
+    """Delete all expired ``slide_parse_cache`` rows via the DB helper function.
+
+    Returns the number of rows deleted.  Calls the ``cleanup_slide_parse_cache``
+    PostgreSQL function (created by migration 20260506000001) which runs as
+    SECURITY DEFINER under the table owner — no RLS friction, one round-trip.
+
+    This can be called:
+    - From ``POST /api/upload/cleanup-cache`` (admin endpoint).
+    - Via a pg_cron schedule: ``SELECT cleanup_slide_parse_cache();`` nightly.
+    - Manually via the Supabase SQL editor.
+    """
+    try:
+        res = supabase_admin.rpc("cleanup_slide_parse_cache").execute()
+        deleted = (res.data or 0)
+        logger.info("Purged %d expired slide_parse_cache rows", deleted)
+        return int(deleted)
+    except Exception as e:
+        logger.warning("slide_parse_cache purge failed (non-fatal): %s", e)
+        return 0
 
 
 # --- Generic Backend Cache (PostgreSQL-backed) ---

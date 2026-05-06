@@ -18,6 +18,7 @@ from backend.services.cache import (
     get_cached_parse_meta,
     get_cached_slide_results,
     get_pipeline_run,
+    purge_expired_slide_checkpoints,
     store_cached_parse,
 )
 from backend.services.diagnostics import flag_suspicious
@@ -497,3 +498,28 @@ async def diagnostics_endpoint(
         "per_slide": per_slide,
         "flags": flags,
     }
+
+
+# --- Checkpoint cache cleanup (admin) ---------------------------------------
+
+
+@router.post("/cleanup-cache")
+@limiter.limit("5/minute")
+async def cleanup_cache_endpoint(
+    request: Request,
+    user: Any = Depends(require_professor),
+):
+    """Purge expired rows from ``slide_parse_cache``.
+
+    Calls the ``cleanup_slide_parse_cache`` PostgreSQL SECURITY DEFINER
+    function which deletes every row whose ``expires_at`` is in the past.
+    Checkpoint rows have a 7-day TTL set at write time, so after that
+    window this endpoint frees up the storage.
+
+    Requires professor auth (only professors trigger parses; restricting
+    here prevents unauthenticated callers from hitting the DB). Rate-limited
+    to 5/minute so it can't be used as a DB hammer.
+    """
+    deleted = await purge_expired_slide_checkpoints()
+    return {"deleted": deleted, "message": f"Purged {deleted} expired checkpoint rows."}
+
