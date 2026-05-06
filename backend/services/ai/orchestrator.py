@@ -38,7 +38,7 @@ import datetime
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -67,6 +67,69 @@ GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 CEREBRAS_MODEL    = "qwen-3-235b-a22b-instruct-2507"
 
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
+
+# ---------------------------------------------------------------------------
+# Per-slide quiz batching configuration
+# ---------------------------------------------------------------------------
+# Smaller batches with overlap give the LLM cross-slide context (so slide N+1
+# can resolve "this method" / "this algorithm" referring back to slide N)
+# without growing the token budget of any single call. See replit.md
+# "Quiz batch tuning" for the trade-off.
+
+@dataclass(frozen=True)
+class QuizBatchConfig:
+    batch_size: int        # max slides per LLM call (including context)
+    context_overlap: int   # last K slides of batch N reappear as context in N+1
+
+
+def _load_quiz_batch_config() -> QuizBatchConfig:
+    try:
+        bs = int(os.environ.get("QUIZ_BATCH_SIZE", "5"))
+    except (TypeError, ValueError):
+        bs = 5
+    try:
+        ov = int(os.environ.get("QUIZ_BATCH_OVERLAP", "1"))
+    except (TypeError, ValueError):
+        ov = 1
+    if bs < 1:
+        logger.warning("QUIZ_BATCH_SIZE %d invalid, falling back to 5", bs)
+        bs = 5
+    if ov < 0 or ov >= bs:
+        logger.warning(
+            "QUIZ_BATCH_OVERLAP %d invalid for batch_size %d, clamping",
+            ov, bs,
+        )
+        ov = min(max(ov, 0), bs - 1)
+    return QuizBatchConfig(batch_size=bs, context_overlap=ov)
+
+
+QUIZ_BATCH_CONFIG: QuizBatchConfig = _load_quiz_batch_config()
+
+
+def iter_overlapping_windows(
+    items: List[Any],
+    batch_size: int,
+    overlap: int,
+) -> Iterator[Tuple[List[Any], int]]:
+    """Yield ``(window, context_count)`` pairs covering ``items``.
+
+    The first ``context_count`` entries of each window are read-only context
+    carried over from the previous window; the remaining entries are new
+    items the caller is responsible for processing. Every input item appears
+    as a non-context entry in exactly one window.
+    """
+    if batch_size < 1:
+        raise ValueError("batch_size must be >= 1")
+    if overlap < 0 or overlap >= batch_size:
+        raise ValueError("overlap must satisfy 0 <= overlap < batch_size")
+    n = len(items)
+    pos = 0
+    while pos < n:
+        ctx = 0 if pos == 0 else min(overlap, pos)
+        new_capacity = batch_size - ctx
+        end = min(pos + new_capacity, n)
+        yield items[pos - ctx:end], ctx
+        pos = end
 
 # ---------------------------------------------------------------------------
 # Provider registry
@@ -847,17 +910,64 @@ async def batch_analyze_text_slides(
     slides: List[Dict[str, Any]],
     ai_model: str = "groq",
     blueprint: Optional[Dict] = None,
+    *,
+    batch_size: Optional[int] = None,
+    context_overlap: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Analyzes a batch of slides in a SINGLE LLM call (true batching).
+    """Analyze a batch of slides in (typically) ONE LLM call.
 
-    All slides are packed into one prompt → one API request for N slides.
-    Uses BULK_CHAIN so the scarce Groq 70B quota is preserved for blueprints.
+    When ``len(slides) > batch_size`` and the caller has NOT already pre-
+    chunked (no slide carries ``context_only=True``), the input is split
+    into overlapping windows via :func:`iter_overlapping_windows` and each
+    window runs as its own LLM call. This is the convenience path so any
+    caller can hand us the full list of pending slides; the
+    file-parse pipeline still pre-chunks externally to gain parallelism.
+
+    Each batch beyond the first reuses the trailing ``context_overlap``
+    slides as ``<context_only>``-wrapped sections so the LLM can resolve
+    back-references like "this method" / "as shown earlier" across the
+    chunk boundary.
+
+    On LLM-call exception or unusable JSON the function RAISES — callers
+    such as :func:`_process_text_batch_safe` then fall back to per-slide
+    retry for active (non-context) slides.
+
+    Defaults for ``batch_size`` / ``context_overlap`` come from
+    ``QUIZ_BATCH_CONFIG`` (env-tunable via ``QUIZ_BATCH_SIZE`` /
+    ``QUIZ_BATCH_OVERLAP``).
     """
     from backend.services.ai.prompts import BATCH_SLIDE_PROMPT
 
     if not slides:
         return []
+
+    bs = batch_size if batch_size is not None else QUIZ_BATCH_CONFIG.batch_size
+    ov = (
+        context_overlap if context_overlap is not None
+        else QUIZ_BATCH_CONFIG.context_overlap
+    )
+
+    # Internal overlapping chunking — only when the caller hasn't already
+    # marked context slides (i.e. it isn't doing its own windowing).
+    has_context_flags = any(s.get("context_only") for s in slides)
+    if not has_context_flags and len(slides) > bs:
+        merged: List[Dict[str, Any]] = []
+        for window, ctx in iter_overlapping_windows(slides, bs, ov):
+            tagged: List[Dict[str, Any]] = []
+            for pos, s in enumerate(window):
+                if pos < ctx:
+                    tagged.append({**s, "context_only": True})
+                else:
+                    tagged.append(s)
+            window_results = await batch_analyze_text_slides(
+                tagged,
+                ai_model=ai_model,
+                blueprint=blueprint,
+                batch_size=bs,
+                context_overlap=ov,
+            )
+            merged.extend(window_results)
+        return merged
 
     # Blueprint header — injected once at the top, not per slide
     bp_header   = ""
@@ -872,7 +982,13 @@ async def batch_analyze_text_slides(
             )
         idx_to_plan = {p["index"]: p for p in blueprint.get("slide_plans", [])}
 
-    # Build === SLIDE N === sections
+    # Build === SLIDE N === sections. Slides flagged ``context_only`` are
+    # carried over from a previous overlapping window — they exist purely so
+    # the LLM can resolve back-references like "this method" / "as shown
+    # earlier" without us having to expand the active batch. We must NOT
+    # generate questions for them, and we drop any returned object whose
+    # index lands in ``context_only_indices`` below.
+    context_only_indices = {s["index"] for s in slides if s.get("context_only")}
     slide_sections: List[str] = []
     for s in slides:
         body = s["text"] or "(no extracted text)"
@@ -881,12 +997,23 @@ async def batch_analyze_text_slides(
             proposed = plan.get("proposed_title", "")
             concepts = ", ".join(plan.get("concepts", [])[:4])
             body = f"[Proposed title: {proposed}] [Key concepts: {concepts}]\n" + body
-        slide_sections.append(
-            f"=== SLIDE {s['page_number']} (index={s['index']}) ===\n{body}"
+        section = f"=== SLIDE {s['page_number']} (index={s['index']}) ===\n{body}"
+        if s.get("context_only"):
+            section = f"<context_only>\n{section}\n</context_only>"
+        slide_sections.append(section)
+
+    context_header = ""
+    if context_only_indices:
+        context_header = (
+            "\n\nIMPORTANT: Slides wrapped in <context_only>...</context_only> "
+            "are provided ONLY so you can resolve references in the other "
+            "slides. Do NOT generate a question for any slide inside a "
+            "<context_only> block; omit them from your JSON array entirely.\n"
         )
 
     full_prompt = (
-        BATCH_SLIDE_PROMPT + bp_header + "\n\n" + "\n\n".join(slide_sections)
+        BATCH_SLIDE_PROMPT + bp_header + context_header + "\n\n"
+        + "\n\n".join(slide_sections)
     )
 
     # Single LLM call via BULK chain
@@ -897,25 +1024,34 @@ async def batch_analyze_text_slides(
             lambda: _generate_with_rotation(full_prompt, BULK_CHAIN, preferred=preferred)
         )
     except Exception as exc:
+        # Re-raise so the outer per-slide retry path (e.g.
+        # ``_process_text_batch_safe`` in file_parse_service) can fall
+        # back to single-slide calls for the ACTIVE slides only. We used
+        # to swallow this and synthesize parse_error rows, which silently
+        # gave up on retry.
         logger.error("Bulk batch call failed: %s", exc)
-        return [
-            {
-                "index": s["index"], "title": f"Slide {s['index']+1}",
-                "content": s["text"], "summary": "", "questions": [],
-                "slide_type": "content_slide", "parse_error": str(exc),
-            }
-            for s in slides
-        ]
+        raise
 
     parsed = parse_json_response(raw)
     if isinstance(parsed, dict):
         parsed = [parsed]
 
-    page_to_idx = {s["page_number"]: s["index"] for s in slides}
+    # Only the non-context (active) slides should appear in the output.
+    active_slides = [s for s in slides if s["index"] not in context_only_indices]
+    page_to_idx = {s["page_number"]: s["index"] for s in active_slides}
     results: List[Dict] = []
 
-    if isinstance(parsed, list) and len(parsed) == len(slides):
-        for s, item in zip(slides, parsed):
+    # When there are context slides we cannot trust positional alignment:
+    # a misbehaving model might include a context entry and drop an active
+    # one while still returning a list of equal length, which would silently
+    # attach context content to an active index. Force the page_number-keyed
+    # branch in that case so context entries get filtered out.
+    if (
+        isinstance(parsed, list)
+        and len(parsed) == len(active_slides)
+        and not context_only_indices
+    ):
+        for s, item in zip(active_slides, parsed):
             if isinstance(item, dict):
                 item["index"] = s["index"]
                 results.append(item)
@@ -930,16 +1066,35 @@ async def batch_analyze_text_slides(
             if idx is not None:
                 item["index"] = idx
                 results.append(item)
+        # Drop any LLM-emitted entries for context-only slides (the prompt
+        # forbids them, but defensively filter in case the model misbehaves).
+        results = [r for r in results if r["index"] not in context_only_indices]
+
+        # If we couldn't extract anything usable for the active slides,
+        # raise so the outer per-slide retry path takes over instead of
+        # silently returning empty fallback rows for every slide.
+        if active_slides and not results:
+            logger.error(
+                "Batch response yielded zero usable items for %d active "
+                "slides; raising for per-slide retry.",
+                len(active_slides),
+            )
+            raise ValueError("batch_analyze_text_slides: unusable JSON response")
+
         found = {r["index"] for r in results}
-        for s in slides:
+        for s in active_slides:
             if s["index"] not in found:
                 logger.warning("Slide %d missing from batch response — using fallback", s["index"])
                 results.append({"index": s["index"], "title": f"Slide {s['index']+1}",
                                  "content": s["text"], "summary": "", "questions": []})
     else:
-        results = [{"index": s["index"], "title": f"Slide {s['index']+1}",
-                    "content": s["text"], "summary": "", "questions": []}
-                   for s in slides]
+        # parse_json_response normally returns [] on garbage input, so this
+        # branch is rare — but guard against non-list/non-dict outputs.
+        logger.error(
+            "Batch response not a list (%s); raising for per-slide retry.",
+            type(parsed).__name__,
+        )
+        raise ValueError("batch_analyze_text_slides: unusable JSON response")
 
     # Validate the per-slide MCQ. To honour the one-shot regenerate contract
     # for per-slide quizzes too — without burning N extra LLM calls — we
@@ -966,6 +1121,10 @@ async def batch_analyze_text_slides(
     if failing:
         await _regenerate_failing_slide_quizzes(failing, slides, idx_to_plan, ai_model=ai_model)
 
+    # Stable order by slide index — model output order is not guaranteed,
+    # and downstream SSE consumers (and our own coverage assertions) read
+    # cleaner when results match input order.
+    results.sort(key=lambda r: r.get("index", 0))
     return results
 
 

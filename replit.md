@@ -108,8 +108,26 @@ Users can pin a preferred provider in **Settings → AI Preferences**; the
 selected id is moved to the head of the failover chain by `_resolve_preferred`
 + `_chain_with_preferred` while keeping the resilience tail intact.
 
+## Quiz batch tuning
+
+Per-slide quiz generation runs through `batch_analyze_text_slides` in
+`backend/services/ai/orchestrator.py`. Slides are grouped into overlapping
+windows by `iter_overlapping_windows`:
+
+- `QUIZ_BATCH_SIZE` (env, default `5`) — max slides per LLM call (context + new).
+- `QUIZ_BATCH_OVERLAP` (env, default `1`) — last K slides of batch N are
+  re-injected into batch N+1 wrapped in `<context_only>` markers so the model
+  can resolve back-references like "this method" / "as shown earlier".
+  Context-only slides are excluded from the JSON response and never produce
+  duplicate output. Each slide is generated (non-context) exactly once.
+
 ## Recent changes
 
+- 2026-05-02: Overlapping-batch quiz generation — replaced the fixed
+  12-slide chunker in `file_parse_service` with `iter_overlapping_windows`
+  (default `batch_size=5`, `overlap=1`). The orchestrator wraps overlap
+  slides in `<context_only>` so the LLM has cross-batch context without
+  duplicating output. SSE event shape and frontend untouched.
 - 2026-05-02: End-of-lecture recap. After the (optional) replay stage,
   learners now see a `LectureRecap` card listing every question they
   missed on the first try, with their first answer, retry answer,
