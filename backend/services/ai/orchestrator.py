@@ -582,7 +582,16 @@ def _sanitize_json_string(raw: str) -> str:
 
 
 def parse_json_response(raw: str) -> Any:
-    """Robustly extracts and parses JSON from an LLM response."""
+    """Robustly extracts and parses JSON from an LLM response.
+
+    Handles three failure modes:
+    1. JSON wrapped in ```json ... ``` fences — strips fence, parses inner text.
+    2. Valid JSON embedded inside prose — extracts first {...} or [...] block.
+    3. Truncated JSON array — the LLM hit its output token limit mid-object.
+       Instead of returning {} (which poisons the whole batch), we salvage
+       every *complete* object from the partial array so already-finished
+       slides are not lost.
+    """
     raw = raw.strip()
     fence = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
     if fence:
@@ -594,6 +603,39 @@ def parse_json_response(raw: str) -> Any:
         return json.loads(candidate)
     except json.JSONDecodeError as e:
         logger.warning("JSON parsing failed: %s. Raw: %.300s", e, candidate)
+        # --- Truncation recovery for arrays ---
+        # When an LLM hits its output token limit the JSON array is cut off
+        # mid-object (e.g. "[{...}, {\"title\": \"Foo\",").  We can still
+        # salvage all *complete* objects that appear before the truncation
+        # point by scanning for self-contained {...} blocks inside the array.
+        if candidate.lstrip().startswith("["):
+            salvaged = []
+            # Greedily extract every balanced {…} block from the partial text
+            depth = 0
+            start = None
+            for i, ch in enumerate(candidate):
+                if ch == "{":
+                    if depth == 0:
+                        start = i
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0 and start is not None:
+                        fragment = candidate[start:i + 1]
+                        try:
+                            obj = json.loads(fragment)
+                            if isinstance(obj, dict):
+                                salvaged.append(obj)
+                        except json.JSONDecodeError:
+                            pass
+                        start = None
+            if salvaged:
+                logger.info(
+                    "Truncated JSON array: salvaged %d complete objects "
+                    "out of partial response.",
+                    len(salvaged),
+                )
+                return salvaged
         return {}
 
 

@@ -24,6 +24,10 @@ def _sync_generate_embeddings(text: str) -> List[float]:
     all-zero vectors into pgvector and poisoning semantic-cache + RAG.
     """
     if not gemini_client:
+        logger.warning(
+            "generate_embeddings: GEMINI_API_KEY not set — returning zero vector. "
+            "AI Tutor semantic search will be degraded until a key is configured."
+        )
         return [0.0] * EMBEDDING_DIMS
 
     # First try with explicit output_dimensionality; older SDKs don't ship
@@ -49,7 +53,23 @@ def _sync_generate_embeddings(text: str) -> List[float]:
     # Note: any *other* exception (RuntimeError, RPC error, 4xx/5xx)
     # propagates — we want the caller to know.
 
+    if not res or not res.embeddings:
+        raise RuntimeError(
+            f"generate_embeddings: Gemini returned an empty embeddings response "
+            f"for model {EMBEDDING_MODEL!r}. Check API key, quota, and model availability."
+        )
+
     values = list(res.embeddings[0].values)
+
+    # Guard: all-zero vector means something went wrong server-side (e.g. the
+    # model returned an empty float array that was then padded).  Raise so the
+    # caller knows to retry rather than persist a useless zero vector.
+    if values and all(v == 0.0 for v in values):
+        raise RuntimeError(
+            f"generate_embeddings: received an all-zero vector from {EMBEDDING_MODEL!r}. "
+            "This usually means the API returned an empty embedding. Retrying may help."
+        )
+
     if len(values) > EMBEDDING_DIMS:
         values = values[:EMBEDDING_DIMS]
     elif len(values) < EMBEDDING_DIMS:
@@ -58,7 +78,19 @@ def _sync_generate_embeddings(text: str) -> List[float]:
 
 
 async def generate_embeddings(text: str) -> List[float]:
-    """Asynchronous wrapper for embedding generation."""
+    """Asynchronous wrapper for embedding generation.
+
+    Returns an empty list on failure so callers can decide whether to retry
+    or skip embedding without crashing the parse pipeline.  The real error
+    is logged inside ``_sync_generate_embeddings``.
+    """
     if not text.strip():
         return [0.0] * EMBEDDING_DIMS
-    return await asyncio.to_thread(_sync_generate_embeddings, text)
+    try:
+        return await asyncio.to_thread(_sync_generate_embeddings, text)
+    except Exception as exc:
+        logger.error(
+            "generate_embeddings failed (slide will be stored without vector): %s", exc
+        )
+        return []
+
