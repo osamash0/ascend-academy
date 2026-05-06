@@ -151,11 +151,27 @@ async def get_cached_parse_meta(pdf_hash: str) -> Optional[Dict[str, Any]]:
 
 
 # --- Blueprint Cache (PostgreSQL-backed) ---
+#
+# Keying strategy: (pdf_hash, version).
+# Each distinct BLUEPRINT_VERSION gets its own row — bumping the version
+# constant in planner_service.py generates a fresh blueprint (cache miss)
+# without destroying the previous version's row.  Old-version rows are
+# cleaned up by purge_old_blueprint_versions() below.
 
 async def get_cached_blueprint(pdf_hash: str, version: int = 1) -> Optional[Dict[str, Any]]:
-    """Retrieve blueprint from Supabase if hash and version match."""
+    """Retrieve blueprint from Supabase if (pdf_hash, version) matches.
+
+    Returns ``None`` on a cache miss so the caller knows to regenerate.
+    """
     try:
-        res = supabase_admin.table("lecture_blueprints").select("blueprint_json").eq("pdf_hash", pdf_hash).eq("version", version).execute()
+        res = (
+            supabase_admin.table("lecture_blueprints")
+            .select("blueprint_json")
+            .eq("pdf_hash", pdf_hash)
+            .eq("version", version)
+            .limit(1)
+            .execute()
+        )
         if res.data:
             return res.data[0]["blueprint_json"]
     except Exception as e:
@@ -163,18 +179,58 @@ async def get_cached_blueprint(pdf_hash: str, version: int = 1) -> Optional[Dict
     return None
 
 
-async def store_cached_blueprint(pdf_hash: str, blueprint: Dict[str, Any], version: int = 1) -> None:
-    """Upsert blueprint to Supabase."""
+async def store_cached_blueprint(
+    pdf_hash: str,
+    blueprint: Dict[str, Any],
+    version: int = 1,
+) -> None:
+    """Upsert blueprint keyed by (pdf_hash, version).
+
+    After migration 20260506000002 the unique constraint covers both
+    columns, so different versions of the same PDF each get their own
+    row.  The on_conflict target must match that composite constraint.
+    """
     try:
         data = {
             "pdf_hash": pdf_hash,
             "blueprint_json": blueprint,
             "version": version,
-            "created_at": "now()"
+            "created_at": "now()",
         }
-        supabase_admin.table("lecture_blueprints").upsert(data, on_conflict="pdf_hash").execute()
+        # on_conflict MUST reference the composite unique constraint
+        # (pdf_hash, version) — NOT just pdf_hash.  Using only pdf_hash
+        # would overwrite a version-1 row when storing version-2, losing
+        # the old blueprint and defeating the versioned keying strategy.
+        supabase_admin.table("lecture_blueprints").upsert(
+            data, on_conflict="pdf_hash,version"
+        ).execute()
     except Exception as e:
         logger.error("Failed to store blueprint: %s", e)
+
+
+async def purge_old_blueprint_versions(keep_version: int) -> int:
+    """Delete blueprint rows whose version is older than ``keep_version``.
+
+    Calls the ``cleanup_old_blueprint_versions`` PostgreSQL SECURITY
+    DEFINER function (migration 20260506000002).  Safe to call any time;
+    rows for the active version are never touched.
+
+    Example: after bumping BLUEPRINT_VERSION from 1 to 2 and running the
+    new pipeline, call ``purge_old_blueprint_versions(keep_version=2)``
+    to remove all version-1 rows across every pdf_hash.
+    """
+    try:
+        res = supabase_admin.rpc(
+            "cleanup_old_blueprint_versions", {"keep_version": keep_version}
+        ).execute()
+        deleted = res.data or 0
+        logger.info(
+            "Purged %d blueprint rows older than version %d", deleted, keep_version
+        )
+        return int(deleted)
+    except Exception as e:
+        logger.warning("Blueprint version purge failed (non-fatal): %s", e)
+        return 0
 
 
 # --- pgvector Semantic Cache ---
