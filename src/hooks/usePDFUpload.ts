@@ -14,6 +14,7 @@ interface UsePDFUploadOptions {
   setActiveSlideIndex: (idx: number) => void;
   title: string;
   setTitle: (t: string) => void;
+  parserChoice?: 'auto' | 'pymupdf' | 'opendataloader' | 'mineru';
 }
 
 /**
@@ -48,7 +49,7 @@ function validatePdfFile(
   return true;
 }
 
-export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }: UsePDFUploadOptions) {
+export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, parserChoice = 'auto' }: UsePDFUploadOptions) {
   const { toast } = useToast();
   const { aiModel } = useAiModel();
 
@@ -99,6 +100,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
       const formData = new FormData();
       formData.append('file', file);
       formData.append('ai_model', aiModel);
+      formData.append('parser', parserChoice);
       if (opts.forceReparse) formData.append('force_reparse', 'true');
 
       const controller = new AbortController();
@@ -114,7 +116,11 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
           signal: controller.signal,
         });
 
-        if (!response.ok) throw new Error('Failed to start PDF parsing');
+        if (!response.ok) {
+          let detail = 'Failed to start PDF parsing';
+          try { const b = await response.json() as { detail?: string }; if (b.detail) detail = b.detail; } catch { /* ignore */ }
+          throw new Error(detail);
+        }
         if (!response.body) throw new Error('No response body');
 
         const reader = response.body.getReader();
@@ -267,7 +273,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle }
         abortControllerRef.current = null;
       }
     },
-    [aiModel, setSlides, setActiveSlideIndex, title, setTitle, toast],
+    [aiModel, parserChoice, setSlides, setActiveSlideIndex, title, setTitle, toast],
   );
 
   /**

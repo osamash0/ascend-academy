@@ -35,6 +35,22 @@ interface PDFUploadOverlayProps {
   onClose?: () => void;
 }
 
+function parserPillStyle(p: string) {
+  if (p === 'opendataloader-pdf') return 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-700 dark:text-indigo-300';
+  if (p === 'mineru') return 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-300';
+  return 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-300';
+}
+function parserDotStyle(p: string) {
+  if (p === 'opendataloader-pdf') return 'bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.8)]';
+  if (p === 'mineru') return 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]';
+  return 'bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]';
+}
+function parserLabel(p: string) {
+  if (p === 'opendataloader-pdf') return 'OpenDataLoader PDF';
+  if (p === 'mineru') return 'MinerU';
+  return 'PyMuPDF (fallback)';
+}
+
 export const PDFUploadOverlay = memo(function PDFUploadOverlay({
   isOpen,
   uploadProgress,
@@ -196,20 +212,10 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border",
-                      parserUsed === 'opendataloader-pdf'
-                        ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-700 dark:text-indigo-300"
-                        : "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-300"
-                    )}
+                    className={cn("flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border", parserPillStyle(parserUsed))}
                   >
-                    <span className={cn(
-                      "w-2 h-2 rounded-full",
-                      parserUsed === 'opendataloader-pdf'
-                        ? "bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.8)]"
-                        : "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]"
-                    )} />
-                    {parserUsed === 'opendataloader-pdf' ? 'OpenDataLoader PDF' : 'PyMuPDF (fallback)'}
+                    <span className={cn("w-2 h-2 rounded-full", parserDotStyle(parserUsed))} />
+                    {parserLabel(parserUsed)}
                   </motion.div>
                 ) : (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

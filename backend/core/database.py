@@ -133,7 +133,8 @@ async def init_db_pool():
             min_size=5,
             max_size=20,
             max_queries=1000,
-            max_inactive_connection_lifetime=300
+            max_inactive_connection_lifetime=300,
+            statement_cache_size=0,  # required for pgbouncer transaction-mode pooling
         )
         logger.info("asyncpg connection pool initialized.")
     except Exception as e:

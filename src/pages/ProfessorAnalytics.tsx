@@ -20,7 +20,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, Cell, AreaChart, Area, PieChart, Pie,
   ScatterChart, Scatter, ZAxis, ReferenceArea
 } from 'recharts';
@@ -926,7 +926,7 @@ export default function ProfessorAnalytics() {
                         <XAxis type="number" dataKey="avgDuration" name="Avg Time" unit="s" tickLine={false} axisLine={false} tick={{fill: 'hsl(var(--foreground))', fontSize: 12, opacity: 0.5}} />
                         <YAxis type="number" dataKey="correctRate" name="Accuracy" unit="%" tickLine={false} axisLine={false} tick={{fill: 'hsl(var(--foreground))', fontSize: 12, opacity: 0.5}} />
                         <ZAxis type="number" dataKey="confusionIndex" range={[50, 800]} name="Confusion" />
-                        <Tooltip content={({ active, payload }) => {
+                        <RechartsTooltip content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             const d = payload[0].payload;
                             return (
@@ -1089,7 +1089,7 @@ export default function ProfessorAnalytics() {
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--white)/0.05)" vertical={false} />
                         <XAxis dataKey="title" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} />
                         <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                        <Tooltip content={<CustomTooltip valueFormatter={(v) => `${v} students quit`} />} cursor={{ fill: 'hsl(var(--white)/0.05)' }} />
+                        <RechartsTooltip content={<CustomTooltip valueFormatter={(v) => `${v} students quit`} />} cursor={{ fill: 'hsl(var(--white)/0.05)' }} />
                         <Bar dataKey="dropout_count" shape={<ThreeDBar />} name="Dropouts" maxBarSize={40}>
                           {dropoffData?.map((entry, idx) => (
                             <Cell key={idx} fill={entry.dropout_percentage > 20 ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'} />
@@ -1121,7 +1121,7 @@ export default function ProfessorAnalytics() {
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--white)/0.05)" vertical={false} />
                         <XAxis dataKey="title" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} />
                         <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface-1))', border: '1px solid hsl(var(--border))', borderRadius: '1rem' }} />
+                        <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--surface-1))', border: '1px solid hsl(var(--border))', borderRadius: '1rem' }} />
                         <Bar dataKey="got_it" stackId="conf" fill="hsl(var(--success))" name="Got It" shape={<ThreeDBar />} />
                         <Bar dataKey="unsure" stackId="conf" fill="hsl(var(--warning))" name="Unsure" shape={<ThreeDBar />} />
                         <Bar dataKey="confused" stackId="conf" fill="hsl(var(--destructive))" name="Confused" shape={<ThreeDBar />} />
@@ -1155,7 +1155,7 @@ export default function ProfessorAnalytics() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
                       <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
                       <YAxis tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <RechartsTooltip content={<CustomTooltip />} />
                       <Area type="monotone" dataKey="attempts" stroke="var(--success)" strokeWidth={4} fill="url(#colorVelocity)" activeDot={{ r: 8, strokeWidth: 0 }} />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -1186,7 +1186,7 @@ export default function ProfessorAnalytics() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
                       <XAxis dataKey="range" tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} tickLine={false} axisLine={false} />
                       <YAxis tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <RechartsTooltip content={<CustomTooltip />} />
                       <Bar dataKey="count" radius={[6, 6, 0, 0]} name="Students" maxBarSize={50}>
                         {[0,1,2,3,4].map((_, idx) => (
                           <Cell key={idx} fill={COLORS[idx % COLORS.length]} />

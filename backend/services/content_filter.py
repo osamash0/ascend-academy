@@ -15,6 +15,8 @@ import logging
 from pydantic import BaseModel
 from typing import Optional
 
+from backend.services.ai.orchestrator import _llm_generate_text_sync, parse_json_response
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -255,23 +257,9 @@ def _llm_classify_slide(text: str, ai_model: str = "gemini-2.0-flash") -> dict:
 Slide text:
 {text[:2000]}"""
 
-    if ai_model == "groq":
+    if ai_model.startswith("gemini"):
         try:
-            from backend.services.ai_service import groq_client, GROQ_MODEL
-            if groq_client:
-                groq_prompt = prompt + """\nReturn ONLY valid JSON with this exact structure:\n{\n  "classification": "...",\n  "confidence": 0.0,\n  "reason": "..."\n}"""
-                res = groq_client.chat.completions.create(
-                    model=GROQ_MODEL,
-                    messages=[{"role": "user", "content": groq_prompt}],
-                    response_format={"type": "json_object"}
-                )
-                return json.loads(res.choices[0].message.content)
-        except Exception as e:
-            logger.error("Groq classify error: %s", e, exc_info=True)
-
-    elif ai_model == "gemini-2.0-flash" or ai_model == "gemini-2.0-flash":
-        try:
-            from backend.services.ai_service import gemini_client, GEMINI_MODEL
+            from backend.services.ai.orchestrator import gemini_client, GEMINI_MODEL
             from google.genai import types
             if gemini_client:
                 res = gemini_client.models.generate_content(
@@ -284,14 +272,28 @@ Slide text:
                 )
                 return json.loads(res.text)
         except Exception as e:
-            logger.error("LLM classify error: %s", e, exc_info=True)
+            logger.error("Gemini classify error: %s", e, exc_info=True)
 
-    logger.warning("_llm_classify_slide: unrecognized ai_model %r, falling back to rule-based result", ai_model)
+    # Use orchestrator for all other models (Cerebras, Groq, OpenRouter, Cloudflare, etc.)
+    try:
+        json_prompt = prompt + """
+Return ONLY valid JSON with this exact structure:
+{
+  "classification": "educational" | "metadata",
+  "confidence": float,
+  "reason": "short explanation"
+}"""
+        # Run orchestrator synchronously since this is called from a sync context
+        raw = _llm_generate_text_sync(json_prompt, ai_model=ai_model)
+        return parse_json_response(raw)
+    except Exception as e:
+        logger.error("Orchestrator classify error for %s: %s", ai_model, e, exc_info=True)
+
     # Fallback: if LLM fails, assume educational (safe default)
     return {
         "classification": "educational",
         "confidence": 0.5,
-        "reason": "LLM classification unavailable, defaulting to educational.",
+        "reason": "LLM classification unavailable or failed, defaulting to educational.",
     }
 
 

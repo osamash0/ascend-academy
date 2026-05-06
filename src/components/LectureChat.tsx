@@ -81,7 +81,7 @@ export function LectureChat({
     const [isLoading, setIsLoading] = useState(false);
     const [streamingContent, setStreamingContent] = useState('');
     const { aiModel: selectedModel, setAiModel: setSelectedModel } = useAiModel();
-    const { user } = useAuth();
+    const { user, session } = useAuth();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -157,6 +157,7 @@ export function LectureChat({
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'text/event-stream',
+                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
                 },
                 body: JSON.stringify({
                     slide_text: slideText,
@@ -259,7 +260,7 @@ export function LectureChat({
             streamingRef.current = false;
             abortControllerRef.current = null;
         }
-    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, user, lectureId, currentSlideIndex]);
+    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, user, session, lectureId, currentSlideIndex]);
 
     const handleCancel = useCallback(() => {
         if (abortControllerRef.current) {

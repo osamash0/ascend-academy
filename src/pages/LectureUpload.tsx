@@ -306,6 +306,8 @@ export default function LectureUpload() {
   const prefilledCourseId = searchParams.get('courseId');
   const [courseId, setCourseId] = useState<string | null>(prefilledCourseId);
   const [courses, setCourses] = useState<Course[]>([]);
+  type ParserChoice = 'auto' | 'pymupdf' | 'opendataloader' | 'mineru';
+  const [parserChoice, setParserChoice] = useState<ParserChoice>('auto');
   useEffect(() => {
     listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
   }, []);
@@ -331,7 +333,7 @@ export default function LectureUpload() {
     handleFileUpload,
     startUpload,
     closeUploadOverlay,
-  } = usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle });
+  } = usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, parserChoice });
 
   /* ── Duplicate-PDF dialog state ────────────────────────────────────────── */
   const [duplicateState, setDuplicateState] = useState<{
@@ -562,6 +564,25 @@ export default function LectureUpload() {
                   <option key={c.id} value={c.id}>{c.title}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <Label htmlFor="parser" className="text-sm font-medium">PDF Parser</Label>
+              <select
+                id="parser"
+                value={parserChoice}
+                onChange={(e) => setParserChoice(e.target.value as ParserChoice)}
+                className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="auto">Auto (recommended)</option>
+                <option value="opendataloader">OpenDataLoader</option>
+                <option value="mineru">MinerU</option>
+                <option value="pymupdf">PyMuPDF (basic)</option>
+              </select>
+              {parserChoice === 'mineru' && (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  Requires the MinerU server to be running locally.
+                </p>
+              )}
             </div>
           </motion.div>
         </div>

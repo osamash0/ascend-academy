@@ -99,6 +99,7 @@ async def parse_pdf_stream_endpoint(
     ai_model: str = Form("cerebras"),
     use_blueprint: bool = Form(True),
     force_reparse: bool = Form(False),
+    parser: str = Form("auto"),
     user: Any = Depends(require_professor),
 ):
     """
@@ -176,21 +177,43 @@ async def parse_pdf_stream_endpoint(
     collected_slides: List[Dict[str, Any]] = []
     collected_deck: Dict[str, Any] = {}
 
-    # Attempt ODL extraction before streaming; fall back to PyMuPDF on failure.
-    # Track success explicitly: an ODL run that completes but returns an empty
-    # page map is still an ODL run — we shouldn't mis-report it as the
-    # PyMuPDF fallback in the overlay's "Extraction engine" pill.
     odl_pages = None
     odl_succeeded = False
-    try:
-        from backend.services.odl_service import extract_pages
-        odl_pages = await extract_pages(content, filename)
-        odl_succeeded = True
-        logger.info("ODL extraction successful for %s", filename)
-    except Exception as e:
-        logger.warning("ODL failed, falling back to PyMuPDF: %s", e)
+    parser_used = "pymupdf"
 
-    parser_used = "opendataloader-pdf" if odl_succeeded else "pymupdf"
+    if parser == "pymupdf":
+        pass  # PyMuPDF is the downstream default — skip alternatives
+
+    elif parser == "opendataloader":
+        try:
+            from backend.services.odl_service import extract_pages as _odl
+            odl_pages = await _odl(content, filename)
+            odl_succeeded = True
+            parser_used = "opendataloader-pdf"
+        except Exception as e:
+            logger.error("ODL extraction failed (explicit): %s", e)
+            raise HTTPException(422, detail=f"OpenDataLoader extraction failed: {e}. Try 'auto' or 'pymupdf'.")
+
+    elif parser == "mineru":
+        try:
+            from backend.services import mineru_service
+            odl_pages = await mineru_service.extract_pages(content, filename)
+            odl_succeeded = True
+            parser_used = "mineru"
+        except RuntimeError as e:
+            raise HTTPException(503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(422, detail=f"MinerU extraction failed: {e}")
+
+    else:  # "auto" — preserve existing behaviour
+        try:
+            from backend.services.odl_service import extract_pages as _odl
+            odl_pages = await _odl(content, filename)
+            odl_succeeded = True
+            logger.info("ODL extraction successful for %s", filename)
+        except Exception as e:
+            logger.warning("ODL failed, falling back to PyMuPDF: %s", e)
+        parser_used = "opendataloader-pdf" if odl_succeeded else "pymupdf"
 
     async def event_generator():
         nonlocal collected_deck
