@@ -9,6 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from backend.api.analytics import router as analytics_router
+from backend.api.auth import router as auth_router
 from backend.api.upload import router as upload_router
 from backend.api.ai_content import router as ai_router
 from backend.api.mind_map import router as mind_map_router
@@ -71,6 +72,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(analytics_router)
 app.include_router(upload_router)
 app.include_router(ai_router)

@@ -3,48 +3,91 @@ JWT Authentication Middleware for FastAPI.
 Validates Supabase access tokens on protected routes.
 """
 import logging
+from dataclasses import dataclass, field
 from typing import Any, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from backend.core.database import supabase_admin, get_client
-from backend.services.cache import get_cached_token, store_cached_token
+from backend.services.cache import get_cached_token, store_cached_token, invalidate_cached_token
 
 logger = logging.getLogger(__name__)
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
-async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Any:
+
+@dataclass
+class CachedUser:
+    """Lightweight user object reconstructed from the backend_cache table.
+
+    The Supabase ``User`` model is a complex Pydantic object.  When we
+    round-trip it through JSON (to store in backend_cache) and back out,
+    we lose the Pydantic model.  This dataclass rehydrates only the
+    fields our auth/authz code actually reads, so downstream code that
+    does ``user.id``, ``user.email``, ``user.app_metadata`` continues
+    to work without change.
     """
-    Dependency that verifies the Supabase JWT from the Authorization header.
-    Returns the authenticated user object or raises 401.
-    Validated tokens are cached to avoid redundant Supabase round-trips.
+    id: str = ""
+    email: str = ""
+    app_metadata: dict = field(default_factory=dict)
+    user_metadata: dict = field(default_factory=dict)
+    role: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "CachedUser":
+        return cls(
+            id=data.get("id", ""),
+            email=data.get("email", ""),
+            app_metadata=data.get("app_metadata") or {},
+            user_metadata=data.get("user_metadata") or {},
+            role=data.get("role", ""),
+        )
+
+async def verify_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Any:
     """
+    FastAPI dependency that verifies the Supabase JWT from the Authorization
+    header and returns the authenticated user object (or raises 401).
+
+    Cache flow:
+      1. Hash the raw token with SHA-256 → lookup ``auth_token:<hash>``
+         in the shared ``backend_cache`` table (45s TTL).
+      2. Cache HIT  → reconstruct a ``CachedUser`` and return immediately
+         (no Supabase Auth round-trip, ~2ms latency).
+      3. Cache MISS → call ``supabase_admin.auth.get_user(token)`` (~150ms),
+         coerce the result to JSON-safe data, write it to the cache,
+         and return the live Supabase User object.
+    """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header.",
+        )
+
     token: str = credentials.credentials
 
-    # 1. Check shared database cache first
+    # 1. Check shared database L2 cache first
     cached_user = await get_cached_token(token)
     if cached_user:
-        # Wrap dict back into a DotDict-like object if necessary, or just return dict
-        # Most of our code expects user.id, so we should ensure it behaves like an object
-        from argparse import Namespace
-        return Namespace(**cached_user) if isinstance(cached_user, dict) else cached_user
+        if isinstance(cached_user, dict):
+            return CachedUser.from_dict(cached_user)
+        return cached_user
 
-    # 2. Verify with Supabase Auth
+    # 2. Verify with Supabase Auth (slow path)
     try:
-        # Use supabase_admin for user lookup to ensure consistency, 
-        # but the token itself proves user ownership.
         user_response = supabase_admin.auth.get_user(token)
-        
+
         if not user_response or not user_response.user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token.",
             )
-            
+
         user = user_response.user
+        # Store in shared cache so other workers skip the Auth round-trip
         await store_cached_token(token, user)
         return user
-        
+
     except HTTPException:
         raise
     except Exception as e:

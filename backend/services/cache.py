@@ -86,7 +86,13 @@ async def store_cached_token(token: str, user: Any) -> None:
 
 
 async def invalidate_cached_token(token: str) -> None:
-    """Remove a token from the shared database cache."""
+    """Remove a token from the shared database cache immediately.
+
+    Called on logout so a sign-out takes effect within the current 45s TTL
+    window rather than waiting for natural expiry.  Without this, a
+    logged-out user's cached session would remain valid for up to 45s —
+    enough time for a token replay attack.
+    """
     if not token:
         return
     key = _hash_token(token)
@@ -95,6 +101,23 @@ async def invalidate_cached_token(token: str) -> None:
         supabase_admin.table("backend_cache").delete().eq("cache_key", cache_key).execute()
     except Exception as e:
         logger.warning("Failed to invalidate token cache: %s", e)
+
+
+async def purge_expired_backend_cache() -> int:
+    """Delete all expired rows from ``backend_cache`` via the DB function.
+
+    Returns the number of rows deleted.  Calls the ``cleanup_backend_cache``
+    PostgreSQL SECURITY DEFINER function (migration 20260506000003).
+    Safe to call on-demand or via pg_cron nightly.
+    """
+    try:
+        res = supabase_admin.rpc("cleanup_backend_cache").execute()
+        deleted = res.data or 0
+        logger.info("Purged %d expired backend_cache rows", deleted)
+        return int(deleted)
+    except Exception as e:
+        logger.warning("backend_cache purge failed (non-fatal): %s", e)
+        return 0
 
 
 def compute_pdf_hash(content: bytes) -> str:
