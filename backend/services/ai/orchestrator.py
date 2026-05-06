@@ -169,7 +169,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         ),
         ProviderConfig(
             id="gemma",
-            model="gemma-3-27b-it",
+            model="gemini-1.5-flash",
             daily_limit=14_400, rpm=30, tpm=15_000,
             env_var="GEMINI_API_KEY",
             base_url=None,
@@ -242,7 +242,7 @@ _USER_MODEL_TO_PROVIDER: Dict[str, str] = {
     "gemini":            "gemini",
     "gemini-2.0-flash":  "gemini",
     "gemini-1.5-flash":  "gemini",
-    "gemini-2.5-flash":  "gemini",
+    "gemini-1.5-flash":  "gemini",
     "gemma":             "gemma",
     "mistral":           "mistral",
 }
