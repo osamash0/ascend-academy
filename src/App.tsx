@@ -65,6 +65,7 @@ const Datenschutz = lazy(() => import("./pages/Datenschutz"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Insights = lazy(() => import("./pages/Insights"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const PipelineTestPage = lazy(() => import("./pages/PipelineTestPage"));
 
 // Loading Component
 const PageLoader = () => {
@@ -272,6 +273,17 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['professor']}>
               <DashboardLayout>
                 <LectureEdit />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/professor/pipeline-test"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <PipelineTestPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

@@ -307,7 +307,7 @@ export default function LectureUpload() {
   const prefilledCourseId = searchParams.get('courseId');
   const [courseId, setCourseId] = useState<string | null>(prefilledCourseId);
   const [courses, setCourses] = useState<Course[]>([]);
-  type ParserChoice = 'auto' | 'pymupdf' | 'opendataloader' | 'mineru';
+  type ParserChoice = 'auto' | 'pymupdf' | 'opendataloader' | 'mineru' | 'llamaparse';
   const [parserChoice, setParserChoice] = useState<ParserChoice>('auto');
   useEffect(() => {
     listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
@@ -579,11 +579,17 @@ export default function LectureUpload() {
                 <option value="auto">Auto (recommended)</option>
                 <option value="opendataloader">OpenDataLoader</option>
                 <option value="mineru">MinerU</option>
+                <option value="llamaparse">LlamaParse</option>
                 <option value="pymupdf">PyMuPDF (basic)</option>
               </select>
               {parserChoice === 'mineru' && (
                 <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                   Requires the MinerU server to be running locally.
+                </p>
+              )}
+              {parserChoice === 'llamaparse' && (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  Requires LLAMA_CLOUD_API_KEY to be configured on the backend.
                 </p>
               )}
             </div>

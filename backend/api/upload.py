@@ -212,6 +212,17 @@ async def parse_pdf_stream_endpoint(
         except Exception as e:
             raise HTTPException(422, detail=f"MinerU extraction failed: {e}")
 
+    elif parser == "llamaparse":
+        try:
+            from backend.services import llamaparse_service
+            odl_pages = await llamaparse_service.extract_pages(content, filename)
+            odl_succeeded = True
+            parser_used = "llamaparse"
+        except RuntimeError as e:
+            raise HTTPException(503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(422, detail=f"LlamaParse extraction failed: {e}")
+
     else:  # "auto" — preserve existing behaviour
         try:
             from backend.services.odl_service import extract_pages as _odl
@@ -547,6 +558,134 @@ async def attach_lecture_endpoint(
             )
 
     return {"updated": updated}
+
+
+# --- Raw parser output (no AI) ---------------------------------------------
+
+
+@router.post("/parse-raw")
+@limiter.limit("10/minute")
+async def parse_raw_endpoint(
+    request: Request,
+    file: UploadFile = File(...),
+    parser: str = Form("auto"),
+    user: Any = Depends(require_professor),
+):
+    """Run only the text-extraction stage for a PDF — no layout analysis,
+    no AI, no caching.  Returns the raw per-page text exactly as the chosen
+    parser sees it, so callers can evaluate extraction quality before
+    committing to a full pipeline run.
+
+    Response shape:
+      {
+        "parser_used": str,
+        "total_pages": int,
+        "pages": [{"page_num": int, "title": str|null, "text": str, "char_count": int, "word_count": int}]
+      }
+    """
+    max_bytes = MAX_FILE_MB * 1024 * 1024
+    chunks: List[bytes] = []
+    bytes_read = 0
+    while True:
+        chunk = await file.read(65536)
+        if not chunk:
+            break
+        bytes_read += len(chunk)
+        if bytes_read > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File exceeds the {MAX_FILE_MB}MB limit.",
+            )
+        chunks.append(chunk)
+    content = b"".join(chunks)
+    await validate_upload(file, content)
+
+    filename = file.filename or "upload.pdf"
+    pages_raw: Dict[int, dict] = {}
+    parser_used = "pymupdf"
+
+    if parser == "llamaparse":
+        try:
+            from backend.services import llamaparse_service
+            pages_raw = await llamaparse_service.extract_pages(content, filename)
+            parser_used = "llamaparse"
+        except RuntimeError as e:
+            raise HTTPException(503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(422, detail=f"LlamaParse extraction failed: {e}")
+
+    elif parser == "mineru":
+        try:
+            from backend.services import mineru_service
+            pages_raw = await mineru_service.extract_pages(content, filename)
+            parser_used = "mineru"
+        except RuntimeError as e:
+            raise HTTPException(503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(422, detail=f"MinerU extraction failed: {e}")
+
+    elif parser == "opendataloader":
+        try:
+            from backend.services.odl_service import extract_pages as _odl
+            pages_raw = await _odl(content, filename)
+            parser_used = "opendataloader-pdf"
+        except Exception as e:
+            raise HTTPException(422, detail=f"OpenDataLoader extraction failed: {e}")
+
+    elif parser == "pymupdf":
+        def _pymupdf_extract() -> Dict[int, dict]:
+            import fitz
+            result: Dict[int, dict] = {}
+            with fitz.open(stream=content, filetype="pdf") as doc:
+                for i, page in enumerate(doc):
+                    text = page.get_text("text") or ""
+                    result[i + 1] = {"text": text, "title": None}
+            return result
+
+        try:
+            pages_raw = await asyncio.wait_for(asyncio.to_thread(_pymupdf_extract), timeout=60.0)
+            parser_used = "pymupdf"
+        except Exception as e:
+            raise HTTPException(422, detail=f"PyMuPDF extraction failed: {e}")
+
+    else:  # auto — try ODL, fall back to PyMuPDF
+        try:
+            from backend.services.odl_service import extract_pages as _odl
+            pages_raw = await _odl(content, filename)
+            parser_used = "opendataloader-pdf"
+        except Exception:
+            def _pymupdf_extract_auto() -> Dict[int, dict]:
+                import fitz
+                result: Dict[int, dict] = {}
+                with fitz.open(stream=content, filetype="pdf") as doc:
+                    for i, page in enumerate(doc):
+                        text = page.get_text("text") or ""
+                        result[i + 1] = {"text": text, "title": None}
+                return result
+
+            try:
+                pages_raw = await asyncio.wait_for(asyncio.to_thread(_pymupdf_extract_auto), timeout=60.0)
+                parser_used = "pymupdf"
+            except Exception as e:
+                raise HTTPException(422, detail=f"Extraction failed: {e}")
+
+    pages_out = []
+    for page_num in sorted(pages_raw):
+        entry = pages_raw[page_num]
+        text = entry.get("text") or ""
+        pages_out.append({
+            "page_num": page_num,
+            "title": entry.get("title"),
+            "text": text,
+            "char_count": len(text),
+            "word_count": len(text.split()),
+        })
+
+    return {
+        "parser_used": parser_used,
+        "total_pages": len(pages_out),
+        "pages": pages_out,
+    }
 
 
 # --- Routing diagnostics ---------------------------------------------------
