@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAiModel } from '@/hooks/use-ai-model';
+import { usePDFPipelineMode } from '@/hooks/usePDFPipelineMode';
 import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
 import type { DuplicateMatch } from '@/components/DuplicatePDFDialog';
 
@@ -52,6 +53,7 @@ function validatePdfFile(
 export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, parserChoice = 'auto' }: UsePDFUploadOptions) {
   const { toast } = useToast();
   const { aiModel } = useAiModel();
+  const { isLazy } = usePDFPipelineMode();
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -109,7 +111,8 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
 
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const response = await fetch(`${API_BASE}/api/upload/parse-pdf-stream`, {
+        const endpoint = isLazy ? '/api/upload/import-pdf-lazy' : '/api/upload/parse-pdf-stream';
+        const response = await fetch(`${API_BASE}${endpoint}`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${session?.access_token}` },
           body: formData,

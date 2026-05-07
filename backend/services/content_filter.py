@@ -272,7 +272,11 @@ Slide text:
                 )
                 return json.loads(res.text)
         except Exception as e:
-            logger.error("Gemini classify error: %s", e, exc_info=True)
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
+                logger.info("Gemini classify rate-limited; falling back to orchestrator chain")
+            else:
+                logger.warning("Gemini classify error (falling back): %s", e)
 
     # Use orchestrator for all other models (Cerebras, Groq, OpenRouter, Cloudflare, etc.)
     try:
@@ -283,9 +287,11 @@ Return ONLY valid JSON with this exact structure:
   "confidence": float,
   "reason": "short explanation"
 }"""
-        # Run orchestrator synchronously since this is called from a sync context
         raw = _llm_generate_text_sync(json_prompt, ai_model=ai_model)
-        return parse_json_response(raw)
+        parsed = parse_json_response(raw)
+        if isinstance(parsed, dict):
+            return parsed
+        logger.warning("Classify returned non-dict (%s); using fallback", type(parsed).__name__)
     except Exception as e:
         logger.error("Orchestrator classify error for %s: %s", ai_model, e, exc_info=True)
 
@@ -368,6 +374,14 @@ def is_metadata_slide(
 
     # --- Layer 3: LLM-as-a-Judge (only for truly ambiguous cases) ---
     llm_result = _llm_classify_slide(text, ai_model=ai_model)
+
+    if not isinstance(llm_result, dict):
+        return {
+            "is_metadata": False,
+            "confidence": 0.5,
+            "reason": f"LLM judge returned non-dict ({type(llm_result).__name__}); defaulting to educational.",
+            "layer": 3,
+        }
 
     is_meta = llm_result.get("classification", "educational") == "metadata"
     return {

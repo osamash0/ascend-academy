@@ -8,7 +8,12 @@ from pydantic import BaseModel
 from backend.services.file_parse_service import (
     PIPELINE_VERSION,
     parse_pdf_stream,
+    import_pdf_lazy,
     _safe_embedding_task,
+)
+from backend.services.slide_synth_service import (
+    PIPELINE_VERSION as LAZY_PIPELINE_VERSION,
+    synthesize_slide,
 )
 from backend.core.database import supabase_admin
 from backend.services.cache import (
@@ -156,10 +161,11 @@ async def parse_pdf_stream_endpoint(
             # idempotent on (pdf_hash, slide_index, pipeline_version), so
             # re-running on already-embedded slides is safe.
             _embed_failed_queue: List[Any] = []
+            _embed_sem = asyncio.Semaphore(3)
             for i, s in enumerate(slides):
                 if not (s.get("is_metadata") or s.get("slide_type") == "metadata"):
                     asyncio.create_task(
-                        _safe_embedding_task(i, s, pdf_hash, _embed_failed_queue)
+                        _safe_embedding_task(i, s, pdf_hash, _embed_failed_queue, _embed_sem)
                     )
                 yield f"data: {json.dumps({'type': 'slide', 'index': i, 'slide': s})}\n\n"
 
@@ -250,6 +256,133 @@ async def parse_pdf_stream_endpoint(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
+
+
+# --- Lazy generation pipeline (parallel to parse-pdf-stream) -------------
+
+@router.post("/import-pdf-lazy")
+@limiter.limit("10/minute")
+async def import_pdf_lazy_endpoint(
+    request: Request,
+    file: UploadFile = File(...),
+    ai_model: str = Form("cerebras"),
+    user: Any = Depends(require_professor),
+):
+    """Lazy import: extract + embed only. Per-slide AI is deferred to
+    the lazy slide endpoint (synthesized on first view).
+
+    Emits the same SSE event types as /parse-pdf-stream so the existing
+    frontend SSE consumer works unchanged. Slide events carry stub
+    placeholders (raw-text-derived title, no AI yet).
+    """
+    max_bytes = MAX_FILE_MB * 1024 * 1024
+    chunks: List[bytes] = []
+    bytes_read = 0
+    while True:
+        chunk = await file.read(65536)
+        if not chunk:
+            break
+        bytes_read += len(chunk)
+        if bytes_read > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File exceeds the {MAX_FILE_MB}MB limit.",
+            )
+        chunks.append(chunk)
+    content = b"".join(chunks)
+    await validate_upload(file, content)
+
+    filename = file.filename or "upload.pdf"
+
+    async def event_generator():
+        yield f"data: {json.dumps({'type': 'info', 'parser': 'pymupdf-lazy'})}\n\n"
+        try:
+            async for update in import_pdf_lazy(content, filename=filename, ai_model=ai_model):
+                yield f"data: {json.dumps(update)}\n\n"
+        except Exception as e:
+            logger.error("Lazy import failed: %s", e, exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'recoverable': False})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/lazy-slides/{pdf_hash}/{idx}")
+@limiter.limit("60/minute")
+async def get_lazy_slide_endpoint(
+    request: Request,
+    pdf_hash: str,
+    idx: int,
+    ai_model: str = "cerebras",
+    user: Any = Depends(require_professor),
+):
+    """Cache-first lazy synth for a single slide.
+
+    Returns the same dict shape as a /parse-pdf-stream slide event's
+    `slide` field. Caller must have first run /import-pdf-lazy so the
+    layouts are cached.
+    """
+    if not pdf_hash or len(pdf_hash) != 64:
+        raise HTTPException(status_code=400, detail="invalid pdf_hash")
+    if idx < 0:
+        raise HTTPException(status_code=400, detail="idx must be >= 0")
+
+    slide = await synthesize_slide(pdf_hash, idx, ai_model=ai_model)
+    if slide is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No cached layouts for this PDF. Run /import-pdf-lazy first.",
+        )
+    return slide
+
+
+class LazyDeckQuizRequest(BaseModel):
+    pdf_hash: str
+    ai_model: str = "cerebras"
+
+
+@router.post("/lazy-deck-quiz")
+@limiter.limit("20/minute")
+async def lazy_deck_quiz_endpoint(
+    request: Request,
+    body: LazyDeckQuizRequest,
+    user: Any = Depends(require_professor),
+):
+    """Generate the cross-slide deck quiz on demand.
+
+    Reads cached layouts + recomputes a deck summary from raw text, then
+    calls generate_deck_quiz. Result not cached server-side in this v1
+    (frontend can persist if it wants stickiness).
+    """
+    from backend.services.layout_analyzer import PageLayout
+    from backend.services.ai_service import generate_deck_summary, generate_deck_quiz
+
+    pdf_hash = (body.pdf_hash or "").strip()
+    if not pdf_hash or len(pdf_hash) != 64:
+        raise HTTPException(status_code=400, detail="invalid pdf_hash")
+
+    pdf_cache = await get_cached_parse(pdf_hash)
+    if not pdf_cache or "layouts" not in pdf_cache:
+        raise HTTPException(
+            status_code=404,
+            detail="No cached layouts. Run /import-pdf-lazy first.",
+        )
+
+    layouts = [PageLayout(**l) for l in pdf_cache["layouts"]]
+    joined = "\n".join(
+        f"[Slide {i + 1}] {l.raw_text[:300].strip()}"
+        for i, l in enumerate(layouts)
+        if l.raw_text.strip()
+    )
+    if not joined:
+        return {"deck_summary": "", "deck_quiz": []}
+
+    summary = await generate_deck_summary(joined, body.ai_model)
+    quiz = await generate_deck_quiz(summary, body.ai_model, blueprint=None)
+    return {"deck_summary": summary, "deck_quiz": quiz}
 
 
 # --- Duplicate PDF lookup -------------------------------------------------

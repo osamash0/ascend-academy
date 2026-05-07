@@ -94,3 +94,22 @@ async def generate_embeddings(text: str) -> List[float]:
         )
         return []
 
+
+async def batch_generate_embeddings(
+    texts: List[str], concurrency: int = 4,
+) -> List[List[float]]:
+    """Embed many strings, parallelized with a bounded semaphore.
+
+    Returns one vector per input in input order. Failed slots become an
+    empty list so callers can detect and skip them. Concurrency defaults
+    to 4 — Gemini's embedding endpoint tolerates this comfortably and
+    keeps us well under the 60 RPM free-tier ceiling.
+    """
+    sem = asyncio.Semaphore(concurrency)
+
+    async def _one(t: str) -> List[float]:
+        async with sem:
+            return await generate_embeddings(t)
+
+    return await asyncio.gather(*(_one(t) for t in texts))
+

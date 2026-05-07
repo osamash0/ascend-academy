@@ -84,16 +84,16 @@ class QuizBatchConfig:
 
 def _load_quiz_batch_config() -> QuizBatchConfig:
     try:
-        bs = int(os.environ.get("QUIZ_BATCH_SIZE", "5"))
+        bs = int(os.environ.get("QUIZ_BATCH_SIZE", "8"))
     except (TypeError, ValueError):
-        bs = 5
+        bs = 8
     try:
         ov = int(os.environ.get("QUIZ_BATCH_OVERLAP", "1"))
     except (TypeError, ValueError):
         ov = 1
     if bs < 1:
-        logger.warning("QUIZ_BATCH_SIZE %d invalid, falling back to 5", bs)
-        bs = 5
+        logger.warning("QUIZ_BATCH_SIZE %d invalid, falling back to 8", bs)
+        bs = 8
     if ov < 0 or ov >= bs:
         logger.warning(
             "QUIZ_BATCH_OVERLAP %d invalid for batch_size %d, clamping",
@@ -169,7 +169,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         ),
         ProviderConfig(
             id="gemma",
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash-lite",
             daily_limit=14_400, rpm=30, tpm=15_000,
             env_var="GEMINI_API_KEY",
             base_url=None,
@@ -367,6 +367,7 @@ class ProviderRotator:
         self._lock          = threading.Lock()
         self._counts:  Dict[str, int]   = {}
         self._backoff: Dict[str, float] = {}
+        self._streak:  Dict[str, int]   = {}
         self._day:     str              = datetime.date.today().isoformat()
 
     def _reset_if_new_day(self) -> None:
@@ -375,16 +376,25 @@ class ProviderRotator:
             self._day     = today
             self._counts  = {}
             self._backoff = {}
+            self._streak  = {}
 
     def record_success(self, provider_id: str) -> None:
         with self._lock:
             self._reset_if_new_day()
             self._counts[provider_id] = self._counts.get(provider_id, 0) + 1
+            self._streak[provider_id] = 0
 
     def record_rate_limit(self, provider_id: str, backoff_seconds: float = 90.0) -> None:
         with self._lock:
-            self._backoff[provider_id] = time.monotonic() + backoff_seconds
-        logger.warning("🔄 Provider '%s' rate-limited — backing off %.0fs", provider_id, backoff_seconds)
+            streak = self._streak.get(provider_id, 0) + 1
+            self._streak[provider_id] = streak
+            # Exponential backoff: 90s, 180s, 360s, … capped at 600s.
+            scaled = min(backoff_seconds * (2 ** (streak - 1)), 600.0)
+            self._backoff[provider_id] = time.monotonic() + scaled
+        logger.warning(
+            "🔄 Provider '%s' rate-limited — backing off %.0fs (streak=%d)",
+            provider_id, scaled, streak,
+        )
 
     def available(self, chain: List[str]) -> List[str]:
         """
@@ -396,30 +406,62 @@ class ProviderRotator:
         now = time.monotonic()
         with self._lock:
             self._reset_if_new_day()
-            ok = []
+            ok: List[str] = []
+            skipped: List[str] = []
+            for pid in chain:
+                cfg = PROVIDER_REGISTRY.get(pid)
+                if cfg is None:
+                    skipped.append(f"{pid}=unknown")
+                    continue
+                if _clients.get(pid) is None and not (pid == "groq" and groq_client):
+                    skipped.append(f"{pid}=no_client")
+                    continue
+                limit = cfg.daily_limit
+                used  = self._counts.get(pid, 0)
+                if limit > 0 and used >= limit:
+                    skipped.append(f"{pid}=daily_limit({used}/{limit})")
+                    continue
+                if now < self._backoff.get(pid, 0.0):
+                    remaining = self._backoff[pid] - now
+                    skipped.append(f"{pid}=backoff({remaining:.0f}s)")
+                    continue
+                ok.append(pid)
+        if skipped:
+            logger.info(
+                "Provider availability: ok=%s skipped=[%s]",
+                ok or "(none)", ", ".join(skipped),
+            )
+        return ok or chain   # if everything exhausted, try anyway (may still work)
+
+    def remaining_headroom(self, chain: List[str]) -> int:
+        """Sum of remaining daily quota across configured providers in `chain`.
+
+        Used by callers (e.g. PDF import) to bail fast when a long-running job
+        clearly cannot complete with today's remaining budget. Providers with
+        ``daily_limit == 0`` (unmetered) contribute a large constant so they
+        dominate the sum and effectively disable the gate.
+        """
+        with self._lock:
+            self._reset_if_new_day()
+            total = 0
             for pid in chain:
                 cfg = PROVIDER_REGISTRY.get(pid)
                 if cfg is None:
                     continue
-                # Skip if no client (key not set)
                 if _clients.get(pid) is None and not (pid == "groq" and groq_client):
                     continue
-                # Skip if daily limit reached
-                limit = cfg.daily_limit
-                used  = self._counts.get(pid, 0)
-                if limit > 0 and used >= limit:
-                    logger.debug("Provider '%s' daily limit reached (%d/%d)", pid, used, limit)
-                    continue
-                # Skip if in 429 backoff
-                if now < self._backoff.get(pid, 0.0):
-                    remaining = self._backoff[pid] - now
-                    logger.debug("Provider '%s' in backoff (%.0fs left)", pid, remaining)
-                    continue
-                ok.append(pid)
-        return ok or chain   # if everything exhausted, try anyway (may still work)
+                if cfg.daily_limit <= 0:
+                    total += 100_000
+                else:
+                    total += max(0, cfg.daily_limit - self._counts.get(pid, 0))
+        return total
 
 
 _rotator = ProviderRotator()
+
+
+def get_rotator() -> ProviderRotator:
+    return _rotator
 
 # Keep old class name as alias for any direct references
 _ProviderRotator = ProviderRotator

@@ -66,13 +66,12 @@ from backend.services.slide_classifier import (
     build_routing_manifest,
     RoutingManifest,
 )
-from backend.services.summarizer_service import generate_hierarchical_summary
-
 logger = logging.getLogger(__name__)
 
 TEXT_BATCH_SEM   = 2    # max concurrent text-batch LLM calls (rate-limit guard)
 VISION_SEM_LIMIT = 3    # max concurrent VLM calls
 LAYOUT_SEM_LIMIT = 8    # max concurrent Pass-1 layout analyses (memory guard)
+EMBEDDING_SEM_LIMIT = 3 # max concurrent embedding calls (shares BULK_CHAIN with text batches)
 PIPELINE_VERSION = "2"  # bump when prompts/schema change to invalidate checkpoints
 
 
@@ -208,7 +207,45 @@ async def parse_pdf_stream(
 
     text_sem   = asyncio.Semaphore(TEXT_BATCH_SEM)
     vision_sem = asyncio.Semaphore(VISION_SEM_LIMIT)
+    embedding_sem = asyncio.Semaphore(EMBEDDING_SEM_LIMIT)
     collected_count = len(already_done)
+
+    from backend.services.ai.orchestrator import (
+        BULK_CHAIN as _BULK_CHAIN,
+        QUIZ_BATCH_CONFIG as _QUIZ_BATCH_CONFIG,
+        get_rotator as _get_rotator,
+    )
+    pending_text_count = sum(
+        1 for i in manifest.text_indices if i not in already_done
+    )
+    pending_vision_count = sum(
+        1 for i in (manifest.vision_indices + manifest.table_llm_indices)
+        if i not in already_done
+    )
+    text_batches = -(-pending_text_count // _QUIZ_BATCH_CONFIG.batch_size) if pending_text_count else 0
+    estimated_bulk_calls = (
+        text_batches
+        + pending_vision_count          # vision uses BULK chain too via vision wrapper
+        + pending_text_count            # one embedding per non-metadata text slide
+        + pending_vision_count          # one embedding per vision slide
+        + 2                             # deck summary + deck quiz
+    )
+    headroom = _get_rotator().remaining_headroom(_BULK_CHAIN)
+    if headroom < estimated_bulk_calls:
+        logger.error(
+            "Pre-flight: insufficient daily provider headroom (%d available, %d needed) — aborting",
+            headroom, estimated_bulk_calls,
+        )
+        yield {
+            "type": "error",
+            "message": (
+                f"Today's AI provider quotas are exhausted "
+                f"(need ~{estimated_bulk_calls} calls, only ~{headroom} remaining). "
+                f"Please retry after UTC midnight."
+            ),
+            "recoverable": False,
+        }
+        return
 
     try:
         # --- SKIP slides ---
@@ -284,7 +321,7 @@ async def parse_pdf_stream(
                 asyncio.create_task(
                     _safe_cache_task(idx, res, pdf_hash, _failed_cache_queue, fallback_counters)
                 )
-                asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue))
+                asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue, embedding_sem))
                 collected_count += 1
                 yield {
                     "type": "progress",
@@ -683,6 +720,7 @@ async def _safe_embedding_task(
     result: Dict,
     pdf_hash: str,
     failed_queue: List[Tuple],
+    sem: asyncio.Semaphore,
 ) -> None:
     """Generate + persist a slide embedding without ever failing the parse.
 
@@ -697,7 +735,8 @@ async def _safe_embedding_task(
     if not text:
         return
     try:
-        embedding = await generate_embeddings(text)
+        async with sem:
+            embedding = await generate_embeddings(text)
         if not embedding:
             return
         content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -746,10 +785,16 @@ async def _stage_planning(
         reader = PDFReader(pdf_bytes)
         outline = await reader.get_toc()
 
-        summary = ""
-        async for event in generate_hierarchical_summary(all_text, outline, plan_model):
-            if event["type"] == "result":
-                summary = event["data"]
+        # Skip the map-reduce summarizer (was N/8 + 1 calls). The planner
+        # handles 100 slides × 300 chars ≈ 30K chars in a single call on any
+        # modern long-context model — cheaper and less rate-limit pressure.
+        per_slide_cap = 300
+        summary_lines = []
+        for i, txt in enumerate(all_text):
+            if not txt.strip():
+                continue
+            summary_lines.append(f"[Slide {i + 1}] {txt[:per_slide_cap].strip()}")
+        summary = "\n".join(summary_lines)
 
         first_3 = [t for t in all_text[:3] if t.strip()]
         blueprint = None
@@ -897,3 +942,145 @@ async def _stage_finalize_deck(
                 except Exception as e:
                     logger.error("Final embedding retry failed for slide %d: %s", idx, e)
             failed_embed_queue.clear()
+
+
+# ===========================================================================
+# Lazy import pipeline (parallel to parse_pdf_stream).
+#
+# Strategy: do only the work every student needs immediately:
+#   - text extraction (no LLM)
+#   - batched embeddings (one parallel call)
+#   - one deck summary
+# Per-slide titles/summaries/quizzes are synthesized lazily on first view
+# via slide_synth_service.synthesize_slide(). Most slides never get
+# touched, so most of the AI cost evaporates.
+# ===========================================================================
+
+async def import_pdf_lazy(
+    pdf_bytes: bytes,
+    filename: str = "upload.pdf",
+    ai_model: str = "cerebras",
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """Streaming SSE-compatible lazy import.
+
+    Yields the same event types as parse_pdf_stream so the existing
+    frontend SSE consumer works unchanged. Slide events carry "stub"
+    placeholders (title from raw-text first line, no AI yet).
+    """
+    from dataclasses import asdict
+    from backend.services.ai.embeddings import batch_generate_embeddings, EMBEDDING_DIMS
+    from backend.services.ai_service import generate_deck_summary
+    from backend.services.cache import store_cached_parse
+    from backend.services.slide_synth_service import (
+        PIPELINE_VERSION as LAZY_VERSION,
+        make_stub_slide,
+    )
+
+    t_start = time.monotonic()
+    pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
+
+    yield {"type": "meta", "pdf_hash": pdf_hash}
+    yield {"type": "phase", "phase": "extract"}
+
+    reader = PDFReader(pdf_bytes)
+    total_pages = await reader.get_page_count()
+
+    yield {
+        "type": "progress",
+        "current": 0,
+        "total": total_pages,
+        "message": "Extracting text…",
+    }
+
+    layout_sem = asyncio.Semaphore(LAYOUT_SEM_LIMIT)
+
+    async def _bounded_layout(i: int) -> PageLayout:
+        async with layout_sem:
+            return await analyze_page_layout_async(reader, i, None)
+
+    layouts = await asyncio.gather(*[_bounded_layout(i) for i in range(total_pages)])
+
+    embed_inputs: List[Tuple[int, str]] = []
+    for i, layout in enumerate(layouts):
+        if not layout.raw_text.strip():
+            continue
+        meta = is_metadata_slide(layout.raw_text, i, total_pages, ai_model)
+        if meta.get("is_metadata"):
+            continue
+        text, _ = safe_truncate_text(layout.raw_text)
+        embed_inputs.append((i, text))
+
+    yield {
+        "type": "progress",
+        "current": total_pages,
+        "total": total_pages,
+        "message": f"Embedding {len(embed_inputs)} slides…",
+    }
+
+    if embed_inputs:
+        try:
+            vectors = await batch_generate_embeddings([t for _, t in embed_inputs])
+        except Exception as exc:
+            logger.error("Lazy import: batch embed failed: %s", exc)
+            vectors = [[] for _ in embed_inputs]
+
+        for (idx, text), emb in zip(embed_inputs, vectors):
+            if not emb or len(emb) != EMBEDDING_DIMS:
+                continue
+            try:
+                content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                await store_slide_embedding(
+                    lecture_id=None,
+                    slide_index=idx,
+                    embedding=emb,
+                    metadata={"slide_type": "lazy", "title": None},
+                    content_hash=content_hash,
+                    pdf_hash=pdf_hash,
+                    pipeline_version=LAZY_VERSION,
+                )
+            except Exception as exc:
+                logger.warning("Lazy embed write failed for slide %d: %s", idx, exc)
+
+    layouts_serialized = [asdict(l) for l in layouts]
+    await store_cached_parse(pdf_hash, {
+        "layouts": layouts_serialized,
+        "filename": filename,
+        "lazy": True,
+        "pipeline_version": LAZY_VERSION,
+    })
+
+    yield {"type": "phase", "phase": "enhance"}
+    for i, layout in enumerate(layouts):
+        stub = make_stub_slide(i, layout, filename)
+        yield {"type": "slide", "index": i, "slide": stub}
+        yield {
+            "type": "progress",
+            "current": i + 1,
+            "total": total_pages,
+            "message": f"Indexed {i + 1}/{total_pages} slides…",
+        }
+
+    yield {"type": "phase", "phase": "finalize"}
+    deck_summary = ""
+    try:
+        joined = "\n".join(
+            f"[Slide {i + 1}] {l.raw_text[:300].strip()}"
+            for i, l in enumerate(layouts)
+            if l.raw_text.strip()
+        )
+        if joined:
+            deck_summary = await generate_deck_summary(joined, ai_model)
+    except Exception as exc:
+        logger.error("Lazy import: deck summary failed: %s", exc)
+
+    yield {
+        "type": "deck_complete",
+        "deck_summary": deck_summary,
+        "deck_quiz": [],
+    }
+    yield {"type": "complete", "total": total_pages}
+
+    logger.info(
+        "Lazy import done: %d pages, %d embeddings, %.1fs",
+        total_pages, len(embed_inputs), time.monotonic() - t_start,
+    )

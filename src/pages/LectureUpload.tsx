@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils';
 
 import { useSlideManager } from '@/hooks/useSlideManager';
 import { usePDFUpload } from '@/hooks/usePDFUpload';
+import { usePDFPipelineMode } from '@/hooks/usePDFPipelineMode';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
 import { useLectureSubmit } from '@/hooks/useLectureSubmit';
 import {
@@ -334,6 +335,8 @@ export default function LectureUpload() {
     startUpload,
     closeUploadOverlay,
   } = usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, parserChoice });
+
+  const { mode, toggle: togglePipelineMode } = usePDFPipelineMode();
 
   /* ── Duplicate-PDF dialog state ────────────────────────────────────────── */
   const [duplicateState, setDuplicateState] = useState<{
@@ -696,6 +699,21 @@ export default function LectureUpload() {
               className="text-xs font-medium"
             >
               {t('upload:header.exit')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={togglePipelineMode}
+              title={mode === 'lazy' ? 'Using lazy pipeline (on-demand synthesis)' : 'Using eager pipeline (all slides at once)'}
+              className={cn(
+                "gap-2 text-xs",
+                mode === 'lazy'
+                  ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  : "border-amber-200 text-amber-700 hover:bg-amber-50"
+              )}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              {mode === 'lazy' ? 'Lazy' : 'Eager'}
             </Button>
             <Button
               variant="outline"
