@@ -122,7 +122,7 @@ export interface AskAnswer {
 export async function askLectureData(
   lectureId: string,
   question: string,
-  aiModel = 'cerebras',
+  aiModel = 'groq',
 ): Promise<AskAnswer> {
   const res = await apiClient.post<{ success: boolean; data: AskAnswer }>(
     `/api/analytics/lecture/${lectureId}/ask`,

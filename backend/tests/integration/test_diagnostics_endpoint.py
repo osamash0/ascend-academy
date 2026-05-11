@@ -73,7 +73,7 @@ class TestDiagnosticsEndpoint:
                 {
                     "pdf_hash": "h-owned",
                     "slide_index": 0,
-                    "pipeline_version": "2",
+                    "pipeline_version": "3",
                     "slide_data": {
                         "slide_index": 0,
                         "title": "Intro",
@@ -91,7 +91,7 @@ class TestDiagnosticsEndpoint:
                 {
                     "pdf_hash": "h-owned",
                     "slide_index": 1,
-                    "pipeline_version": "2",
+                    "pipeline_version": "3",
                     "slide_data": {
                         "slide_index": 1,
                         "title": "Picture",
@@ -113,7 +113,7 @@ class TestDiagnosticsEndpoint:
             [
                 {
                     "pdf_hash": "h-owned",
-                    "pipeline_version": "2",
+                    "pipeline_version": "3",
                     "started_at": "2026-05-01T00:00:00Z",
                     "finished_at": "2026-05-01T00:00:05Z",
                     "totals": {"text": 1, "skip": 1, "total": 2},
@@ -130,7 +130,7 @@ class TestDiagnosticsEndpoint:
         body = r.json()
 
         assert body["pdf_hash"] == "h-owned"
-        assert body["pipeline_version"] == "2"
+        assert body["pipeline_version"] == "3"
         assert isinstance(body["per_slide"], list) and len(body["per_slide"]) == 2
 
         routes = {row["slide_index"]: row["route"] for row in body["per_slide"]}

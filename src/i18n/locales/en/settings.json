@@ -58,29 +58,21 @@
     "preferences": "AI Preferences",
     "preferencesDescription": "Choose which AI model powers your intelligent tutor, quizzes, and summaries.",
     "models": {
-      "cerebras": {
-        "name": "Cerebras (Recommended)",
-        "description": "Primary engine: GPT-OSS-120B on Cerebras inference — extremely fast, high quality, and the highest free-tier daily quota of any provider."
-      },
       "groq": {
         "name": "Groq (Llama 3.3 70B)",
-        "description": "High-quality cloud LLM via Groq. Used as the first quality fallback when Cerebras is unavailable."
-      },
-      "openrouter": {
-        "name": "OpenRouter (Llama 3.3 70B)",
-        "description": "Deep-resilience fallback via OpenRouter. Free tier of 50 req/day; ideal as a backup when other providers are rate-limited."
-      },
-      "cloudflare": {
-        "name": "Cloudflare Workers AI",
-        "description": "Deep-resilience fallback running Llama 3.3 70B on Cloudflare Workers AI. Generous free tier and global edge deployment."
-      },
-      "gemini-2.5-flash": {
-        "name": "Gemini",
-        "description": "Lightning-fast responses powered by Google AI Studio. Useful when you want Google's model behavior specifically."
+        "description": "Primary engine: High-quality cloud LLM via Groq — extremely fast and high quality."
       },
       "llama3": {
-        "name": "Llama 3 (Local)",
-        "description": "Runs locally via Ollama. Completely private and offline, but slower and only available when Ollama is installed."
+        "name": "Llama 3 (Local Backup)",
+        "description": "Runs locally via Ollama. Completely private and offline, used as a backup when cloud providers fail."
+      },
+      "groq_fast": {
+        "name": "Groq Fast (Llama 3.1 8B)",
+        "description": "Lightning-fast responses powered by Groq. Useful when you want immediate generation."
+      },
+      "gemini-2.0-flash": {
+        "name": "Gemini 2.0 Flash",
+        "description": "Lightning-fast responses powered by Google AI Studio. Useful when you want Google's model behavior specifically."
       }
     },
     "savedTitle": "AI Preference saved",

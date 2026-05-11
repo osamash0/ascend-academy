@@ -1,22 +1,16 @@
 import { useState, useEffect } from 'react';
 
 export type AiModelChoice =
-  | 'cerebras'
   | 'groq'
-  | 'openrouter'
-  | 'cloudflare'
-  | 'gemini-2.5-flash'
-  | 'llama3';
+  | 'llama3'
+  | 'groq_fast'
+  | 'gemini-2.0-flash';
 
 const STORAGE_KEY = 'ascend-academy-ai-model';
 
 const VALID_MODELS: ReadonlyArray<AiModelChoice> = [
-  'cerebras',
   'groq',
-  'openrouter',
-  'cloudflare',
-  'gemini-2.5-flash',
-  'llama3',
+  'gemini-2.0-flash',
 ];
 
 function isValidModel(value: string | null): value is AiModelChoice {
@@ -31,7 +25,7 @@ export function useAiModel() {
         return stored;
       }
     }
-    return 'cerebras';
+    return 'groq';
   });
 
   useEffect(() => {

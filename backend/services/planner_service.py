@@ -52,7 +52,7 @@ async def generate_blueprint(
     outline: List[Dict[str, Any]], 
     summary: str, 
     first_slides: List[str], 
-    ai_model: str = "cerebras"
+    ai_model: str = "groq"
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Planner Agent: Generates a master narrative blueprint for the lecture.

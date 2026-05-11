@@ -2,86 +2,87 @@ import os
 import asyncio
 import logging
 from typing import Dict, Optional
+import httpx
 
 logger = logging.getLogger(__name__)
 
-
 def _get_api_key() -> str:
-    key = os.environ.get("LLAMA_CLOUD_API_KEY")
+    from backend.core.config import settings
+    key = settings.llama_cloud_api_key
     if not key:
         raise RuntimeError(
             "LLAMA_CLOUD_API_KEY is not set. "
-            "Get a key from https://cloud.llamaindex.ai and export it, "
+            "Get a key from https://cloud.llamaindex.ai and add it to your .env file, "
             "or choose a different parser."
         )
     return key
 
-
-def _page_number_from_metadata(meta: dict, fallback_index: int) -> int:
-    for k in ("page_number", "page_label", "page", "page_index", "page_num"):
-        v = meta.get(k) if isinstance(meta, dict) else None
-        if v is None:
-            continue
-        try:
-            n = int(v)
-        except (TypeError, ValueError):
-            continue
-        # LlamaParse usually returns 1-indexed; if it gave 0-indexed, normalize.
-        return n if n >= 1 else n + 1
-    return fallback_index + 1
-
-
 async def extract_pages(pdf_bytes: bytes, filename: str) -> Dict[int, dict]:
-    """Parse a PDF via LlamaParse and return pages keyed by 1-indexed page number.
+    """Parse a PDF via LlamaParse HTTP API directly and return pages keyed by 1-indexed page number.
 
     Returns: {page_num: {"text": str, "title": Optional[str]}}
     Raises:
         RuntimeError on missing API key, network failure, or upstream HTTP errors.
-        ValueError on malformed response.
     """
     api_key = _get_api_key()
-
-    try:
-        from llama_cloud_services import LlamaParse
-    except ImportError as exc:
-        raise RuntimeError(
-            "llama-cloud-services is not installed. "
-            "Run `pip install llama-cloud-services` or choose a different parser."
-        ) from exc
-
     result_type = os.environ.get("LLAMAPARSE_RESULT_TYPE", "markdown")
-    model = os.environ.get("LLAMAPARSE_MODEL")
-
-    kwargs = {"api_key": api_key, "result_type": result_type}
-    if model:
-        kwargs["model"] = model
-
-    parser = LlamaParse(**kwargs)
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Accept": "application/json"
+    }
 
     try:
-        documents = await parser.aload_data(
-            pdf_bytes,
-            extra_info={"file_name": filename},
-        )
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            # 1. Upload the file
+            files = {"file": (filename, pdf_bytes, "application/pdf")}
+            data = {"result_type": result_type}
+            
+            logger.info("Uploading %s to LlamaParse...", filename)
+            upload_res = await client.post(
+                "https://api.cloud.llamaindex.ai/api/parsing/upload",
+                headers=headers,
+                files=files,
+                data=data
+            )
+            upload_res.raise_for_status()
+            job_id = upload_res.json()["id"]
+            
+            # 2. Poll for completion
+            logger.info("Polling LlamaParse job %s...", job_id)
+            while True:
+                status_res = await client.get(
+                    f"https://api.cloud.llamaindex.ai/api/parsing/job/{job_id}",
+                    headers=headers
+                )
+                status_res.raise_for_status()
+                status = status_res.json().get("status")
+                
+                if status == "SUCCESS":
+                    break
+                elif status == "ERROR":
+                    raise RuntimeError("LlamaParse job failed on the server.")
+                    
+                await asyncio.sleep(2)
+                
+            # 3. Fetch results
+            logger.info("LlamaParse job %s complete. Fetching markdown...", job_id)
+            result_res = await client.get(
+                f"https://api.cloud.llamaindex.ai/api/parsing/job/{job_id}/result/markdown",
+                headers=headers
+            )
+            result_res.raise_for_status()
+            markdown_result = result_res.json().get("markdown", "")
+            
     except Exception as exc:
         raise RuntimeError(f"LlamaParse request failed for {filename!r}: {exc}") from exc
 
-    if not isinstance(documents, list):
-        raise ValueError(
-            f"LlamaParse returned unexpected type {type(documents).__name__}; expected list."
-        )
-
+    # LlamaParse separates pages with --- in the markdown result
+    pages = markdown_result.split("\n---\n")
+    
     result: Dict[int, dict] = {}
-    for idx, doc in enumerate(documents):
-        text = getattr(doc, "text", None) or ""
-        meta = getattr(doc, "metadata", None) or {}
-        page_num = _page_number_from_metadata(meta, idx)
-        title: Optional[str] = None
-        if isinstance(meta, dict):
-            t = meta.get("title")
-            if isinstance(t, str) and t.strip():
-                title = t.strip()
-        result[page_num] = {"text": str(text), "title": title}
-
-    logger.info("LlamaParse parsed %d pages from %s", len(result), filename)
+    for i, text in enumerate(pages):
+        result[i + 1] = {"text": text.strip(), "title": None}
+    
+    logger.info("LlamaParse parsed %d pages successfully from %s", len(result), filename)
     return result

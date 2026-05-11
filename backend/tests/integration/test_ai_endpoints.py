@@ -75,7 +75,7 @@ class TestSummary:
     def test_text_too_long_validation(self, app, professor_user, stub_ai):
         app.dependency_overrides[verify_token] = lambda: professor_user
         client = TestClient(app)
-        big = "a" * 11_000
+        big = "a" * 51_000
         r = client.post(
             "/api/ai/generate-summary",
             json={"slide_text": big},

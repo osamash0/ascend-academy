@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     groq_api_key: str = Field(alias="GROQ_API_KEY", default="")
     gemini_api_key: str = Field(alias="GEMINI_API_KEY", default="")
     google_api_key: str = Field(alias="GOOGLE_API_KEY", default="")
+    llama_cloud_api_key: str = Field(alias="LLAMA_CLOUD_API_KEY", default="")
+    mineru_api_url: str = Field(alias="MINERU_API_URL", default="http://localhost:8888")
 
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")

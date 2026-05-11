@@ -102,7 +102,7 @@ router = APIRouter(prefix="/api/upload", tags=["upload"])
 async def parse_pdf_stream_endpoint(
     request: Request,
     file: UploadFile = File(...),
-    ai_model: str = Form("cerebras"),
+    ai_model: str = Form("groq"),
     use_blueprint: bool = Form(True),
     force_reparse: bool = Form(False),
     parser: str = Form("auto"),
@@ -276,7 +276,7 @@ async def parse_pdf_stream_endpoint(
 async def import_pdf_lazy_endpoint(
     request: Request,
     file: UploadFile = File(...),
-    ai_model: str = Form("cerebras"),
+    ai_model: str = Form("groq"),
     user: Any = Depends(require_professor),
 ):
     """Lazy import: extract + embed only. Per-slide AI is deferred to
@@ -327,7 +327,7 @@ async def get_lazy_slide_endpoint(
     request: Request,
     pdf_hash: str,
     idx: int,
-    ai_model: str = "cerebras",
+    ai_model: str = "groq",
     user: Any = Depends(require_professor),
 ):
     """Cache-first lazy synth for a single slide.
@@ -352,7 +352,7 @@ async def get_lazy_slide_endpoint(
 
 class LazyDeckQuizRequest(BaseModel):
     pdf_hash: str
-    ai_model: str = "cerebras"
+    ai_model: str = "groq"
 
 
 @router.post("/lazy-deck-quiz")

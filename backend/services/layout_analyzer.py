@@ -140,6 +140,11 @@ def _sync_analyze_page(
         # ODL integration
         odl_table_md = _extract_odl_table_md(odl_page)
 
+        # If LlamaParse/ODL provides highly accurate text, use it instead of the PyMuPDF extraction
+        final_text = ordered_text
+        if odl_page and odl_page.get("text"):
+            final_text = odl_page["text"]
+
         return PageLayout(
             index=page_index,
             page_number=page_index + 1,
@@ -151,7 +156,7 @@ def _sync_analyze_page(
             column_count=column_count,
             has_code_block=has_code_block,
             has_math=has_math,
-            raw_text=ordered_text,
+            raw_text=final_text,
             odl_table_md=odl_table_md,
         )
     except Exception as e:

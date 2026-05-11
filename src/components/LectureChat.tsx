@@ -344,11 +344,9 @@ export function LectureChat({
                                         <SelectValue placeholder={t('lecture:chat.modelPlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent className="glass-panel-strong border-white/10">
-                                        <SelectItem value="cerebras">{t('lecture:chat.modelCerebras')}</SelectItem>
-                                        <SelectItem value="groq">Groq Llama 3.3</SelectItem>
-                                        <SelectItem value="openrouter">OpenRouter</SelectItem>
-                                        <SelectItem value="cloudflare">Cloudflare</SelectItem>
-                                        <SelectItem value="gemini-2.5-flash">Gemini Flash</SelectItem>
+                                        <SelectItem value="groq">Groq (Llama 3.3 70B)</SelectItem>
+                                        <SelectItem value="groq_fast">Groq Fast</SelectItem>
+                                        <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
                                         <SelectItem value="llama3">Llama 3 (Local)</SelectItem>
                                     </SelectContent>
                                 </Select>

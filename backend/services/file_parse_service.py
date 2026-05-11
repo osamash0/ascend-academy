@@ -72,13 +72,13 @@ TEXT_BATCH_SEM   = 2    # max concurrent text-batch LLM calls (rate-limit guard)
 VISION_SEM_LIMIT = 3    # max concurrent VLM calls
 LAYOUT_SEM_LIMIT = 8    # max concurrent Pass-1 layout analyses (memory guard)
 EMBEDDING_SEM_LIMIT = 3 # max concurrent embedding calls (shares BULK_CHAIN with text batches)
-PIPELINE_VERSION = "2"  # bump when prompts/schema change to invalidate checkpoints
+PIPELINE_VERSION = "3"  # bump when prompts/schema change to invalidate checkpoints
 
 
 async def parse_pdf_stream(
     pdf_bytes: bytes,
     filename: str = "upload.pdf",
-    ai_model: str = "cerebras",
+    ai_model: str = "groq",
     use_blueprint: bool = True,
     odl_pages: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
@@ -353,7 +353,7 @@ async def parse_pdf_stream(
             asyncio.create_task(
                 _safe_cache_task(idx, res, pdf_hash, _failed_cache_queue, fallback_counters)
             )
-            asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue))
+            asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue, embedding_sem))
             collected_count += 1
             yield {
                 "type": "progress",
@@ -959,7 +959,7 @@ async def _stage_finalize_deck(
 async def import_pdf_lazy(
     pdf_bytes: bytes,
     filename: str = "upload.pdf",
-    ai_model: str = "cerebras",
+    ai_model: str = "groq",
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Streaming SSE-compatible lazy import.
 
@@ -1062,6 +1062,7 @@ async def import_pdf_lazy(
 
     yield {"type": "phase", "phase": "finalize"}
     deck_summary = ""
+    deck_quiz = []
     try:
         joined = "\n".join(
             f"[Slide {i + 1}] {l.raw_text[:300].strip()}"
@@ -1069,14 +1070,16 @@ async def import_pdf_lazy(
             if l.raw_text.strip()
         )
         if joined:
+            from backend.services.ai.orchestrator import generate_deck_summary, generate_deck_quiz
             deck_summary = await generate_deck_summary(joined, ai_model)
+            deck_quiz = await generate_deck_quiz(deck_summary, ai_model)
     except Exception as exc:
-        logger.error("Lazy import: deck summary failed: %s", exc)
+        logger.error("Lazy import: deck finalize failed: %s", exc)
 
     yield {
         "type": "deck_complete",
         "deck_summary": deck_summary,
-        "deck_quiz": [],
+        "deck_quiz": deck_quiz,
     }
     yield {"type": "complete", "total": total_pages}
 

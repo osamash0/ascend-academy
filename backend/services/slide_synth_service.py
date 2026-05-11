@@ -28,7 +28,7 @@ NEIGHBOR_RADIUS = 1
 async def synthesize_slide(
     pdf_hash: str,
     idx: int,
-    ai_model: str = "cerebras",
+    ai_model: str = "groq",
 ) -> Optional[Dict[str, Any]]:
     """Return a fully-AI-synthesized slide dict for (pdf_hash, idx).
 

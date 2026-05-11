@@ -42,7 +42,7 @@ interface RawParseResult {
   pages: RawPage[]
 }
 type ParserChoice = 'auto' | 'pymupdf' | 'opendataloader' | 'llamaparse' | 'mineru'
-type AIModel = 'cerebras' | 'groq' | 'gemini' | 'mistral'
+type AIModel = 'groq' | 'llama3' | 'groq_fast' | 'gemini-2.0-flash'
 
 interface SSEEvent {
   id: string
@@ -302,7 +302,7 @@ export default function PipelineTestPage() {
 
   const [run, setRun] = useState<TestRun>(EMPTY_RUN)
   const [parser, setParser] = useState<ParserChoice>('auto')
-  const [aiModel, setAIModel] = useState<AIModel>('cerebras')
+  const [aiModel, setAIModel] = useState<AIModel>('groq')
   const [useBlueprint, setUseBlueprint] = useState(false)
   const [forceReparse, setForceReparse] = useState(false)
 
@@ -627,10 +627,10 @@ export default function PipelineTestPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="cerebras">Cerebras</SelectItem>
                 <SelectItem value="groq">Groq</SelectItem>
-                <SelectItem value="gemini">Gemini</SelectItem>
-                <SelectItem value="mistral">Mistral</SelectItem>
+                <SelectItem value="llama3">Llama3 (Ollama)</SelectItem>
+                <SelectItem value="groq_fast">Groq Fast</SelectItem>
+                <SelectItem value="gemini-2.0-flash">Gemini 2.0</SelectItem>
               </SelectContent>
             </Select>
           </div>

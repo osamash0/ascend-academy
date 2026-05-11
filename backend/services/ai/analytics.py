@@ -37,7 +37,7 @@ async def generate_slide_recommendation(
     quiz_success_rate: Optional[float],
     view_count: int,
     reasons: List[str],
-    ai_model: str = "cerebras",
+    ai_model: str = "groq",
 ) -> str:
     """Return a 1–3 sentence pedagogical improvement tip for a problematic slide.
 

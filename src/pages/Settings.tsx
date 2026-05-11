@@ -27,12 +27,10 @@ interface ExportData {
 }
 
 type AiModelOption =
-    | 'cerebras'
     | 'groq'
-    | 'openrouter'
-    | 'cloudflare'
-    | 'gemini-2.5-flash'
-    | 'llama3';
+    | 'llama3'
+    | 'groq_fast'
+    | 'gemini-2.0-flash';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -46,12 +44,8 @@ const PRESET_AVATARS = [
 ] as const;
 
 const AI_MODEL_IDS: AiModelOption[] = [
-    'cerebras',
     'groq',
-    'openrouter',
-    'cloudflare',
-    'gemini-2.5-flash',
-    'llama3',
+    'gemini-2.0-flash',
 ];
 
 // ─── Custom Hook: Safe Async State ───────────────────────────────────────────

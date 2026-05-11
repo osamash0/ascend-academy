@@ -129,6 +129,10 @@ class _QueryBuilder:
         self._filters.append(("contains", col, sub))
         return self
 
+    def or_(self, filter_str: str) -> "_QueryBuilder":
+        self._filters.append(("or", "", filter_str))
+        return self
+
     def order(self, col: str, desc: bool = False) -> "_QueryBuilder":
         self._order = (col, desc)
         return self
@@ -281,6 +285,24 @@ class _QueryBuilder:
                 return False
             if op == "contains" and not _matches_contains(row.get(col), val):
                 return False
+            if op == "or":
+                # Very limited parser for "col.op.val,col.op.val"
+                clauses = val.split(",")
+                match_any = False
+                for c in clauses:
+                    parts = c.split(".")
+                    if len(parts) < 2: continue
+                    f_col, f_op = parts[0], parts[1]
+                    f_val = parts[2] if len(parts) > 2 else None
+                    
+                    row_val = row.get(f_col)
+                    if f_op == "is" and f_val == "null":
+                        if row_val is None: match_any = True
+                    elif f_op == "gt":
+                        if row_val is not None and row_val > f_val: match_any = True
+                    # Add more as needed, but this covers cache.py
+                if not match_any:
+                    return False
         return True
 
 

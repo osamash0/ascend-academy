@@ -132,7 +132,7 @@ Question: "{question.strip()}"
 JSON:"""
 
 
-async def classify_intent(question: str, ai_model: str = "cerebras") -> Dict[str, Any]:
+async def classify_intent(question: str, ai_model: str = "groq") -> Dict[str, Any]:
     """Return {intent, params, _parse_failed?}. Falls back to 'unknown' on parse failure.
 
     When the LLM returns malformed JSON twice we set ``_parse_failed=True``
@@ -335,7 +335,7 @@ async def ask_lecture_data(
     lecture_id: str,
     question: str,
     token: str,
-    ai_model: str = "cerebras",
+    ai_model: str = "groq",
 ) -> Dict[str, Any]:
     """End-to-end: classify → execute → assemble structured response.
 

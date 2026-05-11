@@ -390,7 +390,7 @@ async def refresh_analytics_cache(lecture_id: str, user=Depends(verify_token), c
 
 class AskRequest(BaseModel):
     question: str
-    ai_model: Optional[str] = "cerebras"
+    ai_model: Optional[str] = "groq"
 
 
 class AskChartSpec(BaseModel):
@@ -479,7 +479,7 @@ async def ask_lecture_question(
             lecture_id=lecture_id,
             question=body.question,
             token=creds.credentials,
-            ai_model=body.ai_model or "cerebras",
+            ai_model=body.ai_model or "groq",
         )
     except HTTPException:
         raise

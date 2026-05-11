@@ -587,11 +587,6 @@ export default function LectureUpload() {
                   Requires the MinerU server to be running locally.
                 </p>
               )}
-              {parserChoice === 'llamaparse' && (
-                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                  Requires LLAMA_CLOUD_API_KEY to be configured on the backend.
-                </p>
-              )}
             </div>
           </motion.div>
         </div>

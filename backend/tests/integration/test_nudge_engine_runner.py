@@ -17,7 +17,7 @@ from backend.core.auth_middleware import verify_token
 from backend.services import nudge_engine
 
 
-NOW = datetime(2026, 5, 2, 14, 0, 0, tzinfo=timezone.utc)
+NOW = datetime.now(timezone.utc)
 
 
 def _seed_streak_student(fake, user_id: str) -> None:

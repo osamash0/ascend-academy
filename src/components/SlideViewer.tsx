@@ -368,9 +368,9 @@ export function SlideViewer({
         </div>
 
         {/* Study Notes Content */}
-        <div className="p-8 lg:p-10 space-y-6">
-          {/* Garbage-content warning */}
-          {isGarbageContent(content) && isProfessor && (
+        {isGarbageContent(content) && isProfessor && (
+          <div className="px-6 py-4">
+            {/* Garbage-content warning */}
             <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
               <span className="text-amber-400 mt-0.5 shrink-0">⚠️</span>
               <div className="flex-1 min-w-0">
@@ -392,19 +392,11 @@ export function SlideViewer({
                 </button>
               )}
             </div>
-          )}
-
-          <div className="prose prose-lg dark:prose-invert max-w-none
-            prose-headings:text-foreground prose-headings:font-bold prose-headings:tracking-tight
-            prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:text-body-lg
-            prose-strong:text-primary prose-strong:font-bold
-            prose-ul:text-muted-foreground prose-li:my-2
-            prose-code:text-accent prose-code:bg-accent/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md">
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-              {content || '_No content available for this slide._'}
-            </ReactMarkdown>
           </div>
-        </div>
+        )}
+        
+        {/* Raw content is intentionally hidden from the DOM because the student can read the slide directly.
+            The content string is still used for AI Context, TTS, and Lecture Chat. */}
       </motion.div>
 
       {/* Footer Actions */}

@@ -101,6 +101,42 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     except Exception:
         pass
 
+    try:
+        from backend.api import ai_content as ai_content_api
+        monkeypatch.setattr(ai_content_api, 'supabase_admin', fake_supabase, raising=False)
+    except Exception:
+        pass
+    try:
+        from backend.api import concepts as concepts_api
+        monkeypatch.setattr(concepts_api, 'supabase_admin', fake_supabase, raising=False)
+    except Exception:
+        pass
+    try:
+        from backend.api import feedback as feedback_api
+        monkeypatch.setattr(feedback_api, 'supabase_admin', fake_supabase, raising=False)
+    except Exception:
+        pass
+    try:
+        from backend.services import nudge_engine as nudge_engine_svc
+        monkeypatch.setattr(nudge_engine_svc, 'supabase_admin', fake_supabase, raising=False)
+    except Exception:
+        pass
+    try:
+        from backend.services import concept_graph as concept_graph_svc
+        monkeypatch.setattr(concept_graph_svc, 'supabase_admin', fake_supabase, raising=False)
+    except Exception:
+        pass
+    try:
+        from backend.services.ai import retrieval as retrieval_ai
+        monkeypatch.setattr(retrieval_ai, 'supabase_admin', fake_supabase, raising=False)
+    except Exception:
+        pass
+    try:
+        from backend.core import auth_middleware as auth_middleware_core
+        monkeypatch.setattr(auth_middleware_core, 'supabase_admin', fake_supabase, raising=False)
+    except Exception:
+        pass
+
     # Ensure get_client/get_auth_client return the fake
     monkeypatch.setattr(database, "get_client", lambda use_admin=False: fake_supabase, raising=True)
     monkeypatch.setattr(
@@ -115,6 +151,7 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     from backend.api import ai_content as ai_api
 
     monkeypatch.setattr(mind_map_api, "create_client", lambda url, key: fake_supabase, raising=True)
+    monkeypatch.setattr(mind_map_api, "supabase_admin", fake_supabase, raising=False)
     monkeypatch.setattr(ai_api, "create_client", lambda url, key: fake_supabase, raising=True)
 
     return fake_supabase

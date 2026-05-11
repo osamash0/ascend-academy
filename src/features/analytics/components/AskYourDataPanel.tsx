@@ -110,7 +110,7 @@ export function AskYourDataPanel({ lectureId }: { lectureId: string }) {
     setLoading(true);
     setError(null);
     try {
-      const ans = await askLectureData(lectureId, trimmed.slice(0, MAX_LEN), aiModel || 'cerebras');
+      const ans = await askLectureData(lectureId, trimmed.slice(0, MAX_LEN), aiModel || 'groq');
       setCurrent(ans);
       setRecent((prev) => {
         const next = [trimmed, ...prev.filter((r) => r !== trimmed)].slice(0, MAX_RECENT);

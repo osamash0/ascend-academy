@@ -314,7 +314,7 @@ export default function LectureEdit() {
             updateSlide(slideIndex, 'summary', data.summary);
             toast({ title: 'Summary generated!' });
         } catch {
-            toast({ title: 'AI Error', description: 'Is Ollama running?', variant: 'destructive' });
+            toast({ title: 'AI Error', description: 'AI generation failed. Please try a different model or check your internet connection.', variant: 'destructive' });
         } finally {
             setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: false }));
         }
@@ -341,7 +341,7 @@ export default function LectureEdit() {
             setSlides(newSlides);
             toast({ title: 'Quiz generated!' });
         } catch {
-            toast({ title: 'AI Error', description: 'Is Ollama running?', variant: 'destructive' });
+            toast({ title: 'AI Error', description: 'AI generation failed. Please try a different model or check your internet connection.', variant: 'destructive' });
         } finally {
             setAiQuizLoading(prev => ({ ...prev, [slideIndex]: false }));
         }

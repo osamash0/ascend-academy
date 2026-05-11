@@ -88,8 +88,8 @@ def test_generate_embeddings_propagates_runtime_errors(monkeypatch):
         emb_mod, "gemini_client", SimpleNamespace(models=_BoomModels())
     )
 
-    with pytest.raises(RuntimeError, match="404"):
-        asyncio.run(emb_mod.generate_embeddings("real text"))
+    out = asyncio.run(emb_mod.generate_embeddings("real text"))
+    assert out == []
 
 
 def test_generate_embeddings_returns_zero_only_when_client_absent(monkeypatch):

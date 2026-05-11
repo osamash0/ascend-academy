@@ -64,7 +64,6 @@ GROQ_FAST_MODEL   = "llama-3.1-8b-instant"
 # meta-llama/llama-4-scout-17b-16e-instruct is the current free-tier vision
 # model on Groq with the same OpenAI-compatible chat-completions schema.
 GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
-CEREBRAS_MODEL    = "qwen-3-235b-a22b-instruct-2507"
 
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
 
@@ -151,14 +150,11 @@ class ProviderConfig:
 PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
     p.id: p for p in [
         ProviderConfig(
-            # Cerebras free-tier model — 235B-param Qwen-3-instruct on the
-            # ultra-fast Cerebras inference fabric. Highest-quality model
-            # with the highest free daily quota of any provider here.
-            id="cerebras",
-            model="qwen-3-235b-a22b-instruct-2507",
-            daily_limit=14_400, rpm=30, tpm=60_000,
-            env_var="CEREBRAS_API_KEY",
-            base_url="https://api.cerebras.ai/v1",
+            id="llama3",
+            model="llama3",
+            daily_limit=0, rpm=0, tpm=0,
+            env_var="",
+            base_url=None,
         ),
         ProviderConfig(
             id="groq_fast",
@@ -166,38 +162,6 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             daily_limit=14_400, rpm=30, tpm=6_000,
             env_var="GROQ_API_KEY",
             base_url="https://api.groq.com/openai/v1",
-        ),
-        ProviderConfig(
-            id="gemma",
-            model="gemini-2.0-flash-lite",
-            daily_limit=14_400, rpm=30, tpm=15_000,
-            env_var="GEMINI_API_KEY",
-            base_url=None,
-            uses_google_sdk=True,
-        ),
-        ProviderConfig(
-            id="mistral",
-            model="mistral-small-latest",
-            daily_limit=0, rpm=60, tpm=500_000,
-            env_var="MISTRAL_API_KEY",
-            base_url="https://api.mistral.ai/v1",
-        ),
-        ProviderConfig(
-            id="openrouter",
-            model="meta-llama/llama-3.3-70b-instruct:free",
-            daily_limit=50, rpm=20, tpm=0,
-            env_var="OPENROUTER_API_KEY",
-            base_url="https://openrouter.ai/api/v1",
-        ),
-        ProviderConfig(
-            # Cloudflare Workers AI is OpenAI-compatible at
-            # /accounts/{account_id}/ai/v1. The account ID is appended to
-            # the base URL at client-init time (see _make_cloudflare_client).
-            id="cloudflare",
-            model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-            daily_limit=10_000, rpm=300, tpm=0,
-            env_var="CLOUDFLARE_API_TOKEN",
-            base_url="https://api.cloudflare.com/client/v4/accounts",
         ),
         ProviderConfig(
             id="gemini",
@@ -222,31 +186,23 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
 # ---------------------------------------------------------------------------
 
 # Bulk slide processing: highest daily capacity first; Groq 70B last (conserve quota)
-BULK_CHAIN:    List[str] = ["cerebras", "groq_fast", "cloudflare", "gemma", "mistral", "openrouter", "gemini", "groq"]
+BULK_CHAIN:    List[str] = ["groq_fast", "groq", "gemini", "llama3", "gemini"]
 
-# Blueprint / planning / deck summaries: Cerebras (gpt-oss-120b) is now the
-# primary — it is both fast and high quality, and has the highest free-tier
-# daily quota of any provider in the registry. Groq 70B is held back as a
-# quality fallback after Cerebras and the deep-resilience providers.
-QUALITY_CHAIN: List[str] = ["cerebras", "groq", "openrouter", "cloudflare", "gemini", "mistral", "groq_fast", "gemma"]
+# Blueprint / planning / deck summaries:
+QUALITY_CHAIN: List[str] = ["groq", "gemini", "groq_fast", "llama3", "gemini"]
 
 # Maps the user-facing ai_model string (sent from the frontend) to the
 # orchestrator's internal provider id. Values that don't map fall back to
 # the chain's natural head.
 _USER_MODEL_TO_PROVIDER: Dict[str, str] = {
-    "cerebras":          "cerebras",
+    "llama3":            "llama3",
+    "ollama":            "llama3",
     "groq":              "groq",
     "groq_fast":         "groq_fast",
-    "openrouter":        "openrouter",
-    "cloudflare":        "cloudflare",
     "gemini":            "gemini",
     "gemini-2.0-flash":  "gemini",
     "gemini-1.5-flash":  "gemini",
-    "gemini-1.5-flash":  "gemini",
-    "gemma":             "gemma",
-    "mistral":           "mistral",
 }
-
 
 def _resolve_preferred(ai_model: Optional[str]) -> Optional[str]:
     """Map a user-facing model selection to a provider id, or None."""
@@ -346,8 +302,6 @@ try:
 except Exception:
     groq_client = None
 
-cerebras_client   = _clients.get("cerebras")
-openrouter_client = _clients.get("openrouter")
 cloudflare_client = _clients.get("cloudflare")
 gemini_client     = _google_client
 ollama            = _ollama_lib
@@ -413,7 +367,7 @@ class ProviderRotator:
                 if cfg is None:
                     skipped.append(f"{pid}=unknown")
                     continue
-                if _clients.get(pid) is None and not (pid == "groq" and groq_client):
+                if _clients.get(pid) is None and not (pid == "groq" and groq_client) and not (pid == "llama3" and _ollama_lib):
                     skipped.append(f"{pid}=no_client")
                     continue
                 limit = cfg.daily_limit
@@ -426,12 +380,12 @@ class ProviderRotator:
                     skipped.append(f"{pid}=backoff({remaining:.0f}s)")
                     continue
                 ok.append(pid)
-        if skipped:
-            logger.info(
-                "Provider availability: ok=%s skipped=[%s]",
-                ok or "(none)", ", ".join(skipped),
-            )
-        return ok or chain   # if everything exhausted, try anyway (may still work)
+        if not ok:
+            # If everything is exhausted/backoff, fall back to anything that AT LEAST HAS A CLIENT
+            # so we don't try to call e.g. uninstalled Ollama.
+            return [p for p in chain if _clients.get(p) is not None or (p == "groq" and groq_client) or (p == "llama3" and _ollama_lib)]
+            
+        return ok
 
     def remaining_headroom(self, chain: List[str]) -> int:
         """Sum of remaining daily quota across configured providers in `chain`.
@@ -448,7 +402,7 @@ class ProviderRotator:
                 cfg = PROVIDER_REGISTRY.get(pid)
                 if cfg is None:
                     continue
-                if _clients.get(pid) is None and not (pid == "groq" and groq_client):
+                if _clients.get(pid) is None and not (pid == "groq" and groq_client) and not (pid == "llama3" and _ollama_lib):
                     continue
                 if cfg.daily_limit <= 0:
                     total += 100_000
@@ -547,21 +501,31 @@ def _generate_with_rotation(
 
     for pid in available:
         try:
+            # Note: LLM calls are blocking I/O. This function is typically 
+            # wrapped in ``call_llm()`` which dispatches it to a thread 
+            # executor to avoid blocking the FastAPI event loop.
             result = _call_provider(pid, prompt)
             _rotator.record_success(pid)
             logger.debug("✅ Provider '%s' served request", pid)
             return result
         except Exception as exc:
             msg = str(exc).lower()
+            # Catch connection errors (common when Ollama is configured but service not running)
+            is_connection_error = any(k in msg for k in ("connection", "connect", "refused", "reachable"))
             is_rate_limit = any(k in msg for k in ("429", "rate limit", "quota", "too many requests", "rate_limit"))
+            
             if is_rate_limit:
                 _rotator.record_rate_limit(pid)
                 last_exc = exc
                 logger.warning("⚠️  Provider '%s' rate-limited, trying next", pid)
+            elif is_connection_error:
+                logger.warning("⚠️  Provider '%s' unreachable (connection failed), trying next", pid)
+                last_exc = exc
+                continue
             else:
                 logger.warning("Provider '%s' error (non-rate-limit): %s", pid, exc)
                 last_exc = exc
-                # Still try next provider for non-fatal errors (network glitches, etc.)
+                # Still try next provider for non-fatal errors
                 continue
 
     raise last_exc or RuntimeError(f"All providers in chain {chain} failed")
@@ -706,7 +670,7 @@ except ImportError:
 # Public generation API
 # ---------------------------------------------------------------------------
 
-def _llm_generate_text_sync(prompt: str, ai_model: str = "cerebras") -> str:
+def _llm_generate_text_sync(prompt: str, ai_model: str = "llama3") -> str:
     """
     Backward-compat sync entry point.
     Routes to the appropriate chain based on ai_model hint.
@@ -716,7 +680,7 @@ def _llm_generate_text_sync(prompt: str, ai_model: str = "cerebras") -> str:
     return _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=_resolve_preferred(ai_model))
 
 
-async def generate_text(prompt: str, ai_model: str = "cerebras") -> str:
+async def generate_text(prompt: str, ai_model: str = "llama3") -> str:
     """
     Quality chain: Cerebras → Groq 70B → OpenRouter → Cloudflare → Gemini → …
     Use for blueprints, planning, deck summaries.
@@ -728,7 +692,7 @@ async def generate_text(prompt: str, ai_model: str = "cerebras") -> str:
     return await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=preferred))
 
 
-async def generate_text_bulk(prompt: str, ai_model: str = "cerebras") -> str:
+async def generate_text_bulk(prompt: str, ai_model: str = "llama3") -> str:
     """
     Bulk chain: Cerebras → Groq 8B → Cloudflare → Gemma → Mistral → OpenRouter → …
     Use for slide-by-slide processing to preserve the scarce Groq 70B quota.
@@ -739,7 +703,7 @@ async def generate_text_bulk(prompt: str, ai_model: str = "cerebras") -> str:
     return await call_llm(lambda: _generate_with_rotation(prompt, BULK_CHAIN, preferred=preferred))
 
 
-def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
+def process_slide_batch(text: str, ai_model: str = "llama3") -> Dict[str, Any]:
     """Synchronous single-slide processing (legacy/internal)."""
     prompt = (
         "Analyze this lecture slide and return JSON with "
@@ -749,13 +713,13 @@ def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]
     return parse_json_response(raw)
 
 
-async def enhance_slide_content(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
+async def enhance_slide_content(text: str, ai_model: str = "llama3") -> Dict[str, Any]:
     from backend.services.ai.prompts import ENHANCE_PROMPT
     raw = await generate_text(ENHANCE_PROMPT.format(text=text), ai_model=ai_model)
     return parse_json_response(raw)
 
 
-async def generate_deck_summary(content: str, ai_model: str = "cerebras") -> str:
+async def generate_deck_summary(content: str, ai_model: str = "llama3") -> str:
     return await generate_text(
         f"Summarize this lecture content into a cohesive narrative:\n\n{content}",
         ai_model=ai_model,
@@ -844,7 +808,7 @@ def _has_cross_slide_signal(blueprint: Optional[Dict[str, Any]]) -> bool:
 
 async def generate_deck_quiz(
     summary: str,
-    ai_model: str = "cerebras",
+    ai_model: str = "groq",
     blueprint: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Generate a 5-question deck quiz.
@@ -986,8 +950,57 @@ async def generate_deck_quiz(
                     )
                     continue
             validated["linked_slides"] = cleaned
+        
+        # Normalize answer for QuizResponse compatibility
+        from backend.services.ai.quiz_validator import _normalize_answer_index
+        idx = _normalize_answer_index(validated)
+        if idx is not None:
+            validated["correctAnswer"] = idx
+            
         out.append(validated)
     return out
+
+
+async def generate_slide_quiz(
+    slide_text: str,
+    ai_model: str = "groq",
+) -> Dict[str, Any]:
+    """Generate exactly one MCQ for a single slide.
+    
+    Used by the on-demand per-slide quiz button.
+    """
+    from backend.services.ai.prompts import PEDAGOGICAL_SLIDE_PROMPT
+    prompt = PEDAGOGICAL_SLIDE_PROMPT.replace("{context}", "Single slide on-demand generation.").replace("{text}", slide_text)
+    
+    preferred = _resolve_preferred(ai_model)
+    raw = await generate_text(prompt, ai_model=ai_model)
+    parsed = parse_json_response(raw)
+    
+    if not isinstance(parsed, dict):
+        return {}
+        
+    # Extract question from array if present (PEDAGOGICAL_SLIDE_PROMPT returns questions=[...])
+    questions = parsed.get("questions") or []
+    if not questions and "question" in parsed:
+        q_obj = parsed
+    elif isinstance(questions, list) and questions:
+        q_obj = questions[0]
+    else:
+        return {}
+
+    # Map field names for QuizResponse compatibility
+    # Our prompts use "answer": "A" but frontend expects correctAnswer: 0
+    from backend.services.ai.quiz_validator import _normalize_answer_index
+    idx = _normalize_answer_index(q_obj)
+    
+    return {
+        "question": q_obj.get("question", ""),
+        "options": q_obj.get("options", []),
+        "correctAnswer": idx if idx is not None else 0,
+        "explanation": q_obj.get("explanation", ""),
+        "concept": q_obj.get("concept", ""),
+        "cognitive_level": q_obj.get("cognitive_level", "apply")
+    }
 
 
 async def batch_analyze_text_slides(
@@ -1146,13 +1159,29 @@ async def batch_analyze_text_slides(
         for item in parsed:
             if not isinstance(item, dict):
                 continue
-            idx = page_to_idx.get(item.get("page_number"))
+            pn = item.get("page_number")
+            if isinstance(pn, str) and pn.isdigit():
+                pn = int(pn)
+            idx = page_to_idx.get(pn)
             if idx is not None:
                 item["index"] = idx
                 results.append(item)
         # Drop any LLM-emitted entries for context-only slides (the prompt
         # forbids them, but defensively filter in case the model misbehaves).
         results = [r for r in results if r["index"] not in context_only_indices]
+
+        # Normalize quiz output: LLMs often return "answer": "A" instead of
+        # "correctAnswer": 0. We fix it in-place so the frontend doesn't have
+        # to guess, and so the quiz_validator sees a clean schema.
+        from backend.services.ai.quiz_validator import _normalize_answer_index
+        for r in results:
+            qs = r.get("questions")
+            if isinstance(qs, list):
+                for q in qs:
+                    if isinstance(q, dict):
+                        idx = _normalize_answer_index(q)
+                        if idx is not None:
+                            q["correctAnswer"] = idx
 
         # If we couldn't extract anything usable for the active slides,
         # raise so the outer per-slide retry path takes over instead of
@@ -1216,7 +1245,7 @@ async def _regenerate_failing_slide_quizzes(
     failing: List[Tuple[int, Dict[str, Any]]],
     slides: List[Dict[str, Any]],
     idx_to_plan: Dict[int, Dict],
-    ai_model: str = "cerebras",
+    ai_model: str = "groq",
 ) -> None:
     """One batched LLM retry for per-slide quizzes that failed validation.
 
@@ -1330,5 +1359,5 @@ async def _regenerate_failing_slide_quizzes(
 # ---------------------------------------------------------------------------
 _llm_generate_text = _llm_generate_text_sync
 generate_summary   = generate_deck_summary
-generate_quiz      = generate_deck_quiz
+generate_quiz      = generate_slide_quiz
 generate_slide_title = lambda t: process_slide_batch(t).get("title", "Untitled")
