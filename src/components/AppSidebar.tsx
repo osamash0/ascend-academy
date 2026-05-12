@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { LanguageToggle } from '@/components/LanguageToggle';
 import {
   Sidebar,
   SidebarContent,
@@ -208,11 +207,6 @@ export function AppSidebar() {
                 </div>
               </div>
             </motion.div>
-          )}
-          {!isCollapsed && (
-            <div className="flex justify-center">
-              <LanguageToggle variant="icon-dark" />
-            </div>
           )}
           <Button
             variant="ghost"

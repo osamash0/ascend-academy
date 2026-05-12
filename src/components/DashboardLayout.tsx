@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationBell } from '@/components/NotificationBell';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
+import { LanguageToggle } from '@/components/LanguageToggle';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -35,6 +36,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               />
             </div>
             <div className="flex items-center gap-3">
+              <LanguageToggle variant="icon-light" />
               {/* Theme toggle button */}
               <motion.button
                 onClick={toggleTheme}
