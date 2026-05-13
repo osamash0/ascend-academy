@@ -30,6 +30,7 @@ import { RelatedAcrossCoursesPanel } from '@/components/RelatedAcrossCoursesPane
 import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
+import { PomodoroTimer } from '@/components/PomodoroTimer';
 
 import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
 
@@ -803,7 +804,7 @@ export default function LectureView() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
         {/* Header */}
-        <header className="glass-panel border-b-0 px-6 py-4 flex items-center justify-between">
+        <header className="glass-panel border-b-0 px-6 py-4 flex items-center justify-between relative z-50">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -829,6 +830,7 @@ export default function LectureView() {
           </div>
 
           <div className="flex items-center gap-3">
+            <PomodoroTimer />
             <div className="hidden sm:flex items-center gap-2 mr-4">
               <div className="flex items-center gap-2 px-3 py-1.5 glass-panel border-white/5 rounded-xl">
                 <Zap className="w-3.5 h-3.5 text-xp fill-xp" />
