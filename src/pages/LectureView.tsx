@@ -56,10 +56,12 @@ export default function LectureView() {
   const [showBadge, setShowBadge] = useState(false);
   const [badgeInfo, setBadgeInfo] = useState({ name: '', description: '', icon: '' });
   const [slideStartTime, setSlideStartTime] = useState<number>(Date.now());
+  const [completedSlideNumbers, setCompletedSlideNumbers] = useState<number[]>([]);
   const sessionStartRef = useRef<number>(Date.now());
   const slideStartRef = useRef<number>(Date.now());
   const quizRef = useRef<HTMLDivElement>(null);
   const answeredQuestionsRef = useRef<Set<string>>(new Set());
+  const completedSlidesRef = useRef<Set<number>>(new Set());
   // Authoritative post-answer counters. handleQuizAnswer writes the freshly
   // computed values here so handleQuizContinue can read them synchronously
   // without depending on possibly-stale React state.
@@ -112,6 +114,13 @@ export default function LectureView() {
 
 
 
+  const markSlideCompleted = useCallback((slideNum: number) => {
+    if (!completedSlidesRef.current.has(slideNum)) {
+      completedSlidesRef.current.add(slideNum);
+      setCompletedSlideNumbers(Array.from(completedSlidesRef.current));
+    }
+  }, []);
+
   // Analytics: Track slide view duration
   useEffect(() => {
     if (!slides.length || !user) return;
@@ -119,6 +128,11 @@ export default function LectureView() {
     const currentSlideId = slides[currentSlideIndex]?.id;
     const currentSlideTitle = slides[currentSlideIndex]?.title || '';
     const now = Date.now();
+
+    const slideNum = slides[currentSlideIndex]?.slide_number;
+    if (slideNum) {
+      markSlideCompleted(slideNum);
+    }
 
     const logSlideView = (slideId: string, title: string, durationSeconds: number) => {
       if (durationSeconds < 1) return;
@@ -153,6 +167,8 @@ export default function LectureView() {
     setQuizAnswers({});
     setXpEarned(0);
     setCorrectAnswers(0);
+    completedSlidesRef.current.clear();
+    setCompletedSlideNumbers([]);
 
     // Reset replay/review session state so a previously-loaded lecture
     // doesn't leak its missed-question queue or review progress into the
@@ -282,6 +298,11 @@ export default function LectureView() {
 
         // Restore locked state for previously answered questions
         if (progressData.completed_slides && Array.isArray(progressData.completed_slides)) {
+          progressData.completed_slides.forEach((slideNum: number) => {
+            completedSlidesRef.current.add(slideNum);
+          });
+          setCompletedSlideNumbers(Array.from(completedSlidesRef.current));
+
           const restoredAnswers: Record<number, number> = {};
           progressData.completed_slides.forEach((slideNum: number) => {
             const slideIndex = slideNum - 1;
@@ -351,11 +372,17 @@ export default function LectureView() {
     const totalQuestions = questions.length || slides.length;
     const cappedCorrect = Math.min(newCorrectAnswers, totalQuestions);
 
+    const targetSlideNum = slides[newSlideIndex]?.slide_number;
+    if (targetSlideNum) {
+      completedSlidesRef.current.add(targetSlideNum);
+      setCompletedSlideNumbers(Array.from(completedSlidesRef.current));
+    }
+
     await upsertLectureProgress(user.id, lecture.id, {
       last_slide_viewed: newSlideIndex,
       xp_earned: Math.min(newXp, totalQuestions * 10),
       correct_answers: cappedCorrect,
-      completed_slides: slides.slice(0, Math.max(0, newSlideIndex + 1)).map(s => s.slide_number),
+      completed_slides: Array.from(completedSlidesRef.current),
     });
   };
 
@@ -761,10 +788,13 @@ export default function LectureView() {
       <LectureSidebar
         slides={slides}
         currentSlideIndex={currentSlideIndex}
-        completedSlides={slides.slice(0, currentSlideIndex).map(s => s.slide_number)}
+        completedSlides={completedSlideNumbers}
         onSelectSlide={(index) => {
           setCurrentSlideIndex(index);
           setShowQuiz(false);
+          const xp = committedXpRef.current || xpEarned;
+          const correct = committedCorrectRef.current || correctAnswers;
+          saveProgress(index, xp, correct);
         }}
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}

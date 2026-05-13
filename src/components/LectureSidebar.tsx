@@ -172,7 +172,7 @@ export function LectureSidebar({
                                 slide={slide}
                                 index={index}
                                 isActive={index === currentSlideIndex}
-                                isDone={completedSlides.includes(slide.slide_number) || index < currentSlideIndex}
+                                isDone={completedSlides.includes(slide.slide_number)}
                                 onSelect={onSelectSlide}
                             />
                         ))}
