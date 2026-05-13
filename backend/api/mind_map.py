@@ -46,7 +46,7 @@ async def get_mind_map(
             .maybe_single() \
             .execute()
 
-        if res.data:
+        if res and res.data:
             return {"success": True, "data": res.data["tree_data"], "generated_at": res.data["generated_at"]}
         return {"success": True, "data": None}
     except HTTPException:
@@ -77,7 +77,7 @@ async def generate_lecture_mind_map(
             .maybe_single() \
             .execute()
 
-        if not ownership_res.data:
+        if not ownership_res or not ownership_res.data:
             raise HTTPException(status_code=404, detail="Lecture not found.")
 
         if ownership_res.data.get("professor_id") != user_id:
