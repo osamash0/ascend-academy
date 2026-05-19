@@ -214,6 +214,13 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             env_var="GROQ_API_KEY",
             base_url="https://api.groq.com/openai/v1",
         ),
+        ProviderConfig(
+            id="openai",
+            model="gpt-4o-mini",
+            daily_limit=0, rpm=60, tpm=100000,
+            env_var="OPENAI_API_KEY",
+            base_url="https://api.openai.com/v1",
+        ),
     ]
 }
 
@@ -242,9 +249,11 @@ _USER_MODEL_TO_PROVIDER: Dict[str, str] = {
     "gemini":            "gemini",
     "gemini-2.0-flash":  "gemini",
     "gemini-1.5-flash":  "gemini",
-    "gemini-1.5-flash":  "gemini",
+    "gemini-2.5-flash":  "gemini",
     "gemma":             "gemma",
     "mistral":           "mistral",
+    "openai":            "openai",
+    "gpt-4o-mini":       "openai",
 }
 
 
@@ -549,7 +558,7 @@ def _generate_with_rotation(
         try:
             result = _call_provider(pid, prompt)
             _rotator.record_success(pid)
-            logger.debug("✅ Provider '%s' served request", pid)
+            logger.info("✅ Provider '%s' served request", pid)
             return result
         except Exception as exc:
             msg = str(exc).lower()
@@ -724,6 +733,8 @@ async def generate_text(prompt: str, ai_model: str = "cerebras") -> str:
     it maps to a known provider (cerebras, groq, openrouter, cloudflare, gemini, ...).
     """
     from backend.services.llm_client import call_llm
+    if ai_model == "llama3":
+        return await call_llm(lambda: _call_provider("llama3", prompt))
     preferred = _resolve_preferred(ai_model)
     return await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=preferred))
 

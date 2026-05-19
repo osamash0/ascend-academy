@@ -94,7 +94,7 @@ export default function LectureView() {
 
   // UI state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(true);
   const { role } = useAuth();
 
   // Mind map
@@ -834,7 +834,8 @@ export default function LectureView() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+        <div className="flex-1 flex flex-row overflow-hidden">
+          <div className="flex-1 overflow-y-auto custom-scrollbar relative">
           <div className="max-w-6xl mx-auto px-6 py-8">
             <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
               {/* Main content - Slide viewer */}
@@ -1050,20 +1051,46 @@ export default function LectureView() {
             badgeIcon={badgeInfo.icon}
           />
 
-          <LectureChat
-            isOpen={isChatOpen}
-            onClose={() => setIsChatOpen(false)}
-            slideText={currentSlide?.content_text || ''}
-            slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
-            lectureId={lectureId}
-            currentSlideIndex={currentSlideIndex}
-            onSlideJump={(idx) => {
-              if (idx >= 0 && idx < slides.length) {
-                setCurrentSlideIndex(idx);
-              }
-            }}
-          />
-        </div>
+          </div> {/* End of scrollable center column */}
+
+          {/* Right Column - Chatbot */}
+          {isChatOpen && (
+            <div className="hidden md:block w-80 border-l border-white/5 bg-surface-1/30">
+              <LectureChat
+                isOpen={isChatOpen}
+                onClose={() => setIsChatOpen(false)}
+                slideText={currentSlide?.content_text || ''}
+                slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
+                lectureId={lectureId}
+                currentSlideIndex={currentSlideIndex}
+                onSlideJump={(idx) => {
+                  if (idx >= 0 && idx < slides.length) {
+                    setCurrentSlideIndex(idx);
+                  }
+                }}
+                isInline={true}
+              />
+            </div>
+          )}
+          
+          {/* Mobile Chat Drawer (Fallback) */}
+          <div className="md:hidden">
+            <LectureChat
+              isOpen={isChatOpen}
+              onClose={() => setIsChatOpen(false)}
+              slideText={currentSlide?.content_text || ''}
+              slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
+              lectureId={lectureId}
+              currentSlideIndex={currentSlideIndex}
+              onSlideJump={(idx) => {
+                if (idx >= 0 && idx < slides.length) {
+                  setCurrentSlideIndex(idx);
+                }
+              }}
+              isInline={false}
+            />
+          </div>
+        </div> {/* End of flex-row container */}
       </div>
     </div>
   );

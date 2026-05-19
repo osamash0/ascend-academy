@@ -2,6 +2,8 @@ import logging
 import json
 import asyncio
 from typing import Any, List, Dict, Optional
+from uuid import UUID
+
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -15,7 +17,7 @@ from backend.services.slide_synth_service import (
     PIPELINE_VERSION as LAZY_PIPELINE_VERSION,
     synthesize_slide,
 )
-from backend.core.database import supabase_admin
+from backend.core.database import supabase_admin, get_client
 from backend.services.cache import (
     attach_lecture_id_to_embeddings,
     compute_pdf_hash,
@@ -30,6 +32,92 @@ from backend.services.diagnostics import flag_suspicious
 from backend.core.auth_middleware import verify_token, require_professor
 from backend.core.rate_limit import limiter
 from backend.repositories.lecture_repo import list_lectures_by_pdf_hash
+
+# ── v3 pipeline ───────────────────────────────────────────────────────────────
+_arq_pool = None
+
+
+async def _get_arq_pool():
+    global _arq_pool
+    if _arq_pool is None:
+        from arq.connections import create_pool, RedisSettings
+        from backend.core.config import settings
+        _arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    return _arq_pool
+
+
+async def _upload_pdf_to_storage(pdf_hash: str, content: bytes) -> None:
+    """Upload PDF bytes to Supabase Storage keyed by sha256 (idempotent)."""
+    path = f"{pdf_hash}.pdf"
+    try:
+        sb = get_client(use_admin=True)
+        sb.storage.from_("pdf-uploads").upload(
+            path,
+            content,
+            file_options={"content-type": "application/pdf", "upsert": "true"},
+        )
+    except Exception as e:
+        if "Bucket not found" in str(e):
+            try:
+                sb = get_client(use_admin=True)
+                sb.storage.create_bucket("pdf-uploads", options={"public": False})
+                sb.storage.from_("pdf-uploads").upload(
+                    path,
+                    content,
+                    file_options={"content-type": "application/pdf", "upsert": "true"},
+                )
+                return
+            except Exception as create_e:
+                logger.warning("Failed to create pdf-uploads bucket: %s", create_e)
+        logger.warning("PDF storage upload failed for %s: %s — worker will retry", pdf_hash, e)
+
+
+async def _v3_sse_stream(pdf_hash: str, run_id: str):
+    """Async generator that subscribes to Redis pub/sub and forwards SSE events.
+
+    Replays already-completed slides first (handles client reconnect), then
+    listens for new events until the pipeline completes or errors.
+    """
+    import redis.asyncio as aioredis
+    from backend.core.config import settings
+    from backend.services.parser import repos
+    from backend.domain.parse_models import RunStatus, PIPELINE_VERSION
+
+    redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    channel = f"parse:{pdf_hash}"
+
+    try:
+        async with redis_client.pubsub() as pubsub:
+            await pubsub.subscribe(channel)
+
+            # Replay already-analyzed slides before listening for new ones
+            try:
+                from uuid import UUID
+                run = await repos.get_run_by_id(UUID(run_id))
+                if run:
+                    completed = await repos.get_completed_pages(run.run_id)
+                    for slide in completed:
+                        yield f"data: {json.dumps({'type': 'slide_ready', 'data': slide.model_dump()})}\n\n"
+                    if run.status == RunStatus.COMPLETED:
+                        yield f"data: {json.dumps({'type': 'complete', 'data': {'run_id': run_id}})}\n\n"
+                        return
+            except Exception as e:
+                logger.warning("v3 SSE replay failed: %s", e)
+
+            # Listen for new events from the worker
+            async for message in pubsub.listen():
+                if message.get("type") != "message":
+                    continue
+                try:
+                    event = json.loads(message["data"])
+                    yield f"data: {json.dumps(event)}\n\n"
+                    if event.get("type") in ("complete", "error", "deck_complete"):
+                        if event.get("type") in ("complete", "error"):
+                            break
+                except Exception:
+                    continue
+    finally:
+        await redis_client.aclose()
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +194,7 @@ async def parse_pdf_stream_endpoint(
     use_blueprint: bool = Form(True),
     force_reparse: bool = Form(False),
     parser: str = Form("auto"),
+    lecture_id: Optional[str] = Form(None),
     user: Any = Depends(require_professor),
 ):
     """
@@ -187,6 +276,77 @@ async def parse_pdf_stream_endpoint(
     odl_pages = None
     odl_succeeded = False
     parser_used = "pymupdf"
+
+    # ── v4 pipeline branch ────────────────────────────────────────────────────
+    from backend.core.config import settings as _cfg
+    if parser == "v4" or (parser == "auto" and _cfg.parser_version == "4"):
+        import uuid
+        run_id = str(uuid.uuid4())
+        await _upload_pdf_to_storage(pdf_hash, content)
+        
+        lecture_uuid = UUID(lecture_id) if lecture_id else None
+
+        pool = await _get_arq_pool()
+        await pool.enqueue_job(
+            "parse_pdf_v4",
+            pdf_hash=pdf_hash,
+            lecture_id=str(lecture_uuid) if lecture_uuid else "",
+            run_id=run_id,
+            ai_model=ai_model,
+        )
+
+        async def _v4_sse_stream():
+            import redis.asyncio as aioredis
+            redis_client = aioredis.from_url(_cfg.redis_url, decode_responses=True)
+            channel = f"parse:{pdf_hash}"
+            try:
+                async with redis_client.pubsub() as pubsub:
+                    await pubsub.subscribe(channel)
+                    async for message in pubsub.listen():
+                        if message.get("type") != "message":
+                            continue
+                        try:
+                            event = json.loads(message["data"])
+                            yield f"data: {json.dumps(event)}\n\n"
+                            if event.get("type") in ("complete", "error"):
+                                break
+                        except Exception:
+                            continue
+            finally:
+                await redis_client.aclose()
+
+        return StreamingResponse(
+            _v4_sse_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+    # ─────────────────────────────────────────────────────────────────────────
+
+    # ── v3 pipeline branch ────────────────────────────────────────────────────
+    if parser == "v3" or (parser == "auto" and _cfg.parser_version == "3"):
+        # Upload PDF to storage (idempotent by sha256)
+        await _upload_pdf_to_storage(pdf_hash, content)
+
+        # Create/get parse run and enqueue Arq job
+        from backend.services.parser import repos as _repos
+        from backend.domain.parse_models import PIPELINE_VERSION as _PV
+        lecture_uuid = UUID(lecture_id) if lecture_id else None
+        run = await _repos.get_or_create_run(pdf_hash, lecture_uuid, _PV)
+
+        pool = await _get_arq_pool()
+        await pool.enqueue_job(
+            "parse_pdf",
+            pdf_hash=pdf_hash,
+            lecture_id=str(lecture_uuid) if lecture_uuid else "",
+            run_id=str(run.run_id),
+        )
+
+        return StreamingResponse(
+            _v3_sse_stream(pdf_hash, str(run.run_id)),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+    # ─────────────────────────────────────────────────────────────────────────
 
     if parser == "pymupdf":
         pass  # PyMuPDF is the downstream default — skip alternatives

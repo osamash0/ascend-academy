@@ -253,7 +253,6 @@ function Navigation() {
     { label: t('landing:nav.features'), href: '#features' },
     { label: t('landing:nav.howItWorks'), href: '#how-it-works' },
     { label: t('landing:nav.forProfessors'), href: '#professors' },
-    { label: t('landing:nav.pricing'), href: '#pricing' },
   ];
 
   useEffect(() => {
@@ -1021,7 +1020,7 @@ function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4">{t('landing:footer.platform')}</h4>
             <ul className="space-y-3">
-              {(['features', 'pricing', 'security', 'enterprise'] as const).map((key) => (
+              {(['features', 'security', 'enterprise'] as const).map((key) => (
                 <li key={key}>
                   <a href="#" className="text-sm text-slate-500 hover:text-cyan-400 transition-colors">{t(`landing:footer.links.${key}`)}</a>
                 </li>

@@ -30,9 +30,7 @@ type AiModelOption =
     | 'cerebras'
     | 'groq'
     | 'openrouter'
-    | 'cloudflare'
-    | 'gemini-2.5-flash'
-    | 'llama3';
+    | 'cloudflare';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -50,8 +48,6 @@ const AI_MODEL_IDS: AiModelOption[] = [
     'groq',
     'openrouter',
     'cloudflare',
-    'gemini-2.5-flash',
-    'llama3',
 ];
 
 // ─── Custom Hook: Safe Async State ───────────────────────────────────────────

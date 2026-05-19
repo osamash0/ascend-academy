@@ -84,6 +84,65 @@ For more detailed information, check the `project_docs/` folder:
 - [Architecture Overview](project_docs/architecture_overview.md)
 - [Reconstructed History](project_docs/reconstructed_history.md)
 
+## 🐳 Running with Docker
+
+The full stack (frontend, backend API, Redis, LiteLLM gateway, and background worker) can be started with a single command.
+
+### 1. Create your `.env` file
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in the required values (see the table below).
+
+### 2. Start everything
+
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend (nginx) | http://localhost:3000 |
+| Backend API | http://localhost:8000 |
+| LiteLLM gateway | http://localhost:4000 |
+| Redis | localhost:6379 |
+
+The frontend proxies all `/api/*` requests to the backend, so the React app communicates with FastAPI transparently through nginx.
+
+### Required env vars before first run
+
+| Variable | Where to get it |
+|---|---|
+| `VITE_SUPABASE_URL` | Supabase dashboard → Project Settings → API |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase dashboard → anon/public key |
+| `SUPABASE_URL` | Same as above |
+| `SUPABASE_KEY` | Same anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard → service_role key |
+| `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) |
+| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com) (used by LiteLLM) |
+| `LLAMA_CLOUD_API_KEY` | [cloud.llamaindex.ai](https://cloud.llamaindex.ai) (parser v3/v4 only) |
+
+All other variables have sensible defaults and are optional for local development.
+
+### Useful commands
+
+```bash
+# Start only infrastructure (Redis + LiteLLM), run backend locally
+docker compose up redis litellm -d
+
+# Tail worker logs
+docker compose logs -f worker
+
+# Rebuild a single service after code changes
+docker compose up --build frontend
+
+# Stop everything and remove containers
+docker compose down
+```
+
 ## 🤝 Contribution
 
 Please read [Development Guidelines](project_docs/development_guidelines.md) before contributing.

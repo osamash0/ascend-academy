@@ -568,31 +568,6 @@ export default function LectureUpload() {
                 ))}
               </select>
             </div>
-            <div>
-              <Label htmlFor="parser" className="text-sm font-medium">PDF Parser</Label>
-              <select
-                id="parser"
-                value={parserChoice}
-                onChange={(e) => setParserChoice(e.target.value as ParserChoice)}
-                className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="auto">Auto (recommended)</option>
-                <option value="opendataloader">OpenDataLoader</option>
-                <option value="mineru">MinerU</option>
-                <option value="llamaparse">LlamaParse</option>
-                <option value="pymupdf">PyMuPDF (basic)</option>
-              </select>
-              {parserChoice === 'mineru' && (
-                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                  Requires the MinerU server to be running locally.
-                </p>
-              )}
-              {parserChoice === 'llamaparse' && (
-                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                  Requires LLAMA_CLOUD_API_KEY to be configured on the backend.
-                </p>
-              )}
-            </div>
           </motion.div>
         </div>
 
@@ -705,21 +680,6 @@ export default function LectureUpload() {
               className="text-xs font-medium"
             >
               {t('upload:header.exit')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={togglePipelineMode}
-              title={mode === 'lazy' ? 'Using lazy pipeline (on-demand synthesis)' : 'Using eager pipeline (all slides at once)'}
-              className={cn(
-                "gap-2 text-xs",
-                mode === 'lazy'
-                  ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                  : "border-amber-200 text-amber-700 hover:bg-amber-50"
-              )}
-            >
-              <Zap className="w-3.5 h-3.5" />
-              {mode === 'lazy' ? 'Lazy' : 'Eager'}
             </Button>
             <Button
               variant="outline"

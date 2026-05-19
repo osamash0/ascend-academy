@@ -56,6 +56,7 @@ const Achievements = lazy(() => import("./pages/Achievements"));
 const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
 const ProfessorAnalytics = lazy(() => import("./pages/ProfessorAnalytics"));
 const LectureUpload = lazy(() => import("./pages/LectureUpload"));
+const FastUpload = lazy(() => import("./pages/FastUpload"));
 const LectureEdit = lazy(() => import("./pages/LectureEdit"));
 const ProfessorCourses = lazy(() => import("./pages/ProfessorCourses"));
 const ProfessorCourseDetail = lazy(() => import("./pages/ProfessorCourseDetail"));
@@ -243,6 +244,16 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['professor']}>
               <DashboardLayout>
                 <LectureUpload />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/fast-upload"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <FastUpload />
               </DashboardLayout>
             </ProtectedRoute>
           }

@@ -20,6 +20,7 @@ from backend.api.courses import router as courses_router
 from backend.api.worksheets import router as worksheets_router
 from backend.api.nudges import router as nudges_router
 from backend.api.schedule import router as schedule_router
+from backend.api.fast_upload import router as fast_upload_router
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,7 @@ app.include_router(courses_router)
 app.include_router(worksheets_router)
 app.include_router(nudges_router)
 app.include_router(schedule_router)
+app.include_router(fast_upload_router)
 
 @app.on_event("startup")
 async def startup_event():
