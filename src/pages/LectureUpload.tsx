@@ -33,6 +33,14 @@ import {
 import { PDFUploadOverlay } from '@/components/PDFUploadOverlay';
 import { DuplicatePDFDialog, type DuplicateMatch } from '@/components/DuplicatePDFDialog';
 import { ParseCacheDialog } from '@/components/ParseCacheDialog';
+import { PDFPagePreview } from '@/components/PDFPagePreview';
+import { PDFLightbox } from '@/components/PDFLightbox';
+import { Document, pdfjs } from 'react-pdf';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -352,6 +360,7 @@ export default function LectureUpload() {
     hash: string;
     parsedAt: string | null;
   } | null>(null);
+  const [lightboxPage, setLightboxPage] = useState<number | null>(null);
 
   const onDuplicateDetected = useCallback(
     (file: File, matches: DuplicateMatch[], hash: string) => {
@@ -633,7 +642,7 @@ export default function LectureUpload() {
   }
 
   /* ── Render: Full Editor ───────────────────────────────────────────────── */
-  return (
+  const editorContent = (
     <div className="min-h-screen bg-background flex flex-col">
       {/* ═══════ TOP BAR ═══════ */}
       <div className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-30">
@@ -821,6 +830,11 @@ export default function LectureUpload() {
                             {percent}%
                           </span>
                         </div>
+                        {pdfFile && (
+                          <div className="mt-2" onClick={(e) => { e.stopPropagation(); setLightboxPage(index + 1); }}>
+                            <PDFPagePreview pageNumber={index + 1} width={220} />
+                          </div>
+                        )}
                       </div>
 
                       {/* Delete Button */}
@@ -879,6 +893,17 @@ export default function LectureUpload() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {pdfFile && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLightboxPage(activeSlideIndex + 1)}
+                        className="gap-1.5"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        {t('upload:chrome.viewOriginal', 'View Original')}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1107,9 +1132,13 @@ export default function LectureUpload() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 }}
-                      className="mt-6 flex-1 text-sm text-muted-foreground leading-relaxed overflow-y-auto pr-2 custom-scrollbar"
+                      className="mt-6 flex-1 text-sm text-muted-foreground leading-relaxed overflow-y-auto pr-2 custom-scrollbar flex flex-col"
                     >
-                      {activeSlide.content ? (
+                      {pdfFile ? (
+                        <div className="flex-1 overflow-auto rounded-lg border border-border shadow-inner" onClick={() => setLightboxPage(activeSlideIndex + 1)}>
+                          <PDFPagePreview pageNumber={activeSlideIndex + 1} width={380} />
+                        </div>
+                      ) : activeSlide.content ? (
                         <div className="prose prose-sm dark:prose-invert">
                           {activeSlide.content.split('\n').map((line, i) => (
                             <p key={i}>{line}</p>
@@ -1328,5 +1357,30 @@ export default function LectureUpload() {
         onClose={closeUploadOverlay}
       />
     </div>
+  );
+
+  return (
+    <>
+      {pdfFile ? (
+        <Document file={pdfFile}>
+          {editorContent}
+        </Document>
+      ) : (
+        editorContent
+      )}
+
+      {pdfFile && lightboxPage && (
+        <Document file={pdfFile}>
+          <PDFLightbox
+            isOpen={true}
+            pageNumber={lightboxPage}
+            totalPages={slides.length}
+            onClose={() => setLightboxPage(null)}
+            onPrev={() => setLightboxPage(p => Math.max(1, (p || 1) - 1))}
+            onNext={() => setLightboxPage(p => Math.min(slides.length, (p || 1) + 1))}
+          />
+        </Document>
+      )}
+    </>
   );
 }

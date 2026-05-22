@@ -4,7 +4,15 @@ import { useAiModel } from '@/hooks/use-ai-model';
 import { motion } from 'framer-motion';
 import { Save, Plus, Trash2, CheckCircle2, Loader2, Sparkles, ArrowLeft, FileText, Upload, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { insertQuizQuestion, updateQuizQuestion, deleteSlideWithQuestions } from '@/services/lectureService';
+import { insertQuizQuestion, updateQuizQuestion, deleteSlideWithQuestions, resolvePdfUrl } from '@/services/lectureService';
+import { Document, pdfjs } from 'react-pdf';
+import { PDFPagePreview } from '@/components/PDFPagePreview';
+import { PDFLightbox } from '@/components/PDFLightbox';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 import { apiClient } from '@/lib/apiClient';
 import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Course } from '@/services/coursesService';
 import { WorksheetsPanel } from '@/components/WorksheetsPanel';
@@ -70,6 +78,8 @@ export default function LectureEdit() {
     // PDF state
     const [pdfFile, setPdfFile] = useState<File | null>(null);
     const [existingPdfUrl, setExistingPdfUrl] = useState<string | null>(null);
+    const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null);
+    const [lightboxPage, setLightboxPage] = useState<number | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [pdfHash, setPdfHash] = useState<string | null>(null);
 
@@ -104,6 +114,10 @@ export default function LectureEdit() {
             setTitle(lecture.title);
             setDescription(lecture.description ?? '');
             setExistingPdfUrl(lecture.pdf_url);
+            if (lecture.pdf_url) {
+                const signed = await resolvePdfUrl(lecture.pdf_url);
+                setSignedPdfUrl(signed);
+            }
             const cid = (lecture as { course_id?: string | null }).course_id ?? null;
             setCourseId(cid);
             setOriginalCourseId(cid);
@@ -434,8 +448,10 @@ export default function LectureEdit() {
         );
     }
 
-    return (
-        <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+    const activePdf = pdfFile || signedPdfUrl;
+    
+    const editorContent = (
+        <div className="p-6 lg:p-8 max-w-5xl mx-auto">
             {/* Header */}
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
                 <button
@@ -714,85 +730,110 @@ export default function LectureEdit() {
                             )}
                         </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <Label>Slide Title</Label>
-                                    <Button 
-                                        type="button" 
-                                        variant="outline" 
-                                        size="sm" 
-                                        onClick={() => handleGenerateTitle(slideIndex)} 
-                                        disabled={aiTitleLoading[slideIndex]} 
-                                        className="gap-1.5 text-xs h-7"
-                                    >
-                                        {aiTitleLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
-                                        {slide.title ? 'Regenerate' : 'AI Generate'}
-                                    </Button>
-                                </div>
-                                <Input value={slide.title} onChange={e => updateSlide(slideIndex, 'title', e.target.value)} placeholder="Slide title" />
-                            </div>
-                            <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <Label>Content</Label>
-                                    <Button 
-                                        type="button" 
-                                        variant="outline" 
-                                        size="sm" 
-                                        onClick={() => handleGenerateContent(slideIndex)} 
-                                        disabled={aiContentLoading[slideIndex]} 
-                                        className="gap-1.5 text-xs h-7"
-                                    >
-                                        {aiContentLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
-                                        {slide.content ? 'Enhance Content' : 'AI Generate'}
-                                    </Button>
-                                </div>
-                                <Textarea value={slide.content} onChange={e => updateSlide(slideIndex, 'content', e.target.value)} placeholder="Slide content..." rows={4} />
-                            </div>
-                            <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <Label>Summary</Label>
-                                    <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateSummary(slideIndex)} disabled={aiSummaryLoading[slideIndex]} className="gap-1.5 text-xs h-7">
-                                        {aiSummaryLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
-                                        {aiSummaryLoading[slideIndex] ? 'Generating…' : 'AI Generate'}
-                                    </Button>
-                                </div>
-                                <Textarea value={slide.summary} onChange={e => updateSlide(slideIndex, 'summary', e.target.value)} placeholder="Key takeaways..." rows={2} />
-                            </div>
-
-                            {/* Quiz */}
-                            <div className="border-t border-border pt-4 mt-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <Label>Quiz Question</Label>
-                                    <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateQuiz(slideIndex)} disabled={aiQuizLoading[slideIndex]} className="gap-1.5 text-xs h-7">
-                                        {aiQuizLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
-                                        {aiQuizLoading[slideIndex] ? 'Generating…' : 'AI Generate'}
-                                    </Button>
-                                </div>
-                                {slide.questions.map((question, qIndex) => (
-                                    <div key={qIndex} className="space-y-3 bg-muted/50 rounded-xl p-4">
-                                        <Input value={question.question} onChange={e => updateQuestion(slideIndex, qIndex, 'question', e.target.value)} placeholder="Quiz question..." />
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {question.options.map((option, oIndex) => (
-                                                <div key={oIndex} className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => updateQuestion(slideIndex, qIndex, 'correctAnswer', oIndex)}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${question.correctAnswer === oIndex
-                                                            ? 'bg-success text-success-foreground'
-                                                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                                            }`}
-                                                    >
-                                                        {question.correctAnswer === oIndex ? <CheckCircle2 className="w-4 h-4" /> : String.fromCharCode(65 + oIndex)}
-                                                    </button>
-                                                    <Input value={option} onChange={e => updateOption(slideIndex, qIndex, oIndex, e.target.value)} placeholder={`Option ${String.fromCharCode(65 + oIndex)}`} className="flex-1" />
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">Click a letter to mark the correct answer</p>
+                        <div className="md:grid md:grid-cols-[1fr,320px] gap-8">
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <Label>Slide Title</Label>
+                                        <Button 
+                                            type="button" 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={() => handleGenerateTitle(slideIndex)} 
+                                            disabled={aiTitleLoading[slideIndex]} 
+                                            className="gap-1.5 text-xs h-7"
+                                        >
+                                            {aiTitleLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                            {slide.title ? 'Regenerate' : 'AI Generate'}
+                                        </Button>
                                     </div>
-                                ))}
+                                    <Input value={slide.title} onChange={e => updateSlide(slideIndex, 'title', e.target.value)} placeholder="Slide title" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <Label>Content</Label>
+                                        <Button 
+                                            type="button" 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={() => handleGenerateContent(slideIndex)} 
+                                            disabled={aiContentLoading[slideIndex]} 
+                                            className="gap-1.5 text-xs h-7"
+                                        >
+                                            {aiContentLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                            {slide.content ? 'Enhance Content' : 'AI Generate'}
+                                        </Button>
+                                    </div>
+                                    <Textarea value={slide.content} onChange={e => updateSlide(slideIndex, 'content', e.target.value)} placeholder="Slide content..." rows={4} />
+                                </div>
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <Label>Summary</Label>
+                                        <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateSummary(slideIndex)} disabled={aiSummaryLoading[slideIndex]} className="gap-1.5 text-xs h-7">
+                                            {aiSummaryLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                            {aiSummaryLoading[slideIndex] ? 'Generating…' : 'AI Generate'}
+                                        </Button>
+                                    </div>
+                                    <Textarea value={slide.summary} onChange={e => updateSlide(slideIndex, 'summary', e.target.value)} placeholder="Key takeaways..." rows={2} />
+                                </div>
+
+                                {/* Quiz */}
+                                <div className="border-t border-border pt-4 mt-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <Label>Quiz Question</Label>
+                                        <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateQuiz(slideIndex)} disabled={aiQuizLoading[slideIndex]} className="gap-1.5 text-xs h-7">
+                                            {aiQuizLoading[slideIndex] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                            {aiQuizLoading[slideIndex] ? 'Generating…' : 'AI Generate'}
+                                        </Button>
+                                    </div>
+                                    {slide.questions.map((question, qIndex) => (
+                                        <div key={qIndex} className="space-y-3 bg-muted/50 rounded-xl p-4">
+                                            <Input value={question.question} onChange={e => updateQuestion(slideIndex, qIndex, 'question', e.target.value)} placeholder="Quiz question..." />
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {question.options.map((option, oIndex) => (
+                                                    <div key={oIndex} className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => updateQuestion(slideIndex, qIndex, 'correctAnswer', oIndex)}
+                                                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${question.correctAnswer === oIndex
+                                                                ? 'bg-success text-success-foreground'
+                                                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                                                }`}
+                                                        >
+                                                            {question.correctAnswer === oIndex ? <CheckCircle2 className="w-4 h-4" /> : String.fromCharCode(65 + oIndex)}
+                                                        </button>
+                                                        <Input value={option} onChange={e => updateOption(slideIndex, qIndex, oIndex, e.target.value)} placeholder={`Option ${String.fromCharCode(65 + oIndex)}`} className="flex-1" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">Click a letter to mark the correct answer</p>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
+                            
+                            {/* Right side: PDF Preview */}
+                            {activePdf && (
+                                <div className="hidden md:flex flex-col gap-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-muted-foreground">Original Slide Preview</Label>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => setLightboxPage(slideIndex + 1)}
+                                            className="h-7 text-xs gap-1.5 px-2"
+                                        >
+                                            <FileText className="w-3.5 h-3.5" /> View Full
+                                        </Button>
+                                    </div>
+                                    <div 
+                                        className="rounded-lg border border-border shadow-sm overflow-hidden cursor-pointer hover:ring-2 ring-primary/20 transition-all"
+                                        onClick={() => setLightboxPage(slideIndex + 1)}
+                                    >
+                                        <PDFPagePreview pageNumber={slideIndex + 1} width={320} />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 ))}
@@ -811,5 +852,30 @@ export default function LectureEdit() {
                 </div>
             </form>
         </div>
+    );
+
+    return (
+        <>
+            {activePdf ? (
+                <Document file={activePdf}>
+                    {editorContent}
+                </Document>
+            ) : (
+                editorContent
+            )}
+
+            {activePdf && lightboxPage && (
+                <Document file={activePdf}>
+                    <PDFLightbox
+                        isOpen={true}
+                        pageNumber={lightboxPage}
+                        totalPages={slides.length}
+                        onClose={() => setLightboxPage(null)}
+                        onPrev={() => setLightboxPage(p => Math.max(1, (p || 1) - 1))}
+                        onNext={() => setLightboxPage(p => Math.min(slides.length, (p || 1) + 1))}
+                    />
+                </Document>
+            )}
+        </>
     );
 }
