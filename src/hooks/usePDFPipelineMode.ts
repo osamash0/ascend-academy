@@ -8,16 +8,7 @@ type PipelineMode = 'lazy' | 'eager';
  * Default: 'lazy' if VITE_LAZY_PDF_IMPORT=true, else 'eager'.
  */
 export function usePDFPipelineMode() {
-  const [mode, setMode] = useState<PipelineMode>(() => {
-    // Check localStorage first
-    const stored = localStorage.getItem('pdf_pipeline_mode');
-    if (stored === 'lazy' || stored === 'eager') {
-      return stored;
-    }
-    // Fall back to env var
-    const envDefault = import.meta.env.VITE_LAZY_PDF_IMPORT === 'true' ? 'lazy' : 'eager';
-    return envDefault;
-  });
+  const [mode, setMode] = useState<PipelineMode>('eager'); // Force eager mode so v4 parser is used
 
   // Persist changes to localStorage
   useEffect(() => {

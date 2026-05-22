@@ -101,22 +101,32 @@ async def parse_pdf_v4(
     lecture_id: str,
     run_id: Optional[str] = None,
     ai_model: str = "openai",
+    emit_fn: Optional[callable] = None,
+    odl_pages: Optional[Dict[int, dict]] = None,
+    parser_used: str = "v4",
 ) -> str:
     ai_model = "openai"  # Force OpenAI for testing as requested by user
     lecture_uuid = UUID(lecture_id) if lecture_id else None
 
-    redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    redis_client = None
+    if not emit_fn:
+        redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
     channel = f"{REDIS_CHANNEL_PREFIX}{pdf_hash}"
 
     async def emit(event_type: str, data: dict) -> None:
-        try:
-            await redis_client.publish(channel, json.dumps({"type": event_type, **data}))
-        except Exception as e:
-            logger.debug("SSE emit failed: %s", e)
+        if emit_fn:
+            await emit_fn(event_type, data)
+            return
+        if redis_client:
+            try:
+                await redis_client.publish(channel, json.dumps({"type": event_type, **data}))
+            except Exception as e:
+                logger.debug("SSE emit failed: %s", e)
 
     try:
         current_run_id = run_id
 
+        await emit("info", {"parser": parser_used})
         await emit("run_started", {"run_id": str(current_run_id), "pipeline_version": "v4"})
         await emit("phase", {"phase": "extract"})
 
@@ -126,12 +136,15 @@ async def parse_pdf_v4(
         if not pdf_bytes:
             raise ValueError("PDF not found in storage")
 
-        # Extract text using pymupdf
+        # Extract text using PyMuPDF (or use provided odl_pages from LlamaParse/MinerU)
         import fitz
         raw_slides = []
         with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
             for i, page in enumerate(doc):
-                text = page.get_text("text") or ""
+                if odl_pages and (i + 1) in odl_pages:
+                    text = odl_pages[i + 1].get("text", "")
+                else:
+                    text = page.get_text("text") or ""
                 raw_slides.append(text)
         
         import os
@@ -246,4 +259,5 @@ async def parse_pdf_v4(
         await emit("error", {"message": str(e)})
         raise
     finally:
-        await redis_client.aclose()
+        if redis_client:
+            await redis_client.aclose()

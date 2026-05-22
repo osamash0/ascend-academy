@@ -643,6 +643,12 @@ def parse_json_response(raw: str) -> Any:
        every *complete* object from the partial array so already-finished
        slides are not lost.
     """
+    if isinstance(raw, (dict, list)):
+        return raw
+
+    if not isinstance(raw, str):
+        raw = str(raw)
+
     raw = raw.strip()
     fence = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
     if fence:

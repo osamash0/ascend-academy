@@ -568,6 +568,22 @@ export default function LectureUpload() {
                 ))}
               </select>
             </div>
+            <div>
+              <Label htmlFor="parser" className="text-sm font-medium">Extraction Engine</Label>
+              <select
+                id="parser"
+                value={parserChoice}
+                onChange={(e) => setParserChoice(e.target.value as ParserChoice)}
+                className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="auto">Auto (v4 Recommended)</option>
+                <option value="llamaparse">LlamaParse</option>
+                <option value="mineru">MinerU</option>
+                <option value="opendataloader">OpenDataLoader</option>
+                <option value="pymupdf">PyMuPDF (Fallback)</option>
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-1">Select the engine used to extract text and layout from your PDF.</p>
+            </div>
           </motion.div>
         </div>
 

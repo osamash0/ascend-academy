@@ -36,22 +36,25 @@ interface PDFUploadOverlayProps {
 }
 
 function parserPillStyle(p: string) {
+  if (p === 'v4') return 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/40 dark:border-blue-700 dark:text-blue-300';
   if (p === 'opendataloader-pdf') return 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-700 dark:text-indigo-300';
   if (p === 'mineru') return 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-300';
   if (p === 'llamaparse') return 'bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-700 dark:text-violet-300';
   return 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-300';
 }
 function parserDotStyle(p: string) {
+  if (p === 'v4') return 'bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.8)]';
   if (p === 'opendataloader-pdf') return 'bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.8)]';
   if (p === 'mineru') return 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]';
   if (p === 'llamaparse') return 'bg-violet-500 shadow-[0_0_6px_rgba(139,92,246,0.8)]';
   return 'bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]';
 }
 function parserLabel(p: string) {
+  if (p === 'v4') return 'v4 AI Pipeline';
   if (p === 'opendataloader-pdf') return 'OpenDataLoader PDF';
   if (p === 'mineru') return 'MinerU';
   if (p === 'llamaparse') return 'LlamaParse';
-  return 'PyMuPDF (fallback)';
+  return 'PyMuPDF (Fallback)';
 }
 
 export const PDFUploadOverlay = memo(function PDFUploadOverlay({

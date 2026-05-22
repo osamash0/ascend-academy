@@ -227,6 +227,26 @@ async def parse_pdf_stream_endpoint(
     #    PDF they've already uploaded — the duplicate dialog uses this to
     #    guarantee a genuinely fresh parse for the "Upload as new" choice).
     cached = None if force_reparse else await get_cached_parse(pdf_hash)
+    
+    if cached:
+        from backend.core.config import settings as _cfg
+        cached_parser = cached.get("parser") or "pymupdf"
+        
+        # Determine requested parser family
+        requested_parser = parser
+        if parser == "auto":
+            if str(_cfg.parser_version) == "4":
+                requested_parser = "v4"
+            elif str(_cfg.parser_version) == "3":
+                requested_parser = "v3"
+            else:
+                requested_parser = "auto"
+                
+        # Bypass cache if we want v4 or v3 but the cache is from an older/different parser
+        if requested_parser in ("v4", "v3") and cached_parser != requested_parser:
+            logger.info("Cache hit for %s ignored due to parser mismatch (cached=%s, requested=%s)", filename, cached_parser, requested_parser)
+            cached = None
+
     if cached:
         logger.info("Cache hit for %s", filename)
         async def cached_stream():
@@ -277,53 +297,154 @@ async def parse_pdf_stream_endpoint(
     odl_succeeded = False
     parser_used = "pymupdf"
 
+    # ── Extract pages via external parser (before v4 branch) ──────────────────
+    # When the user explicitly picks LlamaParse / MinerU / ODL, we call the
+    # service here so the extracted pages are available for whichever pipeline
+    # (v4 or v2) runs next.  For "auto" mode we skip this — the v2 fallback
+    # path handles its own ODL attempt later.
+    if parser == "llamaparse":
+        try:
+            from backend.services import llamaparse_service
+            odl_pages = await llamaparse_service.extract_pages(content, filename)
+            odl_succeeded = True
+            parser_used = "llamaparse"
+            logger.info("LlamaParse extracted %d pages for %s", len(odl_pages), filename)
+        except RuntimeError as e:
+            raise HTTPException(503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(422, detail=f"LlamaParse extraction failed: {e}")
+    elif parser == "mineru":
+        try:
+            from backend.services import mineru_service
+            odl_pages = await mineru_service.extract_pages(content, filename)
+            odl_succeeded = True
+            parser_used = "mineru"
+            logger.info("MinerU extracted %d pages for %s", len(odl_pages), filename)
+        except RuntimeError as e:
+            raise HTTPException(503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(422, detail=f"MinerU extraction failed: {e}")
+    elif parser == "opendataloader":
+        try:
+            from backend.services.odl_service import extract_pages as _odl
+            odl_pages = await _odl(content, filename)
+            odl_succeeded = True
+            parser_used = "opendataloader-pdf"
+            logger.info("ODL extracted %d pages for %s", len(odl_pages), filename)
+        except Exception as e:
+            logger.error("ODL extraction failed (explicit): %s", e)
+            raise HTTPException(422, detail=f"OpenDataLoader extraction failed: {e}. Try 'auto' or 'pymupdf'.")
+
     # ── v4 pipeline branch ────────────────────────────────────────────────────
     from backend.core.config import settings as _cfg
-    if parser == "v4" or (parser == "auto" and _cfg.parser_version == "4"):
+    if parser in ("v4", "llamaparse", "mineru", "opendataloader") or (parser == "auto" and str(_cfg.parser_version) == "4"):
         import uuid
         run_id = str(uuid.uuid4())
         await _upload_pdf_to_storage(pdf_hash, content)
         
         lecture_uuid = UUID(lecture_id) if lecture_id else None
 
-        pool = await _get_arq_pool()
-        await pool.enqueue_job(
-            "parse_pdf_v4",
-            pdf_hash=pdf_hash,
-            lecture_id=str(lecture_uuid) if lecture_uuid else "",
-            run_id=run_id,
-            ai_model=ai_model,
-        )
+        use_arq = True
+        try:
+            pool = await _get_arq_pool()
+            await pool.enqueue_job(
+                "parse_pdf_v4",
+                pdf_hash=pdf_hash,
+                lecture_id=str(lecture_uuid) if lecture_uuid else "",
+                run_id=run_id,
+                ai_model=ai_model,
+                odl_pages=odl_pages,
+                parser_used=parser_used,
+            )
+        except Exception as e:
+            logger.warning("Redis connection failed, running v4 synchronously: %s", e)
+            use_arq = False
 
-        async def _v4_sse_stream():
-            import redis.asyncio as aioredis
-            redis_client = aioredis.from_url(_cfg.redis_url, decode_responses=True)
-            channel = f"parse:{pdf_hash}"
-            try:
-                async with redis_client.pubsub() as pubsub:
-                    await pubsub.subscribe(channel)
-                    async for message in pubsub.listen():
-                        if message.get("type") != "message":
-                            continue
-                        try:
-                            event = json.loads(message["data"])
-                            yield f"data: {json.dumps(event)}\n\n"
-                            if event.get("type") in ("complete", "error"):
-                                break
-                        except Exception:
-                            continue
-            finally:
-                await redis_client.aclose()
+        if use_arq:
+            async def _v4_sse_stream():
+                import redis.asyncio as aioredis
+                redis_client = aioredis.from_url(_cfg.redis_url, decode_responses=True)
+                channel = f"parse:{pdf_hash}"
+                try:
+                    async with redis_client.pubsub() as pubsub:
+                        await pubsub.subscribe(channel)
+                        async for message in pubsub.listen():
+                            if message.get("type") != "message":
+                                continue
+                            try:
+                                event = json.loads(message["data"])
+                                yield f"data: {json.dumps(event)}\n\n"
+                                if event.get("type") in ("complete", "error"):
+                                    break
+                            except Exception:
+                                continue
+                finally:
+                    await redis_client.aclose()
 
-        return StreamingResponse(
-            _v4_sse_stream(),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-        )
+            return StreamingResponse(
+                _v4_sse_stream(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+        else:
+            async def _sync_v4_stream():
+                q = asyncio.Queue()
+                
+                async def emit_fn(event_type: str, data: dict):
+                    await q.put({"type": event_type, **data})
+                
+                from backend.services.parser.v4_orchestrator import parse_pdf_v4
+                
+                task = asyncio.create_task(parse_pdf_v4(
+                    ctx={},
+                    pdf_hash=pdf_hash,
+                    lecture_id=str(lecture_uuid) if lecture_uuid else "",
+                    run_id=run_id,
+                    ai_model=ai_model,
+                    emit_fn=emit_fn,
+                    odl_pages=odl_pages,
+                    parser_used=parser_used,
+                ))
+                
+                while True:
+                    try:
+                        event = await asyncio.wait_for(q.get(), timeout=1.0)
+                        
+                        # Cache the result locally so future uploads hit the cache
+                        if event.get("type") == "slide":
+                            collected_slides.append(event["slide"])
+                        elif event.get("type") == "deck_complete":
+                            collected_deck.update({
+                                "deck_summary": event.get("deck_summary", ""),
+                                "deck_quiz": event.get("deck_quiz", []),
+                            })
+                            
+                        yield f"data: {json.dumps(event)}\n\n"
+                        
+                        if event.get("type") in ("complete", "error"):
+                            if collected_slides:
+                                await store_cached_parse(
+                                    pdf_hash,
+                                    {"slides": collected_slides, "deck": collected_deck, "parser": "v4"}
+                                )
+                            break
+                    except asyncio.TimeoutError:
+                        if task.done():
+                            if task.exception():
+                                logger.error("Sync v4 parser failed: %s", task.exception())
+                                yield f"data: {json.dumps({'type': 'error', 'message': str(task.exception())})}\n\n"
+                            break
+                        continue
+
+            return StreamingResponse(
+                _sync_v4_stream(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
     # ─────────────────────────────────────────────────────────────────────────
 
     # ── v3 pipeline branch ────────────────────────────────────────────────────
-    if parser == "v3" or (parser == "auto" and _cfg.parser_version == "3"):
+    if parser == "v3" or (parser == "auto" and str(_cfg.parser_version) == "3"):
         # Upload PDF to storage (idempotent by sha256)
         await _upload_pdf_to_storage(pdf_hash, content)
 
@@ -351,39 +472,10 @@ async def parse_pdf_stream_endpoint(
     if parser == "pymupdf":
         pass  # PyMuPDF is the downstream default — skip alternatives
 
-    elif parser == "opendataloader":
-        try:
-            from backend.services.odl_service import extract_pages as _odl
-            odl_pages = await _odl(content, filename)
-            odl_succeeded = True
-            parser_used = "opendataloader-pdf"
-        except Exception as e:
-            logger.error("ODL extraction failed (explicit): %s", e)
-            raise HTTPException(422, detail=f"OpenDataLoader extraction failed: {e}. Try 'auto' or 'pymupdf'.")
+    # llamaparse / mineru / opendataloader are handled above (routed to v4).
+    # This "auto" branch only runs for parser_version != 4 (v2 pipeline).
 
-    elif parser == "mineru":
-        try:
-            from backend.services import mineru_service
-            odl_pages = await mineru_service.extract_pages(content, filename)
-            odl_succeeded = True
-            parser_used = "mineru"
-        except RuntimeError as e:
-            raise HTTPException(503, detail=str(e))
-        except Exception as e:
-            raise HTTPException(422, detail=f"MinerU extraction failed: {e}")
-
-    elif parser == "llamaparse":
-        try:
-            from backend.services import llamaparse_service
-            odl_pages = await llamaparse_service.extract_pages(content, filename)
-            odl_succeeded = True
-            parser_used = "llamaparse"
-        except RuntimeError as e:
-            raise HTTPException(503, detail=str(e))
-        except Exception as e:
-            raise HTTPException(422, detail=f"LlamaParse extraction failed: {e}")
-
-    else:  # "auto" — preserve existing behaviour
+    elif parser == "auto":
         try:
             from backend.services.odl_service import extract_pages as _odl
             odl_pages = await _odl(content, filename)
