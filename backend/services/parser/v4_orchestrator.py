@@ -49,7 +49,7 @@ async def analyze_slide(slide_number: int, text: str, lecture_context: str, ai_m
 Return ONLY valid JSON, no markdown, no code blocks. Keys:
 - title: string (short descriptive title for this slide, max 60 chars)
 - slideType: one of "text", "image-only", "math-diagram", "graph", "mixed", "title-slide", "table-of-contents"  
-- aiInsight: string (A narrative explanation of this slide as if you are a professor teaching a class. Deliver the material with the expertise of a professor, yet with a clarity accessible to a student. Maintain a logical flow and avoid giving the impression that each slide is being explained in isolation. Do NOT use phrases like "This slide", "In this slide", or "This image". Speak directly about the concepts as a teacher would in a continuous live lecture. Connect it to the previous slide if mentioned in the context.)
+- aiInsight: string (A concise narrative explanation (1-3 sentences) of this slide as if you are a professor teaching a class. If this slide covers the same topic as the previous slide, DO NOT repeat the explanation; focus ONLY on what is new or briefly summarize the continuation. Maintain a logical flow and avoid giving the impression that each slide is being explained in isolation. Do NOT use phrases like "This slide", "In this slide", or "This image". Connect it to the previous slide if mentioned in the context.)
 - contextNote: string (1 sentence about where this slide fits in the lecture narrative)
 
 Lecture context: {lecture_context[:1000]}
