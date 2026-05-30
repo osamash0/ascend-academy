@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, BookOpen, TrendingUp, BarChart3, Plus, Eye, Settings, 
@@ -9,10 +10,13 @@ import {
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { deleteLecture as deleteLectureService, fetchProfessorLectures } from '@/services/lectureService';
+import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Course } from '@/services/coursesService';
 import type { Lecture } from '@/types/domain';
 import { StatsCard } from '@/components/StatsCard';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { ProfessorAssignmentsTab } from '@/features/assignments/ProfessorAssignmentsTab';
+import { ProfessorOverviewSection } from '@/features/analytics/components/ProfessorOverviewSection';
 
 
 interface StudentStats {
@@ -48,10 +52,30 @@ function ProfessorOrbitalBackground() {
 }
 
 export default function ProfessorDashboard() {
+  const { t, i18n } = useTranslation(['professor', 'common']);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [lectures, setLectures] = useState<Lecture[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  useEffect(() => {
+    listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
+  }, []);
+
+  const handleAssignCourse = async (lecture: Lecture, nextCourseId: string | null) => {
+    const prev = lecture.course_id ?? null;
+    if (prev === nextCourseId) return;
+    try {
+      if (prev) await unassignLectureFromCourse(prev, lecture.id);
+      if (nextCourseId) await assignLectureToCourse(nextCourseId, lecture.id);
+      setLectures((prevList) =>
+        prevList.map((l) => (l.id === lecture.id ? { ...l, course_id: nextCourseId } : l)),
+      );
+      toast({ title: t('professor:lectures.courseUpdated') });
+    } catch (err) {
+      toast({ title: t('professor:lectures.courseUpdateFailed'), description: String(err), variant: 'destructive' });
+    }
+  };
   const [stats, setStats] = useState<StudentStats>({
     totalStudents: 0,
     averageScore: 0,
@@ -67,19 +91,28 @@ export default function ProfessorDashboard() {
   const fetchData = async () => {
     setLoading(true);
 
+    // Fetch the professor's own lectures first so we can scope progress queries.
     const { data: lecturesData } = await supabase
       .from('lectures')
-      .select('id, title, description, total_slides, created_at, pdf_url')
+      .select('id, title, description, total_slides, created_at, pdf_url, course_id')
       .eq('professor_id', user?.id)
       .order('created_at', { ascending: false })
       .limit(200);
 
-    if (lecturesData) setLectures(lecturesData);
+    const ownLectureIds = (lecturesData ?? []).map(l => l.id);
 
-    const { data: progressData } = await supabase
-      .from('student_progress')
-      .select('user_id, quiz_score, total_questions_answered, correct_answers')
-      .limit(2000);
+    // Only fetch student progress for lectures this professor owns.
+    // RLS now enforces this server-side as well, but we also filter explicitly
+    // so the query intent is clear and does not rely solely on policy enforcement.
+    const { data: progressData } = ownLectureIds.length > 0
+      ? await supabase
+          .from('student_progress')
+          .select('user_id, quiz_score, total_questions_answered, correct_answers')
+          .in('lecture_id', ownLectureIds)
+          .limit(2000)
+      : { data: [] };
+
+    if (lecturesData) setLectures(lecturesData);
 
     if (progressData) {
       const uniqueStudents = new Set(progressData.map(p => p.user_id));
@@ -98,26 +131,26 @@ export default function ProfessorDashboard() {
   };
 
   const deleteLecture = async (lectureId: string) => {
-    if (!window.confirm('Are you sure you want to delete this lecture? This cannot be undone.')) return;
+    if (!window.confirm(t('professor:lectures.deleteConfirm'))) return;
 
     try {
       await deleteLectureService(lectureId);
       setLectures(prev => prev.filter(l => l.id !== lectureId));
-      toast({ title: 'Deleted', description: 'Lecture deleted successfully.' });
+      toast({ title: t('common:status.deleted'), description: t('professor:lectures.deleted') });
     } catch (err) {
       console.error(err);
-      toast({ title: 'Error', description: 'Failed to delete lecture.', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('professor:lectures.deleteFailed'), variant: 'destructive' });
     }
   };
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return t('common:greetings.morning');
+    if (hour < 17) return t('common:greetings.afternoon');
+    return t('common:greetings.evening');
   };
 
-  const profName = user?.email?.split('@')[0] || 'Professor';
+  const profName = user?.email?.split('@')[0] || t('professor:defaultName');
 
   if (loading) {
     return (
@@ -167,7 +200,7 @@ export default function ProfessorDashboard() {
                 transition={{ delay: 0.2 }}
                 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] mb-3 opacity-60"
               >
-                Command Center Dashboard
+                {t('professor:commandCenter')}
               </motion.p>
               <motion.h1
                 initial={{ opacity: 0, x: -20 }}
@@ -175,7 +208,19 @@ export default function ProfessorDashboard() {
                 transition={{ delay: 0.3 }}
                 className="text-4xl md:text-5xl font-black text-foreground tracking-tight"
               >
-                {getGreeting()}, <span className="text-gradient">{profName}.</span>
+                {(() => {
+                  const parts = t('professor:greeting', {
+                    greeting: getGreeting(),
+                    name: '__NAME__',
+                  }).split('__NAME__');
+                  return (
+                    <>
+                      {parts[0]}
+                      <span className="text-gradient">{profName}</span>
+                      {parts[1] ?? ''}
+                    </>
+                  );
+                })()}
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0 }}
@@ -183,7 +228,19 @@ export default function ProfessorDashboard() {
                 transition={{ delay: 0.4 }}
                 className="text-lg text-muted-foreground mt-4 max-w-2xl font-medium leading-relaxed"
               >
-                System analysis confirms <strong className="text-foreground">{stats.totalStudents} students</strong> are actively engaged. Global accuracy is holding at <strong className="text-success">{stats.averageScore}%</strong> across your <strong className="text-foreground">{lectures.length} academic streams</strong>.
+                {(() => {
+                  const raw = t('professor:summary', {
+                    students: stats.totalStudents,
+                    accuracy: stats.averageScore,
+                    lectures: lectures.length,
+                  });
+                  const segments = raw.split(/<bold>|<\/bold>/);
+                  return segments.map((seg, idx) =>
+                    idx % 2 === 1
+                      ? <strong key={idx} className="text-foreground">{seg}</strong>
+                      : <span key={idx}>{seg}</span>
+                  );
+                })()}
               </motion.p>
             </div>
 
@@ -194,34 +251,37 @@ export default function ProfessorDashboard() {
               className="flex-shrink-0"
             >
               <Button onClick={() => navigate('/professor/upload')} className="h-16 px-10 rounded-2xl gap-3 shadow-glow-primary gradient-primary text-base font-black uppercase tracking-widest hover:opacity-90 transition-all border-none text-white">
-                <Plus className="w-6 h-6" /> Create Lecture
+                <Plus className="w-6 h-6" /> {t('professor:createLecture')}
               </Button>
             </motion.div>
           </div>
         </motion.div>
 
+        {/* ── Course Overview (whole-course aggregate) ── */}
+        <ProfessorOverviewSection courses={courses} />
+
         {/* ── Stats Grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatsCard
-            title="Total Students"
+            title={t('professor:stats.totalStudents')}
             value={stats.totalStudents}
             icon={Users}
             variant="primary"
           />
           <StatsCard
-            title="Your Lectures"
+            title={t('professor:stats.yourLectures')}
             value={lectures.length}
             icon={BookOpen}
             variant="default"
           />
           <StatsCard
-            title="Average Score"
+            title={t('professor:stats.averageScore')}
             value={`${stats.averageScore}%`}
             icon={TrendingUp}
             variant="success"
           />
           <StatsCard
-            title="Quiz Attempts"
+            title={t('professor:stats.quizAttempts')}
             value={stats.totalQuizAttempts}
             icon={Activity}
             variant="xp"
@@ -236,13 +296,13 @@ export default function ProfessorDashboard() {
                 <GraduationCap className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-foreground tracking-tight">Active Academic Streams</h2>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-1 opacity-60">Manage your interactive learning materials</p>
+                <h2 className="text-2xl font-black text-foreground tracking-tight">{t('professor:lectures.sectionTitle')}</h2>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-1 opacity-60">{t('professor:lectures.sectionSubtitle')}</p>
               </div>
             </div>
             <Button variant="ghost" className="rounded-xl glass-card border-white/5 font-black uppercase text-[10px] tracking-widest h-10 px-6 hover:bg-primary/10 hover:text-primary transition-all" onClick={() => navigate('/professor/analytics')}>
               <BarChart3 className="w-4 h-4 mr-2" />
-              Global Analytics
+              {t('professor:lectures.globalAnalytics')}
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
@@ -256,16 +316,16 @@ export default function ProfessorDashboard() {
               <div className="w-20 h-20 rounded-[2.5rem] bg-surface-2 border border-white/5 flex items-center justify-center mx-auto mb-6">
                 <BookOpen className="w-10 h-10 text-muted-foreground/30" />
               </div>
-              <h3 className="text-2xl font-black text-foreground mb-3 tracking-tight">No lectures detected</h3>
+              <h3 className="text-2xl font-black text-foreground mb-3 tracking-tight">{t('professor:lectures.empty.title')}</h3>
               <p className="text-muted-foreground max-w-md mx-auto font-medium mb-10">
-                Upload your first lecture to initiate automated quiz generation and real-time student neural tracking.
+                {t('professor:lectures.empty.description')}
               </p>
               <Button 
                 onClick={() => navigate('/professor/upload')}
                 className="h-14 px-8 rounded-xl shadow-glow-primary gradient-primary font-black uppercase tracking-widest border-none text-white"
               >
                 <Plus className="w-5 h-5 mr-3" />
-                Upload Your First Lecture
+                {t('professor:lectures.empty.cta')}
               </Button>
             </motion.div>
           ) : (
@@ -275,19 +335,19 @@ export default function ProfessorDashboard() {
                   <thead>
                     <tr className="border-b border-white/5 bg-white/5">
                       <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Lecture Details
+                        {t('professor:lectures.table.details')}
                       </th>
                       <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Slide Count
+                        {t('professor:lectures.table.slideCount')}
                       </th>
                       <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Launch Date
+                        {t('professor:lectures.table.launchDate')}
                       </th>
                       <th className="px-10 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Protocol Status
+                        {t('professor:lectures.table.status')}
                       </th>
                       <th className="px-10 py-6 text-right text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-                        Executive Actions
+                        {t('professor:lectures.table.actions')}
                       </th>
                     </tr>
                   </thead>
@@ -323,7 +383,7 @@ export default function ProfessorDashboard() {
                         </td>
                         <td className="px-10 py-6">
                           <span className="font-bold text-muted-foreground">
-                            {new Date(lecture.created_at).toLocaleDateString('en-US', { 
+                            {new Date(lecture.created_at).toLocaleDateString(i18n.language || undefined, { 
                               month: 'short', 
                               day: 'numeric', 
                               year: 'numeric' 
@@ -331,13 +391,30 @@ export default function ProfessorDashboard() {
                           </span>
                         </td>
                         <td className="px-10 py-6">
-                          <span className={`inline-flex items-center gap-2 text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest border transition-all ${lecture.pdf_url 
-                            ? 'bg-success/10 text-success border-success/20 shadow-glow-success/5' 
-                            : 'bg-warning/10 text-warning border-warning/20'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${lecture.pdf_url ? 'bg-success animate-pulse' : 'bg-warning'}`} />
-                            {lecture.pdf_url ? 'Active Protocol' : 'No Source PDF'}
-                          </span>
+                          <div className="flex flex-col items-start gap-2">
+                            <span className={`inline-flex items-center gap-2 text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest border transition-all ${lecture.pdf_url 
+                              ? 'bg-success/10 text-success border-success/20 shadow-glow-success/5' 
+                              : 'bg-warning/10 text-warning border-warning/20'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${lecture.pdf_url ? 'bg-success animate-pulse' : 'bg-warning'}`} />
+                              {lecture.pdf_url ? t('professor:lectures_status.activeProtocol') : t('professor:lectures_status.noSourcePdf')}
+                            </span>
+                            <select
+                              value={lecture.course_id ?? ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleAssignCourse(lecture, e.target.value || null);
+                              }}
+                              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                              title={t('professor:lectures.courseAssignment')}
+                            >
+                              <option value="">{t('professor:lectures.uncategorized')}</option>
+                              {courses.map((c) => (
+                                <option key={c.id} value={c.id}>{c.title}</option>
+                              ))}
+                            </select>
+                          </div>
                         </td>
                         <td className="px-10 py-6 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -350,7 +427,7 @@ export default function ProfessorDashboard() {
                                   e.stopPropagation();
                                   navigate(`/professor/analytics/${lecture.id}`);
                                 }}
-                                title="Lecture Analytics"
+                                title={t('professor:lectures.actions.analytics')}
                               >
                                 <BarChart3 className="w-5 h-5" />
                               </Button>
@@ -364,7 +441,7 @@ export default function ProfessorDashboard() {
                                   e.stopPropagation();
                                   navigate(`/lecture/${lecture.id}`);
                                 }}
-                                title="Preview Lecture"
+                                title={t('professor:lectures.actions.preview')}
                               >
                                 <Eye className="w-5 h-5" />
                               </Button>
@@ -378,7 +455,7 @@ export default function ProfessorDashboard() {
                                   e.stopPropagation();
                                   navigate(`/professor/lecture/${lecture.id}`);
                                 }}
-                                title="Edit Parameters"
+                                title={t('professor:lectures.actions.edit')}
                               >
                                 <Settings className="w-5 h-5" />
                               </Button>
@@ -392,7 +469,7 @@ export default function ProfessorDashboard() {
                                   e.stopPropagation();
                                   deleteLecture(lecture.id);
                                 }}
-                                title="Delete Stream"
+                                title={t('professor:lectures.actions.delete')}
                               >
                                 <Trash2 className="w-5 h-5" />
                               </Button>
@@ -407,6 +484,11 @@ export default function ProfessorDashboard() {
             </div>
           )}
         </div>
+
+        {/* ── Assignments Section ── */}
+        <ProfessorAssignmentsTab
+          lectures={lectures.map(l => ({ id: l.id, title: l.title }))}
+        />
       </div>
     </div>
   );

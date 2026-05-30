@@ -15,6 +15,8 @@ import logging
 from pydantic import BaseModel
 from typing import Optional
 
+from backend.services.ai.orchestrator import _llm_generate_text_sync, parse_json_response
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -110,6 +112,19 @@ class SlideClassification(BaseModel):
     reason: str           # brief explanation
 
 
+def _is_heavy_stem(text: str) -> bool:
+    """Detect slides with equations, formulas, code."""
+    stem_indicators = [
+        r'[=\+\-\*\/\^]',           # operators
+        r'[α-ωΑ-Ω]',                # Greek letters
+        r'∑|∫|∏|√|∞',               # math symbols
+        r'_{|}\^',                  # sub/superscripts
+        r'\b(def|lemma|theorem|proof|equation)\b'
+    ]
+    matches = sum(1 for pat in stem_indicators if re.search(pat, text, re.I))
+    return matches >= 3
+
+
 # ---------------------------------------------------------------------------
 # Layer 1: Fast Heuristic Pre-Filter
 # ---------------------------------------------------------------------------
@@ -127,14 +142,6 @@ def _heuristic_check(text: str, slide_index: int, total_slides: int) -> str:
 
     words = clean.split()
     word_count = len(words)
-
-    # Very short slide => metadata
-    if word_count < 15:
-        return "metadata"
-
-    # No extractable text placeholder
-    if "[No extractable text" in clean:
-        return "metadata"
 
     lower = clean.lower()
 
@@ -164,6 +171,18 @@ def _heuristic_check(text: str, slide_index: int, total_slides: int) -> str:
     # Positional bonus: first or last 2 slides are more likely metadata
     if slide_index <= 1 or slide_index >= total_slides - 2:
         signal_count += 1
+
+    # --- Initial heuristic classification ---
+    # Very short slide => potentially a title slide, let it be 'uncertain' for layer 2/3
+    if word_count < 5:
+        return "metadata"  # Only extremely short (1-4 words) are auto-metadata
+    
+    if word_count < 20 and signal_count == 0:
+        return "uncertain" # Likely a title slide!
+    
+    # No extractable text placeholder
+    if "[No extractable text" in clean:
+        return "metadata"
 
     # --- Decision ---
     if signal_count >= 3 and word_count < 60:
@@ -221,7 +240,7 @@ def _compute_content_density(text: str) -> float:
 # Layer 3: LLM-as-a-Judge
 # ---------------------------------------------------------------------------
 
-def _llm_classify_slide(text: str, ai_model: str = "gemini-1.5-flash") -> dict:
+def _llm_classify_slide(text: str, ai_model: str = "gemini-2.0-flash") -> dict:
     """
     Uses the LLM to classify a slide as educational or metadata.
     Only called for ambiguous cases (~5-10% of slides).
@@ -238,23 +257,9 @@ def _llm_classify_slide(text: str, ai_model: str = "gemini-1.5-flash") -> dict:
 Slide text:
 {text[:2000]}"""
 
-    if ai_model == "groq":
+    if ai_model.startswith("gemini"):
         try:
-            from backend.services.ai_service import groq_client, GROQ_MODEL
-            if groq_client:
-                groq_prompt = prompt + """\nReturn ONLY valid JSON with this exact structure:\n{\n  "classification": "...",\n  "confidence": 0.0,\n  "reason": "..."\n}"""
-                res = groq_client.chat.completions.create(
-                    model=GROQ_MODEL,
-                    messages=[{"role": "user", "content": groq_prompt}],
-                    response_format={"type": "json_object"}
-                )
-                return json.loads(res.choices[0].message.content)
-        except Exception as e:
-            logger.error("Groq classify error: %s", e, exc_info=True)
-
-    elif ai_model == "gemini-1.5-flash" or ai_model == "gemini-2.5-flash":
-        try:
-            from backend.services.ai_service import gemini_client, GEMINI_MODEL
+            from backend.services.ai.orchestrator import gemini_client, GEMINI_MODEL
             from google.genai import types
             if gemini_client:
                 res = gemini_client.models.generate_content(
@@ -267,13 +272,34 @@ Slide text:
                 )
                 return json.loads(res.text)
         except Exception as e:
-            logger.error("LLM classify error: %s", e, exc_info=True)
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
+                logger.info("Gemini classify rate-limited; falling back to orchestrator chain")
+            else:
+                logger.warning("Gemini classify error (falling back): %s", e)
+
+    # Use orchestrator for all other models (Cerebras, Groq, OpenRouter, Cloudflare, etc.)
+    try:
+        json_prompt = prompt + """
+Return ONLY valid JSON with this exact structure:
+{
+  "classification": "educational" | "metadata",
+  "confidence": float,
+  "reason": "short explanation"
+}"""
+        raw = _llm_generate_text_sync(json_prompt, ai_model=ai_model)
+        parsed = parse_json_response(raw)
+        if isinstance(parsed, dict):
+            return parsed
+        logger.warning("Classify returned non-dict (%s); using fallback", type(parsed).__name__)
+    except Exception as e:
+        logger.error("Orchestrator classify error for %s: %s", ai_model, e, exc_info=True)
 
     # Fallback: if LLM fails, assume educational (safe default)
     return {
         "classification": "educational",
         "confidence": 0.5,
-        "reason": "LLM classification unavailable, defaulting to educational.",
+        "reason": "LLM classification unavailable or failed, defaulting to educational.",
     }
 
 
@@ -285,7 +311,7 @@ def is_metadata_slide(
     text: str,
     slide_index: int = 0,
     total_slides: int = 1,
-    ai_model: str = "gemini-1.5-flash",
+    ai_model: str = "gemini-2.0-flash",
 ) -> dict:
     """
     Runs the 3-layer filtering pipeline to determine if a slide is metadata.
@@ -298,6 +324,16 @@ def is_metadata_slide(
             "layer": int (1, 2, or 3)
         }
     """
+    # --- Layer 1: STEM Pre-check ---
+    word_count = len(text.split())
+    if _is_heavy_stem(text) and word_count < 30:
+        return {
+            "is_metadata": False,
+            "confidence": 0.85,
+            "reason": "Equation-rich STEM slide (heuristic check).",
+            "layer": 1,
+        }
+
     # --- Layer 1: Fast Heuristic ---
     heuristic_result = _heuristic_check(text, slide_index, total_slides)
 
@@ -338,6 +374,14 @@ def is_metadata_slide(
 
     # --- Layer 3: LLM-as-a-Judge (only for truly ambiguous cases) ---
     llm_result = _llm_classify_slide(text, ai_model=ai_model)
+
+    if not isinstance(llm_result, dict):
+        return {
+            "is_metadata": False,
+            "confidence": 0.5,
+            "reason": f"LLM judge returned non-dict ({type(llm_result).__name__}); defaulting to educational.",
+            "layer": 3,
+        }
 
     is_meta = llm_result.get("classification", "educational") == "metadata"
     return {

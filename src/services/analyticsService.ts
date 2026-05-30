@@ -77,6 +77,129 @@ export async function getAiQueryFeed(lectureId: string): Promise<AiQueryFeedItem
   return apiClient.get<AiQueryFeedItem[]>(`/api/analytics/lecture/${lectureId}/ai-queries`);
 }
 
+export interface ProfessorOverview {
+  active_students: number;
+  average_completion: number;
+  average_quiz_accuracy: number;
+  median_time_minutes: number;
+  weakest_concepts: { concept: string; miss_rate: number; attempts: number }[];
+  weakest_slides: { slide_id: string; title: string; miss_rate: number; attempts: number }[];
+  activity_sparkline: { date: string; count: number }[];
+  lecture_count: number;
+  days: number;
+}
+
+export async function getProfessorOverview(courseId: string, days = 7): Promise<ProfessorOverview> {
+  const res = await apiClient.get<{ success: boolean; data: ProfessorOverview }>(
+    `/api/analytics/professor/overview?course_id=${encodeURIComponent(courseId)}&days=${days}`,
+  );
+  return res.data;
+}
+
 export async function getAiInsights(lectureId: string, context: Record<string, unknown>): Promise<{ summary: string; suggestions: string[] }> {
   return apiClient.post(`/api/ai/analytics-insights`, { lecture_id: lectureId, ...context });
+}
+
+// ── Ask Your Data ──────────────────────────────────────────────────────────
+
+export interface AskChartSpec {
+  type: 'bar';
+  x_key: string;
+  y_key: string;
+  y_label?: string;
+  data: Record<string, unknown>[];
+}
+
+export interface AskAnswer {
+  intent: string;
+  answer_text: string;
+  table: Record<string, unknown>[];
+  chart: AskChartSpec | null;
+  debug: Record<string, unknown>;
+  suggested_questions: string[];
+}
+
+export async function askLectureData(
+  lectureId: string,
+  question: string,
+  aiModel = 'cerebras',
+): Promise<AskAnswer> {
+  const res = await apiClient.post<{ success: boolean; data: AskAnswer }>(
+    `/api/analytics/lecture/${lectureId}/ask`,
+    { question, ai_model: aiModel },
+  );
+  return res.data;
+}
+
+// ── Comparative Benchmarks (Task #50) ─────────────────────────────────────
+
+export interface BenchmarkMetricPack {
+  avg_time_minutes: number;
+  completion_rate: number;
+  unique_students: number;
+  drop_off_rate: number;
+  avg_score: number;
+  mastery_rate: number;
+  struggle_rate: number;
+  distractor_confusion: number;
+  concept_count: number;
+  needs_review_share: number;
+}
+
+export interface BenchmarkPeerSummary {
+  avg: number;
+  min: number;
+  max: number;
+  count: number;
+}
+
+export interface LectureBenchmarkRow {
+  lecture_id: string;
+  title: string;
+  metrics: BenchmarkMetricPack;
+}
+
+export interface CourseBenchmarkRow {
+  course_id: string;
+  title: string;
+  lecture_count: number;
+  metrics: BenchmarkMetricPack;
+}
+
+export interface LectureBenchmarks {
+  scope: 'lecture';
+  lecture_id: string;
+  course_id: string | null;
+  current: LectureBenchmarkRow | null;
+  peers: LectureBenchmarkRow[];
+  summary: Record<keyof BenchmarkMetricPack, BenchmarkPeerSummary>;
+}
+
+export interface CourseBenchmarks {
+  scope: 'course';
+  course_id: string;
+  current: CourseBenchmarkRow | null;
+  peers: CourseBenchmarkRow[];
+  summary: Record<keyof BenchmarkMetricPack, BenchmarkPeerSummary>;
+}
+
+export async function getLectureBenchmarks(lectureId: string): Promise<LectureBenchmarks> {
+  const res = await apiClient.get<{ success: boolean; data: LectureBenchmarks }>(
+    `/api/analytics/lecture/${lectureId}/benchmarks`,
+  );
+  return res.data;
+}
+
+export async function getCourseBenchmarks(courseId: string): Promise<CourseBenchmarks> {
+  const res = await apiClient.get<{ success: boolean; data: CourseBenchmarks }>(
+    `/api/analytics/course/${courseId}/benchmarks`,
+  );
+  return res.data;
+}
+
+export async function getAskSuggestions(lectureId: string): Promise<string[]> {
+  const res = await apiClient.get<{ success: boolean; data: { questions: string[] } }>(
+    `/api/analytics/lecture/${lectureId}/ask/suggestions`,
+  );
+  return res.data?.questions ?? [];
 }

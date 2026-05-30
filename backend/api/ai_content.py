@@ -1,65 +1,135 @@
-from fastapi import APIRouter, HTTPException, Depends
 import logging
-
-logger = logging.getLogger(__name__)
-from fastapi.responses import StreamingResponse
-from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
-from typing import Annotated, Literal, Optional, List, Dict, Any
-from backend.services.ai_service import generate_summary, generate_quiz, generate_analytics_insights, chat_with_lecture, generate_speech, generate_metric_feedback, analyze_slide_vision
-from backend.services.file_parse_service import _page_to_base64, _extract_text_page, _build_slide_from_vision
-from backend.core.database import supabase as _db, url as _url, key as _key
 import io
 import urllib.request
-from backend.services.content_filter import is_metadata_slide
-from backend.core.auth_middleware import verify_token
-from supabase import create_client as _create_client
+import urllib.parse
+import asyncio
+from typing import Annotated, Literal, Optional, List, Dict, Any
+from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel, Field
+from supabase import create_client, Client
 
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
+from backend.core.auth_middleware import verify_token, require_professor
+from backend.core.rate_limit import limiter
+from backend.services.ai_service import (
+    generate_summary, generate_quiz, generate_analytics_insights, 
+    chat_with_lecture, generate_speech, generate_metric_feedback, 
+    analyze_slide_vision, generate_slide_title, enhance_slide_content
+)
+from backend.services.ai.analytics import generate_slide_recommendation
+from backend.services import analytics_service, analytics_cache
+from backend.services.content_filter import is_metadata_slide
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
+_PDF_MAX_BYTES = 50 * 1024 * 1024  # 50 MB cap on PDF downloads
+
+
+_STORAGE_PATH_PREFIX = "/storage/v1/object/"
+
+
+def _validate_supabase_storage_url(url: str) -> None:
+    """Raise HTTPException if the URL is not a trusted Supabase Storage HTTPS URL.
+
+    Enforces:
+    - https scheme only (no file://, http://, etc.)
+    - hostname must exactly match the project's Supabase host
+    - path must be under /storage/v1/object/ (the Storage API namespace)
+    This prevents SSRF via arbitrary hosts, internal addresses, or non-storage paths.
+    """
+    if not url:
+        raise HTTPException(status_code=400, detail="No PDF attached.")
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid PDF URL.")
+
+    if parsed.scheme != "https":
+        raise HTTPException(status_code=400, detail="PDF URL must use HTTPS.")
+
+    # Derive the trusted storage host from the configured Supabase URL.
+    # SUPABASE_URL is like https://<project>.supabase.co
+    try:
+        project_host = urllib.parse.urlparse(SUPABASE_URL).hostname or ""
+    except Exception:
+        project_host = ""
+
+    allowed_host = project_host.lower()
+    request_host = (parsed.hostname or "").lower()
+
+    if not allowed_host or request_host != allowed_host:
+        raise HTTPException(
+            status_code=400,
+            detail="PDF URL does not point to the project's Supabase Storage.",
+        )
+
+    # Require the path to be under the Supabase Storage object namespace.
+    # This prevents the same project host being used to reach non-storage
+    # endpoints (e.g. metadata APIs, internal REST routes).
+    if not parsed.path.startswith(_STORAGE_PATH_PREFIX):
+        raise HTTPException(
+            status_code=400,
+            detail="PDF URL must point to a Supabase Storage object.",
+        )
+
+
+_security = HTTPBearer()
+
 _AiModel = Annotated[
-    Literal["groq", "gemini-2.5-flash", "llama3"],
-    Field("groq", description="Which LLM backend to use"),
+    Literal[
+        "cerebras",        # PRIMARY
+        "groq",
+        "groq_fast",
+        "openrouter",
+        "cloudflare",
+        "gemini",
+        "gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "gemma",
+        "mistral",
+        "llama3",
+        "openai",
+    ],
+    Field("cerebras", description="Preferred LLM backend (head of failover chain)"),
 ]
 
+# --- Pydantic Models ---
 
 class SlideTextRequest(BaseModel):
     slide_text: str = Field(..., min_length=1, max_length=10_000)
-    ai_model: _AiModel = "groq"
-
+    ai_model: _AiModel = "cerebras"
 
 class AnalyticsStatsRequest(BaseModel):
     total_students: int = Field(0, ge=0)
     average_score: float = Field(0, ge=0, le=100)
     total_attempts: int = Field(0, ge=0)
     total_correct: int = Field(0, ge=0)
-    hard_slides: Optional[str] = None
-    engaging_slides: Optional[str] = None
-    weekly_trend: Optional[str] = None
-    confidence_summary: Optional[str] = None
-    ai_model: _AiModel = "groq"
-
+    ai_model: _AiModel = "cerebras"
 
 class MetricInsightRequest(BaseModel):
     metric_name: str
     metric_value: Any
     context_stats: Dict[str, Any]
-    ai_model: _AiModel = "groq"
-
+    ai_model: _AiModel = "cerebras"
 
 class ChatRequest(BaseModel):
     slide_text: str = Field(..., min_length=0, max_length=10_000)
     user_message: str = Field(..., min_length=1, max_length=2_000)
     chat_history: Optional[List[Dict[str, Any]]] = None
-    ai_model: _AiModel = "groq"
-
+    ai_model: _AiModel = "cerebras"
+    # Grounding scope.  Either lecture_id or pdf_hash narrows retrieval to
+    # the slides of *this* deck; without one of them the tutor falls back
+    # to single-slide grounding using `slide_text`.
+    lecture_id: Optional[str] = Field(default=None, max_length=64)
+    pdf_hash: Optional[str] = Field(default=None, max_length=128)
+    current_slide_index: Optional[int] = Field(default=None, ge=0)
 
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5_000)
     voice: Optional[str] = "en-US-AvaNeural"
-
-
-# ── Response models ──────────────────────────────────────────────────────────
 
 class SummaryResponse(BaseModel):
     summary: str
@@ -68,71 +138,256 @@ class QuizResponse(BaseModel):
     question: str
     options: List[str] = Field(..., min_length=4, max_length=4)
     correctAnswer: int = Field(..., ge=0, le=3)
+    # Per-slide concept-testing fields. Optional so older callers / cached
+    # responses without these fields don't break the response model.
+    explanation: Optional[str] = None
+    concept: Optional[str] = None
+    cognitive_level: Optional[Literal["recall", "apply", "analyse"]] = None
+
+
+class CrossSlideQuizQuestion(BaseModel):
+    """Documentary schema for an item on the ``deck_complete`` SSE event.
+
+    The LLM prompt emits letter-style ``answer: "A"|"B"|"C"|"D"`` payloads
+    (matching ``BATCH_SLIDE_PROMPT``); this model normalises to the integer
+    ``correctAnswer`` shape used by ``QuizResponse``, the frontend
+    ``QuizCard``, and the ``quiz_questions.correct_answer`` column. The
+    SSE serializer coerces letters to indices before this schema applies.
+    The ``min_length=2`` invariant on ``linked_slides`` is enforced at
+    generation time by ``validate_cross_slide_question``.
+    """
+    question: str
+    options: List[str] = Field(..., min_length=4, max_length=4)
+    correctAnswer: int = Field(..., ge=0, le=3)
+    explanation: Optional[str] = None
+    concept: Optional[str] = None
+    linked_slides: List[int] = Field(default_factory=list, min_length=2)
 
 class InsightsResponse(BaseModel):
     summary: str
     suggestions: List[str]
 
+class CitationModel(BaseModel):
+    slide_index: int = Field(..., ge=0)
+    similarity: float
+
 class ChatResponse(BaseModel):
     reply: str
+    citations: List[CitationModel] = Field(default_factory=list)
 
-
-# ── Endpoints ────────────────────────────────────────────────────────────────
+# --- Endpoints ---
 
 @router.post("/generate-summary", response_model=SummaryResponse)
-def generate_summary_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+async def generate_summary_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
-    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
-    if filter_result["is_metadata"]:
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model)
+    if filter_result.get("is_metadata"):
         return SummaryResponse(summary="This slide contains administrative information and is not suitable for summarization.")
 
     try:
-        summary = generate_summary(body.slide_text, ai_model=body.ai_model)
+        summary = await generate_summary(body.slide_text, ai_model=body.ai_model)
         return SummaryResponse(summary=summary)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="AI summary timed out. Please retry.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error("AI summary generation failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="AI summary generation failed. Please try again.")
-
+        logger.error("AI summary failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="AI service unavailable. Please try a different model or retry shortly.")
 
 @router.post("/generate-quiz", response_model=QuizResponse)
-def generate_quiz_endpoint(body: SlideTextRequest, user=Depends(verify_token)):
+async def generate_quiz_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
-    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model or "groq")
-    if filter_result["is_metadata"]:
+    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model)
+    if filter_result.get("is_metadata"):
         return QuizResponse(
-            question="This slide contains administrative information and is not suitable for quiz generation.",
+            question="This slide contains administrative information.",
             options=["N/A", "N/A", "N/A", "N/A"],
-            correctAnswer=0,
+            correctAnswer=0
         )
 
     try:
-        quiz = generate_quiz(body.slide_text, ai_model=body.ai_model)
+        quiz = await generate_quiz(body.slide_text, ai_model=body.ai_model)
+        # Ensure correct return format
+        if isinstance(quiz, list) and quiz:
+            quiz = quiz[0]
+        if not isinstance(quiz, dict):
+            raise ValueError("Quiz generation returned unexpected format")
+        # Normalize letter-format "answer": "A"|"B"|"C"|"D" → correctAnswer: int
+        if "answer" in quiz and "correctAnswer" not in quiz:
+            ans = quiz.get("answer", "")
+            if isinstance(ans, str) and len(ans) == 1 and ans.upper().isalpha():
+                quiz["correctAnswer"] = ord(ans.upper()) - ord("A")
         return QuizResponse(**quiz)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="AI quiz timed out. Please retry.")
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"AI returned invalid quiz format: {e}")
     except Exception as e:
-        logger.error("AI quiz generation failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="AI quiz generation failed. Please try again.")
+        logger.error("AI quiz failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="AI service unavailable. Please try a different model or retry shortly.")
 
+@router.post("/suggest-title")
+async def suggest_title_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
+    try:
+        title = await generate_slide_title(body.slide_text)
+        return {"title": title}
+    except Exception as e:
+        logger.error("AI title failed: %s", e)
+        raise HTTPException(status_code=500, detail="AI title suggestion failed.")
+
+@router.post("/suggest-content")
+async def suggest_content_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
+    try:
+        enhanced = await enhance_slide_content(body.slide_text, ai_model=body.ai_model)
+        return {"content": enhanced.get("content", body.slide_text)}
+    except Exception as e:
+        logger.error("AI content enhancement failed: %s", e)
+        raise HTTPException(status_code=500, detail="AI content enhancement failed.")
 
 @router.post("/analytics-insights", response_model=InsightsResponse)
-def analytics_insights_endpoint(body: AnalyticsStatsRequest, user=Depends(verify_token)):
+async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user: Any = Depends(verify_token)):
     try:
-        data = body.dict()
-        model_choice = data.pop("ai_model", "groq")
-        result = generate_analytics_insights(data, ai_model=model_choice)
+        result = await generate_analytics_insights(body.dict(), ai_model=body.ai_model)
         return InsightsResponse(**result)
     except Exception as e:
-        logger.error("AI insights generation failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="AI insights generation failed. Please try again.")
+        logger.error("AI insights failed: %s", e)
+        raise HTTPException(status_code=500, detail="AI insights generation failed.")
+
+class SlideSuggestionRequest(BaseModel):
+    ai_model: _AiModel = "cerebras"
+
+
+class SlideSuggestionResponse(BaseModel):
+    suggestion: str
+    label: str
+    reasons: List[str]
+    cached: bool
+
+
+@router.post("/slides/{slide_id}/recommendation", response_model=SlideSuggestionResponse)
+@limiter.limit("20/minute")
+async def slide_recommendation_endpoint(
+    request: Request,
+    slide_id: str,
+    body: SlideSuggestionRequest,
+    user: Any = Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(_security),
+):
+    """On-demand AI improvement tip for a single slide.
+
+    Verifies the caller owns the parent lecture, recomputes the slide's
+    metrics snapshot (so the cache key tracks the latest analytics), and
+    returns a 1–3 sentence suggestion. Cached per slide + metrics-hash so
+    repeated clicks are free until the analytics cache turns over.
+    """
+    user_id = user.id if hasattr(user, "id") else user.get("id")
+
+    # 1. Resolve slide → lecture and confirm ownership.
+    res = supabase_admin.table("slides")\
+        .select("id, lecture_id, title, content_text, summary, lectures(professor_id)")\
+        .eq("id", slide_id)\
+        .limit(1)\
+        .execute()
+    rows = res.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Slide not found.")
+    slide = rows[0]
+    lecture_id = slide.get("lecture_id")
+    lecture_info = slide.get("lectures") or {}
+    if lecture_info.get("professor_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your lecture.")
+
+    # 2. Pull the cached slide analytics row for this slide.
+    try:
+        slide_rows = await asyncio.to_thread(
+            analytics_service.get_slide_analytics, lecture_id, creds.credentials
+        )
+    except Exception as e:
+        logger.error("Slide analytics lookup failed: %s", e)
+        raise HTTPException(status_code=500, detail="Could not load slide metrics.")
+
+    metrics = next((s for s in slide_rows if s.get("slide_id") == slide_id), None)
+    if metrics is None:
+        raise HTTPException(status_code=404, detail="Slide metrics unavailable.")
+
+    label = metrics.get("recommendation_label")
+    if label == "insufficient_data" or label is None:
+        # No useful suggestion possible — surface a static helper instead
+        # of burning a token.
+        return SlideSuggestionResponse(
+            suggestion="Not enough student activity yet to give a tailored tip. Encourage a few students to complete the slide first.",
+            label=label or "insufficient_data",
+            reasons=metrics.get("recommendation_reasons", []),
+            cached=False,
+        )
+    if label != "needs_review":
+        # Hard-gate AI generation to slides flagged for review so off-path
+        # calls (e.g. direct API hits) don't burn tokens for satisfactory
+        # or outstanding slides where no tip is needed.
+        return SlideSuggestionResponse(
+            suggestion="This slide is performing well — no AI suggestion needed.",
+            label=label,
+            reasons=metrics.get("recommendation_reasons", []),
+            cached=False,
+        )
+
+    # 3. Cache key = (slide_id, hash of metrics snapshot, model).
+    snapshot = {
+        "drop_off_rate": metrics.get("drop_off_rate"),
+        "confusion_rate": metrics.get("confusion_rate"),
+        "quiz_success_rate": metrics.get("quiz_success_rate"),
+        "view_count": metrics.get("view_count"),
+        "quiz_attempts": metrics.get("quiz_attempts"),
+        "label": label,
+        "reasons": sorted(metrics.get("recommendation_reasons", []) or []),
+    }
+    cache_params = {"slide_id": slide_id, "model": body.ai_model, "snapshot": snapshot}
+
+    cache_hit = {"hit": True}
+
+    async def _compute():
+        cache_hit["hit"] = False
+        text = await generate_slide_recommendation(
+            slide_title=slide.get("title") or f"Slide {slide_id[:6]}",
+            slide_text=slide.get("content_text") or slide.get("summary") or "",
+            drop_off_rate=float(metrics.get("drop_off_rate") or 0.0),
+            confusion_rate=float(metrics.get("confusion_rate") or 0.0),
+            quiz_success_rate=metrics.get("quiz_success_rate"),
+            view_count=int(metrics.get("view_count") or 0),
+            reasons=metrics.get("recommendation_reasons", []) or [],
+            ai_model=body.ai_model,
+        )
+        return {"suggestion": text}
+
+    try:
+        payload = await analytics_cache.get_or_compute_async(
+            lecture_id,
+            "ai_slide_recommendation",
+            _compute,
+            params=cache_params,
+            ttl_seconds=60 * 60 * 24,  # 24h; invalidated whenever analytics cache is dropped
+        )
+    except Exception as e:
+        logger.error("Slide recommendation pipeline failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="AI suggestion failed. Please retry.")
+
+    return SlideSuggestionResponse(
+        suggestion=payload.get("suggestion", ""),
+        label=label,
+        reasons=metrics.get("recommendation_reasons", []),
+        cached=cache_hit["hit"],
+    )
 
 
 @router.post("/metric-feedback")
-def metric_feedback_endpoint(body: MetricInsightRequest, user=Depends(verify_token)):
+async def metric_feedback_endpoint(body: MetricInsightRequest, user: Any = Depends(verify_token)):
     try:
-        feedback = generate_metric_feedback(
+        feedback = await generate_metric_feedback(
             metric_name=body.metric_name,
             metric_value=body.metric_value,
             context_stats=body.context_stats,
@@ -140,55 +395,100 @@ def metric_feedback_endpoint(body: MetricInsightRequest, user=Depends(verify_tok
         )
         return {"feedback": feedback}
     except Exception as e:
-        logger.error("AI metric feedback failed: %s", e, exc_info=True)
+        logger.error("AI metric feedback failed: %s", e)
         raise HTTPException(status_code=500, detail="AI metric feedback failed.")
 
-
 @router.post("/chat", response_model=ChatResponse)
-def chat_with_tutor_endpoint(body: ChatRequest, user=Depends(verify_token)):
+@limiter.limit("30/minute")
+async def chat_with_tutor_endpoint(request: Request, body: ChatRequest, user: Any = Depends(verify_token)):
+    # Authorization: the client tells us which lecture/pdf to ground in, but
+    # the *server* must verify the caller is allowed to read that lecture
+    # before we hand any of its content to the LLM.  Without this, anyone
+    # with a valid token could supply another lecture's id/hash and ask the
+    # tutor to read it back to them (cross-tenant data exposure).
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    user_role = (
+        (user.app_metadata or {}).get("role")
+        if hasattr(user, "app_metadata")
+        else (user.get("app_metadata", {}) or {}).get("role") if isinstance(user, dict) else None
+    )
+    safe_lecture_id: Optional[str] = None
+    safe_pdf_hash: Optional[str] = None
+    if body.lecture_id or body.pdf_hash:
+        try:
+            q = supabase_admin.table("lectures").select("id, professor_id, pdf_hash")
+            if body.lecture_id:
+                q = q.eq("id", body.lecture_id)
+            else:
+                q = q.eq("pdf_hash", body.pdf_hash)
+            res = q.limit(1).execute()
+            rows = res.data or []
+            if not rows:
+                raise HTTPException(status_code=404, detail="Lecture not found.")
+            row = rows[0]
+            # Professors may only ground in lectures they own.  Students may
+            # ground in any lecture (the platform exposes lectures to all
+            # authenticated students; refine here once enrollments exist).
+            if user_role == "professor" and row.get("professor_id") != user_id:
+                raise HTTPException(status_code=403, detail="Not your lecture.")
+            safe_lecture_id = row.get("id")
+            safe_pdf_hash = row.get("pdf_hash")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("Lecture authorization check failed: %s", e)
+            raise HTTPException(status_code=500, detail="Authorization check failed.")
     try:
-        reply = chat_with_lecture(
+        result = await chat_with_lecture(
             slide_text=body.slide_text,
             user_message=body.user_message,
             chat_history=body.chat_history,
             ai_model=body.ai_model,
+            lecture_id=safe_lecture_id,
+            pdf_hash=safe_pdf_hash,
+            current_slide_index=body.current_slide_index,
         )
-        return ChatResponse(reply=reply)
+        # Back-compat: if a stub still returns a bare string, wrap it.
+        if isinstance(result, str):
+            return ChatResponse(reply=result, citations=[])
+        return ChatResponse(
+            reply=result.get("reply", ""),
+            citations=result.get("citations", []),
+        )
     except Exception as e:
-        logger.error("Endpoint error: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="AI tutor failed to respond. Please try again.")
-
+        logger.error("AI tutor failed: %s", e)
+        raise HTTPException(status_code=500, detail="AI tutor failed to respond.")
 
 @router.post("/tts")
-async def text_to_speech_endpoint(body: TTSRequest, user=Depends(verify_token)):
+@limiter.limit("20/minute")
+async def text_to_speech_endpoint(request: Request, body: TTSRequest, user: Any = Depends(verify_token)):
     try:
         audio_content = await generate_speech(body.text, voice=body.voice)
         return StreamingResponse(io.BytesIO(audio_content), media_type="audio/mpeg")
     except Exception as e:
-        logger.error("Endpoint error: %s", e, exc_info=True)
+        logger.error("TTS failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to generate AI voice.")
 
-
-# ── Slide content regeneration ────────────────────────────────────────────────
+# --- Single Slide Regeneration ---
 
 class RegenerateSlideRequest(BaseModel):
-    ai_model: _AiModel = "groq"
-
+    ai_model: _AiModel = "cerebras"
 
 @router.post("/slides/{slide_id}/regenerate-content")
+@limiter.limit("10/minute")
 async def regenerate_slide_content(
+    request: Request,
     slide_id: str,
     body: RegenerateSlideRequest,
-    user=Depends(verify_token),
+    user: Any = Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(_security),
 ):
-    """
-    Re-analyze a single slide using the vision pipeline and update the database.
-    Only the professor who owns the lecture may call this.
-    """
-    client = _create_client(_url, _key)
-    client.postgrest.auth(user["token"])
+    """Re-analyzes a single slide and updates the database."""
+    # Use user-authenticated client for RLS check
+    client: Client = create_client(SUPABASE_URL, ANON_KEY)
+    client.postgrest.auth(creds.credentials)
 
-    # Fetch slide + lecture in one query
+    # 1. Fetch slide + lecture
     res = client.table("slides") \
         .select("slide_number, lecture_id, lectures(pdf_url, professor_id)") \
         .eq("id", slide_id) \
@@ -199,59 +499,100 @@ async def regenerate_slide_content(
         raise HTTPException(status_code=404, detail="Slide not found.")
 
     lecture_info = res.data.get("lectures", {}) or {}
-    professor_id = lecture_info.get("professor_id")
+    user_id = user.id if hasattr(user, "id") else user.get("id")
+    if lecture_info.get("professor_id") != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+    
     pdf_url = lecture_info.get("pdf_url")
+    _validate_supabase_storage_url(pdf_url)
 
-    if professor_id != user["id"]:
-        raise HTTPException(status_code=403, detail="Only the lecture's professor can regenerate slide content.")
-    if not pdf_url:
-        raise HTTPException(status_code=400, detail="No PDF attached to this lecture.")
+    slide_num: int = res.data["slide_number"]
 
-    slide_number: int = res.data["slide_number"]
-
-    # Download PDF from Supabase Storage public URL
+    # 2. Download PDF — constrained to trusted Supabase Storage host,
+    #    with an explicit timeout, redirect blocking, and a response-size cap.
     try:
-        with urllib.request.urlopen(pdf_url) as resp:
-            pdf_bytes = resp.read()
+        def _download():
+            class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+                def redirect_request(self, req, fp, code, msg, headers, newurl):
+                    raise ValueError(f"Redirect not allowed (HTTP {code} → {newurl})")
+
+            opener = urllib.request.build_opener(_NoRedirectHandler)
+            req = urllib.request.Request(
+                pdf_url,
+                headers={"User-Agent": "LectureApp/1.0"},
+            )
+            with opener.open(req, timeout=30) as resp:
+                chunks = []
+                total = 0
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > _PDF_MAX_BYTES:
+                        raise ValueError(
+                            f"PDF response exceeds {_PDF_MAX_BYTES // (1024*1024)} MB limit."
+                        )
+                    chunks.append(chunk)
+                return b"".join(chunks)
+        pdf_bytes = await asyncio.to_thread(_download)
+    except ValueError as e:
+        logger.warning("PDF download rejected (size): %s", e)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not download lecture PDF: {e}")
+        logger.error("PDF download failed: %s", e)
+        raise HTTPException(status_code=502, detail="Could not download PDF.")
 
-    # Convert page to image + extract text (blocking — run in thread)
-    b64 = await run_in_threadpool(_page_to_base64, pdf_bytes, slide_number)
-    raw_text = await run_in_threadpool(_extract_text_page, pdf_bytes, slide_number - 1)
+    # 3. Analyze Slide (Vision)
+    from backend.services.file_parse_service import _render_page_to_jpeg, safe_truncate_text
+    import fitz
 
-    if not b64:
-        raise HTTPException(status_code=500, detail="Could not render slide as image. Ensure poppler is installed.")
+    def _extract():
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            page = doc[slide_num - 1]
+            img = _render_page_to_jpeg(page)
+            text = page.get_text("text")
+            return img, text
 
-    # Vision analysis
-    analysis = await run_in_threadpool(analyze_slide_vision, b64, raw_text, body.ai_model)
-    slide_data = _build_slide_from_vision(analysis, slide_number, raw_text)
-
-    # Update slide record
+    img_bytes, raw_text = await asyncio.to_thread(_extract)
+    
+    # Run vision analysis
+    import base64
+    b64 = base64.b64encode(img_bytes).decode("utf-8")
+    analysis = await analyze_slide_vision(b64, raw_text, ai_model=body.ai_model)
+    
+    # 4. Update Database
+    from backend.services.ai.vision import format_slide_content
+    content = format_slide_content(analysis.get("content_extraction", {}))
+    
     client.table("slides").update({
-        "title": slide_data["title"],
-        "content_text": slide_data["content"],
-        "summary": slide_data["summary"],
+        "title": analysis.get("metadata", {}).get("lecture_title") or f"Slide {slide_num}",
+        "content_text": content,
+        "summary": analysis.get("content_extraction", {}).get("summary", ""),
     }).eq("id", slide_id).execute()
 
-    # Replace quiz questions
-    client.table("quiz_questions").delete().eq("slide_id", slide_id).execute()
-    for q in slide_data.get("questions", []):
-        if q.get("question", "").strip():
-            client.table("quiz_questions").insert({
-                "slide_id": slide_id,
-                "question_text": q["question"],
-                "options": q["options"],
-                "correct_answer": q["correctAnswer"],
-            }).execute()
+    # Replace quiz
+    quiz = analysis.get("quiz")
+    if quiz:
+        # Capture concept-testing fields in the quiz_questions.metadata jsonb
+        # column so the player can render the explanation chip and analytics
+        # can group questions by concept / cognitive level. Stored only when
+        # present; older models that don't emit these fields just leave the
+        # column at its default ``{}``.
+        metadata = {
+            k: v for k, v in {
+                "explanation": quiz.get("explanation"),
+                "concept": quiz.get("concept"),
+                "cognitive_level": quiz.get("cognitive_level"),
+            }.items() if v
+        }
+        client.table("quiz_questions").delete().eq("slide_id", slide_id).execute()
+        client.table("quiz_questions").insert({
+            "slide_id": slide_id,
+            "question_text": quiz["question"],
+            "options": quiz["options"],
+            "correct_answer": quiz["correctAnswer"],
+            "metadata": metadata,
+        }).execute()
 
-    return {
-        "success": True,
-        "slide": {
-            "title": slide_data["title"],
-            "content_text": slide_data["content"],
-            "summary": slide_data["summary"],
-            "slide_type": slide_data.get("slide_type", "content_slide"),
-            "questions": slide_data.get("questions", []),
-        },
-    }
+    return {"success": True, "analysis": analysis}

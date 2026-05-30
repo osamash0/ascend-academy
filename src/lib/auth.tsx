@@ -5,16 +5,18 @@ import { AUTH_INIT_TIMEOUT_MS, AUTH_PROFILE_TIMEOUT_MS } from '@/lib/constants';
 
 type UserRole = 'student' | 'professor' | null;
 
-interface Profile {
+export interface Profile {
   id: string;
   user_id: string;
   email: string;
   full_name: string | null;
+  display_name: string | null;
   avatar_url: string | null;
   total_xp: number;
   current_level: number;
   current_streak: number;
   best_streak: number;
+  preferred_language?: 'en' | 'de' | null;
 }
 
 interface AuthContextType {
@@ -42,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string): Promise<boolean> => {
     const { data: profileData, error } = await supabase
       .from('profiles')
-      .select('id, user_id, email, full_name, avatar_url, total_xp, current_level, current_streak, best_streak')
+      .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak, preferred_language')
       .eq('user_id', userId)
       .single();
 
@@ -99,17 +101,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(session?.user ?? null);
 
           if (session?.user) {
-            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || !hasFetchedProfile.current) {
-                hasFetchedProfile.current = true;
-                const hasProfile = await withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => true);
-                if (!hasProfile) {
-                  console.warn("User has session but no profile. Signing out.");
-                  await signOut().catch(() => {});
-                } else {
-                  await withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
-                }
+            // Race-safe: only fetch profile/role once per session. INITIAL_SESSION
+            // and SIGNED_IN often fire back-to-back on cold start, and we don't
+            // want two parallel fetches both racing to set state.
+            const isLoginEvent = event === 'INITIAL_SESSION' || event === 'SIGNED_IN';
+            if (isLoginEvent && !hasFetchedProfile.current) {
+              hasFetchedProfile.current = true;
+              const profilePromise = withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => true);
+              const rolePromise = withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
+              const hasProfile = await profilePromise;
+              if (!hasProfile) {
+                console.warn("User has session but no profile. Signing out.");
+                await signOut().catch(() => {});
+              } else {
+                await rolePromise;
+              }
             }
           } else {
+            // Reset on sign-out so the next session re-fetches cleanly
+            hasFetchedProfile.current = false;
             setProfile(null);
             setRole(null);
           }
@@ -142,16 +152,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error };
     }
 
-    // Role is now stored in user_metadata.role
-    // A Supabase database trigger (on_auth_user_created) should read
-    // raw_user_meta_data->>'role' and insert into user_roles.
-    // Fallback: insert from client if trigger is not yet set up.
-    if (data.user && selectedRole) {
-      await supabase
-        .from('user_roles')
-        .upsert({ user_id: data.user.id, role: selectedRole }, { onConflict: 'user_id' });
-    }
-
+    // Role is stored in user_metadata.role and propagated to user_roles
+    // by the on_auth_user_created database trigger. We deliberately do
+    // NOT upsert into user_roles from the client — that would let any
+    // user grant themselves the 'professor' role and bypass server-side
+    // role checks. If signups are succeeding but no role is assigned,
+    // verify the trigger exists in Supabase.
     return { error: null };
   };
 

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, useScroll, useTransform, useSpring, useMotionValue, AnimatePresence } from 'framer-motion';
+import { LanguageToggle } from '@/components/LanguageToggle';
 import { 
   Rocket, BookOpen, Brain, Zap, Shield, ChevronRight, Star, 
   Users, BarChart3, Sparkles, ArrowRight, Play, X, Menu,
@@ -21,86 +23,24 @@ interface StarField {
   twinkle: boolean;
 }
 
-interface NavLink {
-  label: string;
-  href: string;
-}
-
-interface Feature {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  color: string;
-  glowColor: string;
-}
-
-interface Stat {
-  value: string;
-  label: string;
-  icon: React.ElementType;
-}
-
 /* ═══════════════════════════════════════════════════════════════
    CONSTANTS
    ═══════════════════════════════════════════════════════════════ */
 
-const NAV_LINKS: NavLink[] = [
-  { label: 'Features', href: '#features' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'For Professors', href: '#professors' },
-  { label: 'Pricing', href: '#pricing' },
+const FEATURES: { icon: React.ElementType; key: string; color: string; glowColor: string }[] = [
+  { icon: Brain, key: 'aiTutor', color: 'from-cyan-400 to-blue-500', glowColor: 'shadow-cyan-500/30' },
+  { icon: BarChart3, key: 'liveAnalytics', color: 'from-violet-400 to-purple-500', glowColor: 'shadow-violet-500/30' },
+  { icon: Target, key: 'adaptiveQuizzes', color: 'from-emerald-400 to-teal-500', glowColor: 'shadow-emerald-500/30' },
+  { icon: Users, key: 'professorCommand', color: 'from-amber-400 to-orange-500', glowColor: 'shadow-amber-500/30' },
+  { icon: Shield, key: 'secureVault', color: 'from-rose-400 to-pink-500', glowColor: 'shadow-rose-500/30' },
+  { icon: Globe, key: 'universalAccess', color: 'from-sky-400 to-indigo-500', glowColor: 'shadow-sky-500/30' },
 ];
 
-const FEATURES: Feature[] = [
-  {
-    icon: Brain,
-    title: 'AI Tutor',
-    description: 'Your personal AI companion that adapts to your learning style, answers questions in real-time, and guides you through complex topics.',
-    color: 'from-cyan-400 to-blue-500',
-    glowColor: 'shadow-cyan-500/30',
-  },
-  {
-    icon: BarChart3,
-    title: 'Live Analytics',
-    description: 'Mission-control dashboards track your progress with precision. See your XP, streaks, and skill mastery in real-time.',
-    color: 'from-violet-400 to-purple-500',
-    glowColor: 'shadow-violet-500/30',
-  },
-  {
-    icon: Target,
-    title: 'Adaptive Quizzes',
-    description: 'Smart assessments that evolve with your knowledge. Wrong answers become learning opportunities, not setbacks.',
-    color: 'from-emerald-400 to-teal-500',
-    glowColor: 'shadow-emerald-500/30',
-  },
-  {
-    icon: Users,
-    title: 'Professor Command',
-    description: 'Instructors get a full mission control suite: upload lectures, track class performance, and deploy AI-powered insights.',
-    color: 'from-amber-400 to-orange-500',
-    glowColor: 'shadow-amber-500/30',
-  },
-  {
-    icon: Shield,
-    title: 'Secure Vault',
-    description: 'Your learning data is encrypted and protected. Enterprise-grade security with privacy-first architecture.',
-    color: 'from-rose-400 to-pink-500',
-    glowColor: 'shadow-rose-500/30',
-  },
-  {
-    icon: Globe,
-    title: 'Universal Access',
-    description: 'Learn anywhere, on any device. Sync progress across platforms with offline capability for deep-space learning.',
-    color: 'from-sky-400 to-indigo-500',
-    glowColor: 'shadow-sky-500/30',
-  },
-];
-
-const STATS: Stat[] = [
-  { value: '50K+', label: 'Active Learners', icon: Users },
-  { value: '12M+', label: 'Questions Answered', icon: Brain },
-  { value: '98%', label: 'Retention Rate', icon: Target },
-  { value: '4.9', label: 'User Rating', icon: Star },
+const STATS: { value: string; labelKey: string; icon: React.ElementType }[] = [
+  { value: '50K+', labelKey: 'landing:stats.activeLearners', icon: Users },
+  { value: '12M+', labelKey: 'landing:stats.questionsAnswered', icon: Brain },
+  { value: '98%', labelKey: 'landing:stats.retentionRate', icon: Target },
+  { value: '4.9', labelKey: 'landing:stats.userRating', icon: Star },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -306,8 +246,14 @@ function HUDGrid() {
 /* ── Navigation ── */
 function Navigation() {
   const navigate = useNavigate();
+  const { t } = useTranslation(['landing']);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navLinks = [
+    { label: t('landing:nav.features'), href: '#features' },
+    { label: t('landing:nav.howItWorks'), href: '#how-it-works' },
+    { label: t('landing:nav.forProfessors'), href: '#professors' },
+  ];
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -351,7 +297,7 @@ function Navigation() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
@@ -365,11 +311,12 @@ function Navigation() {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-4">
+            <LanguageToggle variant="icon-light" />
             <button
               onClick={() => navigate('/auth')}
               className="text-sm text-slate-300 hover:text-white transition-colors"
             >
-              Sign In
+              {t('landing:nav.signIn')}
             </button>
             <motion.button
               onClick={() => navigate('/auth')}
@@ -377,7 +324,7 @@ function Navigation() {
               whileTap={{ scale: 0.95 }}
               className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-shadow"
             >
-              Launch Mission
+              {t('landing:nav.launchMission')}
             </motion.button>
           </div>
 
@@ -401,7 +348,7 @@ function Navigation() {
             className="md:hidden bg-[#060a14]/95 backdrop-blur-xl border-b border-white/5"
           >
             <div className="px-6 py-6 space-y-4">
-              {NAV_LINKS.map((link) => (
+              {navLinks.map((link) => (
                 <a
                   key={link.label}
                   href={link.href}
@@ -412,12 +359,13 @@ function Navigation() {
                 </a>
               ))}
               <div className="pt-4 border-t border-white/10 space-y-3">
-                <button onClick={() => { navigate('/auth'); setMobileOpen(false); }} className="block text-slate-300 py-2 w-full text-left">Sign In</button>
+                <div className="flex justify-center"><LanguageToggle variant="icon-light" /></div>
+                <button onClick={() => { navigate('/auth'); setMobileOpen(false); }} className="block text-slate-300 py-2 w-full text-left">{t('landing:nav.signIn')}</button>
                 <button
                   onClick={() => { navigate('/auth'); setMobileOpen(false); }}
                   className="block px-5 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-center font-semibold rounded-xl w-full"
                 >
-                  Launch Mission
+                  {t('landing:nav.launchMission')}
                 </button>
               </div>
             </div>
@@ -431,6 +379,7 @@ function Navigation() {
 /* ── Hero Section ── */
 function HeroSection() {
   const navigate = useNavigate();
+  const { t } = useTranslation(['landing']);
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -475,7 +424,7 @@ function HeroSection() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
           </span>
-          <span className="text-sm text-cyan-300 font-medium">v2.0 Now Orbiting</span>
+          <span className="text-sm text-cyan-300 font-medium">{t('landing:hero.badge')}</span>
         </motion.div>
 
         {/* Main Headline */}
@@ -485,11 +434,11 @@ function HeroSection() {
           transition={{ delay: 0.4, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="text-5xl sm:text-6xl lg:text-8xl font-bold text-white tracking-tight leading-[1.1] mb-6"
         >
-          Your Learning
+          {t('landing:hero.headlineLine1')}
           <br />
           <span className="relative inline-block">
             <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 bg-clip-text text-transparent">
-              Mission Control
+              {t('landing:hero.headlineLine2')}
             </span>
             <motion.div
               className="absolute -inset-4 bg-gradient-to-r from-cyan-500/20 to-violet-500/20 blur-2xl -z-10"
@@ -506,8 +455,7 @@ function HeroSection() {
           transition={{ delay: 0.6, duration: 0.6 }}
           className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed"
         >
-          Ascend Academy's next-generation platform. AI-powered tutoring, 
-          real-time analytics, and immersive course experiences — all from your command center.
+          {t('landing:hero.subtitle')}
         </motion.p>
 
         {/* CTA Buttons */}
@@ -524,7 +472,7 @@ function HeroSection() {
             className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-2xl shadow-xl shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-shadow overflow-hidden"
           >
             <span className="relative z-10 flex items-center gap-2">
-              Launch Your Mission
+              {t('landing:hero.ctaPrimary')}
               <Rocket className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </span>
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -537,7 +485,7 @@ function HeroSection() {
             className="group px-8 py-4 bg-white/5 border border-white/10 text-white font-semibold rounded-2xl hover:bg-white/10 transition-colors flex items-center gap-2"
           >
             <Play className="w-5 h-5 text-cyan-400" />
-            Watch Demo
+            {t('landing:hero.ctaSecondary')}
           </motion.button>
         </motion.div>
 
@@ -563,7 +511,7 @@ function HeroSection() {
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
                 <Cpu className="w-3 h-3" />
-                SYSTEM ONLINE
+                {t('landing:hero.systemOnline')}
               </div>
             </div>
 
@@ -571,9 +519,9 @@ function HeroSection() {
             <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Stats Cards */}
               {[
-                { label: 'XP Earned', value: '12,450', color: 'from-cyan-400 to-blue-500', icon: Zap },
-                { label: 'Current Streak', value: '14 Days', color: 'from-amber-400 to-orange-500', icon: Flame },
-                { label: 'Accuracy', value: '94.2%', color: 'from-emerald-400 to-teal-500', icon: Target },
+                { label: t('landing:hero.stats.xpEarned'), value: '12,450', color: 'from-cyan-400 to-blue-500', icon: Zap },
+                { label: t('landing:hero.stats.currentStreak'), value: t('landing:hero.stats.days', { count: 14 }), color: 'from-amber-400 to-orange-500', icon: Flame },
+                { label: t('landing:hero.stats.accuracy'), value: '94.2%', color: 'from-emerald-400 to-teal-500', icon: Target },
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -608,16 +556,16 @@ function HeroSection() {
                 className="md:col-span-2 rounded-xl border border-white/5 bg-white/[0.03] p-4"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs text-slate-500 uppercase tracking-wider">Active Course</span>
-                  <span className="text-xs text-cyan-400 font-mono">IN PROGRESS</span>
+                  <span className="text-xs text-slate-500 uppercase tracking-wider">{t('landing:hero.preview.activeCourse')}</span>
+                  <span className="text-xs text-cyan-400 font-mono">{t('landing:hero.preview.inProgress')}</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
                     <BookOpen className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-white font-semibold mb-1">Advanced Machine Learning</h4>
-                    <p className="text-sm text-slate-500 mb-2">Module 4 of 12 • Neural Networks</p>
+                    <h4 className="text-white font-semibold mb-1">{t('landing:hero.preview.courseTitle')}</h4>
+                    <p className="text-sm text-slate-500 mb-2">{t('landing:hero.preview.courseSubtitle')}</p>
                     <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full bg-gradient-to-r from-violet-400 to-purple-500 rounded-full"
@@ -641,13 +589,13 @@ function HeroSection() {
                 <div className="absolute top-0 right-0 w-20 h-20 bg-cyan-500/10 rounded-full blur-2xl" />
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                  <span className="text-xs text-cyan-400 font-mono uppercase">AI Tutor Active</span>
+                  <span className="text-xs text-cyan-400 font-mono uppercase">{t('landing:hero.preview.aiTutorActive')}</span>
                 </div>
-                <p className="text-sm text-slate-400 mb-3">"How do backpropagation gradients flow through a neural network?"</p>
+                <p className="text-sm text-slate-400 mb-3">{t('landing:hero.preview.tutorQuestion')}</p>
                 <div className="flex items-center gap-2 text-xs text-cyan-400">
                   <span className="animate-pulse flex items-center gap-2">
                     <Sparkles className="w-3 h-3" />
-                    <span>Generating response...</span>
+                    <span>{t('landing:hero.preview.generatingResponse')}</span>
                   </span>
                 </div>
               </motion.div>
@@ -680,7 +628,7 @@ function HeroSection() {
           transition={{ duration: 2, repeat: Infinity }}
           className="flex flex-col items-center gap-2 text-slate-500"
         >
-          <span className="text-xs uppercase tracking-widest">Scroll to Explore</span>
+          <span className="text-xs uppercase tracking-widest">{t('landing:hero.scrollToExplore')}</span>
           <ChevronDown className="w-5 h-5" />
         </motion.div>
       </motion.div>
@@ -690,13 +638,14 @@ function HeroSection() {
 
 /* ── Stats Bar ── */
 function StatsBar() {
+  const { t } = useTranslation(['landing']);
   return (
     <section className="relative z-10 py-20 border-y border-white/5 bg-white/[0.02]">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {STATS.map((stat, index) => (
             <motion.div
-              key={stat.label}
+              key={stat.labelKey}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -707,7 +656,7 @@ function StatsBar() {
                 <stat.icon className="w-5 h-5 text-cyan-400" />
               </div>
               <div className="text-3xl lg:text-4xl font-bold text-white mb-1">{stat.value}</div>
-              <div className="text-sm text-slate-500">{stat.label}</div>
+              <div className="text-sm text-slate-500">{t(stat.labelKey)}</div>
             </motion.div>
           ))}
         </div>
@@ -718,6 +667,7 @@ function StatsBar() {
 
 /* ── Features Grid ── */
 function FeaturesSection() {
+  const { t } = useTranslation(['landing']);
   return (
     <section id="features" className="relative z-10 py-32">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -729,16 +679,16 @@ function FeaturesSection() {
           className="text-center mb-20"
         >
           <span className="text-cyan-400 text-sm font-mono uppercase tracking-widest mb-4 block">
-            Ship Systems
+            {t('landing:features.eyebrow')}
           </span>
           <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-            Everything You Need to{' '}
+            {t('landing:features.headlineLeft')}{' '}
             <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              Reach Orbit
+              {t('landing:features.headlineHighlight')}
             </span>
           </h2>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Six powerful systems working in harmony to deliver the most advanced learning experience in the galaxy.
+            {t('landing:features.subtitle')}
           </p>
         </motion.div>
 
@@ -746,7 +696,7 @@ function FeaturesSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {FEATURES.map((feature, index) => (
             <motion.div
-              key={feature.title}
+              key={feature.key}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -763,15 +713,15 @@ function FeaturesSection() {
                 </div>
                 
                 <h3 className="text-xl font-bold text-white mb-3 group-hover:text-cyan-300 transition-colors">
-                  {feature.title}
+                  {t(`landing:features.${feature.key}.title`)}
                 </h3>
                 
                 <p className="text-slate-400 leading-relaxed">
-                  {feature.description}
+                  {t(`landing:features.${feature.key}.description`)}
                 </p>
 
                 <div className="mt-6 flex items-center gap-2 text-sm text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span>Learn more</span>
+                  <span>{t('landing:features.learnMore')}</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -785,31 +735,12 @@ function FeaturesSection() {
 
 /* ── How It Works — Timeline ── */
 function HowItWorksSection() {
+  const { t } = useTranslation(['landing']);
   const steps = [
-    {
-      number: '01',
-      title: 'Launch Your Profile',
-      description: 'Create your astronaut profile. Set your learning goals, choose your mission path, and calibrate your AI tutor.',
-      icon: Rocket,
-    },
-    {
-      number: '02',
-      title: 'Engage Courses',
-      description: 'Enter immersive lecture environments. Navigate slides, interact with content, and let the AI guide your journey.',
-      icon: BookOpen,
-    },
-    {
-      number: '03',
-      title: 'AI-Powered Mastery',
-      description: 'Ask questions in real-time. Get personalized explanations, practice with adaptive quizzes, and level up your skills.',
-      icon: Brain,
-    },
-    {
-      number: '04',
-      title: 'Track & Celebrate',
-      description: 'Watch your progress in the command center. Earn XP, maintain streaks, unlock achievements, and reach new levels.',
-      icon: Trophy,
-    },
+    { number: '01', key: 'step1', icon: Rocket },
+    { number: '02', key: 'step2', icon: BookOpen },
+    { number: '03', key: 'step3', icon: Brain },
+    { number: '04', key: 'step4', icon: Trophy },
   ];
 
   return (
@@ -822,12 +753,12 @@ function HowItWorksSection() {
           className="text-center mb-20"
         >
           <span className="text-violet-400 text-sm font-mono uppercase tracking-widest mb-4 block">
-            Flight Path
+            {t('landing:howItWorks.eyebrow')}
           </span>
           <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-            Four Stages to{' '}
+            {t('landing:howItWorks.headlineLeft')}{' '}
             <span className="bg-gradient-to-r from-violet-400 to-purple-500 bg-clip-text text-transparent">
-              Liftoff
+              {t('landing:howItWorks.headlineHighlight')}
             </span>
           </h2>
         </motion.div>
@@ -857,8 +788,8 @@ function HowItWorksSection() {
                       <step.icon className="w-6 h-6 text-cyan-400" />
                     </div>
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">{step.title}</h3>
-                  <p className="text-slate-400 leading-relaxed">{step.description}</p>
+                  <h3 className="text-2xl font-bold text-white mb-3">{t(`landing:howItWorks.${step.key}.title`)}</h3>
+                  <p className="text-slate-400 leading-relaxed">{t(`landing:howItWorks.${step.key}.description`)}</p>
                 </div>
 
                 {/* Spacer for other side */}
@@ -875,6 +806,7 @@ function HowItWorksSection() {
 /* ── Professor Section ── */
 function ProfessorSection() {
   const navigate = useNavigate();
+  const { t } = useTranslation(['landing']);
   return (
     <section id="professors" className="relative z-10 py-32">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -887,25 +819,24 @@ function ProfessorSection() {
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           >
             <span className="text-amber-400 text-sm font-mono uppercase tracking-widest mb-4 block">
-              For Commanders
+              {t('landing:professors.eyebrow')}
             </span>
             <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
-              Professor{' '}
+              {t('landing:professors.headlineLeft')}{' '}
               <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                Mission Control
+                {t('landing:professors.headlineHighlight')}
               </span>
             </h2>
             <p className="text-slate-400 text-lg mb-8 leading-relaxed">
-              Deploy courses, monitor student progress in real-time, and leverage AI analytics 
-              to optimize learning outcomes. Your classroom, reimagined as a command center.
+              {t('landing:professors.subtitle')}
             </p>
 
             <div className="space-y-4 mb-10">
               {[
-                'Upload lectures with intelligent slide parsing',
-                'Real-time student engagement analytics',
-                'AI-generated quiz questions per slide',
-                'Performance dashboards with exportable reports',
+                t('landing:professors.bullet1'),
+                t('landing:professors.bullet2'),
+                t('landing:professors.bullet3'),
+                t('landing:professors.bullet4'),
               ].map((item, i) => (
                 <motion.div
                   key={i}
@@ -930,7 +861,7 @@ function ProfessorSection() {
               className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-2xl shadow-lg shadow-amber-500/25"
             >
               <Rocket className="w-5 h-5" />
-              Start Teaching
+              {t('landing:professors.cta')}
             </motion.button>
           </motion.div>
 
@@ -949,9 +880,9 @@ function ProfessorSection() {
               <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
                 <div className="flex items-center gap-3">
                   <BarChart3 className="w-5 h-5 text-amber-400" />
-                  <span className="text-white font-semibold">Class Analytics</span>
+                  <span className="text-white font-semibold">{t('landing:professors.preview.title')}</span>
                 </div>
-                <span className="text-xs text-emerald-400 font-mono">● LIVE</span>
+                <span className="text-xs text-emerald-400 font-mono">{t('landing:professors.preview.live')}</span>
               </div>
 
               {/* Chart Placeholder */}
@@ -977,9 +908,9 @@ function ProfessorSection() {
                 {/* Metrics */}
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/5">
                   {[
-                    { label: 'Avg Score', value: '87.3%', color: 'text-emerald-400' },
-                    { label: 'Attendance', value: '94%', color: 'text-cyan-400' },
-                    { label: 'Engagement', value: 'High', color: 'text-amber-400' },
+                    { label: t('landing:professors.preview.avgScore'), value: '87.3%', color: 'text-emerald-400' },
+                    { label: t('landing:professors.preview.attendance'), value: '94%', color: 'text-cyan-400' },
+                    { label: t('landing:professors.preview.engagement'), value: t('landing:professors.preview.high'), color: 'text-amber-400' },
                   ].map((metric) => (
                     <div key={metric.label} className="text-center">
                       <div className={`text-xl font-bold ${metric.color}`}>{metric.value}</div>
@@ -999,6 +930,7 @@ function ProfessorSection() {
 /* ── CTA Section ── */
 function CTASection() {
   const navigate = useNavigate();
+  const { t } = useTranslation(['landing']);
   return (
     <section className="relative z-10 py-32">
       <div className="max-w-5xl mx-auto px-6 lg:px-8 text-center">
@@ -1029,15 +961,14 @@ function CTASection() {
             </motion.div>
 
             <h2 className="text-4xl lg:text-6xl font-bold text-white mb-6">
-              Ready for{' '}
+              {t('landing:cta.headlineLeft')}{' '}
               <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 bg-clip-text text-transparent">
-                Liftoff?
+                {t('landing:cta.headlineHighlight')}
               </span>
             </h2>
             
             <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-10">
-              Join 50,000+ learners already on their mission. Your AI tutor is standing by, 
-              your dashboard is calibrated, and the stars are waiting.
+              {t('landing:cta.subtitle')}
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -1047,7 +978,7 @@ function CTASection() {
                 whileTap={{ scale: 0.95 }}
                 className="px-10 py-5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-shadow"
               >
-                Begin Your Mission
+                {t('landing:cta.primary')}
               </motion.button>
               <motion.button
                 onClick={() => navigate('/auth')}
@@ -1055,7 +986,7 @@ function CTASection() {
                 whileTap={{ scale: 0.95 }}
                 className="px-10 py-5 border border-white/20 text-white font-semibold rounded-2xl hover:bg-white/5 transition-colors"
               >
-                Contact Sales
+                {t('landing:cta.secondary')}
               </motion.button>
             </div>
           </div>
@@ -1067,6 +998,7 @@ function CTASection() {
 
 /* ── Footer ── */
 function Footer() {
+  const { t } = useTranslation(['landing']);
   return (
     <footer className="relative z-10 border-t border-white/5 bg-[#060a14]/50 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
@@ -1081,38 +1013,38 @@ function Footer() {
               </span>
             </div>
             <p className="text-sm text-slate-500 leading-relaxed">
-              The next-generation learning platform. AI-powered, data-driven, and built for the future of education.
+              {t('landing:footer.tagline')}
             </p>
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-4">Platform</h4>
+            <h4 className="text-white font-semibold mb-4">{t('landing:footer.platform')}</h4>
             <ul className="space-y-3">
-              {['Features', 'Pricing', 'Security', 'Enterprise'].map((item) => (
-                <li key={item}>
-                  <a href="#" className="text-sm text-slate-500 hover:text-cyan-400 transition-colors">{item}</a>
+              {(['features', 'security', 'enterprise'] as const).map((key) => (
+                <li key={key}>
+                  <a href="#" className="text-sm text-slate-500 hover:text-cyan-400 transition-colors">{t(`landing:footer.links.${key}`)}</a>
                 </li>
               ))}
             </ul>
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-4">Resources</h4>
+            <h4 className="text-white font-semibold mb-4">{t('landing:footer.resources')}</h4>
             <ul className="space-y-3">
-              {['Documentation', 'API Reference', 'Community', 'Blog'].map((item) => (
-                <li key={item}>
-                  <a href="#" className="text-sm text-slate-500 hover:text-cyan-400 transition-colors">{item}</a>
+              {(['documentation', 'apiReference', 'community', 'blog'] as const).map((key) => (
+                <li key={key}>
+                  <a href="#" className="text-sm text-slate-500 hover:text-cyan-400 transition-colors">{t(`landing:footer.links.${key}`)}</a>
                 </li>
               ))}
             </ul>
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-4">Company</h4>
+            <h4 className="text-white font-semibold mb-4">{t('landing:footer.company')}</h4>
             <ul className="space-y-3">
-              {['About', 'Careers', 'Contact', 'Privacy'].map((item) => (
-                <li key={item}>
-                  <a href="#" className="text-sm text-slate-500 hover:text-cyan-400 transition-colors">{item}</a>
+              {(['about', 'careers', 'contact', 'privacy'] as const).map((key) => (
+                <li key={key}>
+                  <a href="#" className="text-sm text-slate-500 hover:text-cyan-400 transition-colors">{t(`landing:footer.links.${key}`)}</a>
                 </li>
               ))}
             </ul>
@@ -1121,7 +1053,7 @@ function Footer() {
 
         <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-slate-600">
-            © 2025 Ascend Academy. All systems nominal.
+            {t('landing:footer.copyright', { year: new Date().getFullYear() })}
           </p>
           <div className="flex items-center gap-6">
             <a href="#" className="text-slate-600 hover:text-cyan-400 transition-colors">

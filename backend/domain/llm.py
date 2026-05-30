@@ -62,7 +62,9 @@ def _with_retry(fn, *args, max_attempts: int = 3, **kwargs):
 
 class GroqProvider:
     _TEXT_MODEL = "llama-3.1-8b-instant"
-    _VISION_MODEL = "llama-3.2-11b-vision-preview"
+    # llama-3.2-11b-vision-preview was decommissioned by Groq (Apr 2026).
+    # llama-4-scout is the current free-tier vision model on Groq.
+    _VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
     def __init__(self, api_key: str) -> None:
         from groq import Groq
@@ -109,7 +111,7 @@ class GroqProvider:
 # ─── Gemini Provider ──────────────────────────────────────────────────────────
 
 class GeminiProvider:
-    _MODEL = "gemini-2.5-flash"
+    _MODEL = "gemini-1.5-flash"
 
     def __init__(self, api_key: str) -> None:
         from google import genai
@@ -183,7 +185,7 @@ class _ProviderFactory:
 
         Recognized keys:
           'groq'               → GroqProvider
-          'gemini-2.5-flash'   → GeminiProvider
+          'gemini-1.5-flash'   → GeminiProvider
           'gemini-1.5-flash'   → GeminiProvider
           'llama3'             → OllamaProvider
         """
@@ -196,7 +198,7 @@ class _ProviderFactory:
             if not settings.groq_api_key:
                 raise RuntimeError("GROQ_API_KEY is not configured")
             provider = GroqProvider(api_key=settings.groq_api_key)
-        elif model_key in ("gemini-2.5-flash", "gemini-1.5-flash"):
+        elif model_key in ("gemini-1.5-flash", "gemini-1.5-flash"):
             from backend.core.config import settings
             key = settings.effective_gemini_key
             if not key:

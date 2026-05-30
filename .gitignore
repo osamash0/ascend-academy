@@ -33,3 +33,13 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# Scratch & Env
+.agent_scratch/
+scratch/
+.claude/
+Document-Insight-Engine/
+mineru-env/
+litellm/
+dump.rdb
+pdf_testset/

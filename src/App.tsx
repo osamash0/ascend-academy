@@ -6,8 +6,16 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { useLanguagePreference } from "@/hooks/useLanguagePreference";
 
 import { lazy, Suspense, Component, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+
+function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
+  useLanguagePreference();
+  return <>{children}</>;
+}
 
 class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
@@ -19,15 +27,18 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
   }
   render() {
     if (this.state.hasError) {
+      // ErrorBoundary cannot use hooks; read translations from the i18n
+      // singleton directly. Falls back to English if i18n not yet ready.
+      const t = i18n.t.bind(i18n);
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4 p-8 text-center">
-          <p className="text-lg font-bold text-foreground">Something went wrong.</p>
-          <p className="text-sm text-muted-foreground">Please refresh the page. If the problem persists, contact support.</p>
+          <p className="text-lg font-bold text-foreground">{t('common:errorBoundary.title')}</p>
+          <p className="text-sm text-muted-foreground">{t('common:errorBoundary.description')}</p>
           <button
             onClick={() => window.location.reload()}
             className="px-6 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold"
           >
-            Refresh
+            {t('common:errorBoundary.refresh')}
           </button>
         </div>
       );
@@ -45,20 +56,28 @@ const Achievements = lazy(() => import("./pages/Achievements"));
 const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
 const ProfessorAnalytics = lazy(() => import("./pages/ProfessorAnalytics"));
 const LectureUpload = lazy(() => import("./pages/LectureUpload"));
+const FastUpload = lazy(() => import("./pages/FastUpload"));
 const LectureEdit = lazy(() => import("./pages/LectureEdit"));
+const ProfessorCourses = lazy(() => import("./pages/ProfessorCourses"));
+const ProfessorCourseDetail = lazy(() => import("./pages/ProfessorCourseDetail"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Impressum = lazy(() => import("./pages/Impressum"));
 const Datenschutz = lazy(() => import("./pages/Datenschutz"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const Insights = lazy(() => import("./pages/Insights"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const PipelineTestPage = lazy(() => import("./pages/PipelineTestPage"));
 
 // Loading Component
-const PageLoader = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
-    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary animate-pulse">Neural Edge Syncing...</p>
-  </div>
-);
+const PageLoader = () => {
+  const { t } = useTranslation(['common']);
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
+      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary animate-pulse">{t('common:loader.syncing')}</p>
+    </div>
+  );
+};
 
 const queryClient = new QueryClient();
 
@@ -177,6 +196,16 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/insights"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <DashboardLayout>
+                <Insights />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
 
         {/* Professor routes */}
         <Route
@@ -220,11 +249,52 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/professor/fast-upload"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <FastUpload />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/courses"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <ProfessorCourses />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/courses/:courseId"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <ProfessorCourseDetail />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/professor/lecture/:lectureId"
           element={
             <ProtectedRoute allowedRoles={['professor']}>
               <DashboardLayout>
                 <LectureEdit />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/professor/pipeline-test"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <PipelineTestPage />
               </DashboardLayout>
             </ProtectedRoute>
           }
@@ -246,7 +316,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
-              <AppRoutes />
+              <LanguagePreferenceBootstrap>
+                <AppRoutes />
+              </LanguagePreferenceBootstrap>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>

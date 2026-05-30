@@ -1,0 +1,118 @@
+{
+  "language": "Language",
+  "languageEnglish": "English",
+  "languageGerman": "German",
+  "actions": {
+    "save": "Save",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "continue": "Continue",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "submit": "Submit",
+    "close": "Close",
+    "retry": "Retry",
+    "loading": "Loading...",
+    "exit": "Exit",
+    "upload": "Upload",
+    "download": "Download",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "states": {
+    "loading": "Loading...",
+    "empty": "Nothing here yet.",
+    "error": "Something went wrong.",
+    "errorRetry": "Please refresh the page. If the problem persists, contact support.",
+    "refresh": "Refresh",
+    "noResults": "No results found.",
+    "saved": "Saved",
+    "upToDate": "Up to date",
+    "unsavedChanges": "Unsaved changes",
+    "comingSoon": "Coming soon"
+  },
+  "toasts": {
+    "errorTitle": "Error",
+    "successTitle": "Success",
+    "tryAgain": "Please try again."
+  },
+  "status": {
+    "deleted": "Deleted",
+    "error": "Error",
+    "success": "Success"
+  },
+  "greetings": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening"
+  },
+  "shell": {
+    "toggleSidebar": "Toggle sidebar",
+    "switchToLight": "Switch to Light Mode",
+    "switchToDark": "Switch to Dark Mode"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "ariaUnread": "Notifications ({{count}} unread)",
+    "ariaNone": "Notifications",
+    "markAllRead": "Mark all read",
+    "close": "Close notifications",
+    "empty": "No notifications yet",
+    "justNow": "just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong.",
+    "description": "Please refresh the page. If the problem persists, contact support.",
+    "refresh": "Refresh"
+  },
+  "loader": {
+    "syncing": "Neural Edge Syncing..."
+  },
+  "achievements": {
+    "level5": {
+      "name": "Level 5 Scholar",
+      "description": "Reached level 5!"
+    },
+    "level10": {
+      "name": "Level 10 Expert",
+      "description": "Reached level 10!"
+    },
+    "streak5": {
+      "name": "5 Streak Master"
+    },
+    "streak10": {
+      "name": "10 Streak Champion"
+    },
+    "streakDescription": "Achieved a streak of {{count}} correct answers!",
+    "firstQuiz": {
+      "name": "First Quiz Completed",
+      "description": "Completed your first lecture quiz!",
+      "notificationTitle": "First Quiz Completed 🎯"
+    },
+    "perfectScore": {
+      "name": "Perfect Score",
+      "description": "Got 100% on a lecture quiz!"
+    },
+    "bookworm": {
+      "name": "Bookworm",
+      "description": "Complete 5 lectures"
+    },
+    "graduate": {
+      "name": "Graduate",
+      "description": "Complete 10 lectures"
+    },
+    "levelUp": {
+      "title": "Level {{level}}!",
+      "description": "You leveled up to Level {{level}}. Keep going!"
+    }
+  }
+}

@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { useEffect, useRef, memo } from 'react';
+import { motion, useMotionValue, useTransform, animate, useInView } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
 
 interface StatsCardProps {
@@ -28,31 +28,38 @@ const iconStyles = {
   xp: 'bg-xp/20 text-xp shadow-glow-xp/20',
 };
 
-function AnimatedNumber({ value }: { value: number }) {
+/** Animated number with intersection observer - only animates when visible */
+function AnimatedNumber({ value, isInView }: { value: number; isInView: boolean }) {
   const motionValue = useMotionValue(0);
   const rounded = useTransform(motionValue, (v) => Math.round(v));
   const displayRef = useRef<HTMLSpanElement>(null);
+  const hasAnimated = useRef(false);
 
   useEffect(() => {
+    if (!isInView || hasAnimated.current) return;
+
+    hasAnimated.current = true;
     const controls = animate(motionValue, value, {
       duration: 1.5,
       ease: [0.16, 1, 0.3, 1],
     });
+
     const unsubscribe = rounded.on('change', (v) => {
       if (displayRef.current) {
         displayRef.current.textContent = String(v);
       }
     });
+
     return () => {
       controls.stop();
       unsubscribe();
     };
-  }, [value]);
+  }, [isInView, value, motionValue, rounded]);
 
-  return <span ref={displayRef}>0</span>;
+  return <span ref={displayRef}>{isInView ? 0 : value}</span>;
 }
 
-export function StatsCard({
+export const StatsCard = memo(function StatsCard({
   title,
   value,
   subtitle,
@@ -61,6 +68,9 @@ export function StatsCard({
   className = '',
   onClick,
 }: StatsCardProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+
   const isPercent = typeof value === 'string' && value.endsWith('%');
   const numericValue = isPercent
     ? parseInt(value as string, 10)
@@ -70,9 +80,13 @@ export function StatsCard({
 
   return (
     <motion.div
+      ref={ref}
       onClick={onClick}
       className={`glass-card p-6 flex flex-col gap-4 ${variantStyles[variant]} ${className} ${onClick ? 'cursor-pointer' : ''}`}
       whileHover={{ y: -4, transition: { type: 'spring', stiffness: 400, damping: 17 } }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={isInView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
     >
       <div className="flex items-center justify-between">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconStyles[variant]}`}>
@@ -86,7 +100,7 @@ export function StatsCard({
           <p className="text-display-md font-bold text-foreground">
             {numericValue !== null ? (
               <>
-                <AnimatedNumber value={numericValue} />
+                <AnimatedNumber value={numericValue} isInView={isInView} />
                 {isPercent && <span className="text-heading-sm ml-0.5 text-muted-foreground">%</span>}
               </>
             ) : (
@@ -100,4 +114,4 @@ export function StatsCard({
       </div>
     </motion.div>
   );
-}
+});

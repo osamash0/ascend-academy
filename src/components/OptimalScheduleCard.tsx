@@ -1,178 +1,348 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Clock, Sparkles, TrendingUp, Brain, Calendar } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Calendar, CheckCircle2, Circle, Clock, Sparkles,
+  AlertCircle, BookOpen, Target, ChevronRight, Loader2,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { apiClient } from '@/lib/apiClient';
 
-interface HourlyStat {
-  hour: number;
-  score: number;
-  accuracy: number;
-  intensity: number;
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+interface PlanItem {
+  item_id: string;
+  lecture_id: string;
+  lecture_title: string;
+  est_minutes: number;
+  reason: string;
+  priority: 'assignment' | 'weak_concept' | 'continue';
+  slide_start: number | null;
+  slide_end: number | null;
 }
 
-interface OptimalScheduleData {
-  suggested_hours: HourlyStat[];
-  peak_hour: number | null;
-  message: string;
-  accuracy_at_peak?: number;
+interface PlanDay {
+  date: string;          // YYYY-MM-DD
+  items: PlanItem[];
+  total_minutes: number;
+  budget_minutes: number;
 }
 
-export function OptimalScheduleCard() {
-  const [data, setData] = useState<OptimalScheduleData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
+interface StudyPlan {
+  days: PlanDay[];
+  budget_minutes: number;
+  has_assignments: boolean;
+  has_weak_concepts: boolean;
+}
 
-  useEffect(() => {
-    fetchOptimalSchedule();
-  }, []);
+interface PlanResponse {
+  success: boolean;
+  data: StudyPlan;
+}
 
-  const fetchOptimalSchedule = async () => {
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const dayLabel = (iso: string, todayISO: string): string => {
+  if (iso === todayISO) return 'Today';
+  const d = new Date(iso + 'T00:00:00');
+  const today = new Date(todayISO + 'T00:00:00');
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (diff === 1) return 'Tomorrow';
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+};
+
+const todayISO = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const PRIORITY_META: Record<PlanItem['priority'], { icon: React.ReactNode; label: string; color: string }> = {
+  assignment:    { icon: <AlertCircle className="w-3 h-3" />, label: 'Assignment', color: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
+  weak_concept:  { icon: <Target      className="w-3 h-3" />, label: 'Review',     color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+  continue:      { icon: <BookOpen    className="w-3 h-3" />, label: 'Continue',   color: 'text-primary bg-primary/10 border-primary/20' },
+};
+
+// ─── Item row ───────────────────────────────────────────────────────────────
+
+interface ItemRowProps {
+  item: PlanItem;
+  isToday: boolean;
+  onMarkDone: (id: string) => Promise<void>;
+}
+
+function ItemRow({ item, isToday, onMarkDone }: ItemRowProps) {
+  const [pending, setPending] = useState(false);
+  const [done, setDone] = useState(false);
+  const meta = PRIORITY_META[item.priority];
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pending || done) return;
+    setPending(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/analytics/personal/optimal-schedule`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-
-      if (response.ok) {
-        const json = await response.json();
-        if (json.success) {
-          setData(json.data);
-        }
-      } else {
-        setFetchError(true);
-      }
-    } catch (error) {
-      console.error('Error fetching optimal schedule:', error);
-      setFetchError(true);
-    } finally {
-      setLoading(false);
+      await onMarkDone(item.item_id);
+      setDone(true);
+    } catch (err) {
+      console.error('Failed to mark done:', err);
+      setPending(false);
     }
   };
 
-  const formatHour = (h: number) => {
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const hour = h % 12 || 12;
-    return `${hour} ${ampm}`;
-  };
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: done ? 0.4 : 1, x: 0 }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.2 }}
+      className="flex items-start gap-3 p-3 rounded-xl bg-surface-2/50 hover:bg-surface-2 transition-colors group/item"
+    >
+      {isToday ? (
+        <button
+          onClick={handleClick}
+          disabled={pending || done}
+          aria-label={done ? 'Marked done' : 'Mark done'}
+          className="mt-0.5 flex-shrink-0 transition-transform hover:scale-110 disabled:cursor-default"
+        >
+          {pending ? (
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          ) : done ? (
+            <CheckCircle2 className="w-5 h-5 text-success" />
+          ) : (
+            <Circle className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+          )}
+        </button>
+      ) : (
+        <Circle className="w-5 h-5 text-muted-foreground/30 mt-0.5 flex-shrink-0" />
+      )}
+
+      <Link
+        to={
+          item.slide_start
+            ? `/lecture/${item.lecture_id}?slide=${item.slide_start}`
+            : `/lecture/${item.lecture_id}`
+        }
+        className="flex-1 min-w-0"
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border ${meta.color}`}>
+            {meta.icon}
+            {meta.label}
+          </span>
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Clock className="w-2.5 h-2.5" />
+            {item.est_minutes}m
+          </span>
+        </div>
+        <p className={`text-sm font-medium text-foreground truncate ${done ? 'line-through' : ''}`}>
+          {item.lecture_title}
+        </p>
+        <p className="text-[11px] text-muted-foreground truncate">
+          {item.reason}
+          {item.slide_start && item.slide_end ? ` · slides ${item.slide_start}–${item.slide_end}` : ''}
+        </p>
+      </Link>
+
+      <ChevronRight className="w-4 h-4 text-muted-foreground/30 mt-1 flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity" />
+    </motion.div>
+  );
+}
+
+// ─── Day section ────────────────────────────────────────────────────────────
+
+function DaySection({
+  day,
+  isToday,
+  onMarkDone,
+}: { day: PlanDay; isToday: boolean; onMarkDone: (id: string) => Promise<void> }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between px-1">
+        <span className={`text-xs font-bold uppercase tracking-widest ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
+          {dayLabel(day.date, todayISO())}
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          {day.total_minutes}/{day.budget_minutes} min
+        </span>
+      </div>
+      {day.items.length === 0 ? (
+        <div className="px-3 py-2 text-[11px] text-muted-foreground italic">
+          {isToday ? 'All clear today — nice work.' : 'Nothing scheduled.'}
+        </div>
+      ) : (
+        <AnimatePresence mode="popLayout">
+          {day.items.map((it) => (
+            <ItemRow key={it.item_id} item={it} isToday={isToday} onMarkDone={onMarkDone} />
+          ))}
+        </AnimatePresence>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ─────────────────────────────────────────────────────────
+
+export function OptimalScheduleCard() {
+  const [plan, setPlan] = useState<StudyPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const today = useMemo(() => todayISO(), []);
+
+  const loadPlan = useCallback(async () => {
+    try {
+      const res = await apiClient.get<PlanResponse>('/api/schedule/me?days=7');
+      if (res?.success) setPlan(res.data);
+      else setError('Could not load study plan.');
+    } catch (e) {
+      console.error('Failed to load study plan:', e);
+      setError('Could not load study plan.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPlan();
+  }, [loadPlan]);
+
+  const markDone = useCallback(async (itemId: string) => {
+    await apiClient.post(`/api/schedule/items/${encodeURIComponent(itemId)}/done`, {});
+    setPlan((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        days: prev.days.map((d, idx) =>
+          idx === 0 ? { ...d, items: d.items.filter((it) => it.item_id !== itemId) } : d,
+        ),
+      };
+    });
+  }, []);
 
   if (loading) {
     return (
       <div className="glass-card p-6 animate-pulse space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-surface-2" />
+          <div className="w-12 h-12 rounded-2xl bg-surface-2" />
           <div className="space-y-2">
-            <div className="h-4 w-32 bg-surface-2 rounded" />
-            <div className="h-3 w-20 bg-surface-2 rounded" />
+            <div className="h-4 w-40 bg-surface-2 rounded" />
+            <div className="h-3 w-24 bg-surface-2 rounded" />
           </div>
         </div>
-        <div className="h-20 w-full bg-surface-2 rounded-2xl" />
+        <div className="h-16 w-full bg-surface-2 rounded-xl" />
+        <div className="h-16 w-full bg-surface-2 rounded-xl" />
       </div>
     );
   }
 
-  if (fetchError) {
+  const todayDay = plan?.days[0];
+  const upcomingDays = plan?.days.slice(1) || [];
+  const totalThisWeek = plan?.days.reduce((sum, d) => sum + d.items.length, 0) || 0;
+
+  if (!plan || totalThisWeek === 0) {
     return (
       <div className="glass-card p-6 border-white/5 relative overflow-hidden">
-        <div className="relative z-10 flex flex-col items-center text-center py-4">
-          <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
-            <Calendar className="w-6 h-6 text-destructive" />
-          </div>
-          <h3 className="text-sm font-bold text-foreground mb-1">Schedule Unavailable</h3>
-          <p className="text-xs text-muted-foreground max-w-[200px]">
-            Could not load your study schedule. Please try refreshing.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data || !data.suggested_hours.length) {
-    return (
-      <div className="glass-card p-6 border-white/5 relative overflow-hidden group">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-50" />
         <div className="relative z-10 flex flex-col items-center text-center py-4">
           <div className="w-12 h-12 rounded-2xl bg-surface-2 flex items-center justify-center mb-4">
             <Calendar className="w-6 h-6 text-muted-foreground" />
           </div>
-          <h3 className="text-sm font-bold text-foreground mb-1">Building Your Profile</h3>
-          <p className="text-xs text-muted-foreground max-w-[200px]">
-            Complete more quizzes to unlock your personalized study schedule.
+          <h3 className="text-sm font-bold text-foreground mb-1">Your Study Plan</h3>
+          <p className="text-xs text-muted-foreground max-w-[240px]">
+            {error
+              ? 'Could not load plan right now. Try again in a moment.'
+              : 'Open a lecture to start studying — your personalized 7-day plan will appear here.'}
           </p>
         </div>
       </div>
     );
   }
 
-  const peakHourStr = formatHour(data.peak_hour || 0);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-6 border-white/5 relative overflow-hidden group hover:border-primary/30 transition-all duration-500"
+      className="glass-card p-6 border-white/5 relative overflow-hidden hover:border-primary/30 transition-colors"
     >
-      {/* Background Glow */}
-      <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[60px] group-hover:bg-primary/20 transition-all duration-700" />
-      
-      <div className="relative z-10 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary">
-              <Clock className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-foreground">Optimal Window</h3>
-              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Circadian Analysis</p>
-            </div>
-          </div>
-          <div className="flex flex-col items-end">
-            <span className="text-2xl font-bold text-foreground">{peakHourStr}</span>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Peak Performance</span>
-          </div>
-        </div>
+      <motion.div
+        className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-primary/10 blur-3xl"
+        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+        transition={{ duration: 8, repeat: Infinity }}
+      />
 
-        <div className="p-4 rounded-2xl bg-surface-1/50 border border-white/5 space-y-3">
-          <div className="flex items-start gap-3">
-            <Sparkles className="w-4 h-4 text-xp mt-0.5" />
-            <p className="text-xs font-medium text-foreground leading-relaxed italic">
-              "{data.message}"
-            </p>
-          </div>
-          
-          {data.accuracy_at_peak !== undefined && (
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-2">
-                <Brain className="w-3.5 h-3.5 text-success" />
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Accuracy at peak</span>
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <motion.div
+              className="relative"
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: 'spring', stiffness: 400 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary rounded-2xl blur-md opacity-60" />
+              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary">
+                <Calendar className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xs font-bold text-success">{data.accuracy_at_peak}%</span>
+            </motion.div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Your Study Plan</h3>
+              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                Next 7 Days · {plan.budget_minutes} min/day
+              </span>
+            </div>
+          </div>
+
+          {(plan.has_assignments || plan.has_weak_concepts) && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 border border-primary/20">
+              <Sparkles className="w-3 h-3 text-primary" />
+              <span className="text-[9px] font-bold text-primary uppercase tracking-wider">
+                Personalized
+              </span>
             </div>
           )}
         </div>
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Other High-Focus Times</span>
-            <TrendingUp className="w-3 h-3 text-primary" />
+        {/* Today */}
+        {todayDay && (
+          <div className="mb-4">
+            <DaySection day={todayDay} isToday={true} onMarkDone={markDone} />
           </div>
-          <div className="flex gap-2">
-            {data.suggested_hours.slice(1, 3).map((stat) => (
-              <div key={stat.hour} className="flex-1 p-3 rounded-xl bg-surface-2/30 border border-white/5 flex flex-col items-center gap-1 group/item hover:bg-surface-2/50 transition-colors">
-                <span className="text-xs font-bold text-foreground">{formatHour(stat.hour)}</span>
-                <div className="w-full h-1 bg-surface-3 rounded-full overflow-hidden mt-1">
-                  <div 
-                    className="h-full bg-primary" 
-                    style={{ width: `${stat.score * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
+
+        {/* Upcoming */}
+        {upcomingDays.length > 0 && (
+          <>
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="w-full text-left text-xs font-bold text-primary hover:text-primary/80 transition-colors flex items-center justify-between pt-3 border-t border-white/5"
+            >
+              <span>{expanded ? 'Hide' : 'Show'} upcoming days</span>
+              <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+            </button>
+            <AnimatePresence>
+              {expanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-4 pt-3">
+                    {upcomingDays.map((d) => (
+                      <DaySection
+                        key={d.date}
+                        day={d}
+                        isToday={false}
+                        onMarkDone={markDone}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </div>
     </motion.div>
   );

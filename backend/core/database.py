@@ -1,27 +1,150 @@
+"""
+Supabase client initialization.
+
+Two clients are exposed:
+  - supabase_admin: service-role key, bypasses RLS. Use ONLY for trusted
+    background tasks (caching, embeddings, schema migrations).
+  - supabase_anon: anon key, enforces RLS. Used as the base for per-user
+    authenticated clients (see services/analytics_service.get_auth_client).
+
+The legacy `supabase` export points to supabase_admin for historical
+backward compatibility, but new code should prefer get_client() and
+explicitly opt-in to admin via use_admin=True.
+"""
 import os
+import logging
 from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
+import asyncpg
 from supabase import create_client, Client
 
-# Load environment variables from .env file
-env_path = Path(__file__).parent.parent / ".env"
-root_env_path = Path(__file__).parent.parent.parent / ".env"
-venv_env_path = Path(__file__).parent.parent.parent / "venv" / ".env"
+logger = logging.getLogger(__name__)
 
-if env_path.exists():
-    load_dotenv(dotenv_path=env_path)
-elif venv_env_path.exists():
-    load_dotenv(dotenv_path=venv_env_path)
-elif root_env_path.exists():
-    load_dotenv(dotenv_path=root_env_path)
+
+def _load_env() -> None:
+    """Load .env files from common project locations.
+
+    backend/.env wins per-variable; root/.env fills in anything missing.
+    load_dotenv skips already-set variables, so the first file wins.
+    """
+    env_locations = [
+        Path(__file__).parent.parent / ".env",          # backend/.env
+        Path(__file__).parent.parent.parent / ".env",   # root/.env
+    ]
+    found_any = False
+    for loc in env_locations:
+        if loc.exists():
+            load_dotenv(dotenv_path=loc)
+            found_any = True
+    if not found_any:
+        load_dotenv()  # try default locations
+
+
+_load_env()
+
+# ── Configuration ────────────────────────────────────────────────────────────
+SUPABASE_URL: str = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL") or ""
+# Service-role key bypasses RLS. Use ONLY for background tasks/admin.
+SERVICE_ROLE_KEY: Optional[str] = (
+    os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    or os.environ.get("SUPABASE_KEY")
+)
+# Anon key enforces RLS. Used for user-authenticated requests.
+ANON_KEY: Optional[str] = (
+    os.environ.get("SUPABASE_ANON_KEY")
+    or os.environ.get("VITE_SUPABASE_PUBLISHABLE_KEY")
+)
+
+if not SUPABASE_URL:
+    raise ValueError("SUPABASE_URL is missing from environment")
+
+# ── Clients ──────────────────────────────────────────────────────────────────
+# Prefer the service-role key for the "admin" client (bypasses RLS for trusted
+# background work like cache writes and embedding upserts). If it is not set,
+# fall back to the anon key with a loud warning — this matches the legacy
+# behavior so the app keeps booting in dev environments that haven't been
+# given a service-role key yet, but cache/embedding writes will fail with
+# RLS errors until SUPABASE_SERVICE_ROLE_KEY is provided.
+if SERVICE_ROLE_KEY:
+    logger.info("Initializing supabase_admin (service role)")
+    supabase_admin: Client = create_client(SUPABASE_URL, SERVICE_ROLE_KEY)
+elif ANON_KEY:
+    logger.warning(
+        "SUPABASE_SERVICE_ROLE_KEY is not configured. Falling back to the "
+        "anon key for the 'admin' client. Background writes that need to "
+        "bypass RLS (cache, embeddings) will fail. Set "
+        "SUPABASE_SERVICE_ROLE_KEY in production."
+    )
+    supabase_admin: Client = create_client(SUPABASE_URL, ANON_KEY)
 else:
-    load_dotenv() # try default locations
+    raise ValueError(
+        "Neither SUPABASE_SERVICE_ROLE_KEY nor SUPABASE_ANON_KEY is set. "
+        "Configure at least one to start the backend."
+    )
 
-url: str = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_KEY") or os.environ.get("VITE_SUPABASE_PUBLISHABLE_KEY")
+if ANON_KEY:
+    logger.info("Initializing supabase_anon (RLS-enforcing)")
+    supabase_anon: Optional[Client] = create_client(SUPABASE_URL, ANON_KEY)
+else:
+    logger.warning(
+        "SUPABASE_ANON_KEY is missing. RLS-enforcing client unavailable; "
+        "user-facing endpoints will fail until it is configured."
+    )
+    supabase_anon = None
 
-if not url or not key:
-    raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in the .env file")
+# Legacy export — points to admin for backward compatibility ONLY.
+# New code should call get_client() instead.
+supabase: Client = supabase_admin
 
-# Initialize Supabase client (singleton)
-supabase: Client = create_client(url, key)
+
+def get_client(use_admin: bool = False) -> Client:
+    """Return the appropriate Supabase client.
+
+    By default returns the RLS-enforcing anon client. Pass use_admin=True
+    only for trusted background tasks. Raises RuntimeError if anon client
+    is requested but ANON_KEY is not configured — we no longer fall back
+    silently to the admin client (that was a privilege-escalation hazard).
+    """
+    if use_admin:
+        return supabase_admin
+    if supabase_anon is None:
+        raise RuntimeError(
+            "Anon Supabase client is not configured. Set SUPABASE_ANON_KEY "
+            "(or VITE_SUPABASE_PUBLISHABLE_KEY) and restart the backend."
+        )
+    return supabase_anon
+
+
+# --- asyncpg Connection Pool ---
+# Used for high-performance direct SQL queries (bypass REST overhead)
+DB_URL: Optional[str] = os.environ.get("DATABASE_URL")
+db_pool: Optional[asyncpg.Pool] = None
+
+async def init_db_pool():
+    """Initialize the asyncpg connection pool."""
+    global db_pool
+    if not DB_URL:
+        logger.warning("DATABASE_URL missing; asyncpg pool will not be initialized.")
+        return
+    try:
+        db_pool = await asyncpg.create_pool(
+            DB_URL,
+            min_size=5,
+            max_size=20,
+            max_queries=1000,
+            max_inactive_connection_lifetime=300,
+            statement_cache_size=0,  # required for pgbouncer transaction-mode pooling
+        )
+        logger.info("asyncpg connection pool initialized.")
+    except Exception as e:
+        logger.error("Failed to initialize asyncpg pool: %s", e)
+
+
+async def get_db_connection():
+    """Get a connection from the pool."""
+    if not db_pool:
+        await init_db_pool()
+    if not db_pool:
+        raise RuntimeError("Database pool not initialized. Check DATABASE_URL.")
+    return db_pool.acquire()

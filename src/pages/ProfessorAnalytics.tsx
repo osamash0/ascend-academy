@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,7 +20,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, Cell, AreaChart, Area, PieChart, Pie,
   ScatterChart, Scatter, ZAxis, ReferenceArea
 } from 'recharts';
@@ -28,8 +28,13 @@ import { CustomTooltip } from '@/components/charts/CustomTooltip';
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { NeuralBackground } from '@/components/NeuralBackground';
 import { ThreeDScatterPlot } from '@/components/ThreeDScatterPlot';
+import { AskYourDataPanel } from '@/features/analytics/components/AskYourDataPanel';
+import { BenchmarksSection } from '@/features/analytics/components/BenchmarksSection';
 
-import type { Lecture } from '@/types/domain';
+import type { Lecture, SlideAnalytics, SlideRecommendationLabel } from '@/types/domain';
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -72,6 +77,18 @@ interface DashboardData {
   dropoffData: DropoffPoint[];
   aiQueryFeed: AIQueryItem[];
   confidenceBySlide: SlideConfidence[];
+  retryPerformance: RetryPerformanceItem[];
+}
+
+interface RetryPerformanceItem {
+  question_id: string;
+  question_text: string;
+  first_attempt_total: number;
+  first_attempt_misses: number;
+  first_attempt_miss_rate: number;
+  retry_total: number;
+  retry_misses: number;
+  retry_miss_rate: number;
 }
 
 interface DropoffPoint {
@@ -277,6 +294,206 @@ function LecturePicker({ lectures, onSelect }: { lectures: Lecture[]; onSelect: 
   );
 }
 
+// ── Slide Recommendations (Task #44) ──────────────────────────────────────────
+
+const REASON_LABELS: Record<string, string> = {
+  high_dropoff: 'Drop-off rate is above the safe threshold',
+  high_confusion: 'Many students rated this slide "confused"',
+  low_quiz_success: 'Quiz success rate is below 50%',
+  low_view_count: 'Too few students have viewed this slide yet',
+  low_dropoff: 'Almost no one drops off here',
+  low_confusion: 'Confidence ratings are overwhelmingly positive',
+  high_quiz_success: 'Quiz success rate is excellent',
+};
+
+const LABEL_META: Record<SlideRecommendationLabel, { text: string; cls: string }> = {
+  needs_review:     { text: 'Needs Review',      cls: 'bg-destructive/15 text-destructive border-destructive/40' },
+  satisfactory:     { text: 'Satisfactory',      cls: 'bg-surface-2 text-muted-foreground border-border' },
+  outstanding:      { text: 'Outstanding',       cls: 'bg-success/15 text-success border-success/40' },
+  insufficient_data:{ text: 'Insufficient Data', cls: 'bg-muted/40 text-muted-foreground border-border' },
+};
+
+function SlideRecommendationBadge({ label, reasons }: { label: SlideRecommendationLabel; reasons: string[] }) {
+  const meta = LABEL_META[label] ?? LABEL_META.satisfactory;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          variant="outline"
+          className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm cursor-help ${meta.cls}`}
+        >
+          {meta.text}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        <div className="space-y-1.5">
+          <p className="font-bold text-xs">Why this label?</p>
+          {reasons.length > 0 ? (
+            <ul className="text-xs space-y-1 list-disc list-inside">
+              {reasons.map((r) => (
+                <li key={r}>{REASON_LABELS[r] || r.replace(/_/g, ' ')}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs opacity-80">All metrics are within healthy ranges.</p>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function SlideRecommendationsSection({
+  slides,
+  isLoading,
+  suggestions,
+  onRequestSuggestion,
+}: {
+  slides: SlideAnalytics[];
+  isLoading: boolean;
+  suggestions: Record<string, { text: string; loading: boolean; error?: string }>;
+  onRequestSuggestion: (slideId: string) => void;
+}) {
+  const counts = {
+    needs_review: 0,
+    satisfactory: 0,
+    outstanding: 0,
+    insufficient_data: 0,
+  } as Record<SlideRecommendationLabel, number>;
+  for (const s of slides) {
+    const l = (s.recommendation_label || 'satisfactory') as SlideRecommendationLabel;
+    counts[l] = (counts[l] || 0) + 1;
+  }
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card border-border/50 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16" />
+        <div className="relative z-10 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-black text-foreground flex items-center gap-3 tracking-tight">
+              <Lightbulb className="w-7 h-7 text-primary" /> Slide Recommendations
+            </h3>
+            <p className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-[0.2em] opacity-60">
+              Per-slide health rubric
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-widest">
+            <span className="px-3 py-1.5 rounded-xl bg-destructive/10 text-destructive border border-destructive/30">
+              {counts.needs_review} Needs Review
+            </span>
+            <span className="px-3 py-1.5 rounded-xl bg-surface-2 text-muted-foreground border border-border">
+              {counts.satisfactory} Satisfactory
+            </span>
+            <span className="px-3 py-1.5 rounded-xl bg-success/10 text-success border border-success/30">
+              {counts.outstanding} Outstanding
+            </span>
+            {counts.insufficient_data > 0 && (
+              <span className="px-3 py-1.5 rounded-xl bg-muted/40 text-muted-foreground border border-border">
+                {counts.insufficient_data} Insufficient Data
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="relative z-10 overflow-x-auto">
+          {isLoading ? (
+            <div className="space-y-3 py-4">
+              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          ) : slides.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground/60 text-sm font-bold uppercase tracking-widest">
+              No slide analytics yet
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em]">#</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em]">Slide</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-center">Views</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-center">Drop-off</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-center">Confusion</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-center">Quiz</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em]">Status</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {slides.map((s) => {
+                  const label = (s.recommendation_label || 'satisfactory') as SlideRecommendationLabel;
+                  const reasons = s.recommendation_reasons || [];
+                  const sid = s.slide_id || '';
+                  const sug = sid ? suggestions[sid] : undefined;
+                  const canSuggest = label === 'needs_review' && !!sid;
+                  return (
+                    <Fragment key={`${s.slide_number}-${sid}`}>
+                      <TableRow className="border-border/60 hover:bg-white/5">
+                        <TableCell className="font-black text-muted-foreground">{s.slide_number}</TableCell>
+                        <TableCell className="font-bold text-foreground max-w-[280px] truncate">
+                          {s.title}
+                        </TableCell>
+                        <TableCell className="text-center text-sm">{s.view_count}</TableCell>
+                        <TableCell className="text-center text-sm">{s.drop_off_rate.toFixed(0)}%</TableCell>
+                        <TableCell className="text-center text-sm">{(s.confusion_rate ?? 0).toFixed(0)}%</TableCell>
+                        <TableCell className="text-center text-sm">
+                          {s.quiz_attempts && s.quiz_success_rate != null
+                            ? `${s.quiz_success_rate.toFixed(0)}%`
+                            : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          <SlideRecommendationBadge label={label} reasons={reasons} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canSuggest ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onRequestSuggestion(sid)}
+                              disabled={sug?.loading}
+                              className="rounded-xl text-[10px] font-black uppercase tracking-widest h-9 px-4 border-primary/30 hover:bg-primary/10"
+                            >
+                              {sug?.loading ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <><Sparkles className="w-3.5 h-3.5 mr-2" />{sug?.text ? 'Refresh' : 'Get AI suggestion'}</>
+                              )}
+                            </Button>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/40 uppercase tracking-widest">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                      {sid && (sug?.text || sug?.error) && (
+                        <TableRow className="border-border/60 hover:bg-transparent">
+                          <TableCell colSpan={8} className="bg-primary/5">
+                            <div className="flex gap-3 items-start py-2">
+                              <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                              {sug.error ? (
+                                <p className="text-sm text-destructive">{sug.error}</p>
+                              ) : (
+                                <p className="text-sm leading-relaxed text-foreground/90">{sug.text}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </motion.div>
+    </TooltipProvider>
+  );
+}
+
 // ── Main Page Component ───────────────────────────────────────────────────────
 
 export default function ProfessorAnalytics() {
@@ -296,6 +513,11 @@ export default function ProfessorAnalytics() {
   const [aiQueryFeed, setAiQueryFeed] = useState<AIQueryItem[]>([]);
   const [extraLoading, setExtraLoading] = useState(false);
 
+  // Slide-level recommendations (Task #44)
+  const [slideAnalytics, setSlideAnalytics] = useState<SlideAnalytics[]>([]);
+  const [slideAnalyticsLoading, setSlideAnalyticsLoading] = useState(false);
+  const [slideSuggestions, setSlideSuggestions] = useState<Record<string, { text: string; loading: boolean; error?: string }>>({});
+
   const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [matrixView, setMatrixView] = useState<'2d' | '3d'>('3d');
@@ -306,30 +528,28 @@ export default function ProfessorAnalytics() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const handleMetricClick = async (id: string, title: string, value: any) => {
-    // If it's a section toggle (not a small stat card), handle open state
-    const isSection = ['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution'].includes(id);
-    
-    if (isSection) {
-      if (openSections[id]) {
-        setOpenSections(prev => ({ ...prev, [id]: false }));
-        return;
+    // Check local cache first
+    if (metricInterpretations[id]) {
+      // If it's a small stat card, still set the feedback from cache
+      if (!['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution', 'retryPerformance'].includes(id)) {
+        setSelectedMetric(title === selectedMetric ? null : title);
+        setMetricFeedback(metricInterpretations[id]);
+      } else {
+        setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
       }
-      setOpenSections(prev => ({ ...prev, [id]: true }));
-    } else {
-      // Small stat card logic
-      if (selectedMetric === title) {
-        setSelectedMetric(null);
-        setMetricFeedback(null);
-        return;
-      }
-      setSelectedMetric(title);
+      return;
     }
 
-    // If we already have the interpretation, don't fetch again (unless you want it fresh)
-    if (metricInterpretations[id]) return;
+    const isSection = ['matrix', 'confidence', 'dropoff', 'bySlide', 'velocity', 'distribution', 'retryPerformance'].includes(id);
+    
+    if (isSection) {
+      setOpenSections(prev => ({ ...prev, [id]: true }));
+    } else {
+      setSelectedMetric(title);
+      setMetricFeedback(null);
+    }
 
     setMetricLoading(true);
-    if (!isSection) setMetricFeedback(null);
 
     try {
       const context = {
@@ -372,6 +592,43 @@ export default function ProfessorAnalytics() {
       setAiQueryFeed(dashboardData.aiQueryFeed || []);
     }
   }, [dashboardData]);
+
+  // Fetch slide analytics (with recommendation labels)
+  useEffect(() => {
+    if (!selectedLectureId) return;
+    let cancelled = false;
+    setSlideAnalyticsLoading(true);
+    apiClient.get<{ success: boolean; data: SlideAnalytics[] }>(
+      `/api/analytics/lecture/${selectedLectureId}/slides`
+    ).then((res) => {
+      if (cancelled) return;
+      const rows = Array.isArray(res?.data) ? res.data : [];
+      setSlideAnalytics(rows);
+    }).catch((err) => {
+      console.error('Slide analytics fetch failed:', err);
+    }).finally(() => { if (!cancelled) setSlideAnalyticsLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedLectureId]);
+
+  const requestSlideSuggestion = useCallback(async (slideId: string) => {
+    setSlideSuggestions((prev) => ({ ...prev, [slideId]: { text: '', loading: true } }));
+    try {
+      const res = await apiClient.post<{ suggestion: string }>(
+        `/api/ai/slides/${slideId}/recommendation`,
+        { ai_model: aiModel },
+      );
+      setSlideSuggestions((prev) => ({
+        ...prev,
+        [slideId]: { text: res?.suggestion || '', loading: false },
+      }));
+    } catch (err) {
+      console.error('Slide suggestion failed:', err);
+      setSlideSuggestions((prev) => ({
+        ...prev,
+        [slideId]: { text: '', loading: false, error: 'AI suggestion unavailable. Please retry shortly.' },
+      }));
+    }
+  }, [aiModel]);
 
   // Fetch lecture list
   useEffect(() => {
@@ -617,6 +874,20 @@ export default function ProfessorAnalytics() {
               ))}
             </div>
 
+            {/* Ask Your Data (Task #45) */}
+            {selectedLectureId && <AskYourDataPanel lectureId={selectedLectureId} />}
+
+            {/* Comparative Benchmarks (Task #50) */}
+            {selectedLectureId && <BenchmarksSection lectureId={selectedLectureId} />}
+
+            {/* Slide-Level Recommendations (Task #44) */}
+            <SlideRecommendationsSection
+              slides={slideAnalytics}
+              isLoading={slideAnalyticsLoading}
+              suggestions={slideSuggestions}
+              onRequestSuggestion={requestSlideSuggestion}
+            />
+
             {/* Row 1: Confusion Matrix + Neural Confidence */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <Section 
@@ -655,7 +926,7 @@ export default function ProfessorAnalytics() {
                         <XAxis type="number" dataKey="avgDuration" name="Avg Time" unit="s" tickLine={false} axisLine={false} tick={{fill: 'hsl(var(--foreground))', fontSize: 12, opacity: 0.5}} />
                         <YAxis type="number" dataKey="correctRate" name="Accuracy" unit="%" tickLine={false} axisLine={false} tick={{fill: 'hsl(var(--foreground))', fontSize: 12, opacity: 0.5}} />
                         <ZAxis type="number" dataKey="confusionIndex" range={[50, 800]} name="Confusion" />
-                        <Tooltip content={({ active, payload }) => {
+                        <RechartsTooltip content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             const d = payload[0].payload;
                             return (
@@ -729,6 +1000,70 @@ export default function ProfessorAnalytics() {
               </Section>
             </div>
 
+            {/* Most-Missed Questions (retry performance) */}
+            <Section
+              title="Most-Missed Questions"
+              subtitle="Ranked by first-attempt miss rate · second-attempt miss rate shown alongside"
+              icon={Target}
+              interpretation={metricInterpretations.retryPerformance}
+              isLoading={metricLoading && openSections.retryPerformance}
+              isOpen={openSections.retryPerformance}
+              onToggle={() => handleMetricClick('retryPerformance', 'Most-Missed Questions', dashboardData.retryPerformance)}
+            >
+              {!dashboardData.retryPerformance || dashboardData.retryPerformance.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground/50 text-xs font-bold uppercase tracking-widest">
+                  No quiz attempts yet
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table className="w-full">
+                    <TableHeader>
+                      <TableRow className="border-border hover:bg-transparent">
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em]">Question</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">1st Miss Rate</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">1st Attempts</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">Retry Miss Rate</TableHead>
+                        <TableHead className="px-6 py-4 text-[10px] text-muted-foreground uppercase font-black tracking-[0.25em] text-right">Retries</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dashboardData.retryPerformance.slice(0, 15).map((q) => {
+                        const firstColor =
+                          q.first_attempt_total === 0 ? 'text-muted-foreground/50'
+                          : q.first_attempt_miss_rate >= 60 ? 'text-destructive'
+                          : q.first_attempt_miss_rate >= 30 ? 'text-warning'
+                          : 'text-success';
+                        const retryColor =
+                          q.retry_total === 0 ? 'text-muted-foreground/50'
+                          : q.retry_miss_rate >= 50 ? 'text-destructive'
+                          : q.retry_miss_rate > 0 ? 'text-warning'
+                          : 'text-success';
+                        return (
+                          <TableRow key={q.question_id} className="border-border hover:bg-white/5">
+                            <TableCell className="px-6 py-4 font-medium text-sm text-foreground max-w-md">
+                              <span className="line-clamp-2">{q.question_text}</span>
+                            </TableCell>
+                            <TableCell className={`px-6 py-4 text-right font-black text-base ${firstColor}`}>
+                              {q.first_attempt_total > 0 ? `${q.first_attempt_miss_rate}%` : '—'}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-right text-xs font-bold text-muted-foreground">
+                              {q.first_attempt_misses} / {q.first_attempt_total}
+                            </TableCell>
+                            <TableCell className={`px-6 py-4 text-right font-black text-base ${retryColor}`}>
+                              {q.retry_total > 0 ? `${q.retry_miss_rate}%` : '—'}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-right text-xs font-bold text-muted-foreground">
+                              {q.retry_misses} / {q.retry_total}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Section>
+
             {/* Row 2: Drop-off Map + Per-Slide Confidence */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Section 
@@ -754,7 +1089,7 @@ export default function ProfessorAnalytics() {
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--white)/0.05)" vertical={false} />
                         <XAxis dataKey="title" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} />
                         <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                        <Tooltip content={<CustomTooltip valueFormatter={(v) => `${v} students quit`} />} cursor={{ fill: 'hsl(var(--white)/0.05)' }} />
+                        <RechartsTooltip content={<CustomTooltip valueFormatter={(v) => `${v} students quit`} />} cursor={{ fill: 'hsl(var(--white)/0.05)' }} />
                         <Bar dataKey="dropout_count" shape={<ThreeDBar />} name="Dropouts" maxBarSize={40}>
                           {dropoffData?.map((entry, idx) => (
                             <Cell key={idx} fill={entry.dropout_percentage > 20 ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'} />
@@ -786,7 +1121,7 @@ export default function ProfessorAnalytics() {
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--white)/0.05)" vertical={false} />
                         <XAxis dataKey="title" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} />
                         <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface-1))', border: '1px solid hsl(var(--border))', borderRadius: '1rem' }} />
+                        <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--surface-1))', border: '1px solid hsl(var(--border))', borderRadius: '1rem' }} />
                         <Bar dataKey="got_it" stackId="conf" fill="hsl(var(--success))" name="Got It" shape={<ThreeDBar />} />
                         <Bar dataKey="unsure" stackId="conf" fill="hsl(var(--warning))" name="Unsure" shape={<ThreeDBar />} />
                         <Bar dataKey="confused" stackId="conf" fill="hsl(var(--destructive))" name="Confused" shape={<ThreeDBar />} />
@@ -820,7 +1155,7 @@ export default function ProfessorAnalytics() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
                       <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
                       <YAxis tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <RechartsTooltip content={<CustomTooltip />} />
                       <Area type="monotone" dataKey="attempts" stroke="var(--success)" strokeWidth={4} fill="url(#colorVelocity)" activeDot={{ r: 8, strokeWidth: 0 }} />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -851,7 +1186,7 @@ export default function ProfessorAnalytics() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
                       <XAxis dataKey="range" tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} tickLine={false} axisLine={false} />
                       <YAxis tickLine={false} axisLine={false} tick={{fill: 'currentColor', fontSize: 12, opacity: 0.5}} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <RechartsTooltip content={<CustomTooltip />} />
                       <Bar dataKey="count" radius={[6, 6, 0, 0]} name="Students" maxBarSize={50}>
                         {[0,1,2,3,4].map((_, idx) => (
                           <Cell key={idx} fill={COLORS[idx % COLORS.length]} />

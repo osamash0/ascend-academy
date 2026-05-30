@@ -2,36 +2,39 @@
 Mind Map API — generates and caches per-lecture knowledge tree structures.
 """
 import logging
-from fastapi import APIRouter, HTTPException, Depends
-
-logger = logging.getLogger(__name__)
-from fastapi.concurrency import run_in_threadpool
+from typing import Any
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from backend.core.auth_middleware import verify_token
-from backend.core.database import supabase, url, key
-from backend.services.ai_service import generate_mind_map
-from supabase import create_client
-import os
+from supabase import create_client, Client
 
+from backend.core.auth_middleware import verify_token, require_professor
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
+from backend.core.rate_limit import limiter
+from backend.services.ai_service import generate_mind_map
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mind-map", tags=["mind-map"])
 security = HTTPBearer()
 
 
-def get_auth_client(token: str):
-    client = create_client(url, key)
+def get_auth_client(token: str) -> Client:
+    """Creates a Supabase client authenticated with the user's JWT."""
+    if not ANON_KEY:
+        raise RuntimeError("ANON_KEY not configured; cannot create RLS client.")
+    client: Client = create_client(SUPABASE_URL, ANON_KEY)
     client.postgrest.auth(token)
     return client
 
 
 class GenerateRequest(BaseModel):
-    ai_model: str = "groq"
+    ai_model: str = "cerebras"
 
 
 @router.get("/{lecture_id}")
 async def get_mind_map(
     lecture_id: str,
-    user=Depends(verify_token),
+    user: Any = Depends(verify_token),
     creds: HTTPAuthorizationCredentials = Depends(security)
 ):
     """Return cached mind map tree_data, or null if not yet generated."""
@@ -46,31 +49,41 @@ async def get_mind_map(
         if res.data:
             return {"success": True, "data": res.data["tree_data"], "generated_at": res.data["generated_at"]}
         return {"success": True, "data": None}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("Mind map GET error: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to fetch mind map.")
+        logger.error("Mind map GET error for lecture %s: %s", lecture_id, e, exc_info=True)
+        raise HTTPException(status_code=503, detail="Mind map service is temporarily unavailable.")
 
 
 @router.post("/{lecture_id}/generate")
+@limiter.limit("10/minute")
 async def generate_lecture_mind_map(
+    request: Request,
     lecture_id: str,
     body: GenerateRequest,
-    user=Depends(verify_token),
+    user: Any = Depends(require_professor),
     creds: HTTPAuthorizationCredentials = Depends(security)
 ):
     """AI-generate (or regenerate) the mind map for a lecture and cache it."""
     try:
-        client = get_auth_client(creds.credentials)
+        user_id = user.id if hasattr(user, "id") else user.get("id")
 
-        # Fetch lecture + slides
-        lecture_res = client.table("lectures") \
-            .select("id, title") \
+        # 1. Verify ownership before any expensive operation using the admin
+        #    client to avoid RLS catalog-read bypasses for this authz check.
+        ownership_res = supabase_admin.table("lectures") \
+            .select("id, title, professor_id") \
             .eq("id", lecture_id) \
             .maybe_single() \
             .execute()
 
-        if not lecture_res.data:
+        if not ownership_res.data:
             raise HTTPException(status_code=404, detail="Lecture not found.")
+
+        if ownership_res.data.get("professor_id") != user_id:
+            raise HTTPException(status_code=403, detail="You do not own this lecture.")
+
+        client = get_auth_client(creds.credentials)
 
         slides_res = client.table("slides") \
             .select("id, title, summary, slide_number") \
@@ -80,17 +93,21 @@ async def generate_lecture_mind_map(
             .execute()
 
         slides = slides_res.data or []
-        lecture_title = lecture_res.data["title"]
+        if not slides:
+            raise HTTPException(
+                status_code=400,
+                detail="No slides found for this lecture; cannot build a mind map.",
+            )
+        lecture_title = ownership_res.data["title"]
 
-        # Run generation in thread pool (CPU-bound AI call)
-        tree_data = await run_in_threadpool(
-            generate_mind_map,
+        # 2. Run generation (now async)
+        tree_data = await generate_mind_map(
             lecture_title,
             slides,
             body.ai_model
         )
 
-        # Upsert into lecture_mind_maps
+        # 3. Upsert results
         client.table("lecture_mind_maps").upsert(
             {
                 "lecture_id": lecture_id,
@@ -104,9 +121,12 @@ async def generate_lecture_mind_map(
 
     except HTTPException:
         raise
+    except TimeoutError as e:
+        logger.warning("Mind map generation timed out for %s: %s", lecture_id, e)
+        raise HTTPException(status_code=504, detail="Mind map generation timed out. Please retry.")
     except Exception as e:
-        logger.error("Mind map generate error: %s", e, exc_info=True)
-        error_msg = str(e)
-        if "relation \"lecture_mind_maps\" does not exist" in error_msg:
-            raise HTTPException(status_code=400, detail="Database table 'lecture_mind_maps' not found. Please run the SQL migration.")
-        raise HTTPException(status_code=500, detail=f"Mind map generation failed: {error_msg}")
+        logger.error("Mind map generation failed for %s: %s", lecture_id, e, exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail="The AI service failed to generate the mind map. Please try a different model or retry shortly.",
+        )

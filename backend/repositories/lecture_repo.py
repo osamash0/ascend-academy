@@ -19,6 +19,33 @@ def get_lecture(client: Client, lecture_id: str) -> dict[str, Any] | None:
     return res.data
 
 
+def list_lectures_by_pdf_hash(
+    client: Client, professor_id: str, pdf_hash: str
+) -> list[dict[str, Any]]:
+    """Lookup lectures owned by ``professor_id`` whose ``pdf_hash`` matches.
+
+    Used by the upload flow to detect when a professor re-uploads a PDF
+    they've already imported, so the UI can offer "open existing" vs
+    "upload as new".  Scoped to a single professor on purpose — another
+    user uploading the same PDF is not a duplicate from this user's POV.
+
+    Returns rows with id/title/created_at/total_slides ordered newest-first.
+    Empty list if either argument is falsy or no rows match.
+    """
+    if not professor_id or not pdf_hash:
+        return []
+    res = (
+        client.table("lectures")
+        .select("id, title, created_at, total_slides")
+        .eq("professor_id", professor_id)
+        .eq("pdf_hash", pdf_hash)
+        .order("created_at", desc=True)
+        .limit(50)
+        .execute()
+    )
+    return res.data or []
+
+
 def list_lectures(client: Client, professor_id: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
     q = (
         client.table("lectures")

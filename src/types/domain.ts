@@ -25,6 +25,25 @@ export interface Profile {
 
 // ─── Lectures ────────────────────────────────────────────────────────────────
 
+/** Lightweight course summary embedded on lecture rows for grouping/UX. */
+export interface CourseSummary {
+  id: string;
+  title: string;
+  color?: string | null;
+}
+
+/** Worksheet attached to a lecture (PDF / docx / etc). */
+export interface Worksheet {
+  id: string;
+  lecture_id: string;
+  title: string;
+  file_url: string;
+  file_type: string | null;
+  size_bytes: number | null;
+  uploaded_by?: string | null;
+  created_at?: string;
+}
+
 export interface Lecture {
   id: string;
   title: string;
@@ -32,6 +51,12 @@ export interface Lecture {
   total_slides: number;
   created_at: string;
   pdf_url?: string | null;
+  /** Optional course grouping (null = Uncategorized). */
+  course_id?: string | null;
+  /** Resolved course summary when the API hydrates it. */
+  course?: CourseSummary | null;
+  /** Optional worksheet list when the API or service hydrates it. */
+  worksheets?: Worksheet[];
 }
 
 export interface Slide {
@@ -50,6 +75,22 @@ export interface QuizQuestion {
   question_text: string;
   options: string[];
   correct_answer: number;
+  /**
+   * One-sentence justification for the correct answer (from the upgraded
+   * concept-testing quiz prompt). Optional so older rows without metadata
+   * don't break consumers.
+   */
+  explanation?: string;
+  /** The concept the question is testing (e.g. the slide's proposed_title). */
+  concept?: string;
+  /** Cognitive level targeted by the question. */
+  cognitive_level?: 'recall' | 'apply' | 'analyse';
+  /**
+   * For deck-level cross-slide questions, the 0-based slide indices that
+   * a student needs to combine to answer correctly. Always present (may be
+   * empty) on cross-slide questions; absent on per-slide questions.
+   */
+  linked_slides?: number[];
 }
 
 // ─── Progress ────────────────────────────────────────────────────────────────
@@ -101,12 +142,24 @@ export interface LectureOverview {
   engagement_level: string;
 }
 
+export type SlideRecommendationLabel =
+  | 'needs_review'
+  | 'satisfactory'
+  | 'outstanding'
+  | 'insufficient_data';
+
 export interface SlideAnalytics {
+  slide_id?: string;
   slide_number: number;
   title: string;
   view_count: number;
   average_time_seconds: number;
   drop_off_rate: number;
+  confusion_rate?: number;
+  quiz_attempts?: number;
+  quiz_success_rate?: number | null;
+  recommendation_label?: SlideRecommendationLabel;
+  recommendation_reasons?: string[];
 }
 
 export interface QuizAnalytics {

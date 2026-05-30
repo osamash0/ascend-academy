@@ -20,29 +20,29 @@ export default function Leaderboard() {
     useEffect(() => {
         const fetchLeaderboard = async () => {
             try {
-                // Fetch student IDs first to ensure we only get students
-                const { data: roleData, error: roleError } = await supabase
-                    .from('user_roles')
-                    .select('user_id')
-                    .eq('role', 'student')
-                    .limit(500);
+                // Use the security-definer RPC that exposes only public fields
+                // (display_name, avatar_url, total_xp, current_level) without
+                // leaking emails or other sensitive profile data.
+                const { data, error } = await supabase
+                    .rpc('get_public_leaderboard', { p_limit: 50 });
 
-                if (roleError) throw roleError;
+                if (error) throw error;
 
-                const studentIds = (roleData as { user_id: string }[]).map((r) => r.user_id);
+                const rows = (data as Array<{
+                    profile_id: string;
+                    display_name: string | null;
+                    avatar_url: string | null;
+                    total_xp: number;
+                    current_level: number;
+                }>) ?? [];
 
-                if (studentIds.length > 0) {
-                    const { data: profilesData, error: profilesError } = await supabase
-                        .from('profiles')
-                        .select('id, display_name, avatar_url, total_xp, current_level')
-                        .in('id', studentIds)
-                        .order('total_xp', { ascending: false })
-                        .limit(50);
-
-                    if (profilesError) throw profilesError;
-
-                    setStudents((profilesData as StudentProfile[]) || []);
-                }
+                setStudents(rows.map(r => ({
+                    id: r.profile_id,
+                    display_name: r.display_name,
+                    avatar_url: r.avatar_url,
+                    total_xp: r.total_xp,
+                    current_level: r.current_level,
+                })));
             } catch (error) {
                 console.error('Error fetching leaderboard:', error);
             } finally {

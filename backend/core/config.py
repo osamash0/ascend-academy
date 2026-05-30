@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     gemini_api_key: str = Field(alias="GEMINI_API_KEY", default="")
     google_api_key: str = Field(alias="GOOGLE_API_KEY", default="")
 
+    # ─── Parser v3 infra ───────────────────────────────────────────────────────
+    redis_url: str = Field(alias="REDIS_URL", default="redis://localhost:6379")
+    litellm_base_url: str = Field(alias="LITELLM_BASE_URL", default="http://localhost:4000")
+    parser_version: str = Field(alias="PARSER_VERSION", default="2")
+
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")
     def resolve_supabase_credentials(self) -> "Settings":
