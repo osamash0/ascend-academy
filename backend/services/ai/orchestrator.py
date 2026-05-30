@@ -38,7 +38,7 @@ import datetime
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -60,10 +60,76 @@ OLLAMA_MODEL      = "llama3"
 GEMINI_MODEL      = "gemini-2.0-flash"
 GROQ_MODEL        = "llama-3.3-70b-versatile"
 GROQ_FAST_MODEL   = "llama-3.1-8b-instant"
-GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
+# llama-3.2-11b-vision-preview was decommissioned by Groq (Apr 2026).
+# meta-llama/llama-4-scout-17b-16e-instruct is the current free-tier vision
+# model on Groq with the same OpenAI-compatible chat-completions schema.
+GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 CEREBRAS_MODEL    = "qwen-3-235b-a22b-instruct-2507"
 
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
+
+# ---------------------------------------------------------------------------
+# Per-slide quiz batching configuration
+# ---------------------------------------------------------------------------
+# Smaller batches with overlap give the LLM cross-slide context (so slide N+1
+# can resolve "this method" / "this algorithm" referring back to slide N)
+# without growing the token budget of any single call. See replit.md
+# "Quiz batch tuning" for the trade-off.
+
+@dataclass(frozen=True)
+class QuizBatchConfig:
+    batch_size: int        # max slides per LLM call (including context)
+    context_overlap: int   # last K slides of batch N reappear as context in N+1
+
+
+def _load_quiz_batch_config() -> QuizBatchConfig:
+    try:
+        bs = int(os.environ.get("QUIZ_BATCH_SIZE", "8"))
+    except (TypeError, ValueError):
+        bs = 8
+    try:
+        ov = int(os.environ.get("QUIZ_BATCH_OVERLAP", "1"))
+    except (TypeError, ValueError):
+        ov = 1
+    if bs < 1:
+        logger.warning("QUIZ_BATCH_SIZE %d invalid, falling back to 8", bs)
+        bs = 8
+    if ov < 0 or ov >= bs:
+        logger.warning(
+            "QUIZ_BATCH_OVERLAP %d invalid for batch_size %d, clamping",
+            ov, bs,
+        )
+        ov = min(max(ov, 0), bs - 1)
+    return QuizBatchConfig(batch_size=bs, context_overlap=ov)
+
+
+QUIZ_BATCH_CONFIG: QuizBatchConfig = _load_quiz_batch_config()
+
+
+def iter_overlapping_windows(
+    items: List[Any],
+    batch_size: int,
+    overlap: int,
+) -> Iterator[Tuple[List[Any], int]]:
+    """Yield ``(window, context_count)`` pairs covering ``items``.
+
+    The first ``context_count`` entries of each window are read-only context
+    carried over from the previous window; the remaining entries are new
+    items the caller is responsible for processing. Every input item appears
+    as a non-context entry in exactly one window.
+    """
+    if batch_size < 1:
+        raise ValueError("batch_size must be >= 1")
+    if overlap < 0 or overlap >= batch_size:
+        raise ValueError("overlap must satisfy 0 <= overlap < batch_size")
+    n = len(items)
+    pos = 0
+    while pos < n:
+        ctx = 0 if pos == 0 else min(overlap, pos)
+        new_capacity = batch_size - ctx
+        end = min(pos + new_capacity, n)
+        yield items[pos - ctx:end], ctx
+        pos = end
 
 # ---------------------------------------------------------------------------
 # Provider registry
@@ -103,7 +169,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         ),
         ProviderConfig(
             id="gemma",
-            model="gemma-3-27b-it",
+            model="gemini-2.0-flash-lite",
             daily_limit=14_400, rpm=30, tpm=15_000,
             env_var="GEMINI_API_KEY",
             base_url=None,
@@ -148,6 +214,13 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             env_var="GROQ_API_KEY",
             base_url="https://api.groq.com/openai/v1",
         ),
+        ProviderConfig(
+            id="openai",
+            model="gpt-4o-mini",
+            daily_limit=0, rpm=60, tpm=100000,
+            env_var="OPENAI_API_KEY",
+            base_url="https://api.openai.com/v1",
+        ),
     ]
 }
 
@@ -179,6 +252,8 @@ _USER_MODEL_TO_PROVIDER: Dict[str, str] = {
     "gemini-2.5-flash":  "gemini",
     "gemma":             "gemma",
     "mistral":           "mistral",
+    "openai":            "openai",
+    "gpt-4o-mini":       "openai",
 }
 
 
@@ -213,7 +288,11 @@ except ImportError:
 try:
     from google import genai as _genai
     _gem_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    _google_client = _genai.Client(api_key=_gem_key, http_options={"api_version": "v1"}) if _gem_key else None
+    # Use the SDK's default API version (v1beta). The previous v1 pin caused
+    # 404s for `gemma-3-27b-it` (gemma is v1beta-only) and 400s for vision
+    # calls that pass `responseMimeType` (rejected by v1). v1beta accepts both
+    # and is what `google-genai` ships as the default for production usage.
+    _google_client = _genai.Client(api_key=_gem_key) if _gem_key else None
 except Exception:
     _genai = None
     _google_client = None
@@ -297,6 +376,7 @@ class ProviderRotator:
         self._lock          = threading.Lock()
         self._counts:  Dict[str, int]   = {}
         self._backoff: Dict[str, float] = {}
+        self._streak:  Dict[str, int]   = {}
         self._day:     str              = datetime.date.today().isoformat()
 
     def _reset_if_new_day(self) -> None:
@@ -305,16 +385,25 @@ class ProviderRotator:
             self._day     = today
             self._counts  = {}
             self._backoff = {}
+            self._streak  = {}
 
     def record_success(self, provider_id: str) -> None:
         with self._lock:
             self._reset_if_new_day()
             self._counts[provider_id] = self._counts.get(provider_id, 0) + 1
+            self._streak[provider_id] = 0
 
     def record_rate_limit(self, provider_id: str, backoff_seconds: float = 90.0) -> None:
         with self._lock:
-            self._backoff[provider_id] = time.monotonic() + backoff_seconds
-        logger.warning("🔄 Provider '%s' rate-limited — backing off %.0fs", provider_id, backoff_seconds)
+            streak = self._streak.get(provider_id, 0) + 1
+            self._streak[provider_id] = streak
+            # Exponential backoff: 90s, 180s, 360s, … capped at 600s.
+            scaled = min(backoff_seconds * (2 ** (streak - 1)), 600.0)
+            self._backoff[provider_id] = time.monotonic() + scaled
+        logger.warning(
+            "🔄 Provider '%s' rate-limited — backing off %.0fs (streak=%d)",
+            provider_id, scaled, streak,
+        )
 
     def available(self, chain: List[str]) -> List[str]:
         """
@@ -326,30 +415,62 @@ class ProviderRotator:
         now = time.monotonic()
         with self._lock:
             self._reset_if_new_day()
-            ok = []
+            ok: List[str] = []
+            skipped: List[str] = []
+            for pid in chain:
+                cfg = PROVIDER_REGISTRY.get(pid)
+                if cfg is None:
+                    skipped.append(f"{pid}=unknown")
+                    continue
+                if _clients.get(pid) is None and not (pid == "groq" and groq_client):
+                    skipped.append(f"{pid}=no_client")
+                    continue
+                limit = cfg.daily_limit
+                used  = self._counts.get(pid, 0)
+                if limit > 0 and used >= limit:
+                    skipped.append(f"{pid}=daily_limit({used}/{limit})")
+                    continue
+                if now < self._backoff.get(pid, 0.0):
+                    remaining = self._backoff[pid] - now
+                    skipped.append(f"{pid}=backoff({remaining:.0f}s)")
+                    continue
+                ok.append(pid)
+        if skipped:
+            logger.info(
+                "Provider availability: ok=%s skipped=[%s]",
+                ok or "(none)", ", ".join(skipped),
+            )
+        return ok or chain   # if everything exhausted, try anyway (may still work)
+
+    def remaining_headroom(self, chain: List[str]) -> int:
+        """Sum of remaining daily quota across configured providers in `chain`.
+
+        Used by callers (e.g. PDF import) to bail fast when a long-running job
+        clearly cannot complete with today's remaining budget. Providers with
+        ``daily_limit == 0`` (unmetered) contribute a large constant so they
+        dominate the sum and effectively disable the gate.
+        """
+        with self._lock:
+            self._reset_if_new_day()
+            total = 0
             for pid in chain:
                 cfg = PROVIDER_REGISTRY.get(pid)
                 if cfg is None:
                     continue
-                # Skip if no client (key not set)
                 if _clients.get(pid) is None and not (pid == "groq" and groq_client):
                     continue
-                # Skip if daily limit reached
-                limit = cfg.daily_limit
-                used  = self._counts.get(pid, 0)
-                if limit > 0 and used >= limit:
-                    logger.debug("Provider '%s' daily limit reached (%d/%d)", pid, used, limit)
-                    continue
-                # Skip if in 429 backoff
-                if now < self._backoff.get(pid, 0.0):
-                    remaining = self._backoff[pid] - now
-                    logger.debug("Provider '%s' in backoff (%.0fs left)", pid, remaining)
-                    continue
-                ok.append(pid)
-        return ok or chain   # if everything exhausted, try anyway (may still work)
+                if cfg.daily_limit <= 0:
+                    total += 100_000
+                else:
+                    total += max(0, cfg.daily_limit - self._counts.get(pid, 0))
+        return total
 
 
 _rotator = ProviderRotator()
+
+
+def get_rotator() -> ProviderRotator:
+    return _rotator
 
 # Keep old class name as alias for any direct references
 _ProviderRotator = ProviderRotator
@@ -437,7 +558,7 @@ def _generate_with_rotation(
         try:
             result = _call_provider(pid, prompt)
             _rotator.record_success(pid)
-            logger.debug("✅ Provider '%s' served request", pid)
+            logger.info("✅ Provider '%s' served request", pid)
             return result
         except Exception as exc:
             msg = str(exc).lower()
@@ -512,7 +633,22 @@ def _sanitize_json_string(raw: str) -> str:
 
 
 def parse_json_response(raw: str) -> Any:
-    """Robustly extracts and parses JSON from an LLM response."""
+    """Robustly extracts and parses JSON from an LLM response.
+
+    Handles three failure modes:
+    1. JSON wrapped in ```json ... ``` fences — strips fence, parses inner text.
+    2. Valid JSON embedded inside prose — extracts first {...} or [...] block.
+    3. Truncated JSON array — the LLM hit its output token limit mid-object.
+       Instead of returning {} (which poisons the whole batch), we salvage
+       every *complete* object from the partial array so already-finished
+       slides are not lost.
+    """
+    if isinstance(raw, (dict, list)):
+        return raw
+
+    if not isinstance(raw, str):
+        raw = str(raw)
+
     raw = raw.strip()
     fence = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
     if fence:
@@ -524,6 +660,39 @@ def parse_json_response(raw: str) -> Any:
         return json.loads(candidate)
     except json.JSONDecodeError as e:
         logger.warning("JSON parsing failed: %s. Raw: %.300s", e, candidate)
+        # --- Truncation recovery for arrays ---
+        # When an LLM hits its output token limit the JSON array is cut off
+        # mid-object (e.g. "[{...}, {\"title\": \"Foo\",").  We can still
+        # salvage all *complete* objects that appear before the truncation
+        # point by scanning for self-contained {...} blocks inside the array.
+        if candidate.lstrip().startswith("["):
+            salvaged = []
+            # Greedily extract every balanced {…} block from the partial text
+            depth = 0
+            start = None
+            for i, ch in enumerate(candidate):
+                if ch == "{":
+                    if depth == 0:
+                        start = i
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0 and start is not None:
+                        fragment = candidate[start:i + 1]
+                        try:
+                            obj = json.loads(fragment)
+                            if isinstance(obj, dict):
+                                salvaged.append(obj)
+                        except json.JSONDecodeError:
+                            pass
+                        start = None
+            if salvaged:
+                logger.info(
+                    "Truncated JSON array: salvaged %d complete objects "
+                    "out of partial response.",
+                    len(salvaged),
+                )
+                return salvaged
         return {}
 
 
@@ -570,6 +739,8 @@ async def generate_text(prompt: str, ai_model: str = "cerebras") -> str:
     it maps to a known provider (cerebras, groq, openrouter, cloudflare, gemini, ...).
     """
     from backend.services.llm_client import call_llm
+    if ai_model == "llama3":
+        return await call_llm(lambda: _call_provider("llama3", prompt))
     preferred = _resolve_preferred(ai_model)
     return await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=preferred))
 
@@ -840,17 +1011,64 @@ async def batch_analyze_text_slides(
     slides: List[Dict[str, Any]],
     ai_model: str = "groq",
     blueprint: Optional[Dict] = None,
+    *,
+    batch_size: Optional[int] = None,
+    context_overlap: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Analyzes a batch of slides in a SINGLE LLM call (true batching).
+    """Analyze a batch of slides in (typically) ONE LLM call.
 
-    All slides are packed into one prompt → one API request for N slides.
-    Uses BULK_CHAIN so the scarce Groq 70B quota is preserved for blueprints.
+    When ``len(slides) > batch_size`` and the caller has NOT already pre-
+    chunked (no slide carries ``context_only=True``), the input is split
+    into overlapping windows via :func:`iter_overlapping_windows` and each
+    window runs as its own LLM call. This is the convenience path so any
+    caller can hand us the full list of pending slides; the
+    file-parse pipeline still pre-chunks externally to gain parallelism.
+
+    Each batch beyond the first reuses the trailing ``context_overlap``
+    slides as ``<context_only>``-wrapped sections so the LLM can resolve
+    back-references like "this method" / "as shown earlier" across the
+    chunk boundary.
+
+    On LLM-call exception or unusable JSON the function RAISES — callers
+    such as :func:`_process_text_batch_safe` then fall back to per-slide
+    retry for active (non-context) slides.
+
+    Defaults for ``batch_size`` / ``context_overlap`` come from
+    ``QUIZ_BATCH_CONFIG`` (env-tunable via ``QUIZ_BATCH_SIZE`` /
+    ``QUIZ_BATCH_OVERLAP``).
     """
     from backend.services.ai.prompts import BATCH_SLIDE_PROMPT
 
     if not slides:
         return []
+
+    bs = batch_size if batch_size is not None else QUIZ_BATCH_CONFIG.batch_size
+    ov = (
+        context_overlap if context_overlap is not None
+        else QUIZ_BATCH_CONFIG.context_overlap
+    )
+
+    # Internal overlapping chunking — only when the caller hasn't already
+    # marked context slides (i.e. it isn't doing its own windowing).
+    has_context_flags = any(s.get("context_only") for s in slides)
+    if not has_context_flags and len(slides) > bs:
+        merged: List[Dict[str, Any]] = []
+        for window, ctx in iter_overlapping_windows(slides, bs, ov):
+            tagged: List[Dict[str, Any]] = []
+            for pos, s in enumerate(window):
+                if pos < ctx:
+                    tagged.append({**s, "context_only": True})
+                else:
+                    tagged.append(s)
+            window_results = await batch_analyze_text_slides(
+                tagged,
+                ai_model=ai_model,
+                blueprint=blueprint,
+                batch_size=bs,
+                context_overlap=ov,
+            )
+            merged.extend(window_results)
+        return merged
 
     # Blueprint header — injected once at the top, not per slide
     bp_header   = ""
@@ -865,7 +1083,13 @@ async def batch_analyze_text_slides(
             )
         idx_to_plan = {p["index"]: p for p in blueprint.get("slide_plans", [])}
 
-    # Build === SLIDE N === sections
+    # Build === SLIDE N === sections. Slides flagged ``context_only`` are
+    # carried over from a previous overlapping window — they exist purely so
+    # the LLM can resolve back-references like "this method" / "as shown
+    # earlier" without us having to expand the active batch. We must NOT
+    # generate questions for them, and we drop any returned object whose
+    # index lands in ``context_only_indices`` below.
+    context_only_indices = {s["index"] for s in slides if s.get("context_only")}
     slide_sections: List[str] = []
     for s in slides:
         body = s["text"] or "(no extracted text)"
@@ -874,12 +1098,23 @@ async def batch_analyze_text_slides(
             proposed = plan.get("proposed_title", "")
             concepts = ", ".join(plan.get("concepts", [])[:4])
             body = f"[Proposed title: {proposed}] [Key concepts: {concepts}]\n" + body
-        slide_sections.append(
-            f"=== SLIDE {s['page_number']} (index={s['index']}) ===\n{body}"
+        section = f"=== SLIDE {s['page_number']} (index={s['index']}) ===\n{body}"
+        if s.get("context_only"):
+            section = f"<context_only>\n{section}\n</context_only>"
+        slide_sections.append(section)
+
+    context_header = ""
+    if context_only_indices:
+        context_header = (
+            "\n\nIMPORTANT: Slides wrapped in <context_only>...</context_only> "
+            "are provided ONLY so you can resolve references in the other "
+            "slides. Do NOT generate a question for any slide inside a "
+            "<context_only> block; omit them from your JSON array entirely.\n"
         )
 
     full_prompt = (
-        BATCH_SLIDE_PROMPT + bp_header + "\n\n" + "\n\n".join(slide_sections)
+        BATCH_SLIDE_PROMPT + bp_header + context_header + "\n\n"
+        + "\n\n".join(slide_sections)
     )
 
     # Single LLM call via BULK chain
@@ -890,25 +1125,34 @@ async def batch_analyze_text_slides(
             lambda: _generate_with_rotation(full_prompt, BULK_CHAIN, preferred=preferred)
         )
     except Exception as exc:
+        # Re-raise so the outer per-slide retry path (e.g.
+        # ``_process_text_batch_safe`` in file_parse_service) can fall
+        # back to single-slide calls for the ACTIVE slides only. We used
+        # to swallow this and synthesize parse_error rows, which silently
+        # gave up on retry.
         logger.error("Bulk batch call failed: %s", exc)
-        return [
-            {
-                "index": s["index"], "title": f"Slide {s['index']+1}",
-                "content": s["text"], "summary": "", "questions": [],
-                "slide_type": "content_slide", "parse_error": str(exc),
-            }
-            for s in slides
-        ]
+        raise
 
     parsed = parse_json_response(raw)
     if isinstance(parsed, dict):
         parsed = [parsed]
 
-    page_to_idx = {s["page_number"]: s["index"] for s in slides}
+    # Only the non-context (active) slides should appear in the output.
+    active_slides = [s for s in slides if s["index"] not in context_only_indices]
+    page_to_idx = {s["page_number"]: s["index"] for s in active_slides}
     results: List[Dict] = []
 
-    if isinstance(parsed, list) and len(parsed) == len(slides):
-        for s, item in zip(slides, parsed):
+    # When there are context slides we cannot trust positional alignment:
+    # a misbehaving model might include a context entry and drop an active
+    # one while still returning a list of equal length, which would silently
+    # attach context content to an active index. Force the page_number-keyed
+    # branch in that case so context entries get filtered out.
+    if (
+        isinstance(parsed, list)
+        and len(parsed) == len(active_slides)
+        and not context_only_indices
+    ):
+        for s, item in zip(active_slides, parsed):
             if isinstance(item, dict):
                 item["index"] = s["index"]
                 results.append(item)
@@ -923,16 +1167,35 @@ async def batch_analyze_text_slides(
             if idx is not None:
                 item["index"] = idx
                 results.append(item)
+        # Drop any LLM-emitted entries for context-only slides (the prompt
+        # forbids them, but defensively filter in case the model misbehaves).
+        results = [r for r in results if r["index"] not in context_only_indices]
+
+        # If we couldn't extract anything usable for the active slides,
+        # raise so the outer per-slide retry path takes over instead of
+        # silently returning empty fallback rows for every slide.
+        if active_slides and not results:
+            logger.error(
+                "Batch response yielded zero usable items for %d active "
+                "slides; raising for per-slide retry.",
+                len(active_slides),
+            )
+            raise ValueError("batch_analyze_text_slides: unusable JSON response")
+
         found = {r["index"] for r in results}
-        for s in slides:
+        for s in active_slides:
             if s["index"] not in found:
                 logger.warning("Slide %d missing from batch response — using fallback", s["index"])
                 results.append({"index": s["index"], "title": f"Slide {s['index']+1}",
                                  "content": s["text"], "summary": "", "questions": []})
     else:
-        results = [{"index": s["index"], "title": f"Slide {s['index']+1}",
-                    "content": s["text"], "summary": "", "questions": []}
-                   for s in slides]
+        # parse_json_response normally returns [] on garbage input, so this
+        # branch is rare — but guard against non-list/non-dict outputs.
+        logger.error(
+            "Batch response not a list (%s); raising for per-slide retry.",
+            type(parsed).__name__,
+        )
+        raise ValueError("batch_analyze_text_slides: unusable JSON response")
 
     # Validate the per-slide MCQ. To honour the one-shot regenerate contract
     # for per-slide quizzes too — without burning N extra LLM calls — we
@@ -959,6 +1222,10 @@ async def batch_analyze_text_slides(
     if failing:
         await _regenerate_failing_slide_quizzes(failing, slides, idx_to_plan, ai_model=ai_model)
 
+    # Stable order by slide index — model output order is not guaranteed,
+    # and downstream SSE consumers (and our own coverage assertions) read
+    # cleaner when results match input order.
+    results.sort(key=lambda r: r.get("index", 0))
     return results
 
 

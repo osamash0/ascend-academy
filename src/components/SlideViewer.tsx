@@ -251,9 +251,9 @@ export function SlideViewer({
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         className="flex-1 flex flex-col overflow-y-auto custom-scrollbar"
       >
-        {/* PDF Slide Area */}
+        {/* PDF Slide Area (Top on Desktop) */}
         {hasPdf && (
-          <div className="flex flex-col border-b border-white/5 bg-surface-1/30">
+          <div className="w-full flex flex-col border-b border-white/5 bg-surface-1/30">
             <div className="px-6 py-2 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-2 text-muted-foreground/60">
                 <BookOpen className="w-3.5 h-3.5" />
@@ -294,23 +294,28 @@ export function SlideViewer({
           </div>
         )}
 
-        {/* AI Summary */}
-        {summary && (
-          <div className="px-6 py-6 border-b border-white/5">
-            <div className="glass-panel border-white/5 rounded-2xl p-5 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-start gap-4 relative z-10">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-xp to-warning flex items-center justify-center flex-shrink-0 shadow-glow-xp">
-                  <Lightbulb className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-foreground mb-1 uppercase tracking-tight">AI Insights</h4>
-                  <p className="text-body-md text-muted-foreground leading-relaxed italic">"{summary}"</p>
+        {/* AI Content Area (Bottom on Desktop) */}
+        <div className="w-full flex flex-col">
+          {/* AI Narrative (Learning Teacher) */}
+          {summary && (
+            <div className="px-6 py-6 border-b border-white/5">
+              <div className="glass-panel border-white/5 rounded-2xl p-6 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative z-10">
+                  <div className="prose prose-lg dark:prose-invert max-w-none
+                    prose-headings:text-foreground prose-headings:font-bold prose-headings:tracking-tight
+                    prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:text-body-lg
+                    prose-strong:text-primary prose-strong:font-bold
+                    prose-ul:text-muted-foreground prose-li:my-2
+                    prose-code:text-accent prose-code:bg-accent/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md">
+                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                      {summary}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Mind Map Panel */}
         <div className="px-6 py-4 border-b border-white/5">
@@ -393,45 +398,6 @@ export function SlideViewer({
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-
-        {/* Study Notes Content */}
-        <div className="p-8 lg:p-10 space-y-6">
-          {/* Garbage-content warning */}
-          {isGarbageContent(content) && isProfessor && (
-            <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
-              <span className="text-amber-400 mt-0.5 shrink-0">⚠️</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-amber-300">AI content not extracted correctly</p>
-                <p className="text-xs text-amber-300/70 mt-0.5">
-                  This slide likely contains a diagram or chart. The old text parser could not read it. Re-analyze with the vision AI to fix it.
-                </p>
-              </div>
-              {onRegenerateContent && (
-                <button
-                  onClick={onRegenerateContent}
-                  disabled={isRegeneratingContent}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 text-xs font-semibold transition-colors disabled:opacity-50"
-                >
-                  {isRegeneratingContent
-                    ? <><Loader2 className="w-3 h-3 animate-spin" /> Analyzing…</>
-                    : <><Sparkles className="w-3 h-3" /> Re-analyze</>
-                  }
-                </button>
-              )}
-            </div>
-          )}
-
-          <div className="prose prose-lg dark:prose-invert max-w-none
-            prose-headings:text-foreground prose-headings:font-bold prose-headings:tracking-tight
-            prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:text-body-lg
-            prose-strong:text-primary prose-strong:font-bold
-            prose-ul:text-muted-foreground prose-li:my-2
-            prose-code:text-accent prose-code:bg-accent/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md">
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-              {content || '_No content available for this slide._'}
-            </ReactMarkdown>
-          </div>
         </div>
       </motion.div>
 

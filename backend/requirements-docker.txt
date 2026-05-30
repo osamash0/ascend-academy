@@ -1,0 +1,38 @@
+# Lean requirements for Docker builds.
+# Drops packages that are dead code or only needed for PARSER_VERSION=3/4:
+#
+#   paddlepaddle + paddleocr  — dead code, removed from ocr_fallback.py
+#   ollama                    — local LLM runner, unreachable inside Docker
+#   docling                   — lazy import, parser v3/v4 only (brings in easyocr,
+#                               huggingface_hub, scipy, rtree — adds 30+ min to build)
+#   fastembed                 — lazy import, parser v3/v4 only
+#   llama-cloud-services      — lazy import, parser v3/v4 only
+#
+# Set PARSER_VERSION=2 (the default) when running this image.
+# The main requirements.txt is left untouched for local dev / venv installs.
+
+fastapi
+uvicorn
+sqlmodel
+supabase
+pydantic
+pydantic-settings
+python-dotenv
+asyncpg
+pypdf
+PyMuPDF==1.24.0
+Pillow
+python-multipart
+google-genai
+groq
+edge-tts
+slowapi
+tenacity==8.2.3
+tiktoken==0.7.0
+pytesseract==0.3.10
+pandas==2.1.4
+tabulate==0.9.0
+lxml
+arq>=0.26
+litellm>=1.40
+openai>=1.50.0

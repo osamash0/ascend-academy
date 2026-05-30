@@ -58,17 +58,26 @@ async def generate_hierarchical_summary(
     # provider rotation transparently.
     map_model = ai_model
 
-    tasks = []
-    for idx, section in enumerate(sections):
-        tasks.append(_summarize_section(section, map_model))
-    
+    # Limit concurrent section-summary LLM calls. Without this, all sections
+    # fire simultaneously, instantly exhausting the provider's RPM quota and
+    # triggering rate-limit backoffs on every provider in the chain.
+    # 2 concurrent calls is well within every provider's free-tier RPM limit
+    # while still being faster than fully sequential execution.
+    _MAP_SEM = asyncio.Semaphore(2)
+
+    async def _throttled_summarize(section: dict) -> str:
+        async with _MAP_SEM:
+            return await _summarize_section(section, map_model)
+
+    tasks = [_throttled_summarize(section) for section in sections]
+
     batch_summaries_dict = {}
     completed = 0
     total = len(tasks)
-    
-    # Run Map Phase in parallel
+
+    # Run Map Phase with bounded concurrency
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    
+
     for idx, summary in enumerate(results):
         if isinstance(summary, Exception):
             logger.error("Section %d failed: %s", idx, summary)

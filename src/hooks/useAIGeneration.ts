@@ -43,7 +43,7 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
         updateSlide(slideIndex, 'summary', data.summary);
         toast({ title: 'Summary Generated', description: 'AI has distilled the key points for you.' });
       } catch {
-        toast({ title: 'AI Error', description: 'Summary generation failed. Is Ollama running?', variant: 'destructive' });
+        toast({ title: 'AI Error', description: 'Summary generation failed. Please try again.', variant: 'destructive' });
       } finally {
         setOpLoading(slideIndex, 'summary', false);
       }
@@ -70,7 +70,7 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
         ]);
         toast({ title: 'Quiz Generated', description: 'A new question has been crafted from your content.' });
       } catch {
-        toast({ title: 'AI Error', description: 'Quiz generation failed. Is Ollama running?', variant: 'destructive' });
+        toast({ title: 'AI Error', description: 'Quiz generation failed. Please try again.', variant: 'destructive' });
       } finally {
         setOpLoading(slideIndex, 'quiz', false);
       }

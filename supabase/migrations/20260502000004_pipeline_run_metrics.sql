@@ -25,10 +25,12 @@ ALTER TABLE pipeline_run_metrics ENABLE ROW LEVEL SECURITY;
 -- Backend-only: anon/authenticated have no policies → no access.
 -- supabase_admin bypasses RLS so the parse service and diagnostics
 -- endpoint can read/write freely.
+DROP POLICY IF EXISTS "service role only select on pipeline_run_metrics" ON pipeline_run_metrics;
 CREATE POLICY "service role only select on pipeline_run_metrics"
     ON pipeline_run_metrics FOR SELECT
     TO service_role USING (true);
 
+DROP POLICY IF EXISTS "service role only insert on pipeline_run_metrics" ON pipeline_run_metrics;
 CREATE POLICY "service role only insert on pipeline_run_metrics"
     ON pipeline_run_metrics FOR INSERT
     TO service_role WITH CHECK (true);

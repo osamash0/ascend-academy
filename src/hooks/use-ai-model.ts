@@ -5,8 +5,7 @@ export type AiModelChoice =
   | 'groq'
   | 'openrouter'
   | 'cloudflare'
-  | 'gemini-2.5-flash'
-  | 'llama3';
+  | 'openai';
 
 const STORAGE_KEY = 'ascend-academy-ai-model';
 
@@ -15,8 +14,7 @@ const VALID_MODELS: ReadonlyArray<AiModelChoice> = [
   'groq',
   'openrouter',
   'cloudflare',
-  'gemini-2.5-flash',
-  'llama3',
+  'openai',
 ];
 
 function isValidModel(value: string | null): value is AiModelChoice {

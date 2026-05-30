@@ -57,6 +57,7 @@ const Achievements = lazy(() => import("./pages/Achievements"));
 const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
 const ProfessorAnalytics = lazy(() => import("./pages/ProfessorAnalytics"));
 const LectureUpload = lazy(() => import("./pages/LectureUpload"));
+const FastUpload = lazy(() => import("./pages/FastUpload"));
 const LectureEdit = lazy(() => import("./pages/LectureEdit"));
 const ProfessorCourses = lazy(() => import("./pages/ProfessorCourses"));
 const ProfessorCourseDetail = lazy(() => import("./pages/ProfessorCourseDetail"));
@@ -66,6 +67,7 @@ const Datenschutz = lazy(() => import("./pages/Datenschutz"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Insights = lazy(() => import("./pages/Insights"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const PipelineTestPage = lazy(() => import("./pages/PipelineTestPage"));
 
 // Loading Component
 const PageLoader = () => {
@@ -215,6 +217,16 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/professor/fast-upload"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <FastUpload />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/professor/courses"
           element={
             <ProtectedRoute allowedRoles={['professor']}>
@@ -240,6 +252,17 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['professor']}>
               <DashboardLayout>
                 <LectureEdit />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/professor/pipeline-test"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <PipelineTestPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

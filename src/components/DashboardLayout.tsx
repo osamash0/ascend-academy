@@ -7,6 +7,9 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationBell } from '@/components/NotificationBell';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
+import { LanguageToggle } from '@/components/LanguageToggle';
+import { PomodoroTimer } from '@/components/PomodoroTimer';
+import { useAuth } from '@/lib/auth';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -15,6 +18,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { t } = useTranslation(['common']);
+  const { role } = useAuth();
 
   const toggleTheme = useCallback(() => {
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
@@ -35,6 +39,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               />
             </div>
             <div className="flex items-center gap-3">
+              {role === 'student' && <PomodoroTimer />}
+              <LanguageToggle variant="icon-light" />
               {/* Theme toggle button */}
               <motion.button
                 onClick={toggleTheme}

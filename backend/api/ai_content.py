@@ -91,6 +91,7 @@ _AiModel = Annotated[
         "gemma",
         "mistral",
         "llama3",
+        "openai",
     ],
     Field("cerebras", description="Preferred LLM backend (head of failover chain)"),
 ]
@@ -214,6 +215,13 @@ async def generate_quiz_endpoint(body: SlideTextRequest, user: Any = Depends(ver
         # Ensure correct return format
         if isinstance(quiz, list) and quiz:
             quiz = quiz[0]
+        if not isinstance(quiz, dict):
+            raise ValueError("Quiz generation returned unexpected format")
+        # Normalize letter-format "answer": "A"|"B"|"C"|"D" → correctAnswer: int
+        if "answer" in quiz and "correctAnswer" not in quiz:
+            ans = quiz.get("answer", "")
+            if isinstance(ans, str) and len(ans) == 1 and ans.upper().isalpha():
+                quiz["correctAnswer"] = ord(ans.upper()) - ord("A")
         return QuizResponse(**quiz)
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="AI quiz timed out. Please retry.")

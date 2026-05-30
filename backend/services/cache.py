@@ -1,14 +1,53 @@
 import hashlib
+import json
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from decimal import Decimal
+from enum import Enum
 from typing import Any, Optional, List, Dict, Tuple
 from collections import OrderedDict
 from threading import Lock
+from uuid import UUID
 
 from backend.core.database import supabase_admin
 
 logger = logging.getLogger(__name__)
+
+
+def _json_safe_default(obj: Any) -> Any:
+    """JSON encoder fallback for non-primitive types Supabase User objects can carry.
+
+    Supabase's `User` model exposes datetime fields (created_at, last_sign_in_at, …)
+    and UUID `id`, both of which the JSON serializer used by postgrest / httpx
+    rejects with TypeError. We coerce them here so `set_cache` never crashes
+    silently and `store_cached_token` can persist the auth-token cache row.
+    """
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, UUID):
+        return str(obj)
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, Enum):
+        return obj.value
+    if isinstance(obj, (set, frozenset)):
+        return list(obj)
+    if isinstance(obj, bytes):
+        return obj.decode("utf-8", errors="replace")
+    if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
+        try:
+            return obj.dict()
+        except Exception:
+            pass
+    if hasattr(obj, "__dict__"):
+        return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def _to_json_safe(value: Any) -> Any:
+    """Recursively coerce *value* into JSON-primitive types using `_json_safe_default`."""
+    return json.loads(json.dumps(value, default=_json_safe_default))
 
 
 # --- Token validation cache (Shared Database L2 Cache) ---
@@ -47,7 +86,13 @@ async def store_cached_token(token: str, user: Any) -> None:
 
 
 async def invalidate_cached_token(token: str) -> None:
-    """Remove a token from the shared database cache."""
+    """Remove a token from the shared database cache immediately.
+
+    Called on logout so a sign-out takes effect within the current 45s TTL
+    window rather than waiting for natural expiry.  Without this, a
+    logged-out user's cached session would remain valid for up to 45s —
+    enough time for a token replay attack.
+    """
     if not token:
         return
     key = _hash_token(token)
@@ -56,6 +101,23 @@ async def invalidate_cached_token(token: str) -> None:
         supabase_admin.table("backend_cache").delete().eq("cache_key", cache_key).execute()
     except Exception as e:
         logger.warning("Failed to invalidate token cache: %s", e)
+
+
+async def purge_expired_backend_cache() -> int:
+    """Delete all expired rows from ``backend_cache`` via the DB function.
+
+    Returns the number of rows deleted.  Calls the ``cleanup_backend_cache``
+    PostgreSQL SECURITY DEFINER function (migration 20260506000003).
+    Safe to call on-demand or via pg_cron nightly.
+    """
+    try:
+        res = supabase_admin.rpc("cleanup_backend_cache").execute()
+        deleted = res.data or 0
+        logger.info("Purged %d expired backend_cache rows", deleted)
+        return int(deleted)
+    except Exception as e:
+        logger.warning("backend_cache purge failed (non-fatal): %s", e)
+        return 0
 
 
 def compute_pdf_hash(content: bytes) -> str:
@@ -104,12 +166,55 @@ async def store_cached_parse(pdf_hash: str, data: Dict[str, Any], parsing_mode: 
         logger.error("Failed to store cached parse: %s", e)
 
 
+async def get_cached_parse_meta(pdf_hash: str) -> Optional[Dict[str, Any]]:
+    """Lightweight existence check for `pdf_parse_cache`.
+
+    Returns `{parsed_at: <iso-ts-or-None>}` when a cache row exists for
+    `pdf_hash`, or `None` when no row exists.  Used by the
+    `/api/upload/check-parse-cache` endpoint so the upload UI can decide
+    whether to prompt "use saved parse vs. re-parse" instead of silently
+    serving the stale cached result.
+
+    Selects only `created_at` so we don't transfer the heavy `result`
+    JSONB blob on every upload — the full payload is fetched later (only
+    if the user picks "use saved parse") via the regular cache hit path.
+    """
+    try:
+        res = (
+            supabase_admin.table("pdf_parse_cache")
+            .select("created_at")
+            .eq("pdf_hash", pdf_hash)
+            .execute()
+        )
+        if res.data:
+            return {"parsed_at": res.data[0].get("created_at")}
+    except Exception as e:
+        logger.error("Failed to get cached parse meta: %s", e)
+    return None
+
+
 # --- Blueprint Cache (PostgreSQL-backed) ---
+#
+# Keying strategy: (pdf_hash, version).
+# Each distinct BLUEPRINT_VERSION gets its own row — bumping the version
+# constant in planner_service.py generates a fresh blueprint (cache miss)
+# without destroying the previous version's row.  Old-version rows are
+# cleaned up by purge_old_blueprint_versions() below.
 
 async def get_cached_blueprint(pdf_hash: str, version: int = 1) -> Optional[Dict[str, Any]]:
-    """Retrieve blueprint from Supabase if hash and version match."""
+    """Retrieve blueprint from Supabase if (pdf_hash, version) matches.
+
+    Returns ``None`` on a cache miss so the caller knows to regenerate.
+    """
     try:
-        res = supabase_admin.table("lecture_blueprints").select("blueprint_json").eq("pdf_hash", pdf_hash).eq("version", version).execute()
+        res = (
+            supabase_admin.table("lecture_blueprints")
+            .select("blueprint_json")
+            .eq("pdf_hash", pdf_hash)
+            .eq("version", version)
+            .limit(1)
+            .execute()
+        )
         if res.data:
             return res.data[0]["blueprint_json"]
     except Exception as e:
@@ -117,18 +222,58 @@ async def get_cached_blueprint(pdf_hash: str, version: int = 1) -> Optional[Dict
     return None
 
 
-async def store_cached_blueprint(pdf_hash: str, blueprint: Dict[str, Any], version: int = 1) -> None:
-    """Upsert blueprint to Supabase."""
+async def store_cached_blueprint(
+    pdf_hash: str,
+    blueprint: Dict[str, Any],
+    version: int = 1,
+) -> None:
+    """Upsert blueprint keyed by (pdf_hash, version).
+
+    After migration 20260506000002 the unique constraint covers both
+    columns, so different versions of the same PDF each get their own
+    row.  The on_conflict target must match that composite constraint.
+    """
     try:
         data = {
             "pdf_hash": pdf_hash,
             "blueprint_json": blueprint,
             "version": version,
-            "created_at": "now()"
+            "created_at": "now()",
         }
-        supabase_admin.table("lecture_blueprints").upsert(data, on_conflict="pdf_hash").execute()
+        # on_conflict MUST reference the composite unique constraint
+        # (pdf_hash, version) — NOT just pdf_hash.  Using only pdf_hash
+        # would overwrite a version-1 row when storing version-2, losing
+        # the old blueprint and defeating the versioned keying strategy.
+        supabase_admin.table("lecture_blueprints").upsert(
+            data, on_conflict="pdf_hash,version"
+        ).execute()
     except Exception as e:
         logger.error("Failed to store blueprint: %s", e)
+
+
+async def purge_old_blueprint_versions(keep_version: int) -> int:
+    """Delete blueprint rows whose version is older than ``keep_version``.
+
+    Calls the ``cleanup_old_blueprint_versions`` PostgreSQL SECURITY
+    DEFINER function (migration 20260506000002).  Safe to call any time;
+    rows for the active version are never touched.
+
+    Example: after bumping BLUEPRINT_VERSION from 1 to 2 and running the
+    new pipeline, call ``purge_old_blueprint_versions(keep_version=2)``
+    to remove all version-1 rows across every pdf_hash.
+    """
+    try:
+        res = supabase_admin.rpc(
+            "cleanup_old_blueprint_versions", {"keep_version": keep_version}
+        ).execute()
+        deleted = res.data or 0
+        logger.info(
+            "Purged %d blueprint rows older than version %d", deleted, keep_version
+        )
+        return int(deleted)
+    except Exception as e:
+        logger.warning("Blueprint version purge failed (non-fatal): %s", e)
+        return 0
 
 
 # --- pgvector Semantic Cache ---
@@ -232,7 +377,12 @@ async def attach_lecture_id_to_embeddings(
         return 0
 
 
-# --- Per-slide parse cache (for checkpoint/resume) ---
+# Checkpoint rows are only useful during the resume window: a professor is
+# unlikely to retry a failed upload more than 7 days later, and holding
+# them indefinitely wastes storage. Bump this down for faster cleanup or
+# up if your professors need longer retry windows.
+_CHECKPOINT_TTL_DAYS = 7
+
 
 async def store_slide_parse_result(
     pdf_hash: str,
@@ -241,16 +391,24 @@ async def store_slide_parse_result(
     slide_data: Dict[str, Any],
 ) -> None:
     """
-    Upsert a single slide's full parse output.
+    Upsert a single slide's full parse output with a 7-day TTL.
+
     Used for checkpoint/resume: if a pipeline run times out, the next run
     can skip already-stored slides by querying get_cached_slide_results().
+    Rows older than ``_CHECKPOINT_TTL_DAYS`` are considered stale and are
+    excluded from reads; the ``purge_expired_slide_checkpoints`` helper
+    (or the ``cleanup_slide_parse_cache`` DB function) removes them.
     """
     try:
+        expires_at = (
+            datetime.utcnow() + timedelta(days=_CHECKPOINT_TTL_DAYS)
+        ).isoformat()
         payload = {
             "pdf_hash": pdf_hash,
             "slide_index": slide_index,
             "pipeline_version": pipeline_version,
             "slide_data": slide_data,
+            "expires_at": expires_at,
         }
         supabase_admin.table("slide_parse_cache").upsert(
             payload, on_conflict="pdf_hash,slide_index,pipeline_version"
@@ -317,22 +475,52 @@ async def get_cached_slide_results(
     pipeline_version: str,
 ) -> Dict[int, Dict[str, Any]]:
     """
-    Returns {slide_index → slide_data} for all slides cached at the given
-    pipeline_version.  Used by file_parse_service to skip already-processed
-    slides when resuming after a timeout.
+    Returns {slide_index → slide_data} for all non-expired slides cached at
+    the given pipeline_version.  Used by file_parse_service to skip
+    already-processed slides when resuming after a timeout.
+
+    Expired rows (``expires_at < NOW()``) are silently excluded so stale
+    checkpoints never surface as valid results after their TTL window.
     """
     try:
+        now = datetime.utcnow().isoformat()
         res = (
             supabase_admin.table("slide_parse_cache")
             .select("slide_index,slide_data")
             .eq("pdf_hash", pdf_hash)
             .eq("pipeline_version", pipeline_version)
+            # Exclude expired rows. Rows without expires_at (pre-migration
+            # legacy rows) are treated as non-expired via the OR clause so
+            # existing checkpoints keep working until the migration lands.
+            .or_(f"expires_at.gt.{now},expires_at.is.null")
             .execute()
         )
         return {row["slide_index"]: row["slide_data"] for row in (res.data or [])}
     except Exception as e:
         logger.warning("Checkpoint lookup failed (non-fatal): %s", e)
         return {}
+
+
+async def purge_expired_slide_checkpoints() -> int:
+    """Delete all expired ``slide_parse_cache`` rows via the DB helper function.
+
+    Returns the number of rows deleted.  Calls the ``cleanup_slide_parse_cache``
+    PostgreSQL function (created by migration 20260506000001) which runs as
+    SECURITY DEFINER under the table owner — no RLS friction, one round-trip.
+
+    This can be called:
+    - From ``POST /api/upload/cleanup-cache`` (admin endpoint).
+    - Via a pg_cron schedule: ``SELECT cleanup_slide_parse_cache();`` nightly.
+    - Manually via the Supabase SQL editor.
+    """
+    try:
+        res = supabase_admin.rpc("cleanup_slide_parse_cache").execute()
+        deleted = (res.data or 0)
+        logger.info("Purged %d expired slide_parse_cache rows", deleted)
+        return int(deleted)
+    except Exception as e:
+        logger.warning("slide_parse_cache purge failed (non-fatal): %s", e)
+        return 0
 
 
 # --- Generic Backend Cache (PostgreSQL-backed) ---
@@ -356,13 +544,24 @@ async def get_cache(key: str) -> Optional[Any]:
 
 
 async def set_cache(key: str, data: Any, ttl_seconds: int = 300) -> None:
-    """Store data in generic backend_cache with a TTL."""
+    """Store data in generic backend_cache with a TTL.
+
+    `data` is coerced through `_to_json_safe` first so datetime/UUID/Decimal/Enum
+    values (typical on Supabase `User` objects) don't crash the postgrest JSON
+    encoder downstream.
+    """
     try:
         expires_at = (datetime.utcnow() + timedelta(seconds=ttl_seconds)).isoformat()
-        
+
+        try:
+            safe_data = _to_json_safe(data)
+        except TypeError as enc_exc:
+            logger.error("Cache payload not JSON-serializable for key %s: %s", key, enc_exc)
+            return
+
         payload = {
             "cache_key": key,
-            "data": data,
+            "data": safe_data,
             "expires_at": expires_at
         }
         supabase_admin.table("backend_cache").upsert(payload, on_conflict="cache_key").execute()

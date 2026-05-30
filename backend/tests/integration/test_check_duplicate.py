@@ -145,6 +145,84 @@ class TestCheckDuplicate:
         assert r.status_code in (401, 403)
 
 
+class TestCheckParseCache:
+    """`/api/upload/check-parse-cache` surfaces pdf_parse_cache hits to
+    the upload UI so users can choose between using the cached parse and
+    forcing a fresh one."""
+
+    def test_returns_cached_true_when_row_exists(
+        self, app, professor_user, patch_supabase
+    ):
+        patch_supabase.seed(
+            "pdf_parse_cache",
+            [
+                {
+                    "pdf_hash": VALID_HASH,
+                    "result": {"slides": [{"title": "x"}], "deck": {}},
+                    "created_at": "2026-04-15T12:00:00Z",
+                },
+            ],
+        )
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        client = TestClient(app)
+
+        r = client.post(
+            "/api/upload/check-parse-cache",
+            json={"pdf_hash": VALID_HASH},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["cached"] is True
+        assert body["parsed_at"] == "2026-04-15T12:00:00Z"
+
+    def test_returns_cached_false_when_no_row(
+        self, app, professor_user, patch_supabase
+    ):
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        client = TestClient(app)
+
+        r = client.post(
+            "/api/upload/check-parse-cache",
+            json={"pdf_hash": OTHER_HASH},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 200
+        assert r.json() == {"cached": False, "parsed_at": None}
+
+    def test_rejects_non_hex_pdf_hash(
+        self, app, professor_user, patch_supabase
+    ):
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        client = TestClient(app)
+        r = client.post(
+            "/api/upload/check-parse-cache",
+            json={"pdf_hash": "not-a-hash"},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 400
+
+    def test_rejects_wrong_length_pdf_hash(
+        self, app, professor_user, patch_supabase
+    ):
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        client = TestClient(app)
+        r = client.post(
+            "/api/upload/check-parse-cache",
+            json={"pdf_hash": "abc"},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert r.status_code == 400
+
+    def test_requires_auth(self, app, patch_supabase):
+        client = TestClient(app)
+        r = client.post(
+            "/api/upload/check-parse-cache",
+            json={"pdf_hash": VALID_HASH},
+        )
+        assert r.status_code in (401, 403)
+
+
 class TestParsePdfStreamForceReparse:
     """The force_reparse form field must skip the cache short-circuit."""
 

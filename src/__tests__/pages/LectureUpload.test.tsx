@@ -195,6 +195,141 @@ describe("LectureUpload duplicate-PDF flow (integration)", () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
+  it("opens the parse-cache dialog and uses saved parse without force_reparse", async () => {
+    // 1) check-duplicate → no lecture matches.
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ duplicates: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    // 2) check-parse-cache → cached parse exists.
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ cached: true, parsed_at: "2026-04-15T12:00:00Z" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    // 3) parse-pdf-stream stub — empty SSE that closes immediately.
+    const emptyStream = new ReadableStream({
+      start(controller) {
+        controller.close();
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(emptyStream, {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+
+    renderWithProviders(<LectureUpload />, {
+      initialEntries: ["/professor/upload"],
+    });
+
+    pickPdf();
+
+    // Parse-cache dialog appears (NOT the lectures-duplicate dialog).
+    await waitFor(() =>
+      expect(screen.getByText(/parsed this PDF before/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/uploaded this PDF before/i)).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /use saved parse/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    const [url, init] = fetchMock.mock.calls[2];
+    expect(String(url)).toMatch(/parse-pdf-stream/);
+    const formData = init.body as FormData;
+    // "Use saved parse" must NOT force a re-parse — the backend then
+    // serves the cached payload via SSE. The hook omits the field
+    // entirely when forceReparse is falsy; the backend defaults to
+    // force_reparse=false so the cache short-circuit fires.
+    expect(formData.get("force_reparse")).not.toBe("true");
+  });
+
+  it("re-parses with force_reparse=true when 'Generate fresh' is clicked", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ duplicates: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ cached: true, parsed_at: "2026-04-15T12:00:00Z" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const emptyStream = new ReadableStream({
+      start(controller) {
+        controller.close();
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(emptyStream, {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+
+    renderWithProviders(<LectureUpload />, {
+      initialEntries: ["/professor/upload"],
+    });
+
+    pickPdf();
+    await waitFor(() =>
+      expect(screen.getByText(/parsed this PDF before/i)).toBeInTheDocument(),
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /generate fresh/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    const [url, init] = fetchMock.mock.calls[2];
+    expect(String(url)).toMatch(/parse-pdf-stream/);
+    const formData = init.body as FormData;
+    expect(formData.get("force_reparse")).toBe("true");
+  });
+
+  it("skips the parse-cache dialog when nothing is cached", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ duplicates: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ cached: false, parsed_at: null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const emptyStream = new ReadableStream({
+      start(controller) {
+        controller.close();
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(emptyStream, {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+
+    renderWithProviders(<LectureUpload />, {
+      initialEntries: ["/professor/upload"],
+    });
+
+    pickPdf();
+
+    // Wait until parse-pdf-stream fires — no dialog should appear.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(screen.queryByText(/parsed this PDF before/i)).toBeNull();
+    expect(screen.queryByText(/uploaded this PDF before/i)).toBeNull();
+  });
+
   it("dismisses the dialog and does not upload when 'Cancel' is clicked", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(

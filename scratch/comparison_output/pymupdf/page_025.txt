@@ -1,6 +1,0 @@
-Hypothesis:
-Parameters:
-Cost function:
-Goal:
-Univariate Linear Regression
-Summary

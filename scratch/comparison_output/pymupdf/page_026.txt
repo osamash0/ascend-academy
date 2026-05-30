@@ -1,3 +1,0 @@
-(for fixed         , this is a function of x)
-(function of the parameters         ) 
-Univariate Lineare Regression

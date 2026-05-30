@@ -192,10 +192,12 @@ async def chat_with_lecture(
             logger.warning("Retrieval failed (degrading to slide_text): %s", e)
             retrieved = []
 
-    # Step 2: refusal heuristic.  If we *had* a retrievable scope and nothing
-    # came back relevant, refuse deterministically before the LLM call.
+    # Step 2: refusal heuristic.  Only refuse when we have scope, nothing
+    # relevant was retrieved, AND there is no slide_text fallback to ground on.
+    # When slide_text is present the LLM can still answer from it; its own
+    # hard rules handle genuinely off-topic questions.
     has_scope = bool(lecture_id or pdf_hash)
-    if has_scope and _is_out_of_scope(retrieved, current_slide_index, DEFAULT_THRESHOLD):
+    if has_scope and _is_out_of_scope(retrieved, current_slide_index, DEFAULT_THRESHOLD) and not slide_text.strip():
         return {"reply": _REFUSAL_REPLY, "citations": []}
 
     # Step 3: build the grounded prompt.

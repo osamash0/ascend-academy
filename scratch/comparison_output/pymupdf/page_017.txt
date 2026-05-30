@@ -1,6 +1,0 @@
-Hypothesis:
-Parameters:
-Cost function:
-Goal:
-Simplified
-Cost function intuition

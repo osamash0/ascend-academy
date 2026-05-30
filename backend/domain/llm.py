@@ -62,7 +62,9 @@ def _with_retry(fn, *args, max_attempts: int = 3, **kwargs):
 
 class GroqProvider:
     _TEXT_MODEL = "llama-3.1-8b-instant"
-    _VISION_MODEL = "llama-3.2-11b-vision-preview"
+    # llama-3.2-11b-vision-preview was decommissioned by Groq (Apr 2026).
+    # llama-4-scout is the current free-tier vision model on Groq.
+    _VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
     def __init__(self, api_key: str) -> None:
         from groq import Groq

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 from .orchestrator import generate_text, parse_json_response
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ async def generate_slide_recommendation(
     slide_text: str,
     drop_off_rate: float,
     confusion_rate: float,
-    quiz_success_rate: float | None,
+    quiz_success_rate: Optional[float],
     view_count: int,
     reasons: List[str],
     ai_model: str = "cerebras",

@@ -10,6 +10,7 @@ import { useAuth, Profile } from '@/lib/auth';
 import { useLanguagePreference } from '@/hooks/useLanguagePreference';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { supabase } from '@/integrations/supabase/client';
+import { exportAccountData, deleteAccountData } from '@/services/studentService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -30,9 +31,7 @@ type AiModelOption =
     | 'cerebras'
     | 'groq'
     | 'openrouter'
-    | 'cloudflare'
-    | 'gemini-2.5-flash'
-    | 'llama3';
+    | 'cloudflare';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -50,8 +49,6 @@ const AI_MODEL_IDS: AiModelOption[] = [
     'groq',
     'openrouter',
     'cloudflare',
-    'gemini-2.5-flash',
-    'llama3',
 ];
 
 // ─── Custom Hook: Safe Async State ───────────────────────────────────────────

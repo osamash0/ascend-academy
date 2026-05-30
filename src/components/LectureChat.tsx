@@ -43,6 +43,8 @@ interface LectureChatProps {
     currentSlideIndex?: number;
     /** Optional callback fired when a citation chip is clicked. */
     onSlideJump?: (slideIndex: number) => void;
+    /** Whether to render as an inline sidebar instead of a drawer. */
+    isInline?: boolean;
 }
 
 /* ── Typing Indicator Animation ── */
@@ -74,6 +76,7 @@ export function LectureChat({
     lectureId,
     currentSlideIndex,
     onSlideJump,
+    isInline = false,
 }: LectureChatProps) {
     const { t } = useTranslation(['lecture']);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -81,7 +84,7 @@ export function LectureChat({
     const [isLoading, setIsLoading] = useState(false);
     const [streamingContent, setStreamingContent] = useState('');
     const { aiModel: selectedModel, setAiModel: setSelectedModel } = useAiModel();
-    const { user } = useAuth();
+    const { user, session } = useAuth();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -157,6 +160,7 @@ export function LectureChat({
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'text/event-stream',
+                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
                 },
                 body: JSON.stringify({
                     slide_text: slideText,
@@ -259,7 +263,7 @@ export function LectureChat({
             streamingRef.current = false;
             abortControllerRef.current = null;
         }
-    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, user, lectureId, currentSlideIndex]);
+    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, user, session, lectureId, currentSlideIndex]);
 
     const handleCancel = useCallback(() => {
         if (abortControllerRef.current) {
@@ -288,28 +292,32 @@ export function LectureChat({
 
     return (
         <AnimatePresence>
-            {isOpen && (
+            {(isOpen || isInline) && (
                 <>
                     {/* Mobile Overlay */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        onClick={onClose}
-                        className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 md:hidden"
-                    />
+                    {!isInline && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            onClick={onClose}
+                            className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 md:hidden"
+                        />
+                    )}
 
                     {/* Chat Panel */}
                     <motion.div
-                        initial={{ x: '100%', opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: '100%', opacity: 0 }}
-                        transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-                        className="fixed inset-y-0 right-0 w-full md:w-[440px] z-50 flex flex-col"
+                        initial={isInline ? undefined : { x: '100%', opacity: 0 }}
+                        animate={isInline ? undefined : { x: 0, opacity: 1 }}
+                        exit={isInline ? undefined : { x: '100%', opacity: 0 }}
+                        transition={isInline ? undefined : { type: 'spring', damping: 28, stiffness: 220 }}
+                        className={isInline 
+                            ? "flex flex-col h-full border-l border-white/5 bg-surface-1/30" 
+                            : "fixed inset-y-0 right-0 w-full md:w-[440px] z-50 flex flex-col"}
                     >
                         {/* Glassmorphism Panel */}
-                        <div className="absolute inset-0 glass-panel-strong border-l border-white/10" />
+                        {!isInline && <div className="absolute inset-0 glass-panel-strong border-l border-white/10" />}
 
                         {/* Header */}
                         <div className="relative flex shrink-0 items-center justify-between px-5 py-4 border-b border-white/5">
@@ -347,19 +355,19 @@ export function LectureChat({
                                         <SelectItem value="groq">Groq Llama 3.3</SelectItem>
                                         <SelectItem value="openrouter">OpenRouter</SelectItem>
                                         <SelectItem value="cloudflare">Cloudflare</SelectItem>
-                                        <SelectItem value="gemini-2.5-flash">Gemini Flash</SelectItem>
-                                        <SelectItem value="llama3">Llama 3 (Local)</SelectItem>
                                     </SelectContent>
                                 </Select>
 
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={onClose}
-                                    className="rounded-full text-muted-foreground hover:text-foreground hover:bg-white/5"
-                                >
-                                    <X className="w-5 h-5" />
-                                </Button>
+                                {!isInline && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={onClose}
+                                        className="rounded-full text-muted-foreground hover:text-foreground hover:bg-white/5"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </Button>
+                                )}
                             </div>
                         </div>
 

@@ -108,6 +108,19 @@ Users can pin a preferred provider in **Settings → AI Preferences**; the
 selected id is moved to the head of the failover chain by `_resolve_preferred`
 + `_chain_with_preferred` while keeping the resilience tail intact.
 
+## Quiz batch tuning
+
+Per-slide quiz generation runs through `batch_analyze_text_slides` in
+`backend/services/ai/orchestrator.py`. Slides are grouped into overlapping
+windows by `iter_overlapping_windows`:
+
+- `QUIZ_BATCH_SIZE` (env, default `5`) — max slides per LLM call (context + new).
+- `QUIZ_BATCH_OVERLAP` (env, default `1`) — last K slides of batch N are
+  re-injected into batch N+1 wrapped in `<context_only>` markers so the model
+  can resolve back-references like "this method" / "as shown earlier".
+  Context-only slides are excluded from the JSON response and never produce
+  duplicate output. Each slide is generated (non-context) exactly once.
+
 ## Recent changes
 
 - 2026-05-03: Practice Sheets feature. New `practice_sheets`, `practice_sheet_questions`,
@@ -122,6 +135,11 @@ selected id is moved to the head of the failover chain by `_resolve_preferred`
   on LectureView listing published sheets; `PracticeSheetTaker` renders the sheet,
   collects answers, shows score + explanations on submit, and is print-friendly.
   Frontend service: `src/services/practiceSheetsService.ts`.
+- 2026-05-02: Overlapping-batch quiz generation — replaced the fixed
+  12-slide chunker in `file_parse_service` with `iter_overlapping_windows`
+  (default `batch_size=5`, `overlap=1`). The orchestrator wraps overlap
+  slides in `<context_only>` so the LLM has cross-batch context without
+  duplicating output. SSE event shape and frontend untouched.
 - 2026-05-02: End-of-lecture recap. After the (optional) replay stage,
   learners now see a `LectureRecap` card listing every question they
   missed on the first try, with their first answer, retry answer,
@@ -130,6 +148,20 @@ selected id is moved to the head of the failover chain by `_resolve_preferred`
   "Back to dashboard" CTA — the old auto-`setTimeout(navigate, 2000)`
   was removed. `missedQueueRef` items now carry `secondSelectedIndex`,
   populated in place by `handleReviewAnswer`.
+- 2026-05-02: Parse-cache opt-in dialog — `POST /api/upload/check-parse-cache`
+  surfaces global `pdf_parse_cache` hits to the upload UI. New
+  `ParseCacheDialog` lets professors choose "use saved parse" vs.
+  "generate fresh" (force_reparse=true) when re-uploading a PDF whose
+  parse was cached but never persisted as a lecture row. Lectures-duplicate
+  dialog still wins when both apply. Backend (`get_cached_parse_meta`) only
+  selects `created_at` so the check is cheap.
+- 2026-05-02: Parser v3 schema migration — added `parse_runs`, `parse_pages`,
+  `slide_chunks` (pgvector 384-d), and `tutor_messages` tables with backend-only
+  RLS plus per-student policies on the tutor log. Nightly db harness switched
+  to the `pgvector/pgvector:pg15` container image. v2 pipeline unaffected.
+- 2026-05-02: Drafted `project_docs/parser_v3_architecture.md` — clean-slate
+  pipeline design (memory-safe extraction, per-slide checkpoint/resume,
+  outline pre-pass, grounded RAG tutor, free-tier model routing).
 - 2026-05-02: PDF parser now uses the new provider chain. Defaults flipped
   from `groq` to `cerebras` in `backend/api/upload.py` and
   `backend/services/file_parse_service.py`. Removed the hard-coded
