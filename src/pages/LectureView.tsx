@@ -61,6 +61,7 @@ export default function LectureView() {
   const sessionStartRef = useRef<number>(Date.now());
   const slideStartRef = useRef<number>(Date.now());
   const quizRef = useRef<HTMLDivElement>(null);
+  const scrollableContainerRef = useRef<HTMLDivElement>(null);
   const answeredQuestionsRef = useRef<Set<string>>(new Set());
   // Authoritative post-answer counters. handleQuizAnswer writes the freshly
   // computed values here so handleQuizContinue can read them synchronously
@@ -147,6 +148,13 @@ export default function LectureView() {
       }
     };
   }, [currentSlideIndex, slides, user, lectureId]);
+
+  // Scroll container back to top on slide or review question change
+  useEffect(() => {
+    if (scrollableContainerRef.current) {
+      scrollableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentSlideIndex, reviewIndex, reviewStage]);
 
   const fetchLectureData = async () => {
     setLoading(true);
@@ -842,7 +850,7 @@ export default function LectureView() {
 
         {/* Content */}
         <div className="flex-1 flex flex-row overflow-hidden">
-          <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+          <div ref={scrollableContainerRef} className="flex-1 overflow-y-auto custom-scrollbar relative">
           <div className="max-w-6xl mx-auto px-6 py-8">
             <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
               {/* Main content - Slide viewer */}
