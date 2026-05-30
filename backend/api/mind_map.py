@@ -55,23 +55,33 @@ async def get_mind_map(
     """
     try:
         client = get_auth_client(creds.credentials)
-        res = client.table("lecture_mind_maps") \
-            .select("tree_data, generated_at, schema_version") \
-            .eq("lecture_id", lecture_id) \
-            .maybe_single() \
-            .execute()
+        try:
+            res = client.table("lecture_mind_maps") \
+                .select("tree_data, generated_at, schema_version") \
+                .eq("lecture_id", lecture_id) \
+                .maybe_single() \
+                .execute()
+            data = res.data
+        except Exception as e:
+            # Handle postgrest-py bug where maybe_single() on 0 rows raises a 204 APIError
+            if hasattr(e, 'code') and str(e.code) == '204':
+                data = None
+            elif '204' in str(e):
+                data = None
+            else:
+                raise
 
-        if not res.data:
+        if not data:
             return {"success": True, "data": None}
 
-        version = res.data.get("schema_version") or 1
+        version = data.get("schema_version") or 1
         if version < CURRENT_SCHEMA_VERSION:
             return {"success": True, "data": None, "stale": True}
 
         return {
             "success": True,
-            "data": res.data["tree_data"],
-            "generated_at": res.data["generated_at"],
+            "data": data["tree_data"],
+            "generated_at": data["generated_at"],
             "schema_version": version,
         }
     except HTTPException:
