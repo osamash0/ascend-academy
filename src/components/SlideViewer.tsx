@@ -399,7 +399,8 @@ export function SlideViewer({
             )}
           </AnimatePresence>
         </div>
-      </motion.div>
+      </div>
+    </motion.div>
 
       {/* Footer Actions */}
       <div className="px-6 py-6 border-t border-white/5 bg-surface-1/50 mt-auto">
