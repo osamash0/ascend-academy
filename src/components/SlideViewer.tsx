@@ -318,89 +318,89 @@ export function SlideViewer({
           )}
 
         {/* Mind Map Panel (Hidden as requested) */}
-        {/*
-        <div className="px-6 py-4 border-b border-white/5">
-          <button
-            onClick={() => setMindMapOpen((o) => !o)}
-            className="w-full flex items-center justify-between gap-3 glass-panel border-white/5 rounded-2xl px-5 py-3.5 hover:bg-white/5 transition-all group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-secondary/20 flex items-center justify-center shadow-glow-primary/20 group-hover:scale-110 transition-transform">
-                <span className="text-base">🧠</span>
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-bold text-foreground">Lecture Mind Map</p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                  {resolvedMindMapState.kind === 'ready'
-                    ? 'Interactive knowledge tree — click a slide to open it'
-                    : resolvedMindMapState.kind === 'loading'
-                      ? 'Loading knowledge tree…'
-                      : resolvedMindMapState.kind === 'error'
-                        ? 'Knowledge tree failed to load — retry inside'
-                        : 'AI knowledge tree not yet generated'}
-                </p>
-              </div>
-            </div>
-            <motion.span
-              animate={{ rotate: mindMapOpen ? 180 : 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className="text-muted-foreground text-xs"
+        {false && (
+          <div className="px-6 py-4 border-b border-white/5">
+            <button
+              onClick={() => setMindMapOpen((o) => !o)}
+              className="w-full flex items-center justify-between gap-3 glass-panel border-white/5 rounded-2xl px-5 py-3.5 hover:bg-white/5 transition-all group"
             >
-              ▼
-            </motion.span>
-          </button>
-
-          <AnimatePresence>
-            {mindMapOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-                style={{ overflow: 'hidden' }}
-              >
-                <div className="mt-3 glass-panel border-white/5 rounded-2xl overflow-hidden relative">
-                  <MindMap
-                    state={resolvedMindMapState}
-                    currentSlideId={currentSlideId}
-                    onSlideClick={onMindMapSlideClick}
-                    onErrorBoundaryRetry={onMindMapRetry}
-                    height={480}
-                  />
-                  {/* Professor-only Regenerate affordance for the ready state. */}
-                  {resolvedMindMapState.kind === 'ready' && isProfessor && onGenerateMindMap && (
-                    <div className="px-4 py-2 border-t border-white/5 flex items-center justify-end gap-3 bg-surface-1/40">
-                      {isMindMapLoading && (
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                          Regenerating… 20–40s
-                        </span>
-                      )}
-                      <button
-                        onClick={onGenerateMindMap}
-                        disabled={isMindMapLoading}
-                        data-testid="mindmap-regenerate"
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-primary text-[11px] font-bold transition-colors disabled:opacity-50"
-                      >
-                        {isMindMapLoading ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            Regenerating…
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-3 h-3" />
-                            Regenerate
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-secondary/20 flex items-center justify-center shadow-glow-primary/20 group-hover:scale-110 transition-transform">
+                  <span className="text-base">🧠</span>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-        */}
+                <div className="text-left">
+                  <p className="text-sm font-bold text-foreground">Lecture Mind Map</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    {resolvedMindMapState.kind === 'ready'
+                      ? 'Interactive knowledge tree — click a slide to open it'
+                      : resolvedMindMapState.kind === 'loading'
+                        ? 'Loading knowledge tree…'
+                        : resolvedMindMapState.kind === 'error'
+                          ? 'Knowledge tree failed to load — retry inside'
+                          : 'AI knowledge tree not yet generated'}
+                  </p>
+                </div>
+              </div>
+              <motion.span
+                animate={{ rotate: mindMapOpen ? 180 : 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                className="text-muted-foreground text-xs"
+              >
+                ▼
+              </motion.span>
+            </button>
+
+            <AnimatePresence>
+              {mindMapOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div className="mt-3 glass-panel border-white/5 rounded-2xl overflow-hidden relative">
+                    <MindMap
+                      state={resolvedMindMapState}
+                      currentSlideId={currentSlideId}
+                      onSlideClick={onMindMapSlideClick}
+                      onErrorBoundaryRetry={onMindMapRetry}
+                      height={480}
+                    />
+                    {/* Professor-only Regenerate affordance for the ready state. */}
+                    {resolvedMindMapState.kind === 'ready' && isProfessor && onGenerateMindMap && (
+                      <div className="px-4 py-2 border-t border-white/5 flex items-center justify-end gap-3 bg-surface-1/40">
+                        {isMindMapLoading && (
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                            Regenerating… 20–40s
+                          </span>
+                        )}
+                        <button
+                          onClick={onGenerateMindMap}
+                          disabled={isMindMapLoading}
+                          data-testid="mindmap-regenerate"
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-primary text-[11px] font-bold transition-colors disabled:opacity-50"
+                        >
+                          {isMindMapLoading ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Regenerating…
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3 h-3" />
+                              Regenerate
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
     </motion.div>
 
