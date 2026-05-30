@@ -317,7 +317,8 @@ export function SlideViewer({
             </div>
           )}
 
-        {/* Mind Map Panel */}
+        {/* Mind Map Panel (Hidden as requested) */}
+        {/*
         <div className="px-6 py-4 border-b border-white/5">
           <button
             onClick={() => setMindMapOpen((o) => !o)}
@@ -399,6 +400,7 @@ export function SlideViewer({
             )}
           </AnimatePresence>
         </div>
+        */}
       </div>
     </motion.div>
 
