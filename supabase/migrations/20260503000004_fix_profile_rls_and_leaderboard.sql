@@ -3,6 +3,9 @@
 -- Fix: users can only read their own profile row. A security-definer function exposes
 -- only the non-sensitive public fields needed for the leaderboard.
 
+-- Ensure display_name exists before creating views that depend on it
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS display_name text;
+
 -- Drop the overbroad "view all" policy
 DROP POLICY IF EXISTS "Users can view all profiles" ON public.profiles;
 

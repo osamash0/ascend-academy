@@ -129,8 +129,12 @@ export default function StudentDashboard() {
   // Use the new cached hook
   const { data: dashboardData, isLoading: loading } = useStudentDashboard();
   
-  const lectures = dashboardData?.lectures || [];
-  const progress = dashboardData?.progress || [];
+  const lectures = (dashboardData?.lectures || []).filter(
+    l => l.course?.title === 'Database Systems'
+  );
+  const progress = (dashboardData?.progress || []).filter(
+    p => lectures.some(l => l.id === p.lecture_id)
+  );
   const achievements = dashboardData?.achievements || [];
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -416,7 +420,7 @@ export default function StudentDashboard() {
                 value={stat.value}
                 subtitle={stat.subtitle}
                 icon={stat.icon}
-                variant={stat.variant as 'default' | 'xp' | 'level' | 'streak'}
+                variant={stat.variant as 'default' | 'success' | 'xp' | 'primary' | 'warning'}
                 className={stat.glow}
                 onClick={() => {
                   if (stat.key === 'coursesStarted') {
@@ -428,59 +432,10 @@ export default function StudentDashboard() {
               />
             </motion.div>
           ))}
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="md:col-span-2 lg:col-span-1"
-          >
-            <div 
-              onClick={() => navigate('/insights')}
-              className="glass-card p-6 h-full border-white/5 relative overflow-hidden group cursor-pointer hover:border-primary/30 hover:shadow-glow-primary/20 transition-all duration-500"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <div className="relative z-10 flex flex-col h-full justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary group-hover:scale-110 transition-transform duration-500">
-                    <TrendingUp className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground">{t('dashboard:stats.learningInsights')}</h3>
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{t('dashboard:stats.aiIntelligence')}</p>
-                  </div>
-                </div>
-                
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {t('dashboard:stats.insightsDescription')}
-                </p>
-
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="w-6 h-6 rounded-full border-2 border-surface-1 bg-surface-2 flex items-center justify-center">
-                        <div className="w-1 h-1 rounded-full bg-primary/40" />
-                      </div>
-                    ))}
-                  </div>
-                  <motion.div
-                    whileHover={{ x: 3 }}
-                    className="flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-widest"
-                  >
-                    {t('dashboard:stats.explore')}
-                    <ChevronRight className="w-3 h-3" />
-                  </motion.div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
         </div>
 
         {/* ── Assignments Panel ── */}
         {user?.id && <AssignmentsPanel userId={user.id} />}
-
-        {/* ── Cross-course knowledge map ── */}
-        {user?.id && <KnowledgeMapCard userId={user.id} />}
 
         {/* ── Continue Learning — Orbital Carousel ── */}
         {continueLectures.length > 0 && (
@@ -684,6 +639,59 @@ export default function StudentDashboard() {
             })()
           )}
         </div>
+
+        {/* ── Learning Insights Section ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="space-y-6"
+        >
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-primary" />
+            <h2 className="text-heading-lg text-foreground">{t('dashboard:stats.learningInsights')}</h2>
+          </div>
+          <div 
+            onClick={() => navigate('/insights')}
+            className="glass-card p-6 border-white/5 relative overflow-hidden group cursor-pointer hover:border-primary/30 hover:shadow-glow-primary/20 transition-all duration-500"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary group-hover:scale-110 transition-transform duration-500">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">{t('dashboard:stats.learningInsights')}</h3>
+                  <p className="text-xs font-bold text-primary uppercase tracking-widest mt-0.5">{t('dashboard:stats.aiIntelligence')}</p>
+                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-xl">
+                    {t('dashboard:stats.insightsDescription')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex -space-x-2">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="w-8 h-8 rounded-full border-2 border-surface-1 bg-surface-2 flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                    </div>
+                  ))}
+                </div>
+                <motion.div
+                  whileHover={{ x: 3 }}
+                  className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-widest"
+                >
+                  {t('dashboard:stats.explore')}
+                  <ChevronRight className="w-4 h-4" />
+                </motion.div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ── Cross-course knowledge map ── */}
+        {user?.id && <KnowledgeMapCard userId={user.id} />}
 
         {/* ── Recent Achievements ── */}
         {achievements.length > 0 && (

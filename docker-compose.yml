@@ -66,6 +66,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - LITELLM_BASE_URL=http://litellm:4000
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5000,http://localhost:5173
+      - PARSER_VERSION=2
     depends_on:
       redis:
         condition: service_healthy
@@ -106,6 +107,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - LITELLM_BASE_URL=http://litellm:4000
+      - PARSER_VERSION=2
     depends_on:
       redis:
         condition: service_healthy

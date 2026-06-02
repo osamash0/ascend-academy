@@ -5,9 +5,14 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "jsdom",
+    environment: "happy-dom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    server: {
+      deps: {
+        inline: ["@exodus/bytes"],
+      },
+    },
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     exclude: [
       "node_modules/**",

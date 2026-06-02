@@ -840,7 +840,11 @@ export default function PipelineTestPage() {
                         onOpenChange={open => {
                           setExpandedSlides(prev => {
                             const next = new Set(prev)
-                            open ? next.add(i) : next.delete(i)
+                            if (open) {
+                              next.add(i)
+                            } else {
+                              next.delete(i)
+                            }
                             return next
                           })
                         }}

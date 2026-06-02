@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 from fastapi import Depends, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from backend.core.database import supabase_admin, get_client
@@ -75,7 +76,7 @@ async def verify_token(
 
     # 2. Verify with Supabase Auth (slow path)
     try:
-        user_response = supabase_admin.auth.get_user(token)
+        user_response = await run_in_threadpool(supabase_admin.auth.get_user, token)
 
         if not user_response or not user_response.user:
             raise HTTPException(
@@ -168,7 +169,7 @@ def require_role(*allowed_roles: str):
         #    locked down by RLS to the SECURITY DEFINER signup trigger
         #    (see migration 20260502000003), so this is also trustworthy.
         if not roles.intersection(allowed_roles):
-            db_roles = _lookup_role_from_db(uid)
+            db_roles = await run_in_threadpool(_lookup_role_from_db, uid)
             if db_roles is not None:
                 roles |= db_roles
 

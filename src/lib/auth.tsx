@@ -155,6 +155,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to real-time changes to user's profile row (XP, levels, streaking, preferred_language)
+    const channel = supabase
+      .channel(`realtime-profile-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          setProfile(payload.new as Profile);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+
   const signUp = async (email: string, password: string, selectedRole: UserRole) => {
     const redirectUrl = `${window.location.origin}/`;
 
@@ -208,11 +234,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    setRole(null);
+    try {
+      // Coordinate with backend cache invalidation before wiping local credentials
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        await fetch(`${apiBase}/api/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn("Backend session cache invalidation failed (non-blocking):", err);
+    } finally {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setRole(null);
+    }
   };
 
   return (

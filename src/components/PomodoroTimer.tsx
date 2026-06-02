@@ -11,7 +11,7 @@ interface ModeConfig {
   durationMinutes: number;
   color: string;
   gradient: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const STORAGE_KEY = 'ascend_pomodoro_persistent_state';
@@ -42,7 +42,9 @@ function getPersistentState() {
         targetEndTime: null,
       };
     }
-  } catch (e) {}
+  } catch (e) {
+    // Ignore persistent state reading/parsing errors
+  }
   return null;
 }
 
@@ -55,7 +57,9 @@ function savePersistentState(state: {
 }) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {}
+  } catch (e) {
+    // Ignore persistent state save failures (e.g. quota exceeded)
+  }
 }
 
 function TomatoIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
@@ -165,7 +169,9 @@ export function PomodoroTimer() {
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled) return;
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
@@ -177,14 +183,16 @@ export function PomodoroTimer() {
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.5);
-    } catch (e) {}
+    } catch (e) {
+      // Ignore audio synthesis errors on blocked/unsupported browsers
+    }
   }, [soundEnabled]);
 
   // High-precision clock check computing difference from targetEndTime directly
   useEffect(() => {
-    let interval: any = null;
+    let interval: number | undefined = undefined;
     if (isRunning && targetEndTime) {
-      interval = setInterval(() => {
+      interval = window.setInterval(() => {
         const now = Date.now();
         const rem = Math.round((targetEndTime - now) / 1000);
         if (rem <= 0) {
@@ -194,7 +202,11 @@ export function PomodoroTimer() {
         }
       }, 500);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval !== undefined) {
+        clearInterval(interval);
+      }
+    };
   }, [isRunning, targetEndTime]);
 
   // Handle countdown boundary reaching zero
@@ -246,7 +258,9 @@ export function PomodoroTimer() {
           setIsRunning(false);
           setTargetEndTime(null);
           setCompletedSessions(parsed.completedSessions || 0);
-        } catch (err) {}
+        } catch (err) {
+          // Ignore parse errors from external tab updates
+        }
       }
     };
     window.addEventListener('storage', handleStorageChange);

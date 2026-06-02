@@ -104,6 +104,7 @@ export function SlideViewer({
   onRegenerateContent,
   isRegeneratingContent = false,
 }: SlideViewerProps) {
+  const showMindMap = false;
   // PDF state
   const [pdfError, setPdfError] = useState(false);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
@@ -318,7 +319,7 @@ export function SlideViewer({
           )}
 
         {/* Mind Map Panel (Hidden as requested) */}
-        {false && (
+        {showMindMap && (
           <div className="px-6 py-4 border-b border-white/5">
             <button
               onClick={() => setMindMapOpen((o) => !o)}

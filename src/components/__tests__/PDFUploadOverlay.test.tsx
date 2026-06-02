@@ -36,7 +36,7 @@ describe("PDFUploadOverlay", () => {
 
   it("shows the PyMuPDF (fallback) pill when ODL failed", () => {
     renderOverlay({ parserUsed: "pymupdf", parsePhase: "extract" });
-    expect(screen.getByText("PyMuPDF (fallback)")).toBeInTheDocument();
+    expect(screen.getByText("PyMuPDF (Fallback)")).toBeInTheDocument();
   });
 
   it("AI Enhance step stays active during the finalize phase until complete", () => {

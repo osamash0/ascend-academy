@@ -7,6 +7,14 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+import sentry_sdk
+
+if os.environ.get("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.environ.get("SENTRY_DSN"),
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
 
 from backend.api.analytics import router as analytics_router
 from backend.api.auth import router as auth_router
@@ -104,6 +112,11 @@ async def startup_event():
             start_scheduler()
         except Exception as e:
             logger.error("Failed to start nudge scheduler: %s", e, exc_info=True)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    from backend.core.database import close_db_pool
+    await close_db_pool()
 
 @app.get("/")
 async def read_root():

@@ -136,9 +136,7 @@ describe("NudgeBanner", () => {
                 headers: { "Content-Type": "application/json" },
             }),
         );
-        const origFetch = globalThis.fetch;
-        // Bypass MSW for this single test by replacing the global fetch.
-        (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchSpy as unknown as typeof fetch;
+        vi.stubGlobal("fetch", fetchSpy);
         try {
             seed([
                 {
@@ -176,7 +174,7 @@ describe("NudgeBanner", () => {
             expect(url).toBe("/api/nudges/n_high/dismiss");
             expect(init.method).toBe("POST");
         } finally {
-            (globalThis as unknown as { fetch: typeof fetch }).fetch = origFetch;
+            vi.unstubAllGlobals();
         }
     });
 });

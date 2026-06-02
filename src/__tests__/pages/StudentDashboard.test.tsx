@@ -96,6 +96,10 @@ describe("StudentDashboard page (smoke)", () => {
             title: "Astrophysics 101",
             description: "Stars and galaxies",
             total_slides: 10,
+            course: {
+              id: "c1",
+              title: "Database Systems",
+            },
           },
         ],
         progress: [],

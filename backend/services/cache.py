@@ -10,7 +10,8 @@ from collections import OrderedDict
 from threading import Lock
 from uuid import UUID
 
-from backend.core.database import supabase_admin
+from backend.core.database import supabase_admin, db_pool
+from fastapi.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,16 @@ async def invalidate_cached_token(token: str) -> None:
     key = _hash_token(token)
     cache_key = f"auth_token:{key}"
     try:
-        supabase_admin.table("backend_cache").delete().eq("cache_key", cache_key).execute()
+        if db_pool:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    "DELETE FROM public.backend_cache WHERE cache_key = $1",
+                    cache_key
+                )
+        else:
+            def _sync_delete():
+                supabase_admin.table("backend_cache").delete().eq("cache_key", cache_key).execute()
+            await run_in_threadpool(_sync_delete)
     except Exception as e:
         logger.warning("Failed to invalidate token cache: %s", e)
 
@@ -528,16 +538,26 @@ async def purge_expired_slide_checkpoints() -> int:
 async def get_cache(key: str) -> Optional[Any]:
     """Retrieve data from generic backend_cache if not expired."""
     try:
-        # Use ISO format for timestamp comparison
-        now = datetime.utcnow().isoformat()
-        res = supabase_admin.table("backend_cache") \
-            .select("data") \
-            .eq("cache_key", key) \
-            .gt("expires_at", now) \
-            .execute()
-        
-        if res.data:
-            return res.data[0]["data"]
+        if db_pool:
+            async with db_pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT data FROM public.backend_cache WHERE cache_key = $1 AND expires_at > NOW()",
+                    key
+                )
+                if row:
+                    import json
+                    data = row["data"]
+                    return json.loads(data) if isinstance(data, str) else data
+        else:
+            def _sync_get():
+                now = datetime.utcnow().isoformat()
+                res = supabase_admin.table("backend_cache") \
+                    .select("data") \
+                    .eq("cache_key", key) \
+                    .gt("expires_at", now) \
+                    .execute()
+                return res.data[0]["data"] if res.data else None
+            return await run_in_threadpool(_sync_get)
     except Exception as e:
         logger.error("Cache hit error for key %s: %s", key, e)
     return None
@@ -551,19 +571,37 @@ async def set_cache(key: str, data: Any, ttl_seconds: int = 300) -> None:
     encoder downstream.
     """
     try:
-        expires_at = (datetime.utcnow() + timedelta(seconds=ttl_seconds)).isoformat()
-
         try:
             safe_data = _to_json_safe(data)
         except TypeError as enc_exc:
             logger.error("Cache payload not JSON-serializable for key %s: %s", key, enc_exc)
             return
 
-        payload = {
-            "cache_key": key,
-            "data": safe_data,
-            "expires_at": expires_at
-        }
-        supabase_admin.table("backend_cache").upsert(payload, on_conflict="cache_key").execute()
+        from datetime import timezone
+        expires_at_dt = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
+
+        if db_pool:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO public.backend_cache (cache_key, data, expires_at, created_at)
+                    VALUES ($1, $2, $3, NOW())
+                    ON CONFLICT (cache_key) DO UPDATE
+                    SET data = EXCLUDED.data, expires_at = EXCLUDED.expires_at, created_at = NOW()
+                    """,
+                    key,
+                    json.dumps(safe_data),
+                    expires_at_dt
+                )
+        else:
+            expires_at = expires_at_dt.isoformat()
+            payload = {
+                "cache_key": key,
+                "data": safe_data,
+                "expires_at": expires_at
+            }
+            def _sync_set():
+                supabase_admin.table("backend_cache").upsert(payload, on_conflict="cache_key").execute()
+            await run_in_threadpool(_sync_set)
     except Exception as e:
         logger.error("Cache store error for key %s: %s", key, e)

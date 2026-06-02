@@ -38,8 +38,10 @@ def _seed_streak_student(fake, user_id: str) -> None:
 def _patch_admin(monkeypatch, fake):
     """nudge_engine and api/nudges import supabase_admin by name."""
     from backend.api import nudges as nudges_api
+    from backend.api import assignments as assignments_api
     monkeypatch.setattr(nudge_engine, "supabase_admin", fake, raising=True)
     monkeypatch.setattr(nudges_api, "verify_token", verify_token, raising=False)
+    monkeypatch.setattr(assignments_api, "supabase_admin", fake, raising=False)
 
 
 def test_run_daily_emits_streak_nudge_once(monkeypatch, patch_supabase):

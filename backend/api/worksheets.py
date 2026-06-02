@@ -11,8 +11,6 @@ Endpoints:
     DELETE /api/worksheets/{worksheet_id}               — remove (file + row)
     GET    /api/worksheets/{worksheet_id}/download_url  — signed URL for student/professor
 """
-from __future__ import annotations
-
 import logging
 import re
 from typing import Any, Optional

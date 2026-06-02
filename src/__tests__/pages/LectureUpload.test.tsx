@@ -37,6 +37,10 @@ vi.mock("@/lib/auth", () => ({
   })),
 }));
 
+vi.mock("@/services/coursesService", () => ({
+  listCourses: vi.fn(() => Promise.resolve([])),
+}));
+
 import LectureUpload from "@/pages/LectureUpload";
 import { renderWithProviders } from "@/test/renderWithProviders";
 

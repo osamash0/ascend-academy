@@ -91,7 +91,7 @@ export async function logLearningEvent(
 ): Promise<void> {
   await supabase
     .from('learning_events')
-    .insert({ user_id: userId, event_type: eventType, event_data: eventData as Record<string, unknown> });
+    .insert({ user_id: userId, event_type: eventType, event_data: eventData as any });
 }
 
 export async function checkAchievementExists(userId: string, badgeName: string): Promise<boolean> {

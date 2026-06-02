@@ -249,7 +249,7 @@ class TestParsePdfStreamForceReparse:
         # Track whether the cache lookup happened.
         calls: dict[str, int] = {"get_cached_parse": 0}
 
-        async def _get_cached(pdf_hash):
+        async def _get_cached(pdf_hash, *args, **kwargs):
             calls["get_cached_parse"] += 1
             return {
                 "slides": [{"title": "cached", "content": "x", "summary": "s"}],
@@ -257,7 +257,7 @@ class TestParsePdfStreamForceReparse:
                 "deck_quiz": [],
             }
 
-        async def _store_cached(_h, _d):
+        async def _store_cached(_h, _d, *args, **kwargs):
             return None
 
         async def _safe_embed(*a, **k):
@@ -278,7 +278,7 @@ class TestParsePdfStreamForceReparse:
             headers={"Authorization": "Bearer x"},
         )
 
-    def test_default_uses_cache(self, app, professor_user, stub_streaming):
+    def test_default_uses_cache(self, app, professor_user, patch_supabase, stub_streaming):
         app.dependency_overrides[verify_token] = lambda: professor_user
         client = TestClient(app)
         r = self._post(client, force=False)
@@ -288,7 +288,7 @@ class TestParsePdfStreamForceReparse:
         assert stub_streaming["get_cached_parse"] == 1
         assert "cached" in r.text
 
-    def test_force_reparse_skips_cache(self, app, professor_user, stub_streaming):
+    def test_force_reparse_skips_cache(self, app, professor_user, patch_supabase, stub_streaming):
         app.dependency_overrides[verify_token] = lambda: professor_user
         client = TestClient(app)
         r = self._post(client, force=True)

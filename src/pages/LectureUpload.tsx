@@ -580,7 +580,7 @@ export default function LectureUpload() {
                 className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="">{t('upload:empty.uncategorized')}</option>
-                {courses.map(c => (
+                {courses?.map(c => (
                   <option key={c.id} value={c.id}>{c.title}</option>
                 ))}
               </select>

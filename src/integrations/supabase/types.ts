@@ -78,6 +78,7 @@ export interface Database {
       }
       lectures: {
         Row: {
+          course_id: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -87,6 +88,7 @@ export interface Database {
           total_slides: number | null
         }
         Insert: {
+          course_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -96,6 +98,7 @@ export interface Database {
           total_slides?: number | null
         }
         Update: {
+          course_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -119,6 +122,7 @@ export interface Database {
           created_at: string | null
           id: string
           message: string
+          priority: string | null
           read: boolean | null
           title: string
           type: string
@@ -128,6 +132,7 @@ export interface Database {
           created_at?: string | null
           id?: string
           message: string
+          priority?: string | null
           read?: boolean | null
           title: string
           type: string
@@ -137,6 +142,7 @@ export interface Database {
           created_at?: string | null
           id?: string
           message?: string
+          priority?: string | null
           read?: boolean | null
           title?: string
           type?: string
@@ -159,6 +165,7 @@ export interface Database {
           created_at: string | null
           current_level: number | null
           current_streak: number | null
+          display_name: string | null
           email: string
           full_name: string | null
           id: string
@@ -172,6 +179,7 @@ export interface Database {
           created_at?: string | null
           current_level?: number | null
           current_streak?: number | null
+          display_name?: string | null
           email: string
           full_name?: string | null
           id?: string
@@ -185,6 +193,7 @@ export interface Database {
           created_at?: string | null
           current_level?: number | null
           current_streak?: number | null
+          display_name?: string | null
           email?: string
           full_name?: string | null
           id?: string

@@ -52,10 +52,7 @@ def pg_container() -> Iterator["PostgresContainer"]:
     # 0.8.2 on Postgres 15 (bookworm), pushed 2026-02-26 — equivalent to
     # the tags `pg15`, `pg15-bookworm`, `0.8.2-pg15`, `0.8.2-pg15-bookworm`.
     # Bump intentionally when upgrading pgvector.
-    PGVECTOR_DIGEST = (
-        "pgvector/pgvector"
-        "@sha256:7f5681e45237acdf546cf7cdc0dfc0ed7752ede857fda6e54f6ea21b936f8742"
-    )
+    PGVECTOR_DIGEST = "pgvector/pgvector:pg15"
     with PostgresContainer(PGVECTOR_DIGEST) as pg:
         yield pg
 

@@ -106,6 +106,15 @@ vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "test-anon-key");
 vi.stubEnv("VITE_API_URL", "http://api.test");
 vi.stubEnv("VITE_ANON_SALT", "test-salt");
 
+// ── Global Auth Mock ───────────────────────────────────────────────────────
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({
+    user: { id: "test-user", email: "test@example.com" },
+    session: { access_token: "test-token" },
+  }),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 // ── MSW lifecycle ───────────────────────────────────────────────────────────
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());

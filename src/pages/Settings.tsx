@@ -601,7 +601,7 @@ function DataPrivacySection({
 
             const exportData: ExportData = {
                 exported_at: new Date().toISOString(),
-                profile: profileRes.data,
+                profile: profileRes.data as Profile | null,
                 progress: progressRes.data,
                 achievements: achievementsRes.data,
                 learning_events: eventsRes.data,
@@ -631,7 +631,7 @@ function DataPrivacySection({
 
         try {
             // Sequential deletion to respect potential foreign key constraints
-            const tables = ['learning_events', 'student_progress', 'achievements', 'user_roles', 'profiles'];
+            const tables = ['learning_events', 'student_progress', 'achievements', 'user_roles', 'profiles'] as const;
             
             for (const table of tables) {
                 const { error } = await supabase.from(table).delete().eq('user_id', user.id);
@@ -763,8 +763,8 @@ function AiPreferencesSection() {
     const { aiModel, setAiModel } = useAiModel();
     const { toast } = useToast();
 
-    const [pendingModel, setPendingModel] = useState<AiModelOption>(aiModel);
-    const hasChanges = pendingModel !== aiModel;
+    const [pendingModel, setPendingModel] = useState<AiModelOption>(aiModel as AiModelOption);
+    const hasChanges = pendingModel !== (aiModel as AiModelOption);
 
     const handleSave = useCallback(() => {
         setAiModel(pendingModel);

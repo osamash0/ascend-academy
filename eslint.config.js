@@ -5,7 +5,26 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".local/**", "node_modules/**", "coverage/**"] },
+  {
+    ignores: [
+      "dist/**",
+      ".local/**",
+      "node_modules/**",
+      "coverage/**",
+      "mineru-env/**",
+      "stop-slop-main/**",
+      "Document-Insight-Engine/**",
+      "litellm/**",
+      "pdf_testset/**",
+      "scratch/**",
+      ".agent_scratch/**",
+      "GPU-Server/**",
+      "test-results/**",
+      ".venv/**",
+      "venv/**",
+      ".claude/**"
+    ]
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

@@ -115,9 +115,9 @@ export default function ProfessorDashboard() {
     if (lecturesData) setLectures(lecturesData);
 
     if (progressData) {
-      const uniqueStudents = new Set(progressData.map(p => p.user_id));
-      const totalAttempts = progressData.reduce((sum, p) => sum + (p.total_questions_answered || 0), 0);
-      const totalCorrect = progressData.reduce((sum, p) => sum + (p.correct_answers || 0), 0);
+      const uniqueStudents = new Set(progressData.map((p: any) => p.user_id));
+      const totalAttempts = progressData.reduce((sum: number, p: any) => sum + (p.total_questions_answered || 0), 0 as any);
+      const totalCorrect = progressData.reduce((sum: number, p: any) => sum + (p.correct_answers || 0), 0 as any);
       const avgScore = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
 
       setStats({

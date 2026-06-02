@@ -148,3 +148,16 @@ async def get_db_connection():
     if not db_pool:
         raise RuntimeError("Database pool not initialized. Check DATABASE_URL.")
     return db_pool.acquire()
+
+
+async def close_db_pool():
+    """Gracefully close all active pool connections during worker shutdown."""
+    global db_pool
+    if db_pool:
+        try:
+            await db_pool.close()
+            logger.info("asyncpg connection pool closed successfully.")
+        except Exception as e:
+            logger.error("Failed to close asyncpg pool: %s", e)
+        finally:
+            db_pool = None

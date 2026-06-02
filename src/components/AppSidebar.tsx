@@ -174,6 +174,35 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {role === 'student' && (
+          <SidebarGroup className="mt-4">
+            <SidebarGroupLabel className="px-4 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/30 mb-4">
+              {isCollapsed ? 'CRSE' : 'Your Courses'}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-2">
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname === '/dashboard'}
+                    tooltip="Database Systems"
+                    className={`h-12 rounded-[14px] transition-all duration-300 ${
+                      location.pathname === '/dashboard'
+                        ? 'bg-primary/10 text-primary shadow-glow-primary/10 border border-primary/20'
+                        : 'text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent'
+                    }`}
+                  >
+                    <Link to="/dashboard" className="flex items-center gap-3 px-4">
+                      <BookOpen className={`w-5 h-5 text-primary transition-transform duration-300 ${location.pathname === '/dashboard' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                      <span className="font-bold tracking-tight">Database Systems</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-6 mt-auto">
