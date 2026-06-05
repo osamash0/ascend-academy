@@ -28,7 +28,6 @@ from backend.core.auth_middleware import (
 )
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
-from backend.services import analytics_cache
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/courses", tags=["courses"])
@@ -48,6 +47,7 @@ class CourseUpdate(BaseModel):
     description: Optional[str] = Field(default=None, max_length=4000)
     color: Optional[str] = Field(default=None, max_length=32)
     icon: Optional[str] = Field(default=None, max_length=64)
+    is_archived: Optional[bool] = Field(default=None)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ class CourseUpdate(BaseModel):
 def _fetch_course(course_id: str) -> Optional[dict]:
     res = (
         supabase_admin.table("courses")
-        .select("id, professor_id, title, description, color, icon, created_at, updated_at")
+        .select("id, professor_id, title, description, color, icon, is_archived, created_at, updated_at")
         .eq("id", course_id)
         .execute()
     )
@@ -82,6 +82,7 @@ def _serialize(course: dict, lecture_count: int = 0) -> dict:
         "description": course.get("description"),
         "color": course.get("color"),
         "icon": course.get("icon"),
+        "is_archived": course.get("is_archived", False),
         "created_at": course.get("created_at"),
         "updated_at": course.get("updated_at"),
         "lecture_count": lecture_count,
@@ -143,7 +144,12 @@ def _student_visible_course_ids(user_id: str) -> set[str]:
 
 @router.get("")
 @limiter.limit("60/minute")
-async def list_courses(request: Request, user: Any = Depends(verify_token)):
+async def list_courses(
+    request: Request,
+    user: Any = Depends(verify_token),
+    only_archived: bool = Query(default=False),
+    include_archived: bool = Query(default=False),
+):
     """List courses.
 
     Professor → their own courses (with lecture_count).
@@ -157,10 +163,16 @@ async def list_courses(request: Request, user: Any = Depends(verify_token)):
 
     def _load() -> List[dict]:
         q = supabase_admin.table("courses").select(
-            "id, professor_id, title, description, color, icon, created_at, updated_at"
+            "id, professor_id, title, description, color, icon, is_archived, created_at, updated_at"
         )
         if is_prof:
             q = q.eq("professor_id", uid)
+        
+        if only_archived:
+            q = q.eq("is_archived", True)
+        elif not include_archived:
+            q = q.eq("is_archived", False)
+
         rows = q.order("created_at", desc=True).execute().data or []
 
         if not is_prof:
@@ -173,7 +185,7 @@ async def list_courses(request: Request, user: Any = Depends(verify_token)):
             ids = [r["id"] for r in rows]
             lecs = (
                 supabase_admin.table("lectures")
-                .select("id, course_id")
+                .select("id, course_id, is_archived")
                 .in_("course_id", ids)
                 .execute()
                 .data
@@ -182,7 +194,8 @@ async def list_courses(request: Request, user: Any = Depends(verify_token)):
             for l in lecs:
                 cid = l.get("course_id")
                 if cid in counts:
-                    counts[cid] = counts[cid] + 1
+                    if only_archived or l.get("is_archived") is False:
+                        counts[cid] = counts[cid] + 1
         return [_serialize(r, counts.get(r["id"], 0)) for r in rows]
 
     try:
@@ -191,6 +204,71 @@ async def list_courses(request: Request, user: Any = Depends(verify_token)):
     except Exception as e:
         logger.error("Courses list failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load courses.")
+
+
+@router.get("/browse")
+@limiter.limit("60/minute")
+async def browse_courses(
+    request: Request,
+    user: Any = Depends(verify_token),
+):
+    """Browse all available (non-archived) courses. Useful for onboarding and discovery."""
+    uid = _user_id(user)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid user context.")
+
+    def _load() -> List[dict]:
+        rows = (
+            supabase_admin.table("courses")
+            .select("id, professor_id, title, description, color, icon, is_archived, created_at, updated_at")
+            .eq("is_archived", False)
+            .order("created_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
+        return [_serialize(r, 0) for r in rows]
+
+    try:
+        data = await run_in_threadpool(_load)
+        return {"success": True, "data": data}
+    except Exception as e:
+        logger.error("Courses browse failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to browse courses.")
+
+
+@router.post("/{course_id}/enroll")
+@limiter.limit("30/minute")
+async def enroll_course(
+    request: Request,
+    course_id: str,
+    user: Any = Depends(verify_token),
+):
+    """Enroll a student into a course explicitly."""
+    uid = _user_id(user)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid user context.")
+
+    def _enroll():
+        course = _fetch_course(course_id)
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found.")
+
+        # Upsert enrollment
+        supabase_admin.table("course_enrollments").upsert(
+            {"user_id": uid, "course_id": course_id},
+            on_conflict="user_id,course_id"
+        ).execute()
+        return {"course_id": course_id, "enrolled": True}
+
+    try:
+        data = await run_in_threadpool(_enroll)
+        return {"success": True, "data": data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Course enrollment failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to enroll in course.")
 
 
 @router.get("/{course_id}")
@@ -209,11 +287,17 @@ async def get_course(request: Request, course_id: str, user: Any = Depends(verif
             visible = _student_visible_course_ids(uid)
             if course_id not in visible:
                 return ("forbidden", None)
-        all_lectures = (
+
+        lec_query = (
             supabase_admin.table("lectures")
-            .select("id, title, description, total_slides, created_at, pdf_url, course_id")
+            .select("id, title, description, total_slides, created_at, pdf_url, course_id, is_archived")
             .eq("course_id", course_id)
-            .order("created_at", desc=True)
+        )
+        if not c.get("is_archived"):
+            lec_query = lec_query.eq("is_archived", False)
+
+        all_lectures = (
+            lec_query.order("created_at", desc=True)
             .execute()
             .data
             or []
@@ -319,19 +403,21 @@ async def update_course(
             patch["color"] = body.color
         if "icon" in body.model_fields_set:
             patch["icon"] = body.icon
+        if body.is_archived is not None:
+            patch["is_archived"] = body.is_archived
 
         if patch:
             supabase_admin.table("courses").update(patch).eq("id", course_id).execute()
         refreshed = _fetch_course(course_id) or existing
         # Get current lecture count
-        lecs = (
+        lec_query = (
             supabase_admin.table("lectures")
-            .select("id")
+            .select("id, is_archived")
             .eq("course_id", course_id)
-            .execute()
-            .data
-            or []
         )
+        if not refreshed.get("is_archived"):
+            lec_query = lec_query.eq("is_archived", False)
+        lecs = lec_query.execute().data or []
         return _serialize(refreshed, len(lecs))
 
     try:
@@ -389,9 +475,6 @@ async def delete_course(
                 supabase_admin.table("lectures").update(
                     {"course_id": reassign_to}
                 ).eq("course_id", course_id).execute()
-                # Lectures moved between courses → both overviews are stale.
-                analytics_cache.invalidate_course_overview(course_id)
-                analytics_cache.invalidate_course_overview(reassign_to)
             else:
                 raise HTTPException(
                     status_code=409,
@@ -431,15 +514,9 @@ async def assign_lecture(
             raise HTTPException(status_code=404, detail="Lecture not found.")
         if lecture["professor_id"] != uid:
             raise HTTPException(status_code=403, detail="You do not own this lecture.")
-        prev_course_id = lecture.get("course_id")
         supabase_admin.table("lectures").update({"course_id": course_id}).eq(
             "id", lecture_id
         ).execute()
-        # New course definitely changed; if the lecture was previously
-        # under another course, that overview is now stale too.
-        analytics_cache.invalidate_course_overview(course_id)
-        if prev_course_id and prev_course_id != course_id:
-            analytics_cache.invalidate_course_overview(prev_course_id)
         return {"course_id": course_id, "lecture_id": lecture_id}
 
     try:
@@ -477,7 +554,6 @@ async def unassign_lecture(
         supabase_admin.table("lectures").update({"course_id": None}).eq(
             "id", lecture_id
         ).execute()
-        analytics_cache.invalidate_course_overview(course_id)
 
     try:
         await run_in_threadpool(_unassign)

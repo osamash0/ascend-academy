@@ -5,7 +5,7 @@ Provider chain (rate-limit data: github.com/cheahjs/free-llm-api-resources):
 
   ID            Model                       Daily req   TPM      Notes
   ──────────────────────────────────────────────────────────────────────
-  cerebras      qwen-3-235b-a22b-instruct   14,400      60,000   PRIMARY (fast + high quality)
+  cerebras      gpt-oss-120b                 14,400      60,000   PRIMARY (fast + high quality)
   groq_fast     llama-3.1-8b-instant        14,400       6,000   Fast fallback
   gemma         gemma-3-27b-it              14,400      15,000   Google SDK
   mistral       mistral-small-latest        ~unlimited  500,000  Needs phone verify
@@ -64,7 +64,7 @@ GROQ_FAST_MODEL   = "llama-3.1-8b-instant"
 # meta-llama/llama-4-scout-17b-16e-instruct is the current free-tier vision
 # model on Groq with the same OpenAI-compatible chat-completions schema.
 GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
-CEREBRAS_MODEL    = "qwen-3-235b-a22b-instruct-2507"
+CEREBRAS_MODEL    = "gpt-oss-120b"
 
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
 
@@ -151,11 +151,11 @@ class ProviderConfig:
 PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
     p.id: p for p in [
         ProviderConfig(
-            # Cerebras free-tier model — 235B-param Qwen-3-instruct on the
-            # ultra-fast Cerebras inference fabric. Highest-quality model
-            # with the highest free daily quota of any provider here.
+            # Cerebras GPT-OSS 120B — production model on Cerebras inference
+            # fabric (~3000 tok/s). Previously used Qwen-3-235B which was
+            # retired; gpt-oss-120b is the current production endpoint.
             id="cerebras",
-            model="qwen-3-235b-a22b-instruct-2507",
+            model="gpt-oss-120b",
             daily_limit=14_400, rpm=30, tpm=60_000,
             env_var="CEREBRAS_API_KEY",
             base_url="https://api.cerebras.ai/v1",
@@ -563,10 +563,18 @@ def _generate_with_rotation(
         except Exception as exc:
             msg = str(exc).lower()
             is_rate_limit = any(k in msg for k in ("429", "rate limit", "quota", "too many requests", "rate_limit"))
-            if is_rate_limit:
+            # A 404 model_not_found means the configured model ID no longer
+            # exists on that provider. Treat it like a rate-limit ban so this
+            # provider is skipped for the rest of the session and the chain
+            # immediately falls through to the next available provider.
+            is_model_not_found = "404" in msg and ("model_not_found" in msg or "does not exist" in msg)
+            if is_rate_limit or is_model_not_found:
                 _rotator.record_rate_limit(pid)
                 last_exc = exc
-                logger.warning("⚠️  Provider '%s' rate-limited, trying next", pid)
+                if is_model_not_found:
+                    logger.error("❌ Provider '%s' model not found — disabling for this session: %s", pid, exc)
+                else:
+                    logger.warning("⚠️  Provider '%s' rate-limited, trying next", pid)
             else:
                 logger.warning("Provider '%s' error (non-rate-limit): %s", pid, exc)
                 last_exc = exc
@@ -1341,11 +1349,50 @@ async def _regenerate_failing_slide_quizzes(
             replaced, len(failing),
         )
 
+async def generate_slide_quiz(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
+    """Generate a single-slide quiz using the specialized single-slide prompt."""
+    from backend.services.ai.prompts import SINGLE_SLIDE_QUIZ_PROMPT
+    from backend.services.ai.quiz_validator import validate_mcq, validate_and_regenerate
+    
+    prompt = SINGLE_SLIDE_QUIZ_PROMPT + text
+    
+    # Lazy regenerator for the single slide quiz
+    regen_cache: Dict[str, Any] = {"item": None, "called": False}
+    
+    async def _get_regen() -> Dict[str, Any]:
+        if not regen_cache["called"]:
+            regen_cache["called"] = True
+            try:
+                raw2 = await generate_text(prompt, ai_model=ai_model)
+                item = parse_json_response(raw2)
+                if isinstance(item, list) and item:
+                    item = item[0]
+                regen_cache["item"] = item if isinstance(item, dict) else {}
+            except Exception as exc:
+                logger.warning("Single slide quiz regeneration failed: %s", exc)
+                regen_cache["item"] = {}
+        return regen_cache["item"]
+
+    raw = await generate_text(prompt, ai_model=ai_model)
+    parsed = parse_json_response(raw)
+    
+    if isinstance(parsed, list) and parsed:
+        parsed = parsed[0]
+    if not isinstance(parsed, dict):
+        return {}
+        
+    validated = await validate_and_regenerate(
+        parsed,
+        _get_regen,
+        validator=validate_mcq,
+    )
+    return validated
+
 
 # ---------------------------------------------------------------------------
 # Legacy aliases
 # ---------------------------------------------------------------------------
 _llm_generate_text = _llm_generate_text_sync
 generate_summary   = generate_deck_summary
-generate_quiz      = generate_deck_quiz
+generate_quiz      = generate_slide_quiz
 generate_slide_title = lambda t: process_slide_batch(t).get("title", "Untitled")

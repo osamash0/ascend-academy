@@ -11,7 +11,7 @@
     "badge": "v2.0 jetzt im Orbit",
     "headlineLine1": "Deine Lern-",
     "headlineLine2": "Kommandozentrale",
-    "subtitle": "Die Plattform der nächsten Generation von Ascend Academy. KI-gestütztes Tutoring, Echtzeit-Analysen und immersive Kurserlebnisse – alles aus deiner Kommandozentrale.",
+    "subtitle": "Die Plattform der nächsten Generation von Learnstation. KI-gestütztes Tutoring, Echtzeit-Analysen und immersive Kurserlebnisse – alles aus deiner Kommandozentrale.",
     "ctaPrimary": "Mission starten",
     "ctaSecondary": "Demo ansehen",
     "systemOnline": "SYSTEM ONLINE",
@@ -112,7 +112,7 @@
   "cta": {
     "headlineLeft": "Bereit zum",
     "headlineHighlight": "Abheben?",
-    "subtitle": "Schließe dich 50.000+ Lernenden an, die schon auf Mission sind. Dein KI-Tutor steht bereit, dein Dashboard ist kalibriert und die Sterne warten.",
+    "subtitle": "Schließe dich Lernenden an, die schon auf Mission sind. Dein KI-Tutor steht bereit, dein Dashboard ist kalibriert und die Sterne warten.",
     "primary": "Mission beginnen",
     "secondary": "Vertrieb kontaktieren"
   },
@@ -137,6 +137,6 @@
     },
     "imprint": "Impressum",
     "privacyPolicy": "Datenschutz",
-    "copyright": "© {{year}} Ascend Academy. Alle Systeme nominal."
+    "copyright": "© {{year}} Learnstation. Alle Systeme nominal."
   }
 }

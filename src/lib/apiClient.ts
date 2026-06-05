@@ -1,19 +1,27 @@
 /**
  * Centralized HTTP client.
- * Injects the Supabase Bearer token on every request and converts non-2xx
- * responses into thrown errors so callers don't have to check `res.ok`.
+ * Injects a Bearer token on every request:
+ *   1. Supabase JWT (preferred) — set after the auth bridge succeeds.
  */
 import { supabase } from '@/integrations/supabase/client';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Unauthenticated');
-  return {
-    Authorization: `Bearer ${session.access_token}`,
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
+
+  // Prefer the Supabase JWT (fast Supabase-side verification)
+  const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+  if (!supabaseSession) {
+    throw new Error('Unauthenticated');
+  }
+  if (supabaseSession.access_token) {
+    headers.Authorization = `Bearer ${supabaseSession.access_token}`;
+  }
+
+  return headers;
 }
 
 async function request<T>(
@@ -27,6 +35,7 @@ async function request<T>(
     method,
     headers: { ...headers, ...extraHeaders },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    credentials: 'include',
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
@@ -55,6 +64,7 @@ export const apiClient = {
       headers,
       body: JSON.stringify(body),
       signal,
+      credentials: 'include',
     });
     if (!res.ok) throw new Error(`Stream ${path} → ${res.status}`);
     return res;

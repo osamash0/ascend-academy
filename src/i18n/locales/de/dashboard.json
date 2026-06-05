@@ -43,5 +43,34 @@
   "lectureCount_one": "{{count}} Vorlesung",
   "lectureCount_other": "{{count}} Vorlesungen",
   "recentAchievements": "Aktuelle Erfolge",
-  "viewAll": "Alle anzeigen"
+  "viewAll": "Alle anzeigen",
+  "onboard": {
+    "eyebrow": "Hier starten",
+    "title": "Willkommen bei Ascend",
+    "subtitle": "So lernst du. Drücke oben auf Beginnen, um deine erste Vorlesung zu öffnen.",
+    "steps": {
+      "learn": {
+        "title": "Ansehen & lesen",
+        "body": "Arbeite dich in deinem Tempo durch interaktive Folien."
+      },
+      "quiz": {
+        "title": "Überprüfe dich",
+        "body": "Kurze Quizze nach jeder Vorlesung festigen dein Wissen."
+      },
+      "grow": {
+        "title": "Schwung aufbauen",
+        "body": "Sammle XP, schalte Trophäen frei und halte deine Tagesserie am Leben."
+      }
+    }
+  },
+  "review": {
+    "eyebrow": "Alles erledigt",
+    "title": "Du hast jede Vorlesung abgeschlossen",
+    "subtitle": "Gut gemacht, {{name}}. Wiederhole unten deine schwächsten Themen, um noch besser zu werden.",
+    "stat": {
+      "completed": "Abgeschlossene Vorlesungen",
+      "accuracy": "Gesamtgenauigkeit",
+      "streak": "Tage-Serie"
+    }
+  }
 }

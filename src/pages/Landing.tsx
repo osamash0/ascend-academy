@@ -36,12 +36,7 @@ const FEATURES: { icon: React.ElementType; key: string; color: string; glowColor
   { icon: Globe, key: 'universalAccess', color: 'from-sky-400 to-indigo-500', glowColor: 'shadow-sky-500/30' },
 ];
 
-const STATS: { value: string; labelKey: string; icon: React.ElementType }[] = [
-  { value: '50K+', labelKey: 'landing:stats.activeLearners', icon: Users },
-  { value: '12M+', labelKey: 'landing:stats.questionsAnswered', icon: Brain },
-  { value: '98%', labelKey: 'landing:stats.retentionRate', icon: Target },
-  { value: '4.9', labelKey: 'landing:stats.userRating', icon: Star },
-];
+
 
 /* ═══════════════════════════════════════════════════════════════
    SUB-COMPONENTS
@@ -291,7 +286,7 @@ function Navigation() {
               </div>
             </div>
             <span className="text-xl font-bold text-white tracking-tight">
-              Ascend<span className="text-cyan-400">Academy</span>
+              Learn<span className="text-cyan-400">station</span>
             </span>
           </motion.div>
 
@@ -636,34 +631,7 @@ function HeroSection() {
   );
 }
 
-/* ── Stats Bar ── */
-function StatsBar() {
-  const { t } = useTranslation(['landing']);
-  return (
-    <section className="relative z-10 py-20 border-y border-white/5 bg-white/[0.02]">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-          {STATS.map((stat, index) => (
-            <motion.div
-              key={stat.labelKey}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1, duration: 0.6 }}
-              className="text-center group"
-            >
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 border border-white/10 mb-4 group-hover:border-cyan-500/30 transition-colors">
-                <stat.icon className="w-5 h-5 text-cyan-400" />
-              </div>
-              <div className="text-3xl lg:text-4xl font-bold text-white mb-1">{stat.value}</div>
-              <div className="text-sm text-slate-500">{t(stat.labelKey)}</div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
+
 
 /* ── Features Grid ── */
 function FeaturesSection() {
@@ -1009,7 +977,7 @@ function Footer() {
                 <Rocket className="w-4 h-4 text-white" />
               </div>
               <span className="text-lg font-bold text-white">
-                Ascend<span className="text-cyan-400">Academy</span>
+                Learn<span className="text-cyan-400">station</span>
               </span>
             </div>
             <p className="text-sm text-slate-500 leading-relaxed">
@@ -1077,14 +1045,14 @@ function Footer() {
 
 export default function Landing() {
   return (
-    <div className="relative min-h-screen bg-[#060a14] text-white overflow-x-hidden">
+    <div className="relative min-h-screen console-bg text-white overflow-x-hidden">
       <StarfieldBackground />
       <HUDGrid />
       <Navigation />
       
       <main>
         <HeroSection />
-        <StatsBar />
+
         <FeaturesSection />
         <HowItWorksSection />
         <ProfessorSection />

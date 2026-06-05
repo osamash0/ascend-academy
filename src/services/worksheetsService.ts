@@ -49,6 +49,7 @@ export async function uploadWorksheet(
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}` },
     body: fd,
+    credentials: 'include',
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);

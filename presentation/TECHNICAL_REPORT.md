@@ -1,7 +1,7 @@
 # Technical Report: System Architecture & Implementation
 
 ## 1. System Architecture
-The Ascend Academy platform follows a modern, decoupled architecture consisting of a React-based frontend, a FastAPI backend, and Supabase for database and authentication services.
+The Learnstation platform follows a modern, decoupled architecture consisting of a React-based frontend, a FastAPI backend, and Supabase for database and authentication services.
 
 ### Architecture Diagram
 ```mermaid

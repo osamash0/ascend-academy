@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { BookOpen, CheckCircle2, ChevronRight, Clock, Star } from 'lucide-react';
 import { memo, useMemo } from 'react';
+import { splitLectureTitle } from '@/lib/utils';
 
 interface LectureCardProps {
   id: string;
@@ -10,6 +11,7 @@ interface LectureCardProps {
   completedSlides: number;
   quizScore?: number;
   totalQuestions?: number;
+  isNextUp?: boolean;
   onClick: () => void;
   index?: number;
 }
@@ -19,6 +21,7 @@ export const LectureCard = memo(function LectureCard({
   description,
   totalSlides,
   completedSlides,
+  isNextUp,
   onClick,
   index = 0,
 }: LectureCardProps) {
@@ -27,20 +30,24 @@ export const LectureCard = memo(function LectureCard({
     [completedSlides, totalSlides]
   );
 
+  const { badge, cleanTitle } = useMemo(() => splitLectureTitle(title), [title]);
+
   const isCompleted = progress === 100;
   const isNew = completedSlides === 0 && !isCompleted;
 
   const statusText = useMemo(() => {
-    if (isNew) return 'Awaiting Initiation';
     if (isCompleted) return 'Review Synchronized';
+    if (isNextUp) return 'Recommended Next Step';
+    if (isNew) return 'Awaiting Initiation';
     return `${Math.round(progress)}% Integrated`;
-  }, [isNew, isCompleted, progress]);
+  }, [isNew, isCompleted, progress, isNextUp]);
 
   const actionText = useMemo(() => {
     if (isCompleted) return 'Enter Review';
+    if (isNextUp) return 'Start Next Sequence';
     if (isNew) return 'Initiate Mission';
     return 'Resume Sync';
-  }, [isNew, isCompleted]);
+  }, [isNew, isCompleted, isNextUp]);
 
   return (
     <motion.div
@@ -61,9 +68,20 @@ export const LectureCard = memo(function LectureCard({
       }}
       aria-label={`${title}. ${statusText}. ${actionText}`}
     >
-      <div className="glass-card flex flex-col h-full overflow-hidden border-white/5 group-hover:border-primary/50 transition-all duration-500 shadow-xl group-hover:shadow-glow-primary/10">
+      {isNextUp && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+          <div className="bg-primary text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-glow-primary whitespace-nowrap">
+            Up Next
+          </div>
+        </div>
+      )}
+      <div className={`glass-card flex flex-col h-full overflow-hidden border transition-all duration-500 shadow-xl ${
+        isNextUp 
+          ? 'border-primary/40 shadow-glow-primary/20 bg-primary/[0.02]' 
+          : 'border-white/5 group-hover:border-primary/50 group-hover:shadow-glow-primary/10'
+      }`}>
         {/* Animated Accent */}
-        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary via-secondary to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary via-secondary to-transparent transition-opacity duration-500 ${isNextUp ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
 
         <div className="p-6 flex flex-col gap-4 flex-1">
           <div className="flex items-center justify-between">
@@ -87,9 +105,16 @@ export const LectureCard = memo(function LectureCard({
             )}
           </div>
 
-          <h3 className="font-bold text-xl text-foreground leading-tight line-clamp-2 group-hover:text-primary transition-colors duration-300 tracking-tight">
-            {title}
-          </h3>
+          <div className="flex items-start gap-3">
+            {badge && (
+              <div className="flex items-center justify-center bg-primary/10 border border-primary/20 text-primary font-black rounded-lg px-2.5 py-1 text-lg shadow-sm">
+                {badge}
+              </div>
+            )}
+            <h3 className="font-bold text-xl text-foreground leading-tight line-clamp-2 group-hover:text-primary transition-colors duration-300 tracking-tight flex-1">
+              {cleanTitle}
+            </h3>
+          </div>
 
           {description && (
             <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed opacity-70 group-hover:opacity-100 transition-opacity">

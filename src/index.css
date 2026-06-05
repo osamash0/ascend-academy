@@ -23,6 +23,13 @@
     --surface-3: 222 25% 24%;
     /* #2A3654 — Active: tactile press */
 
+    /* ── Overlays: Popovers & Cards (match surface palette) ── */
+    --popover: 222 30% 14%;
+    /* #181F33 — Opaque so dropdowns don't bleed through */
+    --popover-foreground: 220 25% 96%;
+    --card: 222 30% 14%;
+    --card-foreground: 220 25% 96%;
+
     /* ── Primary: Academic Indigo (Saturated but Readable) ── */
     --primary: 235 85% 65%;
     /* #5E6BFF — Slightly warmer, less harsh */
@@ -143,6 +150,12 @@
     --hud-amber: 45 100% 50%;
     --hud-red: 0 85% 60%;
     --hud-bg: 222 35% 9%;
+
+    /* ── Console layer (dark-first, theme-independent) ── */
+    --console-bg: #070b14;
+    --glow-done: 34 197 94;      /* emerald */
+    --glow-progress: 99 102 241; /* indigo */
+    --glow-new: 168 85 247;      /* violet */
   }
 
   /* ── Light Mode: Unified "Settings" Aesthetic ── */
@@ -282,6 +295,71 @@
 }
 
 @layer components {
+
+  /* ── Console layer ── */
+  .console-bg {
+    background-color: var(--console-bg);
+    color: hsl(var(--foreground));
+  }
+  /* Darker glass variant for cards living on a console surface. */
+  .console-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 1rem;
+  }
+
+  /* ── Depth layer: PS5-style floating glass with a lit top edge ── */
+  .depth-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(24px) saturate(130%);
+    -webkit-backdrop-filter: blur(24px) saturate(130%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-top-color: rgba(255, 255, 255, 0.20);
+    border-radius: 1.5rem;
+    box-shadow:
+      0 24px 60px -15px rgba(0, 0, 0, 0.70),
+      inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.4s ease, box-shadow 0.4s ease;
+    will-change: transform;
+  }
+  .depth-card:hover,
+  .depth-card:focus-within {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow:
+      0 34px 80px -18px rgba(0, 0, 0, 0.78),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+
+  /* Radial scrim that pushes foreground content forward (depth vignette). */
+  .depth-vignette {
+    background: radial-gradient(120% 90% at 50% 30%, transparent 40%, rgba(3, 6, 14, 0.55) 100%);
+  }
+
+  /* Faint drifting dust mote for the ambient particle layer. */
+  .depth-particle {
+    position: absolute;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.5);
+    animation: depth-drift linear infinite;
+    will-change: transform, opacity;
+  }
+  @keyframes depth-drift {
+    0%   { transform: translateY(0) translateX(0); opacity: 0; }
+    10%  { opacity: 0.5; }
+    90%  { opacity: 0.5; }
+    100% { transform: translateY(-40px) translateX(12px); opacity: 0; }
+  }
+
+  /* Respect users who ask for less motion: kill parallax drift + particles. */
+  @media (prefers-reduced-motion: reduce) {
+    .depth-particle { animation: none; opacity: 0; }
+    .depth-card { transition: none; }
+  }
 
   /* ── Glassmorphism Panel System (Educational Focus) ── */
   .glass-panel {
@@ -520,6 +598,21 @@
 }
 
 @layer utilities {
+
+  /* ── Console ── */
+  .ambient-glow {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+  }
+  /* Controller-style focus ring for console-interactive elements. */
+  .console-focusable:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 3px #070b14,
+      0 0 0 5px rgba(255, 255, 255, 0.85),
+      0 0 24px rgba(99, 102, 241, 0.55);
+  }
 
   /* ── Animation Utilities ── */
   .animate-float {

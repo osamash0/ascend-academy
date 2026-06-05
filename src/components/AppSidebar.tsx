@@ -13,9 +13,11 @@ import {
   Zap,
   Star,
   BookOpen,
+  Archive,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import { LanguageToggle } from '@/components/LanguageToggle';
 import {
   Sidebar,
   SidebarContent,
@@ -41,6 +43,7 @@ const studentNavItems = [
 const professorNavItems = [
   { titleKey: 'nav:professor.dashboard', url: '/professor/dashboard', icon: LayoutDashboard },
   { titleKey: 'nav:professor.courses', url: '/professor/courses', icon: BookOpen },
+  { titleKey: 'nav:professor.archive', url: '/professor/archive', icon: Archive },
   { titleKey: 'nav:professor.analytics', url: '/professor/analytics', icon: BarChart3 },
   { titleKey: 'nav:professor.upload', url: '/professor/upload', icon: Upload },
   { titleKey: 'nav:professor.settings', url: '/settings', icon: Settings },
@@ -66,14 +69,14 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-xl">
-      <SidebarHeader className="p-6">
+    <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-xl !z-50">
+      <SidebarHeader className="transition-all duration-300 p-6 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:pt-6">
         <button
           onClick={handleLogoClick}
-          className="flex items-center gap-4 w-full transition-all cursor-pointer group"
+          className="flex items-center w-full transition-all cursor-pointer group gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
         >
-          <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-glow-primary group-hover:scale-110 transition-all duration-500">
-            <GraduationCap className="w-7 h-7 text-white drop-shadow-glow-white/30" />
+          <div className="rounded-[18px] bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-glow-primary group-hover:scale-110 transition-all duration-500 w-12 h-12 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:rounded-xl">
+            <GraduationCap className="text-white drop-shadow-glow-white/30 w-7 h-7 group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
           </div>
           {!isCollapsed && (
             <motion.div
@@ -92,7 +95,7 @@ export function AppSidebar() {
         </button>
       </SidebarHeader>
 
-      <SidebarContent className="px-3">
+      <SidebarContent className="px-3 group-data-[collapsible=icon]:px-0">
         {/* XP Display (Students only) */}
         {role === 'student' && profile && !isCollapsed && (
           <motion.div 
@@ -163,7 +166,7 @@ export function AppSidebar() {
                           : 'text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent'
                       }`}
                     >
-                      <Link to={item.url} className="flex items-center gap-3 px-4">
+                      <Link to={item.url} className="flex items-center gap-3 px-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
                         <item.icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
                         <span className="font-bold tracking-tight">{label}</span>
                       </Link>
@@ -174,39 +177,10 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {role === 'student' && (
-          <SidebarGroup className="mt-4">
-            <SidebarGroupLabel className="px-4 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/30 mb-4">
-              {isCollapsed ? 'CRSE' : 'Your Courses'}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-2">
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === '/dashboard'}
-                    tooltip="Database Systems"
-                    className={`h-12 rounded-[14px] transition-all duration-300 ${
-                      location.pathname === '/dashboard'
-                        ? 'bg-primary/10 text-primary shadow-glow-primary/10 border border-primary/20'
-                        : 'text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent'
-                    }`}
-                  >
-                    <Link to="/dashboard" className="flex items-center gap-3 px-4">
-                      <BookOpen className={`w-5 h-5 text-primary transition-transform duration-300 ${location.pathname === '/dashboard' ? 'scale-110' : 'group-hover:scale-110'}`} />
-                      <span className="font-bold tracking-tight">Database Systems</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
 
-      <SidebarFooter className="p-6 mt-auto">
-        <div className="space-y-6">
+      <SidebarFooter className="p-6 mt-auto group-data-[collapsible=icon]:p-2">
+        <div className="space-y-6 group-data-[collapsible=icon]:space-y-0">
           {!isCollapsed && (
             <motion.div 
               initial={{ opacity: 0 }}
@@ -237,10 +211,14 @@ export function AppSidebar() {
               </div>
             </motion.div>
           )}
-
+          {!isCollapsed && (
+            <div className="flex justify-center">
+              <LanguageToggle variant="icon-dark" />
+            </div>
+          )}
           <Button
             variant="ghost"
-            className="w-full h-12 justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-[14px] px-4 transition-all"
+            className="w-full h-12 justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-[14px] px-4 transition-all group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
             onClick={handleSignOut}
           >
             <LogOut className="w-5 h-5" />

@@ -50,22 +50,22 @@ beforeEach(() => {
 describe("Auth page (smoke)", () => {
   it("mount: renders the login form with email + password fields", () => {
     renderWithProviders(<Auth />, { initialEntries: ["/auth"] });
-    expect(screen.getAllByText(/initiate session/i).length).toBeGreaterThan(0);
-    expect(screen.getByLabelText(/email identity/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/access key/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/sign in/i).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
   });
 
   it("loading equivalent: submit button is enabled when no auth call is in flight", () => {
     renderWithProviders(<Auth />, { initialEntries: ["/auth"] });
-    const submit = screen.getByRole("button", { name: /initiate session/i });
+    const submit = screen.getByRole("button", { name: /sign in/i });
     expect(submit).toBeInTheDocument();
     expect(submit).not.toBeDisabled();
   });
 
   it("empty equivalent: form starts with empty email and password values", () => {
     renderWithProviders(<Auth />, { initialEntries: ["/auth"] });
-    expect(screen.getByLabelText(/email identity/i)).toHaveValue("");
-    expect(screen.getByLabelText(/access key/i)).toHaveValue("");
+    expect(screen.getByLabelText(/email address/i)).toHaveValue("");
+    expect(screen.getByLabelText(/password/i)).toHaveValue("");
   });
 
   it("first-row equivalent: switching to signup mode reveals role + consent controls", async () => {
@@ -74,11 +74,11 @@ describe("Auth page (smoke)", () => {
     renderWithProviders(<Auth />, { initialEntries: ["/auth"] });
 
     await user.click(
-      screen.getByRole("button", { name: /join the mission/i }),
+      screen.getByRole("button", { name: /create one/i }),
     );
 
-    expect(screen.getByText(/enlist operator/i)).toBeInTheDocument();
-    expect(screen.getByText(/designation/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/create account/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/role/i)).toBeInTheDocument();
     expect(screen.getByRole("checkbox")).toBeInTheDocument();
   });
 });

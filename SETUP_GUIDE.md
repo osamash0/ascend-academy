@@ -1,4 +1,4 @@
-# Ascend Academy - Setup Guide
+# Learnstation - Setup Guide
 
 ## Prerequisites
 

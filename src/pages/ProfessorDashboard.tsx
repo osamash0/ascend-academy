@@ -5,11 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, BookOpen, TrendingUp, BarChart3, Plus, Eye, Settings, 
   Trash2, Sparkles, Activity, GraduationCap, ChevronRight, 
-  MoreHorizontal, Filter, ArrowRight
+  MoreHorizontal, Filter, ArrowRight, Archive
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
-import { deleteLecture as deleteLectureService, fetchProfessorLectures } from '@/services/lectureService';
+import { deleteLecture as deleteLectureService, fetchProfessorLectures, archiveLecture as archiveLectureService } from '@/services/lectureService';
 import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Course } from '@/services/coursesService';
 import type { Lecture } from '@/types/domain';
 import { StatsCard } from '@/components/StatsCard';
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { ProfessorAssignmentsTab } from '@/features/assignments/ProfessorAssignmentsTab';
 import { ProfessorOverviewSection } from '@/features/analytics/components/ProfessorOverviewSection';
+import { splitLectureTitle } from '@/lib/utils';
 
 
 interface StudentStats {
@@ -96,6 +97,7 @@ export default function ProfessorDashboard() {
       .from('lectures')
       .select('id, title, description, total_slides, created_at, pdf_url, course_id')
       .eq('professor_id', user?.id)
+      .eq('is_archived', false)
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -140,6 +142,19 @@ export default function ProfessorDashboard() {
     } catch (err) {
       console.error(err);
       toast({ title: t('common:status.error'), description: t('professor:lectures.deleteFailed'), variant: 'destructive' });
+    }
+  };
+
+  const handleArchiveLecture = async (lectureId: string, title: string) => {
+    if (!window.confirm(`Archive lecture "${title}"? It will be hidden from students and your active dashboard. You can restore it anytime from the Archive.`)) return;
+
+    try {
+      await archiveLectureService(lectureId);
+      setLectures(prev => prev.filter(l => l.id !== lectureId));
+      toast({ title: 'Lecture archived', description: `Successfully archived "${title}".` });
+    } catch (err) {
+      console.error(err);
+      toast({ title: t('common:status.error'), description: 'Failed to archive lecture.', variant: 'destructive' });
     }
   };
 
@@ -365,17 +380,30 @@ export default function ProfessorDashboard() {
                       >
                         <td className="px-10 py-6">
                           <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${hoveredRow === lecture.id ? 'bg-primary/20 shadow-glow-primary border-primary/30' : 'bg-surface-2 border border-white/5'}`}>
-                              <BookOpen className={`w-6 h-6 transition-colors ${hoveredRow === lecture.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                            </div>
-                            <div>
-                              <p className="font-black text-foreground text-lg tracking-tight group-hover:text-primary transition-colors">{lecture.title}</p>
-                              {lecture.description && (
-                                <p className="text-sm text-muted-foreground font-medium mt-1 line-clamp-1 opacity-70">
-                                  {lecture.description}
-                                </p>
-                              )}
-                            </div>
+                            {(() => {
+                              const { badge, cleanTitle } = splitLectureTitle(lecture.title);
+                              return (
+                                <>
+                                  {badge ? (
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300 font-black text-xl ${hoveredRow === lecture.id ? 'bg-primary/20 text-primary shadow-glow-primary border border-primary/30' : 'bg-surface-2 text-muted-foreground border border-white/5'}`}>
+                                      {badge}
+                                    </div>
+                                  ) : (
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${hoveredRow === lecture.id ? 'bg-primary/20 shadow-glow-primary border-primary/30' : 'bg-surface-2 border border-white/5'}`}>
+                                      <BookOpen className={`w-6 h-6 transition-colors ${hoveredRow === lecture.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="font-black text-foreground text-lg tracking-tight group-hover:text-primary transition-colors">{cleanTitle}</p>
+                                    {lecture.description && (
+                                      <p className="text-sm text-muted-foreground font-medium mt-1 line-clamp-1 opacity-70">
+                                        {lecture.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
                         </td>
                         <td className="px-10 py-6">
@@ -458,6 +486,20 @@ export default function ProfessorDashboard() {
                                 title={t('professor:lectures.actions.edit')}
                               >
                                 <Settings className="w-5 h-5" />
+                              </Button>
+                            </motion.div>
+                            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-xl w-10 h-10 text-muted-foreground hover:bg-white/10 shadow-sm border border-transparent hover:border-white/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleArchiveLecture(lecture.id, lecture.title);
+                                }}
+                                title="Archive"
+                              >
+                                <Archive className="w-5 h-5" />
                               </Button>
                             </motion.div>
                             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>

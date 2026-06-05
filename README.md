@@ -1,4 +1,4 @@
-# Ascend Academy - Learnstation
+# Learnstation - Learnstation
 
 **Learnstation** is an interactive learning platform designed for university students and professors. It facilitates lecture uploading, viewing, analytics, and gamified learning experiences.
 

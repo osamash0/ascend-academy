@@ -1,6 +1,6 @@
 # Project Diagrams
 
-This document contains Mermaid diagrams visualizing the architecture and workflows of Ascend Academy. These can be rendered in many Markdown editors or online at [Mermaid Live Editor](https://mermaid.live/).
+This document contains Mermaid diagrams visualizing the architecture and workflows of Learnstation. These can be rendered in many Markdown editors or online at [Mermaid Live Editor](https://mermaid.live/).
 
 ## 1. High-Level System Architecture
 Visualizes how the different parts of the system interact.

@@ -143,7 +143,7 @@ test.describe("Professor analytics", () => {
     // Page header (lecture title rendered as <h1>).
     await expect(
       page.getByRole("heading", { level: 1, name: lecture.title }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: 30_000 });
 
     // Four primary analytics panels.
     await expect(

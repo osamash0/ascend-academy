@@ -15,7 +15,7 @@ import { renderWithProviders } from "@/test/renderWithProviders";
 describe("Landing page (smoke)", () => {
   it("mount: renders the brand wordmark and primary CTA", () => {
     renderWithProviders(<Landing />, { initialEntries: ["/"] });
-    expect(screen.getAllByText(/AscendAcademy|Ascend/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Learnstation|Ascend/i).length).toBeGreaterThan(0);
     expect(
       screen.getAllByRole("button", { name: /launch mission|launch your mission/i }).length,
     ).toBeGreaterThan(0);

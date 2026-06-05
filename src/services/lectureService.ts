@@ -130,13 +130,40 @@ export async function updateSlideContent(
   await supabase.from('slides').update(patch).eq('id', slideId);
 }
 
-export async function fetchProfessorLectures(professorId: string): Promise<Lecture[]> {
-  const { data } = await supabase
+export async function fetchProfessorLectures(
+  professorId: string,
+  options?: { includeArchived?: boolean; onlyArchived?: boolean }
+): Promise<Lecture[]> {
+  let query = supabase
     .from('lectures')
-    .select('id, title, description, total_slides, created_at, pdf_url, course_id')
+    .select('id, title, description, total_slides, created_at, pdf_url, course_id, is_archived');
+
+  if (options?.onlyArchived) {
+    query = query.eq('is_archived', true);
+  } else if (!options?.includeArchived) {
+    query = query.eq('is_archived', false);
+  }
+
+  const { data } = await query
     .eq('professor_id', professorId)
     .order('created_at', { ascending: false });
   return (data ?? []) as unknown as Lecture[];
+}
+
+export async function archiveLecture(lectureId: string): Promise<void> {
+  const { error } = await supabase
+    .from('lectures')
+    .update({ is_archived: true } as any)
+    .eq('id', lectureId);
+  if (error) throw error;
+}
+
+export async function unarchiveLecture(lectureId: string): Promise<void> {
+  const { error } = await supabase
+    .from('lectures')
+    .update({ is_archived: false } as any)
+    .eq('id', lectureId);
+  if (error) throw error;
 }
 
 export interface QuizQuestionInput {

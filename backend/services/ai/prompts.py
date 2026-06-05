@@ -67,6 +67,31 @@ Keep: key definitions, formulas, relationships between concepts, worked examples
 Format as structured Markdown with headers per topic.
 """
 
+SINGLE_SLIDE_QUIZ_PROMPT = """\
+Analyze the following text extracted from a single university lecture slide.
+Generate exactly ONE high-quality, multiple-choice question that tests conceptual understanding of this specific slide's content.
+
+Return ONLY a single JSON object (not an array):
+{{
+  "question": "Clear, concise question testing a core concept from the slide",
+  "options": ["Distractor A", "Correct Answer B", "Distractor C", "Distractor D"],
+  "answer": "A"|"B"|"C"|"D",
+  "explanation": "One sentence explaining why the correct answer is right and distractors are wrong",
+  "concept": "The specific concept being tested",
+  "cognitive_level": "recall" | "apply" | "analyse"
+}}
+
+Rules:
+- Default to "apply" or "analyse" cognitive_level. Only fall back to "recall" when the slide is genuinely thin.
+- The question must test understanding of the chosen "concept", not just the surface text. Avoid "What does this slide say?".
+- All four options must be plausible distractors of similar length and specificity. Wrong answers should reflect realistic student misconceptions.
+- NEVER use "all of the above", "none of the above", "both A and B". Each option must be a standalone claim.
+- No option may be a substring of another.
+- The output MUST be a single JSON object (not an array).
+
+Slide Text:
+"""
+
 DECK_QUIZ_PROMPT = """\
 Based on this lecture summary, generate 5 multiple-choice questions that test
 conceptual understanding.
@@ -214,4 +239,56 @@ Return a JSON object:
 
 [SLIDE CONTENT]
 {text}
+"""
+
+LECTURE_TAGLINE_PROMPT = """\
+You are writing a short, punchy tagline for a university lecture, shown like a \
+video-game subtitle on a console home screen. Base it ONLY on the lecture content below.
+
+Rules:
+- ONE sentence, max 12 words.
+- Evocative and motivating, but accurate to the actual topic — no generic filler.
+- No quotes, no emoji, no trailing period is fine either way.
+- Do not mention "this lecture" or "slides"; speak to what the student will learn or feel.
+- Avoid the tired imperative-verb opener. Do NOT start with "Master", "Unlock", \
+"Discover", "Explore", "Learn", "Dive", or any similar generic command verb. \
+Vary the sentence shape — lead with the idea, a question, an image, or a stake, \
+not a one-size-fits-all verb.
+
+[LECTURE TITLE]
+{title}
+
+[LECTURE CONTENT]
+{content}
+
+Return ONLY the tagline text, nothing else.
+"""
+
+LECTURE_DESCRIPTION_PROMPT = """\
+Write a short description for a university lecture. Max 2 sentences, max 40 words total.
+State what the lecture covers and what students will gain. No filler phrases like \
+"this lecture covers" — start directly with the topic.
+{course_line}
+[LECTURE TITLE]
+{title}
+
+[SLIDE SUMMARIES]
+{summaries}
+
+Return ONLY the description text, nothing else.
+"""
+
+COURSE_DESCRIPTION_PROMPT = """\
+Write a short description for a university COURSE as a whole — not a single lecture. \
+Max 2 sentences, max 40 words total. State what the course covers across its lectures \
+and what students will be able to do after finishing it. Start directly with the \
+subject — no filler like "this course covers". No quotes, no emoji.
+
+[COURSE TITLE]
+{title}
+
+[COURSE OUTLINE — lecture titles and key points]
+{outline}
+
+Return ONLY the description text, nothing else.
 """

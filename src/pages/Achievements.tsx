@@ -61,7 +61,7 @@ export default function Achievements() {
   }
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen console-bg">
       {/* Background Decor */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
           <div className="absolute top-[5%] right-[10%] w-[30%] h-[30%] rounded-full bg-primary/5 blur-[100px] animate-pulse" />

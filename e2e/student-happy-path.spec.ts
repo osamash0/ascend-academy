@@ -98,11 +98,14 @@ test.describe("Student happy path", () => {
       .click();
 
     // 6. Quiz card appears — answer correctly.
-    const correctOption = page.getByRole("button", {
+    const correctOption = page.getByRole("radio", {
       name: new RegExp(`option a:.*${question.options[0]}`, "i"),
     });
     await expect(correctOption).toBeVisible();
     await correctOption.click();
+
+    // Submit the quiz to complete the lecture.
+    await page.getByRole("button", { name: /finish lecture/i }).click();
 
     // 7. handleLectureComplete fires the success toast (~1.5s settle).
     await expect(

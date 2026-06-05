@@ -71,7 +71,7 @@ export default function Leaderboard() {
     }
 
     return (
-        <div className="relative min-h-screen">
+        <div className="relative min-h-screen console-bg">
           {/* Animated Background */}
           <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
               <div className="absolute top-[10%] left-[20%] w-[40%] h-[40%] rounded-full bg-primary/5 blur-[120px] animate-pulse" />

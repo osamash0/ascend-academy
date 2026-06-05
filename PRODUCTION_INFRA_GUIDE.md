@@ -1,6 +1,6 @@
 # Production Infrastructure Best Practices
 
-This document outlines the infrastructure and deployment best practices for the Ascend Academy platform to ensure maximum uptime, resilience under load, and proper monitoring.
+This document outlines the infrastructure and deployment best practices for the Learnstation platform to ensure maximum uptime, resilience under load, and proper monitoring.
 
 ## 1. High Availability & Scaling
 - **Load Balancing**: Use an external load balancer (e.g., AWS ALB, Nginx) to distribute traffic across multiple API instances.

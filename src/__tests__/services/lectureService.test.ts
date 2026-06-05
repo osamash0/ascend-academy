@@ -69,8 +69,8 @@ describe("fetchSlides", () => {
 describe("fetchProfessorLectures", () => {
   it("returns only the requested professor's lectures", async () => {
     supabaseMock.seed("lectures", [
-      { id: "L1", professor_id: "P1", title: "A", created_at: "2026-01-01" },
-      { id: "L2", professor_id: "P2", title: "B", created_at: "2026-01-02" },
+      { id: "L1", professor_id: "P1", title: "A", created_at: "2026-01-01", is_archived: false },
+      { id: "L2", professor_id: "P2", title: "B", created_at: "2026-01-02", is_archived: false },
     ]);
     const out = await fetchProfessorLectures("P1");
     expect(out.map((l) => l.id)).toEqual(["L1"]);

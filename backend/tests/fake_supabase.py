@@ -180,6 +180,8 @@ class _QueryBuilder:
             for p in payloads:
                 row = copy.deepcopy(p)
                 row.setdefault("id", f"fake-id-{len(rows)+1}")
+                if self._table in ("courses", "lectures"):
+                    row.setdefault("is_archived", False)
                 rows.append(row)
                 inserted.append(row)
             self._client.calls.append(("insert", self._table, payloads))
@@ -201,6 +203,8 @@ class _QueryBuilder:
                         continue
                 row = copy.deepcopy(p)
                 row.setdefault("id", f"fake-id-{len(rows)+1}")
+                if self._table in ("courses", "lectures"):
+                    row.setdefault("is_archived", False)
                 rows.append(row)
                 upserted.append(row)
             self._client.calls.append(("upsert", self._table, payloads, self._on_conflict))
@@ -378,7 +382,13 @@ class FakeSupabaseClient:
 
     # ── Public test helpers ────────────────────────────────────────────────
     def seed(self, table: str, rows: list[dict]) -> None:
-        self.tables[table] = [copy.deepcopy(r) for r in rows]
+        seeded = []
+        for r in rows:
+            row = copy.deepcopy(r)
+            if table in ("courses", "lectures"):
+                row.setdefault("is_archived", False)
+            seeded.append(row)
+        self.tables[table] = seeded
 
     def register_rpc(self, name: str, fn) -> None:
         self._rpc_handlers[name] = fn

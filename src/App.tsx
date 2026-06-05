@@ -4,9 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { ProtectedRoute, PublicRoute } from "@/lib/routeGuards";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { ConsoleLayout } from "@/components/console";
 import { useLanguagePreference } from "@/hooks/useLanguagePreference";
 
 import { lazy, Suspense, Component, type ReactNode } from "react";
@@ -51,7 +51,10 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 // Lazy Pages
 const Landing = lazy(() => import("./pages/Landing"));
 const Auth = lazy(() => import("./pages/Auth"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
+const StudentCourseView = lazy(() => import("./pages/StudentCourseView"));
+const StudentCourseLibrary = lazy(() => import("./pages/StudentCourseLibrary"));
 const LectureView = lazy(() => import("./pages/LectureView"));
 const Achievements = lazy(() => import("./pages/Achievements"));
 const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
@@ -61,6 +64,7 @@ const FastUpload = lazy(() => import("./pages/FastUpload"));
 const LectureEdit = lazy(() => import("./pages/LectureEdit"));
 const ProfessorCourses = lazy(() => import("./pages/ProfessorCourses"));
 const ProfessorCourseDetail = lazy(() => import("./pages/ProfessorCourseDetail"));
+const ProfessorArchive = lazy(() => import("./pages/ProfessorArchive"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Impressum = lazy(() => import("./pages/Impressum"));
 const Datenschutz = lazy(() => import("./pages/Datenschutz"));
@@ -82,12 +86,9 @@ const PageLoader = () => {
 
 const queryClient = new QueryClient();
 
-function DashboardRouter() {
-  const { role, loading } = useAuth();
+function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
+  const { user, role, loading } = useAuth();
 
-  // Defensive: even though ProtectedRoute also checks `loading`, repeat the
-  // guard here so we never render the student dashboard while the role is
-  // still being resolved (which caused the post-login flash for professors).
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -96,15 +97,47 @@ function DashboardRouter() {
     );
   }
 
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (allowedRoles && role && !allowedRoles.includes(role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, role, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (user) {
+    // Redirect based on role
+    if (role === 'professor') {
+      return <Navigate to="/professor/dashboard" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function StudentDashboardRoute() {
+  const { role } = useAuth();
+
   if (role === 'professor') {
     return <Navigate to="/professor/dashboard" replace />;
   }
 
-  return (
-    <DashboardLayout>
-      <StudentDashboard />
-    </DashboardLayout>
-  );
+  return <StudentDashboard />;
 }
 
 function AppRoutes() {
@@ -122,7 +155,48 @@ function AppRoutes() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardRouter />
+              <ConsoleLayout>
+                <StudentDashboardRoute />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/course/:courseId"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <StudentCourseView />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/library"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <StudentCourseLibrary />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        {/* PlayStation-style lecture library — a screen within the console OS shell. */}
+        <Route
+          path="/course-v3/:courseId"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <StudentCourseLibrary />
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
@@ -138,9 +212,9 @@ function AppRoutes() {
           path="/achievements"
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <Achievements />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
@@ -148,9 +222,9 @@ function AppRoutes() {
           path="/leaderboard"
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <Leaderboard />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
@@ -168,9 +242,9 @@ function AppRoutes() {
           path="/insights"
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <Insights />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
@@ -242,6 +316,16 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['professor']}>
               <DashboardLayout>
                 <ProfessorCourseDetail />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/professor/archive"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <DashboardLayout>
+                <ProfessorArchive />
               </DashboardLayout>
             </ProtectedRoute>
           }

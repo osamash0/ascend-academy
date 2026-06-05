@@ -43,5 +43,34 @@
   "lectureCount_one": "{{count}} lecture",
   "lectureCount_other": "{{count}} lectures",
   "recentAchievements": "Recent Achievements",
-  "viewAll": "View all"
+  "viewAll": "View all",
+  "onboard": {
+    "eyebrow": "Start here",
+    "title": "Welcome to Ascend",
+    "subtitle": "Here's how you'll learn. Press Begin above to open your first lecture.",
+    "steps": {
+      "learn": {
+        "title": "Watch & read",
+        "body": "Move through interactive slides at your own pace."
+      },
+      "quiz": {
+        "title": "Check yourself",
+        "body": "Quick quizzes after each lecture lock in what you learned."
+      },
+      "grow": {
+        "title": "Build momentum",
+        "body": "Earn XP, unlock trophies, and keep your daily streak alive."
+      }
+    }
+  },
+  "review": {
+    "eyebrow": "All caught up",
+    "title": "You've completed every lecture",
+    "subtitle": "Nice work, {{name}}. Revisit your weakest topics below to sharpen your edge.",
+    "stat": {
+      "completed": "Lectures completed",
+      "accuracy": "Overall accuracy",
+      "streak": "Day streak"
+    }
+  }
 }

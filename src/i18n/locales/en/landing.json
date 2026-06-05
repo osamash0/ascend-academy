@@ -11,7 +11,7 @@
     "badge": "v2.0 Now Orbiting",
     "headlineLine1": "Your Learning",
     "headlineLine2": "Mission Control",
-    "subtitle": "Ascend Academy's next-generation platform. AI-powered tutoring, real-time analytics, and immersive course experiences — all from your command center.",
+    "subtitle": "Learnstation's next-generation platform. AI-powered tutoring, real-time analytics, and immersive course experiences — all from your command center.",
     "ctaPrimary": "Launch Your Mission",
     "ctaSecondary": "Watch Demo",
     "systemOnline": "SYSTEM ONLINE",
@@ -112,7 +112,7 @@
   "cta": {
     "headlineLeft": "Ready for",
     "headlineHighlight": "Liftoff?",
-    "subtitle": "Join 50,000+ learners already on their mission. Your AI tutor is standing by, your dashboard is calibrated, and the stars are waiting.",
+    "subtitle": "Join learners already on their mission. Your AI tutor is standing by, your dashboard is calibrated, and the stars are waiting.",
     "primary": "Begin Your Mission",
     "secondary": "Contact Sales"
   },
@@ -137,6 +137,6 @@
     },
     "imprint": "Imprint",
     "privacyPolicy": "Privacy Policy",
-    "copyright": "© {{year}} Ascend Academy. All systems nominal."
+    "copyright": "© {{year}} Learnstation. All systems nominal."
   }
 }

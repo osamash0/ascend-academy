@@ -3,12 +3,28 @@ import { Brain, Sparkles, TrendingUp, Zap, Clock, Calendar, Activity, ChevronLef
 import { OptimalScheduleCard } from '@/components/OptimalScheduleCard';
 import { ThreeDScatterPlot } from '@/components/ThreeDScatterPlot';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
+import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
+import { StatsCard } from '@/components/StatsCard';
+import { BookOpen, Trophy, Target, Flame } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function Insights() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const { data } = useStudentDashboard();
+  
+  const progress = data?.progress || [];
+  const profile = data?.profile;
+  const achievements = data?.achievements || [];
+
+  const totalQuestionsAnswered = progress.reduce((sum, p) => sum + (p.total_questions_answered || 0), 0);
+  const totalCorrect = progress.reduce((sum, p) => sum + (p.correct_answers || 0), 0);
+  const accuracy = totalQuestionsAnswered > 0 ? Math.round((totalCorrect / totalQuestionsAnswered) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="min-h-screen console-bg p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <motion.button
@@ -57,6 +73,39 @@ export default function Insights() {
             </div>
           </motion.div>
         </div>
+      </div>
+
+      {/* ── Stats Grid — Glass Cards ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { key: 'coursesStarted', title: t('dashboard:stats.coursesStarted'), value: progress.length, icon: BookOpen, variant: 'primary', glow: 'shadow-glow-primary' },
+          { key: 'quizAccuracy', title: t('dashboard:stats.quizAccuracy'), value: `${accuracy}%`, subtitle: t('dashboard:stats.accuracySubtitle', { correct: totalCorrect, total: totalQuestionsAnswered }), icon: Target, variant: 'success', glow: 'shadow-glow-success' },
+          { key: 'bestStreak', title: t('dashboard:stats.bestStreak'), value: profile?.best_streak || 0, icon: Flame, variant: 'warning' },
+          { key: 'achievements', title: t('dashboard:stats.achievements'), value: achievements.length, icon: Trophy, variant: 'xp', glow: 'shadow-glow-xp' },
+        ].map((stat, index) => (
+          <motion.div
+            key={stat.title}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 * index, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <StatsCard
+              title={stat.title}
+              value={stat.value}
+              subtitle={stat.subtitle}
+              icon={stat.icon}
+              variant={stat.variant as 'default' | 'success' | 'xp' | 'primary' | 'warning'}
+              className={stat.glow}
+              onClick={() => {
+                if (stat.key === 'coursesStarted') {
+                  navigate('/dashboard');
+                } else if (stat.key === 'achievements') {
+                  navigate('/achievements');
+                }
+              }}
+            />
+          </motion.div>
+        ))}
       </div>
 
       {/* Grid Layout */}
