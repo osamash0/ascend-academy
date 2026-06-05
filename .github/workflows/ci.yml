@@ -77,6 +77,14 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
+        env:
+          # Dummy credentials so the backend starts without a real Supabase
+          # instance. E2E tests mock all Supabase calls via page.route(), so
+          # no real connection is needed.
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_KEY: placeholder-anon-key
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder-anon-key
       - uses: actions/upload-artifact@v4
         if: always()
         with:
