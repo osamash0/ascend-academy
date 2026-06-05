@@ -205,7 +205,7 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown }> {
   // PromiseLike: callers `await` the builder directly to run a SELECT.
   then<TResult1 = { data: unknown; error: unknown }, TResult2 = never>(
     onfulfilled?: ((value: { data: unknown; error: unknown }) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ): PromiseLike<TResult1 | TResult2> {
     return Promise.resolve(executeQuery(this.store, this.state)).then(onfulfilled, onrejected);
   }
