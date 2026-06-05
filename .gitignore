@@ -34,6 +34,10 @@ __pycache__/
 *.sln
 *.sw?
 
+# Load-test user registry (holds real short-lived access tokens)
+backend/loadtest/.students.json
+loadtest_report*.csv
+
 # Scratch & Env
 .agent_scratch/
 scratch/
