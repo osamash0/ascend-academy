@@ -32,6 +32,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
+import { AmbientGlow, GLOW_BY_STATUS } from '@/components/console';
 
 import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
 
@@ -758,17 +759,9 @@ export default function LectureView() {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden relative">
+    <div className="flex h-screen console-bg overflow-hidden relative">
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <motion.div
-          className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, hsl(234 89% 68% / 0.05) 0%, transparent 70%)',
-            filter: 'blur(100px)',
-          }}
-          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
-        />
+        <AmbientGlow color={GLOW_BY_STATUS.progress} />
       </div>
 
       {/* Sidebar */}

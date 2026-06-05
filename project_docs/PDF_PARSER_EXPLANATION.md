@@ -1,6 +1,6 @@
-# PDF Parsing Architecture - Ascend Academy
+# PDF Parsing Architecture - Learnstation
 
-This document provides a comprehensive technical overview of the PDF parsing pipeline used in the Ascend Academy platform. The system transforms raw university lecture PDFs into structured, interactive educational content.
+This document provides a comprehensive technical overview of the PDF parsing pipeline used in the Learnstation platform. The system transforms raw university lecture PDFs into structured, interactive educational content.
 
 ---
 

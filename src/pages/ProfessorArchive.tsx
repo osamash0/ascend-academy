@@ -21,6 +21,7 @@ import {
   deleteLecture
 } from '@/services/lectureService';
 import type { Lecture } from '@/types/domain';
+import { splitLectureTitle } from '@/lib/utils';
 
 /* ── Swatches matching ProfessorCourses ── */
 const COLOR_SWATCHES = [
@@ -375,15 +376,28 @@ export default function ProfessorArchive() {
                             >
                               <td className="px-8 py-5">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                                    <BookOpen className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                  </div>
-                                  <div>
-                                    <p className="font-bold text-foreground tracking-tight text-base">{lecture.title}</p>
-                                    {lecture.description && (
-                                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{lecture.description}</p>
-                                    )}
-                                  </div>
+                                  {(() => {
+                                    const { badge, cleanTitle } = splitLectureTitle(lecture.title);
+                                    return (
+                                      <>
+                                        {badge ? (
+                                          <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg bg-primary/10 text-primary transition-colors">
+                                            {badge}
+                                          </div>
+                                        ) : (
+                                          <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                            <BookOpen className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                                          </div>
+                                        )}
+                                        <div>
+                                          <p className="font-bold text-foreground tracking-tight text-base">{cleanTitle}</p>
+                                          {lecture.description && (
+                                            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{lecture.description}</p>
+                                          )}
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </td>
                               <td className="px-8 py-5 font-bold text-foreground/80">{lecture.total_slides}</td>

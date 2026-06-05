@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, BookOpen, User, Mail, Lock, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, BookOpen, User, Mail, Lock, ArrowRight, ArrowLeft, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -117,7 +117,11 @@ export default function Auth() {
             title: t('auth:toasts.accountCreated'),
             description: t('auth:toasts.welcomeMessage'),
           });
-          navigate('/dashboard');
+          if (selectedRole === 'student') {
+            navigate('/onboarding');
+          } else {
+            navigate('/dashboard');
+          }
         }
       }
     } catch {
@@ -158,7 +162,20 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex relative overflow-hidden">
+    <div className="min-h-screen console-bg flex relative overflow-hidden">
+      {/* Top-left Back button */}
+      <div className="absolute top-6 left-6 z-20">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/')}
+          className="text-muted-foreground hover:text-foreground gap-2 hover:bg-white/5 rounded-xl transition-all"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>{t('auth:backToHome')}</span>
+        </Button>
+      </div>
+
       {/* Top-right language toggle */}
       <div className="absolute top-6 right-6 z-20">
         <LanguageToggle variant="icon-dark" />
@@ -170,80 +187,20 @@ export default function Auth() {
         <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/5 blur-[120px] animate-pulse delay-700" />
       </div>
 
-      {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-5/12 p-12 flex-col justify-between relative z-10">
-        <div className="glass-panel h-full w-full rounded-[48px] border-white/5 p-16 flex flex-col justify-between overflow-hidden relative group">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-50" />
-
-          <div className="relative z-10">
-            <div className="flex items-center gap-4 mb-16 cursor-pointer" onClick={() => navigate('/')}>
-              <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center shadow-glow-primary">
-                <GraduationCap className="w-7 h-7 text-white" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-bold text-foreground">Ascend</span>
-                <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] leading-none">v2.0 Orbital</span>
-              </div>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <h1 className="text-5xl lg:text-6xl font-bold text-foreground mb-8 leading-[1.1] tracking-tight">
-                {t('auth:branding.headlineLine1')}<br />
-                {t('auth:branding.headlineLine2')}<br />
-                <span className="text-primary">{t('auth:branding.headlineLine3')}</span>
-              </h1>
-
-              <p className="text-xl text-muted-foreground max-w-md font-medium leading-relaxed">
-                {t('auth:branding.subtitle')}
-              </p>
-            </motion.div>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="relative z-10"
-          >
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { icon: '🧠', label: t('auth:branding.neuralSync') },
-                { icon: '⚡', label: t('auth:branding.xpProtocol') },
-              ].map((feature) => (
-                <div
-                  key={feature.label}
-                  className="glass-panel-strong border-white/10 rounded-[24px] p-6 flex flex-col items-center text-center group hover:border-primary/50 transition-all duration-300"
-                >
-                  <span className="text-3xl mb-3 block group-hover:scale-110 transition-transform">{feature.icon}</span>
-                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                    {feature.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Right side - Auth form */}
-      <div className="w-full lg:w-7/12 flex items-center justify-center p-6 lg:p-24 relative z-10">
+      {/* Center Auth form */}
+      <div className="w-full flex items-center justify-center p-6 lg:p-24 relative z-10">
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md"
         >
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-4 mb-12 justify-center" onClick={() => navigate('/')}>
+          {/* Brand Logo */}
+          <div className="flex items-center gap-4 mb-12 justify-center cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center shadow-glow-primary">
               <GraduationCap className="w-7 h-7 text-white" />
             </div>
             <div className="flex flex-col text-left">
-              <span className="text-xl font-bold text-foreground">Ascend Academy</span>
-              <span className="text-[8px] font-bold text-primary uppercase tracking-widest">v2.0 Orbital</span>
+              <span className="text-xl font-bold text-foreground">Learnstation</span>
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Plus, Loader2, Trash2, Pencil, ChevronRight } from 'lucide-react';
+import { BookOpen, Plus, Loader2, Trash2, Pencil, ChevronRight, Archive, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +19,7 @@ import {
   createCourse,
   updateCourse,
   deleteCourse,
+  generateCourseDescription,
   type Course,
 } from '@/services/coursesService';
 
@@ -38,6 +39,7 @@ export default function ProfessorCourses() {
   const [description, setDescription] = useState('');
   const [color, setColor] = useState<string>(COLOR_SWATCHES[0]);
   const [saving, setSaving] = useState(false);
+  const [generatingDesc, setGeneratingDesc] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -93,6 +95,25 @@ export default function ProfessorCourses() {
     }
   };
 
+  const handleGenerateDescription = async () => {
+    if (!editing) return;
+    setGeneratingDesc(true);
+    try {
+      const generated = await generateCourseDescription(editing.id);
+      setDescription(generated);
+      toast({ title: 'Description generated' });
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: 'Could not generate description',
+        description: 'Make sure the course has lectures with content, then try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingDesc(false);
+    }
+  };
+
   const handleDelete = async (c: Course) => {
     if (c.lecture_count > 0) {
       toast({
@@ -110,6 +131,18 @@ export default function ProfessorCourses() {
     } catch (e) {
       console.error(e);
       toast({ title: 'Delete failed', variant: 'destructive' });
+    }
+  };
+
+  const handleArchive = async (c: Course) => {
+    if (!confirm(`Archive course "${c.title}"? This will hide it from active lists. You can restore it anytime from the Archive.`)) return;
+    try {
+      await updateCourse(c.id, { is_archived: true });
+      toast({ title: 'Course archived' });
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'Archive failed', variant: 'destructive' });
     }
   };
 
@@ -182,6 +215,14 @@ export default function ProfessorCourses() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={(e) => { e.stopPropagation(); void handleArchive(c); }}
+                  className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Archive className="w-3.5 h-3.5" /> Archive
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={(e) => { e.stopPropagation(); void handleDelete(c); }}
                   className="gap-1.5 text-xs text-destructive hover:text-destructive"
                 >
@@ -204,7 +245,31 @@ export default function ProfessorCourses() {
               <Input id="course-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Database Management" />
             </div>
             <div>
-              <Label htmlFor="course-desc">Description</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="course-desc">Description</Label>
+                {editing && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1.5 text-xs text-primary hover:text-primary"
+                    onClick={handleGenerateDescription}
+                    disabled={generatingDesc || editing.lecture_count === 0}
+                    title={
+                      editing.lecture_count === 0
+                        ? 'Add lectures to this course first'
+                        : 'Generate a description from this course’s lectures'
+                    }
+                  >
+                    {generatingDesc ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    {generatingDesc ? 'Generating…' : 'Generate with AI'}
+                  </Button>
+                )}
+              </div>
               <Textarea id="course-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Optional summary…" />
             </div>
             <div>

@@ -1,7 +1,7 @@
 # Architecture Overview
 
 ## System Context
-**Learnstation** (Ascend Academy) is an interactive learning platform serving two primary user roles: **Students** and **Professors**.
+**Learnstation** (Learnstation) is an interactive learning platform serving two primary user roles: **Students** and **Professors**.
 
 ## Tech Stack
 

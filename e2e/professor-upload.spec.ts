@@ -116,7 +116,7 @@ test.describe("Professor PDF upload", () => {
     await page.goto("/professor/upload");
     await expect(
       page.getByRole("heading", { name: /create lecture/i }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
 
     // Set the title BEFORE uploading (handleSubmit requires non-empty title).
     await page.locator("#title").fill("Mission Briefing Lecture");

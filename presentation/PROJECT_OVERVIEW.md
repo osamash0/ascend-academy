@@ -1,9 +1,9 @@
-# Project Overview: Ascend Academy (Learnstation)
+# Project Overview: Learnstation (Learnstation)
 
 ## 1. Introduction
-Ascend Academy (internally known as **Learnstation**) is a comprehensive, interactive learning management system (LMS) designed to bridge the gap between students and professors through data-driven insights and gamified engagement.
+Learnstation (internally known as **Learnstation**) is a comprehensive, interactive learning management system (LMS) designed to bridge the gap between students and professors through data-driven insights and gamified engagement.
 
-In the modern educational landscape, maintaining student engagement and tracking specific learning difficulties is a challenge. Ascend Academy addresses this by providing a platform where learning is interactive, measurable, and rewarding.
+In the modern educational landscape, maintaining student engagement and tracking specific learning difficulties is a challenge. Learnstation addresses this by providing a platform where learning is interactive, measurable, and rewarding.
 
 ## 2. Problem Statement
 Traditional online learning often lacks:
@@ -12,7 +12,7 @@ Traditional online learning often lacks:
 - **Actionable Analytics**: Data is often buried in complex logs rather than presented intuitively.
 
 ## 3. Solution
-Ascend Academy provides:
+Learnstation provides:
 - **Interactive Lecture Player**: Integrated slides, video, and quizzes.
 - **Slide-Level Analytics**: Heatmaps and time-spent metrics for every slide in a lecture.
 - **Gamified Progression**: Experience points (XP), levels, and badges to motivate consistent learning.
@@ -33,7 +33,7 @@ Ascend Academy provides:
 - **Class Performance Tracking**: Insights into how the entire cohort is performing on specific topics.
 
 ## 5. Impact & Future Vision
-Ascend Academy aims to improve learning outcomes by making education more engaging for students and providing professors with the tools they need to refine their teaching materials based on actual usage data.
+Learnstation aims to improve learning outcomes by making education more engaging for students and providing professors with the tools they need to refine their teaching materials based on actual usage data.
 
 Future iterations will include:
 - **AI-Powered Learning Assistants**: Personalized tutors based on student performance.

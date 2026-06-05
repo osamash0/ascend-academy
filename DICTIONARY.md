@@ -1,6 +1,6 @@
 # Project Dictionary & Directory Guide
 
-This document provides a comprehensive overview of the **Ascend Academy** codebase, explaining where specific features and logic are located.
+This document provides a comprehensive overview of the **Learnstation** codebase, explaining where specific features and logic are located.
 
 ## 🏗️ Project Overview
 The project is split into two main parts:

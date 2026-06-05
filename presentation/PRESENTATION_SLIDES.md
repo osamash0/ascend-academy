@@ -1,7 +1,7 @@
-# Presentation Slides: Ascend Academy
+# Presentation Slides: Learnstation
 
 ## Slide 1: Title Slide
-- **Project Name**: Ascend Academy (Learnstation)
+- **Project Name**: Learnstation (Learnstation)
 - **Subtitle**: Reimagining the Learning Management Experience
 - **Presenter**: [Your Name]
 - **Date**: April 2026
@@ -55,6 +55,6 @@
 ---
 
 ## Slide 8: Conclusion & Q&A
-- **Summary**: Ascend Academy is more than an LMS—it's a learning accelerator.
+- **Summary**: Learnstation is more than an LMS—it's a learning accelerator.
 - **Thank You!**
 - **Questions?**

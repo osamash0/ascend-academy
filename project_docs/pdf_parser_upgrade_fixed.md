@@ -1,4 +1,4 @@
-# PDF Parser Upgrade — Ascend Academy
+# PDF Parser Upgrade — Learnstation
 ## Implementation Spec for Claude Code
 
 This document is a full implementation brief. Read it entirely before writing any code.

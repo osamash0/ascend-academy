@@ -30,6 +30,7 @@ export interface CourseSummary {
   id: string;
   title: string;
   color?: string | null;
+  description?: string | null;
 }
 
 /** Worksheet attached to a lecture (PDF / docx / etc). */
@@ -51,6 +52,7 @@ export interface Lecture {
   total_slides: number;
   created_at: string;
   pdf_url?: string | null;
+  is_archived?: boolean;
   /** Optional course grouping (null = Uncategorized). */
   course_id?: string | null;
   /** Resolved course summary when the API hydrates it. */
@@ -104,6 +106,8 @@ export interface StudentProgress {
   xp_earned?: number;
   last_slide_viewed?: number | null;
   completed_at?: string | null;
+  /** Last time this progress row changed — used to rank "Continue" by recency. */
+  updated_at?: string | null;
 }
 
 // ─── Gamification ────────────────────────────────────────────────────────────

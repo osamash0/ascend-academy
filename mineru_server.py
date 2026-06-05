@@ -1,5 +1,5 @@
 """
-MinerU REST server for Ascend Academy.
+MinerU REST server for Learnstation.
 Uses magic-pdf 1.3.12 API (magic_pdf.tools.common.do_parse).
 
 Start with:

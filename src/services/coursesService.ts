@@ -12,6 +12,7 @@ export interface Course {
   description: string | null;
   color: string | null;
   icon: string | null;
+  is_archived: boolean;
   created_at: string | null;
   updated_at: string | null;
   lecture_count: number;
@@ -33,6 +34,7 @@ export interface UpdateCourseInput {
   description?: string | null;
   color?: string | null;
   icon?: string | null;
+  is_archived?: boolean;
 }
 
 interface Envelope<T> {
@@ -40,8 +42,12 @@ interface Envelope<T> {
   data: T;
 }
 
-export async function listCourses(): Promise<Course[]> {
-  const res = await apiClient.get<Envelope<Course[]>>('/api/courses');
+export async function listCourses(filters?: { onlyArchived?: boolean; includeArchived?: boolean }): Promise<Course[]> {
+  const params = new URLSearchParams();
+  if (filters?.onlyArchived) params.append('only_archived', 'true');
+  if (filters?.includeArchived) params.append('include_archived', 'true');
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await apiClient.get<Envelope<Course[]>>(`/api/courses${qs}`);
   return res.data;
 }
 
@@ -60,6 +66,18 @@ export async function updateCourse(id: string, patch: UpdateCourseInput): Promis
   return res.data;
 }
 
+/**
+ * Generate a course-level description with AI, summarizing the course from the
+ * titles and slide summaries of its lectures. Requires the course to already
+ * exist and have at least one lecture with slides.
+ */
+export async function generateCourseDescription(courseId: string): Promise<string> {
+  const res = await apiClient.post<{ description: string }>('/api/ai/course-description', {
+    course_id: courseId,
+  });
+  return res.description;
+}
+
 export async function deleteCourse(id: string, reassignTo?: string): Promise<void> {
   const qs = reassignTo ? `?reassign_to=${encodeURIComponent(reassignTo)}` : '';
   await apiClient.delete<void>(`/api/courses/${id}${qs}`);
@@ -74,4 +92,13 @@ export async function assignLectureToCourse(courseId: string, lectureId: string)
 
 export async function unassignLectureFromCourse(courseId: string, lectureId: string): Promise<void> {
   await apiClient.delete<void>(`/api/courses/${courseId}/lectures/${lectureId}`);
+}
+
+export async function browseCourses(): Promise<Course[]> {
+  const res = await apiClient.get<Envelope<Course[]>>('/api/courses/browse');
+  return res.data;
+}
+
+export async function enrollInCourse(courseId: string): Promise<void> {
+  await apiClient.post<Envelope<unknown>>(`/api/courses/${courseId}/enroll`, {});
 }

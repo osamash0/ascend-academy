@@ -16,13 +16,14 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
   const [lecturesRes, progressRes, achievementsRes] = await Promise.all([
     supabase
       .from('lectures')
-      .select('id, title, description, total_slides, created_at, course_id, course:courses(id, title, color)')
+      .select('id, title, description, total_slides, created_at, pdf_url, course_id, course:courses(id, title, color, description)')
+      .eq('is_archived', false)
       .order('created_at', { ascending: false })
       .limit(200),
 
     supabase
       .from('student_progress')
-      .select('lecture_id, completed_slides, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at')
+      .select('lecture_id, completed_slides, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
       .eq('user_id', userId)
       .limit(500),
 
@@ -59,7 +60,7 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
 export async function fetchLectureProgress(userId: string, lectureId: string): Promise<StudentProgress | null> {
   const { data } = await supabase
     .from('student_progress')
-    .select('lecture_id, completed_slides, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at')
+    .select('lecture_id, completed_slides, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
     .eq('user_id', userId)
     .eq('lecture_id', lectureId)
     .single();

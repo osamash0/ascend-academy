@@ -1,5 +1,5 @@
 -- ============================================================
--- Ascend Academy — Analytics Mock Data
+-- Learnstation — Analytics Mock Data
 -- Run this in: Supabase Dashboard → SQL Editor
 -- Professor UUID: 3234c12b-db9f-4a9e-b25e-adde080ebdd6
 -- ============================================================

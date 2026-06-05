@@ -130,6 +130,12 @@ export async function mockSupabase(
   page: Page,
   opts: MockSupabaseOptions,
 ): Promise<void> {
+  page.on("console", (msg) => console.log(`[BROWSER CONSOLE] ${msg.type()}: ${msg.text()}`));
+  page.on("pageerror", (err) => console.error(`[BROWSER ERROR] ${err.message}`));
+  page.on("request", (req) => console.log(`[BROWSER REQ] ${req.method()} ${req.url()}`));
+  page.on("requestfailed", (req) => console.log(`[BROWSER REQ FAIL] ${req.method()} ${req.url()} - ${req.failure()?.errorText}`));
+  page.on("response", (res) => console.log(`[BROWSER RES] ${res.status()} ${res.url()}`));
+
   const { user, tables = {}, singletons = {}, streakValue = 1, onUnmocked } = opts;
   const session = buildSession(user);
   const profile = buildProfile(user);
@@ -326,17 +332,7 @@ export async function mockSupabase(
   await page.route(/\/auth\/v1\/signup(\?|$)/, async (route) => {
     if (route.request().method() === "OPTIONS")
       return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
-    // gotrue's /signup endpoint returns the user object directly with the
-    // session fields merged on (NOT a wrapper object) — Supabase JS's
-    // `signUp()` then surfaces it as `{ data: { user, session } }`.
-    return json(route, {
-      ...session.user,
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-      token_type: session.token_type,
-      expires_in: session.expires_in,
-      expires_at: session.expires_at,
-    });
+    return json(route, session);
   });
   await page.route(/\/auth\/v1\/token(\?|$)/, async (route) => {
     if (route.request().method() === "OPTIONS")

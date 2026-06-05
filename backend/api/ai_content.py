@@ -217,11 +217,20 @@ async def generate_quiz_endpoint(body: SlideTextRequest, user: Any = Depends(ver
             quiz = quiz[0]
         if not isinstance(quiz, dict):
             raise ValueError("Quiz generation returned unexpected format")
+        # Guard: parse_json_response returns {} on total failure; also catches
+        # any other case where required fields are absent.
+        if not quiz.get("question") or not isinstance(quiz.get("options"), list):
+            raise ValueError("AI returned an empty or incomplete quiz response.")
         # Normalize letter-format "answer": "A"|"B"|"C"|"D" → correctAnswer: int
         if "answer" in quiz and "correctAnswer" not in quiz:
             ans = quiz.get("answer", "")
             if isinstance(ans, str) and len(ans) == 1 and ans.upper().isalpha():
                 quiz["correctAnswer"] = ord(ans.upper()) - ord("A")
+        # Clamp cognitive_level: LLMs occasionally return values outside the
+        # allowed enum ("comprehension", "understand", …) which would cause a
+        # Pydantic ValidationError and surface as a confusing 502.
+        if quiz.get("cognitive_level") not in ("recall", "apply", "analyse", None):
+            quiz["cognitive_level"] = "apply"
         return QuizResponse(**quiz)
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="AI quiz timed out. Please retry.")
@@ -597,3 +606,260 @@ async def regenerate_slide_content(
 
     analytics_cache.invalidate_course_overview_for_lecture(res.data.get("lecture_id"))
     return {"success": True, "analysis": analysis}
+
+
+# --- Lecture description auto-generation ---
+
+class LectureDescriptionRequest(BaseModel):
+    lecture_title: str = Field(..., min_length=1)
+    course_name: Optional[str] = None
+    slide_summaries: List[str] = Field(default_factory=list)
+    ai_model: Optional[str] = None
+
+
+class LectureDescriptionResponse(BaseModel):
+    description: str
+
+
+_DESCRIPTION_MAX_CHARS = 4000
+
+
+@router.post("/lecture-description", response_model=LectureDescriptionResponse)
+@limiter.limit("30/minute")
+async def lecture_description_endpoint(
+    request: Request,
+    body: LectureDescriptionRequest,
+    user: Any = Depends(verify_token),
+):
+    """Generate a short AI description from slide summaries and optional course context."""
+    summaries = [s.strip() for s in body.slide_summaries if s.strip()]
+    if not summaries:
+        raise HTTPException(status_code=400, detail="No slide summaries provided.")
+
+    course_line = f"\n[COURSE]\n{body.course_name}" if body.course_name else ""
+    summaries_text = "\n".join(summaries)[:_DESCRIPTION_MAX_CHARS]
+
+    from backend.services.ai.orchestrator import generate_text
+    from backend.services.ai.prompts import LECTURE_DESCRIPTION_PROMPT
+
+    prompt = LECTURE_DESCRIPTION_PROMPT.format(
+        title=body.lecture_title,
+        course_line=course_line,
+        summaries=summaries_text,
+    )
+    try:
+        raw = await generate_text(prompt, ai_model=body.ai_model or "cerebras")
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Description generation timed out.")
+    except Exception as e:
+        logger.error("Description generation failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="AI service unavailable.")
+
+    description = (raw or "").strip().strip('"') if raw else ""
+    if not description:
+        raise HTTPException(status_code=502, detail="Empty description returned.")
+
+    return LectureDescriptionResponse(description=description)
+
+
+# --- Course description auto-generation (summarizes a course from its lectures) ---
+
+class CourseDescriptionRequest(BaseModel):
+    course_id: str = Field(..., min_length=1)
+    ai_model: Optional[str] = None
+
+
+class CourseDescriptionResponse(BaseModel):
+    description: str
+
+
+# Per lecture, how many slide summaries to fold into the course outline.
+_COURSE_SLIDES_PER_LECTURE = 4
+
+
+@router.post("/course-description", response_model=CourseDescriptionResponse)
+@limiter.limit("30/minute")
+async def course_description_endpoint(
+    request: Request,
+    body: CourseDescriptionRequest,
+    user: Any = Depends(verify_token),
+    creds: HTTPAuthorizationCredentials = Depends(_security),
+):
+    """Generate a course-level description from the titles and slide summaries of
+    the course's lectures.
+
+    Reads through the caller's RLS-scoped client, so a professor can only
+    generate a description for a course (and lectures) they can actually see.
+    """
+    client = create_client(SUPABASE_URL, ANON_KEY)
+    client.postgrest.auth(creds.credentials)
+
+    course_res = (
+        client.table("courses")
+        .select("title")
+        .eq("id", body.course_id)
+        .limit(1)
+        .execute()
+    )
+    course_rows = course_res.data or []
+    if not course_rows:
+        raise HTTPException(status_code=404, detail="Course not found.")
+    course_title = course_rows[0].get("title") or "Course"
+
+    lec_res = (
+        client.table("lectures")
+        .select("id, title, created_at")
+        .eq("course_id", body.course_id)
+        .eq("is_archived", False)
+        .order("created_at", desc=False)
+        .execute()
+    )
+    lectures = lec_res.data or []
+    if not lectures:
+        raise HTTPException(status_code=400, detail="Course has no lectures yet.")
+
+    lecture_ids = [l["id"] for l in lectures]
+    slides_res = (
+        client.table("slides")
+        .select("lecture_id, summary, content_text, title, slide_number")
+        .in_("lecture_id", lecture_ids)
+        .order("slide_number", desc=False)
+        .execute()
+    )
+    slides = slides_res.data or []
+
+    # Group a few slide summaries per lecture so the outline stays compact but
+    # representative of each lecture's content.
+    summaries_by_lecture: Dict[str, List[str]] = {}
+    for s in slides:
+        lid = s.get("lecture_id")
+        if lid is None:
+            continue
+        bucket = summaries_by_lecture.setdefault(lid, [])
+        if len(bucket) >= _COURSE_SLIDES_PER_LECTURE:
+            continue
+        chunk = (s.get("summary") or s.get("content_text") or s.get("title") or "").strip()
+        if chunk:
+            bucket.append(chunk)
+
+    outline_lines: List[str] = []
+    for l in lectures:
+        outline_lines.append(f"- {l.get('title') or 'Untitled lecture'}")
+        for chunk in summaries_by_lecture.get(l["id"], []):
+            outline_lines.append(f"    • {chunk}")
+    outline = "\n".join(outline_lines)[:_DESCRIPTION_MAX_CHARS]
+    if not outline.strip():
+        raise HTTPException(status_code=400, detail="Course content is empty.")
+
+    from backend.services.ai.orchestrator import generate_text
+    from backend.services.ai.prompts import COURSE_DESCRIPTION_PROMPT
+
+    prompt = COURSE_DESCRIPTION_PROMPT.format(title=course_title, outline=outline)
+    try:
+        raw = await generate_text(prompt, ai_model=body.ai_model or "cerebras")
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Description generation timed out.")
+    except Exception as e:
+        logger.error("Course description generation failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="AI service unavailable.")
+
+    description = (raw or "").strip().strip('"') if raw else ""
+    if not description:
+        raise HTTPException(status_code=502, detail="Empty description returned.")
+
+    return CourseDescriptionResponse(description=description)
+
+
+# --- Experimental: AI lecture tagline (PS5-style library subtitle) ---
+
+class LectureTaglineRequest(BaseModel):
+    lecture_id: str = Field(..., min_length=1)
+    ai_model: Optional[str] = None
+
+
+class LectureTaglineResponse(BaseModel):
+    tagline: str
+    cached: bool
+
+
+# In-process cache so repeated focus changes in the carousel are free.
+# Keyed by (lecture_id, slide_count) so it self-invalidates if slides change.
+_TAGLINE_CACHE: Dict[str, str] = {}
+_TAGLINE_MAX_CHARS = 6000  # cap context fed to the model
+
+
+@router.post("/lecture-tagline", response_model=LectureTaglineResponse)
+@limiter.limit("30/minute")
+async def lecture_tagline_endpoint(
+    request: Request,
+    body: LectureTaglineRequest,
+    user: Any = Depends(verify_token),
+    creds: HTTPAuthorizationCredentials = Depends(_security),
+):
+    """Generate a short, motivating tagline from a lecture's full content.
+
+    Reads slides through the caller's RLS-scoped client (so a student only
+    gets a tagline for a lecture they can actually see), then asks the LLM
+    for a one-line subtitle. Cached per (lecture, slide-count) in-process.
+    """
+    # RLS-scoped read: a student must be able to see the lecture's slides.
+    client = create_client(SUPABASE_URL, ANON_KEY)
+    client.postgrest.auth(creds.credentials)
+
+    lec_res = (
+        client.table("lectures")
+        .select("title")
+        .eq("id", body.lecture_id)
+        .limit(1)
+        .execute()
+    )
+    lec_rows = lec_res.data or []
+    if not lec_rows:
+        raise HTTPException(status_code=404, detail="Lecture not found.")
+    title = lec_rows[0].get("title") or "Lecture"
+
+    slides_res = (
+        client.table("slides")
+        .select("title, summary, content_text, slide_number")
+        .eq("lecture_id", body.lecture_id)
+        .order("slide_number", desc=False)
+        .execute()
+    )
+    slides = slides_res.data or []
+    if not slides:
+        raise HTTPException(status_code=400, detail="Lecture has no slides yet.")
+
+    cache_key = f"{body.lecture_id}:{len(slides)}"
+    cached = _TAGLINE_CACHE.get(cache_key)
+    if cached:
+        return LectureTaglineResponse(tagline=cached, cached=True)
+
+    # Build a compact context from the richest text each slide offers.
+    parts: List[str] = []
+    for s in slides:
+        chunk = (s.get("summary") or s.get("content_text") or s.get("title") or "").strip()
+        if chunk:
+            parts.append(chunk)
+    content = "\n".join(parts)[:_TAGLINE_MAX_CHARS]
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="Lecture content is empty.")
+
+    from backend.services.ai.orchestrator import generate_text
+    from backend.services.ai.prompts import LECTURE_TAGLINE_PROMPT
+
+    prompt = LECTURE_TAGLINE_PROMPT.format(title=title, content=content)
+    try:
+        raw = await generate_text(prompt, ai_model=body.ai_model or "cerebras")
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Tagline generation timed out.")
+    except Exception as e:
+        logger.error("Tagline generation failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="AI service unavailable.")
+
+    # Tidy the model output into a single clean line.
+    tagline = (raw or "").strip().strip('"').splitlines()[0].strip() if raw else ""
+    if not tagline:
+        raise HTTPException(status_code=502, detail="Empty tagline returned.")
+
+    _TAGLINE_CACHE[cache_key] = tagline
+    return LectureTaglineResponse(tagline=tagline, cached=False)

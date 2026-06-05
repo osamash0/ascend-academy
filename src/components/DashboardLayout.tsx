@@ -9,6 +9,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
+import { ProfileChip } from '@/components/console';
 import { useAuth } from '@/lib/auth';
 
 interface DashboardLayoutProps {
@@ -27,16 +28,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const isDark = resolvedTheme === 'dark';
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full bg-background selection:bg-primary/20">
         <AppSidebar />
         <main className="flex-1 overflow-x-hidden relative">
-          <header className="sticky top-0 z-40 w-full glass-panel border-b-0 px-6 py-3 flex items-center justify-between">
+          <header className="sticky top-0 z-40 w-full glass-panel border-b-0 px-6 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <SidebarTrigger 
+              <SidebarTrigger
                 className="text-muted-foreground hover:text-primary transition-colors"
                 aria-label={t('common:shell.toggleSidebar')}
               />
+              {role === 'student' && <ProfileChip className="hidden sm:flex" />}
             </div>
             <div className="flex items-center gap-3">
               {role === 'student' && <PomodoroTimer />}

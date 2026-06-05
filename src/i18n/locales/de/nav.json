@@ -9,6 +9,7 @@
   "professor": {
     "dashboard": "Dashboard",
     "courses": "Kurse",
+    "archive": "Archiv",
     "analytics": "Analytik",
     "upload": "Vorlesung hochladen",
     "settings": "Einstellungen"
@@ -21,6 +22,6 @@
     "protocolProgress": "Protokoll-Fortschritt",
     "signOut": "Abmelden",
     "version": "v2.0 Orbital",
-    "brand": "Ascend"
+    "brand": "Learnstation"
   }
 }
