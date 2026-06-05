@@ -227,7 +227,24 @@ async def browse_courses(
             .data
             or []
         )
-        return [_serialize(r, 0) for r in rows]
+        # Batch-load lecture counts
+        counts: dict[str, int] = {r["id"]: 0 for r in rows}
+        if rows:
+            ids = [r["id"] for r in rows]
+            lecs = (
+                supabase_admin.table("lectures")
+                .select("id, course_id, is_archived")
+                .in_("course_id", ids)
+                .execute()
+                .data
+                or []
+            )
+            for l in lecs:
+                cid = l.get("course_id")
+                if cid in counts and l.get("is_archived") is False:
+                    counts[cid] = counts[cid] + 1
+
+        return [_serialize(r, counts.get(r["id"], 0)) for r in rows]
 
     try:
         data = await run_in_threadpool(_load)

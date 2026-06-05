@@ -10,7 +10,7 @@
  *   buildRows()    → the Netflix browse rails (Continue + one per course)
  */
 import { splitLectureTitle } from '@/lib/utils';
-import type { Lecture, StudentProgress, Achievement, Profile } from '@/types/domain';
+import type { Lecture, StudentProgress, Achievement, Profile, CourseVisit } from '@/types/domain';
 
 // ─── Shared derived shapes ────────────────────────────────────────────────────
 
@@ -44,14 +44,23 @@ export function indexProgress(progress: StudentProgress[]): ProgressIndex {
 
 export function toLectureView(lecture: Lecture, progress?: StudentProgress): LectureView {
   const { badge, cleanTitle } = splitLectureTitle(lecture.title);
-  const completedSlides = progress?.completed_slides?.length ?? 0;
   const totalSlides = lecture.total_slides ?? 0;
-  const pct = totalSlides > 0 ? Math.round((completedSlides / totalSlides) * 100) : 0;
-  const status: LectureStatus = pct >= 100 ? 'done' : completedSlides > 0 ? 'progress' : 'new';
+
+  // Prefer the granular slide_states map (accurate: counts only 'visited').
+  // Fall back to the legacy completed_slides array for rows without the new column.
+  let visitedCount: number;
+  if (progress?.slide_states && Object.keys(progress.slide_states).length > 0) {
+    visitedCount = Object.values(progress.slide_states).filter((s) => s === 'visited').length;
+  } else {
+    visitedCount = progress?.completed_slides?.length ?? 0;
+  }
+
+  const pct = totalSlides > 0 ? Math.round((visitedCount / totalSlides) * 100) : 0;
+  const status: LectureStatus = pct >= 100 ? 'done' : visitedCount > 0 ? 'progress' : 'new';
   const answered = progress?.total_questions_answered ?? 0;
   const accuracy = answered > 0 ? Math.round(((progress?.correct_answers ?? 0) / answered) * 100) : 0;
   const order = badge != null ? parseFloat(badge) : Number.POSITIVE_INFINITY;
-  return { lecture, progress, status, pct, completedSlides, totalSlides, accuracy, badge, cleanTitle, order };
+  return { lecture, progress, status, pct, completedSlides: visitedCount, totalSlides, accuracy, badge, cleanTitle, order };
 }
 
 function buildViews(lectures: Lecture[], byId: ProgressIndex): LectureView[] {
@@ -299,11 +308,21 @@ export interface Row {
 /**
  * Build the browse rails:
  *   - "Continue Learning": in-progress lectures, most recently active first.
- *   - One row per course (sequence-ordered), most-active course first,
- *     uncategorized ("Other") last.
+ *   - One row per course, ordered by LIFS (Last In, First Shown):
+ *       1. Most recently visited course (via courseVisits) floats to position 1.
+ *       2. Tiebreaker: most completed lectures.
+ *   - Uncategorised ("Other") always last.
  * Empty rows are omitted.
+ *
+ * @param courseVisits Pass the course_visits rows from the dashboard fetch.
+ *                     When empty (new student or table not deployed), falls
+ *                     back to the legacy completion-count ordering.
  */
-export function buildRows(lectures: Lecture[], byId: ProgressIndex): Row[] {
+export function buildRows(
+  lectures: Lecture[],
+  byId: ProgressIndex,
+  courseVisits: CourseVisit[] = [],
+): Row[] {
   const views = buildViews(lectures, byId);
   const rows: Row[] = [];
 
@@ -312,6 +331,13 @@ export function buildRows(lectures: Lecture[], byId: ProgressIndex): Row[] {
     .sort((a, b) => recencyOf(b.progress) - recencyOf(a.progress));
   if (continueItems.length > 0) {
     rows.push({ id: 'continue', eyebrow: 'Resume', title: 'Continue Learning', items: continueItems });
+  }
+
+  // Build a course-id → last_visited_at lookup (ms since epoch, 0 if never).
+  const visitRecency = new Map<string, number>();
+  for (const cv of courseVisits) {
+    const ms = Date.parse(cv.last_visited_at);
+    visitRecency.set(cv.course_id, Number.isNaN(ms) ? 0 : ms);
   }
 
   // Group remaining browse content per course.
@@ -333,6 +359,10 @@ export function buildRows(lectures: Lecture[], byId: ProgressIndex): Row[] {
   const orderedIds = [...courseGroups.keys()]
     .filter((id) => id !== UNCATEGORIZED)
     .sort((a, b) => {
+      // Primary: most recently visited (LIFS / MRF) — 0 when never visited.
+      const recencyDiff = (visitRecency.get(b) ?? 0) - (visitRecency.get(a) ?? 0);
+      if (recencyDiff !== 0) return recencyDiff;
+      // Secondary: most completed lectures (original tiebreaker).
       return completedByCourse(b) - completedByCourse(a);
     });
 
@@ -347,4 +377,112 @@ export function buildRows(lectures: Lecture[], byId: ProgressIndex): Row[] {
   }
 
   return rows;
+}
+
+// ─── 4. Recently Viewed — deduplicated mixed list ───────────────────────────
+
+export interface RecentItem {
+  kind: 'lecture' | 'course';
+  /** For lectures: the lecture view. For courses: undefined. */
+  lectureView?: LectureView;
+  /** For courses: the course entry. For lectures: undefined. */
+  courseEntry?: { courseId: string; title: string; color?: string | null; totalLectures: number; completedLectures: number };
+  /** ISO timestamp of the last interaction (drives MRF ordering). */
+  lastTouchedAt: string;
+}
+
+/**
+ * Build the "Recently Viewed" mixed list.
+ *
+ * Rules (no-redundancy contract):
+ *   - Exclude the hero lecture (already shown above the fold).
+ *   - Exclude lectures already shown in the "Continue Learning" rail.
+ *   - Include up to 3 recently-touched lectures that do NOT appear in Continue.
+ *   - Include up to 3 recently-visited courses (deduplicated vs lecture entries).
+ *   - The final list is ordered MRF (most recent first), capped at 5 items.
+ *
+ * @param herLectureId  The lecture id currently shown in the hero (exclude it).
+ * @param continueIds   The lecture ids shown in the "Continue Learning" rail.
+ * @param courseVisits  Course-level recency rows from the dashboard fetch.
+ * @param courseGroups  Map of courseId → {title, color, total, completed}.
+ */
+export function buildRecentlyViewed(
+  lectures: Lecture[],
+  byId: ProgressIndex,
+  courseVisits: CourseVisit[],
+  heroLectureId: string | null,
+  continueIds: Set<string>,
+): RecentItem[] {
+  const items: RecentItem[] = [];
+
+  // ── Recently touched lectures (from StudentProgress.updated_at) ──────────
+  const lectureItems = buildViews(lectures, byId)
+    .filter((v) => {
+      if (!v.progress?.updated_at) return false;          // never opened
+      if (v.lecture.id === heroLectureId) return false;   // hero — skip
+      if (continueIds.has(v.lecture.id)) return false;    // in Continue rail
+      return true;
+    })
+    .sort((a, b) => recencyOf(b.progress) - recencyOf(a.progress))
+    .slice(0, 3);
+
+  for (const v of lectureItems) {
+    items.push({
+      kind: 'lecture',
+      lectureView: v,
+      lastTouchedAt: v.progress?.updated_at ?? v.progress?.completed_at ?? '',
+    });
+  }
+
+  // ── Recently visited courses ─────────────────────────────────────────────
+  // Build course summary from lectures.
+  const courseMap = new Map<string, { title: string; color?: string | null; total: number; completed: number }>();
+  for (const l of lectures) {
+    if (!l.course_id || !l.course) continue;
+    let entry = courseMap.get(l.course_id);
+    if (!entry) {
+      entry = { title: l.course.title, color: l.course.color, total: 0, completed: 0 };
+      courseMap.set(l.course_id, entry);
+    }
+    entry.total += 1;
+    const v = byId.get(l.id);
+    // Course-level %: use slide_states visited count where available.
+    const visitedInLecture =
+      v?.slide_states && Object.keys(v.slide_states).length > 0
+        ? Object.values(v.slide_states).filter((s) => s === 'visited').length
+        : v?.completed_slides?.length ?? 0;
+    const pct = visitedInLecture && l.total_slides
+      ? Math.round((visitedInLecture / l.total_slides) * 100) : 0;
+    if (pct >= 100) entry.completed += 1;
+  }
+
+  // The lecture items already represent their courses in many cases;
+  // add course-level rows only for courses NOT already represented by a lecture.
+  const lectureCoursesRepresented = new Set(
+    lectureItems.map((v) => v.lecture.course_id).filter(Boolean) as string[],
+  );
+
+  const courseItems = courseVisits
+    .filter((cv) => courseMap.has(cv.course_id) && !lectureCoursesRepresented.has(cv.course_id))
+    .slice(0, 3);
+
+  for (const cv of courseItems) {
+    const c = courseMap.get(cv.course_id)!;
+    items.push({
+      kind: 'course',
+      courseEntry: {
+        courseId: cv.course_id,
+        title: c.title,
+        color: c.color,
+        totalLectures: c.total,
+        completedLectures: c.completed,
+      },
+      lastTouchedAt: cv.last_visited_at,
+    });
+  }
+
+  // Final MRF sort, capped at 5 items.
+  return items
+    .sort((a, b) => Date.parse(b.lastTouchedAt) - Date.parse(a.lastTouchedAt))
+    .slice(0, 5);
 }

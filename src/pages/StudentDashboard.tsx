@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,13 +24,17 @@ import { BentoGrid } from '@/features/student/components/BentoGrid';
 import { BrowseRow } from '@/features/student/components/BrowseRow';
 import { OnboardPanel } from '@/features/student/components/OnboardPanel';
 import { ReviewCelebration } from '@/features/student/components/ReviewCelebration';
+import { RecentlyViewed } from '@/features/student/components/RecentlyViewed';
 import {
   indexProgress,
   toLectureView,
   selectHero,
   buildWidgets,
   buildRows,
+  buildRecentlyViewed,
 } from '@/features/student/homeFeed';
+import { recordCourseVisit, recordLectureVisit, recordDailyActivity } from '@/services/studentService';
+import { SharedRoutes, StudentRoutes } from '@/lib/routes';
 
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
@@ -52,6 +56,7 @@ export default function StudentDashboard() {
   }, [dashboardData]);
   const progressList = useMemo(() => dashboardData?.progress ?? [], [dashboardData]);
   const achievements = useMemo(() => dashboardData?.achievements ?? [], [dashboardData]);
+  const courseVisits = useMemo(() => dashboardData?.courseVisits ?? [], [dashboardData]);
 
   const byId = useMemo(() => indexProgress(progressList), [progressList]);
 
@@ -61,7 +66,20 @@ export default function StudentDashboard() {
     () => buildWidgets(lectures, byId, achievements, profile),
     [lectures, byId, achievements, profile],
   );
-  const rows = useMemo(() => buildRows(lectures, byId), [lectures, byId]);
+  // Pass courseVisits so buildRows can apply LIFS ordering.
+  const rows = useMemo(() => buildRows(lectures, byId, courseVisits), [lectures, byId, courseVisits]);
+
+  // IDs already shown in the Continue Learning rail — used by buildRecentlyViewed.
+  const continueIds = useMemo(() => {
+    const rail = rows.find((r) => r.id === 'continue');
+    return new Set((rail?.items ?? []).map((v) => v.lecture.id));
+  }, [rows]);
+
+  // Recently Viewed: deduplicated mix of lectures + courses, MRF ordered.
+  const recentItems = useMemo(
+    () => buildRecentlyViewed(lectures, byId, courseVisits, hero?.view.lecture.id ?? null, continueIds),
+    [lectures, byId, courseVisits, hero, continueIds],
+  );
 
   // The hero kind drives how much of the dashboard we surface: brand-new
   // students (`onboard`) get a focused "start here", all-done students
@@ -98,6 +116,23 @@ export default function StudentDashboard() {
     [rows],
   );
 
+  /**
+   * Navigate to a lecture, firing recency-tracking writes as a side-effect.
+   * Fire-and-forget: we intentionally don't await to keep navigation instant.
+   */
+  const openLecture = useCallback(
+    (lectureId: string) => {
+      const lecture = lectures.find((l) => l.id === lectureId);
+      if (user?.id && lecture?.course_id) {
+        // Non-blocking side effects — don't slow down navigation.
+        recordLectureVisit(user.id, lectureId, lecture.course_id).catch(() => {});
+        recordCourseVisit(user.id, lecture.course_id).catch(() => {});
+      }
+      navigate(SharedRoutes.LECTURE(lectureId));
+    },
+    [lectures, user?.id, navigate],
+  );
+
   useEffect(() => {
     const streak = profile?.current_streak || 0;
     if (streak > 2) {
@@ -106,6 +141,13 @@ export default function StudentDashboard() {
       return () => clearTimeout(timer);
     }
   }, [profile?.current_streak]);
+
+  // Record daily activity when the dashboard loads
+  useEffect(() => {
+    if (user?.id) {
+      recordDailyActivity().catch(() => {});
+    }
+  }, [user?.id]);
 
   // Let the screen transition (~exit 0.18s + entrance spring) finish before
   // mounting the expensive below-the-fold section.
@@ -152,7 +194,7 @@ export default function StudentDashboard() {
   // Resume to the last viewed slide when continuing the focused lecture.
   const launchFocused = () => {
     if (!focusedLec) return;
-    navigate(`/lecture/${focusedLec.id}`);
+    openLecture(focusedLec.id);
   };
 
   return (
@@ -175,7 +217,7 @@ export default function StudentDashboard() {
               >
                 <Flame className="w-4 h-4 text-warning" />
                 <span className="text-sm font-bold text-warning">
-                  {t('dashboard:streakBanner', { count: streak })}
+                  {t('dashboard:streakBanner', { count: streak, defaultValue: `${streak} Day Streak!` })}
                 </span>
                 <button onClick={() => setShowStreakBanner(false)} className="text-warning/60 hover:text-warning">
                   <X className="w-3.5 h-3.5" />
@@ -205,7 +247,7 @@ export default function StudentDashboard() {
                   items={railItems}
                   focused={focused}
                   onFocus={setFocused}
-                  onActivate={(l) => navigate(`/lecture/${l.id}`)}
+                  onActivate={(l) => openLecture(l.id)}
                   getKey={(l) => l.id}
                   getAriaLabel={(l) => splitLectureTitle(l.title).cleanTitle}
                   enableKeyboard
@@ -269,8 +311,18 @@ export default function StudentDashboard() {
           {/* PS5-style bento grid */}
           <BentoGrid
             widgets={widgets}
-            onOpenLecture={(id) => navigate(`/lecture/${id}`)}
-            onViewTrophies={() => navigate('/achievements')}
+            onOpenLecture={(id) => openLecture(id)}
+            onViewTrophies={() => navigate(StudentRoutes.ACHIEVEMENTS)}
+          />
+
+          {/* Recently Viewed: lectures + courses, MRF ordered, deduplicated */}
+          <RecentlyViewed
+            items={recentItems}
+            onOpenLecture={(id, lastSlide) => {
+              // lastSlide is informational — the lecture page handles resuming
+              openLecture(id);
+            }}
+            onOpenCourse={(courseId) => navigate(`/student/courses/${courseId}`)}
           />
 
           {/* Quick check */}
@@ -291,9 +343,9 @@ export default function StudentDashboard() {
 
           {user?.id && <AssignmentsPanel userId={user.id} />}
 
-          {/* Netflix browse rows: Continue + one per course */}
+          {/* Netflix browse rows: Continue + one per course (LIFS ordered) */}
           {rows.map((row) => (
-            <BrowseRow key={row.id} row={row} onOpen={(id) => navigate(`/lecture/${id}`)} />
+            <BrowseRow key={row.id} row={row} onOpen={(id) => openLecture(id)} />
           ))}
 
           {/* Learning Insights teaser */}
@@ -304,7 +356,7 @@ export default function StudentDashboard() {
               title={t('dashboard:stats.learningInsights')}
             />
             <div
-              onClick={() => navigate('/insights')}
+              onClick={() => navigate(StudentRoutes.INSIGHTS)}
               className="depth-card p-6 relative overflow-hidden group cursor-pointer"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />

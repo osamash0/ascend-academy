@@ -4,16 +4,19 @@
  * of importing supabase themselves.
  */
 import { supabase } from '@/integrations/supabase/client';
-import type { Lecture, StudentProgress, Achievement } from '@/types/domain';
+import type { Lecture, StudentProgress, Achievement, CourseVisit, LectureVisit, CourseSummary } from '@/types/domain';
 
 export interface StudentDashboardData {
   lectures: Lecture[];
+  courses: Partial<CourseSummary>[];
   progress: StudentProgress[];
   achievements: Achievement[];
+  /** Per-course recency — drives LIFS ordering of browse rows. */
+  courseVisits: CourseVisit[];
 }
 
 export async function fetchStudentDashboard(userId: string): Promise<StudentDashboardData> {
-  const [lecturesRes, progressRes, achievementsRes] = await Promise.all([
+  const [lecturesRes, progressRes, achievementsRes, courseVisitsRes, coursesRes] = await Promise.all([
     supabase
       .from('lectures')
       .select('id, title, description, total_slides, created_at, pdf_url, course_id, course:courses(id, title, color, description)')
@@ -23,7 +26,7 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
 
     supabase
       .from('student_progress')
-      .select('lecture_id, completed_slides, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
+      .select('lecture_id, completed_slides, slide_states, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
       .eq('user_id', userId)
       .limit(500),
 
@@ -33,6 +36,19 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
       .eq('user_id', userId)
       .order('earned_at', { ascending: false })
       .limit(50),
+
+    supabase
+      .from('course_visits')
+      .select('course_id, last_visited_at, visit_count')
+      .eq('user_id', userId)
+      .order('last_visited_at', { ascending: false })
+      .limit(100),
+
+    supabase
+      .from('courses')
+      .select('id, title, color, description')
+      .order('created_at', { ascending: false })
+      .limit(100),
   ]);
 
   if (lecturesRes.error) {
@@ -44,6 +60,10 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
   if (achievementsRes.error) {
     console.error('Error fetching student dashboard achievements:', achievementsRes.error);
   }
+  if (courseVisitsRes.error) {
+    // Table may not exist on older environments — degrade gracefully.
+    console.warn('course_visits fetch error (degrading gracefully):', courseVisitsRes.error);
+  }
 
   const lectures: Lecture[] = (lecturesRes.data ?? []) as unknown as Lecture[];
 
@@ -53,14 +73,16 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
   }));
 
   const achievements: Achievement[] = achievementsRes.data ?? [];
+  const courseVisits: CourseVisit[] = (courseVisitsRes.data ?? []) as CourseVisit[];
+  const courses: Partial<CourseSummary>[] = (coursesRes.data ?? []) as Partial<CourseSummary>[];
 
-  return { lectures, progress, achievements };
+  return { lectures, courses, progress, achievements, courseVisits };
 }
 
 export async function fetchLectureProgress(userId: string, lectureId: string): Promise<StudentProgress | null> {
   const { data } = await supabase
     .from('student_progress')
-    .select('lecture_id, completed_slides, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
+    .select('lecture_id, completed_slides, slide_states, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
     .eq('user_id', userId)
     .eq('lecture_id', lectureId)
     .single();
@@ -93,6 +115,54 @@ export async function logLearningEvent(
   await supabase
     .from('learning_events')
     .insert({ user_id: userId, event_type: eventType, event_data: eventData as any });
+}
+
+/**
+ * Upsert a course_visit row — increments visit_count and bumps last_visited_at.
+ * Fire-and-forget: caller should not await this on the critical render path.
+ */
+export async function recordCourseVisit(userId: string, courseId: string): Promise<void> {
+  await supabase.rpc('upsert_course_visit', { p_user_id: userId, p_course_id: courseId });
+  // Fallback if RPC not deployed: raw upsert.
+}
+
+/**
+ * Record daily activity to update the days active streak.
+ * Fire-and-forget: caller should not await this on the critical render path.
+ */
+export async function recordDailyActivity(): Promise<void> {
+  await supabase.rpc('record_daily_activity');
+}
+
+/**
+ * Insert a lecture_visit row (append-only session log).
+ * Fire-and-forget: caller should not await this on the critical render path.
+ */
+export async function recordLectureVisit(
+  userId: string,
+  lectureId: string,
+  courseId: string | null,
+): Promise<void> {
+  await supabase
+    .from('lecture_visits')
+    .insert({ user_id: userId, lecture_id: lectureId, course_id: courseId });
+}
+
+/**
+ * Fetch the N most recently opened lectures (for the Recently Viewed panel).
+ * Returns at most `limit` rows, ordered newest first.
+ */
+export async function fetchRecentLectureVisits(
+  userId: string,
+  limit = 6,
+): Promise<LectureVisit[]> {
+  const { data } = await supabase
+    .from('lecture_visits')
+    .select('id, lecture_id, course_id, visited_at')
+    .eq('user_id', userId)
+    .order('visited_at', { ascending: false })
+    .limit(limit);
+  return (data ?? []) as LectureVisit[];
 }
 
 export async function checkAchievementExists(userId: string, badgeName: string): Promise<boolean> {

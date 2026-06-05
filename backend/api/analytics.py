@@ -14,6 +14,11 @@ from backend.services.ai.ask_data import (
     ask_lecture_data,
     list_suggested_questions,
 )
+from backend.services.ai.ask_professor import (
+    ask_professor_data,
+    chat_professor_data,
+    list_suggested_questions as list_professor_suggested_questions,
+)
 import os as _os
 from backend.core.auth_middleware import verify_token, require_professor, security
 from backend.core.database import supabase
@@ -234,6 +239,20 @@ async def get_dashboard_data(lecture_id: str, user=Depends(verify_token), creds:
     except Exception as e:
         logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load comprehensive analytics.")
+
+
+@router.get("/lecture/{lecture_id}/insights", response_model=AnalyticsResponse)
+async def get_lecture_insights(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+    """Get the ranked insight feed for the Insight Garden."""
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+    try:
+        data = await run_in_threadpool(analytics_service.get_lecture_insights, lecture_id, creds.credentials)
+        return AnalyticsResponse(success=True, data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load insights. Please try again.")
 
 
 # ── New endpoints ────────────────────────────────────────────────────────────
@@ -547,6 +566,103 @@ async def ask_lecture_question(
         chart=result.get("chart"),
         debug=debug_payload,
         suggested_questions=list_suggested_questions(),
+    )
+    return AskResponse(success=True, data=payload)
+
+
+# ── Ask Your Data — professor-wide (all courses/lectures) ─────────────────────
+
+@router.get("/professor/ask/suggestions", response_model=AnalyticsResponse)
+async def get_professor_ask_suggestions(
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Suggested example questions for the professor-wide ask bar's empty state."""
+    return AnalyticsResponse(success=True, data={"questions": list_professor_suggested_questions()})
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ProfessorChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    ai_model: Optional[str] = "cerebras"
+
+
+@router.post("/professor/chat", response_model=AnalyticsResponse)
+@limiter.limit("30/minute", key_func=_ask_rate_limit_key)
+async def professor_chat(
+    body: ProfessorChatRequest,
+    request: Request,
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Conversational, data-grounded assistant over ALL the professor's courses/lectures.
+
+    The LLM is given the professor's real courses/lectures + key stats as context
+    and instructed to answer strictly from them.
+    """
+    msgs = [{"role": m.role, "content": m.content} for m in (body.messages or [])]
+    if not msgs:
+        raise HTTPException(status_code=400, detail="At least one message is required.")
+    last = msgs[-1].get("content", "")
+    if len(last) > PUBLIC_MAX_QUESTION_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Message is too long (max {PUBLIC_MAX_QUESTION_LENGTH} chars).")
+
+    reply = await chat_professor_data(
+        professor_id=user.id,
+        messages=msgs,
+        token=creds.credentials,
+        ai_model=body.ai_model or "cerebras",
+    )
+    return AnalyticsResponse(success=True, data={"reply": reply})
+
+
+@router.post("/professor/ask", response_model=AskResponse)
+@limiter.limit("20/minute", key_func=_ask_rate_limit_key)
+async def ask_professor_question(
+    body: AskRequest,
+    request: Request,
+    user=Depends(require_professor),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Natural-language analytics across ALL of the professor's lectures.
+
+    The LLM picks a fixed intent; we aggregate existing per-lecture analytics
+    server-side. No raw SQL, no free-form generation.
+    """
+    if not body.question or not body.question.strip():
+        raise HTTPException(status_code=400, detail="Question text is required.")
+    if len(body.question) > PUBLIC_MAX_QUESTION_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Question is too long (max {PUBLIC_MAX_QUESTION_LENGTH} chars).")
+
+    try:
+        result = await ask_professor_data(
+            professor_id=user.id,
+            question=body.question,
+            token=creds.credentials,
+            ai_model=body.ai_model or "cerebras",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Professor Ask pipeline failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Could not answer that question. Please retry.")
+
+    debug_payload: Dict[str, Any] = {}
+    _env = (_os.getenv("ENVIRONMENT") or _os.getenv("APP_ENV") or "").lower()
+    if _env in {"development", "dev", "local", "test"}:
+        debug_payload = result.get("debug", {}) or {}
+
+    payload = AskResponseData(
+        intent=result.get("intent", "unknown"),
+        answer_text=result.get("answer_text", ""),
+        table=result.get("table", []) or [],
+        chart=result.get("chart"),
+        debug=debug_payload,
+        suggested_questions=list_professor_suggested_questions(),
     )
     return AskResponse(success=True, data=payload)
 

@@ -153,6 +153,9 @@ export default function Onboarding() {
       // Force a tiny delay for smooth animation before redirecting
       setTimeout(() => {
         navigate('/dashboard');
+        // Force reload to clear React Query cache since we don't have queryClient here easily,
+        // or we can just window.location.href to guarantee a fresh state.
+        window.location.href = '/dashboard';
       }, 800);
       
     } catch (error: unknown) {

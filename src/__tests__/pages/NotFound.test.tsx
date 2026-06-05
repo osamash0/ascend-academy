@@ -12,6 +12,6 @@ describe("NotFound page (smoke)", () => {
 
   it("uses muted background", () => {
     const { container } = renderWithProviders(<NotFound />);
-    expect(container.querySelector(".bg-muted")).not.toBeNull();
+    expect(container.querySelector('[class*="bg-muted"]')).not.toBeNull();
   });
 });

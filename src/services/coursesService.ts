@@ -4,6 +4,8 @@
  */
 import { apiClient } from '@/lib/apiClient';
 import type { Lecture } from '@/types/domain';
+import { toSlug } from '@/lib/utils';
+
 
 export interface Course {
   id: string;
@@ -51,7 +53,26 @@ export async function listCourses(filters?: { onlyArchived?: boolean; includeArc
   return res.data;
 }
 
-export async function getCourse(id: string): Promise<CourseWithLectures> {
+export async function getCourse(idOrSlug: string): Promise<CourseWithLectures> {
+  let id = idOrSlug;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+  if (!isUuid) {
+    const courses = await listCourses({ includeArchived: true });
+    let match = courses.find(c => toSlug(c.title) === idOrSlug);
+    if (!match) {
+      try {
+        const browse = await browseCourses();
+        match = browse.find(c => toSlug(c.title) === idOrSlug);
+      } catch (e) {
+        // ignore error
+      }
+    }
+    if (match) {
+      id = match.id;
+    } else {
+      throw new Error(`Course not found for slug: ${idOrSlug}`);
+    }
+  }
   const res = await apiClient.get<Envelope<CourseWithLectures>>(`/api/courses/${id}`);
   return res.data;
 }

@@ -21,6 +21,7 @@ export interface Profile {
   current_level: number;
   current_streak: number;
   best_streak: number;
+  last_active_date?: string | null;
 }
 
 // ─── Lectures ────────────────────────────────────────────────────────────────
@@ -31,6 +32,9 @@ export interface CourseSummary {
   title: string;
   color?: string | null;
   description?: string | null;
+  what_you_will_learn?: string[];
+  average_rating?: number;
+  rating_count?: number;
 }
 
 /** Worksheet attached to a lecture (PDF / docx / etc). */
@@ -97,9 +101,27 @@ export interface QuizQuestion {
 
 // ─── Progress ────────────────────────────────────────────────────────────────
 
+/**
+ * Per-slide visit state stored as JSONB in `student_progress.slide_states`.
+ *
+ * - `visited`  — student explicitly navigated through this slide
+ * - `skipped`  — student jumped past it without viewing
+ * - `current`  — the slide they are on right now (at most one per row)
+ *
+ * Slides absent from the map are implicitly `unvisited`.
+ */
+export type SlideState = 'visited' | 'skipped' | 'current';
+
 export interface StudentProgress {
   lecture_id: string;
+  /** Legacy flat array kept for backward compat — prefer slide_states. */
   completed_slides: number[];
+  /**
+   * Granular per-slide state map.
+   * Key = slide_number as a string (JSON keys are always strings).
+   * Value = SlideState.  Absent key = unvisited.
+   */
+  slide_states?: Record<string, SlideState>;
   quiz_score: number;
   total_questions_answered: number;
   correct_answers: number;
@@ -108,6 +130,21 @@ export interface StudentProgress {
   completed_at?: string | null;
   /** Last time this progress row changed — used to rank "Continue" by recency. */
   updated_at?: string | null;
+}
+
+/** Per-(student, course) visit — used for LIFS / MRF course-row ordering. */
+export interface CourseVisit {
+  course_id: string;
+  last_visited_at: string; // ISO timestamp
+  visit_count: number;
+}
+
+/** Single lecture-open event — used for the "Recently Viewed" mixed list. */
+export interface LectureVisit {
+  id: string;
+  lecture_id: string;
+  course_id: string | null;
+  visited_at: string; // ISO timestamp
 }
 
 // ─── Gamification ────────────────────────────────────────────────────────────

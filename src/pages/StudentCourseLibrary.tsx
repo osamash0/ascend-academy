@@ -1,13 +1,15 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
 import { useLectureTagline } from '@/features/student/hooks/useLectureTagline';
 import { splitLectureTitle, cn } from '@/lib/utils';
 import { topicIcon } from '@/lib/topicIcon';
-import type { Lecture, StudentProgress } from '@/types/domain';
+import type { Lecture, StudentProgress, CourseSummary } from '@/types/domain';
+import { CourseDetailsSheet } from '@/features/student/components/CourseDetailsSheet';
+import { CourseCatalogSheet } from '@/features/student/components/CourseCatalogSheet';
 import {
   DepthScene,
   ConsoleTile,
@@ -44,6 +46,9 @@ interface DerivedCourse {
   id: string;
   title: string;
   description: string | null;
+  whatYouWillLearn: string[];
+  averageRating: number;
+  ratingCount: number;
   lecturesCount: number;
   completedLectures: number;
   progress: number;
@@ -68,6 +73,11 @@ export default function StudentCourseLibrary() {
   const { t } = useTranslation(['dashboard', 'common']);
   const { data, isLoading } = useStudentDashboard();
 
+  // Must be declared before the useMemo that uses it.
+  const [lastOpenedCourseId, setLastOpenedCourseId] = useState<string | null>(() =>
+    localStorage.getItem('ascend_last_opened_course')
+  );
+
   const lectures = useMemo(() => data?.lectures ?? [], [data]);
   const progressList = useMemo<StudentProgress[]>(() => data?.progress ?? [], [data]);
 
@@ -77,6 +87,24 @@ export default function StudentCourseLibrary() {
     const lecMap = new Map<string, DerivedLecture[]>();
     const courseMeta = new Map<string, DerivedCourse>();
     const getProgress = (id: string) => progressList.find((p) => p.lecture_id === id);
+
+    // Pre-seed courseMeta with explicitly enrolled courses to handle empty courses
+    data?.courses?.forEach(c => {
+      if (!c.id) return;
+      courseMeta.set(c.id, {
+        id: c.id,
+        title: c.title || 'Unknown Course',
+        description: c.description ?? null,
+        whatYouWillLearn: (c as any).what_you_will_learn ?? ['Master the fundamentals of the subject', 'Apply concepts to practical scenarios', 'Develop problem-solving skills'],
+        averageRating: (c as any).average_rating ?? 4.8,
+        ratingCount: (c as any).rating_count ?? 124,
+        lecturesCount: 0,
+        completedLectures: 0,
+        progress: 0,
+        status: 'new',
+      });
+      lecMap.set(c.id, []);
+    });
 
     lectures.forEach((l) => {
       const cid = l.course_id || l.course?.id || '__uncat__';
@@ -88,6 +116,9 @@ export default function StudentCourseLibrary() {
               ? t('dashboard:uncategorized', 'Uncategorized')
               : l.course?.title || 'Unknown Course',
           description: l.course?.description ?? null,
+          whatYouWillLearn: (l.course as any)?.what_you_will_learn ?? ['Master the fundamentals of the subject', 'Apply concepts to practical scenarios', 'Develop problem-solving skills'],
+          averageRating: (l.course as any)?.average_rating ?? 4.8,
+          ratingCount: (l.course as any)?.rating_count ?? 124,
           lecturesCount: 0,
           completedLectures: 0,
           progress: 0,
@@ -125,10 +156,15 @@ export default function StudentCourseLibrary() {
         c.status = c.progress === 100 ? 'done' : c.progress > 0 ? 'progress' : 'new';
         return c;
       })
-      .sort((a, b) => b.progress - a.progress);
+      .sort((a, b) => {
+        if (a.id === b.id) return 0;
+        if (a.id === lastOpenedCourseId) return -1;
+        if (b.id === lastOpenedCourseId) return 1;
+        return b.progress - a.progress;
+      });
 
     return { courseList: list, lecturesByCourse: lecMap };
-  }, [lectures, progressList, t]);
+  }, [lectures, progressList, t, lastOpenedCourseId]);
 
   const [courseFocus, setCourseFocus] = useState(0);
   const [lectureFocus, setLectureFocus] = useState(0);
@@ -136,6 +172,11 @@ export default function StudentCourseLibrary() {
   // Hold the heavy lecture shelf back until the route transition settles, then
   // cascade it in — keeps the slide-from-home entrance smooth.
   const [shelfReady, setShelfReady] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+
+  // Set of already enrolled course IDs so the catalog can mark them.
+  const enrolledCourseIds = useMemo(() => new Set(courseList.map(c => c.id)), [courseList]);
 
   // Preselect the course from the URL (deep link from /course-v3/:courseId).
   useEffect(() => {
@@ -160,7 +201,13 @@ export default function StudentCourseLibrary() {
   const focusedLecture = activeRow === 'lectures' ? courseLectures[lectureFocus] : undefined;
   const { data: aiTagline, isLoading: taglineLoading } = useLectureTagline(focusedLecture?.lecture.id);
 
-  const open = useCallback((id: string) => navigate(`/lecture/${id}`), [navigate]);
+  const open = useCallback((id: string, cid?: string) => {
+    if (cid) {
+      localStorage.setItem('ascend_last_opened_course', cid);
+      setLastOpenedCourseId(cid);
+    }
+    navigate(`/lecture/${id}`);
+  }, [navigate]);
 
   // Reveal the lecture shelf just after the screen transition completes.
   useEffect(() => {
@@ -172,8 +219,12 @@ export default function StudentCourseLibrary() {
     if (courseLectures.length) {
       setActiveRow('lectures');
       setLectureFocus(0);
+      if (focusedCourse) {
+        localStorage.setItem('ascend_last_opened_course', focusedCourse.id);
+        setLastOpenedCourseId(focusedCourse.id);
+      }
     }
-  }, [courseLectures.length]);
+  }, [courseLectures.length, focusedCourse]);
 
   // Controller-style keyboard navigation.
   useEffect(() => {
@@ -204,7 +255,7 @@ export default function StudentCourseLibrary() {
         case 'Enter':
           e.preventDefault();
           if (activeRow === 'courses') dropIntoLectures();
-          else if (focusedLecture) open(focusedLecture.lecture.id);
+          else if (focusedLecture) open(focusedLecture.lecture.id, focusedCourse?.id);
           break;
       }
     };
@@ -240,7 +291,21 @@ export default function StudentCourseLibrary() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
         <BookOpen className="w-14 h-14 text-muted-foreground/40 mb-4" />
         <h3 className="text-2xl font-black">{t('dashboard:emptyLibrary', 'Empty Library')}</h3>
-        <p className="text-muted-foreground">{t('dashboard:emptyLibraryDesc', 'No content available here.')}</p>
+        <p className="text-muted-foreground mb-8">
+          You aren't enrolled in any courses yet.
+        </p>
+        <button
+          onClick={() => setIsCatalogOpen(true)}
+          className="console-focusable flex items-center justify-center h-14 px-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black tracking-wide shadow-glow-primary transition-all active:scale-95"
+        >
+          Browse Course Catalog
+        </button>
+
+        <CourseCatalogSheet
+          isOpen={isCatalogOpen}
+          onClose={() => setIsCatalogOpen(false)}
+          enrolledCourseIds={enrolledCourseIds}
+        />
       </div>
     );
   }
@@ -263,6 +328,16 @@ export default function StudentCourseLibrary() {
         />
       }
     >
+      {/* ── Persistent Top Navigation ── */}
+      <div className="absolute top-6 right-6 lg:right-12 z-50">
+        <button
+          onClick={() => setIsCatalogOpen(true)}
+          className="console-focusable flex items-center gap-2 h-10 px-4 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold uppercase tracking-wider transition-all"
+        >
+          Discover
+        </button>
+      </div>
+
       <section className="relative flex min-h-[calc(100svh-4rem)] flex-col text-foreground select-none">
         {/* ── Top rail: courses (the "apps") ── */}
         <div className="pt-5">
@@ -290,6 +365,8 @@ export default function StudentCourseLibrary() {
                     if (lx.length) {
                       setActiveRow('lectures');
                       setLectureFocus(0);
+                      localStorage.setItem('ascend_last_opened_course', c.id);
+                      setLastOpenedCourseId(c.id);
                     }
                   }}
                   className="console-focusable group flex shrink-0 flex-col items-center gap-2 outline-none"
@@ -313,7 +390,9 @@ export default function StudentCourseLibrary() {
                       })()}
                     </div>
                     {c.status === 'done' && (
-                      <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-400" />
+                      <div className="absolute top-2 right-2 bg-emerald-500/90 text-white p-0.5 rounded-full shadow-sm">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      </div>
                     )}
                     {c.progress > 0 && c.progress < 100 && (
                       <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10">
@@ -402,14 +481,23 @@ export default function StudentCourseLibrary() {
                         : 'Continue'
                     }
                     icon={Play}
-                    onClick={() => open(focusedLecture!.lecture.id)}
+                    onClick={() => open(focusedLecture!.lecture.id, focusedCourse?.id)}
                   />
                 ) : (
-                  <LaunchButton
-                    label="Browse Lectures"
-                    icon={ChevronDown}
-                    onClick={dropIntoLectures}
-                  />
+                  <>
+                    <LaunchButton
+                      label="Browse Lectures"
+                      icon={ChevronDown}
+                      onClick={dropIntoLectures}
+                    />
+                    <button
+                      onClick={() => setIsDetailsOpen(true)}
+                      className="console-focusable flex items-center gap-2 h-12 px-6 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-bold transition-all"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      View Details
+                    </button>
+                  </>
                 )}
                 {heroIsLecture && (
                   <button
@@ -460,7 +548,7 @@ export default function StudentCourseLibrary() {
                     data-active={active}
                     onClick={() => {
                       if (activeRow === 'lectures' && i === lectureFocus) {
-                        open(d.lecture.id);
+                        open(d.lecture.id, focusedCourse?.id);
                       } else {
                         setActiveRow('lectures');
                         setLectureFocus(i);
@@ -497,6 +585,27 @@ export default function StudentCourseLibrary() {
           )}
         </div>
       </section>
+
+      {focusedCourse && (
+        <CourseDetailsSheet
+          isOpen={isDetailsOpen}
+          onClose={() => setIsDetailsOpen(false)}
+          courseId={focusedCourse.id}
+          title={focusedCourse.title}
+          description={focusedCourse.description}
+          whatYouWillLearn={focusedCourse.whatYouWillLearn}
+          averageRating={focusedCourse.averageRating}
+          ratingCount={focusedCourse.ratingCount}
+          lectures={courseLectures}
+          onStartLecture={(lectureId) => open(lectureId, focusedCourse.id)}
+        />
+      )}
+
+      <CourseCatalogSheet
+        isOpen={isCatalogOpen}
+        onClose={() => setIsCatalogOpen(false)}
+        enrolledCourseIds={enrolledCourseIds}
+      />
     </DepthScene>
   );
 }

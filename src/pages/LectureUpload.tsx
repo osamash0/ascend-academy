@@ -776,58 +776,57 @@ export default function LectureUpload() {
               </select>
               <p className="text-[10px] text-muted-foreground mt-1">Select the engine used to extract text and layout from your PDF.</p>
             </div>
+            {/* Parsing-mode selector (Task #58) */}
+            <div
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border bg-card/60 p-4 mt-2"
+              data-testid="parsing-mode-selector"
+            >
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">PDF parsing mode</Label>
+                <p className="text-xs text-muted-foreground">
+                  {parsingMode === 'on_demand'
+                    ? 'Skip AI during import — extract text only. Use the editor to generate titles, content, and quizzes per slide.'
+                    : 'Default: full AI parsing (titles, summaries, and quizzes are generated automatically).'}
+                </p>
+              </div>
+              <div
+                role="radiogroup"
+                aria-label="PDF parsing mode"
+                className="inline-flex rounded-lg border border-border bg-background p-0.5 shrink-0"
+              >
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={parsingMode === 'ai'}
+                  onClick={() => setParsingMode('ai')}
+                  data-testid="parsing-mode-ai"
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                    parsingMode === 'ai'
+                      ? 'bg-violet-500 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  AI parsing
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={parsingMode === 'on_demand'}
+                  onClick={() => setParsingMode('on_demand')}
+                  data-testid="parsing-mode-on-demand"
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                    parsingMode === 'on_demand'
+                      ? 'bg-violet-500 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Skip AI
+                </button>
+              </div>
+            </div>
           </motion.div>
-        </div>
-
-        {/* Parsing-mode selector (Task #58) */}
-        <div
-          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border bg-card/60 p-4"
-          data-testid="parsing-mode-selector"
-        >
-          <div className="space-y-0.5">
-            <Label className="text-sm font-medium">PDF parsing mode</Label>
-            <p className="text-xs text-muted-foreground">
-              {parsingMode === 'on_demand'
-                ? 'Skip AI during import — extract text only. Use the editor to generate titles, content, and quizzes per slide.'
-                : 'Default: full AI parsing (titles, summaries, and quizzes are generated automatically).'}
-            </p>
-          </div>
-          <div
-            role="radiogroup"
-            aria-label="PDF parsing mode"
-            className="inline-flex rounded-lg border border-border bg-background p-0.5 shrink-0"
-          >
-            <button
-              type="button"
-              role="radio"
-              aria-checked={parsingMode === 'ai'}
-              onClick={() => setParsingMode('ai')}
-              data-testid="parsing-mode-ai"
-              className={cn(
-                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                parsingMode === 'ai'
-                  ? 'bg-violet-500 text-white shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              AI parsing
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={parsingMode === 'on_demand'}
-              onClick={() => setParsingMode('on_demand')}
-              data-testid="parsing-mode-on-demand"
-              className={cn(
-                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                parsingMode === 'on_demand'
-                  ? 'bg-violet-500 text-white shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Skip AI
-            </button>
-          </div>
         </div>
 
         {/* Empty State */}

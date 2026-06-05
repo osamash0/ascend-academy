@@ -160,4 +160,66 @@ export const defaultHandlers = [
       headers: { "Content-Type": "text/event-stream" },
     });
   }),
+
+  // ── Courses ───────────────────────────────────────────────────────────────
+  http.get(`${API}/api/courses`, () =>
+    HttpResponse.json({
+      success: true,
+      data: [],
+    }),
+  ),
+  http.get(`${API}/api/courses/browse`, () =>
+    HttpResponse.json({
+      success: true,
+      data: [],
+    }),
+  ),
+  http.post(`${API}/api/courses/:id/enroll`, () =>
+    HttpResponse.json({
+      success: true,
+      data: { enrolled: true },
+    }),
+  ),
+
+  // ── Assignments ───────────────────────────────────────────────────────────
+  http.get(`${API}/api/assignments`, () =>
+    HttpResponse.json({
+      success: true,
+      data: [],
+    }),
+  ),
+  http.get(`${API}/api/assignments/_meta/students`, () =>
+    HttpResponse.json({
+      success: true,
+      data: [],
+    }),
+  ),
+
+  // ── Worksheets & Practice Sheets ──────────────────────────────────────────
+  http.get(`${API}/api/lectures/:id/worksheets`, () =>
+    HttpResponse.json({
+      success: true,
+      data: [],
+    }),
+  ),
+  http.get(`${API}/api/lectures/:id/practice-sheets`, () =>
+    HttpResponse.json({
+      success: true,
+      data: [],
+    }),
+  ),
+
+  // ── Concepts ──────────────────────────────────────────────────────────────
+  http.get(`http://localhost:8000/api/concepts/lecture/:id`, () =>
+    HttpResponse.json({
+      success: true,
+      data: [],
+    }),
+  ),
+  http.get(`${API}/api/concepts/lecture/:id`, () =>
+    HttpResponse.json({
+      success: true,
+      data: [],
+    }),
+  ),
 ];

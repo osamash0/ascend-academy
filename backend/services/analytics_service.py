@@ -625,6 +625,29 @@ def _compute_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str,
     return result
 
 
+def get_lecture_insights(lecture_id: str, token: str = None, force_refresh: bool = False) -> Dict[str, Any]:
+    """Ranked insight feed powering the Insight Garden (cached)."""
+    return analytics_cache.get_or_compute(
+        lecture_id,
+        "insights",
+        lambda: _compute_lecture_insights(lecture_id, token),
+        force_refresh=force_refresh,
+    )
+
+
+def _compute_lecture_insights(lecture_id: str, token: str = None) -> Dict[str, Any]:
+    # Lazy import: the insights package imports this module, so importing it at
+    # module top would be circular.
+    from backend.services.insights import build_insights
+
+    insights = build_insights(lecture_id, token)
+    return {
+        "lectureId": lecture_id,
+        "computedAt": datetime.utcnow().isoformat() + "Z",
+        "insights": insights,
+    }
+
+
 async def get_dashboard_data(lecture_id: str, token: str = None, force_refresh: bool = False):
     """Get comprehensive advanced dashboard analytics in a single call using high-performance SQL."""
     return await analytics_cache.get_or_compute_async(

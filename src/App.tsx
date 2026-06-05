@@ -5,13 +5,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { DashboardLayout } from "@/components/DashboardLayout";
+
 import { ConsoleLayout } from "@/components/console";
 import { useLanguagePreference } from "@/hooks/useLanguagePreference";
 
 import { lazy, Suspense, Component, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
+
+import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes } from "@/lib/routes";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
   useLanguagePreference();
@@ -59,6 +61,7 @@ const LectureView = lazy(() => import("./pages/LectureView"));
 const Achievements = lazy(() => import("./pages/Achievements"));
 const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
 const ProfessorAnalytics = lazy(() => import("./pages/ProfessorAnalytics"));
+const AdvancedAnalytics = lazy(() => import("./pages/AdvancedAnalytics"));
 const LectureUpload = lazy(() => import("./pages/LectureUpload"));
 const FastUpload = lazy(() => import("./pages/FastUpload"));
 const LectureEdit = lazy(() => import("./pages/LectureEdit"));
@@ -134,10 +137,48 @@ function StudentDashboardRoute() {
   const { role } = useAuth();
 
   if (role === 'professor') {
-    return <Navigate to="/professor/dashboard" replace />;
+    return <Navigate to={ProfessorRoutes.DASHBOARD} replace />;
   }
 
   return <StudentDashboard />;
+}
+
+function SettingsWrapper() {
+  const { role } = useAuth();
+  if (role === 'professor') {
+    return (
+      <ConsoleLayout>
+        <Settings />
+      </ConsoleLayout>
+    );
+  }
+  return (
+    <ConsoleLayout>
+      <Settings />
+    </ConsoleLayout>
+  );
+}
+
+function ProtectedNotFound() {
+  const { role, user } = useAuth();
+  
+  if (!user) {
+    return <NotFound />;
+  }
+
+  if (role === 'professor') {
+    return (
+      <ConsoleLayout>
+        <NotFound />
+      </ConsoleLayout>
+    );
+  }
+
+  return (
+    <ConsoleLayout>
+      <NotFound />
+    </ConsoleLayout>
+  );
 }
 
 function AppRoutes() {
@@ -145,14 +186,14 @@ function AppRoutes() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
-        <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
-        <Route path="/impressum" element={<Impressum />} />
-        <Route path="/datenschutz" element={<Datenschutz />} />
+        <Route path={PublicRoutes.LANDING} element={<PublicRoute><Landing /></PublicRoute>} />
+        <Route path={PublicRoutes.AUTH} element={<PublicRoute><Auth /></PublicRoute>} />
+        <Route path={PublicRoutes.IMPRESSUM} element={<Impressum />} />
+        <Route path={PublicRoutes.DATENSCHUTZ} element={<Datenschutz />} />
 
         {/* Student routes */}
         <Route
-          path="/dashboard"
+          path={StudentRoutes.HOME}
           element={
             <ProtectedRoute>
               <ConsoleLayout>
@@ -162,7 +203,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/onboarding"
+          path={StudentRoutes.ONBOARDING}
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <Onboarding />
@@ -180,7 +221,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/library"
+          path={StudentRoutes.LIBRARY}
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <ConsoleLayout>
@@ -209,7 +250,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/achievements"
+          path={StudentRoutes.ACHIEVEMENTS}
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <ConsoleLayout>
@@ -219,7 +260,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/leaderboard"
+          path={StudentRoutes.LEADERBOARD}
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <ConsoleLayout>
@@ -229,17 +270,15 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/settings"
+          path={SharedRoutes.SETTINGS}
           element={
             <ProtectedRoute>
-              <DashboardLayout>
-                <Settings />
-              </DashboardLayout>
+              <SettingsWrapper />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/insights"
+          path={StudentRoutes.INSIGHTS}
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <ConsoleLayout>
@@ -251,22 +290,22 @@ function AppRoutes() {
 
         {/* Professor routes */}
         <Route
-          path="/professor/dashboard"
+          path={ProfessorRoutes.DASHBOARD}
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <ProfessorDashboard />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
         <Route
-          path="/professor/analytics"
+          path={ProfessorRoutes.ANALYTICS}
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <ProfessorAnalytics />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
@@ -274,39 +313,49 @@ function AppRoutes() {
           path="/professor/analytics/:lectureId"
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <ProfessorAnalytics />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
         <Route
-          path="/professor/upload"
+          path="/professor/analytics/:lectureId/advanced"
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
+                <AdvancedAnalytics />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={ProfessorRoutes.UPLOAD}
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <ConsoleLayout>
                 <LectureUpload />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
         <Route
-          path="/professor/fast-upload"
+          path={ProfessorRoutes.FAST_UPLOAD}
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <FastUpload />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
         <Route
-          path="/professor/courses"
+          path={ProfessorRoutes.COURSES}
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <ProfessorCourses />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
@@ -314,19 +363,19 @@ function AppRoutes() {
           path="/professor/courses/:courseId"
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <ProfessorCourseDetail />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
         <Route
-          path="/professor/archive"
+          path={ProfessorRoutes.ARCHIVE}
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <ProfessorArchive />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
@@ -334,26 +383,26 @@ function AppRoutes() {
           path="/professor/lecture/:lectureId"
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <LectureEdit />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
 
         <Route
-          path="/professor/pipeline-test"
+          path={ProfessorRoutes.PIPELINE_TEST}
           element={
             <ProtectedRoute allowedRoles={['professor']}>
-              <DashboardLayout>
+              <ConsoleLayout>
                 <PipelineTestPage />
-              </DashboardLayout>
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />
 
         {/* 404 */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<ProtectedNotFound />} />
       </Routes>
     </Suspense>
   );

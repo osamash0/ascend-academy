@@ -14,7 +14,10 @@ interface ConsoleLayoutProps {
  * slides the new screen in from the right (and vice-versa), mirroring the PS5
  * home tab transition. Course-scoped library deep-links sit with the library.
  */
-const TAB_ORDER = ['/dashboard', '/library', '/course-v3', '/course', '/achievements', '/leaderboard', '/insights'];
+const TAB_ORDER = [
+  '/dashboard', '/library', '/course-v3', '/course', '/achievements', '/leaderboard', '/insights',
+  '/professor/dashboard', '/professor/courses', '/professor/archive', '/professor/analytics', '/professor/upload'
+];
 
 const tabIndex = (pathname: string) => {
   const i = TAB_ORDER.findIndex((p) => pathname.startsWith(p));

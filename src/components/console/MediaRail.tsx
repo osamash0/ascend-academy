@@ -1,8 +1,11 @@
-import { motion } from 'framer-motion';
+import { motion, type Transition } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { CARD_H, CARD_W, STEP } from './constants';
+
+// Default cover-flow motion (snappy). Callers can override via `transition`.
+const DEFAULT_TRANSITION: Transition = { type: 'spring', stiffness: 260, damping: 30 };
 
 export interface RailTileState {
   isActive: boolean;
@@ -25,6 +28,8 @@ interface MediaRailProps<T> {
   step?: number;
   /** When true, ←/→ browse and Enter activates the focused item. */
   enableKeyboard?: boolean;
+  /** Override the cover-flow focus animation (e.g. a slower, calmer glide). */
+  transition?: Transition;
   className?: string;
 }
 
@@ -46,6 +51,7 @@ export function MediaRail<T>({
   cardHeight = CARD_H,
   step = STEP,
   enableKeyboard = false,
+  transition = DEFAULT_TRANSITION,
   className,
 }: MediaRailProps<T>) {
   const count = items.length;
@@ -58,6 +64,9 @@ export function MediaRail<T>({
   useEffect(() => {
     if (!enableKeyboard) return;
     const onKey = (e: KeyboardEvent) => {
+      // Don't hijack arrows/Enter while the user is typing in a field.
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         move(1);
@@ -99,7 +108,7 @@ export function MediaRail<T>({
               opacity: dist > 2 ? 0 : isActive ? 1 : 0.45,
               filter: isActive ? 'blur(0px)' : 'blur(1.5px)',
             }}
-            transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+            transition={transition}
             onClick={() => (isActive ? onActivate?.(item, i) : onFocus(i))}
             tabIndex={dist > 2 ? -1 : 0}
             aria-label={getAriaLabel?.(item, i)}

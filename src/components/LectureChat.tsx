@@ -37,6 +37,10 @@ interface LectureChatProps {
     onClose: () => void;
     slideText: string;
     slideTitle: string;
+    /** UUID of the slide the student is on — stamped on ai_tutor_query events for exact per-slide attribution. */
+    slideId?: string;
+    /** Stable study-session id, stamped on ai_tutor_query events for session segmentation. */
+    sessionId?: string;
     /** UUID of the active lecture; enables grounded retrieval over its slides. */
     lectureId?: string;
     /** 0-indexed slide the student is currently looking at (used as anchor). */
@@ -73,6 +77,8 @@ export function LectureChat({
     onClose,
     slideText,
     slideTitle,
+    slideId,
+    sessionId,
     lectureId,
     currentSlideIndex,
     onSlideJump,
@@ -147,10 +153,14 @@ export function LectureChat({
         streamingRef.current = true;
 
         try {
-            const historyToPass = messages.slice(1).map(m => ({ 
-                role: m.role, 
-                content: m.content 
+            const historyToPass = messages.slice(1).map(m => ({
+                role: m.role,
+                content: m.content
             }));
+
+            // Captured so the ai_tutor_query analytics event can store the
+            // tutor's answer (enables resolution/quality analysis downstream).
+            let aiResponseText = '';
 
             abortControllerRef.current = new AbortController();
 
@@ -198,6 +208,7 @@ export function LectureChat({
                             const data = line.slice(6);
                             if (data === '[DONE]') {
                                 streamingRef.current = false;
+                                aiResponseText = fullContent;
                                 setMessages(prev => [...prev, {
                                     id: generateMsgId(),
                                     role: 'model',
@@ -224,6 +235,7 @@ export function LectureChat({
             } else {
                 // JSON response (this is what the grounded /api/ai/chat returns).
                 const data = await res.json();
+                aiResponseText = data.reply ?? '';
                 setMessages(prev => [...prev, {
                     id: generateMsgId(),
                     role: 'model',
@@ -236,9 +248,12 @@ export function LectureChat({
             // Fire-and-forget analytics
             if (user) {
                 logLearningEvent(user.id, 'ai_tutor_query', {
-                    lectureId: window.location.pathname.split('/').pop(),
+                    lectureId: lectureId ?? window.location.pathname.split('/').pop(),
+                    slideId,
                     slideTitle,
+                    sessionId,
                     query: userMsg,
+                    response: aiResponseText,
                     timestamp: new Date().toISOString(),
                 }).catch(err => console.error('Failed to log AI tutor query event:', err));
             }
@@ -263,7 +278,7 @@ export function LectureChat({
             streamingRef.current = false;
             abortControllerRef.current = null;
         }
-    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, user, session, lectureId, currentSlideIndex]);
+    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, slideId, sessionId, user, session, lectureId, currentSlideIndex]);
 
     const handleCancel = useCallback(() => {
         if (abortControllerRef.current) {

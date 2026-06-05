@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, Trophy, Users, BarChart3, Settings, LogOut, Rocket, BookOpen, type LucideIcon } from 'lucide-react';
+import { Home, Trophy, Users, BarChart3, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ProfileChip } from './ProfileChip';
+import { StudentRoutes, PublicRoutes, SharedRoutes, ProfessorRoutes } from '@/lib/routes';
 
 interface NavTab {
   label: string;
@@ -14,11 +15,19 @@ interface NavTab {
 }
 
 const STUDENT_TABS: NavTab[] = [
-  { label: 'Home', to: '/dashboard', icon: Home },
-  { label: 'Library', to: '/library', icon: BookOpen },
-  { label: 'Trophies', to: '/achievements', icon: Trophy },
-  { label: 'Ranking', to: '/leaderboard', icon: Users },
-  { label: 'Insights', to: '/insights', icon: BarChart3 },
+  { label: 'Home', to: StudentRoutes.HOME, icon: Home },
+  { label: 'Library', to: StudentRoutes.LIBRARY, icon: BookOpen },
+  { label: 'Trophies', to: StudentRoutes.ACHIEVEMENTS, icon: Trophy },
+  { label: 'Ranking', to: StudentRoutes.LEADERBOARD, icon: Users },
+  { label: 'Insights', to: StudentRoutes.INSIGHTS, icon: BarChart3 },
+];
+
+const PROFESSOR_TABS: NavTab[] = [
+  { label: 'Dashboard', to: ProfessorRoutes.DASHBOARD, icon: LayoutDashboard },
+  { label: 'Courses', to: ProfessorRoutes.COURSES, icon: BookOpen },
+  { label: 'Archive', to: ProfessorRoutes.ARCHIVE, icon: Archive },
+  { label: 'Analytics', to: ProfessorRoutes.ANALYTICS, icon: BarChart3 },
+  { label: 'Upload', to: ProfessorRoutes.UPLOAD, icon: Upload },
 ];
 
 function LiveClock() {
@@ -39,21 +48,24 @@ function LiveClock() {
  * The persistent chrome of the console experience.
  */
 export function ConsoleTopBar() {
-  const { signOut } = useAuth();
+  const { signOut, role } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate(PublicRoutes.LANDING);
   };
+
+  const tabs = role === 'professor' ? PROFESSOR_TABS : STUDENT_TABS;
+  const homeRoute = role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME;
 
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between gap-4 px-5 lg:px-10 py-3 bg-gradient-to-b from-[#070b14]/80 via-[#070b14]/30 to-transparent backdrop-blur-[2px]">
       {/* Left: brand + identity */}
       <div className="flex items-center gap-4 min-w-0">
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate(homeRoute)}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary hover:scale-105 transition-transform"
           aria-label="Home"
         >
@@ -64,7 +76,7 @@ export function ConsoleTopBar() {
 
       {/* Center: tabs */}
       <nav className="flex items-center gap-1">
-        {STUDENT_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = location.pathname.startsWith(tab.to);
           return (
             <Link
@@ -94,7 +106,7 @@ export function ConsoleTopBar() {
         <LiveClock />
         <NotificationBell />
         <Link
-          to="/settings"
+          to={SharedRoutes.SETTINGS}
           className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-white/10 transition"
           aria-label="Settings"
         >

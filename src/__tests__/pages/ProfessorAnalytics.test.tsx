@@ -36,6 +36,17 @@ vi.mock("@/services/lectureService", async () => {
   };
 });
 
+const listCoursesMock = vi.fn();
+vi.mock("@/services/coursesService", async () => {
+  const actual = await vi.importActual<typeof import("@/services/coursesService")>(
+    "@/services/coursesService",
+  );
+  return {
+    ...actual,
+    listCourses: (...args: unknown[]) => listCoursesMock(...args),
+  };
+});
+
 const useAnalyticsMock = vi.fn();
 vi.mock("@/features/analytics/hooks/useAnalytics", () => ({
   useAnalytics: (lectureId: string | null) => useAnalyticsMock(lectureId),
@@ -54,6 +65,8 @@ import { renderWithProviders } from "@/test/renderWithProviders";
 beforeEach(() => {
   supabaseMock.reset();
   fetchProfessorLecturesMock.mockReset();
+  listCoursesMock.mockReset();
+  listCoursesMock.mockResolvedValue([]);
   useAnalyticsMock.mockReset();
   useAnalyticsMock.mockReturnValue({
     dashboard: { data: null, isLoading: false, isError: false },
@@ -66,7 +79,7 @@ describe("ProfessorAnalytics page (smoke)", () => {
     const { container } = renderWithProviders(<ProfessorAnalytics />, {
       initialEntries: ["/professor/analytics"],
     });
-    expect(container.querySelector(".animate-spin")).not.toBeNull();
+    expect(container.querySelector(".animate-pulse")).not.toBeNull();
   });
 
   it("renders the empty-state when professor has no lectures", async () => {
@@ -75,7 +88,7 @@ describe("ProfessorAnalytics page (smoke)", () => {
       initialEntries: ["/professor/analytics"],
     });
     expect(
-      await screen.findByText(/no active missions found/i),
+      await screen.findByText(/no lectures yet/i),
     ).toBeInTheDocument();
   });
 

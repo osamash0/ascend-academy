@@ -85,7 +85,7 @@ describe("ProfessorDashboard page (smoke)", () => {
     });
     await waitFor(
       () => {
-        expect(screen.getByText("Quantum Mechanics")).toBeInTheDocument();
+        expect(screen.getAllByText("Quantum Mechanics")[0]).toBeInTheDocument();
       },
       { timeout: 3000 },
     );

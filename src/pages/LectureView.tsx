@@ -15,6 +15,8 @@ import {
   insertNotification,
   countCompletedLectures,
 } from '@/services/studentService';
+import { useSlideProgress } from '@/features/student/hooks/useSlideProgress';
+import { statesFromLegacyCompleted, allVisitedStates } from '@/lib/slideProgress';
 import { apiClient } from '@/lib/apiClient';
 import { checkLevelUp } from '@/domain/gamification';
 import { SlideViewer } from '@/components/SlideViewer';
@@ -33,6 +35,7 @@ import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
 import { AmbientGlow, GLOW_BY_STATUS } from '@/components/console';
+import { StudentRoutes, ProfessorRoutes } from '@/lib/routes';
 
 import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
 
@@ -47,7 +50,6 @@ export default function LectureView() {
   const [resolvedPdfUrl, setResolvedPdfUrl] = useState<string | null>(null);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
@@ -58,8 +60,39 @@ export default function LectureView() {
   const [newLevel, setNewLevel] = useState(1);
   const [showBadge, setShowBadge] = useState(false);
   const [badgeInfo, setBadgeInfo] = useState({ name: '', description: '', icon: '' });
+
+  // ── Slide progress hook (replaces broken saveProgress / useState(currentSlideIndex)) ──
+  const slideProgress = useSlideProgress({
+    lectureId: lectureId ?? '',
+    slides,
+    userId: user?.id,
+  });
+  const {
+    currentIndex: currentSlideIndex,
+    goToSlide,
+    slideStates,
+    completionPct,
+    validateSlide,
+    initialize: initSlideProgress,
+    flushSave: flushSlideProgress,
+  } = slideProgress;
+
+  // Pending init: stored by fetchLectureData, applied once slides state is ready
+  const pendingInitRef = useRef<{ states: Record<string, import('@/types/domain').SlideState>; index: number } | null>(null);
+
+  useEffect(() => {
+    if (slides.length > 0 && pendingInitRef.current) {
+      const { states, index } = pendingInitRef.current;
+      pendingInitRef.current = null;
+      initSlideProgress(states, index);
+    }
+  }, [slides, initSlideProgress]);
   const [slideStartTime, setSlideStartTime] = useState<number>(Date.now());
   const sessionStartRef = useRef<number>(Date.now());
+  // Stable id for this study session, stamped onto every learning event so
+  // analytics can segment per-session behavior (re-visits, pacing) without
+  // reconstructing sessions from timestamp gaps.
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
   const slideStartRef = useRef<number>(Date.now());
   const quizRef = useRef<HTMLDivElement>(null);
   const scrollableContainerRef = useRef<HTMLDivElement>(null);
@@ -135,6 +168,7 @@ export default function LectureView() {
         slideId,
         slideTitle: title,
         duration_seconds: durationSeconds,
+        sessionId: sessionIdRef.current,
         timestamp: new Date().toISOString(),
       }).catch((err) => console.warn('slide_view telemetry failed', err));
     };
@@ -161,7 +195,7 @@ export default function LectureView() {
     setLoading(true);
     
     // Reset session state for new lecture
-    setCurrentSlideIndex(0);
+    pendingInitRef.current = null; // clear any stale pending-init from previous lecture
     setCurrentQuestionIndex(0);
     setShowQuiz(false);
     setQuizAnswers({});
@@ -188,7 +222,7 @@ export default function LectureView() {
       const lectureData = await fetchLecture(currentLectureId);
       if (!lectureData) {
         toast({ title: t('lecture:toasts.notFoundTitle'), description: t('lecture:toasts.notFoundDescription'), variant: 'destructive' });
-        navigate('/dashboard');
+        navigate(role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME);
         return;
       }
       setLecture(lectureData);
@@ -282,20 +316,22 @@ export default function LectureView() {
       setQuestions(mockQuestions);
     }
 
-    // Fetch user progress
+    // Fetch user progress and schedule restoration
     if (user?.id) {
       const progressData = await fetchLectureProgress(user.id, currentLectureId);
 
       if (progressData) {
-        if (progressData.last_slide_viewed !== null && progressData.last_slide_viewed !== undefined && progressData.last_slide_viewed >= 0) {
-          const maxSlides = slidesData && slidesData.length > 0 ? slidesData.length : 4;
-          const lastIndex = Math.min(progressData.last_slide_viewed, maxSlides - 1);
-          setCurrentSlideIndex(lastIndex);
-        }
+        const maxSlides = slidesData && slidesData.length > 0 ? slidesData.length : 4;
+        const rawLast = progressData.last_slide_viewed;
+        const lastIndex =
+          rawLast !== null && rawLast !== undefined && rawLast >= 0
+            ? Math.min(rawLast, maxSlides - 1)
+            : 0;
+
+        // Restore XP / quiz state (unchanged from before)
         if (progressData.xp_earned) setXpEarned(Math.min(progressData.xp_earned, questionsData?.length ? questionsData.length * 10 : 0));
         if (progressData.correct_answers) setCorrectAnswers(Math.min(progressData.correct_answers, questionsData?.length || 0));
 
-        // Restore locked state for previously answered questions
         if (progressData.completed_slides && Array.isArray(progressData.completed_slides)) {
           const restoredAnswers: Record<number, number> = {};
           progressData.completed_slides.forEach((slideNum: number) => {
@@ -307,12 +343,26 @@ export default function LectureView() {
           });
           setQuizAnswers(restoredAnswers);
         }
+
+        // Restore granular slide states. Prefer the new slide_states JSONB;
+        // fall back to synthesising them from the legacy completed_slides array.
+        const savedStates =
+          progressData.slide_states && Object.keys(progressData.slide_states).length > 0
+            ? (progressData.slide_states as Record<string, import('@/types/domain').SlideState>)
+            : statesFromLegacyCompleted(
+                progressData.completed_slides ?? [],
+                lastIndex,
+                slidesData ?? [],
+              );
+
+        // Defer init until after setSlides() causes a re-render
+        pendingInitRef.current = { states: savedStates, index: lastIndex };
       }
     }
 
     // Log lecture start event (fire-and-forget; never block lecture load)
     if (user?.id) {
-      logLearningEvent(user.id, 'lecture_start', { lectureId: currentLectureId })
+      logLearningEvent(user.id, 'lecture_start', { lectureId: currentLectureId, sessionId: sessionIdRef.current })
         .catch((err) => console.warn('lecture_start telemetry failed', err));
     }
 
@@ -360,40 +410,24 @@ export default function LectureView() {
     });
   const currentQuestion = currentSlideQuestions[0];
 
-  const saveProgress = async (newSlideIndex: number, newXp: number, newCorrectAnswers: number) => {
-    if (!user || !lectureId || !lecture) return;
-
-    const totalQuestions = questions.length || slides.length;
-    const cappedCorrect = Math.min(newCorrectAnswers, totalQuestions);
-
-    await upsertLectureProgress(user.id, lecture.id, {
-      last_slide_viewed: newSlideIndex,
-      xp_earned: Math.min(newXp, totalQuestions * 10),
-      correct_answers: cappedCorrect,
-      completed_slides: slides.slice(0, Math.max(0, newSlideIndex + 1)).map(s => s.slide_number),
-    });
-  };
+  // saveProgress is replaced by useSlideProgress.flushSave (called by the hook
+  // automatically on every goToSlide and before tab close).
 
   const handleNextSlide = () => {
-    // If we're not showing the quiz yet, and there IS a quiz for this slide, show it first
     if (!showQuiz && currentQuestion) {
       setShowQuiz(true);
-      // Auto-scroll to quiz on mobile/small screens if it's below the content
       setTimeout(() => {
         quizRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
       return;
     }
 
-    // If we already showed the quiz (or there wasn't one), then move forward
     if (currentSlideIndex < slides.length - 1) {
       const nextIndex = currentSlideIndex + 1;
-      setCurrentSlideIndex(nextIndex);
+      goToSlide(nextIndex);                              // ← transition + debounced save
       setShowQuiz(quizAnswers[nextIndex] !== undefined);
       setCurrentQuestionIndex(0);
-      saveProgress(nextIndex, xpEarned, correctAnswers);
     } else {
-      // It was the last slide
       handleLectureComplete(xpEarned, correctAnswers);
     }
   };
@@ -406,20 +440,19 @@ export default function LectureView() {
 
     if (currentSlideIndex > 0) {
       const prevIndex = currentSlideIndex - 1;
-      
-      // Fire-and-forget revision event
+
       if (user) {
         logLearningEvent(user.id, 'slide_back_navigation', {
           lectureId,
           fromSlideId: slides[currentSlideIndex]?.id,
           toSlideId: slides[prevIndex]?.id,
+          sessionId: sessionIdRef.current,
           timestamp: new Date().toISOString(),
         }).catch(() => {});
       }
 
-      setCurrentSlideIndex(prevIndex);
+      goToSlide(prevIndex);                              // ← transition + debounced save
       setShowQuiz(quizAnswers[prevIndex] !== undefined);
-      saveProgress(prevIndex, xpEarned, correctAnswers);
     }
   };
 
@@ -447,6 +480,7 @@ export default function LectureView() {
         correct: isCorrect,
         selectedAnswer: selectedIndex,
         time_to_answer_seconds: timeToAnswer,
+        sessionId: sessionIdRef.current,
         timestamp: new Date().toISOString(),
       }).catch((err) => console.warn('quiz_attempt telemetry failed', err));
     }
@@ -549,40 +583,40 @@ export default function LectureView() {
       await refreshProfile();
     }
 
-    // Persist progress immediately so reload cannot re-award XP for this question
+    // Persist progress immediately so reload cannot re-award XP for this question.
+    // The hook saves slide_states; we separately persist the XP/score fields.
     const finalXpNow = isCorrect ? xpEarned + 10 : xpEarned;
     const finalCorrectNow = isCorrect ? correctAnswers + 1 : correctAnswers;
-    // Stash authoritative values for handleQuizContinue — React state may not
-    // yet reflect the setXpEarned / setCorrectAnswers calls above.
     committedXpRef.current = finalXpNow;
     committedCorrectRef.current = finalCorrectNow;
-    // A new question was just answered → re-arm the continue lock.
     continueLockRef.current = false;
-    await saveProgress(currentSlideIndex, finalXpNow, finalCorrectNow);
+
+    if (user && lecture) {
+      await upsertLectureProgress(user.id, lecture.id, {
+        xp_earned: Math.min(finalXpNow, (questions.length || slides.length) * 10),
+        correct_answers: Math.min(finalCorrectNow, questions.length || slides.length),
+        total_questions_answered: answeredQuestionsRef.current.size,
+      });
+    }
+    await flushSlideProgress(); // flush slide_states + last_slide_viewed
 
     // Advancement is now driven by the Continue button (see handleQuizContinue),
     // so we no longer auto-advance on a 1.5s timer. The student controls the pace.
   };
 
   const handleQuizContinue = () => {
-    // Idempotency guard — a fast double-click must not advance/complete twice.
     if (continueLockRef.current) return;
     continueLockRef.current = true;
 
-    // Read committed values from refs (set in handleQuizAnswer) so we never
-    // race against pending setState calls.
     const xp = committedXpRef.current || xpEarned;
     const correct = committedCorrectRef.current || correctAnswers;
 
     if (currentSlideIndex < slides.length - 1) {
       const nextIndex = currentSlideIndex + 1;
-      setCurrentSlideIndex(nextIndex);
+      goToSlide(nextIndex);                              // ← transition + debounced save
       setShowQuiz(quizAnswers[nextIndex] !== undefined);
-      saveProgress(nextIndex, xp, correct);
     } else {
       setShowQuiz(false);
-      // If the student got anything wrong during the run, route them through
-      // the replay stage before firing completion. Otherwise complete now.
       if (missedQueueRef.current.length > 0) {
         setReviewStage(true);
         setReviewIndex(0);
@@ -628,6 +662,7 @@ export default function LectureView() {
         selectedAnswer: selectedIndex,
         firstAttemptAnswer: item.firstSelectedIndex,
         reviewIndex,
+        sessionId: sessionIdRef.current,
         timestamp: new Date().toISOString(),
       }).catch((err) => console.warn('quiz_retry_attempt telemetry failed', err));
     }
@@ -678,6 +713,7 @@ export default function LectureView() {
       xpEarned: finalXp,
       correctAnswers: finalCorrect,
       total_duration_seconds: sessionDuration,
+      sessionId: sessionIdRef.current,
       completed_at: new Date().toISOString(),
     }).catch((err) => console.warn('lecture_complete telemetry failed', err));
 
@@ -687,6 +723,8 @@ export default function LectureView() {
     await upsertLectureProgress(user.id, lecture.id, {
       xp_earned: cappedXp,
       completed_slides: slides.map((_, i) => i + 1),
+      // Mark every slide as visited in the granular map
+      slide_states: allVisitedStates(slides),
       quiz_score: slides.length > 0 ? Math.round((cappedCorrect / slides.length) * 100) : 0,
       total_questions_answered: slides.length,
       correct_answers: cappedCorrect,
@@ -768,10 +806,20 @@ export default function LectureView() {
       <LectureSidebar
         slides={slides}
         currentSlideIndex={currentSlideIndex}
-        completedSlides={slides.slice(0, currentSlideIndex).map(s => s.slide_number)}
+        slideStates={slideStates}
+        completionPct={completionPct}
         onSelectSlide={(index) => {
-          setCurrentSlideIndex(index);
-          setShowQuiz(false);
+          goToSlide(index);
+          setShowQuiz(quizAnswers[index] !== undefined);
+        }}
+        onValidateSlide={validateSlide}
+        onMarkComplete={() => slideProgress.markLectureComplete()}
+        onResetProgress={() => {
+          if (window.confirm('Reset all slide progress for this lecture?')) {
+            slideProgress.resetProgress();
+            setQuizAnswers({});
+            answeredQuestionsRef.current = new Set();
+          }
         }}
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -785,7 +833,7 @@ export default function LectureView() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME)}
               className="rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
               title={t('lecture:chrome.exitLecture')}
             >
@@ -875,6 +923,7 @@ export default function LectureView() {
                           slideId: currentSlide.id,
                           slideTitle: currentSlide.title,
                           rating,
+                          sessionId: sessionIdRef.current,
                           timestamp: new Date().toISOString(),
                         });
                       }}
@@ -908,7 +957,7 @@ export default function LectureView() {
                       onMindMapSlideClick={(slideId) => {
                         const idx = slides.findIndex((s) => s.id === slideId);
                         if (idx >= 0) {
-                          setCurrentSlideIndex(idx);
+                          goToSlide(idx);
                           setShowQuiz(quizAnswers[idx] !== undefined);
                         }
                       }}
@@ -969,7 +1018,7 @@ export default function LectureView() {
                       xpEarned={xpEarned}
                       correctOnFirstTry={correctAnswers}
                       totalQuestions={questions.length || slides.length}
-                      onDone={() => navigate('/dashboard')}
+                      onDone={() => navigate(role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME)}
                     />
                   ) : reviewStage && currentReviewItem ? (
                     <motion.div
@@ -1052,7 +1101,7 @@ export default function LectureView() {
                         }
                         onJumpToSlide={(slideNumber) => {
                           const idx = Math.max(0, Math.min(slides.length - 1, slideNumber - 1));
-                          setCurrentSlideIndex(idx);
+                          goToSlide(idx);
                           setShowQuiz(quizAnswers[idx] !== undefined);
                         }}
                       />
@@ -1110,11 +1159,13 @@ export default function LectureView() {
                 onClose={() => setIsChatOpen(false)}
                 slideText={currentSlide?.content_text || ''}
                 slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
+                slideId={currentSlide?.id}
+                sessionId={sessionIdRef.current}
                 lectureId={lectureId}
                 currentSlideIndex={currentSlideIndex}
                 onSlideJump={(idx) => {
                   if (idx >= 0 && idx < slides.length) {
-                    setCurrentSlideIndex(idx);
+                    goToSlide(idx);
                   }
                 }}
                 isInline={true}
@@ -1129,11 +1180,13 @@ export default function LectureView() {
               onClose={() => setIsChatOpen(false)}
               slideText={currentSlide?.content_text || ''}
               slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
+              slideId={currentSlide?.id}
+              sessionId={sessionIdRef.current}
               lectureId={lectureId}
               currentSlideIndex={currentSlideIndex}
               onSlideJump={(idx) => {
                 if (idx >= 0 && idx < slides.length) {
-                  setCurrentSlideIndex(idx);
+                  goToSlide(idx);
                 }
               }}
               isInline={false}

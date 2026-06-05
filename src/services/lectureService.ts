@@ -4,6 +4,8 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import type { Lecture, Slide, QuizQuestion } from '@/types/domain';
+import { toSlug } from '@/lib/utils';
+
 
 /**
  * Extracts the storage object path from a raw pdf_url value.
@@ -37,7 +39,25 @@ export async function resolvePdfUrl(rawPdfUrl: string | null | undefined): Promi
   return data.signedUrl;
 }
 
-export async function fetchLecture(id: string): Promise<Lecture | null> {
+export async function fetchLecture(idOrSlug: string): Promise<Lecture | null> {
+  let id = idOrSlug;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+  if (!isUuid) {
+    const { data: allLectures, error: listError } = await supabase
+      .from('lectures')
+      .select('id, title');
+    if (listError) {
+      console.error("Error listing lectures to resolve slug:", listError);
+      return null;
+    }
+    const match = (allLectures ?? []).find(l => toSlug(l.title) === idOrSlug);
+    if (!match) {
+      console.error(`No lecture found matching slug: ${idOrSlug}`);
+      return null;
+    }
+    id = match.id;
+  }
+
   const { data, error } = await supabase
     .from('lectures')
     .select('*, course:courses(id, title, color)')

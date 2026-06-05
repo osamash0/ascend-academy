@@ -9,6 +9,7 @@ import type {
   QuizAnalytics,
   StudentPerformance,
 } from '@/types/domain';
+import type { InsightFeed } from '@/features/analytics/types';
 
 export interface DropoffPoint {
   slide_number: number;
@@ -100,6 +101,15 @@ export async function getAiInsights(lectureId: string, context: Record<string, u
   return apiClient.post(`/api/ai/analytics-insights`, { lecture_id: lectureId, ...context });
 }
 
+// ── Insight Garden ────────────────────────────────────────────────────────────
+
+export async function getLectureInsights(lectureId: string): Promise<InsightFeed> {
+  const res = await apiClient.get<{ success: boolean; data: InsightFeed }>(
+    `/api/analytics/lecture/${lectureId}/insights`,
+  );
+  return res.data;
+}
+
 // ── Ask Your Data ──────────────────────────────────────────────────────────
 
 export interface AskChartSpec {
@@ -129,6 +139,36 @@ export async function askLectureData(
     { question, ai_model: aiModel },
   );
   return res.data;
+}
+
+/** Professor-wide Ask Your Data — spans all the professor's courses/lectures. */
+export async function askProfessorData(question: string, aiModel = 'cerebras'): Promise<AskAnswer> {
+  const res = await apiClient.post<{ success: boolean; data: AskAnswer }>(
+    `/api/analytics/professor/ask`,
+    { question, ai_model: aiModel },
+  );
+  return res.data;
+}
+
+export async function getProfessorAskSuggestions(): Promise<string[]> {
+  const res = await apiClient.get<{ success: boolean; data: { questions: string[] } }>(
+    `/api/analytics/professor/ask/suggestions`,
+  );
+  return res.data?.questions ?? [];
+}
+
+export interface ChatTurn {
+  role: 'user' | 'model';
+  content: string;
+}
+
+/** Conversational, data-grounded assistant over all the professor's courses/lectures. */
+export async function professorChat(messages: ChatTurn[], aiModel = 'cerebras'): Promise<string> {
+  const res = await apiClient.post<{ success: boolean; data: { reply: string } }>(
+    `/api/analytics/professor/chat`,
+    { messages, ai_model: aiModel },
+  );
+  return res.data?.reply ?? '';
 }
 
 // ── Comparative Benchmarks (Task #50) ─────────────────────────────────────
