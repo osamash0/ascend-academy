@@ -14,9 +14,11 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
   // Prefer the Supabase JWT (fast Supabase-side verification)
   const { data: { session: supabaseSession } } = await supabase.auth.getSession();
-  if (supabaseSession?.access_token) {
+  if (!supabaseSession) {
+    throw new Error('Unauthenticated');
+  }
+  if (supabaseSession.access_token) {
     headers.Authorization = `Bearer ${supabaseSession.access_token}`;
-    return headers;
   }
 
   return headers;

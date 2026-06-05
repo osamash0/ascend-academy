@@ -77,6 +77,7 @@ describe("ProfessorDashboard page (smoke)", () => {
         created_at: "2025-01-01T00:00:00Z",
         pdf_url: "https://example/test.pdf",
         professor_id: "prof-1",
+        is_archived: false,
       },
     ]);
     renderWithProviders(<ProfessorDashboard />, {

@@ -23,7 +23,7 @@ beforeEach(() => supabaseMock.reset());
 describe("fetchStudentDashboard", () => {
   it("returns lectures, progress, achievements together", async () => {
     supabaseMock.seed("lectures", [
-      { id: "L1", title: "T", description: "", total_slides: 5, created_at: "2026-01-01" },
+      { id: "L1", title: "T", description: "", total_slides: 5, created_at: "2026-01-01", is_archived: false },
     ]);
     supabaseMock.seed("student_progress", [
       {
