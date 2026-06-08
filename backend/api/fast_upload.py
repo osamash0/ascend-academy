@@ -18,6 +18,23 @@ MAX_FILE_MB = 50
 
 from backend.core.database import get_db_connection
 
+# Strong references to in-flight background tasks.  asyncio.create_task only
+# keeps a weak reference to the task, so without holding one here a long-running
+# upload task can be garbage-collected and silently cancelled mid-flight.
+_BACKGROUND_TASKS: "set[asyncio.Task]" = set()
+
+
+def _on_background_task_done(task: "asyncio.Task") -> None:
+    """Drop the task reference and surface any exception that escaped the
+    handler inside process_upload_isolated (otherwise asyncio swallows it)."""
+    _BACKGROUND_TASKS.discard(task)
+    if task.cancelled():
+        logger.warning("Background upload task was cancelled before completion.")
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.error("Background upload task crashed: %s", exc, exc_info=exc)
+
 # --- Helper logic similar to pipeline.ts ---
 
 async def execute_query(query: str, *args):
@@ -264,6 +281,13 @@ async def upload_fast_endpoint(
     run_id_obj = uuid.uuid4()
     run_id = str(run_id_obj)
     user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    # Validate the authenticated user id is a well-formed UUID before spawning
+    # the background task — otherwise a malformed id would only surface much
+    # later as a failed run row instead of an immediate, actionable error.
+    try:
+        uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid user identity.")
 
     # Insert pending state in parse_runs
     await execute_query(
@@ -274,14 +298,24 @@ async def upload_fast_endpoint(
         "processing"
     )
 
-    # Process async
-    asyncio.create_task(process_upload_isolated(run_id, pdf_hash, file.filename or "upload.pdf", content, user_id))
+    # Process async.  Retain a strong reference (see _BACKGROUND_TASKS) and
+    # attach a done-callback so a crash that escapes the handler is logged
+    # rather than silently swallowed by asyncio.
+    task = asyncio.create_task(
+        process_upload_isolated(run_id, pdf_hash, file.filename or "upload.pdf", content, user_id)
+    )
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_on_background_task_done)
 
     return {"id": run_id, "status": "processing"}
 
 @router.get("/status/{run_id}")
 async def get_upload_status(run_id: str, user: Any = Depends(require_professor)):
-    res = await execute_query("SELECT run_id, status, lecture_id, error FROM parse_runs WHERE run_id = $1", uuid.UUID(run_id))
+    try:
+        run_uuid = uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run id.")
+    res = await execute_query("SELECT run_id, status, lecture_id, error FROM parse_runs WHERE run_id = $1", run_uuid)
     if not res:
         raise HTTPException(status_code=404, detail="Run not found")
     

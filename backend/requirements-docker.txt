@@ -11,29 +11,40 @@
 # Set PARSER_VERSION=2 (the default) when running this image.
 # The main requirements.txt is left untouched for local dev / venv installs.
 
-fastapi
-uvicorn
-sqlmodel
-supabase
-pydantic
-pydantic-settings
-python-dotenv
-asyncpg
-pypdf
+# NOTE: the version ranges below are a safety net, NOT a reproducible lockfile.
+# Lower bounds reflect hard code requirements (pydantic v2 model_dump, supabase
+# v2 client API); upper bounds block surprise breaking-major bumps. For a truly
+# reproducible image, build once and freeze: see the comment block at the bottom.
+fastapi>=0.110,<1.0
+uvicorn>=0.27,<1.0
+sqlmodel>=0.0.14,<0.1
+supabase>=2.0,<3.0
+pydantic>=2.5,<3.0
+pydantic-settings>=2.0,<3.0
+python-dotenv>=1.0,<2.0
+asyncpg>=0.29,<0.31
+pypdf>=3.0,<6.0
 PyMuPDF==1.24.0
-Pillow
-python-multipart
-google-genai
-groq
-edge-tts
-slowapi
+Pillow>=9.5,<12.0
+python-multipart>=0.0.9,<0.1
+google-genai>=0.3,<2.0
+groq>=0.9,<1.0
+edge-tts>=6.1,<8.0
+slowapi>=0.1.9,<0.2
 tenacity==8.2.3
 tiktoken==0.7.0
 pytesseract==0.3.10
 pandas==2.1.4
 tabulate==0.9.0
-lxml
-arq>=0.26
-litellm>=1.40
-openai>=1.50.0
-sentry-sdk>=2.0.0
+lxml>=4.9,<6.0
+arq>=0.26,<0.27
+litellm>=1.40,<2.0
+openai>=1.50.0,<2.0
+sentry-sdk>=2.0.0,<3.0
+
+# --- Reproducible builds (recommended follow-up) ---------------------------
+# These ranges still float within a major. For a deterministic image:
+#   docker build -t learnstation-api .
+#   docker run --rm learnstation-api pip freeze > backend/requirements.lock
+# then in the Dockerfile install from the lock:  pip install -r requirements.lock
+# Regenerate the lock deliberately when you intend to upgrade.

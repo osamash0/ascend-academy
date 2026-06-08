@@ -115,10 +115,19 @@ class MetricInsightRequest(BaseModel):
     context_stats: Dict[str, Any]
     ai_model: _AiModel = "cerebras"
 
+class ChatMessage(BaseModel):
+    # `role` is intentionally a bounded str, not a Literal: the frontend sends
+    # "user" / "model" (tutor.py treats anything != "user" as the assistant),
+    # so a strict allow-list would 422 every real request. We validate shape
+    # and cap sizes here; the tutor sanitizes and truncates content downstream.
+    role: str = Field(..., max_length=32)
+    content: str = Field(..., max_length=10_000)
+
+
 class ChatRequest(BaseModel):
     slide_text: str = Field(..., min_length=0, max_length=10_000)
     user_message: str = Field(..., min_length=1, max_length=2_000)
-    chat_history: Optional[List[Dict[str, Any]]] = None
+    chat_history: Optional[List[ChatMessage]] = Field(default=None, max_length=100)
     ai_model: _AiModel = "cerebras"
     # Grounding scope.  Either lecture_id or pdf_hash narrows retrieval to
     # the slides of *this* deck; without one of them the tutor falls back
@@ -448,10 +457,13 @@ async def chat_with_tutor_endpoint(request: Request, body: ChatRequest, user: An
             logger.error("Lecture authorization check failed: %s", e)
             raise HTTPException(status_code=500, detail="Authorization check failed.")
     try:
+        # tutor.chat_with_lecture consumes plain dicts (msg.get("role")/...),
+        # so unwrap the validated ChatMessage models back into dicts.
+        history = [m.model_dump() for m in body.chat_history] if body.chat_history else None
         result = await chat_with_lecture(
             slide_text=body.slide_text,
             user_message=body.user_message,
-            chat_history=body.chat_history,
+            chat_history=history,
             ai_model=body.ai_model,
             lecture_id=safe_lecture_id,
             pdf_hash=safe_pdf_hash,

@@ -19,6 +19,8 @@ __pycache__/
 # Environment variables
 .env
 .env.*
+# ...but the committed template (no real values) must stay tracked
+!.env.example
 
 # Claude Code developer-local settings (machine-specific paths)
 .claude/settings.local.json

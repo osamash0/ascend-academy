@@ -11,10 +11,21 @@ interface MicroQuizCardProps {
 
 export function MicroQuizCard({ lectureId, targetSlideNumber }: MicroQuizCardProps) {
   const navigate = useNavigate();
-  const { data: quizData, isLoading } = useMicroQuiz(lectureId, targetSlideNumber);
+  const { data: quizData, isLoading, isError } = useMicroQuiz(lectureId, targetSlideNumber);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
 
+  // A fetch failure is distinct from "no quiz available" — show a quiet note on
+  // error so the widget doesn't vanish indistinguishably from the empty case.
+  if (isError) {
+    return (
+      <div className="border-l border-white/[0.06] pl-6 flex items-center flex-1">
+        <span className="text-[11px] text-white/30">Quick check unavailable right now.</span>
+      </div>
+    );
+  }
+
+  // Loading, or genuinely no quiz for this lecture/slide — render nothing.
   if (isLoading || !quizData) return null;
 
   const { question, slide } = quizData;

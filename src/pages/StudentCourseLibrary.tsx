@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
@@ -72,7 +72,7 @@ export default function StudentCourseLibrary() {
   const { courseId } = useParams<{ courseId?: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation(['dashboard', 'common']);
-  const { data, isLoading } = useStudentDashboard();
+  const { data, isLoading, isError, refetch } = useStudentDashboard();
 
   // Must be declared before the useMemo that uses it.
   const [lastOpenedCourseId, setLastOpenedCourseId] = useState<string | null>(() =>
@@ -315,6 +315,26 @@ export default function StudentCourseLibrary() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Distinguish a genuine load failure from a legitimately empty library —
+  // otherwise a failed fetch silently renders the same "Empty Library" screen.
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
+        <AlertTriangle className="w-14 h-14 text-destructive/60 mb-4" />
+        <h3 className="text-2xl font-black">{t('common:loadError', "Couldn't load your courses")}</h3>
+        <p className="text-muted-foreground mb-8">
+          {t('common:loadErrorHint', 'Something went wrong reaching the server. Please try again.')}
+        </p>
+        <button
+          onClick={() => refetch()}
+          className="console-focusable flex items-center justify-center h-14 px-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black tracking-wide shadow-glow-primary transition-all active:scale-95"
+        >
+          {t('common:retry', 'Try Again')}
+        </button>
       </div>
     );
   }
