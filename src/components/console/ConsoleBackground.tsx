@@ -41,8 +41,9 @@ export function ConsoleBackground({
         />
       </AnimatePresence>
 
-      {/* Grid texture */}
-      <div className="absolute inset-0 bg-[size:28px_28px] bg-[linear-gradient(to_right,rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.025)_1px,transparent_1px)]" />
+      {/* Grid texture — explicit zero-alpha white stop (not the `transparent`
+          keyword) so Safari/WebKit doesn't render a seam line at the tile edge. */}
+      <div className="absolute inset-0 bg-[size:28px_28px] bg-[linear-gradient(to_right,rgba(255,255,255,0.025)_1px,rgba(255,255,255,0)_1px),linear-gradient(to_bottom,rgba(255,255,255,0.025)_1px,rgba(255,255,255,0)_1px)]" />
 
       {/* Faint status base glow (semantic hint, stays put). */}
       <div

@@ -121,7 +121,7 @@ export function ProfessorAskBar({ chat, variant }: { chat: ProfessorChat; varian
           <div ref={endRef} />
         </div>
       </div>
-      <div className="mt-4">{Pill}</div>
+      <div className="mt-4 pb-6">{Pill}</div>
     </div>
   );
 }

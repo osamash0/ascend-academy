@@ -77,16 +77,18 @@ export default function LectureView() {
     flushSave: flushSlideProgress,
   } = slideProgress;
 
-  // Pending init: stored by fetchLectureData, applied once slides state is ready
-  const pendingInitRef = useRef<{ states: Record<string, import('@/types/domain').SlideState>; index: number } | null>(null);
+  // Pending init: stored by fetchLectureData, applied once slides state is ready.
+  // Kept in STATE (not a ref): setSlides() runs before fetchLectureProgress()
+  // resolves, so a ref would be read by the [slides] effect while still null and
+  // the resume position would be lost. State re-triggers the effect.
+  const [pendingInit, setPendingInit] = useState<{ states: Record<string, import('@/types/domain').SlideState>; index: number } | null>(null);
 
   useEffect(() => {
-    if (slides.length > 0 && pendingInitRef.current) {
-      const { states, index } = pendingInitRef.current;
-      pendingInitRef.current = null;
-      initSlideProgress(states, index);
+    if (slides.length > 0 && pendingInit) {
+      initSlideProgress(pendingInit.states, pendingInit.index);
+      setPendingInit(null);
     }
-  }, [slides, initSlideProgress]);
+  }, [slides, pendingInit, initSlideProgress]);
   const [slideStartTime, setSlideStartTime] = useState<number>(Date.now());
   const sessionStartRef = useRef<number>(Date.now());
   // Stable id for this study session, stamped onto every learning event so
@@ -195,7 +197,7 @@ export default function LectureView() {
     setLoading(true);
     
     // Reset session state for new lecture
-    pendingInitRef.current = null; // clear any stale pending-init from previous lecture
+    setPendingInit(null); // clear any stale pending-init from previous lecture
     setCurrentQuestionIndex(0);
     setShowQuiz(false);
     setQuizAnswers({});
@@ -356,7 +358,7 @@ export default function LectureView() {
               );
 
         // Defer init until after setSlides() causes a re-render
-        pendingInitRef.current = { states: savedStates, index: lastIndex };
+        setPendingInit({ states: savedStates, index: lastIndex });
       }
     }
 

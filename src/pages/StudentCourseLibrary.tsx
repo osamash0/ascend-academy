@@ -10,6 +10,7 @@ import { topicIcon } from '@/lib/topicIcon';
 import type { Lecture, StudentProgress, CourseSummary } from '@/types/domain';
 import { CourseDetailsSheet } from '@/features/student/components/CourseDetailsSheet';
 import { CourseCatalogSheet } from '@/features/student/components/CourseCatalogSheet';
+import { InlineLecturePlayer } from '@/features/student/components/InlineLecturePlayer';
 import {
   DepthScene,
   ConsoleTile,
@@ -174,6 +175,11 @@ export default function StudentCourseLibrary() {
   const [shelfReady, setShelfReady] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  // The lecture opened inline (below the rails). null = no inline player.
+  const [inlineLectureId, setInlineLectureId] = useState<string | null>(null);
+  // Active slide index inside the inline player — drives the wallpaper.
+  const [inlineSlideIndex, setInlineSlideIndex] = useState(0);
+  const inlineRef = useRef<HTMLDivElement>(null);
 
   // Set of already enrolled course IDs so the catalog can mark them.
   const enrolledCourseIds = useMemo(() => new Set(courseList.map(c => c.id)), [courseList]);
@@ -209,6 +215,30 @@ export default function StudentCourseLibrary() {
     navigate(`/lecture/${id}`);
   }, [navigate]);
 
+  // Open a lecture inline, below the rails, and scroll down to reveal it.
+  const openInline = useCallback((id: string, cid?: string) => {
+    if (cid) {
+      localStorage.setItem('ascend_last_opened_course', cid);
+      setLastOpenedCourseId(cid);
+    }
+    setInlineSlideIndex(0);
+    setInlineLectureId(id);
+  }, []);
+
+  // Smooth-scroll all the way down to the inline player once it opens. Run a
+  // second pass after the player has loaded (its PDF makes the panel grow), so
+  // we land at the true bottom.
+  useEffect(() => {
+    if (!inlineLectureId) return;
+    const toBottom = () => inlineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    const t1 = setTimeout(toBottom, 100);
+    const t2 = setTimeout(toBottom, 550);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [inlineLectureId]);
+
   // Reveal the lecture shelf just after the screen transition completes.
   useEffect(() => {
     const id = setTimeout(() => setShelfReady(true), 260);
@@ -229,6 +259,9 @@ export default function StudentCourseLibrary() {
   // Controller-style keyboard navigation.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // While the inline lecture player is open it owns keyboard focus —
+      // don't let the rails react to arrow/Enter behind it.
+      if (inlineLectureId) return;
       switch (e.key) {
         case 'ArrowRight':
           e.preventDefault();
@@ -255,13 +288,13 @@ export default function StudentCourseLibrary() {
         case 'Enter':
           e.preventDefault();
           if (activeRow === 'courses') dropIntoLectures();
-          else if (focusedLecture) open(focusedLecture.lecture.id, focusedCourse?.id);
+          else if (focusedLecture) openInline(focusedLecture.lecture.id, focusedCourse?.id);
           break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeRow, courseList.length, courseLectures.length, focusedLecture, dropIntoLectures, open]);
+  }, [activeRow, courseList.length, courseLectures.length, focusedLecture, dropIntoLectures, openInline, inlineLectureId, focusedCourse?.id]);
 
   // Keep the focused tile scrolled into view in each rail.
   const courseRailRef = useRef<HTMLDivElement>(null);
@@ -319,8 +352,14 @@ export default function StudentCourseLibrary() {
   return (
     <DepthScene
       status={heroStatus}
-      gradientIndex={heroIsLecture ? lectureFocus : courseFocus}
-      motionKey={heroIsLecture ? focusedLecture!.lecture.id : focusedCourse?.id}
+      gradientIndex={inlineLectureId ? inlineSlideIndex : heroIsLecture ? lectureFocus : courseFocus}
+      motionKey={
+        inlineLectureId
+          ? `inline-${inlineLectureId}-${inlineSlideIndex}`
+          : heroIsLecture
+            ? focusedLecture!.lecture.id
+            : focusedCourse?.id
+      }
       backdrop={
         <LectureBackdrop
           lectureId={heroIsLecture ? focusedLecture!.lecture.id : undefined}
@@ -481,7 +520,7 @@ export default function StudentCourseLibrary() {
                         : 'Continue'
                     }
                     icon={Play}
-                    onClick={() => open(focusedLecture!.lecture.id, focusedCourse?.id)}
+                    onClick={() => openInline(focusedLecture!.lecture.id, focusedCourse?.id)}
                   />
                 ) : (
                   <>
@@ -548,7 +587,7 @@ export default function StudentCourseLibrary() {
                     data-active={active}
                     onClick={() => {
                       if (activeRow === 'lectures' && i === lectureFocus) {
-                        open(d.lecture.id, focusedCourse?.id);
+                        openInline(d.lecture.id, focusedCourse?.id);
                       } else {
                         setActiveRow('lectures');
                         setLectureFocus(i);
@@ -584,6 +623,29 @@ export default function StudentCourseLibrary() {
             </motion.div>
           )}
         </div>
+
+        {/* ── Inline lecture player: revealed below the rails on lecture open ── */}
+        <AnimatePresence>
+          {inlineLectureId && (
+            <motion.div
+              ref={inlineRef}
+              key={inlineLectureId}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="px-6 lg:px-12 pb-16 pt-2 scroll-mt-6"
+            >
+              <InlineLecturePlayer
+                lectureId={inlineLectureId}
+                courseTitle={focusedCourse?.title}
+                onClose={() => setInlineLectureId(null)}
+                onExpand={() => open(inlineLectureId, focusedCourse?.id)}
+                onSlideChange={setInlineSlideIndex}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
       {focusedCourse && (
@@ -597,7 +659,10 @@ export default function StudentCourseLibrary() {
           averageRating={focusedCourse.averageRating}
           ratingCount={focusedCourse.ratingCount}
           lectures={courseLectures}
-          onStartLecture={(lectureId) => open(lectureId, focusedCourse.id)}
+          onStartLecture={(lectureId) => {
+            setIsDetailsOpen(false);
+            openInline(lectureId, focusedCourse.id);
+          }}
         />
       )}
 

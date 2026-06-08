@@ -62,8 +62,10 @@ export function ConsoleTile({
         isActive ? activeClass : 'border-white/10'
       )}
     >
-      {/* subtle grid texture */}
-      <div className="absolute inset-0 bg-[size:22px_22px] bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)]" />
+      {/* subtle grid texture — use an explicit zero-alpha white stop instead of
+          the `transparent` keyword, which WebKit/Safari interpolates toward
+          transparent *black* and renders as a visible seam line. */}
+      <div className="absolute inset-0 bg-[size:22px_22px] bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,rgba(255,255,255,0)_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,rgba(255,255,255,0)_1px)]" />
 
       {/* Status corner */}
       {badge && (

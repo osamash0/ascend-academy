@@ -39,8 +39,6 @@ export function DepthScene({ status = 'progress', gradientIndex = 0, motionKey, 
   const wallY = useTransform(py, (v) => v * -10);
   const dustX = useTransform(px, (v) => v * -32);
   const dustY = useTransform(py, (v) => v * -20);
-  const fgX = useTransform(px, (v) => v * 8);
-  const fgY = useTransform(py, (v) => v * 5);
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (reduceMotion) return;
@@ -60,20 +58,27 @@ export function DepthScene({ status = 'progress', gradientIndex = 0, motionKey, 
     <div ref={ref} className="relative" onPointerMove={onPointerMove} onPointerLeave={resetPointer}>
       {/* Layers 1–3: fixed backdrop that bleeds behind the floating nav. Expanded vertically to prevent black bar gap when transforming during route transitions. */}
       <div className="fixed -inset-y-32 inset-x-0 z-0">
-        <motion.div className="absolute inset-0" style={{ x: wallX, y: wallY, scale: 1.06 }}>
+        <motion.div
+          className="absolute inset-0"
+          style={{ x: wallX, y: wallY, scale: 1.06, willChange: 'transform', backfaceVisibility: 'hidden' }}
+        >
           <ConsoleBackground gradientIndex={gradientIndex} status={status} motionKey={motionKey} />
           {backdrop}
         </motion.div>
-        <motion.div className="absolute inset-0" style={{ x: dustX, y: dustY }}>
+        <motion.div
+          className="absolute inset-0"
+          style={{ x: dustX, y: dustY, willChange: 'transform', backfaceVisibility: 'hidden' }}
+        >
           <Particles />
         </motion.div>
         <div className="depth-vignette pointer-events-none absolute inset-0" />
       </div>
 
-      {/* Layer 4: foreground content, nudged the opposite way. */}
-      <motion.div className="relative z-10" style={reduceMotion ? undefined : { x: fgX, y: fgY }}>
-        {children}
-      </motion.div>
+      {/* Layer 4: foreground content. Intentionally NOT parallaxed — translating
+          the text/UI on pointer move re-rasterizes glyphs every frame, which
+          reads as fuzzy/shaky in Chrome. Keeping it static makes the UI stable
+          while the background layers still convey depth. */}
+      <div className="relative z-10">{children}</div>
     </div>
   );
 }
