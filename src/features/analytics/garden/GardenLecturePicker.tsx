@@ -15,6 +15,29 @@ import { useProfessorChat } from '@/features/analytics/components/useProfessorCh
 // feel) — used when the chat focuses a course/lecture on the right.
 const RAIL_GLIDE = { type: 'tween' as const, duration: 0.7, ease: [0.22, 1, 0.36, 1] as const };
 
+// Calm, slightly slow scroll down to a revealed tier.
+//
+// We can't use Element.scrollIntoView here: a global `body { overflow-y: auto }`
+// makes the body a scroll container as tall as its content, so the browser
+// considers targets "already visible" and never scrolls the real viewport.
+// Scrolling the window explicitly avoids that. The target is recomputed every
+// frame so the easing tracks the tier's height/expand animation instead of
+// aiming at a stale position.
+function smoothScrollToEl(el: HTMLElement | null, offset = 96, duration = 750) {
+  if (!el) return;
+  const startY = window.scrollY;
+  const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+  let startTs: number | null = null;
+  const step = (ts: number) => {
+    if (startTs === null) startTs = ts;
+    const p = Math.min(1, (ts - startTs) / duration);
+    const targetY = Math.max(0, el.getBoundingClientRect().top + window.scrollY - offset);
+    window.scrollTo(0, startY + (targetY - startY) * easeOutCubic(p));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 interface GardenLecturePickerProps {
   courses?: Course[];
   lectures: Lecture[];
@@ -58,6 +81,14 @@ export function GardenLecturePicker({
       }
     });
 
+    // The service returns lectures newest-first; in the analytics rail the
+    // professor expects them in the order they were created (first → last).
+    // ISO timestamps sort lexicographically, so a string compare is enough.
+    const byCreatedAsc = (a: Lecture, b: Lecture) =>
+      (a.created_at ?? '').localeCompare(b.created_at ?? '');
+    courseMap.forEach(arr => arr.sort(byCreatedAsc));
+    uncategorized.sort(byCreatedAsc);
+
     const result = courses.map(c => ({
       ...c,
       lectures: courseMap.get(c.id)!
@@ -98,8 +129,17 @@ export function GardenLecturePicker({
         const lecs = enrichedCourses[ci].lectures;
         const li = lecs.findIndex(l => l.id === selectedLectureId);
         if (li !== -1) {
-          setCourseIndex(ci);
-          setLectureIndex(li);
+          // When the selected lecture lives in a different course, route the
+          // target index through pendingLectureRef. The [courseIndex] reset
+          // effect would otherwise fire after setCourseIndex and snap
+          // lectureIndex back to 0 — focusing the wrong lecture (the rail showed
+          // the first lecture's title instead of the one you opened).
+          if (ci !== courseIndex) {
+            pendingLectureRef.current = li;
+            setCourseIndex(ci);
+          } else {
+            setLectureIndex(li);
+          }
           setActiveRail('insights');
           return;
         }
@@ -142,11 +182,11 @@ export function GardenLecturePicker({
   }, [activeRail, selectedLectureId]);
 
   // Clicking a course reveals the lectures tier — smooth-scroll down to it
-  // ("moved down a bit"; scroll-mt leaves the courses tier peeking above).
+  // ("moved down a bit"; the offset leaves the courses tier peeking above).
   useEffect(() => {
     if (activeRail === 'lectures') {
       const id = window.setTimeout(() => {
-        document.getElementById('lectures-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        smoothScrollToEl(document.getElementById('lectures-section'));
       }, 360);
       return () => window.clearTimeout(id);
     }
@@ -157,7 +197,7 @@ export function GardenLecturePicker({
     if (selectedLectureId) {
       setActiveRail('insights');
       const id = window.setTimeout(() => {
-        document.getElementById('insights-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        smoothScrollToEl(document.getElementById('insights-section'));
       }, 360);
       return () => window.clearTimeout(id);
     }
@@ -204,16 +244,24 @@ export function GardenLecturePicker({
 
   // Non-chat flow only: collapse back to the courses tier when the user
   // scrolls to the top (this also re-shows the ask bar). We never *push* a
-  // scroll here — we only react to the user reaching the top — so it can't
-  // fight the click-driven scroll-downs above.
+  // scroll here — we only react to the user reaching the top.
+  //
+  // Crucially we ignore the observer's *initial* callback (which always reports
+  // "intersecting" at mount, since we start at the top) and only collapse once
+  // the sentinel has actually left the viewport at least once. Otherwise the
+  // mount-time fire — and sitting at the top before the click-driven scroll has
+  // moved us — would force 'courses' right after a course was selected,
+  // collapsing the lectures tier and cancelling the scroll-down.
   useEffect(() => {
     if (chatActive) return;
     const el = topSentinelRef.current;
     if (!el) return;
+    let hasLeft = false;
     const obs = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting) setActiveRail('courses');
+          if (!e.isIntersecting) hasLeft = true;
+          else if (hasLeft) setActiveRail('courses');
         }
       },
       { threshold: 0.01 },

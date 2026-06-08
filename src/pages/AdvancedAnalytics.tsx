@@ -367,6 +367,15 @@ function SlideRecommendationsSection({
     counts[l] = (counts[l] || 0) + 1;
   }
 
+  // Summarized by default: show only the slides that need review (the
+  // actionable ones). The count chips above already summarize the healthy
+  // rest, and a toggle expands to the full per-slide table on demand.
+  const [showAll, setShowAll] = useState(false);
+  const needsReview = slides.filter(
+    (s) => ((s.recommendation_label || 'satisfactory') as SlideRecommendationLabel) === 'needs_review',
+  );
+  const visibleSlides = showAll ? slides : needsReview;
+
   return (
     <TooltipProvider delayDuration={150}>
       <motion.div
@@ -411,7 +420,20 @@ function SlideRecommendationsSection({
             <div className="text-center py-12 text-muted-foreground/60 text-sm font-bold uppercase tracking-widest">
               No slide analytics yet
             </div>
+          ) : visibleSlides.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <p className="text-sm font-bold text-success uppercase tracking-widest">All slides look healthy</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAll(true)}
+                className="rounded-xl text-[10px] font-black uppercase tracking-widest h-9 px-4"
+              >
+                Show all {slides.length} slides
+              </Button>
+            </div>
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
@@ -426,7 +448,7 @@ function SlideRecommendationsSection({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {slides.map((s) => {
+                {visibleSlides.map((s) => {
                   const label = (s.recommendation_label || 'satisfactory') as SlideRecommendationLabel;
                   const reasons = s.recommendation_reasons || [];
                   const sid = s.slide_id || '';
@@ -489,6 +511,21 @@ function SlideRecommendationsSection({
                 })}
               </TableBody>
             </Table>
+            {slides.length > needsReview.length && (
+              <div className="mt-6 flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAll((v) => !v)}
+                  className="rounded-xl text-[10px] font-black uppercase tracking-widest h-9 px-4"
+                >
+                  {showAll
+                    ? `Show only ${needsReview.length} needing review`
+                    : `Show all ${slides.length} slides`}
+                </Button>
+              </div>
+            )}
+            </>
           )}
         </div>
       </motion.div>
@@ -498,6 +535,10 @@ function SlideRecommendationsSection({
 
 // ── Main Page Component ───────────────────────────────────────────────────────
 
+// Section visibility flags. Flip to `true` to bring a section back.
+const SHOW_PREDICTIVE_INTERVENTION_HUB = false;
+const SHOW_SPATIAL_NEURAL_MATRIX = false;
+
 export default function AdvancedAnalytics() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -505,7 +546,12 @@ export default function AdvancedAnalytics() {
   const { aiModel } = useAiModel();
 
   const [resolvedLectureId, setResolvedLectureId] = useState<string | null>(null);
-
+  // Declared before the resolver effect below: that effect lists `lectures` in
+  // its dependency array, and referencing a `const` before its declaration
+  // throws a ReferenceError (temporal dead zone) on render — which is what made
+  // the advanced page crash to the "Something went wrong" boundary.
+  const [lectures, setLectures] = useState<Lecture[]>([]);
+  const [lecturesLoading, setLecturesLoading] = useState(true);
 
   useEffect(() => {
     if (!selectedLectureId) {
@@ -526,8 +572,6 @@ export default function AdvancedAnalytics() {
   }, [selectedLectureId, lectures]);
 
 
-  const [lectures, setLectures] = useState<Lecture[]>([]);
-  const [lecturesLoading, setLecturesLoading] = useState(true);
   const [isGamingMode, setIsGamingMode] = useState(false);
   const [selectedTitle, setSelectedTitle] = useState('');
 
@@ -914,8 +958,9 @@ export default function AdvancedAnalytics() {
 
             {/* Row 1: Confusion Matrix + Neural Confidence */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <Section 
-                title={matrixView === '3d' ? "Spatial Neural Matrix" : "3D Confusion Matrix"} 
+              {SHOW_SPATIAL_NEURAL_MATRIX && (
+              <Section
+                title={matrixView === '3d' ? "Spatial Neural Matrix" : "3D Confusion Matrix"}
                 subtitle={matrixView === '3d' ? "Interactive Volumetric Telemetry" : "Bubble size = AI Queries + Revisions"} 
                 icon={Target} 
                 className="lg:col-span-2"
@@ -992,9 +1037,10 @@ export default function AdvancedAnalytics() {
                   )}
                 </div>
               </Section>
+              )}
 
-              <Section 
-                title="Neural Confidence" 
+              <Section
+                title="Neural Confidence"
                 subtitle="Aggregate Comprehension" 
                 icon={Brain}
                 interpretation={metricInterpretations.confidence}
@@ -1231,6 +1277,7 @@ export default function AdvancedAnalytics() {
             </div>
 
             {/* Predictive Intervention Hub */}
+            {SHOW_PREDICTIVE_INTERVENTION_HUB && (
             <div className="intelligence-hub rounded-[2.5rem] overflow-hidden mt-12 relative">
               <div className="absolute top-0 left-0 w-3 h-full bg-destructive shadow-glow-destructive/20 dark:block hidden"></div>
               <div className="p-8 md:px-10 border-b border-border flex justify-between items-center bg-surface-1/50">
@@ -1297,6 +1344,7 @@ export default function AdvancedAnalytics() {
                 </Table>
               </div>
             </div>
+            )}
 
             {/* Row 4: Live Ticker + AI Question Feed */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

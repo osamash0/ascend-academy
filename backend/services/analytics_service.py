@@ -24,6 +24,24 @@ def _fetch_all(query: Any, limit: int = 10000) -> List[Dict[str, Any]]:
     return all_data
 
 
+def _fetch_all_in(
+    make_query: Any, column: str, values: List[Any], batch: int = 100
+) -> List[Dict[str, Any]]:
+    """Fetch all rows where `column` is in `values`, batching the IN(...) list.
+
+    A long `.in_(column, values)` list is serialized into the request URL, and
+    once it grows past PostgREST's URL limit the request fails with a 400
+    ('JSON could not be generated' / b'Bad Request') — which happens for
+    course-wide queries that span hundreds of slide IDs. We split the IN list
+    into fixed-size batches and concatenate the results. `make_query` must
+    return a *fresh* query builder each call (the IN filter is applied here).
+    """
+    out: List[Dict[str, Any]] = []
+    for i in range(0, len(values), batch):
+        out.extend(_fetch_all(make_query().in_(column, values[i : i + batch])))
+    return out
+
+
 def get_auth_client(token: Optional[str]) -> Client:
     """Create a Supabase client authenticated with the user's JWT.
     Enforces RLS by using the ANON_KEY (not the service_role key).
@@ -1147,10 +1165,12 @@ def _compute_professor_overview(
         .in_("lecture_id", lecture_ids)
     )
     slide_ids = [s["id"] for s in slides]
-    questions = _fetch_all(
-        client.table("quiz_questions")
-        .select("id, metadata, slide_id")
-        .in_("slide_id", slide_ids)
+    # Batch the IN list: a course can span hundreds of slides, and a single
+    # .in_("slide_id", slide_ids) would overflow the PostgREST URL → 400.
+    questions = _fetch_all_in(
+        lambda: client.table("quiz_questions").select("id, metadata, slide_id"),
+        "slide_id",
+        slide_ids,
     ) if slide_ids else []
 
     q_concept = {

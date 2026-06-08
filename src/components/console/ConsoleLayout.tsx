@@ -61,13 +61,21 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
   const dir = reduceMotion ? 0 : Math.sign(current - prevIndex.current);
   prevIndex.current = current;
 
+  // Key the screen transition by TAB, not the full pathname. The PS5-style
+  // slide is meant to play between tabs; keying on the raw pathname made every
+  // intra-tab navigation (e.g. /professor/analytics → /professor/analytics/:id)
+  // remount the whole screen — re-fetching data, resetting scroll, and
+  // replaying the fade/scale. Sub-routes of one tab now update in place, so a
+  // page can run its own smooth in-screen drill-down.
+  const tabKey = TAB_ORDER.find((p) => location.pathname.startsWith(p)) ?? location.pathname;
+
   return (
     <div className="console-bg relative min-h-screen flex flex-col text-foreground selection:bg-primary/20">
       <ConsoleBoot />
       <ConsoleTopBar />
       <AnimatePresence mode="wait" custom={dir} initial={false}>
         <motion.main
-          key={location.pathname}
+          key={tabKey}
           custom={dir}
           variants={variants}
           initial="enter"

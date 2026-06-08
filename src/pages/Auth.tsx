@@ -100,7 +100,14 @@ export default function Auth() {
             console.error('Failed to log login event:', loginEventErr);
           }
 
-          navigate('/dashboard');
+          // Don't navigate by hand here. PublicRoute (which wraps /auth)
+          // redirects by role once the auth context resolves: professor →
+          // /professor/dashboard, everyone else → /dashboard. Navigating to a
+          // hardcoded '/dashboard' made professors bounce
+          // /dashboard → /professor/dashboard through the SAME ConsoleLayout
+          // instance, whose AnimatePresence(mode="wait") then wedged on the
+          // intermediate <Navigate> child and left the professor dashboard
+          // blank until a manual reload.
         }
       } else {
         const { error } = await signUp(email, password, selectedRole);
