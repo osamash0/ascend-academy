@@ -114,5 +114,37 @@
       "title": "Level {{level}}!",
       "description": "Du bist auf Level {{level}} aufgestiegen. Weiter so!"
     }
+  },
+  "curriculum": {
+    "Objektorientierte Programmierung": "Objektorientierte Programmierung",
+    "Technische Informatik": "Technische Informatik",
+    "Grundlagen der linearen Algebra": "Grundlagen der linearen Algebra",
+    "Algorithmen und Datenstrukturen": "Algorithmen und Datenstrukturen",
+    "Deklarative Programmierung": "Deklarative Programmierung",
+    "Programmierpraktikum": "Programmierpraktikum",
+    "Grundlagen der Analysis": "Grundlagen der Analysis",
+    "Theoretische Informatik": "Theoretische Informatik",
+    "Logik": "Logik",
+    "Softwaretechnik": "Softwaretechnik",
+    "Grundlagen der Statistik": "Grundlagen der Statistik",
+    "Systemsoftware und Rechnerkommunikation": "Systemsoftware und Rechnerkommunikation",
+    "Datenbanksysteme": "Datenbanksysteme",
+    "Software-Praktikum": "Software-Praktikum",
+    "Praktikum zur Statistik": "Praktikum zur Statistik",
+    "Ausg. Th. d. Inform. (SE)": "Ausg. Th. d. Inform. (SE)",
+    "Informatik Wahlpflichtmodul": "Informatik Wahlpflichtmodul",
+    "Informatik Wahlpflichtmodul 2": "Informatik Wahlpflichtmodul 2",
+    "Fortgeschrittenenpraktikum": "Fortgeschrittenenpraktikum",
+    "MarSkills-Modul 1": "MarSkills-Modul 1",
+    "MarSkills-Modul 2": "MarSkills-Modul 2",
+    "Informatik Wahlpflichtmodul 3": "Informatik Wahlpflichtmodul 3",
+    "Bachelorarbeit": "Bachelorarbeit",
+    "MarSkills-Modul 3": "MarSkills-Modul 3",
+    "DBS Relationale Algebra 1-20": "DBS Relationale Algebra 1-20",
+    "Slides III_ Probabilistic Language Models-20-30": "Slides III_ Probabilistic Language Models-20-30",
+    "ML_VL_08_Linear_Regression-1-30": "ML_VL_08_Linear_Regression-1-30",
+    "ML_VL_04_Unsupervised_Learning": "ML_VL_04_Unsupervised_Learning",
+    "Introduction_to_Databases_Presentation": "Introduction_to_Databases_Presentation",
+    "database_management_slides": "database_management_slides"
   }
 }

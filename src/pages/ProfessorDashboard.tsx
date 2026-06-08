@@ -21,7 +21,7 @@ import { splitLectureTitle } from '@/lib/utils';
 import { DepthScene, MediaRail, ConsoleTile } from '@/components/console';
 import { ProfessorHeroStage } from '@/features/analytics/components/ProfessorHeroStage';
 import { topicIcon } from '@/lib/topicIcon';
-
+import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
 
 interface StudentStats {
   totalStudents: number;
@@ -31,6 +31,7 @@ interface StudentStats {
 
 export default function ProfessorDashboard() {
   const { t, i18n } = useTranslation(['professor', 'common']);
+  const translateCurriculum = useCurriculumTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -190,9 +191,9 @@ export default function ProfessorDashboard() {
           {focusedLec ? (
             <>
               <ProfessorHeroStage 
-                lecture={focusedLec}
+                lecture={{...focusedLec, title: translateCurriculum(focusedLec.title)}}
                 eyebrow={`${getGreeting()} · ${profName}`}
-                courses={courses}
+                courses={courses.map(c => ({...c, title: translateCurriculum(c.title)}))}
                 onAssignCourse={(courseId) => handleAssignCourse(focusedLec, courseId)}
                 onAnalytics={() => navigate(`/professor/analytics/${focusedLec.id}`)}
                 onEdit={() => navigate(`/professor/lecture/${focusedLec.id}`)}
@@ -207,13 +208,13 @@ export default function ProfessorDashboard() {
                   onFocus={setFocused}
                   onActivate={(l) => navigate(`/professor/analytics/${l.id}`)}
                   getKey={(l) => l.id}
-                  getAriaLabel={(l) => splitLectureTitle(l.title).cleanTitle}
+                  getAriaLabel={(l) => splitLectureTitle(translateCurriculum(l.title)).cleanTitle}
                   enableKeyboard
                   cardWidth={176}
                   cardHeight={232}
                   step={196}
                   renderTile={(l, { isActive, index }) => {
-                    const { cleanTitle, badge } = splitLectureTitle(l.title);
+                    const { cleanTitle, badge } = splitLectureTitle(translateCurriculum(l.title));
                     const LectureIcon = topicIcon(cleanTitle, l.id);
                     return (
                       <ConsoleTile
@@ -276,10 +277,10 @@ export default function ProfessorDashboard() {
           </div>
 
           {/* ── Course Overview (whole-course aggregate) ── */}
-          <ProfessorOverviewSection courses={courses} />
+          <ProfessorOverviewSection courses={courses.map(c => ({...c, title: translateCurriculum(c.title)}))} />
 
           {/* ── Assignments Section ── */}
-          <ProfessorAssignmentsTab lectures={lectures.map(l => ({ id: l.id, title: l.title }))} />
+          <ProfessorAssignmentsTab lectures={lectures.map(l => ({ id: l.id, title: translateCurriculum(l.title) }))} />
         </div>
       </motion.div>
     </DepthScene>

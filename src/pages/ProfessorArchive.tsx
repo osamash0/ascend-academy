@@ -22,6 +22,8 @@ import {
 } from '@/services/lectureService';
 import type { Lecture } from '@/types/domain';
 import { splitLectureTitle } from '@/lib/utils';
+import { topicIcon } from '@/lib/topicIcon';
+import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
 
 /* ── Swatches matching ProfessorCourses ── */
 const COLOR_SWATCHES = [

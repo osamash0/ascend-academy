@@ -21,11 +21,14 @@ import {
 } from '@/components/ui/dialog';
 import type { Lecture } from '@/types/domain';
 
+import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
+
 export default function ProfessorCourseDetail() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const translateCurriculum = useCurriculumTranslation();
   const [course, setCourse] = useState<CourseWithLectures | null>(null);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -110,7 +113,7 @@ export default function ProfessorCourseDetail() {
             <BookOpen className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">{course.title}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{translateCurriculum(course.title)}</h1>
             {course.description && (
               <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{course.description}</p>
             )}
@@ -144,7 +147,7 @@ export default function ProfessorCourseDetail() {
           {course.lectures.map((l) => (
             <div key={l.id} className="glass-card p-5 space-y-3 group">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-bold text-foreground line-clamp-2">{l.title}</h3>
+                <h3 className="font-bold text-foreground line-clamp-2">{translateCurriculum(l.title)}</h3>
                 <button
                   onClick={() => handleUnassign(l.id)}
                   className="text-muted-foreground hover:text-destructive transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-md"
@@ -205,7 +208,7 @@ export default function ProfessorCourseDetail() {
                       className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted transition-colors flex items-center justify-between gap-3"
                     >
                       <div>
-                        <p className="text-sm font-medium text-foreground line-clamp-1">{l.title}</p>
+                        <p className="text-sm font-medium text-foreground line-clamp-1">{translateCurriculum(l.title)}</p>
                         <p className="text-xs text-muted-foreground">{l.total_slides} slides</p>
                       </div>
                       <Plus className="w-4 h-4 text-muted-foreground" />

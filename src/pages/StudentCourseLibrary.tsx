@@ -68,10 +68,13 @@ const shelfCard = {
   show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
 };
 
+import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
+
 export default function StudentCourseLibrary() {
   const { courseId } = useParams<{ courseId?: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation(['dashboard', 'common']);
+  const translateCurriculum = useCurriculumTranslation();
   const { data, isLoading, isError, refetch } = useStudentDashboard();
 
   // Must be declared before the useMemo that uses it.
@@ -92,9 +95,10 @@ export default function StudentCourseLibrary() {
     // Pre-seed courseMeta with explicitly enrolled courses to handle empty courses
     data?.courses?.forEach(c => {
       if (!c.id) return;
+      const cTitle = translateCurriculum(c.title || 'Unknown Course');
       courseMeta.set(c.id, {
         id: c.id,
-        title: c.title || 'Unknown Course',
+        title: cTitle,
         description: c.description ?? null,
         whatYouWillLearn: (c as any).what_you_will_learn ?? ['Master the fundamentals of the subject', 'Apply concepts to practical scenarios', 'Develop problem-solving skills'],
         averageRating: (c as any).average_rating ?? 4.8,
@@ -110,12 +114,12 @@ export default function StudentCourseLibrary() {
     lectures.forEach((l) => {
       const cid = l.course_id || l.course?.id || '__uncat__';
       if (!courseMeta.has(cid)) {
+        const fallbackTitle = cid === '__uncat__'
+              ? t('dashboard:uncategorized', 'Uncategorized')
+              : translateCurriculum(l.course?.title || 'Unknown Course');
         courseMeta.set(cid, {
           id: cid,
-          title:
-            cid === '__uncat__'
-              ? t('dashboard:uncategorized', 'Uncategorized')
-              : l.course?.title || 'Unknown Course',
+          title: fallbackTitle,
           description: l.course?.description ?? null,
           whatYouWillLearn: (l.course as any)?.what_you_will_learn ?? ['Master the fundamentals of the subject', 'Apply concepts to practical scenarios', 'Develop problem-solving skills'],
           averageRating: (l.course as any)?.average_rating ?? 4.8,
@@ -128,7 +132,7 @@ export default function StudentCourseLibrary() {
         lecMap.set(cid, []);
       }
 
-      const { badge, cleanTitle } = splitLectureTitle(l.title);
+      const { badge, cleanTitle } = splitLectureTitle(translateCurriculum(l.title));
       const completed = getProgress(l.id)?.completed_slides?.length ?? 0;
       const total = l.total_slides;
       const pct = total > 0 ? Math.round((completed / total) * 100) : 0;

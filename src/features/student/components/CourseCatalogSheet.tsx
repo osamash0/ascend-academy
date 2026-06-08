@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { browseCourses, enrollInCourse } from '@/services/coursesService';
 import { cn } from '@/lib/utils';
 import { topicIcon } from '@/lib/topicIcon';
+import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
 
 interface CourseCatalogSheetProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ interface CourseCatalogSheetProps {
 export function CourseCatalogSheet({ isOpen, onClose, enrolledCourseIds }: CourseCatalogSheetProps) {
   const queryClient = useQueryClient();
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
+  const translateCurriculum = useCurriculumTranslation();
 
   const { data: courses, isLoading, error } = useQuery({
     queryKey: ['browse-courses'],
@@ -102,6 +104,7 @@ export function CourseCatalogSheet({ isOpen, onClose, enrolledCourseIds }: Cours
               const isEnrolled = enrolledCourseIds.has(course.id);
               const isEnrolling = enrollingId === course.id;
               const CourseIcon = topicIcon(course.title, course.id);
+              const translatedTitle = translateCurriculum(course.title);
 
               return (
                 <div 
@@ -118,7 +121,7 @@ export function CourseCatalogSheet({ isOpen, onClose, enrolledCourseIds }: Cours
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-lg leading-tight mb-1 text-foreground">
-                        {course.title}
+                        {translatedTitle}
                       </h3>
                       {course.description && (
                         <p className="text-sm text-muted-foreground line-clamp-2">

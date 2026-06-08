@@ -114,5 +114,37 @@
       "title": "Level {{level}}!",
       "description": "You leveled up to Level {{level}}. Keep going!"
     }
+  },
+  "curriculum": {
+    "Objektorientierte Programmierung": "Object-Oriented Programming",
+    "Technische Informatik": "Computer Engineering",
+    "Grundlagen der linearen Algebra": "Foundations of Linear Algebra",
+    "Algorithmen und Datenstrukturen": "Algorithms and Data Structures",
+    "Deklarative Programmierung": "Declarative Programming",
+    "Programmierpraktikum": "Programming Lab",
+    "Grundlagen der Analysis": "Foundations of Analysis",
+    "Theoretische Informatik": "Theoretical Computer Science",
+    "Logik": "Logic",
+    "Softwaretechnik": "Software Engineering",
+    "Grundlagen der Statistik": "Foundations of Statistics",
+    "Systemsoftware und Rechnerkommunikation": "System Software and Computer Communication",
+    "Datenbanksysteme": "Database Systems",
+    "Software-Praktikum": "Software Lab",
+    "Praktikum zur Statistik": "Statistics Lab",
+    "Ausg. Th. d. Inform. (SE)": "Selected Topics in CS (SE)",
+    "Informatik Wahlpflichtmodul": "CS Elective Module",
+    "Informatik Wahlpflichtmodul 2": "CS Elective Module 2",
+    "Fortgeschrittenenpraktikum": "Advanced Lab",
+    "MarSkills-Modul 1": "MarSkills Module 1",
+    "MarSkills-Modul 2": "MarSkills Module 2",
+    "Informatik Wahlpflichtmodul 3": "CS Elective Module 3",
+    "Bachelorarbeit": "Bachelor Thesis",
+    "MarSkills-Modul 3": "MarSkills Module 3",
+    "DBS Relationale Algebra 1-20": "DBS Relational Algebra 1-20",
+    "Slides III_ Probabilistic Language Models-20-30": "Slides III_ Probabilistic Language Models 20-30",
+    "ML_VL_08_Linear_Regression-1-30": "ML_VL_08_Linear_Regression 1-30",
+    "ML_VL_04_Unsupervised_Learning": "ML_VL_04_Unsupervised_Learning",
+    "Introduction_to_Databases_Presentation": "Introduction to Databases Presentation",
+    "database_management_slides": "Database Management Slides"
   }
 }

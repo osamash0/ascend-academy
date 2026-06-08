@@ -79,6 +79,9 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
+import { Confetti } from '@/components/ui/confetti';
+import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
+
 interface InlineLecturePlayerProps {
   lectureId: string;
   /** Course title for the breadcrumb (the library already knows it). */
@@ -135,8 +138,8 @@ export function InlineLecturePlayer({
   onSlideChange,
 }: InlineLecturePlayerProps) {
   const { user, profile, session, refreshProfile } = useAuth();
-  const { t } = useTranslation();
-  const queryClient = useQueryClient();
+  const { t } = useTranslation(['lecture', 'common']);
+  const translateCurriculum = useCurriculumTranslation();
   const { toast } = useToast();
   const { aiModel } = useAiModel();
   const { speak, stop, isSpeaking, isPaused, isLoading: ttsLoading } = useTTS();
@@ -824,7 +827,7 @@ export function InlineLecturePlayer({
     }
   }, [chatInput, chatLoading, messages, session, currentSlide, narrative, aiModel, lectureId, currentIndex, user]);
 
-  const { badge } = splitLectureTitle(lecture?.title ?? '');
+  const { badge } = splitLectureTitle(translateCurriculum(lecture?.title) ?? '');
   const hasPdf = pdfUrl && !pdfError;
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -854,11 +857,11 @@ export function InlineLecturePlayer({
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-primary/70">
-              <span className="truncate max-w-[180px]">{courseTitle || lecture?.course?.title || 'Course'}</span>
+              <span className="truncate max-w-[180px]">{translateCurriculum(courseTitle || lecture?.course?.title) || 'Course'}</span>
               <span className="opacity-40">/</span>
               <span className="truncate">{badge ? `Lecture ${badge}` : 'Lecture'}</span>
             </div>
-            <h2 className="truncate text-lg font-black tracking-tight sm:text-xl">{lecture?.title}</h2>
+            <h2 className="truncate text-lg font-black tracking-tight sm:text-xl">{translateCurriculum(lecture?.title)}</h2>
           </div>
         </div>
 
@@ -1067,13 +1070,13 @@ export function InlineLecturePlayer({
                   <div className={cn('relative flex h-[320px] flex-col justify-end bg-gradient-to-br p-5', gradientFor(currentIndex))}>
                     <div className="absolute inset-0 flex items-center justify-center opacity-20">
                       {(() => {
-                        const Icon = topicIcon(lecture?.title ?? '', lecture?.id ?? '');
+                        const Icon = topicIcon(translateCurriculum(lecture?.title) ?? '', lecture?.id ?? '');
                         return <Icon className="h-24 w-24 text-white" />;
                       })()}
                     </div>
                     <div className="relative">
-                      <p className="text-lg font-black leading-tight">{courseTitle || lecture?.course?.title}</p>
-                      <p className="text-sm text-white/70">{lecture?.title}</p>
+                      <p className="text-lg font-black leading-tight">{translateCurriculum(courseTitle || lecture?.course?.title)}</p>
+                      <p className="text-sm text-white/70">{translateCurriculum(lecture?.title)}</p>
                     </div>
                   </div>
                 )}
@@ -1169,7 +1172,7 @@ export function InlineLecturePlayer({
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold leading-tight">AI Tutor</p>
-                    <p className="truncate text-[11px] text-muted-foreground">{currentSlide?.title || lecture?.title}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">{currentSlide?.title || translateCurriculum(lecture?.title)}</p>
                   </div>
                 </div>
                 <div ref={chatScrollRef} className="custom-scrollbar flex-1 space-y-4 overflow-y-auto p-5">
