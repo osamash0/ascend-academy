@@ -9,6 +9,7 @@ import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import { hierarchy, tree as d3tree, type HierarchyPointNode } from 'd3-hierarchy';
 import type { TreeNode } from '@/types/domain';
 import { MindMapErrorBoundary } from '@/features/mindmap/MindMapErrorBoundary';
+import { MindMapGraph3D } from '@/components/MindMapGraph3D';
 
 // ─── State contract ────────────────────────────────────────────────────────
 
@@ -303,6 +304,69 @@ function MindMapTree({
   );
 }
 
+// ─── Ready renderer: 2D tree ↔ 3D spatial graph toggle ─────────────────────
+
+type MindMapView = '2d' | '3d';
+
+function MindMapReady({
+  tree,
+  currentSlideId,
+  onSlideClick,
+  height,
+}: {
+  tree: TreeNode;
+  currentSlideId?: string;
+  onSlideClick?: (slideId: string) => void;
+  height: number;
+}) {
+  // Default to the 2D tidy-tree: it's the lighter, fully-accessible view and
+  // keeps the panel interactive even before the WebGL bundle loads.
+  const [view, setView] = useState<MindMapView>('2d');
+
+  return (
+    <div className="relative" style={{ height }} data-testid="mindmap-ready-shell">
+      <div
+        className="absolute top-3 left-3 z-20 flex items-center gap-1 p-1 glass-card border-white/10 rounded-xl"
+        role="group"
+        aria-label="Mind map view"
+      >
+        {(['2d', '3d'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            aria-pressed={view === v}
+            data-testid={`mindmap-view-${v}`}
+            className={`px-3 h-7 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors ${
+              view === v
+                ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary/30'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {v === '2d' ? '2D Tree' : '3D Space'}
+          </button>
+        ))}
+      </div>
+
+      {view === '2d' ? (
+        <MindMapTree
+          tree={tree}
+          currentSlideId={currentSlideId}
+          onSlideClick={onSlideClick}
+          height={height}
+        />
+      ) : (
+        <MindMapGraph3D
+          tree={tree}
+          currentSlideId={currentSlideId}
+          onSlideClick={onSlideClick}
+          height={height}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── State router ──────────────────────────────────────────────────────────
 
 export function MindMap({
@@ -390,7 +454,7 @@ export function MindMap({
 
   return (
     <MindMapErrorBoundary onRetry={onErrorBoundaryRetry}>
-      <MindMapTree
+      <MindMapReady
         tree={state.tree}
         currentSlideId={currentSlideId}
         onSlideClick={onSlideClick}

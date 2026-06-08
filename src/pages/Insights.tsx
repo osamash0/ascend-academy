@@ -1,8 +1,15 @@
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, Sparkles, TrendingUp, Zap, Clock, Calendar, Activity, ChevronLeft } from 'lucide-react';
 import { OptimalScheduleCard } from '@/components/OptimalScheduleCard';
 import { ThreeDScatterPlot } from '@/components/ThreeDScatterPlot';
+import { InsightsViewTabs, type InsightsView } from '@/components/InsightsViewTabs';
+import { InsightsMindmapView } from '@/components/InsightsMindmapView';
+import { SkillTreeView } from '@/components/SkillTreeView';
+import { buildKnowledgeMapTree } from '@/features/mindmap/knowledgeMapTree';
+import { useSkillTree } from '@/features/skilltree/useSkillTree';
 import { useNavigate } from 'react-router-dom';
+import { SharedRoutes } from '@/lib/routes';
 import { useAuth } from '@/lib/auth';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
 import { StatsCard } from '@/components/StatsCard';
@@ -18,10 +25,47 @@ export default function Insights() {
   const progress = data?.progress || [];
   const profile = data?.profile;
   const achievements = data?.achievements || [];
+  const lectures = data?.lectures || [];
+
+  // Aggregate cross-course knowledge map: root → course clusters → lecture nodes.
+  const knowledgeTree = useMemo(() => buildKnowledgeMapTree(lectures), [lectures]);
+
+  const [view, setView] = useState<InsightsView>('learning');
+  const skillTree = useSkillTree();
 
   const totalQuestionsAnswered = progress.reduce((sum, p) => sum + (p.total_questions_answered || 0), 0);
   const totalCorrect = progress.reduce((sum, p) => sum + (p.correct_answers || 0), 0);
   const accuracy = totalQuestionsAnswered > 0 ? Math.round((totalCorrect / totalQuestionsAnswered) * 100) : 0;
+
+  // The Mindmap tab is an immersive, full-bleed view; render it on its own.
+  if (view === 'mindmap') {
+    return (
+      <InsightsMindmapView
+        tree={knowledgeTree}
+        hasContent={lectures.length > 0}
+        view={view}
+        onViewChange={setView}
+        onOpenLecture={(id) => navigate(SharedRoutes.LECTURE(id))}
+        onBack={() => navigate('/dashboard')}
+      />
+    );
+  }
+
+  // The Skills tab is likewise an immersive, full-bleed skill tree.
+  if (view === 'skills') {
+    return (
+      <SkillTreeView
+        tree={skillTree.tree}
+        counts={skillTree.counts}
+        conceptsAvailable={skillTree.conceptsAvailable}
+        hasContent={skillTree.hasContent}
+        view={view}
+        onViewChange={setView}
+        onOpenLecture={(id) => navigate(SharedRoutes.LECTURE(id))}
+        onBack={() => navigate('/dashboard')}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen console-bg p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
@@ -36,7 +80,9 @@ export default function Insights() {
           <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Back to Dashboard
         </motion.button>
-        
+
+        <InsightsViewTabs view={view} onChange={setView} />
+
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
