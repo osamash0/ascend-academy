@@ -36,6 +36,7 @@ import { useAiModel } from '@/hooks/use-ai-model';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
 import { AmbientGlow, GLOW_BY_STATUS } from '@/components/console';
 import { StudentRoutes, ProfessorRoutes } from '@/lib/routes';
+import { safeGetUUID } from '@/lib/utils';
 
 import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
 
@@ -94,7 +95,7 @@ export default function LectureView() {
   // Stable id for this study session, stamped onto every learning event so
   // analytics can segment per-session behavior (re-visits, pacing) without
   // reconstructing sessions from timestamp gaps.
-  const sessionIdRef = useRef<string>(crypto.randomUUID());
+  const sessionIdRef = useRef<string>(safeGetUUID());
   const slideStartRef = useRef<number>(Date.now());
   const quizRef = useRef<HTMLDivElement>(null);
   const scrollableContainerRef = useRef<HTMLDivElement>(null);

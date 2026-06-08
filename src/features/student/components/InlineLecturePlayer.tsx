@@ -58,7 +58,7 @@ import { useAiModel } from '@/hooks/use-ai-model';
 import { useTTS } from '@/hooks/useTTS';
 import { useToast } from '@/hooks/use-toast';
 import { topicIcon } from '@/lib/topicIcon';
-import { cn, splitLectureTitle } from '@/lib/utils';
+import { cn, splitLectureTitle, safeGetUUID } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
 import type { Slide, QuizQuestion, Lecture, SlideState } from '@/types/domain';
 import 'katex/dist/katex.min.css';
@@ -159,7 +159,7 @@ export function InlineLecturePlayer({
   const answeredRef = useRef<Set<string>>(new Set());
   const xpRef = useRef(0);
   const correctRef = useRef(0);
-  const sessionIdRef = useRef<string>(crypto.randomUUID());
+  const sessionIdRef = useRef<string>(safeGetUUID());
   // Restore payload kept in STATE (not a ref): the slides arrive via setSlides
   // before fetchLectureProgress resolves, so a ref would be applied by the
   // [slides] effect while still null and never re-run. State re-triggers it.
@@ -620,7 +620,7 @@ export function InlineLecturePlayer({
     if (!q || chatLoading) return;
     setChatInput('');
     setChatActive(true);
-    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', content: q }]);
+    setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'user', content: q }]);
     setChatLoading(true);
     setStreaming('');
 
@@ -660,7 +660,7 @@ export function InlineLecturePlayer({
             if (!line.startsWith('data: ')) continue;
             const data = line.slice(6);
             if (data === '[DONE]') {
-              setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'model', content: full }]);
+              setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'model', content: full }]);
               setStreaming('');
             } else {
               try {
@@ -678,7 +678,7 @@ export function InlineLecturePlayer({
         }
       } else {
         const data = await res.json();
-        setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'model', content: data.reply ?? '' }]);
+        setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'model', content: data.reply ?? '' }]);
       }
 
       if (user) {
@@ -695,7 +695,7 @@ export function InlineLecturePlayer({
       if (!(err instanceof Error && err.name === 'AbortError')) {
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: 'model', content: 'Sorry — I couldn’t reach the tutor. Please try again.' },
+          { id: safeGetUUID(), role: 'model', content: 'Sorry — I couldn’t reach the tutor. Please try again.' },
         ]);
       }
     } finally {

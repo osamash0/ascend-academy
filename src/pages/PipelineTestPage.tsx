@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useAuth } from '@/lib/auth'
-import { cn } from '@/lib/utils'
+import { cn, safeGetUUID } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -452,7 +452,7 @@ export default function PipelineTestPage() {
 
           const eventType = payload.type as SSEEventType
           const event: SSEEvent = {
-            id: crypto.randomUUID(),
+            id: safeGetUUID(),
             timestamp: new Date(),
             type: eventType,
             raw: payload,

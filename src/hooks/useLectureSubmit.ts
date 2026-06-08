@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { insertQuizQuestion } from '@/services/lectureService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
+import { safeGetUUID } from '@/lib/utils';
 import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
 
 interface UseLectureSubmitOptions {
@@ -54,7 +55,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
 
       try {
         let pdfUrl: string | null = null;
-        const lectureId = crypto.randomUUID();
+        const lectureId = safeGetUUID();
 
         if (pdfFile) {
           const filePath = `lectures/${lectureId}/${pdfFile.name}`;
