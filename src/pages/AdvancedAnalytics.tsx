@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, Fragment } from 'react';
+import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -572,7 +572,6 @@ export default function AdvancedAnalytics() {
   }, [selectedLectureId, lectures]);
 
 
-  const [isGamingMode, setIsGamingMode] = useState(false);
   const [selectedTitle, setSelectedTitle] = useState('');
 
   // New endpoint data
@@ -732,6 +731,32 @@ export default function AdvancedAnalytics() {
     }
   }, [resolvedLectureId, lectures, lecturesLoading]);
 
+  const groupedQueries = useMemo(() => {
+    const isTrivial = (q: string) => {
+      const normalized = q.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return ['hi', 'hello', 'hey', 'howareyou', 'test', 'whats', 'whatsup', 'yo', 'goodmorning', 'goodafternoon', 'goodnight', 'areyouabot'].includes(normalized) || normalized.length < 5;
+    };
+
+    const validQueries = aiQueryFeed.filter(q => !isTrivial(q.query_text));
+    const groups: Record<string, { text: string, count: number, latest_date: string, slides: string[] }> = {};
+    
+    validQueries.forEach(q => {
+      const key = q.query_text.toLowerCase().trim();
+      if (!groups[key]) {
+        groups[key] = { text: q.query_text, count: 0, latest_date: q.created_at, slides: [] };
+      }
+      groups[key].count += 1;
+      if (!groups[key].slides.includes(q.slide_title)) {
+        groups[key].slides.push(q.slide_title);
+      }
+      if (new Date(q.created_at) > new Date(groups[key].latest_date)) {
+        groups[key].latest_date = q.created_at;
+      }
+    });
+    
+    return Object.values(groups).sort((a, b) => b.count - a.count);
+  }, [aiQueryFeed]);
+
   // AI Insights Generator
   const fetchAiInsights = useCallback(async () => {
     if (!dashboardData) return;
@@ -791,7 +816,7 @@ export default function AdvancedAnalytics() {
   }
 
   return (
-    <div className={`min-h-screen relative pb-32 bg-background max-w-[1600px] mx-auto overflow-hidden ${isGamingMode ? 'gaming-mode' : ''}`}>
+    <div className="min-h-screen relative pb-32 bg-background max-w-[1600px] mx-auto overflow-hidden">
       <div className="fixed inset-0 pointer-events-none z-0">
          <NeuralBackground />
       </div>
@@ -818,20 +843,12 @@ export default function AdvancedAnalytics() {
           </div>
           <div className="flex items-center gap-4">
             <Button 
-              onClick={() => setIsGamingMode(!isGamingMode)}
-              variant="outline"
-              className={`rounded-2xl h-14 px-6 border-border/50 font-bold transition-all ${isGamingMode ? 'bg-primary/20 text-primary border-primary/40 shadow-glow-primary' : ''}`}
-            >
-              <Zap className={`w-5 h-5 mr-3 ${isGamingMode ? 'fill-primary' : ''}`} />
-              {isGamingMode ? 'Gaming Mode ON' : 'Standard HUD'}
-            </Button>
-            <Button 
               onClick={fetchAiInsights} 
               disabled={aiLoading || dashboard.isLoading} 
               className="rounded-2xl h-14 px-8 shadow-glow-primary gradient-primary hover:opacity-90 transition-all font-bold text-base border-none text-white"
             >
               {aiLoading ? <RefreshCw className="w-5 h-5 animate-spin mr-3" /> : <Sparkles className="w-5 h-5 mr-3" />}
-              Generate Predictive Intervention
+              Generate Course Insights
             </Button>
           </div>
         </div>
@@ -1382,29 +1399,36 @@ export default function AdvancedAnalytics() {
               </div>
 
               {/* AI Question Feed */}
-              <Section title="Student Questions Feed" subtitle="What students asked the AI tutor" icon={MessageSquare}>
+              <Section title="Student Questions Feed" subtitle="What students asked the AI tutor (Grouped by similarity)" icon={MessageSquare}>
                 {extraLoading ? (
                   <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
-                ) : aiQueryFeed.length === 0 ? (
+                ) : groupedQueries.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground/50">
                     <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-20" />
                     <p className="text-xs font-bold uppercase tracking-widest">No AI tutor queries recorded yet</p>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                    {aiQueryFeed?.map((item, i) => (
+                    {groupedQueries?.map((item, i) => (
                       <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.04 }}
                         className="flex gap-4 p-4 glass-panel border-white/5 rounded-2xl hover:bg-white/5 transition-colors">
-                        <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0 relative">
                           <MessageSquare className="w-5 h-5 text-secondary" />
+                          {item.count > 1 && (
+                            <div className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-glow-primary">
+                              {item.count}
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-primary">{item.slide_title}</span>
-                            <span className="text-[10px] text-muted-foreground/40">{new Date(item.created_at).toLocaleString()}</span>
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {item.slides.map((slide, idx) => (
+                              <span key={idx} className="text-[10px] font-bold uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full">{slide}</span>
+                            ))}
+                            <span className="text-[10px] text-muted-foreground/40 ml-auto">{new Date(item.latest_date).toLocaleString()}</span>
                           </div>
-                          <p className="text-sm text-foreground/80 leading-snug">"{item.query_text}"</p>
+                          <p className="text-sm text-foreground/80 leading-snug mt-1">"{item.text}"</p>
                         </div>
                       </motion.div>
                     ))}
