@@ -69,7 +69,6 @@ export default function ProfessorDashboard() {
   const fetchData = async () => {
     setLoading(true);
 
-    // Fetch the professor's own lectures first so we can scope progress queries.
     const { data: lecturesData } = await supabase
       .from('lectures')
       .select('id, title, description, total_slides, created_at, pdf_url, course_id')
@@ -78,35 +77,35 @@ export default function ProfessorDashboard() {
       .order('created_at', { ascending: false })
       .limit(200);
 
+    if (lecturesData) {
+      setLectures(lecturesData);
+    }
+    
+    // Unblock the main UI so the dashboard hero renders instantly
+    setLoading(false);
+
     const ownLectureIds = (lecturesData ?? []).map(l => l.id);
 
-    // Only fetch student progress for lectures this professor owns.
-    // RLS now enforces this server-side as well, but we also filter explicitly
-    // so the query intent is clear and does not rely solely on policy enforcement.
-    const { data: progressData } = ownLectureIds.length > 0
-      ? await supabase
+    if (ownLectureIds.length > 0) {
+      const { data: progressData } = await supabase
           .from('student_progress')
           .select('user_id, quiz_score, total_questions_answered, correct_answers')
           .in('lecture_id', ownLectureIds)
-          .limit(2000)
-      : { data: [] };
+          .limit(2000);
 
-    if (lecturesData) setLectures(lecturesData);
+      if (progressData) {
+        const uniqueStudents = new Set(progressData.map(p => p.user_id));
+        const totalAttempts = progressData.reduce((sum: number, p: any) => sum + (p.total_questions_answered || 0), 0);
+        const totalCorrect = progressData.reduce((sum: number, p: any) => sum + (p.correct_answers || 0), 0);
+        const avgScore = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
 
-    if (progressData) {
-      const uniqueStudents = new Set(progressData.map(p => p.user_id));
-      const totalAttempts = progressData.reduce((sum: number, p: any) => sum + (p.total_questions_answered || 0), 0);
-      const totalCorrect = progressData.reduce((sum: number, p: any) => sum + (p.correct_answers || 0), 0);
-      const avgScore = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
-
-      setStats({
-        totalStudents: uniqueStudents.size,
-        averageScore: avgScore,
-        totalQuizAttempts: totalAttempts,
-      });
+        setStats({
+          totalStudents: uniqueStudents.size,
+          averageScore: avgScore,
+          totalQuizAttempts: totalAttempts,
+        });
+      }
     }
-
-    setLoading(false);
   };
 
   const deleteLecture = async (lectureId: string) => {

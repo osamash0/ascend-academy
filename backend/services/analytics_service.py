@@ -1146,7 +1146,7 @@ def _compute_professor_overview(
     # 5. Average quiz accuracy (weighted by attempts — ties to per-lecture views)
     total_q = sum(int(p.get("total_questions_answered") or 0) for p in progress)
     total_c = sum(int(p.get("correct_answers") or 0) for p in progress)
-    avg_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0.0
+    avg_accuracy = min(100.0, round((total_c / total_q) * 100, 1)) if total_q > 0 else 0.0
 
     # 6. Median lecture-completion time (minutes)
     durations: List[float] = []

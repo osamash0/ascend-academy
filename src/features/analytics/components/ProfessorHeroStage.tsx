@@ -55,18 +55,13 @@ export function ProfessorHeroStage({ lecture, eyebrow, courses, onAssignCourse, 
             Created {new Date(lecture.created_at).toLocaleDateString()}
           </span>
           
-          <div className="flex items-center gap-2 bg-white/5 rounded-full px-3 py-1 border border-white/10">
+          <div className="flex items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Course</span>
-            <select
-              value={lecture.course_id ?? ''}
-              onChange={(e) => onAssignCourse(e.target.value || null)}
-              className="bg-transparent border-none text-xs font-bold text-white/90 focus:outline-none focus:ring-0 cursor-pointer appearance-none pr-4"
-            >
-              <option value="" className="bg-black text-white">Uncategorized</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id} className="bg-black text-white">{c.title}</option>
-              ))}
-            </select>
+            <span className="text-xs font-bold text-white/90">
+              {lecture.course_id 
+                ? courses.find(c => c.id === lecture.course_id)?.title || 'Unknown Course' 
+                : 'Uncategorized'}
+            </span>
           </div>
         </div>
         {lecture.description && (
