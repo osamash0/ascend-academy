@@ -11,7 +11,7 @@ import {
   assignLectureToCourse,
   type CourseWithLectures,
 } from '@/services/coursesService';
-import { fetchProfessorLectures } from '@/services/lectureService';
+import { fetchProfessorLectures, archiveLecture } from '@/services/lectureService';
 import { useAuth } from '@/lib/auth';
 import {
   Dialog,
@@ -73,12 +73,14 @@ export default function ProfessorCourseDetail() {
 
   const handleUnassign = async (lectureId: string) => {
     if (!courseId) return;
-    if (!confirm('Remove this lecture from the course?')) return;
+    if (!confirm('Remove this lecture from the course? It will also be archived.')) return;
     try {
       await unassignLectureFromCourse(courseId, lectureId);
+      await archiveLecture(lectureId);
+      toast({ title: 'Lecture removed and archived' });
       await refresh();
     } catch (e) {
-      toast({ title: 'Unassign failed', variant: 'destructive' });
+      toast({ title: 'Remove failed', variant: 'destructive' });
     }
   };
 
@@ -145,7 +147,7 @@ export default function ProfessorCourseDetail() {
                 <h3 className="font-bold text-foreground line-clamp-2">{l.title}</h3>
                 <button
                   onClick={() => handleUnassign(l.id)}
-                  className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="text-muted-foreground hover:text-destructive transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-md"
                   title="Remove from course"
                 >
                   <X className="w-4 h-4" />

@@ -43,13 +43,25 @@ export default function ProfessorDashboard() {
   const handleAssignCourse = async (lecture: Lecture, nextCourseId: string | null) => {
     const prev = lecture.course_id ?? null;
     if (prev === nextCourseId) return;
+    
+    if (nextCourseId === null) {
+      if (!window.confirm("Removing a lecture from its course will also archive it. Continue?")) return;
+    }
+    
     try {
       if (prev) await unassignLectureFromCourse(prev, lecture.id);
-      if (nextCourseId) await assignLectureToCourse(nextCourseId, lecture.id);
-      setLectures((prevList) =>
-        prevList.map((l) => (l.id === lecture.id ? { ...l, course_id: nextCourseId } : l)),
-      );
-      toast({ title: t('professor:lectures.courseUpdated') });
+      
+      if (nextCourseId) {
+        await assignLectureToCourse(nextCourseId, lecture.id);
+        setLectures((prevList) =>
+          prevList.map((l) => (l.id === lecture.id ? { ...l, course_id: nextCourseId } : l)),
+        );
+        toast({ title: t('professor:lectures.courseUpdated') });
+      } else {
+        await archiveLectureService(lecture.id);
+        setLectures((prevList) => prevList.filter((l) => l.id !== lecture.id));
+        toast({ title: 'Lecture removed and archived' });
+      }
     } catch (err) {
       toast({ title: t('professor:lectures.courseUpdateFailed'), description: String(err), variant: 'destructive' });
     }
