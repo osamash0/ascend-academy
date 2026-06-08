@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -44,6 +45,7 @@ export default function LectureView() {
   const { t } = useTranslation(['lecture', 'common']);
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
 
@@ -241,38 +243,7 @@ export default function LectureView() {
     if (slidesData && slidesData.length > 0) {
       setSlides(slidesData);
     } else {
-      // Create mock slides if none exist
-      const mockSlides: Slide[] = [
-        {
-          id: '1',
-          slide_number: 1,
-          title: 'Introduction',
-          content_text: 'Welcome to this lecture! This is where we\'ll cover the fundamental concepts that form the foundation of our topic.\n\nLearning Objectives:\n• Understand core principles\n• Apply theoretical knowledge\n• Develop critical thinking skills',
-          summary: 'This slide introduces the course objectives and sets expectations for the learning journey ahead.',
-        },
-        {
-          id: '2',
-          slide_number: 2,
-          title: 'Core Concepts',
-          content_text: 'Let\'s explore the key concepts that underpin our subject matter.\n\n1. Principle One: The fundamental building block\n2. Principle Two: How components interact\n3. Principle Three: Real-world applications\n\nThese concepts will be essential for understanding more advanced topics.',
-          summary: 'The core concepts establish the theoretical framework for understanding the subject matter.',
-        },
-        {
-          id: '3',
-          slide_number: 3,
-          title: 'Practical Applications',
-          content_text: 'Now let\'s see how these concepts apply in practice.\n\nCase Study 1: Industry Implementation\nCase Study 2: Research Applications\nCase Study 3: Everyday Examples\n\nUnderstanding practical applications helps bridge the gap between theory and practice.',
-          summary: 'Practical applications demonstrate how theoretical concepts translate into real-world solutions.',
-        },
-        {
-          id: '4',
-          slide_number: 4,
-          title: 'Summary & Next Steps',
-          content_text: 'Key Takeaways:\n\n✓ We covered the fundamental principles\n✓ We explored practical applications\n✓ We connected theory to practice\n\nNext Steps:\n• Review the material\n• Complete the practice exercises\n• Prepare questions for the next session',
-          summary: 'This final slide summarizes the key points and outlines the next steps in the learning journey.',
-        },
-      ];
-      setSlides(mockSlides);
+      setSlides([]);
     }
 
     // Fetch questions
@@ -285,38 +256,7 @@ export default function LectureView() {
         options: Array.isArray(q.options) ? q.options as string[] : []
       })));
     } else {
-      // Create mock questions
-      const mockQuestions: QuizQuestion[] = [
-        {
-          id: 'q1',
-          slide_id: '1',
-          question_text: 'What is the primary learning objective of this lecture?',
-          options: ['Memorize facts', 'Develop critical thinking skills', 'Pass the exam', 'Complete assignments'],
-          correct_answer: 1,
-        },
-        {
-          id: 'q2',
-          slide_id: '2',
-          question_text: 'How many core principles were discussed in the lecture?',
-          options: ['Two', 'Three', 'Four', 'Five'],
-          correct_answer: 1,
-        },
-        {
-          id: 'q3',
-          slide_id: '3',
-          question_text: 'What helps bridge the gap between theory and practice?',
-          options: ['Memorization', 'Practical applications', 'Textbook reading', 'Lectures only'],
-          correct_answer: 1,
-        },
-        {
-          id: 'q4',
-          slide_id: '4',
-          question_text: 'What is recommended as the next step after completing this lecture?',
-          options: ['Move to advanced topics immediately', 'Skip the practice exercises', 'Review the material', 'Ignore the summary'],
-          correct_answer: 2,
-        },
-      ];
-      setQuestions(mockQuestions);
+      setQuestions([]);
     }
 
     // Fetch user progress and schedule restoration
@@ -505,20 +445,37 @@ export default function LectureView() {
 
     if (isCorrect) {
       const newXp = xpEarned + 10;
+      const totalQ = questions.length || 1;
+      const newCorrect = Math.min(correctAnswers + 1, totalQ);
+      
       setXpEarned(newXp);
-      setCorrectAnswers(prev => {
-        const next = prev + 1;
-        const totalQ = questions.length || 1;
-        return Math.min(next, totalQ);
-      });
+      setCorrectAnswers(newCorrect);
+
+      if (user && id) {
+        queryClient.setQueryData(['student-progress', user.id], (old: any) => {
+          if (!old) return old;
+          return old.map((p: any) => {
+            if (p.lecture_id === id) {
+              return {
+                ...p,
+                xp_earned: Math.min(newXp, totalQ * 10),
+                correct_answers: newCorrect,
+                total_questions_answered: answeredQuestions.size + 1,
+              };
+            }
+            return p;
+          });
+        });
+      }
 
       // Add XP to user — function uses auth.uid() internally; no user ID argument needed.
       await supabase.rpc('add_xp_to_user', { p_xp: 10 } as never);
 
-      // Update streak — function uses auth.uid() internally; no user ID argument needed.
-      const newStreak = await supabase.rpc('update_user_streak', {
-        p_correct: true,
-      } as never);
+      // Note: the day-based streak is updated by record_daily_activity() on dashboard
+      // load — we must NOT call update_user_streak here as it incorrectly writes to
+      // the same current_streak column and would inflate the streak on every correct answer.
+
+      queryClient.invalidateQueries({ queryKey: ['student-progress', user?.id] });
 
       // Check for level up using pure domain function
       const { newLevel: calculatedLevel, leveledUp } = checkLevelUp(profile?.total_xp || 0, 10);
@@ -559,30 +516,12 @@ export default function LectureView() {
           setTimeout(() => setShowBadge(true), 500);
         }
 
-        // Streak badges
-        if (newStreak.data === 5 || newStreak.data === 10) {
-          const badgeName = newStreak.data === 5 ? '5 Streak Master' : '10 Streak Champion';
-          const localizedName = newStreak.data === 5
-            ? t('common:achievements.streak5.name')
-            : t('common:achievements.streak10.name');
-          const localizedDescription = t('common:achievements.streakDescription', { count: newStreak.data });
-          if (!(await checkAchievementExists(user.id, badgeName))) {
-            await awardAchievement(user.id, {
-              name: badgeName,
-              description: `Achieved a streak of ${newStreak.data} correct answers!`,
-              icon: '🔥',
-            });
-            setBadgeInfo({ name: localizedName, description: localizedDescription, icon: '🔥' });
-            setTimeout(() => setShowBadge(true), 1000);
-            await insertNotification(user.id, localizedName, localizedDescription, 'streak');
-          }
-        }
+        // Day-streak badges are awarded based on profile.current_streak (updated
+        // by record_daily_activity on the dashboard), not per-answer streak.
       }
 
       await refreshProfile();
     } else {
-      // Reset streak — function uses auth.uid() internally; no user ID argument needed.
-      await supabase.rpc('update_user_streak', { p_correct: false } as never);
       await refreshProfile();
     }
 
@@ -733,6 +672,8 @@ export default function LectureView() {
       correct_answers: cappedCorrect,
       completed_at: new Date().toISOString(),
     });
+
+    queryClient.invalidateQueries({ queryKey: ['student-dashboard'] });
 
     // Badge: First Quiz Completed (canonical English name persisted in DB; UI localized)
     if (!(await checkAchievementExists(user.id, 'First Quiz Completed'))) {

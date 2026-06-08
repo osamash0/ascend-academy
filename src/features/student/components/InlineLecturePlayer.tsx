@@ -12,6 +12,8 @@
  * still owns review/recap/achievements and is reachable via "open full page").
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Document, Page, pdfjs } from 'react-pdf';
 import ReactMarkdown from 'react-markdown';
@@ -50,6 +52,10 @@ import {
   fetchLectureProgress,
   upsertLectureProgress,
   logLearningEvent,
+  checkAchievementExists,
+  awardAchievement,
+  insertNotification,
+  countCompletedLectures,
 } from '@/services/studentService';
 import { useSlideProgress } from '@/features/student/hooks/useSlideProgress';
 import { statesFromLegacyCompleted } from '@/lib/slideProgress';
@@ -60,6 +66,9 @@ import { useToast } from '@/hooks/use-toast';
 import { topicIcon } from '@/lib/topicIcon';
 import { cn, splitLectureTitle, safeGetUUID } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
+import { checkLevelUp } from '@/domain/gamification';
+import { LevelUpModal } from '@/components/LevelUpModal';
+import { BadgeEarnedModal } from '@/components/BadgeEarnedModal';
 import type { Slide, QuizQuestion, Lecture, SlideState } from '@/types/domain';
 import 'katex/dist/katex.min.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -126,9 +135,16 @@ export function InlineLecturePlayer({
   onSlideChange,
 }: InlineLecturePlayerProps) {
   const { user, profile, session, refreshProfile } = useAuth();
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const { aiModel } = useAiModel();
   const { speak, stop, isSpeaking, isPaused, isLoading: ttsLoading } = useTTS();
+
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [newLevel, setNewLevel] = useState(1);
+  const [showBadge, setShowBadge] = useState(false);
+  const [badgeInfo, setBadgeInfo] = useState({ name: '', description: '', icon: '' });
 
   const [lecture, setLecture] = useState<Lecture | null>(null);
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -357,10 +373,65 @@ export function InlineLecturePlayer({
         correctRef.current = newCorrect;
         setXpEarned(newXp);
         setCorrectAnswers(newCorrect);
+        if (user) {
+          // Optimistically update progress in the UI cache
+          queryClient.setQueryData(['student-progress', user.id], (old: any) => {
+            if (!old) return old;
+            return old.map((p: any) => {
+              if (p.lecture_id === lectureId) {
+                return {
+                  ...p,
+                  xp_earned: Math.min(newXp, totalForScore * 10),
+                  correct_answers: Math.min(newCorrect, totalForScore),
+                  // answeredRef doesn't update until after this render cycle, but we can assume +1
+                  total_questions_answered: answeredRef.current.size + 1,
+                };
+              }
+              return p;
+            });
+          });
+        }
+
         await supabase.rpc('add_xp_to_user', { p_xp: 10 } as never);
-        await supabase.rpc('update_user_streak', { p_correct: true } as never);
-      } else {
-        await supabase.rpc('update_user_streak', { p_correct: false } as never);
+        // Note: day-based streak is managed by record_daily_activity() on dashboard load.
+        // Do NOT call update_user_streak here — it writes to the same current_streak column
+        // and would incorrectly inflate the streak on every correct quiz answer.
+
+        queryClient.invalidateQueries({ queryKey: ['student-progress', user?.id] });
+
+        const { newLevel: calculatedLevel, leveledUp } = checkLevelUp(profile?.total_xp || 0, 10);
+        if (leveledUp && user) {
+          setNewLevel(calculatedLevel);
+          setShowLevelUp(true);
+          await insertNotification(
+            user.id,
+            t('common:achievements.levelUp.title', { level: calculatedLevel }),
+            t('common:achievements.levelUp.description', { level: calculatedLevel }),
+            'level_up'
+          );
+        }
+
+        if (user) {
+          if (calculatedLevel >= 5 && !(await checkAchievementExists(user.id, 'Level 5 Scholar'))) {
+            await awardAchievement(user.id, { name: 'Level 5 Scholar', description: 'Reached level 5!', icon: '⭐' });
+            setBadgeInfo({
+              name: t('common:achievements.level5.name'),
+              description: t('common:achievements.level5.description'),
+              icon: '⭐',
+            });
+            setTimeout(() => setShowBadge(true), 500);
+          }
+
+          if (calculatedLevel >= 10 && !(await checkAchievementExists(user.id, 'Level 10 Expert'))) {
+            await awardAchievement(user.id, { name: 'Level 10 Expert', description: 'Reached level 10!', icon: '🌟' });
+            setBadgeInfo({
+              name: t('common:achievements.level10.name'),
+              description: t('common:achievements.level10.description'),
+              icon: '🌟',
+            });
+            setTimeout(() => setShowBadge(true), 500);
+          }
+        }
       }
       await refreshProfile();
 
@@ -395,6 +466,54 @@ export function InlineLecturePlayer({
         sessionId: sessionIdRef.current,
         completed_at: new Date().toISOString(),
       }).catch(() => {});
+
+      queryClient.invalidateQueries({ queryKey: ['student-progress', user.id] });
+
+
+      if (!(await checkAchievementExists(user.id, 'First Quiz Completed'))) {
+        await awardAchievement(user.id, { name: 'First Quiz Completed', description: 'Completed your first lecture quiz!', icon: '🎯' });
+        setBadgeInfo({
+          name: t('common:achievements.firstQuiz.name'),
+          description: t('common:achievements.firstQuiz.description'),
+          icon: '🎯',
+        });
+        setShowBadge(true);
+        await insertNotification(
+          user.id,
+          t('common:achievements.firstQuiz.notificationTitle'),
+          t('common:achievements.firstQuiz.description'),
+          'achievement'
+        );
+      }
+
+      if (correctRef.current === totalForScore && totalForScore > 0) {
+        if (!(await checkAchievementExists(user.id, 'Perfect Score'))) {
+          await awardAchievement(user.id, { name: 'Perfect Score', description: 'Got 100% on a lecture quiz!', icon: '💯' });
+          setBadgeInfo({
+            name: t('common:achievements.perfectScore.name'),
+            description: t('common:achievements.perfectScore.description'),
+            icon: '💯',
+          });
+          setTimeout(() => setShowBadge(true), 1500);
+        }
+      }
+
+      const count = await countCompletedLectures(user.id);
+      const milestoneBadges = [
+        { name: 'Bookworm', threshold: 5, description: 'Complete 5 lectures', icon: '📚', i18nKey: 'bookworm' },
+        { name: 'Graduate', threshold: 10, description: 'Complete 10 lectures', icon: '🎓', i18nKey: 'graduate' },
+      ] as const;
+      for (const badge of milestoneBadges) {
+        if (count >= badge.threshold && !(await checkAchievementExists(user.id, badge.name))) {
+          await awardAchievement(user.id, { name: badge.name, description: badge.description, icon: badge.icon });
+          setBadgeInfo({
+            name: t(`common:achievements.${badge.i18nKey}.name`),
+            description: t(`common:achievements.${badge.i18nKey}.description`),
+            icon: badge.icon,
+          });
+          setTimeout(() => setShowBadge(true), 3000);
+        }
+      }
     }
     toast({ title: 'Lecture complete! 🎉', description: `+${xpRef.current} XP` });
   }, [markLectureComplete, user, lecture, slides, totalForScore, toast]);
@@ -1184,6 +1303,19 @@ export function InlineLecturePlayer({
           </AnimatePresence>
         </div>
       </div>
+      {/* Modals */}
+      <LevelUpModal
+        isOpen={showLevelUp}
+        onClose={() => setShowLevelUp(false)}
+        newLevel={newLevel}
+      />
+      <BadgeEarnedModal
+        isOpen={showBadge}
+        onClose={() => setShowBadge(false)}
+        badgeName={badgeInfo.name}
+        badgeDescription={badgeInfo.description}
+        badgeIcon={badgeInfo.icon}
+      />
     </div>
   );
 }

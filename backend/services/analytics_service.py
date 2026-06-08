@@ -1216,6 +1216,12 @@ def _compute_professor_overview(
     weakest_slides: List[Dict[str, Any]] = []
     if not weakest_concepts:
         title_map = {s["id"]: s.get("title") or "Untitled" for s in slides}
+        
+        irrelevant_keywords = {"intro", "welcome", "date", "info", "agenda", "organization", "logistics", "syllabus", "admin", "overview"}
+        def is_relevant_slide(title: str) -> bool:
+            t = title.lower()
+            return not any(kw in t for kw in irrelevant_keywords)
+
         weakest_slides = sorted(
             [
                 {
@@ -1224,7 +1230,8 @@ def _compute_professor_overview(
                     "miss_rate": round((1 - s["correct"] / s["attempts"]) * 100, 1),
                     "attempts": s["attempts"],
                 }
-                for sid, s in slide_stats.items() if s["attempts"] > 0
+                for sid, s in slide_stats.items() 
+                if s["attempts"] > 0 and is_relevant_slide(title_map.get(sid) or "Untitled")
             ],
             key=lambda r: (-r["miss_rate"], -r["attempts"]),
         )[:5]

@@ -11,6 +11,7 @@
  *   - Exposes `validateSlide()`, `markLectureComplete()`, `resetProgress()`
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { upsertLectureProgress } from '@/services/studentService';
 import {
   computeSlideTransition,
@@ -26,6 +27,7 @@ interface UseSlideProgressOptions {
 }
 
 export function useSlideProgress({ lectureId, slides, userId }: UseSlideProgressOptions) {
+  const queryClient = useQueryClient();
   const [slideStates, setSlideStates] = useState<Record<string, SlideState>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -59,12 +61,30 @@ export function useSlideProgress({ lectureId, slides, userId }: UseSlideProgress
       .map(([k]) => Number(k))
       .sort((a, b) => a - b);
 
+    // Optimistically update the cache so the UI reacts instantly
+    queryClient.setQueryData(['student-progress', userId], (oldData: any) => {
+      if (!oldData) return oldData;
+      return oldData.map((p: any) => {
+        if (p.lecture_id === lectureId) {
+          return {
+            ...p,
+            slide_states: states,
+            last_slide_viewed: idx,
+            completed_slides: completedSlides,
+          };
+        }
+        return p;
+      });
+    });
+
     await upsertLectureProgress(userId, lectureId, {
       slide_states: states,
       last_slide_viewed: idx,
       completed_slides: completedSlides,
     });
-  }, [userId, lectureId]);
+
+    queryClient.invalidateQueries({ queryKey: ['student-progress', userId] });
+  }, [userId, lectureId, queryClient]);
 
   const scheduleSave = useCallback(() => {
     dirtyRef.current = true;

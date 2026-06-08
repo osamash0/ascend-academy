@@ -15,68 +15,80 @@ export interface StudentDashboardData {
   courseVisits: CourseVisit[];
 }
 
+export async function fetchStudentLectures() {
+  const { data, error } = await supabase
+    .from('lectures')
+    .select('id, title, description, total_slides, created_at, pdf_url, course_id, course:courses(id, title, color, description)')
+    .eq('is_archived', false)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) console.error('Error fetching student lectures:', error);
+  return data || [];
+}
+
+export async function fetchStudentProgress(userId: string) {
+  const { data, error } = await supabase
+    .from('student_progress')
+    .select('lecture_id, completed_slides, slide_states, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
+    .eq('user_id', userId)
+    .limit(500);
+  if (error) console.error('Error fetching student progress:', error);
+  return data || [];
+}
+
+export async function fetchStudentAchievements(userId: string) {
+  const { data, error } = await supabase
+    .from('achievements')
+    .select('id, badge_name, badge_description, badge_icon, earned_at')
+    .eq('user_id', userId)
+    .order('earned_at', { ascending: false })
+    .limit(50);
+  if (error) console.error('Error fetching student achievements:', error);
+  return data || [];
+}
+
+export async function fetchStudentCourseVisits(userId: string) {
+  const { data, error } = await supabase
+    .from('course_visits')
+    .select('course_id, last_visited_at, visit_count')
+    .eq('user_id', userId)
+    .order('last_visited_at', { ascending: false })
+    .limit(100);
+  if (error) console.error('Error fetching student course visits:', error);
+  return data || [];
+}
+
+export async function fetchStudentCourses() {
+  const { data, error } = await supabase
+    .from('courses')
+    .select('id, title, color, description')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) console.error('Error fetching courses:', error);
+  return data || [];
+}
+
 export async function fetchStudentDashboard(userId: string): Promise<StudentDashboardData> {
-  const [lecturesRes, progressRes, achievementsRes, courseVisitsRes, coursesRes] = await Promise.all([
-    supabase
-      .from('lectures')
-      .select('id, title, description, total_slides, created_at, pdf_url, course_id, course:courses(id, title, color, description)')
-      .eq('is_archived', false)
-      .order('created_at', { ascending: false })
-      .limit(200),
-
-    supabase
-      .from('student_progress')
-      .select('lecture_id, completed_slides, slide_states, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
-      .eq('user_id', userId)
-      .limit(500),
-
-    supabase
-      .from('achievements')
-      .select('id, badge_name, badge_description, badge_icon, earned_at')
-      .eq('user_id', userId)
-      .order('earned_at', { ascending: false })
-      .limit(50),
-
-    supabase
-      .from('course_visits')
-      .select('course_id, last_visited_at, visit_count')
-      .eq('user_id', userId)
-      .order('last_visited_at', { ascending: false })
-      .limit(100),
-
-    supabase
-      .from('courses')
-      .select('id, title, color, description')
-      .order('created_at', { ascending: false })
-      .limit(100),
+  const [lectures, progress, achievements, courseVisits, courses] = await Promise.all([
+    fetchStudentLectures(),
+    fetchStudentProgress(userId),
+    fetchStudentAchievements(userId),
+    fetchStudentCourseVisits(userId),
+    fetchStudentCourses(),
   ]);
 
-  if (lecturesRes.error) {
-    console.error('Error fetching student dashboard lectures:', lecturesRes.error);
-  }
-  if (progressRes.error) {
-    console.error('Error fetching student dashboard progress:', progressRes.error);
-  }
-  if (achievementsRes.error) {
-    console.error('Error fetching student dashboard achievements:', achievementsRes.error);
-  }
-  if (courseVisitsRes.error) {
-    // Table may not exist on older environments — degrade gracefully.
-    console.warn('course_visits fetch error (degrading gracefully):', courseVisitsRes.error);
-  }
-
-  const lectures: Lecture[] = (lecturesRes.data ?? []) as unknown as Lecture[];
-
-  const progress: StudentProgress[] = (progressRes.data ?? []).map(p => ({
+  const mappedProgress: StudentProgress[] = progress.map((p: any) => ({
     ...p,
     completed_slides: Array.isArray(p.completed_slides) ? p.completed_slides : [],
   }));
 
-  const achievements: Achievement[] = achievementsRes.data ?? [];
-  const courseVisits: CourseVisit[] = (courseVisitsRes.data ?? []) as CourseVisit[];
-  const courses: Partial<CourseSummary>[] = (coursesRes.data ?? []) as Partial<CourseSummary>[];
-
-  return { lectures, courses, progress, achievements, courseVisits };
+  return {
+    lectures: lectures as unknown as Lecture[],
+    courses: courses as unknown as Partial<CourseSummary>[],
+    progress: mappedProgress as unknown as StudentProgress[],
+    achievements: achievements as unknown as Achievement[],
+    courseVisits: courseVisits as unknown as CourseVisit[],
+  };
 }
 
 export async function fetchLectureProgress(userId: string, lectureId: string): Promise<StudentProgress | null> {
