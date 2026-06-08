@@ -980,7 +980,15 @@ export default function AdvancedAnalytics() {
                       </ScatterChart>
                     </ResponsiveContainer>
                   ) : (
-                    <ThreeDScatterPlot data={dashboardData.slidePerformance?.filter(s => s.quizAttempts > 0)} />
+                    <ThreeDScatterPlot 
+                      data={(dashboardData.slidePerformance?.filter(s => s.quizAttempts > 0) || []).map(s => ({
+                        x: s.avgDuration,
+                        y: s.correctRate,
+                        z: s.confusionIndex,
+                        label: s.name,
+                        color: s.confusionIndex > 50 ? '#ef4444' : '#6366f1'
+                      }))} 
+                    />
                   )}
                 </div>
               </Section>
