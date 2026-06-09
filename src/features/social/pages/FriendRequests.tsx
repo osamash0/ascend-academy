@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Inbox, Loader2, Send, Users, X } from "lucide-react";
+import { BadgeCheck, Check, Inbox, Loader2, Send, Users, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,13 +46,16 @@ export default function FriendRequests() {
                 <div className="flex items-center gap-3">
                   <Link to={StudentRoutes.PROFILE_USER(u.id)}><Avatar user={u} size="lg" showDot /></Link>
                   <div className="min-w-0 flex-1">
-                    <Link to={StudentRoutes.PROFILE_USER(u.id)} className="text-[15px] font-bold text-foreground hover:text-primary">
-                      {u.name}
+                    <Link to={StudentRoutes.PROFILE_USER(u.id)} className="flex items-center gap-1 text-[15px] font-bold text-foreground hover:text-primary">
+                      <span className="truncate">{u.name}</span>
+                      {u.institutionVerified && <BadgeCheck className="h-4 w-4 shrink-0 text-blue-400" aria-label="Verified institution" />}
                     </Link>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       <InstitutionBadge institution={u.institution} />
                       <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {u.mutualFriends ?? 0} mutual</span>
-                      <span>· {u.mutualCourses ?? 0} mutual courses</span>
+                      {(u.sharedCourses ?? 0) > 0
+                        ? <span className="text-primary">· {u.sharedCourses} shared courses</span>
+                        : <span>· {u.mutualCourses ?? 0} mutual courses</span>}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
