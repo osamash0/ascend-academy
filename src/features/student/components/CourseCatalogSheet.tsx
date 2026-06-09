@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Compass, BookOpen, Layers, Plus } from 'lucide-react';
+import { Compass, BookOpen, Layers, Plus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Sheet,
@@ -12,6 +12,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { browseCourses, enrollInCourse } from '@/services/coursesService';
+import { getRecommendedCourses } from '@/services/academicService';
 import { cn } from '@/lib/utils';
 import { topicIcon } from '@/lib/topicIcon';
 import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
@@ -33,6 +34,14 @@ export function CourseCatalogSheet({ isOpen, onClose, enrolledCourseIds }: Cours
     queryFn: browseCourses,
     enabled: isOpen,
   });
+
+  const { data: recommended } = useQuery({
+    queryKey: ['recommended-courses'],
+    queryFn: () => getRecommendedCourses(6),
+    enabled: isOpen,
+  });
+  // RPC already excludes enrolled courses; guard anyway in case of cache lag.
+  const recs = (recommended ?? []).filter((r) => !enrolledCourseIds.has(r.id));
 
   const enrollMutation = useMutation({
     mutationFn: enrollInCourse,
@@ -78,6 +87,57 @@ export function CourseCatalogSheet({ isOpen, onClose, enrolledCourseIds }: Cours
 
         <ScrollArea className="flex-1 px-6">
           <div className="py-8 space-y-4">
+            {recs.length > 0 && (
+              <div className="mb-2 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Recommended for you</span>
+                </div>
+                {recs.map((course) => {
+                  const isEnrolling = enrollingId === course.id;
+                  const CourseIcon = topicIcon(course.title, course.id);
+                  const translatedTitle = translateCurriculum(course.title);
+                  return (
+                    <div
+                      key={course.id}
+                      className="group flex flex-col gap-4 p-5 rounded-2xl border border-primary/20 bg-primary/[0.04] hover:bg-primary/[0.07] transition-colors relative overflow-hidden"
+                    >
+                      <div className="absolute -right-6 -top-6 text-white/5 pointer-events-none transition-transform group-hover:scale-110 group-hover:text-white/10">
+                        <CourseIcon className="w-32 h-32" />
+                      </div>
+                      <div className="relative z-10 flex gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                          <CourseIcon className="w-6 h-6 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-primary/80 mb-0.5">{course.reason}</p>
+                          <h3 className="font-bold text-lg leading-tight mb-1 text-foreground">{translatedTitle}</h3>
+                          {course.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">{course.description}</p>
+                          )}
+                          <div className="flex items-center gap-3 mt-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                            <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" />{course.lectureCount} Lectures</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="relative z-10 pt-2 flex justify-end">
+                        <Button disabled={isEnrolling} onClick={() => handleEnroll(course.id)} className="rounded-full font-bold">
+                          {isEnrolling ? (
+                            <><div className="w-4 h-4 mr-2 rounded-full border-2 border-current border-t-transparent animate-spin" />Enrolling...</>
+                          ) : (
+                            <><Plus className="w-4 h-4 mr-1.5" /> Enroll</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center gap-2 pt-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">All courses</span>
+                  <div className="h-px flex-1 bg-white/10" />
+                </div>
+              </div>
+            )}
             {isLoading && (
               <div className="flex flex-col gap-4">
                 {[1, 2, 3].map((i) => (

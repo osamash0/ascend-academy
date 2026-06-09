@@ -14,6 +14,7 @@ import type {
   DegreeProgram,
   Faculty,
   MyCatalogCourse,
+  RecommendedCourse,
   SuggestedCourse,
   University,
 } from '@/types/academic';
@@ -90,6 +91,23 @@ export async function getMyCatalogCourses(): Promise<MyCatalogCourse[]> {
     courseCode: r.course_code ?? null,
     typicalSemester: r.typical_semester ?? null,
     status: r.status,
+  }));
+}
+
+/** Platform courses recommended from the caller's academic fingerprint. */
+export async function getRecommendedCourses(limit = 8): Promise<RecommendedCourse[]> {
+  const { data, error } = await rpc('get_recommended_courses', { p_limit: limit });
+  if (error) throw error;
+  return ((data as any[]) ?? []).map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.description ?? null,
+    color: r.color ?? null,
+    icon: r.icon ?? null,
+    lectureCount: r.lecture_count ?? 0,
+    reason: r.reason ?? 'Recommended for you',
+    matchedCourse: r.matched_course ?? null,
+    score: r.score ?? 0,
   }));
 }
 

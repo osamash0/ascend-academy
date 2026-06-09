@@ -61,6 +61,19 @@ export interface CatalogCourseConfirmation {
   status: StudentCatalogStatus;
 }
 
+/** A platform course recommended from the student's academic fingerprint. */
+export interface RecommendedCourse {
+  id: string;
+  title: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  lectureCount: number;
+  reason: string;
+  matchedCourse: string | null;
+  score: number;
+}
+
 export interface CatalogSourceFreshness {
   source: string;
   university: string;
