@@ -27,6 +27,13 @@ interface RpcUserRow {
   relationship?: RelationshipStatus | null;
   mutual_friends?: number | null;
   mutual_courses?: number | null;
+  shared_courses?: number | null;
+  institution_verified?: boolean | null;
+  university_id?: string | null;
+  university_name?: string | null;
+  faculty_id?: string | null;
+  faculty_name?: string | null;
+  current_semester?: number | null;
   direction?: "incoming" | "outgoing";
   created_at?: string;
 }
@@ -48,6 +55,13 @@ function mapUser(r: RpcUserRow): SocialUser {
     relationship: (r.relationship ?? undefined) as RelationshipStatus | undefined,
     mutualFriends: r.mutual_friends ?? undefined,
     mutualCourses: r.mutual_courses ?? undefined,
+    institutionVerified: !!r.institution_verified,
+    sharedCourses: r.shared_courses ?? undefined,
+    universityId: r.university_id ?? null,
+    universityName: r.university_name ?? null,
+    facultyId: r.faculty_id ?? null,
+    facultyName: r.faculty_name ?? null,
+    currentSemester: r.current_semester ?? null,
   };
 }
 
@@ -118,6 +132,13 @@ export async function searchUsers(p: SearchParams): Promise<SocialUser[]> {
 
 export async function fetchGlobalLeaderboard(): Promise<SocialUser[]> {
   const { data, error } = await rpc("get_global_leaderboard", { p_limit: 50 });
+  if (error) throw error;
+  return ((data as RpcUserRow[]) ?? []).map(mapUser);
+}
+
+/** Academic-aware "Suggested for you" — peers you aren't connected to yet. */
+export async function fetchFriendSuggestions(limit = 12): Promise<SocialUser[]> {
+  const { data, error } = await rpc("get_friend_suggestions", { p_limit: limit });
   if (error) throw error;
   return ((data as RpcUserRow[]) ?? []).map(mapUser);
 }

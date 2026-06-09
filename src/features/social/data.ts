@@ -36,6 +36,14 @@ export interface SocialUser {
   mutualFriends?: number;
   mutualCourses?: number;
   isCurrentUser?: boolean;
+  /** academic fingerprint (Phase 2 — present on most social RPC rows) */
+  institutionVerified?: boolean;
+  sharedCourses?: number;
+  universityId?: string | null;
+  universityName?: string | null;
+  facultyId?: string | null;
+  facultyName?: string | null;
+  currentSemester?: number | null;
 }
 
 export interface FriendRequestItem extends SocialUser {

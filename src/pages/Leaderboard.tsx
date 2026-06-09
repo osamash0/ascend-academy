@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Gem } from "lucide-react";
+import { Loader2, Gem, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type SocialUser } from "@/features/social/data";
 import { useSocialUser } from "@/features/social/useSocialUser";
 import { useGlobalLeaderboard } from "@/features/social/hooks";
@@ -16,15 +17,51 @@ export default function Leaderboard() {
 
   const [period, setPeriod] = useState<Period>("week");
 
-  // Filter and sort
+  // Academic cohort filters (client-side over the fetched rows).
+  const [university, setUniversity] = useState("all");
+  const [faculty, setFaculty] = useState("all");
+  const [semester, setSemester] = useState("all");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+
+  const universities = useMemo(
+    () => Array.from(new Set(globalRows.map((u) => u.universityName).filter(Boolean))) as string[],
+    [globalRows],
+  );
+  const faculties = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          globalRows
+            .filter((u) => university === "all" || u.universityName === university)
+            .map((u) => u.facultyName)
+            .filter(Boolean),
+        ),
+      ) as string[],
+    [globalRows, university],
+  );
+  const semesters = useMemo(
+    () =>
+      Array.from(new Set(globalRows.map((u) => u.currentSemester).filter((s): s is number => s != null))).sort(
+        (a, b) => a - b,
+      ),
+    [globalRows],
+  );
+
+  // Filter then sort by the selected period.
   const ranked = useMemo<SocialUser[]>(() => {
-    // We sort based on period. If week, sort by weeklyXp, else totalXp.
-    return [...globalRows].sort((a, b) => {
-      const vA = period === "week" ? a.weeklyXp : a.totalXp;
-      const vB = period === "week" ? b.weeklyXp : b.totalXp;
-      return vB - vA;
-    });
-  }, [period, globalRows]);
+    return globalRows
+      .filter((u) => university === "all" || u.universityName === university)
+      .filter((u) => faculty === "all" || u.facultyName === faculty)
+      .filter((u) => semester === "all" || String(u.currentSemester) === semester)
+      .filter((u) => !verifiedOnly || u.institutionVerified)
+      .sort((a, b) => {
+        const vA = period === "week" ? a.weeklyXp : a.totalXp;
+        const vB = period === "week" ? b.weeklyXp : b.totalXp;
+        return vB - vA;
+      });
+  }, [period, globalRows, university, faculty, semester, verifiedOnly]);
+
+  const filtersActive = university !== "all" || faculty !== "all" || semester !== "all" || verifiedOnly;
 
   const valueOf = (u: SocialUser) => (period === "week" ? u.weeklyXp : u.totalXp);
   const myIndex = ranked.findIndex((u) => u.id === me.id);
@@ -66,6 +103,42 @@ export default function Leaderboard() {
             </button>
           </div>
         </div>
+
+        {/* Cohort filters — powered by the academic fingerprint */}
+        {(universities.length > 0 || filtersActive) && (
+          <div className="mb-10 flex flex-wrap items-center justify-center gap-2.5">
+            <Select value={university} onValueChange={(v) => { setUniversity(v); setFaculty("all"); }}>
+              <SelectTrigger className="h-9 w-[190px] rounded-full border-white/10 bg-white/5 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All universities</SelectItem>
+                {universities.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={faculty} onValueChange={setFaculty} disabled={faculties.length === 0}>
+              <SelectTrigger className="h-9 w-[170px] rounded-full border-white/10 bg-white/5 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All faculties</SelectItem>
+                {faculties.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={semester} onValueChange={setSemester} disabled={semesters.length === 0}>
+              <SelectTrigger className="h-9 w-[140px] rounded-full border-white/10 bg-white/5 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any semester</SelectItem>
+                {semesters.map((s) => <SelectItem key={s} value={String(s)}>Semester {s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <button
+              onClick={() => setVerifiedOnly((v) => !v)}
+              className={cn(
+                "flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition",
+                verifiedOnly ? "border-blue-400/40 bg-blue-400/15 text-blue-300" : "border-white/10 bg-white/5 text-muted-foreground hover:text-white",
+              )}
+            >
+              <BadgeCheck className="h-4 w-4" /> Verified only
+            </button>
+          </div>
+        )}
 
         {globalLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>

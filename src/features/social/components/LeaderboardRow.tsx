@@ -1,7 +1,7 @@
 /** One leaderboard row — matching the new 5-column table design. */
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Gem } from "lucide-react";
+import { Gem, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StudentRoutes } from "@/lib/routes";
 import type { SocialUser } from "../data";
@@ -51,7 +51,12 @@ export function LeaderboardRow({
       <div className="flex min-w-0 items-center gap-3">
         <Avatar user={user} size="sm" />
         <div className="min-w-0">
-          <div className="truncate text-sm font-bold text-white">{isMe ? "You" : user.name}</div>
+          <div className="flex items-center gap-1 truncate text-sm font-bold text-white">
+            <span className="truncate">{isMe ? "You" : user.name}</span>
+            {user.institutionVerified && (
+              <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-blue-400" aria-label="Verified institution" />
+            )}
+          </div>
           <div className="text-xs text-muted-foreground truncate">@{user.name.toLowerCase().replace(/\s+/g, '')}</div>
         </div>
       </div>
