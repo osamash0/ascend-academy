@@ -1,5 +1,18 @@
 import { motion } from 'framer-motion';
-import { BookOpen, Star, User, X, CheckCircle2, ChevronRight, Play } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import {
+  BookOpen,
+  Star,
+  User,
+  X,
+  CheckCircle2,
+  ChevronRight,
+  Play,
+  CalendarDays,
+  MapPin,
+  Clock,
+  Repeat,
+} from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -12,6 +25,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { Lecture } from '@/types/domain';
+import type { ScheduleEntry } from '@/features/student/courseSchedules';
 
 export interface CourseDetailsProps {
   isOpen: boolean;
@@ -25,6 +39,7 @@ export interface CourseDetailsProps {
   instructorName?: string;
   lectures: { lecture: Lecture; cleanTitle: string; progress: number; status: string }[];
   onStartLecture: (lectureId: string) => void;
+  schedule?: ScheduleEntry[];
 }
 
 export function CourseDetailsSheet({
@@ -38,7 +53,9 @@ export function CourseDetailsSheet({
   instructorName = 'Ascend Instructor',
   lectures,
   onStartLecture,
+  schedule = [],
 }: CourseDetailsProps) {
+  const { t } = useTranslation(['common']);
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl p-0 flex flex-col bg-background/95 backdrop-blur-xl border-l-white/10">
@@ -87,6 +104,62 @@ export function CourseDetailsSheet({
                   ))}
                 </div>
               </section>
+            )}
+
+            {schedule.length > 0 && (
+              <>
+                <Separator className="bg-white/5" />
+                <section className="space-y-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <CalendarDays className="w-5 h-5 text-primary" />
+                    {t('common:courseSchedule.title')}
+                  </h3>
+                  <div className="space-y-3">
+                    {schedule.map((entry, idx) => {
+                      const eventName = t(`common:courseSchedule.events.${entry.type}`);
+                      const label = entry.seq ? `${eventName} ${entry.seq}` : eventName;
+                      return (
+                        <div
+                          key={`${entry.type}-${entry.seq ?? idx}`}
+                          className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-bold text-foreground/90">{label}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-primary/80 shrink-0">
+                              {t(`common:courseSchedule.days.${entry.day}`)} ·{' '}
+                              {t(`common:courseSchedule.rhythm.${entry.rhythm}`)}
+                            </span>
+                          </div>
+                          <div className="grid gap-2 text-xs text-muted-foreground">
+                            <div className="flex items-start gap-2">
+                              <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground/60" />
+                              <span className="leading-relaxed">{entry.location}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
+                              <span className="font-medium text-foreground/80">{entry.time}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Repeat className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
+                              <span>
+                                {entry.start === entry.end
+                                  ? entry.start
+                                  : `${entry.start} – ${entry.end}`}
+                              </span>
+                            </div>
+                            {entry.instructor && (
+                              <div className="flex items-center gap-2">
+                                <User className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
+                                <span className="font-medium text-foreground/80">{entry.instructor}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </>
             )}
 
             <Separator className="bg-white/5" />

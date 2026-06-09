@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
 import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes } from "@/lib/routes";
+import { SocialProvider } from "@/features/social/store";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
   useLanguagePreference();
@@ -75,6 +76,11 @@ const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Insights = lazy(() => import("./pages/Insights"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PipelineTestPage = lazy(() => import("./pages/PipelineTestPage"));
+const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
+const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
+const FriendProfile = lazy(() => import("./features/social/pages/FriendProfile"));
+const FriendRequests = lazy(() => import("./features/social/pages/FriendRequests"));
+const FindFriends = lazy(() => import("./features/social/pages/FindFriends"));
 
 // Loading Component
 const PageLoader = () => {
@@ -401,6 +407,60 @@ function AppRoutes() {
           }
         />
 
+        {/* Social Gamification — friends, profiles, requests. Lives inside the
+            console shell, behind student auth. Leaderboard is upgraded in-place
+            (see the StudentRoutes.LEADERBOARD route above). */}
+        <Route
+          path={StudentRoutes.FRIENDS}
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <FriendsHub />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={StudentRoutes.FRIENDS_REQUESTS}
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <FriendRequests />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={StudentRoutes.FRIENDS_FIND}
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <FindFriends />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={StudentRoutes.PROFILE}
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <SocialProfile />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:userId"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <FriendProfile />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+
         {/* 404 */}
         <Route path="*" element={<ProtectedNotFound />} />
       </Routes>
@@ -418,7 +478,9 @@ const App = () => (
           <BrowserRouter>
             <AuthProvider>
               <LanguagePreferenceBootstrap>
-                <AppRoutes />
+                <SocialProvider>
+                  <AppRoutes />
+                </SocialProvider>
               </LanguagePreferenceBootstrap>
             </AuthProvider>
           </BrowserRouter>

@@ -19,6 +19,12 @@ export const StudentRoutes = {
   ACHIEVEMENTS: '/achievements',
   LEADERBOARD: '/leaderboard',
   INSIGHTS: '/insights',
+  // Social gamification
+  FRIENDS: '/friends',
+  FRIENDS_REQUESTS: '/friends/requests',
+  FRIENDS_FIND: '/friends/find',
+  PROFILE: '/profile',
+  PROFILE_USER: (id: string) => `/profile/${id}`,
 } as const;
 
 export const ProfessorRoutes = {

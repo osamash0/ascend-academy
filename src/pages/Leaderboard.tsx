@@ -1,219 +1,172 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Trophy, Medal, Zap, Star } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/lib/auth';
+import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { Crown, Info, Loader2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SOCIAL_ROLE_OPTIONS, type Role, type SocialUser } from "@/features/social/data";
+import { useSocial } from "@/features/social/store";
+import { useSocialUser } from "@/features/social/useSocialUser";
+import { useFriends, useGlobalLeaderboard } from "@/features/social/hooks";
+import { LeaderboardRow } from "@/features/social/components/LeaderboardRow";
+import { Panel } from "@/features/social/components/atoms";
 
-interface StudentProfile {
-    id: string;
-    display_name: string | null;
-    avatar_url: string | null;
-    total_xp: number;
-    current_level: number;
-}
+type Scope = "friends" | "global";
+type Period = "week" | "all";
 
 export default function Leaderboard() {
-    const { user } = useAuth();
-    const [students, setStudents] = useState<StudentProfile[]>([]);
-    const [loading, setLoading] = useState(true);
+  const me = useSocialUser();
+  const { roleFilter, setRoleFilter } = useSocial();
+  const { data: friends = [] } = useFriends();
+  const { data: globalRows = [], isLoading: globalLoading } = useGlobalLeaderboard();
 
-    useEffect(() => {
-        const fetchLeaderboard = async () => {
-            try {
-                // Use the security-definer RPC that exposes only public fields
-                // (display_name, avatar_url, total_xp, current_level) without
-                // leaking emails or other sensitive profile data.
-                const { data, error } = await supabase
-                    .rpc('get_public_leaderboard', { p_limit: 50 });
+  const [scope, setScope] = useState<Scope>("global");
+  const [period, setPeriod] = useState<Period>("week");
+  const [institution, setInstitution] = useState("all");
 
-                if (error) throw error;
+  const mode: "social" | "global" = scope === "friends" ? "social" : "global";
+  const valueOf = (u: SocialUser) =>
+    mode === "social" ? (period === "week" ? u.weeklyXp : u.totalXp) : u.totalXp;
 
-                const rows = (data as Array<{
-                    profile_id: string;
-                    display_name: string | null;
-                    avatar_url: string | null;
-                    total_xp: number;
-                    current_level: number;
-                }>) ?? [];
+  const institutions = useMemo(
+    () => Array.from(new Set(friends.map((f) => f.institution).filter(Boolean))) as string[],
+    [friends],
+  );
 
-                setStudents(rows.map(r => ({
-                    id: r.profile_id,
-                    display_name: r.display_name,
-                    avatar_url: r.avatar_url,
-                    total_xp: r.total_xp,
-                    current_level: r.current_level,
-                })));
-            } catch (error) {
-                console.error('Error fetching leaderboard:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchLeaderboard();
-    }, []);
-
-    const getMedalColor = (index: number) => {
-        switch (index) {
-            case 0: return 'text-yellow-400 drop-shadow-glow-yellow';
-            case 1: return 'text-gray-300 drop-shadow-glow-gray';
-            case 2: return 'text-amber-500 drop-shadow-glow-amber';
-            default: return 'text-muted-foreground';
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
-            </div>
-        );
+  const ranked = useMemo<SocialUser[]>(() => {
+    if (scope === "global") {
+      // RPC already includes the signed-in user, sorted by total_xp.
+      return [...globalRows].sort((a, b) => b.totalXp - a.totalXp);
     }
+    let pool = [me, ...friends];
+    if (institution !== "all") pool = pool.filter((u) => u.id === me.id || u.institution === institution);
+    if (roleFilter) pool = pool.filter((u) => u.id === me.id || u.roles.includes(roleFilter));
+    return pool.sort((a, b) => valueOf(b) - valueOf(a));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, period, institution, roleFilter, friends, me, globalRows]);
 
-    return (
-        <div className="relative min-h-screen console-bg">
-          {/* Animated Background */}
-          <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-              <div className="absolute top-[10%] left-[20%] w-[40%] h-[40%] rounded-full bg-primary/5 blur-[120px] animate-pulse" />
-              <div className="absolute bottom-[10%] right-[20%] w-[40%] h-[40%] rounded-full bg-secondary/5 blur-[120px] animate-pulse delay-700" />
-          </div>
+  const maxXp = Math.max(...ranked.map(valueOf), 1);
+  const myIndex = ranked.findIndex((u) => u.id === me.id);
+  const top = ranked.slice(0, 10);
+  const myInTop = myIndex > -1 && myIndex < 10;
+  const above = myIndex > 0 ? ranked[myIndex - 1] : null;
+  const gap = above ? valueOf(above) - valueOf(me) : 0;
 
-          <div className="p-6 md:p-10 pb-24 md:pb-12 max-w-5xl mx-auto space-y-10 relative z-10">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                  <div>
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest mb-3">
-                      <Trophy className="w-3 h-3" /> Orbital Rankings
-                    </div>
-                    <h1 className="text-4xl font-bold tracking-tight text-foreground flex items-center gap-4">
-                        Ascend Leaderboard
-                    </h1>
-                    <p className="text-body-md text-muted-foreground mt-2 max-w-xl">
-                      Tracking the highest-performing neural synapses in the academy. Synchronized with live session metrics.
-                    </p>
-                  </div>
-                  
-                  <div className="glass-panel px-6 py-4 rounded-2xl flex items-center gap-4 border-white/5">
-                    <div className="w-10 h-10 rounded-xl bg-xp/10 flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-xp" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Global Status</p>
-                      <p className="text-sm font-bold text-foreground">Operational</p>
-                    </div>
-                  </div>
-              </div>
+  const cols =
+    mode === "social" ? "28px minmax(0,1.5fr) minmax(0,1fr) 120px 72px" : "28px minmax(0,1.6fr) 90px 120px 80px";
 
-              <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="glass-card border-white/5 rounded-[32px] overflow-hidden shadow-2xl"
-              >
-                  <div className="overflow-x-auto">
-                      <table className="w-full text-sm text-left border-collapse">
-                          <thead>
-                              <tr className="border-b border-white/5 bg-white/2">
-                                  <th className="px-8 py-6 font-bold uppercase tracking-widest text-[10px] text-muted-foreground">Rank</th>
-                                  <th className="px-8 py-6 font-bold uppercase tracking-widest text-[10px] text-muted-foreground">Operator</th>
-                                  <th className="px-8 py-6 font-bold uppercase tracking-widest text-[10px] text-muted-foreground text-center">Neural Level</th>
-                                  <th className="px-8 py-6 font-bold uppercase tracking-widest text-[10px] text-muted-foreground text-right">Experience (XP)</th>
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                              {students.map((student, index) => {
-                                  const isCurrentUser = student.id === user?.id;
-                                  const isTop3 = index < 3;
-
-                                  return (
-                                      <motion.tr
-                                          key={student.id}
-                                          initial={{ opacity: 0, x: -10 }}
-                                          animate={{ opacity: 1, x: 0 }}
-                                          transition={{ delay: index * 0.04 }}
-                                          className={`group transition-all duration-300 hover:bg-white/5 ${
-                                            isCurrentUser ? 'bg-primary/5' : ''
-                                          }`}
-                                      >
-                                          <td className="px-8 py-6">
-                                              <div className="flex items-center gap-4">
-                                                  {isTop3 ? (
-                                                      <div className="relative">
-                                                        <motion.div 
-                                                          animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }}
-                                                          transition={{ duration: 4, repeat: Infinity }}
-                                                        >
-                                                          <Medal className={`w-8 h-8 ${getMedalColor(index)}`} />
-                                                        </motion.div>
-                                                        <div className={`absolute -inset-1 blur-md -z-10 opacity-30 ${
-                                                          index === 0 ? 'bg-yellow-400' : index === 1 ? 'bg-gray-300' : 'bg-amber-500'
-                                                        }`} />
-                                                      </div>
-                                                  ) : (
-                                                      <span className="text-muted-foreground font-bold text-lg w-8 text-center">{index + 1}</span>
-                                                  )}
-                                              </div>
-                                          </td>
-                                          <td className="px-8 py-6">
-                                              <div className="flex items-center gap-4">
-                                                  <div className="relative">
-                                                    <div className="w-12 h-12 rounded-2xl bg-surface-2 flex items-center justify-center overflow-hidden border border-white/10 group-hover:border-primary/50 transition-all duration-300 shadow-sm">
-                                                        {student.avatar_url ? (
-                                                            <img src={student.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <div className="w-full h-full bg-gradient-to-br from-surface-2 to-surface-3 flex items-center justify-center">
-                                                              <Trophy className="w-6 h-6 text-muted-foreground/50" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {isCurrentUser && (
-                                                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-background shadow-glow-primary" />
-                                                    )}
-                                                  </div>
-                                                  <div className="flex flex-col">
-                                                      <span className={`text-base font-bold transition-colors ${isCurrentUser ? 'text-primary' : 'text-foreground group-hover:text-primary'}`}>
-                                                          {student.display_name || 'Anonymous Operator'}
-                                                      </span>
-                                                      <div className="flex items-center gap-2">
-                                                        {isCurrentUser && (
-                                                            <span className="text-[10px] text-primary uppercase font-bold tracking-widest">You</span>
-                                                        )}
-                                                        <span className="text-[10px] text-muted-foreground/50 uppercase font-bold tracking-widest">Active Status</span>
-                                                      </div>
-                                                  </div>
-                                              </div>
-                                          </td>
-                                          <td className="px-8 py-6 text-center">
-                                              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-surface-2 text-foreground font-bold text-xs border border-white/5 group-hover:border-primary/20 transition-all">
-                                                  <Star className="w-3.5 h-3.5 text-primary" />
-                                                  LEVEL {student.current_level || 1}
-                                              </div>
-                                          </td>
-                                          <td className="px-8 py-6 text-right">
-                                              <div className="flex items-center justify-end gap-3 font-bold text-xp text-xl tracking-tight">
-                                                  {student.total_xp?.toLocaleString() || 0}
-                                                  <div className="w-8 h-8 rounded-lg bg-xp/10 flex items-center justify-center">
-                                                    <Zap className="w-4 h-4 fill-xp text-xp" />
-                                                  </div>
-                                              </div>
-                                          </td>
-                                      </motion.tr>
-                                  );
-                              })}
-
-                              {students.length === 0 && (
-                                  <tr>
-                                      <td colSpan={4} className="px-8 py-20 text-center">
-                                          <div className="flex flex-col items-center gap-4 opacity-30">
-                                            <Trophy className="w-16 h-16" />
-                                            <p className="font-bold uppercase tracking-widest text-xs">Waiting for participants...</p>
-                                          </div>
-                                      </td>
-                                  </tr>
-                              )}
-                          </tbody>
-                      </table>
-                  </div>
-              </motion.div>
-          </div>
+  return (
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 lg:px-0 lg:py-8">
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-xp to-streak shadow-glow-xp">
+          <Crown className="h-6 w-6 text-white" />
         </div>
-    );
+        <div>
+          <h1 className="font-display text-[22px] font-bold text-foreground">Ranking</h1>
+          <p className="text-sm text-muted-foreground">See where you stand among friends and the world.</p>
+        </div>
+      </motion.div>
+
+      <Panel className="mb-4 !p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Tabs value={scope} onValueChange={(v) => setScope(v as Scope)}>
+            <TabsList>
+              <TabsTrigger value="friends">Friends</TabsTrigger>
+              <TabsTrigger value="global">Global</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {scope === "friends" && (
+            <>
+              <FilterSelect value={period} onChange={(v) => setPeriod(v as Period)} width={130}
+                options={[{ value: "week", label: "This week" }, { value: "all", label: "All time" }]} />
+              <FilterSelect value={roleFilter ?? "all"} onChange={(v) => setRoleFilter(v === "all" ? null : (v as Role))} width={150}
+                options={[{ value: "all", label: "All roles" }, ...SOCIAL_ROLE_OPTIONS.map((r) => ({ value: r, label: r }))]} />
+              <FilterSelect value={institution} onChange={setInstitution} width={180}
+                options={[{ value: "all", label: "All institutions" }, ...institutions.map((i) => ({ value: i, label: i }))]} />
+            </>
+          )}
+        </div>
+      </Panel>
+
+      <Panel className="!p-3 lg:!p-4">
+        <div
+          className="grid items-center gap-3 px-4 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+          style={{ gridTemplateColumns: cols }}
+        >
+          <span className="text-center">#</span>
+          <span>Learner</span>
+          <span>{mode === "social" ? "Institution" : "Level"}</span>
+          <span>{mode === "social" ? "Weekly XP" : "Total XP"}</span>
+          <span className="text-right">{mode === "social" && period === "all" ? "Total" : mode === "social" ? "Weekly" : "Total"}</span>
+        </div>
+
+        {scope === "global" && globalLoading ? (
+          <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : ranked.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            {scope === "friends" ? "Add friends to see how you compare." : "No learners yet."}
+          </p>
+        ) : (
+          <>
+            <div key={`${scope}-${period}-${institution}-${roleFilter}`} className="flex flex-col gap-1">
+              {top.map((u, i) => (
+                <LeaderboardRow key={u.id} user={u} rank={i + 1} maxXp={maxXp} mode={mode} value={valueOf(u)} isMe={u.id === me.id} index={i} />
+              ))}
+            </div>
+
+            {!myInTop && myIndex > -1 && (
+              <>
+                <div className="my-2 flex items-center gap-2 px-4 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <div className="h-px flex-1 bg-border" />
+                  your position
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <LeaderboardRow user={me} rank={myIndex + 1} maxXp={maxXp} mode={mode} value={valueOf(me)} isMe index={myIndex} />
+              </>
+            )}
+
+            {above && gap > 0 && (
+              <div className="mt-3 flex items-center gap-2 rounded-2xl bg-[#3B82F6]/10 px-4 py-3 text-sm text-[#93C5FD]">
+                <Info className="h-4 w-4 shrink-0" />
+                <span>
+                  You are <strong className="text-white">{gap.toLocaleString()} XP</strong> behind {above.name} — keep going to overtake them.
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+function FilterSelect({
+  value,
+  onChange,
+  options,
+  width,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  width: number;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-9 rounded-full border-white/10 bg-white/5 text-sm" style={{ width }}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }

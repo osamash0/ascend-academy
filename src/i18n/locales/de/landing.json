@@ -8,10 +8,10 @@
     "launchMission": "Mission starten"
   },
   "hero": {
-    "badge": "v2.0 jetzt im Orbit",
+    "badge": "v3.0 jetzt im Orbit",
     "headlineLine1": "Deine Lern-",
     "headlineLine2": "Kommandozentrale",
-    "subtitle": "Die Plattform der nächsten Generation von Learnstation. KI-gestütztes Tutoring, Echtzeit-Analysen und immersive Kurserlebnisse – alles aus deiner Kommandozentrale.",
+    "subtitle": "Learnstation v3.0: Intelligentes PDF-Parsing, verankerter KI-Tutor, speichersicheres Processing. KI-gestütztes Tutoring, Echtzeit-Analysen und immersive Kurserlebnisse – alles aus deiner Kommandozentrale.",
     "ctaPrimary": "Mission starten",
     "ctaSecondary": "Demo ansehen",
     "systemOnline": "SYSTEM ONLINE",
@@ -95,10 +95,10 @@
     "headlineLeft": "Professoren-",
     "headlineHighlight": "Kommandozentrale",
     "subtitle": "Veröffentliche Kurse, beobachte den Studienfortschritt in Echtzeit und nutze KI-Analysen, um Lernergebnisse zu optimieren. Dein Klassenzimmer, neu gedacht als Kommandozentrale.",
-    "bullet1": "Vorlesungen mit intelligentem Folien-Parsing hochladen",
-    "bullet2": "Echtzeit-Analysen zur Studierenden-Beteiligung",
-    "bullet3": "KI-generierte Quizfragen pro Folie",
-    "bullet4": "Leistungs-Dashboards mit exportierbaren Berichten",
+    "bullet1": "Vorlesungen mit v3 intelligentem PDF-Parsing (generatorbasiertes Routing)",
+    "bullet2": "Echtzeit-Analysen mit Konzeptverfolgung",
+    "bullet3": "KI-generierte mehrstufige Quizze (Abrufen → Evaluieren)",
+    "bullet4": "Verankerter KI-Tutor beschränkt auf Vorlesungsinhalte (null Halluzinationen)",
     "cta": "Jetzt unterrichten",
     "preview": {
       "title": "Klassen-Analytik",

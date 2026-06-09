@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Settings, Trophy, BarChart3, LogOut, User } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import { StudentRoutes } from '@/lib/routes';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -78,7 +79,7 @@ export function ProfileChip({ className }: ProfileChipProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate('/settings')}>
+        <DropdownMenuItem onClick={() => navigate(role === 'student' ? StudentRoutes.PROFILE : '/settings')}>
           <User className="mr-2 h-4 w-4" />
           Profile
         </DropdownMenuItem>

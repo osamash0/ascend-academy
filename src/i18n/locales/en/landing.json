@@ -8,12 +8,12 @@
     "launchMission": "Launch Mission"
   },
   "hero": {
-    "badge": "v2.0 Now Orbiting",
+    "badge": "v3.0 Now Orbiting",
     "headlineLine1": "Your Learning",
     "headlineLine2": "Mission Control",
-    "subtitle": "Learnstation's next-generation platform. AI-powered tutoring, real-time analytics, and immersive course experiences — all from your command center.",
+    "subtitle": "Upload a lecture. Get smart notes, quizzes, and an AI tutor — instantly.",
     "ctaPrimary": "Launch Your Mission",
-    "ctaSecondary": "Watch Demo",
+    "ctaSecondary": "",
     "systemOnline": "SYSTEM ONLINE",
     "scrollToExplore": "Scroll to Explore",
     "stats": {
@@ -95,10 +95,10 @@
     "headlineLeft": "Professor",
     "headlineHighlight": "Mission Control",
     "subtitle": "Deploy courses, monitor student progress in real-time, and leverage AI analytics to optimize learning outcomes. Your classroom, reimagined as a command center.",
-    "bullet1": "Upload lectures with intelligent slide parsing",
-    "bullet2": "Real-time student engagement analytics",
-    "bullet3": "AI-generated quiz questions per slide",
-    "bullet4": "Performance dashboards with exportable reports",
+    "bullet1": "Upload lectures with v3 intelligent PDF parsing (generator-aware routing)",
+    "bullet2": "Real-time student engagement analytics with concept tracking",
+    "bullet3": "AI-generated multi-level quizzes (recall → evaluate)",
+    "bullet4": "Grounded AI tutor restricted to lecture content (zero hallucination)",
     "cta": "Start Teaching",
     "preview": {
       "title": "Class Analytics",

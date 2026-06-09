@@ -473,15 +473,6 @@ function HeroSection() {
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity" />
           </motion.button>
           
-          <motion.button
-            onClick={() => navigate('/auth')}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="group px-8 py-4 bg-white/5 border border-white/10 text-white font-semibold rounded-2xl hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <Play className="w-5 h-5 text-cyan-400" />
-            {t('landing:hero.ctaSecondary')}
-          </motion.button>
         </motion.div>
 
         {/* Dashboard Preview — Floating HUD */}

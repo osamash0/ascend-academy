@@ -115,6 +115,40 @@
       "description": "Du bist auf Level {{level}} aufgestiegen. Weiter so!"
     }
   },
+  "courseSchedule": {
+    "title": "Termine",
+    "headers": {
+      "event": "Veranstaltung",
+      "location": "Ort",
+      "start": "Start",
+      "end": "Ende",
+      "day": "Termin",
+      "rhythm": "Rhythmus",
+      "time": "Zeit",
+      "instructor": "Dozent/in"
+    },
+    "events": {
+      "lecture": "Vorlesung",
+      "exercise": "Übung",
+      "sqlWorkshop": "SQL Workshop",
+      "exam": "Klausur"
+    },
+    "rhythm": {
+      "weekly": "wöchentlich",
+      "biweekly": "zwei-wöchentlich",
+      "once": "einmalig"
+    },
+    "days": {
+      "monday": "Montags",
+      "tuesday": "Dienstags",
+      "wednesday": "Mittwochs",
+      "thursday": "Donnerstags",
+      "friday": "Freitags",
+      "saturday": "Samstags",
+      "sunday": "Sonntags"
+    },
+    "empty": "Für diesen Kurs sind noch keine Termine verfügbar."
+  },
   "curriculum": {
     "Objektorientierte Programmierung": "Objektorientierte Programmierung",
     "Technische Informatik": "Technische Informatik",

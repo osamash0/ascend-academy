@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, Trophy, Users, BarChart3, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, type LucideIcon } from 'lucide-react';
+import { Home, Trophy, Users, Crown, BarChart3, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -18,7 +18,8 @@ const STUDENT_TABS: NavTab[] = [
   { label: 'Home', to: StudentRoutes.HOME, icon: Home },
   { label: 'Library', to: StudentRoutes.LIBRARY, icon: BookOpen },
   { label: 'Trophies', to: StudentRoutes.ACHIEVEMENTS, icon: Trophy },
-  { label: 'Ranking', to: StudentRoutes.LEADERBOARD, icon: Users },
+  { label: 'Ranking', to: StudentRoutes.LEADERBOARD, icon: Crown },
+  { label: 'Friends', to: StudentRoutes.FRIENDS, icon: Users },
   { label: 'Insights', to: StudentRoutes.INSIGHTS, icon: BarChart3 },
 ];
 

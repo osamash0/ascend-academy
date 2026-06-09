@@ -113,12 +113,13 @@ export function buildSkillTree(input: SkillTreeInput): SkillNode {
   };
 
   // Group lectures by course.
-  const byCourse = new Map<string, { title: string; lectures: Lecture[] }>();
+  const byCourse = new Map<string, { title: string; description?: string | null; lectures: Lecture[] }>();
   for (const lec of lectures) {
     const courseId = lec.course_id ?? UNCATEGORIZED;
     const title =
       lec.course?.title ?? courseTitleById?.get(courseId) ?? 'Uncategorized';
-    const entry = byCourse.get(courseId) ?? { title, lectures: [] };
+    const description = lec.course?.description ?? null;
+    const entry = byCourse.get(courseId) ?? { title, description, lectures: [] };
     entry.lectures.push(lec);
     byCourse.set(courseId, entry);
   }
@@ -218,6 +219,7 @@ export function buildSkillTree(input: SkillTreeInput): SkillNode {
       label: group.title,
       kind: 'course',
       state: courseState,
+      desc: group.description ?? undefined,
       progress: ordered.length
         ? ordered.filter((l) => ownedLectureIds.has(l.id)).length / ordered.length
         : 0,

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, ChevronLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
@@ -10,6 +10,7 @@ import { topicIcon } from '@/lib/topicIcon';
 import type { Lecture, StudentProgress, CourseSummary } from '@/types/domain';
 import { CourseDetailsSheet } from '@/features/student/components/CourseDetailsSheet';
 import { CourseCatalogSheet } from '@/features/student/components/CourseCatalogSheet';
+import { getCourseSchedule } from '@/features/student/courseSchedules';
 import { InlineLecturePlayer } from '@/features/student/components/InlineLecturePlayer';
 import {
   DepthScene,
@@ -163,8 +164,18 @@ export default function StudentCourseLibrary() {
       })
       .sort((a, b) => {
         if (a.id === b.id) return 0;
+        // Database Systems always first
+        const aDB = /database/i.test(a.title) ? 0 : 1;
+        const bDB = /database/i.test(b.title) ? 0 : 1;
+        if (aDB !== bDB) return aDB - bDB;
+        // Courses with lectures before empty ones
+        const aHas = a.lecturesCount > 0 ? 0 : 1;
+        const bHas = b.lecturesCount > 0 ? 0 : 1;
+        if (aHas !== bHas) return aHas - bHas;
+        // Last opened next
         if (a.id === lastOpenedCourseId) return -1;
         if (b.id === lastOpenedCourseId) return 1;
+        // Fallback: progress desc
         return b.progress - a.progress;
       });
 
@@ -179,6 +190,9 @@ export default function StudentCourseLibrary() {
   const [shelfReady, setShelfReady] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  // Collapse the course rail to only what matters now (started + recent);
+  // the rest live behind a "Show all" tile so the screen isn't a wall of icons.
+  const [showAllCourses, setShowAllCourses] = useState(false);
   // The lecture opened inline (below the rails). null = no inline player.
   const [inlineLectureId, setInlineLectureId] = useState<string | null>(null);
   // Active slide index inside the inline player — drives the wallpaper.
@@ -188,19 +202,102 @@ export default function StudentCourseLibrary() {
   // Set of already enrolled course IDs so the catalog can mark them.
   const enrolledCourseIds = useMemo(() => new Set(courseList.map(c => c.id)), [courseList]);
 
+  // Parse the semester from a course's description/title — same rule the skill
+  // tree uses (e.g. "… 4. Semester" → 4). null when none is stated.
+  const semesterOf = useCallback((c: DerivedCourse) => {
+    const text = `${c.description || ''} ${c.title}`;
+    const m = text.match(/(\d+)\.\s*Semester/i) || text.match(/Semester\s*(\d+)/i);
+    return m ? parseInt(m[1], 10) : null;
+  }, []);
+
+  // The semester that leads the rail = the semester of the highest-priority
+  // course in the sorted courseList (Database Systems first, then has-lectures,
+  // then progress). This keeps the lead semester in sync with the sort order.
+  const leadSemester = useMemo(() => {
+    const first = courseList.find((c) => semesterOf(c) != null);
+    return first ? semesterOf(first) : null;
+  }, [courseList, semesterOf]);
+
+  // Courses grouped by semester: the lead (current) semester first, the rest
+  // ascending, and any without a stated semester last. courseList is already
+  // sorted last-opened → highest-progress, so order holds inside each group.
+  const semesterGroups = useMemo(() => {
+    const byKey = new Map<number | 'none', DerivedCourse[]>();
+    courseList.forEach((c) => {
+      const s = semesterOf(c);
+      const key: number | 'none' = s == null ? 'none' : s;
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key)!.push(c);
+    });
+    const sems = [...byKey.keys()]
+      .filter((k): k is number => k !== 'none')
+      .sort((a, b) => {
+        if (a === leadSemester) return -1;
+        if (b === leadSemester) return 1;
+        return a - b;
+      });
+    const groups = sems.map((s) => ({
+      key: String(s),
+      label: t('dashboard:semesterN', '{{n}}. Semester', { n: s }),
+      courses: byKey.get(s)!,
+    }));
+    if (byKey.has('none')) {
+      groups.push({ key: 'none', label: t('dashboard:otherCourses', 'Other'), courses: byKey.get('none')! });
+    }
+    return groups;
+  }, [courseList, semesterOf, leadSemester, t]);
+
+  // Collapsed, the rail shows only the lead semester; "Show all" reveals the
+  // rest. railCourses is the flat list the focus index and keyboard nav use.
+  const railGroups = showAllCourses ? semesterGroups : semesterGroups.slice(0, 1);
+  const railCourses = railGroups.flatMap((g) => g.courses);
+  const hiddenCount = courseList.length - railCourses.length;
+
+  // Toggle the rail while keeping the focused course focused across the resize.
+  const toggleShowAll = useCallback(() => {
+    const focusedId = railCourses[courseFocus]?.id;
+    const next = !showAllCourses;
+    const nextCourses = (next ? semesterGroups : semesterGroups.slice(0, 1)).flatMap((g) => g.courses);
+    setShowAllCourses(next);
+    const idx = focusedId ? nextCourses.findIndex((c) => c.id === focusedId) : 0;
+    setCourseFocus(idx >= 0 ? idx : 0);
+  }, [railCourses, courseFocus, showAllCourses, semesterGroups]);
+
   // Preselect the course from the URL (deep link from /course-v3/:courseId).
   useEffect(() => {
     if (!courseList.length) return;
-    const idx = courseId ? courseList.findIndex((c) => c.id === courseId) : -1;
-    setCourseFocus(idx >= 0 ? idx : 0);
+    if (courseId) {
+      const leadCourses = semesterGroups[0]?.courses ?? [];
+      const visibleIdx = leadCourses.findIndex((c) => c.id === courseId);
+      if (visibleIdx >= 0) {
+        setCourseFocus(visibleIdx);
+      } else {
+        // The linked course is in another semester — reveal all and focus it.
+        setShowAllCourses(true);
+        const all = semesterGroups.flatMap((g) => g.courses);
+        setCourseFocus(Math.max(0, all.findIndex((c) => c.id === courseId)));
+      }
+    } else {
+      setCourseFocus(0);
+    }
     setActiveRow('courses');
     setLectureFocus(0);
   }, [courseId, courseList.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const focusedCourse = courseList[courseFocus];
+  const focusedCourse = railCourses[courseFocus];
   const courseLectures = useMemo(
     () => (focusedCourse ? lecturesByCourse.get(focusedCourse.id) ?? [] : []),
     [focusedCourse, lecturesByCourse],
+  );
+
+  // The lecture to resume into for the focused course: first one in progress,
+  // else the first unstarted, else just the first. Drives the "Continue" action.
+  const resumeLecture = useMemo(
+    () =>
+      courseLectures.find((l) => l.status === 'progress') ??
+      courseLectures.find((l) => l.status === 'new') ??
+      courseLectures[0],
+    [courseLectures],
   );
 
   // Keep the lecture cursor in range as the focused course changes.
@@ -269,7 +366,7 @@ export default function StudentCourseLibrary() {
       switch (e.key) {
         case 'ArrowRight':
           e.preventDefault();
-          if (activeRow === 'courses') setCourseFocus((i) => Math.min(i + 1, courseList.length - 1));
+          if (activeRow === 'courses') setCourseFocus((i) => Math.min(i + 1, railCourses.length - 1));
           else setLectureFocus((i) => Math.min(i + 1, courseLectures.length - 1));
           break;
         case 'ArrowLeft':
@@ -298,7 +395,7 @@ export default function StudentCourseLibrary() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeRow, courseList.length, courseLectures.length, focusedLecture, dropIntoLectures, openInline, inlineLectureId, focusedCourse?.id]);
+  }, [activeRow, railCourses.length, courseLectures.length, focusedLecture, dropIntoLectures, openInline, inlineLectureId, focusedCourse?.id]);
 
   // Keep the focused tile scrolled into view in each rail.
   const courseRailRef = useRef<HTMLDivElement>(null);
@@ -409,12 +506,23 @@ export default function StudentCourseLibrary() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className={cn('flex items-start gap-3 overflow-x-auto px-6 lg:px-12 pb-2', railScroll)}
+            className={cn('flex items-start gap-5 overflow-x-auto px-6 lg:px-12 pb-2', railScroll)}
           >
-            {courseList.map((c, i) => {
-              const active = i === courseFocus;
-              const dim = activeRow === 'lectures';
-              return (
+            {(() => {
+              let flat = -1;
+              return railGroups.map((g) => (
+                <div key={`sem-${g.key}`} className="flex items-start gap-5">
+                  {/* Semester label leading its group of course tiles. */}
+                  <div className="flex h-24 shrink-0 items-center pr-1">
+                    <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/45">
+                      {g.label}
+                    </span>
+                  </div>
+                  {g.courses.map((c) => {
+                    const i = ++flat;
+                    const active = i === courseFocus;
+                    const dim = activeRow === 'lectures';
+                    return (
                 <button
                   key={c.id}
                   data-active={active}
@@ -436,20 +544,20 @@ export default function StudentCourseLibrary() {
                   aria-label={c.title}
                 >
                   <motion.div
-                    animate={{ scale: active ? 1 : 0.82, opacity: active ? 1 : dim ? 0.35 : 0.6 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+                    animate={{ scale: active ? 1 : 0.9, opacity: active ? 1 : dim ? 0.4 : 0.7 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 28 }}
                     className={cn(
-                      'relative h-20 w-20 overflow-hidden rounded-2xl border bg-gradient-to-br',
+                      'relative h-24 w-24 overflow-hidden rounded-3xl border bg-gradient-to-br',
                       gradientFor(i),
                       active
-                        ? 'border-white/60 ring-2 ring-white/40 shadow-[0_0_36px_-6px_rgba(99,102,241,0.6)]'
+                        ? 'border-white/40 ring-1 ring-white/25 shadow-[0_0_30px_-12px_rgba(255,255,255,0.45)]'
                         : 'border-white/10',
                     )}
                   >
                     <div className="absolute inset-0 flex items-center justify-center">
                       {(() => {
                         const CourseIcon = topicIcon(c.title, c.id);
-                        return <CourseIcon className="h-8 w-8 text-white/70" />;
+                        return <CourseIcon className="h-10 w-10 text-white/70" />;
                       })()}
                     </div>
                     {c.status === 'done' && (
@@ -475,8 +583,37 @@ export default function StudentCourseLibrary() {
                     {c.title}
                   </span>
                 </button>
-              );
-            })}
+                    );
+                  })}
+                </div>
+              ));
+            })()}
+
+            {/* Reveal / collapse the rest of the catalog without leaving the screen. */}
+            {(hiddenCount > 0 || showAllCourses) && (
+              <button
+                onClick={toggleShowAll}
+                className="console-focusable group flex shrink-0 flex-col items-center gap-2 outline-none"
+                aria-label={
+                  showAllCourses
+                    ? t('dashboard:showLess', 'Show fewer courses')
+                    : t('dashboard:showAllCourses', 'Show all courses')
+                }
+              >
+                <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-dashed border-white/20 bg-white/[0.03] text-white/50 transition-colors group-hover:border-white/40 group-hover:text-white/85">
+                  {showAllCourses ? (
+                    <ChevronLeft className="h-8 w-8" />
+                  ) : (
+                    <span className="text-lg font-black">+{hiddenCount}</span>
+                  )}
+                </div>
+                <span className="max-w-[7rem] truncate text-center text-[11px] font-bold text-white/40">
+                  {showAllCourses
+                    ? t('dashboard:showLess', 'Show less')
+                    : t('dashboard:showAll', 'Show all')}
+                </span>
+              </button>
+            )}
           </motion.div>
         </div>
 
@@ -548,11 +685,19 @@ export default function StudentCourseLibrary() {
                   />
                 ) : (
                   <>
-                    <LaunchButton
-                      label="Browse Lectures"
-                      icon={ChevronDown}
-                      onClick={dropIntoLectures}
-                    />
+                    {focusedCourse && focusedCourse.progress > 0 && resumeLecture ? (
+                      <LaunchButton
+                        label="Continue"
+                        icon={Play}
+                        onClick={() => openInline(resumeLecture.lecture.id, focusedCourse.id)}
+                      />
+                    ) : (
+                      <LaunchButton
+                        label="Browse Lectures"
+                        icon={ChevronDown}
+                        onClick={dropIntoLectures}
+                      />
+                    )}
                     <button
                       onClick={() => setIsDetailsOpen(true)}
                       className="console-focusable flex items-center gap-2 h-12 px-6 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-bold transition-all"
@@ -683,6 +828,7 @@ export default function StudentCourseLibrary() {
           averageRating={focusedCourse.averageRating}
           ratingCount={focusedCourse.ratingCount}
           lectures={courseLectures}
+          schedule={getCourseSchedule(focusedCourse.title)}
           onStartLecture={(lectureId) => {
             setIsDetailsOpen(false);
             openInline(lectureId, focusedCourse.id);

@@ -20,6 +20,7 @@ import {
   SectionHeader,
 } from '@/components/console';
 import { HeroStage } from '@/features/student/components/HeroStage';
+import { DashboardFriendsWidget } from '@/features/social/components/DashboardFriendsWidget';
 import { BentoGrid } from '@/features/student/components/BentoGrid';
 import { BrowseRow } from '@/features/student/components/BrowseRow';
 import { OnboardPanel } from '@/features/student/components/OnboardPanel';
@@ -205,6 +206,10 @@ export default function StudentDashboard() {
     >
       {/* ── Diegetic first screen ── */}
       <section className="relative flex min-h-[calc(100svh-4rem)] flex-col">
+        {/* Calm friends glance — top-right, never competes with the hero. */}
+        <div className="absolute right-6 top-4 z-20 lg:right-12">
+          <DashboardFriendsWidget />
+        </div>
         <div className="px-6 lg:px-12 pt-4 space-y-3">
           <NudgeBanner />
           <AnimatePresence>

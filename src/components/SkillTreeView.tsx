@@ -1,20 +1,24 @@
 /**
- * SkillTreeView — Assassin's Creed Origins-style constellation skill map.
+ * SkillTreeView — AC Origins-style constellation skill map.
  *
- * Full SVG-native rendering: no foreignObject, no HTML nodes inside SVG.
- * Layout: root at centre → courses fan out radially → lectures chain outward
- * along the branch angle → concepts sprout diagonally. Bokeh particle layer
- * animates in the background; edges glow; nodes pulse.
+ * Layout: root at centre → courses fan out in an upper arc → each course
+ * distributes its lectures in a 3-column grid (rows march outward, columns
+ * spread perpendicular to the course direction). This keeps the tree 2-D and
+ * balanced regardless of lecture count.
  *
- * Tech: anime.js for all animation, SVG for all rendering.
+ * Scaling: SVG viewBox + preserveAspectRatio="xMidYMid meet" — the browser
+ * handles fit-to-container natively with zero JS arithmetic.
+ *
+ * Visuals: dark galaxy background, floating bokeh, glowing SVG-native edges
+ * and nodes, gold AC-Origins palette. anime.js for entrance + glow pulse.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { animate, createScope, stagger, svg, utils, type Scope } from 'animejs';
-import { ChevronLeft, Sparkles, GitBranch, X, ArrowRight, Lock, BookOpen, GraduationCap, Lightbulb, Star } from 'lucide-react';
+import { ChevronLeft, Sparkles, GitBranch, X, ArrowRight } from 'lucide-react';
 import { InsightsViewTabs, type InsightsView } from '@/components/InsightsViewTabs';
-import type { SkillNode as SkillNodeData } from '@/features/skilltree/skillTree';
+import { countSkills, type SkillNode as SkillNodeData } from '@/features/skilltree/skillTree';
 
-/* ─────────────────────────── Types ─────────────────────────── */
+/* ─── props ─── */
 interface Props {
   tree: SkillNodeData;
   counts: { owned: number; total: number };
@@ -26,57 +30,36 @@ interface Props {
   onBack: () => void;
 }
 
-interface Placed {
-  node: SkillNodeData;
-  x: number;
-  y: number;
-  r: number; // node radius
-}
+/* ─── internal ─── */
+interface Placed { node: SkillNodeData; x: number; y: number; r: number }
+interface Edge   { id: string; sx: number; sy: number; tx: number; ty: number; state: SkillNodeData['state'] }
 
-interface Edge {
-  id: string;
-  sx: number; sy: number;
-  tx: number; ty: number;
-  owned: boolean;
-  inProgress: boolean;
-  available: boolean;
-}
-
-interface Particle {
-  id: number;
-  x: number; y: number;
-  r: number;
-  opacity: number;
-  speed: number;
-  angle: number;
-}
-
-/* ─────────────── Visual config ─────────────── */
-// Node radii per kind
+/* ─── visual constants ─── */
 const RADII: Record<SkillNodeData['kind'], number> = {
-  root: 36,
-  course: 28,
-  lecture: 20,
-  'course-concept': 14,
-  'lecture-concept': 13,
+  root: 40, course: 32, lecture: 22, 'course-concept': 15, 'lecture-concept': 13,
 };
 
-// Layout distances
-const COURSE_DIST = 210;   // root → course
-const LEC_STEP    = 155;   // between lectures
-const CONCEPT_R   = 100;   // lecture → concept
+const GOLD         = '#D4A843';
+const GOLD_DIM     = '#7A5F20';
+const GOLD_GLOW    = 'rgba(212,168,67,0.5)';
+const LOCKED_FILL  = '#111523';
+const LOCKED_RING  = '#252B40';
+const AVAIL_RING   = '#344070';
+const PROG_RING    = '#4A6AB8';
+const PROG_COL     = '#6A8AD8';
+const BG_DARK      = '#060810';
 
-// Gold palette  (matches AC Origins)
-const GOLD       = '#D4A843';
-const GOLD_GLOW  = 'rgba(212,168,67,0.55)';
-const GOLD_DIM   = '#7A5F20';
-const LOCKED_FILL = '#1A1E2B';
-const LOCKED_RING = '#2D334A';
-const AVAIL_RING  = '#3A4A7A';
-const PROGRESS_RING = '#5A7ACA';
+/* ─── layout constants ─── */
+const COURSE_DIST  = 200;   // root → course radius
+const GRID_ROW_H   = 155;   // distance between lecture rows
+const GRID_COL_W   = 160;   // distance between lecture columns
+const GRID_COLS    = 3;     // columns per course
+const CONCEPT_D    = 90;    // lecture → concept offset
 
-/* ─────────────────────── Layout ─────────────────────── */
-function buildLayout(tree: SkillNodeData): { placed: Placed[]; edges: Edge[] } {
+/* ══════════════════════════════════════════
+   Layout: 3-column grid per course
+   ══════════════════════════════════════════ */
+function buildLayout(tree: SkillNodeData) {
   const placed: Placed[] = [];
   const edges: Edge[] = [];
 
@@ -86,612 +69,676 @@ function buildLayout(tree: SkillNodeData): { placed: Placed[]; edges: Edge[] } {
   const numC = courses.length;
 
   courses.forEach((course, ci) => {
-    // Fan from top, evenly spaced
-    const angle = numC === 1 ? -Math.PI / 2 : -Math.PI / 2 + (ci / numC) * Math.PI * 2;
-    const cx = Math.cos(angle) * COURSE_DIST;
-    const cy = Math.sin(angle) * COURSE_DIST;
+    /* Fan courses in the upper 240° arc so branches spread sideways, not
+       just up-and-down, keeping the tree 2-D for any count of courses. */
+    const span   = numC <= 1 ? 0 : Math.min(Math.PI * 1.35, (numC - 1) * (Math.PI / 2.5));
+    const base   = -Math.PI / 2;
+    const angle  = numC <= 1 ? base : base - span / 2 + (ci / (numC - 1)) * span;
+
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+    // perpendicular (left-hand normal)
+    const cosP = Math.cos(angle + Math.PI / 2);
+    const sinP = Math.sin(angle + Math.PI / 2);
+
+    const cx = cosA * COURSE_DIST;
+    const cy = sinA * COURSE_DIST;
     placed.push({ node: course, x: cx, y: cy, r: RADII.course });
-    edges.push({
-      id: `e-r-${course.id}`,
-      sx: 0, sy: 0, tx: cx, ty: cy,
-      owned: course.state === 'owned',
-      inProgress: course.state === 'in_progress',
-      available: course.state === 'available',
-    });
+    edges.push({ id: `er-${course.id}`, sx: 0, sy: 0, tx: cx, ty: cy, state: course.state });
 
     const lectures = (course.children ?? []).filter(n => n.kind === 'lecture');
-    let prevX = cx;
-    let prevY = cy;
 
     lectures.forEach((lec, li) => {
-      const dist = COURSE_DIST + (li + 1) * LEC_STEP;
-      const lx = Math.cos(angle) * dist;
-      const ly = Math.sin(angle) * dist;
-      placed.push({ node: lec, x: lx, y: ly, r: RADII.lecture });
-      edges.push({
-        id: `e-${lec.id}`,
-        sx: prevX, sy: prevY, tx: lx, ty: ly,
-        owned: lec.state === 'owned',
-        inProgress: lec.state === 'in_progress',
-        available: lec.state === 'available',
-      });
-      prevX = lx;
-      prevY = ly;
+      const col    = li % GRID_COLS;                          // 0 1 2 0 1 2 …
+      const row    = Math.floor(li / GRID_COLS) + 1;         // 1 1 1 2 2 2 …
+      const colOff = (col - (GRID_COLS - 1) / 2) * GRID_COL_W; // -160 0 +160
+      const distOut = COURSE_DIST + row * GRID_ROW_H;
 
-      (lec.children ?? []).forEach((c, ki) => {
-        const sign = ki % 2 === 0 ? 1 : -1;
-        const cAngle = angle + sign * (Math.PI / 3.8) * (1 + Math.floor(ki / 2) * 0.25);
-        const ctx = lx + Math.cos(cAngle) * CONCEPT_R;
-        const cty = ly + Math.sin(cAngle) * CONCEPT_R;
+      const lx = cosA * distOut + cosP * colOff;
+      const ly = sinA * distOut + sinP * colOff;
+
+      placed.push({ node: lec, x: lx, y: ly, r: RADII.lecture });
+
+      /* Connect sequentially so the "path" meaning is preserved */
+      if (li === 0) {
+        edges.push({ id: `el-${lec.id}`, sx: cx, sy: cy, tx: lx, ty: ly, state: lec.state });
+      } else {
+        const prev = placed[placed.length - 2]; // previous lecture placed
+        edges.push({ id: `el-${lec.id}`, sx: prev.x, sy: prev.y, tx: lx, ty: ly, state: lec.state });
+      }
+
+      /* Concepts: branch diagonally from this lecture */
+      (lec.children ?? []).slice(0, 4).forEach((c, ki) => {
+        const sign   = ki % 2 === 0 ? 1 : -1;
+        const cAngle = angle + sign * (Math.PI / 4) * (1 + Math.floor(ki / 2) * 0.2);
+        const ctx    = lx + Math.cos(cAngle) * CONCEPT_D;
+        const cty    = ly + Math.sin(cAngle) * CONCEPT_D;
         placed.push({ node: c, x: ctx, y: cty, r: RADII['lecture-concept'] });
-        edges.push({
-          id: `e-${c.id}`,
-          sx: lx, sy: ly, tx: ctx, ty: cty,
-          owned: c.state === 'owned',
-          inProgress: c.state === 'in_progress',
-          available: c.state === 'available',
-        });
+        edges.push({ id: `ec-${c.id}`, sx: lx, sy: ly, tx: ctx, ty: cty, state: c.state });
       });
     });
   });
 
-  return { placed, edges };
+  const PAD  = 110;
+  const allX = placed.map(p => p.x);
+  const allY = placed.map(p => p.y);
+  return {
+    placed, edges,
+    minX: Math.min(...allX) - PAD,
+    maxX: Math.max(...allX) + PAD,
+    minY: Math.min(...allY) - PAD,
+    maxY: Math.max(...allY) + PAD,
+  };
 }
 
-/* ─────────────────────── Particles ─────────────────────── */
-function genParticles(n: number, W: number, H: number): Particle[] {
-  return Array.from({ length: n }, (_, i) => ({
-    id: i,
-    x: Math.random() * W,
-    y: Math.random() * H,
-    r: Math.random() * 1.8 + 0.4,
-    opacity: Math.random() * 0.55 + 0.1,
-    speed: Math.random() * 0.18 + 0.04,
-    angle: Math.random() * Math.PI * 2,
-  }));
+/* ─── edge colour ─── */
+function edgeStroke(state: SkillNodeData['state']) {
+  switch (state) {
+    case 'owned':       return GOLD;
+    case 'in_progress': return PROG_RING;
+    case 'available':   return AVAIL_RING;
+    default:            return LOCKED_RING;
+  }
 }
-
-/* ─────────────────────── SVG helpers ─────────────────────── */
-function edgeStroke(e: Edge) {
-  if (e.owned) return GOLD;
-  if (e.inProgress) return PROGRESS_RING;
-  if (e.available) return AVAIL_RING;
-  return LOCKED_RING;
-}
-
-function edgeOpacity(e: Edge) {
-  if (e.owned) return 0.9;
-  if (e.inProgress) return 0.6;
-  if (e.available) return 0.4;
-  return 0.18;
-}
-
-function nodeColors(node: SkillNodeData) {
-  switch (node.state) {
-    case 'owned':       return { fill: '#1A1610', ring: GOLD,         glow: GOLD_GLOW,  icon: GOLD };
-    case 'in_progress': return { fill: '#111828', ring: PROGRESS_RING, glow: 'rgba(90,122,202,0.4)', icon: '#8AABF0' };
-    case 'available':   return { fill: '#121620', ring: AVAIL_RING,   glow: 'rgba(58,74,122,0.3)',  icon: '#6A88C8' };
-    default:            return { fill: LOCKED_FILL, ring: LOCKED_RING, glow: 'none',    icon: '#4A5068' };
+function edgeOpacity(state: SkillNodeData['state']) {
+  switch (state) {
+    case 'owned':       return 0.85;
+    case 'in_progress': return 0.6;
+    case 'available':   return 0.38;
+    default:            return 0.18;
   }
 }
 
-/* ─────────── Info-panel labels ─────────── */
-const STATE_LABEL: Record<SkillNodeData['state'], string> = {
-  locked: 'Locked', available: 'Available', in_progress: 'In Progress', owned: 'Mastered',
-};
+/* ─── node colours ─── */
+function nodeColors(state: SkillNodeData['state']) {
+  switch (state) {
+    case 'owned':       return { fill: '#14120A', ring: GOLD,      glow: GOLD_GLOW,              icon: GOLD };
+    case 'in_progress': return { fill: '#0E1425', ring: PROG_RING,  glow: 'rgba(74,106,184,0.4)', icon: PROG_COL };
+    case 'available':   return { fill: '#0E1220', ring: AVAIL_RING, glow: 'rgba(52,64,112,0.3)',  icon: '#6080B8' };
+    default:            return { fill: LOCKED_FILL, ring: LOCKED_RING, glow: 'none',              icon: '#3A405A' };
+  }
+}
 
-/* ─────────── Icon paths (simplified lucide-style, 24×24 viewBox) ─────────── */
-// We embed simplified icon paths to avoid foreignObject
-function KindIconPath({ kind }: { kind: SkillNodeData['kind'] }) {
+/* ─── mini SVG icon paths (24-viewbox) ─── */
+function KindIcon({ kind, size }: { kind: SkillNodeData['kind']; size: number }) {
+  const s = size;
   switch (kind) {
     case 'root':
-      // Sparkles simplified
-      return <path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z M5 3l.5 1.5L7 5l-1.5.5L5 7l-.5-1.5L3 5l1.5-.5z" fill="currentColor" />;
+      return (
+        <svg viewBox="0 0 24 24" width={s} height={s}>
+          <path d="M12 2l1.6 4.8L18.5 8l-4.9 1.6L12 14.5l-1.6-4.9L5.5 8l4.9-1.6z
+                   M19 15.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"
+                fill="currentColor" />
+        </svg>
+      );
     case 'course':
-      // GraduationCap
-      return <path d="M22 10v6M2 10l10-5 10 5-10 5z M6 12v5c3 3 9 3 12 0v-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />;
+      return (
+        <svg viewBox="0 0 24 24" width={s} height={s}>
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z M6 12v5c3 3 9 3 12 0v-5"
+                fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
     case 'lecture':
-      // BookOpen
-      return <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />;
+      return (
+        <svg viewBox="0 0 24 24" width={s} height={s}>
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"
+                fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
     default:
-      // Lightbulb
-      return <path d="M9 21h6 M12 3a6 6 0 0 1 6 6c0 2.2-1.2 4.1-3 5.2V17H9v-2.8C7.2 13.1 6 11.2 6 9a6 6 0 0 1 6-6z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />;
+      return (
+        <svg viewBox="0 0 24 24" width={s} height={s}>
+          <path d="M9 21h6 M12 3a6 6 0 0 1 6 6c0 2.2-1.2 4.1-3 5.2V17H9v-2.8C7.2 13.1 6 11.2 6 9a6 6 0 0 1 6-6z"
+                fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
   }
 }
 
-/* ═══════════════════ Main component ═══════════════════ */
+function getSemesterFromDescription(desc: string | undefined | null, title?: string): number | null {
+  const text = `${desc || ''} ${title || ''}`;
+  const match = text.match(/(\d+)\.\s*Semester/i) || text.match(/Semester\s*(\d+)/i) || text.match(/(\d+)(?:st|nd|rd|th)\s*Semester/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/* ═══════════════════════════════════════════════
+   Main component
+   ═══════════════════════════════════════════════ */
 export function SkillTreeView({
   tree, counts, conceptsAvailable, hasContent,
   view, onViewChange, onOpenLecture, onBack,
 }: Props) {
-  const rootRef   = useRef<HTMLDivElement>(null);
-  const svgRef    = useRef<SVGSVGElement>(null);
-  const scopeRef  = useRef<Scope | null>(null);
-  const countRef  = useRef<HTMLSpanElement>(null);
-  const pBuf      = useRef<Particle[]>([]);
-  const rafRef    = useRef<number>(0);
-  const particleSvgRef = useRef<SVGGElement>(null);
+  const rootRef         = useRef<HTMLDivElement>(null);
+  const scopeRef        = useRef<Scope | null>(null);
+  const countRef        = useRef<HTMLSpanElement>(null);
+  const particleGRef    = useRef<SVGGElement>(null);
+  const animFrameRef    = useRef<number>(0);
 
-  const didInteract  = useRef(false);
-
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.85 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [hoveredId, setHoveredId]   = useState<string | null>(null);
-  const [dim, setDim] = useState({ w: 1200, h: 800 });
+  const [hoveredId,  setHoveredId]  = useState<string | null>(null);
+  const [selectedSemester, setSelectedSemester] = useState<string>('all');
+
+  // Scan all courses in the original tree to find which semesters are present
+  const semestersPresent = useMemo(() => {
+    const sems = new Set<number>();
+    (tree.children ?? []).forEach(course => {
+      const sem = getSemesterFromDescription(course.desc, course.label);
+      if (sem !== null) {
+        sems.add(sem);
+      }
+    });
+    return Array.from(sems).sort((a, b) => a - b);
+  }, [tree.children]);
+
+  // Filter the tree based on the selected semester
+  const filteredTree = useMemo(() => {
+    if (selectedSemester === 'all') return tree;
+    const filteredCourses = (tree.children ?? []).filter(course => {
+      const sem = getSemesterFromDescription(course.desc, course.label);
+      return sem !== null && String(sem) === selectedSemester;
+    });
+    return {
+      ...tree,
+      children: filteredCourses,
+    };
+  }, [tree, selectedSemester]);
+
+  const filteredCounts = useMemo(() => countSkills(filteredTree), [filteredTree]);
 
   /* ── layout ── */
-  const { placed, edges } = useMemo(() => buildLayout(tree), [tree]);
-
-  const xs = placed.map(p => p.x);
-  const ys = placed.map(p => p.y);
-  const minX = Math.min(...xs) - 120;
-  const maxX = Math.max(...xs) + 120;
-  const minY = Math.min(...ys) - 120;
-  const maxY = Math.max(...ys) + 120;
-  const svgW = maxX - minX;
-  const svgH = maxY - minY;
-  const offX = -minX;
-  const offY = -minY;
+  const { placed, edges, minX, maxX, minY, maxY } = useMemo(() => buildLayout(filteredTree), [filteredTree]);
+  const vbW = maxX - minX;
+  const vbH = maxY - minY;
 
   const selected = useMemo(
     () => placed.find(p => p.node.id === selectedId) ?? null,
     [placed, selectedId],
   );
 
-  /* ── fit on mount / content change ── */
+  // Reset selected node if it's no longer visible in the tree
   useEffect(() => {
-    if (!hasContent) return;
-    const fit = () => {
-      if (didInteract.current) return;
-      const el = rootRef.current;
-      if (!el) return;
-      const cw = el.clientWidth;
-      const ch = el.clientHeight;
-      setDim({ w: cw, h: ch });
-      const scale = Math.max(0.35, Math.min(1.1, Math.min(cw / svgW, ch / svgH) * 0.88));
-      const x = (cw - svgW * scale) / 2;
-      const y = (ch - svgH * scale) / 2;
-      setTransform({ x, y, scale });
-    };
-    const raf = requestAnimationFrame(fit);
-    const t1 = setTimeout(fit, 100);
-    const t2 = setTimeout(fit, 400);
-    window.addEventListener('resize', fit);
-    return () => { cancelAnimationFrame(raf); clearTimeout(t1); clearTimeout(t2); window.removeEventListener('resize', fit); };
-  }, [hasContent, svgW, svgH]);
+    if (selectedId && !placed.some(p => p.node.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [placed, selectedId]);
 
-  /* ── Bokeh particle system ── */
+  /* ── Bokeh particles (direct DOM mutation, no re-render) ── */
   useEffect(() => {
     if (!hasContent) return;
     const el = rootRef.current;
     if (!el) return;
-    const W = el.clientWidth || 1200;
-    const H = el.clientHeight || 800;
-    pBuf.current = genParticles(90, W, H);
+
+    // Initialise particle data
+    const N = 100;
+    const pData = Array.from({ length: N }, () => ({
+      x: Math.random() * 1400,
+      y: Math.random() * 900,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: (Math.random() - 0.5) * 0.25,
+    }));
 
     const tick = () => {
-      pBuf.current.forEach(p => {
-        p.x += Math.cos(p.angle) * p.speed;
-        p.y += Math.sin(p.angle) * p.speed;
-        if (p.x < -10) p.x = W + 10;
-        if (p.x > W + 10) p.x = -10;
-        if (p.y < -10) p.y = H + 10;
-        if (p.y > H + 10) p.y = -10;
-      });
-      const g = particleSvgRef.current;
+      const g = particleGRef.current;
       if (g) {
         const circles = g.querySelectorAll('circle');
         circles.forEach((c, i) => {
-          const p = pBuf.current[i];
+          const p = pData[i];
           if (!p) return;
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.x < 0) p.x = 1400;
+          if (p.x > 1400) p.x = 0;
+          if (p.y < 0) p.y = 900;
+          if (p.y > 900) p.y = 0;
           c.setAttribute('cx', String(p.x));
           c.setAttribute('cy', String(p.y));
         });
       }
-      rafRef.current = requestAnimationFrame(tick);
+      animFrameRef.current = requestAnimationFrame(tick);
     };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
+    animFrameRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animFrameRef.current);
   }, [hasContent]);
 
-  /* ── anime.js: edge draw-in, node entrance, owned glow, counter ── */
+  /* ── anime.js entrance + glow ── */
   useEffect(() => {
     if (!hasContent) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (countRef.current) countRef.current.textContent = String(counts.owned);
+    if (countRef.current) countRef.current.textContent = String(filteredCounts.owned);
 
     scopeRef.current = createScope({ root: rootRef }).add(() => {
       animate('[data-anim="ui"]', {
-        opacity: [0, 1], translateY: [10, 0],
-        duration: 500, delay: stagger(70), ease: 'outExpo',
+        opacity: [0, 1], translateY: [8, 0],
+        duration: 480, delay: stagger(60), ease: 'outExpo',
       });
-
       if (reduced) return;
 
       const drawables = svg.createDrawable('.sk-edge');
       if (drawables.length) {
-        animate(drawables, { draw: ['0 0', '0 1'], duration: 800, delay: stagger(20), ease: 'inOutSine' });
+        animate(drawables, { draw: ['0 0', '0 1'], duration: 900, delay: stagger(14), ease: 'inOutSine' });
       }
-
       animate('.sk-node-circle', {
-        opacity: [0, 1], scale: [0.4, 1],
-        duration: 500, delay: stagger(28, { from: 'center' }), ease: 'outBack(1.4)',
+        opacity: [0, 1], scale: [0.35, 1],
+        duration: 500, delay: stagger(22, { from: 'center' }), ease: 'outBack(1.4)',
       });
-
-      animate('.sk-node-glow', {
-        opacity: [0.4, 0.85], scale: [0.9, 1.2],
-        duration: 2200, loop: true, alternate: true, ease: 'inOutSine',
+      animate('.sk-glow-ring', {
+        opacity: [0.35, 0.8], scale: [0.85, 1.25],
+        duration: 2400, loop: true, alternate: true, ease: 'inOutSine',
       });
-
       animate('.sk-label', {
-        opacity: [0, 1], translateY: [6, 0],
-        duration: 400, delay: stagger(20, { start: 300 }), ease: 'outExpo',
+        opacity: [0, 1], translateY: [5, 0],
+        duration: 380, delay: stagger(18, { start: 280 }), ease: 'outExpo',
       });
-
-      if (countRef.current) {
-        const counter = { n: 0 };
-        animate(counter, {
-          n: counts.owned, duration: 1200, ease: 'outExpo',
-          modifier: utils.round(0),
-          onUpdate: () => {
-            if (countRef.current) countRef.current.textContent = String(Math.round(counter.n));
-          },
-        });
-      }
+      const counter = { n: 0 };
+      animate(counter, {
+        n: filteredCounts.owned, duration: 1300, ease: 'outExpo',
+        modifier: utils.round(0),
+        onUpdate: () => { if (countRef.current) countRef.current.textContent = String(Math.round(counter.n)); },
+      });
     });
-
     return () => scopeRef.current?.revert();
-  }, [placed.length, counts.owned, hasContent]);
+  }, [placed.length, filteredCounts.owned, hasContent]);
 
-
-
-  /* ── Filter defs IDs ── */
-  const GLOW_GOLD     = 'sk-glow-gold';
-  const GLOW_BLUE     = 'sk-glow-blue';
-  const GLOW_LOCKED   = 'sk-glow-locked';
+  /* ── SVG filter IDs ── */
+  const FID_GOLD   = 'sk-f-gold';
+  const FID_BLUE   = 'sk-f-blue';
+  const FID_LOCKED = 'sk-f-lock';
 
   return (
     <div
       ref={rootRef}
       className="absolute inset-0 overflow-hidden select-none"
-      style={{ background: 'radial-gradient(ellipse at 50% 60%, #0D1020 0%, #060810 100%)' }}
+      style={{ background: `radial-gradient(ellipse at 48% 55%, #0C1022 0%, ${BG_DARK} 100%)` }}
       data-testid="skilltree-view"
     >
-      {/* ── Bokeh particle layer ── */}
+      {/* ── Bokeh layer (fixed, behind everything) ── */}
       <svg
         className="pointer-events-none absolute inset-0"
         width="100%" height="100%"
         aria-hidden="true"
+        style={{ overflow: 'hidden' }}
       >
-        <g ref={particleSvgRef}>
-          {Array.from({ length: 90 }, (_, i) => (
+        <g ref={particleGRef}>
+          {Array.from({ length: 100 }, (_, i) => (
             <circle
               key={i}
-              cx={Math.random() * 1200}
-              cy={Math.random() * 800}
+              cx={Math.random() * 1400}
+              cy={Math.random() * 900}
               r={Math.random() * 1.8 + 0.3}
-              fill={i % 5 === 0 ? GOLD : 'white'}
-              opacity={Math.random() * 0.4 + 0.08}
+              fill={i % 6 === 0 ? GOLD : '#FFFFFF'}
+              opacity={Math.random() * 0.35 + 0.06}
             />
           ))}
         </g>
       </svg>
 
-      {/* ── Atmospheric glows ── */}
+      {/* ── Soft atmospheric glows ── */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div style={{ position: 'absolute', left: '20%', top: '25%', width: 480, height: 480, borderRadius: '50%', background: 'rgba(212,168,67,0.04)', filter: 'blur(100px)' }} />
-        <div style={{ position: 'absolute', right: '15%', bottom: '20%', width: 380, height: 380, borderRadius: '50%', background: 'rgba(80,100,200,0.06)', filter: 'blur(90px)' }} />
-        <div style={{ position: 'absolute', left: '40%', top: '40%', width: 260, height: 260, borderRadius: '50%', background: 'rgba(212,168,67,0.03)', filter: 'blur(80px)' }} />
+        <div style={{ position:'absolute', left:'18%', top:'20%', width:520, height:520, borderRadius:'50%', background:'rgba(212,168,67,0.035)', filter:'blur(110px)' }} />
+        <div style={{ position:'absolute', right:'12%', bottom:'18%', width:420, height:420, borderRadius:'50%', background:'rgba(70,90,200,0.045)', filter:'blur(100px)' }} />
       </div>
 
-      {/* ── Main SVG skill tree ── */}
+      {/* ── Main skill-tree SVG ── */}
       {hasContent ? (
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 flex items-center justify-center">
           <svg
-            ref={svgRef}
-            width={svgW}
-            height={svgH}
-            style={{
-              transform: `translate(${transform.x}px,${transform.y}px) scale(${transform.scale})`,
-              transformOrigin: '0 0',
-              overflow: 'visible',
-            }}
+            viewBox={`${minX} ${minY} ${vbW} ${vbH}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}
           >
             <defs>
-              {/* Gold glow filter */}
-              <filter id={GLOW_GOLD} x="-80%" y="-80%" width="260%" height="260%">
-                <feGaussianBlur stdDeviation="6" result="blur" />
-                <feFlood floodColor={GOLD} floodOpacity="0.7" result="color" />
-                <feComposite in="color" in2="blur" operator="in" result="glow" />
-                <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
+              {/* Gold glow */}
+              <filter id={FID_GOLD} x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur stdDeviation="7" result="b" />
+                <feFlood floodColor={GOLD} floodOpacity="0.65" result="c" />
+                <feComposite in="c" in2="b" operator="in" result="g" />
+                <feMerge><feMergeNode in="g" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
               {/* Blue glow */}
-              <filter id={GLOW_BLUE} x="-80%" y="-80%" width="260%" height="260%">
-                <feGaussianBlur stdDeviation="5" result="blur" />
-                <feFlood floodColor="#5A7ACA" floodOpacity="0.6" result="color" />
-                <feComposite in="color" in2="blur" operator="in" result="glow" />
-                <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
+              <filter id={FID_BLUE} x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur stdDeviation="5" result="b" />
+                <feFlood floodColor={PROG_RING} floodOpacity="0.55" result="c" />
+                <feComposite in="c" in2="b" operator="in" result="g" />
+                <feMerge><feMergeNode in="g" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
-              {/* Locked subtle glow */}
-              <filter id={GLOW_LOCKED} x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="2" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              {/* Subtle locked */}
+              <filter id={FID_LOCKED} x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="2" />
               </filter>
-              {/* Edge gradient */}
-              <linearGradient id="edge-gold-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor={GOLD_DIM} />
-                <stop offset="100%" stopColor={GOLD} />
-              </linearGradient>
             </defs>
 
             {/* ── Edges ── */}
-            <g>
-              {edges.map(e => {
-                const stroke = edgeStroke(e);
-                const op     = edgeOpacity(e);
-                const sw     = e.owned ? 2.5 : 1.8;
-                const filter = e.owned ? `url(#${GLOW_GOLD})` : undefined;
-                return (
-                  <line
-                    key={e.id}
-                    className="sk-edge"
-                    x1={e.sx + offX} y1={e.sy + offY}
-                    x2={e.tx + offX} y2={e.ty + offY}
-                    stroke={stroke}
-                    strokeWidth={sw}
-                    strokeOpacity={op}
-                    strokeLinecap="round"
-                    filter={filter}
-                  />
-                );
-              })}
-            </g>
+            {edges.map(e => (
+              <line
+                key={e.id}
+                className="sk-edge"
+                x1={e.sx} y1={e.sy}
+                x2={e.tx} y2={e.ty}
+                stroke={edgeStroke(e.state)}
+                strokeWidth={e.state === 'owned' ? 2.5 : 1.8}
+                strokeOpacity={edgeOpacity(e.state)}
+                strokeLinecap="round"
+                filter={e.state === 'owned' ? `url(#${FID_GOLD})` : undefined}
+              />
+            ))}
 
             {/* ── Nodes ── */}
-            <g>
-              {placed.map(({ node, x, y, r }) => {
-                const nx = x + offX;
-                const ny = y + offY;
-                const colors = nodeColors(node);
-                const isOwned = node.state === 'owned';
-                const isLocked = node.state === 'locked';
-                const isSelected = selectedId === node.id;
-                const isHovered = hoveredId === node.id;
-                const glowFilter = isOwned ? `url(#${GLOW_GOLD})` : node.state === 'in_progress' ? `url(#${GLOW_BLUE})` : undefined;
-                const ringW = isSelected ? 3 : isHovered ? 2 : 1.5;
-                const ringColor = isSelected ? '#FFFFFF' : colors.ring;
-                const scaledR = isHovered && !isSelected ? r * 1.08 : r;
+            {placed.map(({ node, x, y, r }) => {
+              const colors   = nodeColors(node.state);
+              const owned    = node.state === 'owned';
+              const locked   = node.state === 'locked';
+              const inProg   = node.state === 'in_progress';
+              const sel      = selectedId === node.id;
+              const hov      = hoveredId  === node.id;
+              const nr       = hov && !sel ? r * 1.1 : r;
+              const glowFlt  = owned ? `url(#${FID_GOLD})` : inProg ? `url(#${FID_BLUE})` : locked ? `url(#${FID_LOCKED})` : undefined;
+              const iconSize = nr * 0.9;
 
-                // Icon scale
-                const iconScale = (r * 0.7) / 12; // 12 = half of 24px viewBox
-
-                return (
-                  <g
-                    key={node.id}
-                    transform={`translate(${nx},${ny})`}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => setSelectedId(prev => prev === node.id ? null : node.id)}
-                    onMouseEnter={() => setHoveredId(node.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                    role="button"
-                    aria-label={`${node.label} — ${node.state.replace('_', ' ')}`}
-                    tabIndex={0}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(prev => prev === node.id ? null : node.id); } }}
-                  >
-                    {/* Outer glow ring (owned/in-progress only) */}
-                    {!isLocked && (
-                      <circle
-                        className="sk-node-glow"
-                        r={scaledR + 10}
-                        fill="none"
-                        stroke={colors.ring}
-                        strokeWidth={1}
-                        strokeOpacity={isOwned ? 0.55 : 0.25}
-                        filter={glowFilter}
-                      />
-                    )}
-
-                    {/* Selection ring */}
-                    {isSelected && (
-                      <circle
-                        r={scaledR + 6}
-                        fill="none"
-                        stroke="#FFFFFF"
-                        strokeWidth={1.5}
-                        strokeOpacity={0.6}
-                        strokeDasharray="4 3"
-                      />
-                    )}
-
-                    {/* Main circle */}
+              return (
+                <g
+                  key={node.id}
+                  transform={`translate(${x},${y})`}
+                  style={{ cursor: 'pointer' }}
+                  role="button"
+                  aria-label={`${node.label} — ${node.state.replace('_',' ')}`}
+                  tabIndex={0}
+                  onClick={() => setSelectedId(p => p === node.id ? null : node.id)}
+                  onMouseEnter={() => setHoveredId(node.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onKeyDown={e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); setSelectedId(p => p===node.id?null:node.id); } }}
+                >
+                  {/* Outer glow ring */}
+                  {!locked && (
                     <circle
-                      className="sk-node-circle"
-                      r={scaledR}
-                      fill={colors.fill}
-                      stroke={ringColor}
-                      strokeWidth={ringW}
-                      filter={isOwned ? `url(#${GLOW_GOLD})` : isLocked ? `url(#${GLOW_LOCKED})` : undefined}
+                      className="sk-glow-ring"
+                      r={nr + 12}
+                      fill="none"
+                      stroke={colors.ring}
+                      strokeWidth={1}
+                      strokeOpacity={owned ? 0.5 : 0.22}
+                      filter={glowFlt}
                     />
+                  )}
 
-                    {/* Inner decorative ring (for larger nodes) */}
-                    {r >= 20 && (
+                  {/* Selection dashed ring */}
+                  {sel && (
+                    <circle
+                      r={nr + 7}
+                      fill="none"
+                      stroke="#FFFFFF"
+                      strokeWidth={1.5}
+                      strokeOpacity={0.55}
+                      strokeDasharray="5 4"
+                    />
+                  )}
+
+                  {/* Main body */}
+                  <circle
+                    className="sk-node-circle"
+                    r={nr}
+                    fill={colors.fill}
+                    stroke={sel ? '#FFFFFF' : colors.ring}
+                    strokeWidth={sel ? 2.5 : owned ? 2 : 1.5}
+                    filter={glowFlt}
+                  />
+
+                  {/* Inner ring decoration */}
+                  {r >= 20 && (
+                    <circle
+                      r={nr * 0.68}
+                      fill="none"
+                      stroke={colors.ring}
+                      strokeWidth={0.8}
+                      strokeOpacity={0.3}
+                    />
+                  )}
+
+                  {/* Progress arc */}
+                  {inProg && typeof node.progress === 'number' && (() => {
+                    const circ = 2 * Math.PI * (nr + 5);
+                    const dash = node.progress * circ;
+                    return (
                       <circle
-                        r={scaledR * 0.72}
+                        r={nr + 5}
                         fill="none"
-                        stroke={colors.ring}
-                        strokeWidth={0.8}
-                        strokeOpacity={0.35}
+                        stroke={PROG_COL}
+                        strokeWidth={3}
+                        strokeOpacity={0.8}
+                        strokeDasharray={`${dash} ${circ - dash}`}
+                        strokeLinecap="round"
+                        transform="rotate(-90)"
                       />
-                    )}
+                    );
+                  })()}
 
-                    {/* Progress arc (in_progress nodes) */}
-                    {node.state === 'in_progress' && typeof node.progress === 'number' && (
-                      (() => {
-                        const pct = node.progress;
-                        const circumference = 2 * Math.PI * (scaledR + 4);
-                        const dash = pct * circumference;
-                        return (
-                          <circle
-                            r={scaledR + 4}
-                            fill="none"
-                            stroke={PROGRESS_RING}
-                            strokeWidth={2.5}
-                            strokeOpacity={0.8}
-                            strokeDasharray={`${dash} ${circumference - dash}`}
-                            strokeLinecap="round"
-                            transform="rotate(-90)"
-                          />
-                        );
-                      })()
-                    )}
+                  {/* Icon */}
+                  <foreignObject
+                    x={-iconSize / 2}
+                    y={-iconSize / 2}
+                    width={iconSize}
+                    height={iconSize}
+                    style={{ color: colors.icon, opacity: locked ? 0.4 : 1, pointerEvents: 'none' }}
+                  >
+                    <div style={{ width: iconSize, height: iconSize, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <KindIcon kind={node.kind} size={iconSize * 0.82} />
+                    </div>
+                  </foreignObject>
 
-                    {/* Icon */}
-                    <g
-                      transform={`translate(${-12 * iconScale},${-12 * iconScale}) scale(${iconScale})`}
-                      style={{ color: colors.icon }}
-                      opacity={isLocked ? 0.45 : 1}
-                    >
-                      <svg viewBox="0 0 24 24" width={24} height={24}>
-                        <KindIconPath kind={node.kind} />
-                      </svg>
+                  {/* Owned checkmark badge */}
+                  {owned && (
+                    <g transform={`translate(${nr * 0.65},${-nr * 0.65})`}>
+                      <circle r={8} fill="#100E06" stroke={GOLD} strokeWidth={1.5} />
+                      <polyline
+                        points="-4,0 -1,3 5,-3"
+                        fill="none"
+                        stroke={GOLD}
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </g>
+                  )}
 
-                    {/* Lock badge */}
-                    {isLocked && (
-                      <g transform={`translate(${scaledR * 0.6},${-scaledR * 0.6})`}>
-                        <circle r={7} fill="#0D1020" stroke={LOCKED_RING} strokeWidth={1} />
-                        <g transform="translate(-5,-5) scale(0.42)">
-                          <svg viewBox="0 0 24 24" width={24} height={24}>
-                            <rect x="3" y="11" width="18" height="11" rx="2" fill="none" stroke={LOCKED_RING} strokeWidth="2" />
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke={LOCKED_RING} strokeWidth="2" strokeLinecap="round" />
-                          </svg>
-                        </g>
-                      </g>
-                    )}
+                  {/* Lock badge */}
+                  {locked && (
+                    <g transform={`translate(${nr * 0.65},${-nr * 0.65})`}>
+                      <circle r={8} fill={LOCKED_FILL} stroke={LOCKED_RING} strokeWidth={1} />
+                      <rect x="-4" y="-1" width="8" height="6" rx="1" fill="none" stroke={LOCKED_RING} strokeWidth="1.5" />
+                      <path d="M-2 -1 v-2 a2 2 0 0 1 4 0 v2" fill="none" stroke={LOCKED_RING} strokeWidth="1.5" strokeLinecap="round" />
+                    </g>
+                  )}
 
-                    {/* Owned checkmark badge */}
-                    {isOwned && (
-                      <g transform={`translate(${scaledR * 0.6},${-scaledR * 0.6})`}>
-                        <circle r={7} fill="#1A1610" stroke={GOLD} strokeWidth={1.5} />
-                        <g transform="translate(-5,-5) scale(0.42)">
-                          <svg viewBox="0 0 24 24" width={24} height={24}>
-                            <polyline points="20 6 9 17 4 12" fill="none" stroke={GOLD} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </g>
-                      </g>
-                    )}
+                  {/* Label */}
+                  <text
+                    className="sk-label"
+                    y={nr + 18}
+                    textAnchor="middle"
+                    fill={locked ? '#363C55' : owned ? GOLD : '#9AAACE'}
+                    fontSize={node.kind === 'root' ? 14 : node.kind === 'course' ? 12 : 10}
+                    fontWeight={owned || node.kind === 'root' ? '700' : '500'}
+                    fontFamily="Inter, system-ui, sans-serif"
+                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                  >
+                    {node.label.length > 16 ? node.label.slice(0, 15) + '…' : node.label}
+                  </text>
 
-                    {/* Label */}
+                  {/* Course label cap */}
+                  {node.kind === 'course' && (
                     <text
-                      className="sk-label"
-                      y={scaledR + 16}
+                      y={-nr - 10}
                       textAnchor="middle"
-                      fill={isLocked ? '#4A5068' : isOwned ? GOLD : '#B0BCDF'}
-                      fontSize={node.kind === 'root' ? 13 : node.kind === 'course' ? 11 : 10}
-                      fontWeight={node.kind === 'root' || isOwned ? '700' : '500'}
+                      fill="#3A4260"
+                      fontSize={8}
+                      fontWeight="800"
+                      letterSpacing="2"
                       fontFamily="Inter, system-ui, sans-serif"
-                      style={{ pointerEvents: 'none', userSelect: 'none' }}
+                      style={{ pointerEvents: 'none', userSelect: 'none', textTransform: 'uppercase' }}
                     >
-                      {/* Truncate label for display */}
-                      {node.label.length > 18 ? node.label.slice(0, 17) + '…' : node.label}
+                      COURSE
                     </text>
-
-                    {/* Course label above for course kind */}
-                    {node.kind === 'course' && (
-                      <text
-                        y={-scaledR - 10}
-                        textAnchor="middle"
-                        fill="#6070A0"
-                        fontSize={8}
-                        fontWeight="700"
-                        letterSpacing="2"
-                        fontFamily="Inter, system-ui, sans-serif"
-                        style={{ pointerEvents: 'none', userSelect: 'none' }}
-                      >
-                        COURSE
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </g>
+                  )}
+                </g>
+              );
+            })}
           </svg>
         </div>
       ) : (
-        /* Empty state */
+        /* ── Empty state ── */
         <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-          <div style={{ width: 64, height: 64, borderRadius: '50%', border: `2px solid ${LOCKED_RING}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <GitBranch style={{ width: 28, height: 28, color: '#4A5068' }} />
+          <div style={{ width:68, height:68, borderRadius:'50%', border:`2px solid ${LOCKED_RING}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <GitBranch style={{ width:28, height:28, color:'#3A4260' }} />
           </div>
-          <p style={{ color: '#E0E8FF', fontWeight: 700, fontSize: 15, margin: 0 }}>No skills to map yet</p>
-          <p style={{ color: '#4A5068', fontSize: 12, maxWidth: 280, margin: 0 }}>
+          <p style={{ color:'#D0DCFF', fontWeight:700, fontSize:15, margin:0 }}>No skills to map yet</p>
+          <p style={{ color:'#3A4260', fontSize:12, maxWidth:280, margin:0, lineHeight:1.6 }}>
             Complete a lecture in any course to start unlocking your skill constellation.
           </p>
         </div>
       )}
 
-      {/* ── Header UI ── */}
-      <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 p-4 md:p-6">
-        <div data-anim="ui" className="flex items-center gap-3" style={{ opacity: 0 }}>
+      {/* ══ Header ══ */}
+      <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-4 p-4 md:p-5">
+        <div data-anim="ui" style={{ display:'flex', alignItems:'center', gap:12, opacity:0 }}>
           <button
             type="button"
             onClick={onBack}
-            aria-label="Back to dashboard"
+            aria-label="Back"
             style={{
-              display: 'flex', width: 40, height: 40, alignItems: 'center', justifyContent: 'center',
-              borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-              color: '#6070A0', cursor: 'pointer', transition: 'color 0.2s',
+              display:'flex', width:40, height:40, alignItems:'center', justifyContent:'center',
+              borderRadius:12, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)',
+              color:'#505878', cursor:'pointer', transition:'color .2s, border-color .2s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#E0E8FF')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#6070A0')}
+            onMouseEnter={e => { e.currentTarget.style.color='#D0DCFF'; e.currentTarget.style.borderColor='rgba(255,255,255,0.18)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color='#505878'; e.currentTarget.style.borderColor='rgba(255,255,255,0.09)'; }}
           >
-            <ChevronLeft style={{ width: 20, height: 20 }} aria-hidden="true" />
+            <ChevronLeft style={{ width:20, height:20 }} aria-hidden="true" />
           </button>
 
           <div style={{
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 14, padding: '8px 16px',
+            background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)',
+            borderRadius:14, padding:'7px 16px',
           }}>
-            <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.3em', color: GOLD, textTransform: 'uppercase', margin: '0 0 3px' }}>
+            <p style={{ fontSize:9, fontWeight:900, letterSpacing:'0.3em', color:GOLD, textTransform:'uppercase', margin:'0 0 3px' }}>
               Skill Constellation
             </p>
-            <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#E0E8FF', margin: 0 }}>
-              <Sparkles style={{ width: 14, height: 14, color: GOLD }} aria-hidden="true" />
-              <span ref={countRef} style={{ color: GOLD }}>{counts.owned}</span>
-              <span style={{ color: '#4A5068' }}>/ {counts.total} mastered</span>
+            <p style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:700, color:'#D0DCFF', margin:0 }}>
+              <Sparkles style={{ width:14, height:14, color:GOLD }} aria-hidden="true" />
+              <span ref={countRef} style={{ color:GOLD }}>{filteredCounts.owned}</span>
+              <span style={{ color:'#3A4260' }}>/ {filteredCounts.total} mastered</span>
             </p>
           </div>
         </div>
 
-        <div data-anim="ui" style={{ opacity: 0 }}>
+        {/* Dynamic Semester Selector */}
+        {semestersPresent.length > 0 && (
+          <div
+            data-anim="ui"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              background: 'rgba(6,8,16,0.6)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 12,
+              padding: 4,
+              backdropFilter: 'blur(12px)',
+              opacity: 0,
+            }}
+          >
+            <button
+              onClick={() => setSelectedSemester('all')}
+              style={{
+                background: selectedSemester === 'all' ? GOLD : 'transparent',
+                color: selectedSemester === 'all' ? '#060810' : '#8A99AD',
+                border: 'none',
+                borderRadius: 8,
+                padding: '6px 12px',
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: '0.1em',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                textTransform: 'uppercase',
+              }}
+              onMouseEnter={e => {
+                if (selectedSemester !== 'all') {
+                  e.currentTarget.style.color = '#FFFFFF';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                }
+              }}
+              onMouseLeave={e => {
+                if (selectedSemester !== 'all') {
+                  e.currentTarget.style.color = '#8A99AD';
+                  e.currentTarget.style.background = 'transparent';
+                }
+              }}
+            >
+              All
+            </button>
+            {semestersPresent.map(sem => (
+              <button
+                key={sem}
+                onClick={() => setSelectedSemester(String(sem))}
+                style={{
+                  background: selectedSemester === String(sem) ? GOLD : 'transparent',
+                  color: selectedSemester === String(sem) ? '#060810' : '#8A99AD',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '6px 12px',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: '0.1em',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  textTransform: 'uppercase',
+                }}
+                onMouseEnter={e => {
+                  if (selectedSemester !== String(sem)) {
+                    e.currentTarget.style.color = '#FFFFFF';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (selectedSemester !== String(sem)) {
+                    e.currentTarget.style.color = '#8A99AD';
+                    e.currentTarget.style.background = 'transparent';
+                  }
+                }}
+              >
+                Sem {sem}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div data-anim="ui" style={{ opacity:0 }}>
           <InsightsViewTabs view={view} onChange={onViewChange} />
         </div>
       </div>
 
-      {/* ── Bottom legend ── */}
-      <div data-anim="ui" className="absolute bottom-4 left-4 z-10" style={{ opacity: 0 }}>
+      {/* ══ Legend ══ */}
+      <div data-anim="ui" className="absolute bottom-4 left-4 z-10" style={{ opacity:0 }}>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 20,
-          background: 'rgba(10,12,20,0.75)', border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 12, padding: '8px 16px', backdropFilter: 'blur(12px)',
+          display:'flex', alignItems:'center', gap:18,
+          background:'rgba(6,8,16,0.8)', border:'1px solid rgba(255,255,255,0.07)',
+          borderRadius:12, padding:'8px 18px', backdropFilter:'blur(14px)',
         }}>
           {[
-            { label: 'Mastered', color: GOLD },
-            { label: 'In Progress', color: PROGRESS_RING },
-            { label: 'Available', color: AVAIL_RING },
-            { label: 'Locked', color: LOCKED_RING },
+            { label:'Mastered',    color: GOLD      },
+            { label:'In Progress', color: PROG_RING  },
+            { label:'Available',   color: AVAIL_RING },
+            { label:'Locked',      color: LOCKED_RING },
           ].map(({ label, color }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, boxShadow: `0 0 6px ${color}` }} />
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#4A5068', textTransform: 'uppercase' }}>{label}</span>
+            <div key={label} style={{ display:'flex', alignItems:'center', gap:7 }}>
+              <span style={{ width:8, height:8, borderRadius:'50%', background:color, boxShadow:`0 0 6px ${color}`, flexShrink:0 }} />
+              <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.1em', color:'#3A4260', textTransform:'uppercase' }}>{label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Info panel ── */}
+      {/* ══ Info panel ══ */}
       {selected && (
-        <InfoPanel
+        <SkillInfoPanel
           key={selected.node.id}
           node={selected.node}
           onClose={() => setSelectedId(null)}
@@ -702,177 +749,171 @@ export function SkillTreeView({
   );
 }
 
-/* ═══════════════════ Info Panel ═══════════════════ */
-function InfoPanel({
-  node,
-  onClose,
-  onOpenLecture,
+/* ═══════════════════════════════════════════════
+   Info Panel
+   ═══════════════════════════════════════════════ */
+function SkillInfoPanel({
+  node, onClose, onOpenLecture,
 }: {
   node: SkillNodeData;
   onClose: () => void;
   onOpenLecture: (id: string) => void;
 }) {
-  const kindLabel =
-    node.kind === 'root' ? 'Overview'
-    : node.kind === 'course' ? 'Course'
-    : node.kind === 'lecture' ? 'Lecture'
-    : 'Concept';
+  const owned   = node.state === 'owned';
+  const locked  = node.state === 'locked';
+  const inProg  = node.state === 'in_progress';
+  const canOpen = node.kind === 'lecture' && !!node.lectureId && !locked;
+
+  const kindLabel = { root:'Overview', course:'Course', lecture:'Lecture',
+    'course-concept':'Concept', 'lecture-concept':'Concept' }[node.kind];
 
   let body = '';
   if (node.kind === 'root') {
     const n = node.children?.length ?? 0;
-    body = n ? `${n} course${n === 1 ? '' : 's'} in your library.` : 'Complete a lecture to build your skill constellation.';
+    body = n ? `${n} course${n===1?'':'s'} in your library.` : 'Complete a lecture to build your constellation.';
   } else if (node.kind === 'course') {
     const m = node.meta;
     body = m ? `${m.owned} of ${m.total} lectures mastered.` : 'A course in your library.';
   } else if (node.kind === 'lecture') {
-    body = node.state === 'locked'
+    body = locked
       ? 'Locked — complete the previous lecture to unlock it.'
       : node.desc?.trim() || 'Finish this lecture\'s quiz to master it.';
   } else {
     body = node.mastery && node.mastery.attempts > 0
-      ? `${Math.round(node.mastery.score * 100)}% mastery · ${node.mastery.attempts} attempt${node.mastery.attempts === 1 ? '' : 's'}.`
-      : node.state === 'locked'
+      ? `${Math.round(node.mastery.score * 100)}% mastery · ${node.mastery.attempts} attempt${node.mastery.attempts===1?'':'s'}.`
+      : locked
         ? 'Locked — finish the parent lecture first.'
         : 'Not practised yet.';
   }
 
-  const isOwned   = node.state === 'owned';
-  const isLocked  = node.state === 'locked';
-  const showProg  = node.state === 'in_progress' && typeof node.progress === 'number';
-  const canOpen   = node.kind === 'lecture' && !!node.lectureId && !isLocked;
-  const colors    = nodeColors(node);
-
-  const stateBadge: Record<SkillNodeData['state'], { bg: string; color: string; label: string }> = {
-    owned:       { bg: 'rgba(212,168,67,0.15)',  color: GOLD,           label: '✦ Mastered'     },
-    in_progress: { bg: 'rgba(90,122,202,0.15)',   color: PROGRESS_RING, label: '◑ In Progress'  },
-    available:   { bg: 'rgba(58,74,122,0.2)',     color: AVAIL_RING,    label: '◯ Available'    },
-    locked:      { bg: 'rgba(45,51,74,0.3)',      color: '#4A5068',     label: '⊘ Locked'       },
+  const stateMeta: Record<SkillNodeData['state'], { label: string; color: string; bg: string }> = {
+    owned:       { label:'✦ Mastered',     color: GOLD,      bg:'rgba(212,168,67,0.12)' },
+    in_progress: { label:'◑ In Progress',  color: PROG_COL,  bg:'rgba(74,106,184,0.14)' },
+    available:   { label:'◯ Available',    color:'#6080B8',  bg:'rgba(52,64,112,0.18)'  },
+    locked:      { label:'⊘ Locked',       color:'#3A4260',  bg:'rgba(37,43,64,0.3)'    },
   };
-  const badge = stateBadge[node.state];
+  const sm = stateMeta[node.state];
 
   return (
     <aside
       data-testid="skill-info-panel"
       style={{
-        position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)',
-        width: 280, zIndex: 20,
-        background: 'rgba(8,10,18,0.92)',
-        border: `1px solid ${isOwned ? 'rgba(212,168,67,0.35)' : 'rgba(255,255,255,0.08)'}`,
-        borderRadius: 16, padding: 20,
-        backdropFilter: 'blur(20px)',
-        boxShadow: isOwned
-          ? `0 0 40px rgba(212,168,67,0.12), 0 8px 32px rgba(0,0,0,0.5)`
-          : `0 8px 32px rgba(0,0,0,0.5)`,
-        animation: 'sk-panel-in 0.22s ease-out both',
+        position:'absolute', right:20, top:'50%', transform:'translateY(-50%)',
+        width:272, zIndex:20,
+        background:'rgba(6,8,18,0.94)',
+        border:`1px solid ${owned ? 'rgba(212,168,67,0.3)' : 'rgba(255,255,255,0.07)'}`,
+        borderRadius:16, padding:20,
+        backdropFilter:'blur(22px)',
+        boxShadow: owned
+          ? `0 0 50px rgba(212,168,67,0.1), 0 10px 40px rgba(0,0,0,0.6)`
+          : `0 10px 40px rgba(0,0,0,0.6)`,
+        animation:'sk-panel-in 0.22s ease-out both',
       }}
     >
       <style>{`
         @keyframes sk-panel-in {
-          from { opacity: 0; transform: translateY(-50%) translateX(12px); }
-          to   { opacity: 1; transform: translateY(-50%) translateX(0); }
+          from { opacity:0; transform:translateY(-50%) translateX(10px); }
+          to   { opacity:1; transform:translateY(-50%) translateX(0); }
         }
       `}</style>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
-        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.25em', color: '#4A5068', textTransform: 'uppercase' }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:10 }}>
+        <span style={{ fontSize:9, fontWeight:900, letterSpacing:'0.25em', color:'#3A4260', textTransform:'uppercase' }}>
           {kindLabel}
         </span>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          style={{
-            display: 'flex', width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
-            borderRadius: 6, background: 'none', border: 'none', color: '#4A5068', cursor: 'pointer', transition: 'color 0.2s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#E0E8FF')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#4A5068')}
+          style={{ display:'flex', width:24, height:24, alignItems:'center', justifyContent:'center',
+            borderRadius:6, background:'none', border:'none', color:'#3A4260', cursor:'pointer', transition:'color .2s' }}
+          onMouseEnter={e => (e.currentTarget.style.color='#D0DCFF')}
+          onMouseLeave={e => (e.currentTarget.style.color='#3A4260')}
         >
-          <X style={{ width: 14, height: 14 }} />
+          <X style={{ width:14, height:14 }} />
         </button>
       </div>
 
       {/* Title */}
-      <h3 style={{ fontSize: 16, fontWeight: 700, color: isOwned ? GOLD : '#E0E8FF', margin: '0 0 10px', lineHeight: 1.3 }}>
+      <h3 style={{ fontSize:16, fontWeight:700, color: owned ? GOLD : '#D0DCFF', margin:'0 0 10px', lineHeight:1.3 }}>
         {node.label}
       </h3>
 
       {/* State badge */}
       <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        background: badge.bg, color: badge.color,
-        borderRadius: 20, padding: '4px 10px',
-        fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-        marginBottom: 12,
+        display:'inline-flex', alignItems:'center',
+        background:sm.bg, color:sm.color,
+        borderRadius:20, padding:'4px 11px',
+        fontSize:10, fontWeight:700, letterSpacing:'0.07em',
+        marginBottom:12,
       }}>
-        {badge.label}
+        {sm.label}
       </span>
 
       {/* Progress bar */}
-      {showProg && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 4,
-              width: `${Math.round((node.progress ?? 0) * 100)}%`,
-              background: `linear-gradient(90deg, ${AVAIL_RING}, ${PROGRESS_RING})`,
-            }} />
+      {inProg && typeof node.progress === 'number' && (
+        <div style={{ marginBottom:12 }}>
+          <div style={{ height:4, background:'rgba(255,255,255,0.06)', borderRadius:4, overflow:'hidden' }}>
+            <div style={{ height:'100%', borderRadius:4,
+              width:`${Math.round((node.progress ?? 0)*100)}%`,
+              background:`linear-gradient(90deg, ${AVAIL_RING}, ${PROG_COL})` }}
+            />
           </div>
-          <p style={{ fontSize: 10, color: '#4A5068', margin: '4px 0 0', textAlign: 'right' }}>
-            {Math.round((node.progress ?? 0) * 100)}% complete
+          <p style={{ fontSize:10, color:'#3A4260', margin:'4px 0 0', textAlign:'right' }}>
+            {Math.round((node.progress??0)*100)}% complete
           </p>
         </div>
       )}
 
       {/* Mastery bar for concepts */}
-      {(node.kind === 'lecture-concept' || node.kind === 'course-concept') && node.mastery && node.mastery.attempts > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 9, color: '#4A5068', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Mastery</span>
-            <span style={{ fontSize: 9, color: isOwned ? GOLD : '#6070A0', fontWeight: 700 }}>
-              {Math.round(node.mastery.score * 100)}%
+      {(node.kind==='lecture-concept'||node.kind==='course-concept') && node.mastery && node.mastery.attempts > 0 && (
+        <div style={{ marginBottom:12 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+            <span style={{ fontSize:9, color:'#3A4260', textTransform:'uppercase', letterSpacing:'0.1em' }}>Mastery</span>
+            <span style={{ fontSize:9, color: owned ? GOLD : PROG_COL, fontWeight:700 }}>
+              {Math.round(node.mastery.score*100)}%
             </span>
           </div>
-          <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 3,
-              width: `${Math.round(node.mastery.score * 100)}%`,
-              background: isOwned ? `linear-gradient(90deg, ${GOLD_DIM}, ${GOLD})` : `linear-gradient(90deg, ${AVAIL_RING}, ${PROGRESS_RING})`,
-            }} />
+          <div style={{ height:3, background:'rgba(255,255,255,0.05)', borderRadius:3, overflow:'hidden' }}>
+            <div style={{ height:'100%', borderRadius:3,
+              width:`${Math.round(node.mastery.score*100)}%`,
+              background: owned ? `linear-gradient(90deg,${GOLD_DIM},${GOLD})` : `linear-gradient(90deg,${AVAIL_RING},${PROG_COL})` }}
+            />
           </div>
         </div>
       )}
 
       {/* Body */}
-      <p style={{ fontSize: 12, color: '#6070A0', lineHeight: 1.6, margin: '0 0 14px' }}>
-        {body}
-      </p>
+      <p style={{ fontSize:12, color:'#505878', lineHeight:1.65, margin:'0 0 14px' }}>{body}</p>
 
       {/* Divider */}
-      <div style={{ height: 1, background: isOwned ? 'rgba(212,168,67,0.12)' : 'rgba(255,255,255,0.05)', marginBottom: 14 }} />
+      <div style={{ height:1, background: owned ? 'rgba(212,168,67,0.1)' : 'rgba(255,255,255,0.05)', marginBottom:14 }} />
 
-      {/* Open lecture CTA */}
-      {canOpen && (
+      {/* CTA */}
+      {canOpen ? (
         <button
           type="button"
           onClick={() => onOpenLecture(node.lectureId!)}
           style={{
-            display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: 8,
-            background: `linear-gradient(135deg, ${GOLD_DIM}, ${GOLD})`,
-            border: 'none', borderRadius: 10, padding: '10px 0',
-            color: '#0D1020', fontSize: 12, fontWeight: 800, cursor: 'pointer',
-            letterSpacing: '0.05em', textTransform: 'uppercase',
-            boxShadow: `0 0 20px rgba(212,168,67,0.25)`,
-            transition: 'opacity 0.2s, box-shadow 0.2s',
+            display:'flex', width:'100%', alignItems:'center', justifyContent:'center', gap:8,
+            background:`linear-gradient(135deg, ${GOLD_DIM}, ${GOLD})`,
+            border:'none', borderRadius:10, padding:'10px 0',
+            color:'#0A0800', fontSize:11, fontWeight:800, cursor:'pointer',
+            letterSpacing:'0.06em', textTransform:'uppercase',
+            boxShadow:`0 0 24px rgba(212,168,67,0.22)`,
+            transition:'opacity .2s, box-shadow .2s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.boxShadow = `0 0 30px rgba(212,168,67,0.4)`; }}
-          onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = `0 0 20px rgba(212,168,67,0.25)`; }}
+          onMouseEnter={e => { e.currentTarget.style.opacity='0.85'; e.currentTarget.style.boxShadow=`0 0 36px rgba(212,168,67,0.38)`; }}
+          onMouseLeave={e => { e.currentTarget.style.opacity='1'; e.currentTarget.style.boxShadow=`0 0 24px rgba(212,168,67,0.22)`; }}
         >
           Open Lecture
-          <ArrowRight style={{ width: 14, height: 14 }} />
+          <ArrowRight style={{ width:14, height:14 }} />
         </button>
+      ) : (
+        <div style={{ fontSize:10, color:'#2A3050', textAlign:'center', letterSpacing:'0.05em' }}>
+          {locked ? 'Complete earlier lectures to unlock' : node.kind === 'root' ? 'Click a course to explore' : 'Concept node'}
+        </div>
       )}
     </aside>
   );

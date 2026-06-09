@@ -115,6 +115,40 @@
       "description": "You leveled up to Level {{level}}. Keep going!"
     }
   },
+  "courseSchedule": {
+    "title": "Schedule",
+    "headers": {
+      "event": "Event",
+      "location": "Location",
+      "start": "Start",
+      "end": "End",
+      "day": "Day",
+      "rhythm": "Frequency",
+      "time": "Time",
+      "instructor": "Instructor"
+    },
+    "events": {
+      "lecture": "Lecture",
+      "exercise": "Exercise",
+      "sqlWorkshop": "SQL Workshop",
+      "exam": "Exam"
+    },
+    "rhythm": {
+      "weekly": "weekly",
+      "biweekly": "every two weeks",
+      "once": "one-time"
+    },
+    "days": {
+      "monday": "Mondays",
+      "tuesday": "Tuesdays",
+      "wednesday": "Wednesdays",
+      "thursday": "Thursdays",
+      "friday": "Fridays",
+      "saturday": "Saturdays",
+      "sunday": "Sundays"
+    },
+    "empty": "No schedule available for this course yet."
+  },
   "curriculum": {
     "Objektorientierte Programmierung": "Object-Oriented Programming",
     "Technische Informatik": "Computer Engineering",
