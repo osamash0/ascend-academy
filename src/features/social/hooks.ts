@@ -24,7 +24,7 @@ import type { Role } from "./data";
 const KEYS = {
   friends: ["social", "friends"] as const,
   global: ["social", "global"] as const,
-  suggestions: ["social", "suggestions"] as const,
+  suggestions: (limit: number) => ["social", "suggestions", limit] as const,
   requests: ["social", "requests"] as const,
   extras: ["social", "extras"] as const,
   weekly: ["social", "weekly"] as const,
@@ -36,8 +36,8 @@ const KEYS = {
 export const useFriends = () => useQuery({ queryKey: KEYS.friends, queryFn: fetchFriends });
 export const useGlobalLeaderboard = () =>
   useQuery({ queryKey: KEYS.global, queryFn: fetchGlobalLeaderboard });
-export const useFriendSuggestions = (limit = 12) =>
-  useQuery({ queryKey: KEYS.suggestions, queryFn: () => fetchFriendSuggestions(limit) });
+export const useFriendSuggestions = (limit = 12, enabled = true) =>
+  useQuery({ queryKey: KEYS.suggestions(limit), queryFn: () => fetchFriendSuggestions(limit), enabled });
 export const useFriendRequests = () =>
   useQuery({ queryKey: KEYS.requests, queryFn: fetchFriendRequests });
 export const useMySocialExtras = () =>

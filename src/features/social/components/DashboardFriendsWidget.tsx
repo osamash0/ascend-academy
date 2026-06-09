@@ -1,14 +1,16 @@
 /**
  * Calm friends glance for the dashboard's first screen (top-right). Shows a few
  * online friends + a quiet request indicator, linking to the Friends hub.
- * Intentionally low-key — it never competes with the hero.
+ * Intentionally low-key — it never competes with the hero. When the student has
+ * no friends yet, it falls back to academic friend SUGGESTIONS so the first
+ * screen is never an empty social graph.
  */
 import { motion } from "framer-motion";
-import { Users } from "lucide-react";
+import { Sparkles, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StudentRoutes } from "@/lib/routes";
 import { Avatar } from "./atoms";
-import { useFriendRequests, useFriends } from "../hooks";
+import { useFriendRequests, useFriends, useFriendSuggestions } from "../hooks";
 
 export function DashboardFriendsWidget() {
   const navigate = useNavigate();
@@ -20,6 +22,11 @@ export function DashboardFriendsWidget() {
   const show = online.length ? online : friends;
   const stack = show.slice(0, 3);
   const hasAny = friends.length > 0 || incoming > 0;
+
+  // Only fetch suggestions when there's nothing else to show.
+  const { data: suggestions = [] } = useFriendSuggestions(3, !hasAny);
+  const suggestStack = suggestions.slice(0, 3);
+  const showSuggest = !hasAny && suggestStack.length > 0;
 
   return (
     <motion.button
@@ -38,6 +45,14 @@ export function DashboardFriendsWidget() {
             </div>
           ))}
         </div>
+      ) : showSuggest ? (
+        <div className="flex -space-x-2">
+          {suggestStack.map((s) => (
+            <div key={s.id} className="rounded-[12px] ring-2 ring-[#0E1320]">
+              <Avatar user={s} size="sm" />
+            </div>
+          ))}
+        </div>
       ) : (
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5">
           <Users className="h-4 w-4 text-muted-foreground" />
@@ -50,11 +65,17 @@ export function DashboardFriendsWidget() {
             ? `${online.length} friend${online.length === 1 ? "" : "s"} online`
             : friends.length > 0
               ? `${friends.length} friend${friends.length === 1 ? "" : "s"}`
-              : "Find friends"}
+              : showSuggest
+                ? `${suggestions.length} ${suggestions.length === 1 ? "person" : "people"} to meet`
+                : "Find friends"}
         </span>
         {incoming > 0 ? (
           <span className="block text-[11px] font-medium text-primary">
             {incoming} new request{incoming === 1 ? "" : "s"}
+          </span>
+        ) : showSuggest ? (
+          <span className="flex items-center gap-1 text-[11px] font-medium text-primary">
+            <Sparkles className="h-3 w-3" /> Suggested for you
           </span>
         ) : (
           <span className="block text-[11px] text-muted-foreground">Study circle</span>
