@@ -359,6 +359,9 @@
   @media (prefers-reduced-motion: reduce) {
     .depth-particle { animation: none; opacity: 0; }
     .depth-card { transition: none; }
+    /* Rank-border animation falls back to a static conic ring + glow. */
+    .animate-rank-rotate { animation: none !important; }
+    .animate-rank-glow { animation: none !important; }
   }
 
   /* ── Glassmorphism Panel System (Educational Focus) ── */

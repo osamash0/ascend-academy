@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, Trophy, Users, Crown, BarChart3, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, type LucideIcon } from 'lucide-react';
+import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ProfileChip } from './ProfileChip';
-import { StudentRoutes, PublicRoutes, SharedRoutes, ProfessorRoutes } from '@/lib/routes';
+import { StudentRoutes, PublicRoutes, SharedRoutes, ProfessorRoutes, AdminRoutes } from '@/lib/routes';
 
 interface NavTab {
   label: string;
@@ -17,10 +17,9 @@ interface NavTab {
 const STUDENT_TABS: NavTab[] = [
   { label: 'Home', to: StudentRoutes.HOME, icon: Home },
   { label: 'Library', to: StudentRoutes.LIBRARY, icon: BookOpen },
-  { label: 'Trophies', to: StudentRoutes.ACHIEVEMENTS, icon: Trophy },
+  { label: 'Ascent', to: StudentRoutes.ASCENT, icon: TrendingUp },
   { label: 'Ranking', to: StudentRoutes.LEADERBOARD, icon: Crown },
   { label: 'Friends', to: StudentRoutes.FRIENDS, icon: Users },
-  { label: 'Insights', to: StudentRoutes.INSIGHTS, icon: BarChart3 },
 ];
 
 const PROFESSOR_TABS: NavTab[] = [
@@ -29,6 +28,10 @@ const PROFESSOR_TABS: NavTab[] = [
   { label: 'Archive', to: ProfessorRoutes.ARCHIVE, icon: Archive },
   { label: 'Analytics', to: ProfessorRoutes.ANALYTICS, icon: BarChart3 },
   { label: 'Upload', to: ProfessorRoutes.UPLOAD, icon: Upload },
+];
+
+const ADMIN_TABS: NavTab[] = [
+  { label: 'Admin Panel', to: AdminRoutes.DASHBOARD, icon: LayoutDashboard },
 ];
 
 function LiveClock() {
@@ -58,8 +61,8 @@ export function ConsoleTopBar() {
     navigate(PublicRoutes.LANDING);
   };
 
-  const tabs = role === 'professor' ? PROFESSOR_TABS : STUDENT_TABS;
-  const homeRoute = role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME;
+  const tabs = role === 'admin' ? ADMIN_TABS : (role === 'professor' ? PROFESSOR_TABS : STUDENT_TABS);
+  const homeRoute = role === 'admin' ? AdminRoutes.DASHBOARD : (role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME);
 
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between gap-4 px-5 lg:px-10 py-3 bg-gradient-to-b from-[#070b14]/80 via-[#070b14]/30 to-transparent backdrop-blur-[2px]">

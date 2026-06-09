@@ -3,6 +3,8 @@ import { Check, Flame } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { RankRing } from "@/components/RankRing";
+import { rankForXp, type RankTier } from "@/lib/rank";
 import { avatarGradient, type Role, type SocialUser } from "../data";
 
 /* ------------------------------ Avatar ---------------------------- */
@@ -13,29 +15,49 @@ export function Avatar({
   user,
   size = "md",
   showDot = false,
+  rankTier,
+  showRank = true,
 }: {
-  user: Pick<SocialUser, "id" | "initials" | "online" | "avatarUrl">;
+  // `totalXp` (optional) drives the rank border; all SocialUser callers carry it.
+  user: Pick<SocialUser, "id" | "initials" | "online" | "avatarUrl"> & { totalXp?: number };
   size?: keyof typeof AVATAR_SIZES;
   showDot?: boolean;
+  /** Explicit tier override (e.g. when XP isn't on the user object). */
+  rankTier?: RankTier;
+  /** Opt out of the rank border entirely. */
+  showRank?: boolean;
 }) {
   const px = AVATAR_SIZES[size];
   const [from, to] = avatarGradient(user.id);
+  const tier = rankTier ?? (user.totalXp != null ? rankForXp(user.totalXp) : undefined);
+  const showRing = showRank && tier != null;
+
+  const inner = (
+    <div
+      className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] shadow-glow-primary"
+      style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
+    >
+      {user.avatarUrl ? (
+        <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <span className="font-display font-black text-white" style={{ fontSize: px * 0.36 }}>
+          {user.initials}
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <div className="relative shrink-0" style={{ width: px, height: px }}>
-      <div
-        className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] shadow-glow-primary"
-        style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
-      >
-        {user.avatarUrl ? (
-          <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <span className="font-display font-black text-white" style={{ fontSize: px * 0.36 }}>
-            {user.initials}
-          </span>
-        )}
-      </div>
+      {showRing ? (
+        <RankRing tier={tier!} size={size}>
+          {inner}
+        </RankRing>
+      ) : (
+        inner
+      )}
       {showDot && (
-        <span className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-[#0E1320]">
+        <span className="absolute -bottom-0.5 -right-0.5 z-10 rounded-full ring-2 ring-[#0E1320]">
           <OnlineDot online={user.online} pulse={user.online} />
         </span>
       )}

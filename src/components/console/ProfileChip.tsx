@@ -1,8 +1,11 @@
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Settings, Trophy, BarChart3, LogOut, User } from 'lucide-react';
+import { ChevronDown, Settings, TrendingUp, LogOut, User } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { StudentRoutes } from '@/lib/routes';
+import { RankRing } from '@/components/RankRing';
+import { rankForXp } from '@/lib/rank';
+
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -35,13 +38,18 @@ export function ProfileChip({ className }: ProfileChipProps) {
     navigate('/');
   };
 
+  const tier = rankForXp(profile.total_xp);
   const avatar = (
-    <div className="h-11 w-11 overflow-hidden rounded-[14px] bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary">
-      {profile.avatar_url ? (
-        <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <span className="text-lg font-black text-white">{initial}</span>
-      )}
+    <div className="relative h-11 w-11 shrink-0">
+      <RankRing tier={tier} size="md">
+        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary">
+          {profile.avatar_url ? (
+            <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-lg font-black text-white">{initial}</span>
+          )}
+        </div>
+      </RankRing>
     </div>
   );
 
@@ -84,16 +92,10 @@ export function ProfileChip({ className }: ProfileChipProps) {
           Profile
         </DropdownMenuItem>
         {role === 'student' && (
-          <>
-            <DropdownMenuItem onClick={() => navigate('/achievements')}>
-              <Trophy className="mr-2 h-4 w-4" />
-              Achievements
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/insights')}>
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Insights
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem onClick={() => navigate(StudentRoutes.ASCENT)}>
+            <TrendingUp className="mr-2 h-4 w-4" />
+            My Ascent
+          </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={() => navigate('/settings')}>
           <Settings className="mr-2 h-4 w-4" />
