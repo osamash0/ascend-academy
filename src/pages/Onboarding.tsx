@@ -244,7 +244,13 @@ export default function Onboarding() {
       // 1. Core profile (name + avatar)
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ full_name: fullName.trim() || null, avatar_url: avatarUrl })
+        // Set display_name too so the student is discoverable in Friends /
+        // leaderboard (the social layer keys off display_name).
+        .update({
+          full_name: fullName.trim() || null,
+          display_name: fullName.trim() || null,
+          avatar_url: avatarUrl,
+        })
         .eq('user_id', user.id);
       if (profileError) throw profileError;
 
