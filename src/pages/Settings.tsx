@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { exportAccountData, deleteAccountData } from '@/services/studentService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { UniversityEmailLink } from '@/components/UniversityEmailLink';
 import { useToast } from '@/hooks/use-toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -370,6 +371,11 @@ function ProfileForm({
                             <p className="text-xs text-muted-foreground">{t('settings:profile.emailHelp')}</p>
                         </div>
                     </div>
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                    <h3 className="text-sm font-semibold mb-3">Institution verification</h3>
+                    <UniversityEmailLink />
                 </div>
 
                 <div className="pt-4 border-t border-border flex items-center justify-between">

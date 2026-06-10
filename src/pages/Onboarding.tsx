@@ -18,6 +18,7 @@ import type {
 } from '@/types/academic';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { UniversityEmailLink } from '@/components/UniversityEmailLink';
 import { useToast } from '@/hooks/use-toast';
 
 const PRESET_AVATARS = [
@@ -443,6 +444,12 @@ export default function Onboarding() {
                         </select>
                       </div>
                     </>
+                  )}
+
+                  {uniId && (
+                    <div className="pt-2">
+                      <UniversityEmailLink />
+                    </div>
                   )}
                 </div>
 

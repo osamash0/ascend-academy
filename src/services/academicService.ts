@@ -131,11 +131,49 @@ export async function confirmCatalogCourses(items: CatalogCourseConfirmation[]):
   return (data as number) ?? 0;
 }
 
-/** Verify the caller's institution by confirmed email domain. Returns true if verified. */
+/** Verify the caller's institution by confirmed *account* email domain. */
 export async function verifyMyInstitution(): Promise<boolean> {
   const { data, error } = await rpc('verify_my_institution');
   if (error) throw error;
   return !!data;
+}
+
+export type LinkEmailReason = 'verified' | 'invalid' | 'taken' | 'unknown_domain' | 'mismatch';
+export interface LinkEmailResult {
+  verified: boolean;
+  university: string | null;
+  reason: LinkEmailReason;
+}
+
+/** Link a separate institutional email; verifies by domain match. */
+export async function linkUniversityEmail(email: string): Promise<LinkEmailResult> {
+  const { data, error } = await rpc('link_university_email', { p_email: email });
+  if (error) throw error;
+  const row = (data as any[])?.[0];
+  return {
+    verified: !!row?.verified,
+    university: row?.university ?? null,
+    reason: (row?.reason ?? 'invalid') as LinkEmailReason,
+  };
+}
+
+export interface MyVerification {
+  universityEmail: string | null;
+  institutionVerified: boolean;
+  institution: string | null;
+  universityId: string | null;
+}
+
+export async function getMyVerification(): Promise<MyVerification> {
+  const { data, error } = await rpc('get_my_verification');
+  if (error) throw error;
+  const row = (data as any[])?.[0];
+  return {
+    universityEmail: row?.university_email ?? null,
+    institutionVerified: !!row?.institution_verified,
+    institution: row?.institution ?? null,
+    universityId: row?.university_id ?? null,
+  };
 }
 
 /* ------------------------------- admin (scraper) -------------------------- */
