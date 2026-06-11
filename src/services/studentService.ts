@@ -126,7 +126,7 @@ export async function logLearningEvent(
 ): Promise<void> {
   await supabase
     .from('learning_events')
-    .insert({ user_id: userId, event_type: eventType, event_data: eventData as any });
+    .insert({ user_id: userId, event_type: eventType, event_data: eventData as Record<string, unknown> });
 }
 
 /**

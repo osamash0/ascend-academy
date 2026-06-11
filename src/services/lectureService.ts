@@ -111,7 +111,7 @@ export async function fetchQuizQuestions(lectureId: string): Promise<QuizQuestio
       .from('quiz_questions')
       .select('id, slide_id, question_text, options, correct_answer, slides!inner(lecture_id)')
       .eq('slides.lecture_id', lectureId);
-    data = fallback.data as any;
+    data = fallback.data as unknown[];
     error = fallback.error;
   }
 
@@ -120,7 +120,7 @@ export async function fetchQuizQuestions(lectureId: string): Promise<QuizQuestio
     return [];
   }
 
-  return (data as any[] ?? []).map((q: any) => {
+  return (data ?? []).map((q: Record<string, unknown>) => {
     const meta = (q.metadata as Record<string, unknown> | null | undefined) ?? {};
     return {
       id: q.id as string,
