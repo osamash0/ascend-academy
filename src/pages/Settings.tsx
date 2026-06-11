@@ -14,6 +14,8 @@ import { exportAccountData, deleteAccountData } from '@/services/studentService'
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UniversityEmailLink } from '@/components/UniversityEmailLink';
+import { AcademicProfileEditor } from '@/components/AcademicProfileEditor';
+import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { useToast } from '@/hooks/use-toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -83,6 +85,7 @@ function AvatarSection({
     const { t } = useTranslation(['settings', 'common']);
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
+    const gamification = useGamification();
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,6 +117,7 @@ function AvatarSection({
             if (updateError) throw updateError;
 
             await onUpdate();
+            gamification.evaluate();   // photo set → may earn "Identity Set"
             toast({
                 title: t('settings:avatar.updated'),
                 description: t('settings:avatar.updatedDescription'),
@@ -143,6 +147,7 @@ function AvatarSection({
             if (error) throw error;
 
             await onUpdate();
+            gamification.evaluate();   // photo set → may earn "Identity Set"
             toast({
                 title: t('settings:avatar.updated'),
                 description: t('settings:avatar.presetUpdated'),
@@ -264,6 +269,7 @@ function ProfileForm({
     const { t } = useTranslation(['settings', 'common']);
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
+    const gamification = useGamification();
 
     const [fullName, setFullName] = useState('');
     const [displayName, setDisplayName] = useState('');
@@ -298,6 +304,7 @@ function ProfileForm({
             if (error) throw error;
 
             await onUpdate();
+            gamification.evaluate();   // name set → may earn "Identity Set"
             toast({
                 title: t('settings:profile.updated'),
                 description: t('settings:profile.updatedDescription'),
@@ -376,6 +383,14 @@ function ProfileForm({
                 <div className="pt-4 border-t border-border">
                     <h3 className="text-sm font-semibold mb-3">Institution verification</h3>
                     <UniversityEmailLink />
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                    <h3 className="text-sm font-semibold mb-1">Academic profile</h3>
+                    <p className="text-xs text-muted-foreground mb-3">
+                        Set your university, program and courses to unlock classmate suggestions, course recommendations and cohort rankings.
+                    </p>
+                    <AcademicProfileEditor />
                 </div>
 
                 <div className="pt-4 border-t border-border flex items-center justify-between">

@@ -82,6 +82,32 @@ export async function getSuggestedCourses(
   }));
 }
 
+export interface MyAcademicProfile {
+  universityId: string | null;
+  facultyId: string | null;
+  degreeProgramId: string | null;
+  currentSemester: number | null;
+}
+
+/** Read the caller's structured academic profile (own row, RLS-permitted). */
+export async function getMyAcademicProfile(): Promise<MyAcademicProfile> {
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth?.user?.id;
+  if (!uid) return { universityId: null, facultyId: null, degreeProgramId: null, currentSemester: null };
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('university_id, faculty_id, degree_program_id, current_semester')
+    .eq('user_id', uid)
+    .maybeSingle();
+  if (error) throw error;
+  return {
+    universityId: (data as any)?.university_id ?? null,
+    facultyId: (data as any)?.faculty_id ?? null,
+    degreeProgramId: (data as any)?.degree_program_id ?? null,
+    currentSemester: (data as any)?.current_semester ?? null,
+  };
+}
+
 export async function getMyCatalogCourses(): Promise<MyCatalogCourse[]> {
   const { data, error } = await rpc('get_my_catalog_courses');
   if (error) throw error;
