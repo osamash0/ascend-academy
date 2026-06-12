@@ -42,8 +42,9 @@ scratch/
 .claude/
 Document-Insight-Engine/
 mineru-env/
-litellm/
-# Track the gateway config (uses os.environ/ refs only, no secrets)
+# Ignore litellm/ contents but track the gateway config (os.environ/ refs only,
+# no secrets) — git won't descend into a fully-ignored dir, so use litellm/*.
+litellm/*
 !litellm/config.yaml
 dump.rdb
 pdf_testset/

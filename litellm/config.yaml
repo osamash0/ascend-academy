@@ -1,0 +1,104 @@
+# LiteLLM proxy configuration for the v3 pipeline.
+#
+# Each stage gets a named model alias and a fallback chain.
+# Per-stage virtual keys are set via LITELLM_MASTER_KEY in .env so each
+# stage can be given its own daily cost cap.
+#
+# Run with:
+#   litellm --config litellm/config.yaml --port 4000
+#
+# Or via docker-compose (see docker-compose.yml).
+
+model_list:
+
+  # ── Stage 3 text batches (high volume, cheap, capacity-first) ─────────────
+  - model_name: stage-text
+    litellm_params:
+      model: cerebras/qwen-3-235b-a22b-instruct
+      api_key: os.environ/CEREBRAS_API_KEY
+    model_info:
+      mode: chat
+      max_tokens: 8192
+
+  - model_name: stage-text
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
+    model_info:
+      mode: chat
+      max_tokens: 8192
+
+  - model_name: stage-text
+    litellm_params:
+      model: gemini/gemini-2.0-flash
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+      max_tokens: 8192
+
+  # ── Stage 3 vision (moderate volume, quality-first) ────────────────────────
+  - model_name: stage-vision
+    litellm_params:
+      model: groq/meta-llama/llama-4-scout-17b-16e-instruct
+      api_key: os.environ/GROQ_API_KEY
+    model_info:
+      mode: chat
+      supports_vision: true
+
+  - model_name: stage-vision
+    litellm_params:
+      model: gemini/gemini-2.0-flash
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+      supports_vision: true
+
+  # ── Stage 2 outline (one call per deck, quality matters) ───────────────────
+  - model_name: stage-outline
+    litellm_params:
+      model: gemini/gemini-2.0-flash
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+      max_tokens: 4096
+
+  - model_name: stage-outline
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
+
+  # ── Stage 5 deck summary + quiz (two calls per deck) ──────────────────────
+  - model_name: stage-deck
+    litellm_params:
+      model: gemini/gemini-2.0-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: stage-deck
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
+
+
+router_settings:
+  routing_strategy: simple-shuffle   # fallback to next model on error
+  num_retries: 2
+  retry_after: 5
+  timeout: 120
+
+
+general_settings:
+  # Require this key on every request to the gateway. The backend sends it via
+  # LITELLM_MASTER_KEY (see backend Settings.litellm_client_key). This is
+  # defense in depth on top of the loopback-only port binding — even a caller
+  # who reaches port 4000 is rejected without the key.
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # Disable LiteLLM's internal DB / Prisma logging (not needed for local dev)
+  disable_spend_logs: true
+  disable_master_key_return: true
+
+litellm_settings:
+  drop_params: true          # ignore unknown params silently
+  request_timeout: 120
+  # Uncomment to send traces to self-hosted Langfuse:
+  # success_callback: ["langfuse"]
+  # failure_callback: ["langfuse"]
