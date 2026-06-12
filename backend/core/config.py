@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # ─── Parser v3 infra ───────────────────────────────────────────────────────
     redis_url: str = Field(alias="REDIS_URL", default="redis://localhost:6379")
     litellm_base_url: str = Field(alias="LITELLM_BASE_URL", default="http://localhost:4000")
+    # Auth key the backend sends to the LiteLLM gateway. When set, the gateway
+    # rejects any request that doesn't present it (defense in depth on top of
+    # the loopback-only port binding). Leave empty for an unauthenticated local
+    # gateway. Must match the gateway's general_settings.master_key.
+    litellm_master_key: str = Field(alias="LITELLM_MASTER_KEY", default="")
     parser_version: str = Field(alias="PARSER_VERSION", default="2")
 
     # ─── Computed ──────────────────────────────────────────────────────────────
@@ -53,6 +58,16 @@ class Settings(BaseSettings):
     @property
     def effective_gemini_key(self) -> str:
         return self.gemini_api_key or self.google_api_key
+
+    @property
+    def litellm_client_key(self) -> str:
+        """API key the backend presents to the LiteLLM gateway.
+
+        Falls back to a non-empty placeholder when no master key is configured:
+        the AsyncOpenAI client rejects an empty ``api_key``, and a gateway
+        started without a ``master_key`` ignores whatever value it receives.
+        """
+        return self.litellm_master_key or "sk-litellm-noauth"
 
 
 settings = Settings()

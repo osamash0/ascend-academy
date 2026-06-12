@@ -5,7 +5,11 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "0.0.0.0",
+    // SECURITY: bind to loopback only so the dev server is never reachable from
+    // the host's public IP / 0.0.0.0. Reach it from another machine via the
+    // university network or VPN (e.g. an SSH tunnel) — never bind it to
+    // 0.0.0.0 without prior IT-security approval.
+    host: "127.0.0.1",
     port: 5000,
     strictPort: true,
     allowedHosts: true,

@@ -155,7 +155,7 @@ async def _analyze_text_batch(
             slides_text=_format_slides_text(batch),
         )
 
-        client = AsyncOpenAI(api_key="v3-stage-text", base_url=settings.litellm_base_url)
+        client = AsyncOpenAI(api_key=settings.litellm_client_key, base_url=settings.litellm_base_url)
         t0 = time.monotonic()
         model_used = "stage-text"
         tokens_in = tokens_out = 0
@@ -261,7 +261,7 @@ async def _analyze_vision_slide(
 
         messages.append({"role": "user", "content": user_parts})
 
-        client = AsyncOpenAI(api_key="v3-stage-vision", base_url=settings.litellm_base_url)
+        client = AsyncOpenAI(api_key=settings.litellm_client_key, base_url=settings.litellm_base_url)
         t0 = time.monotonic()
         model_used = "stage-vision"
         tokens_in = tokens_out = 0

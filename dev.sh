@@ -23,13 +23,17 @@ sleep 1
 echo "----------------------------------------"
 echo "Initializing Backend (FastAPI)..."
 source .venv/bin/activate
-uvicorn backend.main:app --reload --port 8000 &
+# SECURITY: --host 127.0.0.1 keeps both dev servers on loopback only, so they
+# are never reachable from the host's public IP / 0.0.0.0. Reach them from
+# another machine via the university network or VPN (e.g. an SSH tunnel) — do
+# not bind to 0.0.0.0 without prior IT-security approval.
+uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000 &
 echo "✅ Backend scheduled to start on http://localhost:8000"
 
 # 2. Start Frontend (Vite)
 echo "----------------------------------------"
 echo "Initializing Frontend (Vite)..."
-npm run dev -- --port 8080 --strictPort &
+npm run dev -- --host 127.0.0.1 --port 8080 --strictPort &
 echo "✅ Frontend scheduled to start on http://localhost:8080"
 
 echo "----------------------------------------"

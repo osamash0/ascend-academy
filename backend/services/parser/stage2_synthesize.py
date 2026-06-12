@@ -82,7 +82,7 @@ async def synthesize(
         return run.outline
 
     client = AsyncOpenAI(
-        api_key="v3-stage-outline",
+        api_key=settings.litellm_client_key,
         base_url=settings.litellm_base_url,
     )
 

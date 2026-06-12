@@ -71,7 +71,7 @@ async def finalize(
 
     Returns a dict with "deck_summary" and "deck_quiz" keys.
     """
-    client = AsyncOpenAI(api_key="v3-stage-deck", base_url=settings.litellm_base_url)
+    client = AsyncOpenAI(api_key=settings.litellm_client_key, base_url=settings.litellm_base_url)
 
     # ── Deck summary ──────────────────────────────────────────────────────────
     summaries_text = "\n".join(
