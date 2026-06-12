@@ -43,5 +43,7 @@ scratch/
 Document-Insight-Engine/
 mineru-env/
 litellm/
+# Track the gateway config (uses os.environ/ refs only, no secrets)
+!litellm/config.yaml
 dump.rdb
 pdf_testset/
