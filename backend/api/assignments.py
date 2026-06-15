@@ -430,7 +430,11 @@ async def list_enrollable_students(
         out.sort(key=lambda p: ((p["full_name"] or "").lower(), p["id"]))
         return out
 
-    data = await run_in_threadpool(_load)
+    try:
+        data = await run_in_threadpool(_load)
+    except Exception as e:
+        logger.error("Failed to load enrollable students for %s: %s", uid, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load students.")
     return {"success": True, "data": data}
 
 

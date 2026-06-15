@@ -589,6 +589,11 @@ class ProfessorChatRequest(BaseModel):
     ai_model: Optional[str] = "cerebras"
 
 
+# Upper bound on conversation length accepted by /professor/chat, so a client
+# can't submit an unbounded history (LLM cost + prompt-size abuse).
+_MAX_CHAT_MESSAGES = 50
+
+
 @router.post("/professor/chat", response_model=AnalyticsResponse)
 @limiter.limit("30/minute", key_func=_ask_rate_limit_key)
 async def professor_chat(
@@ -605,16 +610,27 @@ async def professor_chat(
     msgs = [{"role": m.role, "content": m.content} for m in (body.messages or [])]
     if not msgs:
         raise HTTPException(status_code=400, detail="At least one message is required.")
-    last = msgs[-1].get("content", "")
-    if len(last) > PUBLIC_MAX_QUESTION_LENGTH:
-        raise HTTPException(status_code=400, detail=f"Message is too long (max {PUBLIC_MAX_QUESTION_LENGTH} chars).")
+    # Bound the conversation: cap message count and validate EVERY message's
+    # length, not just the last one (the prior version left earlier messages
+    # unbounded).
+    if len(msgs) > _MAX_CHAT_MESSAGES:
+        raise HTTPException(status_code=400, detail=f"Too many messages (max {_MAX_CHAT_MESSAGES}).")
+    for m in msgs:
+        if len(m.get("content") or "") > PUBLIC_MAX_QUESTION_LENGTH:
+            raise HTTPException(status_code=400, detail=f"Message is too long (max {PUBLIC_MAX_QUESTION_LENGTH} chars).")
 
-    reply = await chat_professor_data(
-        professor_id=user.id,
-        messages=msgs,
-        token=creds.credentials,
-        ai_model=body.ai_model or "cerebras",
-    )
+    try:
+        reply = await chat_professor_data(
+            professor_id=user.id,
+            messages=msgs,
+            token=creds.credentials,
+            ai_model=body.ai_model or "cerebras",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Professor chat pipeline failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Could not answer that. Please retry.")
     return AnalyticsResponse(success=True, data={"reply": reply})
 
 

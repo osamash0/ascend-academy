@@ -325,8 +325,11 @@ async def generate_auto_sheet(
                 choices = [str(o) for o in options]
             else:
                 choices = []
-            correct_idx = qq.get("correct_answer") or 0
-            correct_text = choices[correct_idx] if 0 <= correct_idx < len(choices) else None
+            # Distinguish "no correct answer recorded" (None) from option 0 —
+            # `or 0` previously mis-keyed null answers to the first choice.
+            raw_correct = qq.get("correct_answer")
+            correct_idx = raw_correct if isinstance(raw_correct, int) else None
+            correct_text = choices[correct_idx] if correct_idx is not None and 0 <= correct_idx < len(choices) else None
 
             slide = slide_by_id.get(qq["slide_id"], {})
             prompt = qq.get("question_text") or ""

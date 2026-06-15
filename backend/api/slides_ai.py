@@ -20,7 +20,7 @@ import logging
 from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.core.auth_middleware import require_professor
 from backend.core.database import supabase_admin
@@ -49,7 +49,7 @@ class _SlideAIRequest(BaseModel):
 
 class _DeckQuizRequest(BaseModel):
     ai_model: _AiModel = "cerebras"
-    question_count: int = 5
+    question_count: int = Field(5, ge=1, le=20)
 
 
 def _user_id(user: Any) -> Optional[str]:

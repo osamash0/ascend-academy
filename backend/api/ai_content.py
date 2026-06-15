@@ -13,6 +13,7 @@ from supabase import create_client, Client
 from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
 from backend.core.auth_middleware import verify_token, require_professor
 from backend.core.rate_limit import limiter
+from backend.services.llm_client import LLMTimeoutError
 from backend.services.ai_service import (
     generate_summary, generate_quiz, generate_analytics_insights, 
     chat_with_lecture, generate_speech, generate_metric_feedback, 
@@ -78,21 +79,22 @@ def _validate_supabase_storage_url(url: str) -> None:
 
 _security = HTTPBearer()
 
+_AiModelLiteral = Literal[
+    "cerebras",        # PRIMARY
+    "groq",
+    "groq_fast",
+    "openrouter",
+    "cloudflare",
+    "gemini",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemma",
+    "mistral",
+    "llama3",
+    "openai",
+]
 _AiModel = Annotated[
-    Literal[
-        "cerebras",        # PRIMARY
-        "groq",
-        "groq_fast",
-        "openrouter",
-        "cloudflare",
-        "gemini",
-        "gemini-2.0-flash",
-        "gemini-2.5-flash",
-        "gemma",
-        "mistral",
-        "llama3",
-        "openai",
-    ],
+    _AiModelLiteral,
     Field("cerebras", description="Preferred LLM backend (head of failover chain)"),
 ]
 
@@ -187,18 +189,24 @@ class ChatResponse(BaseModel):
 # --- Endpoints ---
 
 @router.post("/generate-summary", response_model=SummaryResponse)
-async def generate_summary_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
+@limiter.limit("30/minute")
+async def generate_summary_endpoint(request: Request, body: SlideTextRequest, user: Any = Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
-    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model)
-    if filter_result.get("is_metadata"):
-        return SummaryResponse(summary="This slide contains administrative information and is not suitable for summarization.")
-
     try:
+        # The metadata filter can run an LLM-as-judge classifier (a blocking
+        # network call). Run it off the event loop and inside the try so it
+        # neither stalls the worker nor escapes as an unhandled 500.
+        filter_result = await asyncio.to_thread(
+            is_metadata_slide, body.slide_text, ai_model=body.ai_model
+        )
+        if filter_result.get("is_metadata"):
+            return SummaryResponse(summary="This slide contains administrative information and is not suitable for summarization.")
+
         summary = await generate_summary(body.slide_text, ai_model=body.ai_model)
         return SummaryResponse(summary=summary)
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, LLMTimeoutError):
         raise HTTPException(status_code=504, detail="AI summary timed out. Please retry.")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -207,19 +215,24 @@ async def generate_summary_endpoint(body: SlideTextRequest, user: Any = Depends(
         raise HTTPException(status_code=502, detail="AI service unavailable. Please try a different model or retry shortly.")
 
 @router.post("/generate-quiz", response_model=QuizResponse)
-async def generate_quiz_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
+@limiter.limit("30/minute")
+async def generate_quiz_endpoint(request: Request, body: SlideTextRequest, user: Any = Depends(verify_token)):
     if not body.slide_text.strip():
         raise HTTPException(status_code=400, detail="slide_text cannot be empty.")
 
-    filter_result = is_metadata_slide(body.slide_text, ai_model=body.ai_model)
-    if filter_result.get("is_metadata"):
-        return QuizResponse(
-            question="This slide contains administrative information.",
-            options=["N/A", "N/A", "N/A", "N/A"],
-            correctAnswer=0
-        )
-
     try:
+        # Run the (possibly LLM-backed) metadata filter off the event loop and
+        # inside the try — see generate_summary_endpoint for the rationale.
+        filter_result = await asyncio.to_thread(
+            is_metadata_slide, body.slide_text, ai_model=body.ai_model
+        )
+        if filter_result.get("is_metadata"):
+            return QuizResponse(
+                question="This slide contains administrative information.",
+                options=["N/A", "N/A", "N/A", "N/A"],
+                correctAnswer=0
+            )
+
         quiz = await generate_quiz(body.slide_text, ai_model=body.ai_model)
         # Ensure correct return format
         if isinstance(quiz, list) and quiz:
@@ -241,7 +254,7 @@ async def generate_quiz_endpoint(body: SlideTextRequest, user: Any = Depends(ver
         if quiz.get("cognitive_level") not in ("recall", "apply", "analyse", None):
             quiz["cognitive_level"] = "apply"
         return QuizResponse(**quiz)
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, LLMTimeoutError):
         raise HTTPException(status_code=504, detail="AI quiz timed out. Please retry.")
     except ValueError as e:
         raise HTTPException(status_code=422, detail=f"AI returned invalid quiz format: {e}")
@@ -250,7 +263,8 @@ async def generate_quiz_endpoint(body: SlideTextRequest, user: Any = Depends(ver
         raise HTTPException(status_code=502, detail="AI service unavailable. Please try a different model or retry shortly.")
 
 @router.post("/suggest-title")
-async def suggest_title_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
+@limiter.limit("30/minute")
+async def suggest_title_endpoint(request: Request, body: SlideTextRequest, user: Any = Depends(verify_token)):
     try:
         title = await generate_slide_title(body.slide_text)
         return {"title": title}
@@ -259,7 +273,8 @@ async def suggest_title_endpoint(body: SlideTextRequest, user: Any = Depends(ver
         raise HTTPException(status_code=500, detail="AI title suggestion failed.")
 
 @router.post("/suggest-content")
-async def suggest_content_endpoint(body: SlideTextRequest, user: Any = Depends(verify_token)):
+@limiter.limit("30/minute")
+async def suggest_content_endpoint(request: Request, body: SlideTextRequest, user: Any = Depends(verify_token)):
     try:
         enhanced = await enhance_slide_content(body.slide_text, ai_model=body.ai_model)
         return {"content": enhanced.get("content", body.slide_text)}
@@ -268,7 +283,8 @@ async def suggest_content_endpoint(body: SlideTextRequest, user: Any = Depends(v
         raise HTTPException(status_code=500, detail="AI content enhancement failed.")
 
 @router.post("/analytics-insights", response_model=InsightsResponse)
-async def analytics_insights_endpoint(body: AnalyticsStatsRequest, user: Any = Depends(verify_token)):
+@limiter.limit("30/minute")
+async def analytics_insights_endpoint(request: Request, body: AnalyticsStatsRequest, user: Any = Depends(verify_token)):
     try:
         result = await generate_analytics_insights(body.dict(), ai_model=body.ai_model)
         return InsightsResponse(**result)
@@ -403,7 +419,8 @@ async def slide_recommendation_endpoint(
 
 
 @router.post("/metric-feedback")
-async def metric_feedback_endpoint(body: MetricInsightRequest, user: Any = Depends(verify_token)):
+@limiter.limit("30/minute")
+async def metric_feedback_endpoint(request: Request, body: MetricInsightRequest, user: Any = Depends(verify_token)):
     try:
         feedback = await generate_metric_feedback(
             metric_name=body.metric_name,
@@ -575,49 +592,57 @@ async def regenerate_slide_content(
             text = page.get_text("text")
             return img, text
 
-    img_bytes, raw_text = await asyncio.to_thread(_extract)
-    
-    # Run vision analysis
-    import base64
-    b64 = base64.b64encode(img_bytes).decode("utf-8")
-    analysis = await analyze_slide_vision(b64, raw_text, ai_model=body.ai_model)
-    
-    # 4. Update Database
-    from backend.services.ai.vision import format_slide_content
-    content = format_slide_content(analysis.get("content_extraction", {}))
-    
-    client.table("slides").update({
-        "title": analysis.get("metadata", {}).get("lecture_title") or f"Slide {slide_num}",
-        "content_text": content,
-        "summary": analysis.get("content_extraction", {}).get("summary", ""),
-    }).eq("id", slide_id).execute()
+    try:
+        img_bytes, raw_text = await asyncio.to_thread(_extract)
 
-    # Replace quiz
-    quiz = analysis.get("quiz")
-    if quiz:
-        # Capture concept-testing fields in the quiz_questions.metadata jsonb
-        # column so the player can render the explanation chip and analytics
-        # can group questions by concept / cognitive level. Stored only when
-        # present; older models that don't emit these fields just leave the
-        # column at its default ``{}``.
-        metadata = {
-            k: v for k, v in {
-                "explanation": quiz.get("explanation"),
-                "concept": quiz.get("concept"),
-                "cognitive_level": quiz.get("cognitive_level"),
-            }.items() if v
-        }
-        client.table("quiz_questions").delete().eq("slide_id", slide_id).execute()
-        client.table("quiz_questions").insert({
-            "slide_id": slide_id,
-            "question_text": quiz["question"],
-            "options": quiz["options"],
-            "correct_answer": quiz["correctAnswer"],
-            "metadata": metadata,
-        }).execute()
+        # Run vision analysis
+        import base64
+        b64 = base64.b64encode(img_bytes).decode("utf-8")
+        analysis = await analyze_slide_vision(b64, raw_text, ai_model=body.ai_model)
 
-    analytics_cache.invalidate_course_overview_for_lecture(res.data.get("lecture_id"))
-    return {"success": True, "analysis": analysis}
+        # 4. Update Database
+        from backend.services.ai.vision import format_slide_content
+        content = format_slide_content(analysis.get("content_extraction", {}))
+
+        client.table("slides").update({
+            "title": analysis.get("metadata", {}).get("lecture_title") or f"Slide {slide_num}",
+            "content_text": content,
+            "summary": analysis.get("content_extraction", {}).get("summary", ""),
+        }).eq("id", slide_id).execute()
+
+        # Replace quiz
+        quiz = analysis.get("quiz")
+        if quiz:
+            # Capture concept-testing fields in the quiz_questions.metadata jsonb
+            # column so the player can render the explanation chip and analytics
+            # can group questions by concept / cognitive level. Stored only when
+            # present; older models that don't emit these fields just leave the
+            # column at its default ``{}``.
+            metadata = {
+                k: v for k, v in {
+                    "explanation": quiz.get("explanation"),
+                    "concept": quiz.get("concept"),
+                    "cognitive_level": quiz.get("cognitive_level"),
+                }.items() if v
+            }
+            client.table("quiz_questions").delete().eq("slide_id", slide_id).execute()
+            client.table("quiz_questions").insert({
+                "slide_id": slide_id,
+                "question_text": quiz["question"],
+                "options": quiz["options"],
+                "correct_answer": quiz["correctAnswer"],
+                "metadata": metadata,
+            }).execute()
+
+        analytics_cache.invalidate_course_overview_for_lecture(res.data.get("lecture_id"))
+        return {"success": True, "analysis": analysis}
+    except HTTPException:
+        raise
+    except (asyncio.TimeoutError, LLMTimeoutError):
+        raise HTTPException(status_code=504, detail="Slide regeneration timed out. Please retry.")
+    except Exception as e:
+        logger.error("Slide regeneration failed for %s: %s", slide_id, e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Failed to regenerate slide content.")
 
 
 # --- Lecture description auto-generation ---
@@ -626,7 +651,7 @@ class LectureDescriptionRequest(BaseModel):
     lecture_title: str = Field(..., min_length=1)
     course_name: Optional[str] = None
     slide_summaries: List[str] = Field(default_factory=list)
-    ai_model: Optional[str] = None
+    ai_model: Optional[_AiModelLiteral] = None
 
 
 class LectureDescriptionResponse(BaseModel):
@@ -661,7 +686,7 @@ async def lecture_description_endpoint(
     )
     try:
         raw = await generate_text(prompt, ai_model=body.ai_model or "cerebras")
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, LLMTimeoutError):
         raise HTTPException(status_code=504, detail="Description generation timed out.")
     except Exception as e:
         logger.error("Description generation failed: %s", e, exc_info=True)
@@ -678,7 +703,7 @@ async def lecture_description_endpoint(
 
 class CourseDescriptionRequest(BaseModel):
     course_id: str = Field(..., min_length=1)
-    ai_model: Optional[str] = None
+    ai_model: Optional[_AiModelLiteral] = None
 
 
 class CourseDescriptionResponse(BaseModel):
@@ -769,7 +794,7 @@ async def course_description_endpoint(
     prompt = COURSE_DESCRIPTION_PROMPT.format(title=course_title, outline=outline)
     try:
         raw = await generate_text(prompt, ai_model=body.ai_model or "cerebras")
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, LLMTimeoutError):
         raise HTTPException(status_code=504, detail="Description generation timed out.")
     except Exception as e:
         logger.error("Course description generation failed: %s", e, exc_info=True)
@@ -786,7 +811,7 @@ async def course_description_endpoint(
 
 class LectureTaglineRequest(BaseModel):
     lecture_id: str = Field(..., min_length=1)
-    ai_model: Optional[str] = None
+    ai_model: Optional[_AiModelLiteral] = None
 
 
 class LectureTaglineResponse(BaseModel):
@@ -797,6 +822,7 @@ class LectureTaglineResponse(BaseModel):
 # In-process cache so repeated focus changes in the carousel are free.
 # Keyed by (lecture_id, slide_count) so it self-invalidates if slides change.
 _TAGLINE_CACHE: Dict[str, str] = {}
+_TAGLINE_CACHE_MAX_ENTRIES = 512  # bound in-process cache growth
 _TAGLINE_MAX_CHARS = 6000  # cap context fed to the model
 
 
@@ -862,7 +888,7 @@ async def lecture_tagline_endpoint(
     prompt = LECTURE_TAGLINE_PROMPT.format(title=title, content=content)
     try:
         raw = await generate_text(prompt, ai_model=body.ai_model or "cerebras")
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, LLMTimeoutError):
         raise HTTPException(status_code=504, detail="Tagline generation timed out.")
     except Exception as e:
         logger.error("Tagline generation failed: %s", e, exc_info=True)
@@ -873,5 +899,10 @@ async def lecture_tagline_endpoint(
     if not tagline:
         raise HTTPException(status_code=502, detail="Empty tagline returned.")
 
+    # Bound the in-process cache so it can't grow without limit over the
+    # process lifetime. Entries are cheap to recompute and self-invalidate on
+    # slide-count change, so evicting the oldest insertion is fine.
+    if len(_TAGLINE_CACHE) >= _TAGLINE_CACHE_MAX_ENTRIES:
+        _TAGLINE_CACHE.pop(next(iter(_TAGLINE_CACHE)), None)
     _TAGLINE_CACHE[cache_key] = tagline
     return LectureTaglineResponse(tagline=tagline, cached=False)
