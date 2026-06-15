@@ -22,7 +22,16 @@ def _run_odl_sync(pdf_bytes: bytes, filename: str) -> Dict[int, dict]:
     Returns {1-based page_num: {"text": str, "title": str | None}}.
     """
     with tempfile.TemporaryDirectory() as tmp:
-        in_path = os.path.join(tmp, filename)
+        # SECURITY: the client-supplied filename must never be used directly in
+        # a filesystem path — an attacker can pass "../../x" or an absolute path
+        # to escape the temp dir and write the uploaded bytes anywhere the
+        # worker can write (path traversal → arbitrary file write). ODL only
+        # needs *a* .pdf file on disk; the original name is irrelevant.
+        safe_name = os.path.basename(filename or "")
+        safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", safe_name).strip("._")
+        if not safe_name.lower().endswith(".pdf"):
+            safe_name = (safe_name or "input") + ".pdf"
+        in_path = os.path.join(tmp, safe_name)
         out_dir = os.path.join(tmp, "out")
         os.makedirs(out_dir)
 
