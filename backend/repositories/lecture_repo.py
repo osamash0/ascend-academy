@@ -72,10 +72,25 @@ def get_slides(client: Client, lecture_id: str) -> list[dict[str, Any]]:
 
 
 def get_quiz_questions(client: Client, lecture_id: str) -> list[dict[str, Any]]:
+    # quiz_questions has no lecture_id column — it links to slides. Resolve the
+    # lecture's slide ids first, then filter by slide_id.
+    slide_ids = [
+        s["id"]
+        for s in (
+            client.table("slides")
+            .select("id")
+            .eq("lecture_id", lecture_id)
+            .execute()
+            .data
+            or []
+        )
+    ]
+    if not slide_ids:
+        return []
     return (
         client.table("quiz_questions")
         .select("id, slide_id, question_text, options, correct_answer")
-        .eq("lecture_id", lecture_id)
+        .in_("slide_id", slide_ids)
         .execute()
         .data
         or []
