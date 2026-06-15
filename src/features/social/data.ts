@@ -78,8 +78,9 @@ const GRADIENTS: [string, string][] = [
   ["#F472B6", "#8B5CF6"],
 ];
 
-export const avatarGradient = (id: string): [string, string] => {
+export const avatarGradient = (id: string | null | undefined): [string, string] => {
+  const safeId = String(id || "");
   let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  for (let i = 0; i < safeId.length; i++) hash = (hash * 31 + safeId.charCodeAt(i)) | 0;
   return GRADIENTS[Math.abs(hash) % GRADIENTS.length];
 };

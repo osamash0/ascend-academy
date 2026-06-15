@@ -66,8 +66,8 @@ def test_dropoff_only_non_completers():
         {"id": "s2", "slide_number": 2, "title": "B"},
     ]
     progress = [
-        {"user_id": "u1", "last_slide_viewed": 1, "completed_at": None},
-        {"user_id": "u2", "last_slide_viewed": 2, "completed_at": "now"},
+        {"user_id": "u1", "last_slide_viewed": 0, "completed_at": None},
+        {"user_id": "u2", "last_slide_viewed": 1, "completed_at": "now"},
     ]
     out = svc._calculate_dropoff_map(slides, progress, student_count=2)
     # only u1 dropped at slide 1

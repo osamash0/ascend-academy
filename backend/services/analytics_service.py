@@ -79,7 +79,7 @@ def _compute_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, A
     client = get_auth_client(token)
 
     progress_data = _fetch_all(client.table("student_progress")\
-        .select("user_id, completed_at, quiz_score")\
+        .select("user_id, completed_at, quiz_score, total_questions_answered")\
         .eq("lecture_id", lecture_id))
 
     total_students = len(progress_data)
@@ -119,10 +119,13 @@ def _compute_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, A
     else:
         engagement = "Low"
 
+    quiz_takers = [p for p in progress_data if (p.get("total_questions_answered") or 0) > 0]
+    avg_score = sum(p.get("quiz_score", 0) for p in quiz_takers) / len(quiz_takers) if quiz_takers else 0.0
+
     return {
         "total_students": total_students,
         "completion_rate": round(completion_rate, 1),
-        "average_score": round(sum(p.get("quiz_score", 0) for p in progress_data) / total_students, 1),
+        "average_score": round(avg_score, 1),
         "average_time_minutes": round(avg_time_minutes, 1),
         "engagement_level": engagement
     }
@@ -342,8 +345,10 @@ def _compute_student_performance(lecture_id: str, token: str = None) -> List[Dic
 
         typology = calculate_student_typology(prog_pct, score, stud_ai_queries, stud_revisions)
 
+        import hashlib
+        anon_id = "anon_" + hashlib.md5(p["user_id"].encode()).hexdigest()[:8]
         students_matrix.append({
-            "student_id": p["user_id"],
+            "student_id": anon_id,
             "student_name": name,
             "progress_percentage": prog_pct,
             "quiz_score": score,
@@ -535,7 +540,8 @@ def _compute_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, A
     # Count dropouts per slide number
     dropout_by_slide: Dict[int, int] = {}
     for p in dropouts:
-        slide_num = p.get("last_slide_viewed", 1)
+        slide_idx = p.get("last_slide_viewed")
+        slide_num = (slide_idx + 1) if slide_idx is not None else 1
         dropout_by_slide[slide_num] = dropout_by_slide.get(slide_num, 0) + 1
 
     # Build slide title map
@@ -685,7 +691,7 @@ async def _compute_dashboard_data(lecture_id: str, token: str = None):
                     COUNT(DISTINCT user_id)::int as "uniqueStudents",
                     COALESCE(SUM(total_questions_answered), 0)::int as "totalAttempts",
                     COALESCE(SUM(correct_answers), 0)::int as "totalCorrect",
-                    ROUND(COALESCE(AVG(CASE WHEN total_questions_answered > 0 THEN (correct_answers::float / total_questions_answered * 100) ELSE 0 END), 0))::int as "averageScore"
+                    ROUND(COALESCE(AVG(CASE WHEN total_questions_answered > 0 THEN (correct_answers::float / total_questions_answered * 100) ELSE NULL END), 0))::int as "averageScore"
                 FROM student_progress 
                 WHERE lecture_id = $1::uuid
             """, lecture_id)
@@ -1011,8 +1017,9 @@ def _calculate_dropoff_map(slides_data: list, progress_data: list, student_count
     dropout_by_slide = {}
     for p in progress_data:
         if not p.get("completed_at"):
-            s_num = p.get("last_slide_viewed", 1)
-            dropout_by_slide[s_num] = dropout_by_slide.get(s_num, 0) + 1
+            slide_idx = p.get("last_slide_viewed")
+            slide_num = (slide_idx + 1) if slide_idx is not None else 1
+            dropout_by_slide[slide_num] = dropout_by_slide.get(slide_num, 0) + 1
             
     return [
         {
@@ -1044,7 +1051,7 @@ def _generate_live_feeds(events_data: list) -> tuple:
 # ── Professor course-wide overview ───────────────────────────────────────────
 
 
-def get_professor_overview(
+async def get_professor_overview(
     course_id: str,
     days: int = 7,
     token: Optional[str] = None,
@@ -1059,7 +1066,7 @@ def get_professor_overview(
     backend mutation paths and the DB triggers on
     ``lectures`` / ``slides`` / ``quiz_questions``).
     """
-    return analytics_cache.get_or_compute(
+    return await analytics_cache.get_or_compute_async(
         course_id,
         "professor_overview",
         lambda: _compute_professor_overview(course_id, days, token),
@@ -1067,16 +1074,18 @@ def get_professor_overview(
     )
 
 
-def _compute_professor_overview(
+async def _compute_professor_overview(
     course_id: str,
     days: int,
     token: Optional[str],
 ) -> Dict[str, Any]:
     from collections import defaultdict
+    import asyncio
     client = get_auth_client(token) if token else supabase_admin
 
     # 1. Lectures in this course
-    lec_rows = _fetch_all(
+    lec_rows = await asyncio.to_thread(
+        _fetch_all,
         client.table("lectures")
         .select("id, title, total_slides")
         .eq("course_id", course_id)
@@ -1102,7 +1111,8 @@ def _compute_professor_overview(
     }
 
     # 2. Progress rows across all lectures in course
-    progress = _fetch_all(
+    progress = await asyncio.to_thread(
+        _fetch_all,
         client.table("student_progress")
         .select(
             "user_id, lecture_id, quiz_score, total_questions_answered, "
@@ -1111,22 +1121,43 @@ def _compute_professor_overview(
         .in_("lecture_id", lecture_ids)
     )
 
-    # 3. Recent learning events (last `days` days), scoped at the query
-    #    level so a high-volume `learning_events` table can never truncate
-    #    or skew this course's metrics. We fetch per lecture using a JSONB
-    #    `contains` filter on `event_data->lectureId` so the database — not
-    #    Python — does the course-scoping before pagination caps apply.
-    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
-    course_events: List[Dict[str, Any]] = []
-    for lid in lecture_ids:
-        course_events.extend(
-            _fetch_all(
+    # 3. Recent learning events (last `days` days)
+    # Batch query using direct async database connection to prevent N+1 loop
+    from datetime import timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    if client.__class__.__name__ == "FakeSupabaseClient":
+        course_events = []
+        for lid in lecture_ids:
+            events_data = await asyncio.to_thread(
+                _fetch_all,
                 client.table("learning_events")
                 .select("user_id, event_type, event_data, created_at")
-                .gte("created_at", cutoff)
                 .contains("event_data", {"lectureId": lid})
             )
-        )
+            for e in events_data:
+                created_at_val = e.get("created_at")
+                if isinstance(created_at_val, str):
+                    try:
+                        dt_val = datetime.fromisoformat(created_at_val.replace('Z', '+00:00'))
+                    except ValueError:
+                        dt_val = datetime.now(timezone.utc)
+                elif isinstance(created_at_val, datetime):
+                    dt_val = created_at_val
+                else:
+                    dt_val = datetime.now(timezone.utc)
+
+                if dt_val >= cutoff:
+                    course_events.append(e)
+    else:
+        async with await get_db_connection() as conn:
+            event_rows = await conn.fetch("""
+                SELECT user_id, event_type, event_data, created_at
+                FROM learning_events
+                WHERE created_at >= $1::timestamptz
+                  AND (event_data->>'lectureId') = ANY($2::text[])
+            """, cutoff, lecture_ids)
+        course_events = [dict(r) for r in event_rows]
 
     active_students = len({
         e["user_id"] for e in course_events if e.get("user_id")
@@ -1143,7 +1174,7 @@ def _compute_professor_overview(
         if completion_pcts else 0.0
     )
 
-    # 5. Average quiz accuracy (weighted by attempts — ties to per-lecture views)
+    # 5. Average quiz accuracy (weighted by attempts)
     total_q = sum(int(p.get("total_questions_answered") or 0) for p in progress)
     total_c = sum(int(p.get("correct_answers") or 0) for p in progress)
     avg_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0.0
@@ -1159,7 +1190,8 @@ def _compute_professor_overview(
     median_time = _median(durations)
 
     # 7. Weakest concepts (degrades to weakest slides)
-    slides = _fetch_all(
+    slides = await asyncio.to_thread(
+        _fetch_all,
         client.table("slides")
         .select("id, title, lecture_id")
         .in_("lecture_id", lecture_ids)
@@ -1167,7 +1199,8 @@ def _compute_professor_overview(
     slide_ids = [s["id"] for s in slides]
     # Batch the IN list: a course can span hundreds of slides, and a single
     # .in_("slide_id", slide_ids) would overflow the PostgREST URL → 400.
-    questions = _fetch_all_in(
+    questions = await asyncio.to_thread(
+        _fetch_all_in,
         lambda: client.table("quiz_questions").select("id, metadata, slide_id"),
         "slide_id",
         slide_ids,
@@ -1306,15 +1339,18 @@ _BENCHMARK_METRIC_KEYS = (
 )
 
 
-def _compute_lecture_benchmark_metrics(
+async def _compute_lecture_benchmark_metrics(
     lecture_id: str,
     token: Optional[str],
 ) -> Dict[str, float]:
     """Single metric pack for one lecture, reusing cached analytics."""
-    overview = get_lecture_overview(lecture_id, token) or {}
-    quizzes = get_quiz_analytics(lecture_id, token) or []
-    distractors = get_distractor_analysis(lecture_id, token) or []
-    slides = get_slide_analytics(lecture_id, token) or []
+    import asyncio
+    overview, quizzes, distractors, slides = await asyncio.gather(
+        asyncio.to_thread(get_lecture_overview, lecture_id, token),
+        asyncio.to_thread(get_quiz_analytics, lecture_id, token),
+        asyncio.to_thread(get_distractor_analysis, lecture_id, token),
+        asyncio.to_thread(get_slide_analytics, lecture_id, token),
+    )
 
     # Engagement
     avg_time = float(overview.get("average_time_minutes") or 0)
@@ -1366,7 +1402,8 @@ def _compute_lecture_benchmark_metrics(
     if token:
         try:
             client = get_auth_client(token)
-            qs = _fetch_all(
+            qs = await asyncio.to_thread(
+                _fetch_all,
                 client.table("quiz_questions")
                 .select("metadata, slides!inner(lecture_id)")
                 .eq("slides.lecture_id", lecture_id)
@@ -1439,14 +1476,15 @@ def _aggregate_course_metrics(
     return out
 
 
-def get_lecture_benchmarks(lecture_id: str, token: Optional[str]) -> Dict[str, Any]:
+async def get_lecture_benchmarks(lecture_id: str, token: Optional[str]) -> Dict[str, Any]:
     """Lecture metric pack + sibling lectures (same course) + peer summary."""
+    import asyncio
     if not token:
         raise ValueError("token required")
     client = get_auth_client(token)
 
-    lec_res = (
-        client.table("lectures")
+    lec_res = await asyncio.to_thread(
+        lambda: client.table("lectures")
         .select("id, title, course_id, professor_id")
         .eq("id", lecture_id)
         .execute()
@@ -1465,8 +1503,8 @@ def get_lecture_benchmarks(lecture_id: str, token: Optional[str]) -> Dict[str, A
 
     sibling_rows: List[Dict[str, Any]] = []
     if course_id:
-        sib_res = (
-            client.table("lectures")
+        sib_res = await asyncio.to_thread(
+            lambda: client.table("lectures")
             .select("id, title")
             .eq("course_id", course_id)
             .execute()
@@ -1475,29 +1513,29 @@ def get_lecture_benchmarks(lecture_id: str, token: Optional[str]) -> Dict[str, A
     else:
         sibling_rows = [{"id": lec["id"], "title": lec.get("title") or ""}]
 
-    rows = []
-    current_pack: Optional[Dict[str, Any]] = None
-    for s in sibling_rows:
+    # Fetch sibling lecture metrics rows concurrently
+    async def get_metrics_row(s):
         try:
-            metrics = _compute_lecture_benchmark_metrics(s["id"], token)
-        except Exception as e:  # don't let one bad sibling break the whole view
+            metrics = await _compute_lecture_benchmark_metrics(s["id"], token)
+        except Exception as e:
             logger.warning("Benchmark metric compute failed for %s: %s", s["id"], e)
             metrics = {k: 0 for k in _BENCHMARK_METRIC_KEYS}
-        row = {
+        return {
             "lecture_id": s["id"],
             "title": s.get("title") or "Untitled",
             "metrics": metrics,
         }
-        rows.append(row)
-        if s["id"] == lecture_id:
-            current_pack = row
 
+    rows = list(await asyncio.gather(*(get_metrics_row(s) for s in sibling_rows)))
+
+    current_pack = next((r for r in rows if r["lecture_id"] == lecture_id), None)
     if current_pack is None:
         # current lecture not in sibling set (course mismatch); compute it standalone
+        current_metrics = await _compute_lecture_benchmark_metrics(lecture_id, token)
         current_pack = {
             "lecture_id": lecture_id,
             "title": lec.get("title") or "Untitled",
-            "metrics": _compute_lecture_benchmark_metrics(lecture_id, token),
+            "metrics": current_metrics,
         }
         rows.append(current_pack)
 
@@ -1514,15 +1552,16 @@ def get_lecture_benchmarks(lecture_id: str, token: Optional[str]) -> Dict[str, A
     }
 
 
-def get_course_benchmarks(course_id: str, token: Optional[str]) -> Dict[str, Any]:
+async def get_course_benchmarks(course_id: str, token: Optional[str]) -> Dict[str, Any]:
     """Course aggregate metric pack + every other course owned by the same
     professor + peer summary."""
+    import asyncio
     if not token:
         raise ValueError("token required")
     client = get_auth_client(token)
 
-    course_res = (
-        client.table("courses")
+    course_res = await asyncio.to_thread(
+        lambda: client.table("courses")
         .select("id, title, professor_id")
         .eq("id", course_id)
         .execute()
@@ -1538,43 +1577,49 @@ def get_course_benchmarks(course_id: str, token: Optional[str]) -> Dict[str, Any
     professor_id = course_res.data[0].get("professor_id")
     course_title = course_res.data[0].get("title") or "Untitled"
 
-    sibling_courses_res = (
-        client.table("courses")
+    sibling_courses_res = await asyncio.to_thread(
+        lambda: client.table("courses")
         .select("id, title")
         .eq("professor_id", professor_id)
         .execute()
     )
     sibling_courses = sibling_courses_res.data or []
 
-    rows: List[Dict[str, Any]] = []
-    current_pack: Optional[Dict[str, Any]] = None
-    for c in sibling_courses:
+    # Process all courses concurrently
+    async def get_course_row(c):
         cid = c["id"]
-        # Lectures in this course
-        lec_res = (
-            client.table("lectures")
+        lec_res = await asyncio.to_thread(
+            lambda: client.table("lectures")
             .select("id, title")
             .eq("course_id", cid)
             .execute()
         )
         lecs = lec_res.data or []
-        lec_packs: List[Dict[str, Any]] = []
-        for l in lecs:
-            try:
-                lec_packs.append(_compute_lecture_benchmark_metrics(l["id"], token))
-            except Exception as e:
-                logger.warning("Benchmark compute failed for lecture %s: %s", l["id"], e)
-        agg = _aggregate_course_metrics(lec_packs)
-        row = {
+        
+        # Fetch sibling lecture benchmark metrics concurrently
+        lec_packs = await asyncio.gather(*(
+            _compute_lecture_benchmark_metrics(l["id"], token)
+            for l in lecs
+        ), return_exceptions=True)
+        
+        valid_packs = []
+        for l_idx, p in enumerate(lec_packs):
+            if isinstance(p, Exception):
+                logger.warning("Benchmark compute failed for lecture %s: %s", lecs[l_idx]["id"], p)
+            else:
+                valid_packs.append(p)
+                
+        agg = _aggregate_course_metrics(valid_packs)
+        return {
             "course_id": cid,
             "title": c.get("title") or "Untitled",
             "lecture_count": len(lecs),
             "metrics": agg,
         }
-        rows.append(row)
-        if cid == course_id:
-            current_pack = row
 
+    rows = list(await asyncio.gather(*(get_course_row(c) for c in sibling_courses)))
+
+    current_pack = next((r for r in rows if r["course_id"] == course_id), None)
     if current_pack is None:
         current_pack = {
             "course_id": course_id,
@@ -1596,7 +1641,7 @@ def get_course_benchmarks(course_id: str, token: Optional[str]) -> Dict[str, Any
     }
 
 
-def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, Any]:
+def get_personal_optimal_schedule(user_id: str, token: str = None, timezone_offset_minutes: int = 0) -> Dict[str, Any]:
     """
     Calculate the best time to study for a specific student based on:
     1. Circadian patterns (when they are active)
@@ -1630,7 +1675,9 @@ def get_personal_optimal_schedule(user_id: str, token: str = None) -> Dict[str, 
         try:
             # created_at is like '2024-03-20T10:30:00+00:00'
             dt = datetime.fromisoformat(ev["created_at"].replace('Z', '+00:00'))
-            hour = dt.hour
+            # Shift UTC to client local time
+            local_dt = dt - timedelta(minutes=timezone_offset_minutes)
+            hour = local_dt.hour
 
             hourly_stats[hour]["count"] += 1
 

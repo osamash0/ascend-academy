@@ -120,8 +120,8 @@ def test_get_events_for_lecture_filters_by_contains(fake_supabase):
 def test_upsert_mind_map_overwrites_existing(fake_supabase):
     fake_supabase.seed(
         "lecture_mind_maps",
-        [{"lecture_id": "L1", "map_data": {"old": True}}],
+        [{"lecture_id": "L1", "tree_data": {"old": True}}],
     )
     event_repo.upsert_mind_map(fake_supabase, "L1", {"new": True})
     row = next(r for r in fake_supabase.tables["lecture_mind_maps"] if r["lecture_id"] == "L1")
-    assert row["map_data"] == {"new": True}
+    assert row["tree_data"] == {"new": True}

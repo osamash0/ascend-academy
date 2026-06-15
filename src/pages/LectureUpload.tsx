@@ -732,7 +732,7 @@ export default function LectureUpload() {
                 {isGeneratingDescription && (
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Generating…
+                    {t('upload:form.generating', { defaultValue: 'Generating…' })}
                   </span>
                 )}
               </div>
@@ -740,7 +740,7 @@ export default function LectureUpload() {
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={isGeneratingDescription ? 'AI is writing a description…' : t('upload:form.descriptionPlaceholder')}
+                placeholder={isGeneratingDescription ? t('upload:form.aiWritingDescription', { defaultValue: 'AI is writing a description…' }) : t('upload:form.descriptionPlaceholder')}
                 className="mt-1.5"
                 rows={3}
                 disabled={isGeneratingDescription}
@@ -761,20 +761,20 @@ export default function LectureUpload() {
               </select>
             </div>
             <div>
-              <Label htmlFor="parser" className="text-sm font-medium">Extraction Engine</Label>
+              <Label htmlFor="parser" className="text-sm font-medium">{t('upload:form.extractionEngine', { defaultValue: 'Extraction Engine' })}</Label>
               <select
                 id="parser"
                 value={parserChoice}
                 onChange={(e) => setParserChoice(e.target.value as ParserChoice)}
                 className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="auto">Auto (v4 Recommended)</option>
+                <option value="auto">{t('upload:form.parserAuto', { defaultValue: 'Auto (v4 Recommended)' })}</option>
                 <option value="llamaparse">LlamaParse</option>
                 <option value="mineru">MinerU</option>
                 <option value="opendataloader">OpenDataLoader</option>
                 <option value="pymupdf">PyMuPDF (Fallback)</option>
               </select>
-              <p className="text-[10px] text-muted-foreground mt-1">Select the engine used to extract text and layout from your PDF.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{t('upload:form.parserHelpText', { defaultValue: 'Select the engine used to extract text and layout from your PDF.' })}</p>
             </div>
             {/* Parsing-mode selector (Task #58) */}
             <div
@@ -782,11 +782,11 @@ export default function LectureUpload() {
               data-testid="parsing-mode-selector"
             >
               <div className="space-y-0.5">
-                <Label className="text-sm font-medium">PDF parsing mode</Label>
+                <Label className="text-sm font-medium">{t('upload:form.parsingModeLabel', { defaultValue: 'PDF parsing mode' })}</Label>
                 <p className="text-xs text-muted-foreground">
                   {parsingMode === 'on_demand'
-                    ? 'Skip AI during import — extract text only. Use the editor to generate titles, content, and quizzes per slide.'
-                    : 'Default: full AI parsing (titles, summaries, and quizzes are generated automatically).'}
+                    ? t('upload:form.parsingModeOnDemandDesc', { defaultValue: 'Skip AI during import — extract text only. Use the editor to generate titles, content, and quizzes per slide.' })
+                    : t('upload:form.parsingModeAIDesc', { defaultValue: 'Default: full AI parsing (titles, summaries, and quizzes are generated automatically).' })}
                 </p>
               </div>
               <div
@@ -807,7 +807,7 @@ export default function LectureUpload() {
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  AI parsing
+                  {t('upload:form.parsingModeAI', { defaultValue: 'AI parsing' })}
                 </button>
                 <button
                   type="button"
@@ -822,7 +822,7 @@ export default function LectureUpload() {
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  Skip AI
+                  {t('upload:form.parsingModeOnDemand', { defaultValue: 'Skip AI' })}
                 </button>
               </div>
             </div>
@@ -1033,8 +1033,17 @@ export default function LectureUpload() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.03 }}
                       onClick={() => setActiveSlideIndex(index)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setActiveSlideIndex(index);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={t('upload:slideItemAria', { number: index + 1, title: slide.title || 'Untitled', defaultValue: `Slide ${index + 1}: ${slide.title || 'Untitled'}` })}
                       className={cn(
-                        "group relative flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200",
+                        "group relative flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
                         isActive
                           ? "bg-card shadow-md border border-violet-200 dark:border-violet-800/50 ring-1 ring-violet-500/20"
                           : "hover:bg-card/80 border border-transparent"
@@ -1078,6 +1087,7 @@ export default function LectureUpload() {
                           removeSlide(index);
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-destructive/10 hover:text-destructive transition-all"
+                        aria-label={t('upload:deleteSlideAria', { number: index + 1, defaultValue: `Delete slide ${index + 1}` })}
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -1094,6 +1104,7 @@ export default function LectureUpload() {
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-6 h-12 bg-card border border-border rounded-r-lg flex items-center justify-center shadow-md hover:bg-accent transition-colors"
           style={{ marginLeft: sidebarCollapsed ? 0 : 280 }}
+          aria-label={sidebarCollapsed ? t('upload:chrome.expandSidebar', { defaultValue: 'Expand sidebar' }) : t('upload:chrome.collapseSidebar', { defaultValue: 'Collapse sidebar' })}
         >
           {sidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>

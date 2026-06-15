@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, XCircle, Zap, Volume2, ArrowRight } from 'lucide-react';
 import { useTTS } from '@/hooks/useTTS';
+import { useTranslation } from 'react-i18next';
 
 interface QuizCardProps {
   question: string;
@@ -72,6 +73,7 @@ export const QuizCard = memo(function QuizCard({
   const [showExplanation, setShowExplanation] = useState(false);
   const continueRef = useRef<HTMLDivElement>(null);
   const { speak, isSpeaking } = useTTS();
+  const { t } = useTranslation(['lecture']);
 
   // Sync state when props change
   useEffect(() => {
@@ -131,9 +133,9 @@ export const QuizCard = memo(function QuizCard({
 
       <div className="flex items-center justify-between mb-8">
         <div className="flex flex-col gap-1">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Neural Evaluation</p>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">{t('lecture:quiz.evaluation', { defaultValue: 'Neural Evaluation' })}</p>
           <span className="text-sm font-bold text-foreground">
-            Module {questionNumber} <span className="text-muted-foreground">/ {totalQuestions}</span>
+            {t('lecture:quiz.module', { number: questionNumber, defaultValue: `Module ${questionNumber}` })} <span className="text-muted-foreground">/ {totalQuestions}</span>
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -147,7 +149,7 @@ export const QuizCard = memo(function QuizCard({
           </button>
           <div className="flex items-center gap-2 bg-xp/10 px-3 py-1.5 rounded-xl border border-xp/20">
             <Zap className="w-4 h-4 text-xp fill-xp" />
-            <span className="text-xs font-bold text-xp uppercase tracking-tighter">+10 XP Potential</span>
+            <span className="text-xs font-bold text-xp uppercase tracking-tighter">{t('lecture:quiz.xpPotential', { defaultValue: '+10 XP Potential' })}</span>
           </div>
         </div>
       </div>
@@ -162,7 +164,7 @@ export const QuizCard = memo(function QuizCard({
               className="text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20"
               data-testid="quiz-concept-badge"
             >
-              Concept · {concept}
+              {t('lecture:quiz.conceptPrefix', { defaultValue: 'Concept ·' })} {concept}
             </span>
           )}
           {linkedSlides && linkedSlides.length > 0 && (
@@ -172,7 +174,7 @@ export const QuizCard = memo(function QuizCard({
               aria-label="Linked slides"
             >
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                Connects:
+                {t('lecture:quiz.connects', { defaultValue: 'Connects:' })}
               </span>
               {linkedSlides.map((n) => (
                 <button
@@ -183,7 +185,7 @@ export const QuizCard = memo(function QuizCard({
                   className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-surface-2 border border-white/10 text-foreground hover:border-primary/40 hover:text-primary transition-colors disabled:cursor-default disabled:hover:border-white/10 disabled:hover:text-foreground"
                   aria-label={`Jump to slide ${n}`}
                 >
-                  Slide {n}
+                  {t('lecture:quiz.slideLabel', { number: n, defaultValue: `Slide ${n}` })}
                 </button>
               ))}
             </div>
@@ -285,7 +287,7 @@ export const QuizCard = memo(function QuizCard({
                       <div className="w-8 h-8 rounded-lg bg-xp flex items-center justify-center shadow-glow-xp">
                         <Zap className="w-4 h-4 text-white fill-white" />
                       </div>
-                      +10 XP
+                      {t('lecture:quiz.xpEarned', { defaultValue: '+10 XP' })}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -310,7 +312,7 @@ export const QuizCard = memo(function QuizCard({
             onClick={() => setShowExplanation(!showExplanation)}
             className="text-xs font-bold text-primary uppercase tracking-widest hover:underline"
           >
-            {showExplanation ? 'Hide' : 'Show'} Explanation
+            {showExplanation ? t('lecture:quiz.hideExplanation', { defaultValue: 'Hide Explanation' }) : t('lecture:quiz.showExplanation', { defaultValue: 'Show Explanation' })}
           </button>
           <AnimatePresence>
             {showExplanation && (
@@ -347,18 +349,17 @@ export const QuizCard = memo(function QuizCard({
               </div>
               <div className="flex flex-col">
                 <span className={`text-xl font-bold ${isCorrect ? 'text-success' : 'text-destructive'}`}>
-                  {isCorrect ? 'Neural Match Confirmed' : 'Synapse Misalignment'}
+                  {isCorrect ? t('lecture:quiz.correctTitle', { defaultValue: 'Neural Match Confirmed' }) : t('lecture:quiz.wrongTitle', { defaultValue: 'Synapse Misalignment' })}
                 </span>
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                  {isCorrect ? 'Telemetric Data Integrated' : 'Resynchronization Required'}
+                  {isCorrect ? t('lecture:quiz.correctSubtitle', { defaultValue: 'Telemetric Data Integrated' }) : t('lecture:quiz.wrongSubtitle', { defaultValue: 'Resynchronization Required' })}
                 </span>
               </div>
             </div>
-
             {isCorrect && (
               <div className="flex items-center gap-2 bg-xp text-white px-4 py-2 rounded-xl font-bold shadow-glow-xp animate-bounce">
                 <Zap className="w-4 h-4 fill-white" />
-                +10 XP
+                {t('lecture:quiz.xpEarned', { defaultValue: '+10 XP' })}
               </div>
             )}
           </motion.div>

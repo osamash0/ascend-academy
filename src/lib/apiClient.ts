@@ -7,13 +7,22 @@ import { supabase } from '@/integrations/supabase/client';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+let sessionPromise: Promise<any> | null = null;
+
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
 
-  // Prefer the Supabase JWT (fast Supabase-side verification)
-  const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+  // Prevent concurrent getSession calls which can cause Supabase to abort the fetch
+  if (!sessionPromise) {
+    sessionPromise = supabase.auth.getSession().finally(() => {
+      sessionPromise = null;
+    });
+  }
+  
+  const { data: { session: supabaseSession } } = await sessionPromise;
+  
   if (!supabaseSession) {
     throw new Error('Unauthenticated');
   }

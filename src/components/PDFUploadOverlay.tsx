@@ -10,6 +10,7 @@ import {
   Cpu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface ProcessedSlide {
   title?: string;
@@ -56,12 +57,12 @@ function parserDotStyle(p: string) {
   if (p === 'llamaparse') return 'bg-violet-500 shadow-[0_0_6px_rgba(139,92,246,0.8)]';
   return 'bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]';
 }
-function parserLabel(p: string) {
-  if (p === 'v4') return 'v4 AI Pipeline';
-  if (p === 'opendataloader-pdf') return 'OpenDataLoader PDF';
-  if (p === 'mineru') return 'MinerU';
-  if (p === 'llamaparse') return 'LlamaParse';
-  return 'PyMuPDF (Fallback)';
+function parserLabel(p: string, t: any) {
+  if (p === 'v4') return t('upload:engine.v4', { defaultValue: 'v4 AI Pipeline' });
+  if (p === 'opendataloader-pdf') return t('upload:engine.opendataloader', { defaultValue: 'OpenDataLoader PDF' });
+  if (p === 'mineru') return t('upload:engine.mineru', { defaultValue: 'MinerU' });
+  if (p === 'llamaparse') return t('upload:engine.llamaparse', { defaultValue: 'LlamaParse' });
+  return t('upload:engine.pymupdf', { defaultValue: 'PyMuPDF (Fallback)' });
 }
 
 export const PDFUploadOverlay = memo(function PDFUploadOverlay({
@@ -76,6 +77,7 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
   parsingMode = 'ai',
   onClose
 }: PDFUploadOverlayProps) {
+  const { t } = useTranslation(['upload']);
   const isOnDemand = parsingMode === 'on_demand';
   const slideListRef = useRef<HTMLDivElement>(null);
 
@@ -167,10 +169,10 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
                 </div>
                 <div>
                   <h3 id="upload-title" className="text-xl font-bold tracking-tight text-foreground">
-                    {isComplete ? 'Processing Complete!' : 'Processing Your Lecture'}
+                    {isComplete ? t('upload:overlay.completeTitle', { defaultValue: 'Processing Complete!' }) : t('upload:overlay.processingTitle', { defaultValue: 'Processing Your Lecture' })}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-0.5 truncate max-w-[280px]">
-                    {isComplete ? 'All slides have been extracted and enhanced.' : (uploadStatus || 'Preparing…')}
+                    {isComplete ? t('upload:overlay.completeDesc', { defaultValue: 'All slides have been extracted and enhanced.' }) : (uploadStatus || t('upload:overlay.preparing', { defaultValue: 'Preparing…' }))}
                   </p>
                 </div>
               </div>
@@ -226,7 +228,7 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
               >
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                   <Cpu className="w-3.5 h-3.5" aria-hidden="true" />
-                  Extraction engine
+                  {t('upload:overlay.extractionEngine', { defaultValue: 'Extraction engine' })}
                 </div>
                 {parserUsed ? (
                   <motion.div
@@ -235,12 +237,12 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
                     className={cn("flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border", parserPillStyle(parserUsed))}
                   >
                     <span className={cn("w-2 h-2 rounded-full", parserDotStyle(parserUsed))} />
-                    {parserLabel(parserUsed)}
+                    {parserLabel(parserUsed, t)}
                   </motion.div>
                 ) : (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
-                    Detecting…
+                    {t('upload:overlay.detecting', { defaultValue: 'Detecting…' })}
                   </div>
                 )}
               </motion.div>
@@ -249,7 +251,7 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-semibold">
                   <span className="text-muted-foreground">
-                    {uploadTotal > 0 ? `${completedCount} / ${uploadTotal} slides` : 'Starting…'}
+                    {uploadTotal > 0 ? t('upload:overlay.slidesCount', { completed: completedCount, total: uploadTotal, defaultValue: `${completedCount} / ${uploadTotal} slides` }) : t('upload:overlay.starting', { defaultValue: 'Starting…' })}
                   </span>
                   <span className={cn(
                     "tabular-nums transition-colors duration-300",
@@ -282,7 +284,7 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/50">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <Sparkles className="w-3 h-3 text-violet-500" aria-hidden="true" />
-                    Slides Ready
+                    {t('upload:overlay.slidesReady', { defaultValue: 'Slides Ready' })}
                   </div>
                   {completedCount > 0 && (
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
@@ -300,7 +302,7 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
                   {completedCount === 0 ? (
                     <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
                       <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-500" aria-hidden="true" />
-                      Waiting for first slide…
+                      {t('upload:overlay.waitingForFirst', { defaultValue: 'Waiting for first slide…' })}
                     </div>
                   ) : (
                     processedSlides.filter(Boolean).map((slide, i) => (
@@ -329,7 +331,7 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
                     >
                       <Loader2 className="w-3.5 h-3.5 text-violet-500 animate-spin shrink-0" aria-hidden="true" />
                       <span className="text-xs text-violet-600 dark:text-violet-400 font-medium">
-                        Processing slide {completedCount + 1}…
+                        {t('upload:overlay.processingSlide', { number: completedCount + 1, defaultValue: `Processing slide ${completedCount + 1}…` })}
                       </span>
                     </motion.div>
                   )}
@@ -341,19 +343,19 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
                 {!isComplete ? (
                   <div className="flex flex-col gap-3">
                     <p className="text-center text-[11px] text-muted-foreground/60 font-medium">
-                      Please keep this tab open while your lecture is being processed
+                      {t('upload:overlay.keepOpenHint', { defaultValue: 'Please keep this tab open while your lecture is being processed' })}
                     </p>
                     <button
                       onClick={onClose}
                       className="w-full py-2.5 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-bold transition-all"
                     >
-                      Cancel Processing
+                      {t('upload:overlay.cancelProcessing', { defaultValue: 'Cancel Processing' })}
                     </button>
                   </div>
                 ) : (
                   <div className="pt-2 flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
                     <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                    Opening editor…
+                    {t('upload:overlay.openingEditor', { defaultValue: 'Opening editor…' })}
                   </div>
                 )}
               </div>

@@ -50,7 +50,7 @@ export async function fetchLecture(idOrSlug: string): Promise<Lecture | null> {
       console.error("Error listing lectures to resolve slug:", listError);
       return null;
     }
-    const match = (allLectures ?? []).find(l => toSlug(l.title) === idOrSlug);
+    const match = (allLectures ?? []).find(l => toSlug(l.title) === idOrSlug || l.id === idOrSlug);
     if (!match) {
       console.error(`No lecture found matching slug: ${idOrSlug}`);
       return null;

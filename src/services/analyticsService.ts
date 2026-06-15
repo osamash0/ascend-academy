@@ -43,39 +43,66 @@ export interface DashboardData {
 }
 
 export async function getLectureOverview(lectureId: string): Promise<LectureOverview> {
-  return apiClient.get<LectureOverview>(`/api/analytics/lecture/${lectureId}/overview`);
+  const res = await apiClient.get<{ success: boolean; data: LectureOverview }>(
+    `/api/analytics/lecture/${lectureId}/overview`,
+  );
+  return res.data;
 }
 
 export async function getSlideAnalytics(lectureId: string): Promise<SlideAnalytics[]> {
-  return apiClient.get<SlideAnalytics[]>(`/api/analytics/lecture/${lectureId}/slides`);
+  const res = await apiClient.get<{ success: boolean; data: SlideAnalytics[] }>(
+    `/api/analytics/lecture/${lectureId}/slides`,
+  );
+  return res.data;
 }
 
 export async function getQuizAnalytics(lectureId: string): Promise<QuizAnalytics[]> {
-  return apiClient.get<QuizAnalytics[]>(`/api/analytics/lecture/${lectureId}/quiz`);
+  const res = await apiClient.get<{ success: boolean; data: QuizAnalytics[] }>(
+    `/api/analytics/lecture/${lectureId}/quizzes`,
+  );
+  return res.data;
 }
 
 export async function getStudentPerformance(lectureId: string): Promise<StudentPerformance[]> {
-  return apiClient.get<StudentPerformance[]>(`/api/analytics/lecture/${lectureId}/students`);
+  const res = await apiClient.get<{ success: boolean; data: StudentPerformance[] }>(
+    `/api/analytics/lecture/${lectureId}/students`,
+  );
+  return res.data;
 }
 
 export async function getDashboardData(lectureId: string): Promise<DashboardData> {
-  return apiClient.get<DashboardData>(`/api/analytics/lecture/${lectureId}/dashboard`);
+  const res = await apiClient.get<{ success: boolean; data: DashboardData }>(
+    `/api/analytics/lecture/${lectureId}/dashboard`,
+  );
+  return res.data;
 }
 
 export async function getDropoffMap(lectureId: string): Promise<DropoffPoint[]> {
-  return apiClient.get<DropoffPoint[]>(`/api/analytics/lecture/${lectureId}/dropoff`);
+  const res = await apiClient.get<{ success: boolean; data: DropoffPoint[] }>(
+    `/api/analytics/lecture/${lectureId}/dropoff`,
+  );
+  return res.data;
 }
 
 export async function getConfidenceBySlide(lectureId: string): Promise<ConfidenceBySlide[]> {
-  return apiClient.get<ConfidenceBySlide[]>(`/api/analytics/lecture/${lectureId}/confidence`);
+  const res = await apiClient.get<{ success: boolean; data: ConfidenceBySlide[] }>(
+    `/api/analytics/lecture/${lectureId}/confidence`,
+  );
+  return res.data;
 }
 
 export async function getDistratorAnalysis(lectureId: string): Promise<DistractorAnalysis[]> {
-  return apiClient.get<DistractorAnalysis[]>(`/api/analytics/lecture/${lectureId}/distractors`);
+  const res = await apiClient.get<{ success: boolean; data: DistractorAnalysis[] }>(
+    `/api/analytics/lecture/${lectureId}/distractors`,
+  );
+  return res.data;
 }
 
 export async function getAiQueryFeed(lectureId: string): Promise<AiQueryFeedItem[]> {
-  return apiClient.get<AiQueryFeedItem[]>(`/api/analytics/lecture/${lectureId}/ai-queries`);
+  const res = await apiClient.get<{ success: boolean; data: AiQueryFeedItem[] }>(
+    `/api/analytics/lecture/${lectureId}/ai-queries`,
+  );
+  return res.data;
 }
 
 export interface ProfessorOverview {

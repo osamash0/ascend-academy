@@ -1,6 +1,7 @@
 {
   "student": {
     "dashboard": "Dashboard",
+    "ascent": "My Ascent",
     "achievements": "Achievements",
     "leaderboard": "Leaderboard",
     "insights": "Learning Insights",

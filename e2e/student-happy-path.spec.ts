@@ -21,6 +21,7 @@ test.describe("Student happy path", () => {
       total_slides: 1,
       pdf_url: null,
       professor_id: "professor-stub",
+      is_archived: false,
       created_at: new Date().toISOString(),
     };
     const slide = {
@@ -65,27 +66,39 @@ test.describe("Student happy path", () => {
     // 1. Visit /auth and switch to signup mode.
     await page.goto("/auth");
     await expect(page).toHaveURL(/\/auth/);
-    await page.getByText(/join the mission/i).click();
+    await page.getByText(/create one/i).click();
 
     // 2. Fill the signup form (Student is the default role) and consent.
     await page.locator("#email").fill(STUDENT.email);
     await page.locator("#password").fill("Sup3rSecret!");
     await page.locator('input[type="checkbox"]').check();
     await page
-      .getByRole("button", { name: /authorize enlistment/i })
+      .getByRole("button", { name: /create account/i })
       .click();
 
-    // 3. Mocked signup → SIGNED_IN → DashboardRouter sends students to /dashboard.
+    // 3. Mocked signup → Onboarding.
+    await page.waitForURL(/\/onboarding/, { timeout: 15_000 });
+
+    // Step 1: Click next
+    await page.getByRole("button", { name: /next/i }).click();
+
+    // Step 2: Click next
+    await page.getByRole("button", { name: /next/i }).click();
+
+    // Step 3: Click next (smart default will have preselected University of Testing)
+    await page.getByRole("button", { name: /next/i }).click();
+
+    // Step 5: Click start learning/finish
+    await page.getByRole("button", { name: /start learning/i }).click();
+
+    // Wait for redirect to /dashboard.
     await page.waitForURL(/\/dashboard$/, { timeout: 15_000 });
     await expect(
-      page.getByRole("heading", { name: /your courses/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: lecture.title }),
+      page.getByRole("heading", { name: lecture.title, level: 1 }),
     ).toBeVisible();
 
-    // 4. Click the lecture card (role="article", aria-label includes the title).
-    await page.getByRole("article", { name: new RegExp(lecture.title, "i") }).click();
+    // 4. Click the lecture card (which is a button in the MediaRail carousel).
+    await page.getByRole("button", { name: new RegExp(lecture.title, "i") }).click();
     await page.waitForURL(/\/lecture\//);
 
     // 5. Slide loads → click the slide-advance button to surface the quiz.

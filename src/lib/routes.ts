@@ -16,6 +16,7 @@ export const StudentRoutes = {
   LIBRARY: '/library',
   COURSE_V3: (id: string) => `/course-v3/${id}`,
   COURSE_DETAIL: (id: string) => `/course/${id}`,
+  ASCENT: '/ascent',
   ACHIEVEMENTS: '/achievements',
   LEADERBOARD: '/leaderboard',
   INSIGHTS: '/insights',
@@ -44,4 +45,8 @@ export const ProfessorRoutes = {
 export const SharedRoutes = {
   SETTINGS: '/settings',
   LECTURE: (id: string, slide?: number) => (slide ? `/lecture/${id}?slide=${slide}` : `/lecture/${id}`),
+} as const;
+
+export const AdminRoutes = {
+  DASHBOARD: '/admin/dashboard',
 } as const;

@@ -39,62 +39,10 @@ export function checkLevelUp(
   return { newLevel, leveledUp: newLevel > oldLevel };
 }
 
-// ─── Badge definitions ───────────────────────────────────────────────────────
-
-export interface BadgeDefinition {
-  name: string;
-  description: string;
-  icon: string;
-  /** Returns true when the badge should be awarded given the current state. */
-  condition: (state: GamificationState) => boolean;
-}
-
-export interface GamificationState {
-  currentLevel: number;
-  totalXp: number;
-  lecturesCompleted: number;
-  totalCorrectAnswers: number;
-}
-
-export const BADGE_DEFINITIONS: BadgeDefinition[] = [
-  {
-    name: 'Level 5 Scholar',
-    description: 'Reached level 5!',
-    icon: '⭐',
-    condition: s => s.currentLevel >= 5,
-  },
-  {
-    name: 'Level 10 Expert',
-    description: 'Reached level 10!',
-    icon: '🏆',
-    condition: s => s.currentLevel >= 10,
-  },
-  {
-    name: 'First Lecture',
-    description: 'Completed your first lecture!',
-    icon: '📚',
-    condition: s => s.lecturesCompleted >= 1,
-  },
-  {
-    name: 'Quiz Master',
-    description: 'Answered 50 questions correctly!',
-    icon: '🎯',
-    condition: s => s.totalCorrectAnswers >= 50,
-  },
-];
-
-/**
- * Returns the badge definitions that should now be awarded given the new state,
- * filtering out any already earned badge names.
- */
-export function getNewlyEarnedBadges(
-  state: GamificationState,
-  alreadyEarnedNames: Set<string>,
-): BadgeDefinition[] {
-  return BADGE_DEFINITIONS.filter(
-    badge => !alreadyEarnedNames.has(badge.name) && badge.condition(state),
-  );
-}
+// Badge definitions now live in the DB (`badge_definitions`, migration
+// 20260616000000) as the single source of truth and are awarded server-side via
+// the gamification engine — see src/services/gamificationService.ts. This module
+// keeps only the pure level/XP math.
 
 /**
  * Returns XP required to reach the next level from the current total XP.

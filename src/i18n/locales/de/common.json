@@ -113,6 +113,46 @@
     "levelUp": {
       "title": "Level {{level}}!",
       "description": "Du bist auf Level {{level}} aufgestiegen. Weiter so!"
+    },
+    "categories": {
+      "onboarding": "Einstieg",
+      "quiz": "Quiz-Meisterschaft",
+      "streak": "Heiße Serien",
+      "learning": "Lernen",
+      "consistency": "Beständigkeit",
+      "tutor": "KI-Tutor",
+      "comprehension": "Verständnis-Checks",
+      "community": "Community",
+      "milestone": "Meilensteine"
+    },
+    "badgeDefs": {
+      "Welcome Aboard": { "name": "Willkommen an Bord", "description": "Deine allererste Folie geöffnet." },
+      "Identity Set": { "name": "Profil eingerichtet", "description": "Anzeigenamen und Profilbild gewählt." },
+      "Verified Scholar": { "name": "Verifizierte:r Studierende:r", "description": "Deine Universitäts-E-Mail verifiziert." },
+      "First Quiz Completed": { "name": "Erstes Quiz", "description": "Dein erstes Vorlesungs-Quiz abgeschlossen." },
+      "Perfect Score": { "name": "Perfekte Punktzahl", "description": "100 % in einem Vorlesungs-Quiz erreicht." },
+      "Flawless Five": { "name": "Fehlerlose Fünf", "description": "In fünf Vorlesungen 100 % erreicht." },
+      "Quiz Master": { "name": "Quiz-Meister:in", "description": "50 Fragen richtig beantwortet." },
+      "Sharpshooter": { "name": "Scharfschütze", "description": "250 Fragen richtig beantwortet." },
+      "On Fire": { "name": "In Flammen", "description": "Fünf richtige Antworten in Folge." },
+      "Unstoppable": { "name": "Unaufhaltsam", "description": "Zehn richtige Antworten in Folge." },
+      "First Steps": { "name": "Erste Schritte", "description": "Deine erste Vorlesung abgeschlossen." },
+      "Bookworm": { "name": "Leseratte", "description": "Fünf Vorlesungen abgeschlossen." },
+      "Graduate": { "name": "Absolvent:in", "description": "Zehn Vorlesungen abgeschlossen." },
+      "Scholar": { "name": "Gelehrte:r", "description": "Fünfundzwanzig Vorlesungen abgeschlossen." },
+      "Course Conqueror": { "name": "Kurs-Eroberer:in", "description": "Einen ganzen Kurs abgeschlossen." },
+      "Polymath": { "name": "Universalgelehrte:r", "description": "Drei ganze Kurse abgeschlossen." },
+      "Getting Started": { "name": "Loslegen", "description": "Eine 3-Tage-Lernserie gehalten." },
+      "Consistent": { "name": "Beständig", "description": "Eine 7-Tage-Lernserie gehalten." },
+      "Dedicated": { "name": "Engagiert", "description": "Eine 30-Tage-Lernserie gehalten." },
+      "Curious Mind": { "name": "Neugieriger Geist", "description": "Deine erste Frage an den KI-Tutor gestellt." },
+      "Inquisitive": { "name": "Wissbegierig", "description": "Zwanzig Fragen an den KI-Tutor gestellt." },
+      "Quick Thinker": { "name": "Schnelldenker:in", "description": "Deinen ersten Verständnis-Check gemacht." },
+      "Checkpoint Champion": { "name": "Checkpoint-Champion", "description": "Fünfundzwanzig Verständnis-Checks gemacht." },
+      "Voice Heard": { "name": "Stimme gehört", "description": "Feedback gegeben, um uns zu verbessern." },
+      "Level 5 Scholar": { "name": "Level-5-Gelehrte:r", "description": "Level 5 erreicht." },
+      "Level 10 Expert": { "name": "Level-10-Expert:in", "description": "Level 10 erreicht." },
+      "Level 25 Legend": { "name": "Level-25-Legende", "description": "Level 25 erreicht." }
     }
   },
   "courseSchedule": {

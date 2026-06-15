@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     // university network or VPN (e.g. an SSH tunnel) — never bind it to
     // 0.0.0.0 without prior IT-security approval.
     host: "127.0.0.1",
-    port: 5000,
+    port: 5001,
     strictPort: true,
     allowedHosts: true,
     // Local dev: the app builds request URLs as `${VITE_API_URL}${path}`, and

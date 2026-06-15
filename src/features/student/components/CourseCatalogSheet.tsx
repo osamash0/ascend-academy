@@ -49,7 +49,11 @@ export function CourseCatalogSheet({ isOpen, onClose, enrolledCourseIds }: Cours
       setEnrollingId(courseId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['student-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['student-lectures'] });
+      queryClient.invalidateQueries({ queryKey: ['student-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['student-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['student-achievements'] });
+      queryClient.invalidateQueries({ queryKey: ['course-visits'] });
       toast.success('Successfully enrolled in course!');
       // We keep the sheet open intentionally so they can enroll in multiple courses if they want.
     },

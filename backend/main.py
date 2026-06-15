@@ -57,9 +57,11 @@ def _build_cors_origins() -> list[str]:
 
     origins = [
         "http://localhost:5000",
+        "http://localhost:5001",
         "http://localhost:5173",
         "http://localhost:8080",
         "http://127.0.0.1:5000",
+        "http://127.0.0.1:5001",
     ]
     dev_domain = os.environ.get("REPLIT_DEV_DOMAIN")
     if dev_domain:

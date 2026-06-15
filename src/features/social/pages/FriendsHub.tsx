@@ -1,15 +1,14 @@
 import { motion } from "framer-motion";
-import { ChevronRight, Loader2, Sparkles, UserPlus, Users } from "lucide-react";
+import { ChevronRight, UserPlus, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { StudentRoutes } from "@/lib/routes";
-import { useFriendActions, useFriendRequests, useFriends } from "../hooks";
+import { useFriendRequests, useFriends } from "../hooks";
 import { Avatar, OnlineDot, Panel, SectionHeading } from "../components/atoms";
 
 export default function FriendsHub() {
   const { data: friends = [], isLoading } = useFriends();
   const { data: requests = [] } = useFriendRequests();
-  const { bootstrap } = useFriendActions();
 
   const online = friends.filter((f) => f.online);
   const incoming = requests.filter((r) => r.direction === "incoming");
@@ -39,15 +38,9 @@ export default function FriendsHub() {
           <UserPlus className="h-8 w-8 text-primary" />
           <div>
             <p className="text-base font-bold text-foreground">Find your first study buddy</p>
-            <p className="mt-1 text-sm text-muted-foreground">Search for classmates, or load the demo network to explore.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Search for classmates by name, institution, or shared courses.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button asChild><Link to={StudentRoutes.FRIENDS_FIND}>Find friends</Link></Button>
-            <Button variant="outline" onClick={() => bootstrap.mutate()} disabled={bootstrap.isPending}>
-              {bootstrap.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Load demo network
-            </Button>
-          </div>
+          <Button asChild><Link to={StudentRoutes.FRIENDS_FIND}>Find friends</Link></Button>
         </Panel>
       ) : (
         <>

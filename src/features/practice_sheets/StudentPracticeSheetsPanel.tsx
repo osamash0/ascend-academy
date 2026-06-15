@@ -7,6 +7,7 @@ import { BookOpen, ChevronRight, Loader2, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { listPracticeSheets, getPracticeSheet, type PracticeSheet } from '@/services/practiceSheetsService';
 import { PracticeSheetTaker } from './PracticeSheetTaker';
+import { useToast } from '@/hooks/use-toast';
 
 interface Props {
   lectureId: string;
@@ -17,18 +18,24 @@ export function StudentPracticeSheetsPanel({ lectureId }: Props) {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<PracticeSheet | null>(null);
   const [loadingSheet, setLoadingSheet] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
       const all = await listPracticeSheets(lectureId);
       setSheets(all);
-    } catch {
-      // Network/RLS error: fall through to empty state.
+    } catch (err) {
+      console.error('Failed to load practice sheets', err);
+      toast({
+        title: 'Error loading practice sheets',
+        description: 'Please try again later.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
-  }, [lectureId]);
+  }, [lectureId, toast]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -37,10 +44,18 @@ export function StudentPracticeSheetsPanel({ lectureId }: Props) {
     try {
       const full = await getPracticeSheet(sheet.id);
       setActive(full);
+    } catch (err) {
+      console.error('Failed to open practice sheet', err);
+      toast({
+        title: 'Error opening practice sheet',
+        description: 'Please try again later.',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingSheet(null);
     }
   };
+
 
   if (loading) {
     return (

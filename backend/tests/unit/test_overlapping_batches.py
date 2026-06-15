@@ -101,7 +101,7 @@ class TestQuizBatchConfig:
         monkeypatch.delenv("QUIZ_BATCH_SIZE", raising=False)
         monkeypatch.delenv("QUIZ_BATCH_OVERLAP", raising=False)
         cfg = _load_quiz_batch_config()
-        assert cfg.batch_size == 5
+        assert cfg.batch_size == 8
         assert cfg.context_overlap == 1
 
     def test_module_level_config_is_loaded(self):
@@ -119,7 +119,7 @@ class TestQuizBatchConfig:
         monkeypatch.setenv("QUIZ_BATCH_SIZE", "not-a-number")
         monkeypatch.setenv("QUIZ_BATCH_OVERLAP", "also-bad")
         cfg = _load_quiz_batch_config()
-        assert cfg.batch_size == 5
+        assert cfg.batch_size == 8
         assert cfg.context_overlap == 1
 
 
@@ -178,7 +178,7 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(prompt: str, _chain):
+        def fake_rotation(prompt: str, _chain, preferred=None):
             captured["prompt"] = prompt
             return _make_response(slides)
 
@@ -211,7 +211,7 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(prompt: str, _chain):
+        def fake_rotation(prompt: str, _chain, preferred=None):
             captured["prompt"] = prompt
             return _make_response(slides)
 
@@ -268,7 +268,7 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(_prompt: str, _chain):
+        def fake_rotation(_prompt: str, _chain, preferred=None):
             return bad_response
 
         monkeypatch.setattr(
@@ -315,7 +315,7 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(_prompt: str, _chain):
+        def fake_rotation(_prompt: str, _chain, preferred=None):
             return "literally not json at all"
 
         monkeypatch.setattr(
@@ -386,7 +386,7 @@ class TestCrossBatchContextRegression:
                 }],
             }
 
-        def fake_rotation(prompt: str, _chain):
+        def fake_rotation(prompt: str, _chain, preferred=None):
             prompts.append(prompt)
             # Identify which window we're in by which page numbers appear
             # OUTSIDE <context_only> blocks.
@@ -489,7 +489,7 @@ class TestPerSlideRegenWithOverlap:
 
         prompts: List[str] = []
 
-        def fake_rotation(prompt: str, _chain):
+        def fake_rotation(prompt: str, _chain, preferred=None):
             prompts.append(prompt)
             import re
             is_regen = "regenerate" in prompt.lower()

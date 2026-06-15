@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
+import { Route, Routes } from "react-router-dom";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
 vi.mock("@/integrations/supabase/client", async () => {
@@ -76,17 +77,29 @@ beforeEach(() => {
 describe("ProfessorAnalytics page (smoke)", () => {
   it("mounts a loading spinner while lectures are being fetched", () => {
     fetchProfessorLecturesMock.mockReturnValue(new Promise(() => {}));
-    const { container } = renderWithProviders(<ProfessorAnalytics />, {
-      initialEntries: ["/professor/analytics"],
-    });
+    const { container } = renderWithProviders(
+      <Routes>
+        <Route path="/professor/analytics" element={<ProfessorAnalytics />} />
+        <Route path="/professor/analytics/:lectureId" element={<ProfessorAnalytics />} />
+      </Routes>,
+      {
+        initialEntries: ["/professor/analytics"],
+      }
+    );
     expect(container.querySelector(".animate-pulse")).not.toBeNull();
   });
 
   it("renders the empty-state when professor has no lectures", async () => {
     fetchProfessorLecturesMock.mockResolvedValue([]);
-    renderWithProviders(<ProfessorAnalytics />, {
-      initialEntries: ["/professor/analytics"],
-    });
+    renderWithProviders(
+      <Routes>
+        <Route path="/professor/analytics" element={<ProfessorAnalytics />} />
+        <Route path="/professor/analytics/:lectureId" element={<ProfessorAnalytics />} />
+      </Routes>,
+      {
+        initialEntries: ["/professor/analytics"],
+      }
+    );
     expect(
       await screen.findByText(/no lectures yet/i),
     ).toBeInTheDocument();
@@ -102,9 +115,15 @@ describe("ProfessorAnalytics page (smoke)", () => {
         created_at: "2025-01-01T00:00:00Z",
       },
     ]);
-    renderWithProviders(<ProfessorAnalytics />, {
-      initialEntries: ["/professor/analytics"],
-    });
+    renderWithProviders(
+      <Routes>
+        <Route path="/professor/analytics" element={<ProfessorAnalytics />} />
+        <Route path="/professor/analytics/:lectureId" element={<ProfessorAnalytics />} />
+      </Routes>,
+      {
+        initialEntries: ["/professor/analytics/cell-biology"],
+      }
+    );
     await waitFor(() => {
       expect(screen.getByText("Cell Biology")).toBeInTheDocument();
     });

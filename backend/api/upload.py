@@ -204,6 +204,12 @@ async def parse_pdf_stream_endpoint(
     2. Checks semantic cache.
     3. Streams real-time progress and slide objects via SSE.
     """
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    if lecture_id:
+        res = supabase_admin.table("lectures").select("professor_id").eq("id", lecture_id).execute()
+        if not res.data or res.data[0].get("professor_id") != user_id:
+            raise HTTPException(status_code=403, detail="You do not own this lecture.")
+
     max_bytes = MAX_FILE_MB * 1024 * 1024
     chunks: List[bytes] = []
     bytes_read = 0

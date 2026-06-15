@@ -227,9 +227,14 @@ export async function mockSupabase(
         const rowsIn = Array.isArray(body) ? body : [body];
         const rowsOut = rowsIn.map((row, idx) => {
           const r = (row ?? {}) as Record<string, unknown>;
-          return r.id !== undefined && r.id !== null
-            ? r
-            : { id: `${table}-auto-${Date.now()}-${idx}`, ...r };
+          const stamped = {
+            id: r.id !== undefined && r.id !== null ? r.id : `${table}-auto-${Date.now()}-${idx}`,
+            ...r
+          };
+          if (table === "lectures" && stamped.is_archived === undefined) {
+            stamped.is_archived = false;
+          }
+          return stamped;
         });
         if (
           accept.includes("vnd.pgrst.object") ||
@@ -311,6 +316,99 @@ export async function mockSupabase(
   await page.route(/\/rest\/v1\/rpc\/update_user_streak(\?|$)/, (route) =>
     json(route, streakValue),
   );
+  await page.route(/\/rest\/v1\/rpc\/evaluate_badges(\?|$)/, (route) =>
+    json(route, []),
+  );
+
+  // ─── Onboarding / Academic RPCs ───────────────────────────────────────────
+  await page.route(/\/rest\/v1\/rpc\/get_universities(\?|$)/, (route) =>
+    json(route, [
+      {
+        id: "uni-1",
+        name: "University of Testing",
+        city: "Test City",
+        country: "Testland",
+        email_domains: ["test.com"],
+        has_catalog: false,
+      },
+    ]),
+  );
+  await page.route(/\/rest\/v1\/rpc\/verify_my_institution(\?|$)/, (route) =>
+    json(route, true),
+  );
+  await page.route(/\/rest\/v1\/rpc\/get_my_verification(\?|$)/, (route) =>
+    json(route, [
+      {
+        university_email: user.email,
+        institution_verified: true,
+        institution: "University of Testing",
+        university_id: "uni-1",
+      },
+    ]),
+  );
+  await page.route(/\/rest\/v1\/rpc\/set_my_social_profile(\?|$)/, (route) =>
+    json(route, null),
+  );
+  await page.route(/\/rest\/v1\/rpc\/get_my_social_extras(\?|$)/, (route) =>
+    json(route, [
+      {
+        institution: "University of Testing",
+        social_roles: [],
+        weekly_xp: 0,
+      },
+    ]),
+  );
+
+  // ─── FastAPI Course endpoints fallback ─────────────────────────────────────
+  await page.route(/.*\/api\/courses\/browse/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
+    }
+    return json(route, { success: true, data: [] });
+  });
+
+  await page.route(/.*\/api\/courses(?:\?|$)/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
+    }
+    return json(route, { success: true, data: [] });
+  });
+
+  // ─── FastAPI Analytics endpoints fallback ───────────────────────────────────
+  await page.route(/.*\/api\/analytics\/lecture\/[^/]+\/slides/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
+    }
+    return json(route, { success: true, data: [] });
+  });
+
+  await page.route(/.*\/api\/analytics\/lecture\/[^/]+\/benchmarks/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
+    }
+    return json(route, { success: true, data: { scope: "lecture", peers: [], summary: {} } });
+  });
+
+  await page.route(/.*\/api\/analytics\/lecture\/[^/]+\/ask\/suggestions/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
+    }
+    return json(route, { success: true, data: { questions: [] } });
+  });
+
+  await page.route(/.*\/api\/analytics\/professor\/ask\/suggestions/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
+    }
+    return json(route, { success: true, data: { questions: [] } });
+  });
+
+  await page.route(/.*\/api\/analytics\/lecture\/[^/]+\/insights/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers: PREFLIGHT_HEADERS });
+    }
+    return json(route, { success: true, data: { insights: [] } });
+  });
 
   // ─── Auth endpoints ───────────────────────────────────────────────────────
   // IMPORTANT: Playwright matches handlers in REVERSE registration order, so
@@ -353,6 +451,6 @@ export async function loginAs(
   await page.goto("/auth");
   await page.locator("#email").fill(user.email);
   await page.locator("#password").fill("Sup3rSecret!");
-  await page.getByRole("button", { name: /initiate session/i }).click();
+  await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL(expectedPath);
 }

@@ -48,3 +48,5 @@ litellm/*
 !litellm/config.yaml
 dump.rdb
 pdf_testset/
+# Loadtest credentials
+backend/loadtest/.students.json

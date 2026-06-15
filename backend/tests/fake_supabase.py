@@ -63,9 +63,12 @@ class _Bucket:
         self.store = store
         self.bucket = bucket
 
-    def upload(self, path: str, file: Any) -> dict:
+    def upload(self, path: str, file: Any, **kwargs: Any) -> dict:
         self.store.uploaded.append((self.bucket, path))
         return {"path": path}
+
+    def download(self, path: str) -> bytes:
+        return b"fake-pdf-content"
 
     def remove(self, paths: list[str]) -> dict:
         self.store.removed.append((self.bucket, list(paths)))
@@ -127,6 +130,10 @@ class _QueryBuilder:
 
     def contains(self, col: str, sub: dict) -> "_QueryBuilder":
         self._filters.append(("contains", col, sub))
+        return self
+
+    def or_(self, value: str) -> "_QueryBuilder":
+        self._filters.append(("or", "or", value))
         return self
 
     def order(self, col: str, desc: bool = False) -> "_QueryBuilder":
@@ -229,6 +236,35 @@ class _QueryBuilder:
                 matching = [r for r in matching if r.get(col) in val]
             elif op == "contains":
                 matching = [r for r in matching if _matches_contains(r.get(col), val)]
+            elif op == "or":
+                new_matching = []
+                for r in matching:
+                    parts = val.split(",")
+                    matched_any = False
+                    for part in parts:
+                        sub_parts = part.split(".", 2)
+                        if len(sub_parts) < 2:
+                            continue
+                        c_col = sub_parts[0]
+                        c_op = sub_parts[1]
+                        c_val = sub_parts[2] if len(sub_parts) > 2 else None
+                        
+                        r_val = r.get(c_col)
+                        if c_op == "gt" and c_val:
+                            if r_val is not None and str(r_val) > c_val:
+                                matched_any = True
+                                break
+                        elif c_op == "is" and c_val == "null":
+                            if r_val is None:
+                                matched_any = True
+                                break
+                        elif c_op == "eq" and c_val:
+                            if str(r_val) == c_val:
+                                matched_any = True
+                                break
+                    if matched_any:
+                        new_matching.append(r)
+                matching = new_matching
 
         if self._mutation == "update":
             updated = []
@@ -285,6 +321,31 @@ class _QueryBuilder:
                 return False
             if op == "contains" and not _matches_contains(row.get(col), val):
                 return False
+            if op == "or":
+                parts = val.split(",")
+                matched_any = False
+                for part in parts:
+                    sub_parts = part.split(".", 2)
+                    if len(sub_parts) < 2:
+                        continue
+                    c_col = sub_parts[0]
+                    c_op = sub_parts[1]
+                    c_val = sub_parts[2] if len(sub_parts) > 2 else None
+                    r_val = row.get(c_col)
+                    if c_op == "gt" and c_val:
+                        if r_val is not None and str(r_val) > c_val:
+                            matched_any = True
+                            break
+                    elif c_op == "is" and c_val == "null":
+                        if r_val is None:
+                            matched_any = True
+                            break
+                    elif c_op == "eq" and c_val:
+                        if str(r_val) == c_val:
+                            matched_any = True
+                            break
+                if not matched_any:
+                    return False
         return True
 
 

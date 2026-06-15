@@ -61,7 +61,7 @@ def get_student_progress_for_lecture(
 def get_mind_map(client: Client, lecture_id: str) -> dict[str, Any] | None:
     res = (
         client.table("lecture_mind_maps")
-        .select("map_data")
+        .select("tree_data")
         .eq("lecture_id", lecture_id)
         .single()
         .execute()
@@ -69,8 +69,8 @@ def get_mind_map(client: Client, lecture_id: str) -> dict[str, Any] | None:
     return res.data
 
 
-def upsert_mind_map(client: Client, lecture_id: str, map_data: dict[str, Any]) -> None:
+def upsert_mind_map(client: Client, lecture_id: str, tree_data: dict[str, Any]) -> None:
     client.table("lecture_mind_maps").upsert(
-        {"lecture_id": lecture_id, "map_data": map_data},
+        {"lecture_id": lecture_id, "tree_data": tree_data},
         on_conflict="lecture_id",
     ).execute()

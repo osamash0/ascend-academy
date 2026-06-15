@@ -7,6 +7,7 @@ import { X, Send, Bot, User, Loader2, Sparkles, BookOpen, StopCircle } from 'luc
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/apiClient';
 import { logLearningEvent } from '@/services/studentService';
+import { useGamification } from '@/lib/gamification/GamificationProvider';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -91,6 +92,7 @@ export function LectureChat({
     const [streamingContent, setStreamingContent] = useState('');
     const { aiModel: selectedModel, setAiModel: setSelectedModel } = useAiModel();
     const { user, session } = useAuth();
+    const gamification = useGamification();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -256,6 +258,8 @@ export function LectureChat({
                     response: aiResponseText,
                     timestamp: new Date().toISOString(),
                 }).catch(err => console.error('Failed to log AI tutor query event:', err));
+                // Sweep AI-tutor badges (Curious Mind / Inquisitive).
+                gamification.evaluate();
             }
 
         } catch (err: unknown) {

@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from backend.core.auth_middleware import (
     _user_id,
     require_professor,
+    require_student,
     verify_token,
 )
 from backend.core.database import supabase_admin
@@ -244,7 +245,7 @@ async def browse_courses(
                 if cid in counts and l.get("is_archived") is False:
                     counts[cid] = counts[cid] + 1
 
-        return [_serialize(r, counts.get(r["id"], 0)) for r in rows]
+        return [{**_serialize(r, counts.get(r["id"], 0)), "professor_id": None} for r in rows]
 
     try:
         data = await run_in_threadpool(_load)
@@ -259,7 +260,7 @@ async def browse_courses(
 async def enroll_course(
     request: Request,
     course_id: str,
-    user: Any = Depends(verify_token),
+    user: Any = Depends(require_student),
 ):
     """Enroll a student into a course explicitly."""
     uid = _user_id(user)
@@ -286,6 +287,31 @@ async def enroll_course(
     except Exception as e:
         logger.error("Course enrollment failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to enroll in course.")
+
+
+@router.delete("/{course_id}/enroll", status_code=204)
+@limiter.limit("30/minute")
+async def unenroll_course(
+    request: Request,
+    course_id: str,
+    user: Any = Depends(require_student),
+):
+    """Unenroll a student from a course."""
+    uid = _user_id(user)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid user context.")
+
+    def _unenroll():
+        supabase_admin.table("course_enrollments").delete().eq("user_id", uid).eq("course_id", course_id).execute()
+
+    try:
+        await run_in_threadpool(_unenroll)
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Course unenrollment failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to unenroll from course.")
 
 
 @router.get("/{course_id}")

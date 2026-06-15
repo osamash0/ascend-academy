@@ -291,11 +291,12 @@ async def upload_fast_endpoint(
 
     # Insert pending state in parse_runs
     await execute_query(
-        "INSERT INTO parse_runs (run_id, pdf_hash, pipeline_version, status) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO parse_runs (run_id, pdf_hash, pipeline_version, status, user_id) VALUES ($1, $2, $3, $4, $5)",
         run_id_obj,
         pdf_hash,
         "isolated_v1",
-        "processing"
+        "processing",
+        uuid.UUID(str(user_id))
     )
 
     # Process async.  Retain a strong reference (see _BACKGROUND_TASKS) and
@@ -315,7 +316,7 @@ async def get_upload_status(run_id: str, user: Any = Depends(require_professor))
         run_uuid = uuid.UUID(run_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid run id.")
-    res = await execute_query("SELECT run_id, status, lecture_id, error FROM parse_runs WHERE run_id = $1", run_uuid)
+    res = await execute_query("SELECT run_id, status, lecture_id, error FROM parse_runs WHERE run_id = $1 AND user_id = $2", run_uuid, uuid.UUID(str(user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None))))
     if not res:
         raise HTTPException(status_code=404, detail="Run not found")
     
@@ -324,5 +325,5 @@ async def get_upload_status(run_id: str, user: Any = Depends(require_professor))
         "id": str(row["run_id"]),
         "status": row["status"],
         "lectureId": str(row["lecture_id"]) if row["lecture_id"] else None,
-        "errorMessage": row["error"]
+        "errorMessage": "Internal processing error" if row["error"] else None
     }

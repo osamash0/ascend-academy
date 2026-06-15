@@ -360,8 +360,7 @@ async def get_professor_overview(
     """
     await run_in_threadpool(_assert_course_owner, course_id, user.id)
     try:
-        data = await run_in_threadpool(
-            analytics_service.get_professor_overview,
+        data = await analytics_service.get_professor_overview(
             course_id,
             days,
             creds.credentials,
@@ -395,8 +394,7 @@ async def refresh_course_analytics_cache(
         )
         recomputed = False
         try:
-            await run_in_threadpool(
-                analytics_service.get_professor_overview,
+            await analytics_service.get_professor_overview(
                 course_id,
                 days,
                 creds.credentials,
@@ -681,9 +679,7 @@ async def get_lecture_benchmarks(
     """
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
-        data = await run_in_threadpool(
-            analytics_service.get_lecture_benchmarks, lecture_id, creds.credentials
-        )
+        data = await analytics_service.get_lecture_benchmarks(lecture_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
@@ -701,9 +697,7 @@ async def get_course_benchmarks(
     """Compare a course against the professor's other courses."""
     await run_in_threadpool(_assert_course_owner, course_id, user.id)
     try:
-        data = await run_in_threadpool(
-            analytics_service.get_course_benchmarks, course_id, creds.credentials
-        )
+        data = await analytics_service.get_course_benchmarks(course_id, creds.credentials)
         return AnalyticsResponse(success=True, data=data)
     except HTTPException:
         raise
@@ -713,13 +707,22 @@ async def get_course_benchmarks(
 
 
 @router.get("/personal/optimal-schedule", response_model=AnalyticsResponse)
-async def get_personal_optimal_schedule(user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
+async def get_personal_optimal_schedule(
+    timezone_offset: int = Query(0),
+    user=Depends(verify_token),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
     """
     Calculate the best time to study for the authenticated student.
     Analyzes historical event data to find peak performance windows.
     """
     try:
-        data = await run_in_threadpool(analytics_service.get_personal_optimal_schedule, user.id, creds.credentials)
+        data = await run_in_threadpool(
+            analytics_service.get_personal_optimal_schedule,
+            user.id,
+            creds.credentials,
+            timezone_offset,
+        )
         return AnalyticsResponse(success=True, data=data)
     except Exception as e:
         logger.error("Analytics endpoint error: %s", e, exc_info=True)

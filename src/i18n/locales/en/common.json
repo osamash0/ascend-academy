@@ -113,6 +113,46 @@
     "levelUp": {
       "title": "Level {{level}}!",
       "description": "You leveled up to Level {{level}}. Keep going!"
+    },
+    "categories": {
+      "onboarding": "Getting set up",
+      "quiz": "Quiz mastery",
+      "streak": "Hot streaks",
+      "learning": "Learning",
+      "consistency": "Consistency",
+      "tutor": "AI Tutor",
+      "comprehension": "Comprehension checks",
+      "community": "Community",
+      "milestone": "Milestones"
+    },
+    "badgeDefs": {
+      "Welcome Aboard": { "name": "Welcome Aboard", "description": "Opened your very first slide." },
+      "Identity Set": { "name": "Identity Set", "description": "Chose a display name and a profile photo." },
+      "Verified Scholar": { "name": "Verified Scholar", "description": "Verified your university email." },
+      "First Quiz Completed": { "name": "First Quiz Completed", "description": "Completed your first lecture quiz." },
+      "Perfect Score": { "name": "Perfect Score", "description": "Scored 100% on a lecture quiz." },
+      "Flawless Five": { "name": "Flawless Five", "description": "Scored 100% on five lectures." },
+      "Quiz Master": { "name": "Quiz Master", "description": "Answered 50 questions correctly." },
+      "Sharpshooter": { "name": "Sharpshooter", "description": "Answered 250 questions correctly." },
+      "On Fire": { "name": "On Fire", "description": "Five correct answers in a row." },
+      "Unstoppable": { "name": "Unstoppable", "description": "Ten correct answers in a row." },
+      "First Steps": { "name": "First Steps", "description": "Completed your first lecture." },
+      "Bookworm": { "name": "Bookworm", "description": "Completed five lectures." },
+      "Graduate": { "name": "Graduate", "description": "Completed ten lectures." },
+      "Scholar": { "name": "Scholar", "description": "Completed twenty-five lectures." },
+      "Course Conqueror": { "name": "Course Conqueror", "description": "Finished an entire course." },
+      "Polymath": { "name": "Polymath", "description": "Finished three full courses." },
+      "Getting Started": { "name": "Getting Started", "description": "Kept a three-day study streak." },
+      "Consistent": { "name": "Consistent", "description": "Kept a seven-day study streak." },
+      "Dedicated": { "name": "Dedicated", "description": "Kept a thirty-day study streak." },
+      "Curious Mind": { "name": "Curious Mind", "description": "Asked the AI tutor your first question." },
+      "Inquisitive": { "name": "Inquisitive", "description": "Asked the AI tutor twenty questions." },
+      "Quick Thinker": { "name": "Quick Thinker", "description": "Did your first comprehension check." },
+      "Checkpoint Champion": { "name": "Checkpoint Champion", "description": "Did twenty-five comprehension checks." },
+      "Voice Heard": { "name": "Voice Heard", "description": "Shared feedback to help us improve." },
+      "Level 5 Scholar": { "name": "Level 5 Scholar", "description": "Reached level 5." },
+      "Level 10 Expert": { "name": "Level 10 Expert", "description": "Reached level 10." },
+      "Level 25 Legend": { "name": "Level 25 Legend", "description": "Reached level 25." }
     }
   },
   "courseSchedule": {

@@ -395,7 +395,7 @@ async def parse_pdf_stream(
             asyncio.create_task(
                 _safe_cache_task(idx, res, pdf_hash, _failed_cache_queue, fallback_counters)
             )
-            asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue))
+            asyncio.create_task(_safe_embedding_task(idx, res, pdf_hash, _failed_embed_queue, embedding_sem))
             collected_count += 1
             yield {
                 "type": "progress",

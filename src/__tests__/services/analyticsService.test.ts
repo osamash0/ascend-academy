@@ -34,9 +34,9 @@ describe("getLectureOverview", () => {
         }),
       ),
     );
-    // Service returns the raw envelope today; assert it contains .data
-    const out: Record<string, unknown> = await getLectureOverview("L1");
-    expect(out.data?.uniqueStudents ?? out.uniqueStudents).toBe(7);
+    // Service returns the raw unwrapped data directly
+    const out: any = await getLectureOverview("L1");
+    expect(out.uniqueStudents).toBe(7);
   });
 
   it("throws on 500", async () => {

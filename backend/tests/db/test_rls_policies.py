@@ -149,6 +149,30 @@ def test_signup_trigger_assigns_role_from_metadata(db_conn, make_user):
     assert "professor" in roles, f"trigger did not insert role row, got {roles!r}"
 
 
+def test_signup_trigger_refuses_admin_self_assignment(db_conn, make_user):
+    """
+    Privilege-escalation guard (migration 20260615000800): a user must NOT be
+    able to grant themselves 'admin' by putting it in signup metadata. The
+    trigger only honours the self-serve roles ('student' / 'professor') and
+    falls back to 'student' for anything else, including 'admin'. Admin must
+    only ever be granted server-side / by another admin.
+    """
+    uid = make_user(role="admin")
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "SELECT role::text FROM public.user_roles WHERE user_id = %s",
+            (str(uid),),
+        )
+        roles = {r[0] for r in cur.fetchall()}
+    assert "admin" not in roles, (
+        f"SECURITY: signup metadata granted 'admin' — self-escalation hole. "
+        f"got {roles!r}"
+    )
+    assert roles == {"student"}, (
+        f"expected admin request to fall back to 'student', got {roles!r}"
+    )
+
+
 # ── has_role() ──────────────────────────────────────────────────────────────
 
 
@@ -334,28 +358,70 @@ def test_student_progress_unique(db_conn, make_user, make_lecture, make_progress
 # ── Out-of-band cache tables ────────────────────────────────────────────────
 
 
-def test_pdf_parse_cache_documented_permissive_policy(db_conn):
+def test_pdf_parse_cache_blocked_for_anon(db_conn):
     """
-    pdf_parse_cache currently ships with a permissive RLS policy
-    (see 20260501000001_fix_cache_rls.sql) because the backend used
-    the anon key for cache writes. This test pins that documented
-    behavior so any future tightening is explicit and intentional.
-    If/when SUPABASE_SERVICE_ROLE_KEY becomes mandatory we can flip
-    this assertion and add a separate "anon is blocked" test.
+    pdf_parse_cache has RLS enabled and is restricted to service_role only.
+    Verify that anon is blocked from inserting.
     """
     with db_conn.cursor() as cur:
         cur.execute("SET ROLE anon")
         try:
-            cur.execute(
-                "INSERT INTO public.pdf_parse_cache (pdf_hash, slides) "
-                "VALUES (%s, %s::jsonb)",
-                ("test-hash", "[]"),
-            )
-            cur.execute(
-                "SELECT 1 FROM public.pdf_parse_cache WHERE pdf_hash = %s",
-                ("test-hash",),
-            )
-            assert cur.fetchone() is not None
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                cur.execute(
+                    "INSERT INTO public.pdf_parse_cache (pdf_hash, slides) "
+                    "VALUES (%s, %s::jsonb)",
+                    ("test-hash", "[]"),
+                )
         finally:
             cur.execute("RESET ROLE")
-            cur.execute("DELETE FROM public.pdf_parse_cache WHERE pdf_hash = %s", ("test-hash",))
+
+
+def test_role_change_purges_backend_cache(db_conn, make_user):
+    """
+    Changing a user's role must trigger deletion of their cached sessions 
+    in public.backend_cache.
+    """
+    uid = make_user(role="student")
+    with db_conn.cursor() as cur:
+        # Create a mock cache entry for this user
+        import json
+        cache_key = "auth_token:test-token-hash"
+        user_data = json.dumps({"id": str(uid), "email": "test@example.com"})
+        
+        cur.execute(
+            "INSERT INTO public.backend_cache (cache_key, data, expires_at) "
+            "VALUES (%s, %s::jsonb, now() + interval '5 minutes')",
+            (cache_key, user_data),
+        )
+        
+        # Verify the cache entry exists
+        cur.execute("SELECT 1 FROM public.backend_cache WHERE cache_key = %s", (cache_key,))
+        assert cur.fetchone() is not None, "cache entry should exist initially"
+        
+        # Modify the user's role
+        cur.execute(
+            "UPDATE public.user_roles SET role = 'professor' WHERE user_id = %s",
+            (str(uid),),
+        )
+        
+        # Verify the cache entry was purged
+        cur.execute("SELECT 1 FROM public.backend_cache WHERE cache_key = %s", (cache_key,))
+        assert cur.fetchone() is None, "cache entry should have been purged by user_roles update trigger"
+
+        # Re-insert cache entry
+        cur.execute(
+            "INSERT INTO public.backend_cache (cache_key, data, expires_at) "
+            "VALUES (%s, %s::jsonb, now() + interval '5 minutes')",
+            (cache_key, user_data),
+        )
+        
+        # Delete user role
+        cur.execute(
+            "DELETE FROM public.user_roles WHERE user_id = %s",
+            (str(uid),),
+        )
+        
+        # Verify the cache entry was purged
+        cur.execute("SELECT 1 FROM public.backend_cache WHERE cache_key = %s", (cache_key,))
+        assert cur.fetchone() is None, "cache entry should have been purged by user_roles delete trigger"
+

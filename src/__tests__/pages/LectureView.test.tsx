@@ -514,3 +514,72 @@ describe("LectureView mind map ↔ slide focus", () => {
     );
   });
 });
+
+describe("LectureView Keyboard and Empty State Verification", () => {
+  it("cycles slides via ArrowRight and ArrowLeft keyboard events, except when focused on input/textarea", async () => {
+    fetchLectureMock.mockResolvedValue({
+      id: "lec-1",
+      title: "Keyboard Lecture",
+      description: null,
+      total_slides: 2,
+      professor_id: "prof-1",
+      created_at: "2025-01-01T00:00:00Z",
+      pdf_url: null,
+    });
+    fetchSlidesMock.mockResolvedValue([
+      { id: "slide-1", slide_number: 1, title: "Slide One", content_text: "a", summary: "" },
+      { id: "slide-2", slide_number: 2, title: "Slide Two", content_text: "b", summary: "" },
+    ]);
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+
+    renderAtRoute();
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide One"),
+    );
+
+    // Press ArrowRight to go to slide 2
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide Two"),
+    );
+
+    // Focus on an input element and check that pressing ArrowLeft does NOT go back
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.focus();
+
+    fireEvent.keyDown(input, { key: "ArrowLeft" });
+    // Title should still be "Slide Two"
+    expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide Two");
+
+    // Remove input, blur, and press ArrowLeft to go back to Slide One
+    input.blur();
+    document.body.removeChild(input);
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide One"),
+    );
+  });
+
+  it("renders a 'No slides available' message when slide list is empty", async () => {
+    fetchLectureMock.mockResolvedValue({
+      id: "lec-1",
+      title: "Empty Slide List Lecture",
+      description: null,
+      total_slides: 0,
+      professor_id: "prof-1",
+      created_at: "2025-01-01T00:00:00Z",
+      pdf_url: null,
+    });
+    fetchSlidesMock.mockResolvedValue([]);
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+
+    renderAtRoute();
+    
+    await waitFor(() => {
+      expect(screen.getByText(/No slides available/i)).toBeInTheDocument();
+      expect(screen.getByText(/This lecture does not contain any slide content yet/i)).toBeInTheDocument();
+    });
+  });
+});
+

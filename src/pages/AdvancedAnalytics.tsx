@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { fetchProfessorLectures } from '@/services/lectureService';
+import { getSlideAnalytics } from '@/services/analyticsService';
 import { apiClient } from '@/lib/apiClient';
 import { toSlug } from '@/lib/utils';
 
@@ -665,12 +666,9 @@ export default function AdvancedAnalytics() {
     if (!resolvedLectureId) return;
     let cancelled = false;
     setSlideAnalyticsLoading(true);
-    apiClient.get<{ success: boolean; data: SlideAnalytics[] }>(
-      `/api/analytics/lecture/${resolvedLectureId}/slides`
-    ).then((res) => {
+    getSlideAnalytics(resolvedLectureId).then((rows) => {
       if (cancelled) return;
-      const rows = Array.isArray(res?.data) ? res.data : [];
-      setSlideAnalytics(rows);
+      setSlideAnalytics(Array.isArray(rows) ? rows : []);
     }).catch((err) => {
       console.error('Slide analytics fetch failed:', err);
     }).finally(() => { if (!cancelled) setSlideAnalyticsLoading(false); });

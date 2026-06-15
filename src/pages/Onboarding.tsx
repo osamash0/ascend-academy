@@ -13,6 +13,7 @@ import {
   setAcademicProfile, confirmCatalogCourses, verifyMyInstitution,
 } from '@/services/academicService';
 import { setMySocialProfile } from '@/features/social/api';
+import { useGamification } from '@/lib/gamification/GamificationProvider';
 import type {
   University, Faculty, DegreeProgram, SuggestedCourse, StudentCatalogStatus,
 } from '@/types/academic';
@@ -46,6 +47,7 @@ const selectClass =
 
 export default function Onboarding() {
   const { user, profile } = useAuth();
+  const gamification = useGamification();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -289,6 +291,11 @@ export default function Onboarding() {
       } catch (e) {
         console.error('Institution verification failed', e);
       }
+
+      // Name + photo are set → award "Identity Set" (and "Verified Scholar" if the
+      // institution was just verified). The popup is owned by the global provider,
+      // which outlives this page, so it surfaces on the dashboard after navigation.
+      gamification.evaluate();
 
       toast({ title: 'Setup Complete!', description: 'Welcome to your learning journey.' });
       setTimeout(() => {

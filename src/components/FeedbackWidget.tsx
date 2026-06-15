@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import { apiClient } from '@/lib/apiClient';
+import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { useToast } from '@/hooks/use-toast';
 
 /**
@@ -25,6 +26,7 @@ export function FeedbackWidget() {
   const { user } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
+  const gamification = useGamification();
 
   const [open, setOpen] = useState(false);
   const [feature, setFeature] = useState('');
@@ -58,6 +60,8 @@ export function FeedbackWidget() {
         route: path,
       });
       setJustSent(true);
+      // Reward the contribution (idempotent: only the first feedback earns it).
+      gamification.awardBadge('Voice Heard');
       toast({ title: 'Thanks for the feedback', description: 'Your note was recorded.' });
       setTimeout(() => {
         setOpen(false);

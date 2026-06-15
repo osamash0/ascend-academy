@@ -130,6 +130,12 @@ class TestStudentMasteryEndpoint:
                                               professor_user, fake_supabase):
         fake_supabase.seed("user_roles",
                            [{"user_id": professor_user.id, "role": "professor"}])
+        fake_supabase.seed("assignment_enrollments",
+                           [{"assignment_id": "A1", "user_id": "stu-42"}])
+        fake_supabase.seed("assignments",
+                           [{"id": "A1", "course_id": "CRSE1"}])
+        fake_supabase.seed("courses",
+                           [{"id": "CRSE1", "professor_id": professor_user.id}])
         self._seed_mastery_data(fake_supabase, "stu-42")
         _auth_as(app, professor_user)
         # require_professor was overridden by _auth_as; remove it for this
@@ -157,6 +163,15 @@ class TestLectureConceptsEndpoint:
             {"concept_id": "C_B", "lecture_id": "L1",
              "slide_indices": [1, 2], "weight": 3.0},
         ])
+        fake_supabase.seed("lectures", [
+            {"id": "L1", "course_id": "CRSE1", "professor_id": "some_prof", "title": "L1"}
+        ])
+        fake_supabase.seed("assignment_enrollments", [
+            {"assignment_id": "A1", "user_id": student_user.id}
+        ])
+        fake_supabase.seed("assignment_lectures", [
+            {"assignment_id": "A1", "lecture_id": "L1"}
+        ])
         _auth_as(app, student_user)
         client = TestClient(app)
         r = client.get("/api/concepts/lecture/L1",
@@ -170,6 +185,15 @@ class TestLectureConceptsEndpoint:
     def test_empty_when_lecture_has_no_concepts(
         self, app, patch_concepts_modules, student_user, fake_supabase,
     ):
+        fake_supabase.seed("lectures", [
+            {"id": "none", "course_id": "CRSE1", "professor_id": "some_prof", "title": "none"}
+        ])
+        fake_supabase.seed("assignment_enrollments", [
+            {"assignment_id": "A1", "user_id": student_user.id}
+        ])
+        fake_supabase.seed("assignment_lectures", [
+            {"assignment_id": "A1", "lecture_id": "none"}
+        ])
         _auth_as(app, student_user)
         client = TestClient(app)
         r = client.get("/api/concepts/lecture/none",
@@ -193,9 +217,17 @@ class TestRelatedLecturesEndpoint:
              "slide_indices": [0], "weight": 2.0},
         ])
         fake_supabase.seed("lectures", [
-            {"id": "L_LIGHT", "title": "Light", "description": None, "total_slides": 4},
-            {"id": "L_HEAVY", "title": "Heavy", "description": None, "total_slides": 8},
-            {"id": "L_SELF", "title": "Self", "description": None, "total_slides": 2},
+            {"id": "L_LIGHT", "title": "Light", "description": None, "total_slides": 4, "course_id": "CRSE1"},
+            {"id": "L_HEAVY", "title": "Heavy", "description": None, "total_slides": 8, "course_id": "CRSE1"},
+            {"id": "L_SELF", "title": "Self", "description": None, "total_slides": 2, "course_id": "CRSE1"},
+        ])
+        fake_supabase.seed("assignment_enrollments", [
+            {"assignment_id": "A1", "user_id": student_user.id}
+        ])
+        fake_supabase.seed("assignment_lectures", [
+            {"assignment_id": "A1", "lecture_id": "L_LIGHT"},
+            {"assignment_id": "A1", "lecture_id": "L_HEAVY"},
+            {"assignment_id": "A1", "lecture_id": "L_SELF"},
         ])
         _auth_as(app, student_user)
         client = TestClient(app)

@@ -13,8 +13,9 @@ import { lazy, Suspense, Component, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
-import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes } from "@/lib/routes";
+import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, AdminRoutes } from "@/lib/routes";
 import { SocialProvider } from "@/features/social/store";
+import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
   useLanguagePreference();
@@ -28,6 +29,10 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
   }
   static getDerivedStateFromError() {
     return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: { componentStack: string }) {
+    console.error('[AppErrorBoundary] Caught render error:', error);
+    console.error('[AppErrorBoundary] Component stack:', info.componentStack);
   }
   render() {
     if (this.state.hasError) {
@@ -59,7 +64,7 @@ const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const StudentCourseView = lazy(() => import("./pages/StudentCourseView"));
 const StudentCourseLibrary = lazy(() => import("./pages/StudentCourseLibrary"));
 const LectureView = lazy(() => import("./pages/LectureView"));
-const Achievements = lazy(() => import("./pages/Achievements"));
+const Ascent = lazy(() => import("./pages/Ascent"));
 const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
 const ProfessorAnalytics = lazy(() => import("./pages/ProfessorAnalytics"));
 const AdvancedAnalytics = lazy(() => import("./pages/AdvancedAnalytics"));
@@ -73,9 +78,9 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Impressum = lazy(() => import("./pages/Impressum"));
 const Datenschutz = lazy(() => import("./pages/Datenschutz"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
-const Insights = lazy(() => import("./pages/Insights"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PipelineTestPage = lazy(() => import("./pages/PipelineTestPage"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
 const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
 const FriendProfile = lazy(() => import("./features/social/pages/FriendProfile"));
@@ -132,6 +137,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     // Redirect based on role
     if (role === 'professor') {
       return <Navigate to="/professor/dashboard" replace />;
+    }
+    if (role === 'admin') {
+      return <Navigate to="/admin/dashboard" replace />;
     }
     return <Navigate to="/dashboard" replace />;
   }
@@ -256,15 +264,18 @@ function AppRoutes() {
           }
         />
         <Route
-          path={StudentRoutes.ACHIEVEMENTS}
+          path={StudentRoutes.ASCENT}
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <ConsoleLayout>
-                <Achievements />
+                <Ascent />
               </ConsoleLayout>
             </ProtectedRoute>
           }
         />
+        {/* Legacy redirects */}
+        <Route path={StudentRoutes.ACHIEVEMENTS} element={<Navigate to={StudentRoutes.ASCENT} replace />} />
+        <Route path={StudentRoutes.INSIGHTS} element={<Navigate to={StudentRoutes.ASCENT} replace />} />
         <Route
           path={StudentRoutes.LEADERBOARD}
           element={
@@ -283,17 +294,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path={StudentRoutes.INSIGHTS}
-          element={
-            <ProtectedRoute allowedRoles={['student']}>
-              <ConsoleLayout>
-                <Insights />
-              </ConsoleLayout>
-            </ProtectedRoute>
-          }
-        />
-
         {/* Professor routes */}
         <Route
           path={ProfessorRoutes.DASHBOARD}
@@ -407,6 +407,18 @@ function AppRoutes() {
           }
         />
 
+        {/* Admin routes */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <ConsoleLayout>
+                <AdminDashboard />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+
         {/* Social Gamification — friends, profiles, requests. Lives inside the
             console shell, behind student auth. Leaderboard is upgraded in-place
             (see the StudentRoutes.LEADERBOARD route above). */}
@@ -479,7 +491,9 @@ const App = () => (
             <AuthProvider>
               <LanguagePreferenceBootstrap>
                 <SocialProvider>
-                  <AppRoutes />
+                  <GamificationProvider>
+                    <AppRoutes />
+                  </GamificationProvider>
                 </SocialProvider>
               </LanguagePreferenceBootstrap>
             </AuthProvider>

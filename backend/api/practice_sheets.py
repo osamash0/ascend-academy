@@ -268,7 +268,7 @@ async def generate_auto_sheet(
         slide_ids = [s["id"] for s in slide_rows]
         qq_res = (
             supabase_admin.table("quiz_questions")
-            .select("id, slide_id, question_text, options, correct_answer, explanation, concept")
+            .select("id, slide_id, question_text, options, correct_answer, metadata")
             .in_("slide_id", slide_ids)
             .execute()
         )
@@ -331,6 +331,9 @@ async def generate_auto_sheet(
             slide = slide_by_id.get(qq["slide_id"], {})
             prompt = qq.get("question_text") or ""
 
+            metadata = qq.get("metadata") or {}
+            explanation = metadata.get("explanation") if isinstance(metadata, dict) else None
+
             questions_to_insert.append({
                 "sheet_id": sheet_id,
                 "order_index": i,
@@ -338,7 +341,7 @@ async def generate_auto_sheet(
                 "prompt": prompt,
                 "choices": choices,
                 "correct_answer": correct_text,
-                "explanation": qq.get("explanation"),
+                "explanation": explanation,
                 "source_quiz_question_id": qq["id"],
             })
 

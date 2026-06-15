@@ -124,16 +124,9 @@ test.describe("Professor PDF upload", () => {
     // Attach the PDF — the input is hidden, but Playwright can target it.
     await page.locator('input[type="file"][accept=".pdf"]').setInputFiles(FIXTURE_PDF);
 
-    // ─── Wait for the SSE stream to drive the editor view ───────────────────
-    // After `complete` the upload overlay shows a "Get Started" button.
-    // `usePDFUpload` only flips `isUploading` to false via `closeUploadOverlay`,
-    // so we MUST click "Get Started" to dismiss the modal before Publish is
-    // actually clickable (the overlay would otherwise intercept pointer events).
-    const getStarted = page.getByRole("button", { name: /get started/i });
-    await expect(getStarted).toBeVisible({ timeout: 15_000 });
-    await getStarted.click();
 
-    const publishButton = page.getByRole("button", { name: /^publish$/i });
+
+    const publishButton = page.getByRole("button", { name: /save lecture/i });
     await expect(publishButton).toBeVisible({ timeout: 10_000 });
     await expect(publishButton).toBeEnabled();
 
@@ -141,7 +134,7 @@ test.describe("Professor PDF upload", () => {
     await publishButton.click();
 
     // Success toast + redirect.
-    await expect(page.getByText(/lecture created successfully/i)).toBeVisible({
+    await expect(page.getByText("Lecture created successfully.", { exact: true })).toBeVisible({
       timeout: 10_000,
     });
     await page.waitForURL(/\/professor\/dashboard/);

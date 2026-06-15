@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, X, TrendingUp, ChevronRight, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
 import { useLectureTagline } from '@/features/student/hooks/useLectureTagline';
@@ -35,10 +36,12 @@ import {
   buildRecentlyViewed,
 } from '@/features/student/homeFeed';
 import { recordCourseVisit, recordLectureVisit, recordDailyActivity } from '@/services/studentService';
+import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { SharedRoutes, StudentRoutes } from '@/lib/routes';
 
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
+  const gamification = useGamification();
   const navigate = useNavigate();
   const { t } = useTranslation(['dashboard']);
   const [showStreakBanner, setShowStreakBanner] = useState(false);
@@ -48,7 +51,7 @@ export default function StudentDashboard() {
   // while bento/rows/cards mount and fire their queries.
   const [showBelowFold, setShowBelowFold] = useState(false);
 
-  const { data: dashboardData, isLoading: loading } = useStudentDashboard();
+  const { data: dashboardData, isLoading: loading, isError, refetch } = useStudentDashboard();
 
   // All courses now — no hardcoded course scoping.
   const lectures = useMemo(() => {
@@ -146,7 +149,11 @@ export default function StudentDashboard() {
   // Record daily activity when the dashboard loads
   useEffect(() => {
     if (user?.id) {
-      recordDailyActivity().catch(() => {});
+      // Record the day-streak first, then sweep badges so streak milestones
+      // (Getting Started / Consistent / Dedicated) and any catch-up are caught.
+      recordDailyActivity()
+        .catch(() => {})
+        .finally(() => gamification.evaluate());
     }
   }, [user?.id]);
 
@@ -172,6 +179,23 @@ export default function StudentDashboard() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="console-bg relative min-h-screen flex items-center justify-center p-6 lg:p-12">
+        <div className="max-w-md w-full bg-card/40 border border-destructive/20 rounded-3xl p-8 text-center glass-panel backdrop-blur">
+          <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-5 text-destructive">
+            <X className="w-6 h-6" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground mb-2">{t('dashboard:errorTitle', { defaultValue: 'Failed to load dashboard' })}</h2>
+          <p className="text-sm text-muted-foreground mb-6">{t('dashboard:errorDescription', { defaultValue: 'There was a connection issue. Please try again.' })}</p>
+          <Button onClick={() => refetch()} className="w-full rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold h-12">
+            {t('dashboard:retryButton', { defaultValue: 'Retry connection' })}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const streak = profile?.current_streak || 0;
   const displayName = profile?.full_name
     ? profile.full_name.split(' ')[0]
@@ -185,12 +209,12 @@ export default function StudentDashboard() {
   };
 
   const ctaLabel = !focusedView
-    ? 'Browse'
+    ? t('dashboard:cta.browse', { defaultValue: 'Browse' })
     : focusedView.status === 'new'
-    ? 'Start'
+    ? t('dashboard:cta.start', { defaultValue: 'Start' })
     : focusedView.status === 'done'
-    ? 'Review'
-    : 'Continue';
+    ? t('dashboard:cta.review', { defaultValue: 'Review' })
+    : t('dashboard:cta.continue', { defaultValue: 'Continue' });
 
   // Resume to the last viewed slide when continuing the focused lecture.
   const launchFocused = () => {
@@ -224,7 +248,7 @@ export default function StudentDashboard() {
                 <span className="text-sm font-bold text-warning">
                   {t('dashboard:streakBanner', { count: streak, defaultValue: `${streak} Day Streak!` })}
                 </span>
-                <button onClick={() => setShowStreakBanner(false)} className="text-warning/60 hover:text-warning">
+                <button onClick={() => setShowStreakBanner(false)} className="text-warning/60 hover:text-warning" aria-label={t('dashboard:streakClose', { defaultValue: 'Close streak notification' })}>
                   <X className="w-3.5 h-3.5" />
                 </button>
               </motion.div>
@@ -334,7 +358,7 @@ export default function StudentDashboard() {
           {continueLectures[0] && (
             <div className="depth-card p-4 lg:p-6">
               <div className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-primary">
-                <Sparkles className="w-4 h-4" /> Quick check
+                <Sparkles className="w-4 h-4" /> {t('dashboard:quickCheck', { defaultValue: 'Quick check' })}
               </div>
               <MicroQuizCard
                 lectureId={continueLectures[0].lecture.id}
@@ -362,7 +386,16 @@ export default function StudentDashboard() {
             />
             <div
               onClick={() => navigate(StudentRoutes.INSIGHTS)}
-              className="depth-card p-6 relative overflow-hidden group cursor-pointer"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate(StudentRoutes.INSIGHTS);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={t('dashboard:stats.learningInsightsDescription', { defaultValue: 'Explore Learning Insights' })}
+              className="depth-card p-6 relative overflow-hidden group cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">

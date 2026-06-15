@@ -2,8 +2,14 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { AUTH_INIT_TIMEOUT_MS, AUTH_PROFILE_TIMEOUT_MS } from '@/lib/constants';
+import { toast } from '@/hooks/use-toast';
 
-type UserRole = 'student' | 'professor' | null;
+type UserRole = 'student' | 'professor' | 'admin' | null;
+
+// Result of a profile fetch. We distinguish a MISSING profile (the account
+// row is gone → sign out) from a transient ERROR (network/RLS/timeout →
+// recoverable, keep the session but surface it). 'ok' means loaded.
+type ProfileFetchResult = 'ok' | 'missing' | 'error';
 
 export interface Profile {
   id: string;
@@ -49,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleLoading, setRoleLoading] = useState(false);
   const loading = sessionLoading || roleLoading;
 
-  const fetchProfile = async (userId: string): Promise<boolean> => {
+  const fetchProfile = async (userId: string): Promise<ProfileFetchResult> => {
     const { data: profileData, error } = await supabase
       .from('profiles')
       .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak, preferred_language')
@@ -58,21 +64,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       if (error.code === 'PGRST116') {
+        // No row for this user — the account/profile is gone.
         setProfile(null);
-        return false;
+        return 'missing';
       }
       console.error("fetchProfile error:", error);
-      // Keep session alive for transient errors
-      return true;
+      // Transient failure (network/RLS/server). Recoverable — keep the
+      // session, but the caller surfaces it instead of failing silently.
+      return 'error';
     }
 
     if (!profileData) {
       setProfile(null);
-      return false;
+      return 'missing';
     }
 
     setProfile(profileData as Profile);
-    return true;
+    return 'ok';
   };
 
   const fetchRole = async (userId: string) => {
@@ -101,9 +109,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    console.log("[DEBUG AUTH] useEffect running. localStorage keys:", Object.keys(localStorage));
+    supabase.auth.getSession().then(({ data, error }) => {
+      console.log("[DEBUG AUTH] getSession returned:", !!data.session, "error:", error?.message);
+    }).catch(err => {
+      console.error("[DEBUG AUTH] getSession rejected:", err);
+    });
+
     // Listen for auth changes (handles initial session automatically in Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("[DEBUG AUTH] onAuthStateChange fired:", event, "session user:", session?.user?.id);
         try {
           setSession(session);
           setUser(session?.user ?? null);
@@ -116,23 +132,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (isLoginEvent && !hasFetchedProfile.current) {
               hasFetchedProfile.current = true;
               setRoleLoading(true);
-              try {
-                const profilePromise = withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => true);
-                const rolePromise = withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
-                const hasProfile = await profilePromise;
-                if (!hasProfile) {
-                  console.warn("User has session but no profile. Signing out.");
-                  await signOut().catch(() => {});
-                } else {
-                  // Wait for role too. On timeout/error the catch above
-                  // resolves the promise; we then leave `role` as whatever
-                  // fetchRole managed to set (null if nothing), but mark the
-                  // lookup as resolved so guards stop spinning.
-                  await rolePromise;
+              // Defer fetching profile and role to avoid deadlocking with Supabase auth client lock.
+              // Awaiting database queries directly inside the synchronous event callback triggers
+              // getSession calls that deadlocks if the SDK holds an internal initialization lock.
+              setTimeout(async () => {
+                try {
+                  const profilePromise = withTimeout(fetchProfile(session.user.id), AUTH_PROFILE_TIMEOUT_MS)
+                    .catch((): ProfileFetchResult => 'error');
+                  const rolePromise = withTimeout(fetchRole(session.user.id), AUTH_PROFILE_TIMEOUT_MS).catch(() => {});
+                  const profileResult = await profilePromise;
+                  if (profileResult === 'missing') {
+                    console.warn("User has session but no profile. Signing out.");
+                    await signOut().catch(() => {});
+                  } else {
+                    if (profileResult === 'error') {
+                      // Loud-but-contained: a transient profile read (or its
+                      // timeout) used to leave the user "logged in" with no
+                      // profile data and no signal. Keep the session — this is
+                      // recoverable, unlike a missing profile — but tell the
+                      // user instead of failing silently into a half-state.
+                      toast({
+                        variant: 'destructive',
+                        title: 'Could not load your profile',
+                        description: 'Something went wrong loading your account. Please refresh — if it keeps happening, contact support.',
+                      });
+                    }
+                    // Wait for role too. On timeout/error the catch above
+                    // resolves the promise; we then leave `role` as whatever
+                    // fetchRole managed to set (null if nothing), but mark the
+                    // lookup as resolved so guards stop spinning.
+                    await rolePromise;
+                  }
+                } catch (err) {
+                  console.error("Deferred profile/role fetch error:", err);
+                } finally {
+                  setRoleLoading(false);
                 }
-              } finally {
-                setRoleLoading(false);
-              }
+              }, 0);
             }
           } else {
             // Reset on sign-out so the next session re-fetches cleanly

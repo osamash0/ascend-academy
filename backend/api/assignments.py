@@ -112,6 +112,7 @@ def compute_status_for_user(
     lecture_ids: List[str],
     due_at: datetime,
     min_quiz_score: Optional[int],
+    now: Optional[datetime] = None,
 ) -> dict:
     """Return {status, completed_count, total_count, progress_percentage}.
 
@@ -152,7 +153,7 @@ def compute_status_for_user(
 
     pct = round((completed / total) * 100) if total else 0
 
-    now = datetime.now(timezone.utc)
+    now = now or datetime.now(timezone.utc)
     due_aware = due_at if due_at.tzinfo else due_at.replace(tzinfo=timezone.utc)
 
     if completed == total:

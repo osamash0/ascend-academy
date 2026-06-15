@@ -147,7 +147,7 @@ def patch_pipeline_deps(monkeypatch):
     monkeypatch.setattr(fps, "analyze_slide_vision", vision)
     monkeypatch.setattr(fps, "generate_deck_summary", deck_summary)
     monkeypatch.setattr(fps, "generate_deck_quiz", deck_quiz)
-    monkeypatch.setattr(fps, "generate_hierarchical_summary", hier_summary)
+    monkeypatch.setattr(fps, "generate_hierarchical_summary", hier_summary, raising=False)
     monkeypatch.setattr(fps, "generate_blueprint", gen_blueprint)
     monkeypatch.setattr(fps, "get_cached_blueprint", get_bp)
     monkeypatch.setattr(fps, "store_cached_blueprint", store_bp)

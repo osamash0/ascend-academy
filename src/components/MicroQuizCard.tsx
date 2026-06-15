@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Check, X } from 'lucide-react';
 import { useMicroQuiz } from '@/features/student/hooks/useMicroQuiz';
+import { useAuth } from '@/lib/auth';
+import { useGamification } from '@/lib/gamification/GamificationProvider';
+import { logLearningEvent } from '@/services/studentService';
 
 interface MicroQuizCardProps {
   lectureId: string;
@@ -11,6 +14,8 @@ interface MicroQuizCardProps {
 
 export function MicroQuizCard({ lectureId, targetSlideNumber }: MicroQuizCardProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const gamification = useGamification();
   const { data: quizData, isLoading, isError } = useMicroQuiz(lectureId, targetSlideNumber);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -32,8 +37,23 @@ export function MicroQuizCard({ lectureId, targetSlideNumber }: MicroQuizCardPro
 
   const handleSelect = (idx: number) => {
     if (selectedOption !== null) return;
+    const correct = idx === question.correct_answer;
     setSelectedOption(idx);
-    setIsCorrect(idx === question.correct_answer);
+    setIsCorrect(correct);
+
+    // A comprehension check is a learning event the badge engine counts
+    // (Quick Thinker / Checkpoint Champion). Log it, then sweep badges.
+    if (user) {
+      logLearningEvent(user.id, 'micro_quiz_attempt', {
+        lectureId,
+        slideId: slide.id,
+        questionId: question.id,
+        correct,
+        selectedAnswer: idx,
+        timestamp: new Date().toISOString(),
+      }).catch(() => {});
+      gamification.evaluate();
+    }
   };
 
   return (

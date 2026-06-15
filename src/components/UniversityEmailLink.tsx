@@ -14,6 +14,7 @@ import {
   linkUniversityEmail,
   type LinkEmailReason,
 } from '@/services/academicService';
+import { useGamification } from '@/lib/gamification/GamificationProvider';
 
 const REASON_MESSAGE: Record<Exclude<LinkEmailReason, 'verified'>, string> = {
   invalid: 'That doesn’t look like a valid email address.',
@@ -36,6 +37,7 @@ export function UniversityEmailLink({
   const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
   const [institution, setInstitution] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const gamification = useGamification();
 
   useEffect(() => {
     let alive = true;
@@ -65,6 +67,8 @@ export function UniversityEmailLink({
         setLinkedEmail(email.trim());
         setInstitution(res.university);
         onVerified?.(res.university);
+        // institution_verified is now true → award "Verified Scholar".
+        gamification.evaluate();
       } else {
         setError(REASON_MESSAGE[res.reason as Exclude<LinkEmailReason, 'verified'>] ?? 'Could not verify.');
       }

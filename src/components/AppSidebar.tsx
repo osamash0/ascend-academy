@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import {
   GraduationCap,
   LayoutDashboard,
-  Trophy,
   BarChart3,
   Upload,
   LogOut,
@@ -34,9 +33,8 @@ import {
 
 const studentNavItems = [
   { titleKey: 'nav:student.dashboard', url: '/dashboard', icon: LayoutDashboard },
-  { titleKey: 'nav:student.achievements', url: '/achievements', icon: Trophy },
+  { titleKey: 'nav:student.ascent', url: '/ascent', icon: Star },
   { titleKey: 'nav:student.leaderboard', url: '/leaderboard', icon: Users },
-  { titleKey: 'nav:student.insights', url: '/insights', icon: BarChart3 },
   { titleKey: 'nav:student.settings', url: '/settings', icon: Settings },
 ];
 

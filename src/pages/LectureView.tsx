@@ -5,25 +5,18 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
 import { fetchLecture, fetchSlides, fetchQuizQuestions, resolvePdfUrl } from '@/services/lectureService';
 import {
   fetchLectureProgress,
   upsertLectureProgress,
   logLearningEvent,
-  checkAchievementExists,
-  awardAchievement,
-  insertNotification,
-  countCompletedLectures,
 } from '@/services/studentService';
+import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { useSlideProgress } from '@/features/student/hooks/useSlideProgress';
 import { statesFromLegacyCompleted, allVisitedStates } from '@/lib/slideProgress';
 import { apiClient } from '@/lib/apiClient';
-import { checkLevelUp } from '@/domain/gamification';
 import { SlideViewer } from '@/components/SlideViewer';
 import { QuizCard } from '@/components/QuizCard';
-import { LevelUpModal } from '@/components/LevelUpModal';
-import { BadgeEarnedModal } from '@/components/BadgeEarnedModal';
 import { Button } from '@/components/ui/button';
 import { LectureSidebar } from '@/components/LectureSidebar';
 import { LectureChat } from '@/components/LectureChat';
@@ -46,8 +39,9 @@ export default function LectureView() {
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const gamification = useGamification();
 
   const [lecture, setLecture] = useState<Lecture | null>(null);
   const [resolvedPdfUrl, setResolvedPdfUrl] = useState<string | null>(null);
@@ -59,10 +53,8 @@ export default function LectureView() {
   const [loading, setLoading] = useState(true);
   const [xpEarned, setXpEarned] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [showLevelUp, setShowLevelUp] = useState(false);
-  const [newLevel, setNewLevel] = useState(1);
-  const [showBadge, setShowBadge] = useState(false);
-  const [badgeInfo, setBadgeInfo] = useState({ name: '', description: '', icon: '' });
+  // In-session consecutive-correct counter for the "On Fire" / "Unstoppable" badges.
+  const correctStreakRef = useRef(0);
 
   // ── Slide progress hook (replaces broken saveProgress / useState(currentSlideIndex)) ──
   const slideProgress = useSlideProgress({
@@ -155,6 +147,12 @@ export default function LectureView() {
     }
   }, [lectureId, user]);
 
+  // Opening a lecture is enough to earn "Welcome Aboard" (first slide ever) — the
+  // dashboard records the lecture_visit on navigation; the server sweep awards it.
+  useEffect(() => {
+    if (slides.length > 0 && user) gamification.evaluate();
+  }, [slides.length, user]);
+
 
 
   // Analytics: Track slide view duration
@@ -195,6 +193,7 @@ export default function LectureView() {
       scrollableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentSlideIndex, reviewIndex, reviewStage]);
+
 
   const fetchLectureData = async () => {
     setLoading(true);
@@ -399,6 +398,25 @@ export default function LectureView() {
     }
   };
 
+  // Keyboard navigation for slide cycling
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePreviousSlide();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNextSlide, handlePreviousSlide]);
+
   const handleQuizAnswer = async (isCorrect: boolean, selectedIndex: number) => {
     if (!currentQuestion) return;
 
@@ -451,16 +469,16 @@ export default function LectureView() {
       setXpEarned(newXp);
       setCorrectAnswers(newCorrect);
 
-      if (user && id) {
+      if (user && lectureId) {
         queryClient.setQueryData(['student-progress', user.id], (old: any) => {
           if (!old) return old;
           return old.map((p: any) => {
-            if (p.lecture_id === id) {
+            if (p.lecture_id === lectureId) {
               return {
                 ...p,
                 xp_earned: Math.min(newXp, totalQ * 10),
                 correct_answers: newCorrect,
-                total_questions_answered: answeredQuestions.size + 1,
+                total_questions_answered: answeredQuestionsRef.current.size + 1,
               };
             }
             return p;
@@ -468,61 +486,20 @@ export default function LectureView() {
         });
       }
 
-      // Add XP to user — function uses auth.uid() internally; no user ID argument needed.
-      await supabase.rpc('add_xp_to_user', { p_xp: 10 } as never);
-
-      // Note: the day-based streak is updated by record_daily_activity() on dashboard
-      // load — we must NOT call update_user_streak here as it incorrectly writes to
-      // the same current_streak column and would inflate the streak on every correct answer.
-
       queryClient.invalidateQueries({ queryKey: ['student-progress', user?.id] });
 
-      // Check for level up using pure domain function
-      const { newLevel: calculatedLevel, leveledUp } = checkLevelUp(profile?.total_xp || 0, 10);
-      if (leveledUp && user) {
-        setNewLevel(calculatedLevel);
-        setShowLevelUp(true);
-        await insertNotification(
-          user.id,
-          t('common:achievements.levelUp.title', { level: calculatedLevel }),
-          t('common:achievements.levelUp.description', { level: calculatedLevel }),
-          'level_up'
-        );
-      }
+      // XP, level-ups and count-based badges are handled by the gamification
+      // engine. grantXp refreshes the profile so the global level-up modal can
+      // fire; the day-streak is still owned by record_daily_activity() on the
+      // dashboard, so we deliberately don't touch current_streak here.
+      await gamification.grantXp(10, 'quiz_correct');
 
-      if (user) {
-        // Achievement IDs (canonical, English) are persisted in the DB so that
-        // checkAchievementExists / awardAchievement remain stable across locales.
-        // The displayed name/description are localized for the user.
-        // Badge: Level 5 Scholar
-        if (calculatedLevel >= 5 && !(await checkAchievementExists(user.id, 'Level 5 Scholar'))) {
-          await awardAchievement(user.id, { name: 'Level 5 Scholar', description: 'Reached level 5!', icon: '⭐' });
-          setBadgeInfo({
-            name: t('common:achievements.level5.name'),
-            description: t('common:achievements.level5.description'),
-            icon: '⭐',
-          });
-          setTimeout(() => setShowBadge(true), 500);
-        }
-
-        // Badge: Level 10 Expert
-        if (calculatedLevel >= 10 && !(await checkAchievementExists(user.id, 'Level 10 Expert'))) {
-          await awardAchievement(user.id, { name: 'Level 10 Expert', description: 'Reached level 10!', icon: '🌟' });
-          setBadgeInfo({
-            name: t('common:achievements.level10.name'),
-            description: t('common:achievements.level10.description'),
-            icon: '🌟',
-          });
-          setTimeout(() => setShowBadge(true), 500);
-        }
-
-        // Day-streak badges are awarded based on profile.current_streak (updated
-        // by record_daily_activity on the dashboard), not per-answer streak.
-      }
-
-      await refreshProfile();
+      // In-session correct-answer streak → "On Fire" (5) / "Unstoppable" (10).
+      correctStreakRef.current += 1;
+      if (correctStreakRef.current === 5) await gamification.awardBadge('On Fire');
+      else if (correctStreakRef.current === 10) await gamification.awardBadge('Unstoppable');
     } else {
-      await refreshProfile();
+      correctStreakRef.current = 0;
     }
 
     // Persist progress immediately so reload cannot re-award XP for this question.
@@ -539,6 +516,8 @@ export default function LectureView() {
         correct_answers: Math.min(finalCorrectNow, questions.length || slides.length),
         total_questions_answered: answeredQuestionsRef.current.size,
       });
+      // Progress is persisted → sweep count-based badges (Quiz Master, Sharpshooter).
+      if (isCorrect) gamification.evaluate();
     }
     await flushSlideProgress(); // flush slide_states + last_slide_viewed
 
@@ -673,55 +652,19 @@ export default function LectureView() {
       completed_at: new Date().toISOString(),
     });
 
-    queryClient.invalidateQueries({ queryKey: ['student-dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['student-lectures'] });
+    queryClient.invalidateQueries({ queryKey: ['student-courses'] });
+    queryClient.invalidateQueries({ queryKey: ['student-progress'] });
+    queryClient.invalidateQueries({ queryKey: ['student-achievements'] });
+    queryClient.invalidateQueries({ queryKey: ['course-visits'] });
 
-    // Badge: First Quiz Completed (canonical English name persisted in DB; UI localized)
-    if (!(await checkAchievementExists(user.id, 'First Quiz Completed'))) {
-      await awardAchievement(user.id, { name: 'First Quiz Completed', description: 'Completed your first lecture quiz!', icon: '🎯' });
-      setBadgeInfo({
-        name: t('common:achievements.firstQuiz.name'),
-        description: t('common:achievements.firstQuiz.description'),
-        icon: '🎯',
-      });
-      setShowBadge(true);
-      await insertNotification(
-        user.id,
-        t('common:achievements.firstQuiz.notificationTitle'),
-        t('common:achievements.firstQuiz.description'),
-        'achievement'
-      );
-    }
-
-    // Badge: Perfect Score
-    if (finalCorrect === slides.length && slides.length > 0) {
-      if (!(await checkAchievementExists(user.id, 'Perfect Score'))) {
-        await awardAchievement(user.id, { name: 'Perfect Score', description: 'Got 100% on a lecture quiz!', icon: '💯' });
-        setBadgeInfo({
-          name: t('common:achievements.perfectScore.name'),
-          description: t('common:achievements.perfectScore.description'),
-          icon: '💯',
-        });
-        setTimeout(() => setShowBadge(true), 1500);
-      }
-    }
-
-    // Badges: Bookworm (5 lectures) & Graduate (10 lectures)
-    const count = await countCompletedLectures(user.id);
-    const milestoneBadges = [
-      { name: 'Bookworm', threshold: 5, description: 'Complete 5 lectures', icon: '📚', i18nKey: 'bookworm' },
-      { name: 'Graduate', threshold: 10, description: 'Complete 10 lectures', icon: '🎓', i18nKey: 'graduate' },
-    ] as const;
-    for (const badge of milestoneBadges) {
-      if (count >= badge.threshold && !(await checkAchievementExists(user.id, badge.name))) {
-        await awardAchievement(user.id, { name: badge.name, description: badge.description, icon: badge.icon });
-        setBadgeInfo({
-          name: t(`common:achievements.${badge.i18nKey}.name`),
-          description: t(`common:achievements.${badge.i18nKey}.description`),
-          icon: badge.icon,
-        });
-        setTimeout(() => setShowBadge(true), 3000);
-      }
-    }
+    // A completion bonus (once per lecture) + the "First Quiz Completed" event
+    // badge. All threshold badges (First Steps, Bookworm, Graduate, Scholar,
+    // Perfect Score, Course Conqueror, …) are then swept server-side from the
+    // freshly-persisted progress. Popups/notifications are owned by the engine.
+    await gamification.grantXp(20, 'lecture_complete', `lecture:${lecture.id}`);
+    await gamification.awardBadge('First Quiz Completed');
+    gamification.evaluate();
 
     toast({
       title: t('lecture:toasts.lectureCompleteTitle'),
@@ -780,6 +723,7 @@ export default function LectureView() {
               onClick={() => navigate(role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME)}
               className="rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
               title={t('lecture:chrome.exitLecture')}
+              aria-label={t('lecture:chrome.exitLecture')}
             >
               <X className="w-5 h-5" />
             </Button>
@@ -840,7 +784,17 @@ export default function LectureView() {
             <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
               {/* Main content - Slide viewer */}
               <AnimatePresence mode="wait">
-                {currentSlide && (
+                {slides.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col items-center justify-center py-16 text-center glass-panel border-white/5 rounded-3xl p-8"
+                  >
+                    <BookOpen className="w-12 h-12 text-muted-foreground/45 mb-4" />
+                    <h2 className="text-xl font-bold text-foreground mb-2">{t('lecture:chrome.noSlidesTitle', { defaultValue: 'No slides available' })}</h2>
+                    <p className="text-sm text-muted-foreground max-w-sm">{t('lecture:chrome.noSlidesDescription', { defaultValue: 'This lecture does not contain any slide content yet.' })}</p>
+                  </motion.div>
+                ) : currentSlide ? (
                   <motion.div
                     key={`slide-${currentSlideIndex}`}
                     initial={{ opacity: 0, y: 20 }}
@@ -930,7 +884,7 @@ export default function LectureView() {
                       isRegeneratingContent={isRegeneratingContent}
                     />
                     </motion.div>
-                  )}
+                  ) : null}
                 </AnimatePresence>
 
               {/* Worksheets attached to this lecture (read-only for students) */}
@@ -1078,20 +1032,7 @@ export default function LectureView() {
             </div>
           </div>
 
-          {/* Modals */}
-          <LevelUpModal
-            isOpen={showLevelUp}
-            onClose={() => setShowLevelUp(false)}
-            newLevel={newLevel}
-          />
-
-          <BadgeEarnedModal
-            isOpen={showBadge}
-            onClose={() => setShowBadge(false)}
-            badgeName={badgeInfo.name}
-            badgeDescription={badgeInfo.description}
-            badgeIcon={badgeInfo.icon}
-          />
+          {/* Level-up / badge popups are rendered globally by GamificationProvider. */}
 
           </div> {/* End of scrollable center column */}
 

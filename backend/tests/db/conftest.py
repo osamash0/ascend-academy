@@ -72,18 +72,78 @@ def pg_dsn(pg_container) -> str:
 
 def _split_sql_statements(sql: str) -> list[str]:
     """
-    Split a SQL file on top-level semicolons while respecting $$...$$ blocks
-    (used by SECURITY DEFINER functions and DO blocks). psycopg can run
-    multi-statement strings, but splitting gives us much better error
-    messages — we can identify which statement failed in which file.
+    Split a SQL file on top-level semicolons.
+
+    A semicolon only separates statements when it is NOT inside a $$...$$
+    block (SECURITY DEFINER bodies / DO blocks), a ``--`` line comment, a
+    ``/* */`` block comment, or a ``'...'`` string literal. Splitting on a
+    semicolon inside any of those — e.g. a comment reading "...profile XP;
+    saves them..." — produces a bogus fragment and a misleading syntax
+    error, so we track each context explicitly.
+
+    Per-statement execution also matters functionally, not just for error
+    messages: a few migrations (e.g. ``ALTER TYPE ... ADD VALUE`` followed
+    by a policy that *uses* the new enum value) cannot run in one batch
+    transaction, and only succeed when each statement is its own autocommit
+    statement.
     """
     out: list[str] = []
     buf: list[str] = []
-    in_dollar = False
+    in_dollar = False        # inside $$ ... $$
+    in_line_comment = False  # inside -- ... \n
+    in_block_comment = False # inside /* ... */
+    in_squote = False        # inside '...'
     i = 0
-    while i < len(sql):
+    n = len(sql)
+    while i < n:
         ch = sql[i]
-        if sql.startswith("$$", i):
+        two = sql[i : i + 2]
+
+        if in_line_comment:
+            buf.append(ch)
+            if ch == "\n":
+                in_line_comment = False
+            i += 1
+            continue
+        if in_block_comment:
+            buf.append(ch)
+            if two == "*/":
+                buf.append(sql[i + 1])
+                in_block_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+        if in_squote:
+            buf.append(ch)
+            if ch == "'":
+                if sql[i + 1 : i + 2] == "'":  # escaped '' inside a literal
+                    buf.append("'")
+                    i += 2
+                    continue
+                in_squote = False
+            i += 1
+            continue
+
+        # Comment / string starts are only meaningful outside a $$ body.
+        if not in_dollar:
+            if two == "--":
+                in_line_comment = True
+                buf.append(two)
+                i += 2
+                continue
+            if two == "/*":
+                in_block_comment = True
+                buf.append(two)
+                i += 2
+                continue
+            if ch == "'":
+                in_squote = True
+                buf.append(ch)
+                i += 1
+                continue
+
+        if two == "$$":
             in_dollar = not in_dollar
             buf.append("$$")
             i += 2

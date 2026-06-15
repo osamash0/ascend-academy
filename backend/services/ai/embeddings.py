@@ -80,19 +80,12 @@ def _sync_generate_embeddings(text: str) -> List[float]:
 async def generate_embeddings(text: str) -> List[float]:
     """Asynchronous wrapper for embedding generation.
 
-    Returns an empty list on failure so callers can decide whether to retry
-    or skip embedding without crashing the parse pipeline.  The real error
-    is logged inside ``_sync_generate_embeddings``.
+    Propagates exceptions to the caller so they can be handled, logged,
+    and queued for retries appropriately.
     """
     if not text.strip():
         return [0.0] * EMBEDDING_DIMS
-    try:
-        return await asyncio.to_thread(_sync_generate_embeddings, text)
-    except Exception as exc:
-        logger.error(
-            "generate_embeddings failed (slide will be stored without vector): %s", exc
-        )
-        return []
+    return await asyncio.to_thread(_sync_generate_embeddings, text)
 
 
 async def batch_generate_embeddings(
@@ -109,7 +102,11 @@ async def batch_generate_embeddings(
 
     async def _one(t: str) -> List[float]:
         async with sem:
-            return await generate_embeddings(t)
+            try:
+                return await generate_embeddings(t)
+            except Exception as exc:
+                logger.error("Batch generate_embeddings failed for text slot: %s", exc)
+                return []
 
     return await asyncio.gather(*(_one(t) for t in texts))
 

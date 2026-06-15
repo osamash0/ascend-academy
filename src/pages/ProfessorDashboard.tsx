@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, BookOpen, TrendingUp, BarChart3, Plus, Eye, Settings, 
   Trash2, Sparkles, Activity, GraduationCap, ChevronRight, 
-  MoreHorizontal, Filter, ArrowRight, Archive
+  MoreHorizontal, Filter, ArrowRight, Archive, X
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,6 +37,7 @@ export default function ProfessorDashboard() {
   const { toast } = useToast();
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [isError, setIsError] = useState(false);
   useEffect(() => {
     listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
   }, []);
@@ -61,7 +62,7 @@ export default function ProfessorDashboard() {
       } else {
         await archiveLectureService(lecture.id);
         setLectures((prevList) => prevList.filter((l) => l.id !== lecture.id));
-        toast({ title: 'Lecture removed and archived' });
+        toast({ title: t('professor:lectures.removedAndArchived', { defaultValue: 'Lecture removed and archived' }) });
       }
     } catch (err) {
       toast({ title: t('professor:lectures.courseUpdateFailed'), description: String(err), variant: 'destructive' });
@@ -81,45 +82,52 @@ export default function ProfessorDashboard() {
 
   const fetchData = async () => {
     setLoading(true);
+    setIsError(false);
+    try {
+      // Fetch the professor's own lectures first so we can scope progress queries.
+      const { data: lecturesData, error: lecturesError } = await supabase
+        .from('lectures')
+        .select('id, title, description, total_slides, created_at, pdf_url, course_id')
+        .eq('professor_id', user?.id)
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false })
+        .limit(200);
 
-    // Fetch the professor's own lectures first so we can scope progress queries.
-    const { data: lecturesData } = await supabase
-      .from('lectures')
-      .select('id, title, description, total_slides, created_at, pdf_url, course_id')
-      .eq('professor_id', user?.id)
-      .eq('is_archived', false)
-      .order('created_at', { ascending: false })
-      .limit(200);
+      if (lecturesError) throw lecturesError;
 
-    const ownLectureIds = (lecturesData ?? []).map(l => l.id);
+      const ownLectureIds = (lecturesData ?? []).map(l => l.id);
 
-    // Only fetch student progress for lectures this professor owns.
-    // RLS now enforces this server-side as well, but we also filter explicitly
-    // so the query intent is clear and does not rely solely on policy enforcement.
-    const { data: progressData } = ownLectureIds.length > 0
-      ? await supabase
-          .from('student_progress')
-          .select('user_id, quiz_score, total_questions_answered, correct_answers')
-          .in('lecture_id', ownLectureIds)
-          .limit(2000)
-      : { data: [] };
+      // Only fetch student progress for lectures this professor owns.
+      const { data: progressData, error: progressError } = ownLectureIds.length > 0
+        ? await supabase
+            .from('student_progress')
+            .select('user_id, quiz_score, total_questions_answered, correct_answers')
+            .in('lecture_id', ownLectureIds)
+            .limit(2000)
+        : { data: [], error: null };
 
-    if (lecturesData) setLectures(lecturesData);
+      if (progressError) throw progressError;
 
-    if (progressData) {
-      const uniqueStudents = new Set(progressData.map(p => p.user_id));
-      const totalAttempts = progressData.reduce((sum: number, p: any) => sum + (p.total_questions_answered || 0), 0);
-      const totalCorrect = progressData.reduce((sum: number, p: any) => sum + (p.correct_answers || 0), 0);
-      const avgScore = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+      if (lecturesData) setLectures(lecturesData);
 
-      setStats({
-        totalStudents: uniqueStudents.size,
-        averageScore: avgScore,
-        totalQuizAttempts: totalAttempts,
-      });
+      if (progressData) {
+        const uniqueStudents = new Set(progressData.map(p => p.user_id));
+        const totalAttempts = progressData.reduce((sum: number, p: any) => sum + (p.total_questions_answered || 0), 0);
+        const totalCorrect = progressData.reduce((sum: number, p: any) => sum + (p.correct_answers || 0), 0);
+        const avgScore = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+
+        setStats({
+          totalStudents: uniqueStudents.size,
+          averageScore: avgScore,
+          totalQuizAttempts: totalAttempts,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load professor dashboard data:', err);
+      setIsError(true);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const deleteLecture = async (lectureId: string) => {
@@ -136,12 +144,12 @@ export default function ProfessorDashboard() {
   };
 
   const handleArchiveLecture = async (lectureId: string, title: string) => {
-    if (!window.confirm(`Archive lecture "${title}"? It will be hidden from students and your active dashboard. You can restore it anytime from the Archive.`)) return;
+    if (!window.confirm(t('professor:lectures.archiveConfirm', { title, defaultValue: `Archive lecture "${title}"? It will be hidden from students and your active dashboard. You can restore it anytime from the Archive.` }))) return;
 
     try {
       await archiveLectureService(lectureId);
       setLectures(prev => prev.filter(l => l.id !== lectureId));
-      toast({ title: 'Lecture archived', description: `Successfully archived "${title}".` });
+      toast({ title: t('professor:toasts.lectureArchived', { defaultValue: 'Lecture archived' }), description: t('professor:toasts.lectureArchivedDesc', { title, defaultValue: `Successfully archived "${title}".` }) });
     } catch (err) {
       console.error(err);
       toast({ title: t('common:status.error'), description: 'Failed to archive lecture.', variant: 'destructive' });
@@ -168,6 +176,25 @@ export default function ProfessorDashboard() {
             ))}
           </div>
           <div className="h-96 rounded-[2rem] bg-white/[0.04] animate-pulse" />
+        </div>
+      </DepthScene>
+    );
+  }
+
+  if (isError) {
+    return (
+      <DepthScene status="progress" gradientIndex={0}>
+        <div className="console-bg/0 relative min-h-screen flex items-center justify-center p-6 lg:p-12">
+          <div className="max-w-md w-full bg-card/40 border border-destructive/20 rounded-3xl p-8 text-center glass-panel backdrop-blur">
+            <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-5 text-destructive">
+              <X className="w-6 h-6" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">{t('professor:errorTitle', { defaultValue: 'Failed to load dashboard' })}</h2>
+            <p className="text-sm text-muted-foreground mb-6">{t('professor:errorDescription', { defaultValue: 'There was an issue fetching your lectures. Please try again.' })}</p>
+            <Button onClick={fetchData} className="w-full rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold h-12">
+              {t('professor:retryButton', { defaultValue: 'Retry connection' })}
+            </Button>
+          </div>
         </div>
       </DepthScene>
     );
@@ -258,8 +285,8 @@ export default function ProfessorDashboard() {
                 <BarChart3 className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-foreground tracking-tight">Dashboard Overview</h2>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-1 opacity-60">Aggregate Statistics</p>
+                <h2 className="text-2xl font-black text-foreground tracking-tight">{t('professor:dashboardOverview', { defaultValue: 'Dashboard Overview' })}</h2>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-1 opacity-60">{t('professor:aggregateStats', { defaultValue: 'Aggregate Statistics' })}</p>
               </div>
             </div>
             <Button variant="ghost" className="rounded-xl glass-card border-white/5 font-black uppercase text-[10px] tracking-widest h-10 px-6 hover:bg-primary/10 hover:text-primary transition-all" onClick={() => navigate('/professor/analytics')}>

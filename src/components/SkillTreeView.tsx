@@ -88,6 +88,9 @@ function buildLayout(tree: SkillNodeData) {
 
     const lectures = (course.children ?? []).filter(n => n.kind === 'lecture');
 
+    let prevLecX = cx;
+    let prevLecY = cy;
+
     lectures.forEach((lec, li) => {
       const col    = li % GRID_COLS;                          // 0 1 2 0 1 2 …
       const row    = Math.floor(li / GRID_COLS) + 1;         // 1 1 1 2 2 2 …
@@ -100,12 +103,10 @@ function buildLayout(tree: SkillNodeData) {
       placed.push({ node: lec, x: lx, y: ly, r: RADII.lecture });
 
       /* Connect sequentially so the "path" meaning is preserved */
-      if (li === 0) {
-        edges.push({ id: `el-${lec.id}`, sx: cx, sy: cy, tx: lx, ty: ly, state: lec.state });
-      } else {
-        const prev = placed[placed.length - 2]; // previous lecture placed
-        edges.push({ id: `el-${lec.id}`, sx: prev.x, sy: prev.y, tx: lx, ty: ly, state: lec.state });
-      }
+      edges.push({ id: `el-${lec.id}`, sx: prevLecX, sy: prevLecY, tx: lx, ty: ly, state: lec.state });
+
+      prevLecX = lx;
+      prevLecY = ly;
 
       /* Concepts: branch diagonally from this lecture */
       (lec.children ?? []).slice(0, 4).forEach((c, ki) => {

@@ -233,6 +233,7 @@ export default function Auth() {
                     key={role}
                     type="button"
                     onClick={() => setSelectedRole(role)}
+                    aria-pressed={selectedRole === role}
                     className={`p-6 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-3 ${selectedRole === role
                       ? 'border-primary bg-primary/5 shadow-glow-primary/10'
                       : 'border-white/5 bg-white/2 hover:border-white/10'
@@ -300,6 +301,7 @@ export default function Auth() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   tabIndex={-1}
+                  aria-label={showPassword ? t('auth:fields.hidePasswordText', { defaultValue: 'Hide input text' }) : t('auth:fields.showPasswordText', { defaultValue: 'Show input text' })}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>

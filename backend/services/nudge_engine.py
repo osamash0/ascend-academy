@@ -276,14 +276,15 @@ def _parse_ts(raw: Any) -> Optional[datetime]:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def _load_active_user_ids(client=None, since_days: int = 30) -> List[str]:
+def _load_active_user_ids(client=None, since_days: int = 30, now: Optional[datetime] = None) -> List[str]:
     """Return user_ids that have been active in the last `since_days` days.
 
     The runner skips dormant accounts so we don't pump notifications into
     abandoned profiles.
     """
     cli = client or supabase_admin
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=since_days)).isoformat()
+    now = now or datetime.now(timezone.utc)
+    cutoff = (now - timedelta(days=since_days)).isoformat()
     try:
         rows = (
             cli.table("learning_events")
@@ -355,6 +356,7 @@ def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
                 lecture_ids=lec_ids,
                 due_at=due_at,
                 min_quiz_score=a.get("min_quiz_score"),
+                now=now,
             )
             assignments.append({**a, "status": status.get("status")})
 
@@ -468,7 +470,7 @@ def run_daily(
     now = now or datetime.now(timezone.utc)
     cli = client or supabase_admin
 
-    user_ids = _load_active_user_ids(client=cli)
+    user_ids = _load_active_user_ids(client=cli, now=now)
     emitted = 0
     users_with_nudge = 0
     for uid in user_ids:

@@ -3,6 +3,7 @@ import { render, RenderOptions } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
 
 interface Options extends Omit<RenderOptions, "wrapper"> {
   initialEntries?: string[];
@@ -28,7 +29,9 @@ function AllProviders({
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={initialEntries ?? ["/"]}>
         <ThemeProvider attribute="class" defaultTheme="light">
-          {children}
+          <GamificationProvider>
+            {children}
+          </GamificationProvider>
         </ThemeProvider>
       </MemoryRouter>
     </QueryClientProvider>

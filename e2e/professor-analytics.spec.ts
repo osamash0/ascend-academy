@@ -15,12 +15,14 @@ import { mockSupabase, loginAs, PROFESSOR } from "./helpers/supabase-mocks";
  */
 test.describe("Professor analytics", () => {
   test("open lecture analytics → all 4 panels render", async ({ page }) => {
-    const lectureId = "test-lecture-id";
+    const lectureId = "00000000-0000-0000-0000-000000000009";
     const lecture = {
       id: lectureId,
       title: "Astrocartography Module",
       description: "Mapping student trajectories.",
       total_slides: 3,
+      professor_id: PROFESSOR.id,
+      is_archived: false,
       created_at: new Date().toISOString(),
     };
 
@@ -138,7 +140,7 @@ test.describe("Professor analytics", () => {
 
     // ─── Log in, then jump straight to the per-lecture analytics view ──────
     await loginAs(page, PROFESSOR, /\/professor\/dashboard/);
-    await page.goto(`/professor/analytics/${lectureId}`);
+    await page.goto(`/professor/analytics/${lectureId}/advanced`);
 
     // Page header (lecture title rendered as <h1>).
     await expect(

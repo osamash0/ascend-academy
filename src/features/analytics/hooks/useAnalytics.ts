@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/apiClient';
-import { getProfessorOverview, type ProfessorOverview } from '@/services/analyticsService';
+import { getProfessorOverview, getDashboardData, type ProfessorOverview } from '@/services/analyticsService';
 
 export function useProfessorOverview(courseId: string | null, days = 7) {
   return useQuery<ProfessorOverview>({
@@ -22,8 +21,7 @@ export function useAnalytics(lectureId: string | null) {
     queryKey: ['analytics', 'dashboard', lectureId],
     queryFn: async () => {
       if (!lectureId) return null;
-      const json = await apiClient.get<{ data: unknown }>(`/api/analytics/lecture/${lectureId}/dashboard`);
-      return json.data;
+      return getDashboardData(lectureId);
     },
     enabled: !!lectureId,
     retry: (failureCount, error: unknown) => {

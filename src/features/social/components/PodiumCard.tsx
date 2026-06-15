@@ -13,7 +13,7 @@ interface PodiumCardProps {
 
 const rankStyles = {
   1: {
-    height: "h-[340px]",
+    height: "h-[376px]",
     yOffset: "-translate-y-8",
     trophyColor: "text-yellow-400",
     glow: "shadow-[0_0_40px_rgba(250,204,21,0.15)]",

@@ -224,6 +224,7 @@ export interface SupabaseMock {
     onAuthStateChange: ReturnType<typeof vi.fn>;
     resetPasswordForEmail: ReturnType<typeof vi.fn>;
   };
+  rpc: ReturnType<typeof vi.fn>;
   storage: {
     from: ReturnType<typeof vi.fn>;
   };
@@ -240,6 +241,12 @@ export function createSupabaseMock(): SupabaseMock {
     seed(table, rows) {
       data[table] = { rows: rows.map((r) => ({ ...r })) };
     },
+    rpc: vi.fn().mockImplementation((name: string, args?: Record<string, unknown>) => {
+      if (name === "evaluate_badges") {
+        return Promise.resolve({ data: [], error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    }),
     auth: {
       getSession: vi
         .fn()
