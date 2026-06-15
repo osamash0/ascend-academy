@@ -18,6 +18,7 @@ from backend.services.parser import repos
 from backend.domain.parse_models import RunStatus
 from backend.services.pdf_reader import PDFReader
 from backend.services.ai.orchestrator import generate_text_bulk, parse_json_response
+from backend.services.file_parse_service import _safe_embedding_task
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,6 @@ async def parse_pdf_v4(
     odl_pages: Optional[Dict[int, dict]] = None,
     parser_used: str = "v4",
 ) -> str:
-    ai_model = "openai"  # Force OpenAI for testing as requested by user
     lecture_uuid = UUID(lecture_id) if lecture_id else None
 
     redis_client = None
@@ -170,16 +170,18 @@ async def parse_pdf_v4(
         # Analyze Slides sequentially to maintain narrative flow
         final_slides = []
         previous_narrative = ""
-        
+        _embed_failed_queue: list = []
+        _embed_sem = asyncio.Semaphore(3)
+
         for i, text in enumerate(raw_slides):
             slide_num = i + 1
             # Pass previous narrative as context if available
             context_with_prev = lecture_context
             if previous_narrative:
                 context_with_prev += f"\n\nIn the previous slide, you explained: {previous_narrative}"
-                
+
             await emit("progress", {"current": i, "total": total, "message": f"Analyzing slide {slide_num}/{total}..."})
-            
+
             try:
                 result = await analyze_slide(slide_num, text, context_with_prev, ai_model)
                 previous_narrative = result.get("aiInsight", "")
@@ -187,48 +189,31 @@ async def parse_pdf_v4(
             except Exception as e:
                 logger.error(f"Failed to analyze slide {slide_num}: {e}")
                 slide_data = {"title": f"Slide {slide_num}", "slideType": "text", "aiInsight": "", "contextNote": "", "content": text}
-                previous_narrative = "" # Reset on failure
-            
+                previous_narrative = ""  # Reset on failure
+
             final_slides.append(slide_data)
-            
+
             # Map back to v3 format for frontend compatibility
             ui_slide = {
                 "title": slide_data.get("title", f"Slide {slide_num}"),
                 "content": slide_data.get("content", ""),
                 "summary": slide_data.get("aiInsight", ""),
                 "slide_type": slide_data.get("slideType", "text"),
-                "questions": [], # Will fill from quiz generation if any
+                "questions": [],
             }
             await emit("slide", {"index": i, "slide": ui_slide})
-            await emit("progress", {"current": i+1, "total": total, "message": f"Analyzed {i+1}/{total} slides"})
+            await emit("progress", {"current": i + 1, "total": total, "message": f"Analyzed {i + 1}/{total} slides"})
+
+            # Generate and store slide embedding for RAG/tutor
+            asyncio.create_task(
+                _safe_embedding_task(i, ui_slide, pdf_hash, _embed_failed_queue, _embed_sem)
+            )
 
         # Generate Quiz Questions
         await emit("progress", {"current": total, "total": total, "message": "Generating quiz questions..."})
         quiz_questions = await generate_quiz_questions(raw_slides, lecture_title, ai_model)
         
-        # Attach questions to slides
-        for q in quiz_questions:
-            slide_id = q.get("slideId")
-            if isinstance(slide_id, int) and 1 <= slide_id <= total:
-                # Map to standard format
-                # correctAnswer is string (exact match of option) in Replit, UI expects index or letter
-                options = q.get("options", ["", "", "", ""])
-                ans_str = q.get("correctAnswer", "")
-                ans_idx = 0
-                if ans_str in options:
-                    ans_idx = options.index(ans_str)
-                
-                q_mapped = {
-                    "question": q.get("question", ""),
-                    "options": options,
-                    "correctAnswer": ans_idx,
-                    "explanation": q.get("explanation", ""),
-                    "difficulty": q.get("difficulty", "medium")
-                }
-                # Broadcast an update or just save to DB? The UI expects questions in the slide object.
-                # In v3, questions were sent with the slide event. Since we generated them after,
-                # we can send a deck_complete with the quiz, or just let them be loaded later.
-                # Replit generated them separately.
+
         
         await emit("phase", {"phase": "finalize"})
         
