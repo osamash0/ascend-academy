@@ -42,6 +42,7 @@ from backend.services.ai.orchestrator import (
 )
 from backend.services.cache import store_cached_parse
 from backend.services.file_parse_service import _safe_embedding_task
+from backend.services.ai.quiz_validator import _normalize_answer_index
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,48 @@ Generate 5-8 diverse, well-formed multiple choice questions covering key concept
     raw = await generate_text_bulk(prompt, ai_model=ai_model)
     res = parse_json_response(raw)
     return res if isinstance(res, list) else []
+
+
+def _map_deck_quiz(quiz_questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Map raw LLM quiz dicts to the stored/SSE deck-quiz shape.
+
+    The correct-answer index is resolved with the shared quiz validator
+    (handles answer given as option text, letter, or index). A question whose
+    answer can't be matched to an option is DROPPED (and logged) rather than
+    silently defaulted to option A — shipping a wrong answer key to students
+    is worse than shipping fewer questions.
+    """
+    mapped: List[Dict[str, Any]] = []
+    dropped = 0
+    for q in quiz_questions:
+        options = q.get("options", ["", "", "", ""])
+        ans_idx = _normalize_answer_index(q)
+        if ans_idx is None:
+            dropped += 1
+            logger.warning(
+                "V4 quiz: dropping question with unresolvable correctAnswer=%r (options=%r)",
+                q.get("correctAnswer"), options,
+            )
+            continue
+        # slideId is 1-based from LLM; frontend/embeddings use 0-based index
+        try:
+            slide_id_0 = max(0, int(q.get("slideId", 1)) - 1)
+        except (TypeError, ValueError):
+            slide_id_0 = 0
+        mapped.append({
+            "question": q.get("question", ""),
+            "options": options,
+            "correctAnswer": ans_idx,
+            "explanation": q.get("explanation", ""),
+            "concept": q.get("difficulty", ""),
+            "linked_slides": [slide_id_0],
+        })
+    if dropped:
+        logger.warning(
+            "V4 quiz: dropped %d of %d questions with unresolvable answers",
+            dropped, len(quiz_questions),
+        )
+    return mapped
 
 
 # ---------------------------------------------------------------------------
@@ -307,21 +350,7 @@ async def parse_pdf_v4(
 
         await emit("phase", {"phase": "finalize"})
 
-        deck_quiz_mapped: List[Dict[str, Any]] = []
-        for q in quiz_questions:
-            options = q.get("options", ["", "", "", ""])
-            ans_str = q.get("correctAnswer", "")
-            ans_idx = options.index(ans_str) if ans_str in options else 0
-            # slideId is 1-based from LLM; frontend/embeddings use 0-based index
-            slide_id_0 = max(0, int(q.get("slideId", 1)) - 1)
-            deck_quiz_mapped.append({
-                "question": q.get("question", ""),
-                "options": options,
-                "correctAnswer": ans_idx,
-                "explanation": q.get("explanation", ""),
-                "concept": q.get("difficulty", ""),
-                "linked_slides": [slide_id_0],
-            })
+        deck_quiz_mapped = _map_deck_quiz(quiz_questions)
 
         await emit("deck_complete", {
             "deck_summary": lecture_summary,

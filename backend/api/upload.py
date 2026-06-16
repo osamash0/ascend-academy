@@ -295,7 +295,16 @@ async def parse_pdf_stream_endpoint(
                 yield f"data: {json.dumps({'type': 'slide', 'index': i, 'slide': s})}\n\n"
 
             yield f"data: {json.dumps({'type': 'phase', 'phase': 'finalize'})}\n\n"
-            deck = cached.get("deck", {})
+            # Cache payloads come in two shapes: the v2/sync writers nest the
+            # deck fields under "deck"; the v4 Arq orchestrator stores
+            # deck_summary/deck_quiz at the top level. Tolerate both so a v4
+            # cache hit doesn't silently drop the deck summary and quiz.
+            deck = cached.get("deck")
+            if not deck:
+                deck = {
+                    "deck_summary": cached.get("deck_summary", ""),
+                    "deck_quiz": cached.get("deck_quiz", []),
+                }
             yield f"data: {json.dumps({'type': 'deck_complete', **deck, 'total_slides': total})}\n\n"
             yield f"data: {json.dumps({'type': 'complete', 'total': total})}\n\n"
 

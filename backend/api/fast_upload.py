@@ -226,10 +226,16 @@ async def process_upload_isolated(run_id: str, pdf_hash: str, filename: str, con
 
         # Generate Quiz
         quizzes = await generate_quiz_questions_fast(inserted_slides, lecture_meta.get("title", ""))
+        from backend.services.ai.quiz_validator import _normalize_answer_index
         for q in quizzes:
             options = q.get("options", [])
-            correct_text = q.get("correctAnswer", "")
-            correct_idx = options.index(correct_text) if correct_text in options else 0
+            correct_idx = _normalize_answer_index(q)
+            if correct_idx is None:
+                logger.warning(
+                    "fast_upload quiz: dropping question with unresolvable correctAnswer=%r",
+                    q.get("correctAnswer"),
+                )
+                continue
             
             target_slide_obj = inserted_slides[0]["dbIdObj"]
             if q.get("slideId"):
