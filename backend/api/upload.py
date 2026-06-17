@@ -360,8 +360,108 @@ async def parse_pdf_stream_endpoint(
             logger.error("ODL extraction failed (explicit): %s", e)
             raise HTTPException(422, detail=f"OpenDataLoader extraction failed: {e}. Try 'auto' or 'pymupdf'.")
 
-    # ── v4 pipeline branch ────────────────────────────────────────────────────
     from backend.core.config import settings as _cfg
+
+    # ── Unified pipeline branch (PARSER_VERSION=5) ─────────────────────────────
+    # Server-authoritative: parse_pdf_unified creates the lecture + persists
+    # slides/quizzes itself and emits the lecture_id on the `meta` event.
+    # Additive — inert at PARSER_VERSION=4 unless `parser=unified` is requested.
+    if parser == "unified" or (
+        parser in ("auto", "llamaparse", "mineru", "opendataloader")
+        and str(_cfg.parser_version) == "5"
+    ):
+        import uuid
+        run_id = str(uuid.uuid4())
+        await _upload_pdf_to_storage(pdf_hash, content)
+        unified_parser_label = parser_used if odl_succeeded else "unified"
+
+        use_arq = True
+        try:
+            pool = await _get_arq_pool()
+            await pool.enqueue_job(
+                "parse_pdf_unified",
+                pdf_hash=pdf_hash,
+                lecture_id="",          # unified creates + owns the lecture
+                run_id=run_id,
+                ai_model=ai_model,
+                user_id=str(user_id),
+                filename=filename,
+                odl_pages=odl_pages,
+                parser_used=unified_parser_label,
+            )
+        except Exception as e:
+            logger.warning("Redis connection failed, running unified synchronously: %s", e)
+            use_arq = False
+
+        if use_arq:
+            async def _unified_sse_stream():
+                import redis.asyncio as aioredis
+                redis_client = aioredis.from_url(_cfg.redis_url, decode_responses=True)
+                channel = f"parse:{pdf_hash}"
+                try:
+                    async with redis_client.pubsub() as pubsub:
+                        await pubsub.subscribe(channel)
+                        async for message in pubsub.listen():
+                            if message.get("type") != "message":
+                                continue
+                            try:
+                                event = json.loads(message["data"])
+                                yield f"data: {json.dumps(event)}\n\n"
+                                if event.get("type") in ("complete", "error"):
+                                    break
+                            except Exception:
+                                continue
+                finally:
+                    await redis_client.aclose()
+
+            return StreamingResponse(
+                _unified_sse_stream(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+        else:
+            async def _sync_unified_stream():
+                q = asyncio.Queue()
+
+                async def emit_fn(event_type: str, data: dict):
+                    await q.put({"type": event_type, **data})
+
+                from backend.services.parser.unified_orchestrator import parse_pdf_unified
+
+                task = asyncio.create_task(parse_pdf_unified(
+                    ctx={},
+                    pdf_hash=pdf_hash,
+                    lecture_id="",
+                    run_id=run_id,
+                    ai_model=ai_model,
+                    user_id=str(user_id),
+                    filename=filename,
+                    emit_fn=emit_fn,
+                    odl_pages=odl_pages,
+                    parser_used=unified_parser_label,
+                ))
+
+                while True:
+                    try:
+                        event = await asyncio.wait_for(q.get(), timeout=1.0)
+                        yield f"data: {json.dumps(event)}\n\n"
+                        if event.get("type") in ("complete", "error"):
+                            break
+                    except asyncio.TimeoutError:
+                        if task.done():
+                            if task.exception():
+                                logger.error("Sync unified parser failed: %s", task.exception())
+                                yield f"data: {json.dumps({'type': 'error', 'message': str(task.exception())})}\n\n"
+                            break
+                        continue
+
+            return StreamingResponse(
+                _sync_unified_stream(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+
+    # ── v4 pipeline branch ────────────────────────────────────────────────────
     if parser in ("v4", "llamaparse", "mineru", "opendataloader") or (parser == "auto" and str(_cfg.parser_version) == "4"):
         import uuid
         run_id = str(uuid.uuid4())

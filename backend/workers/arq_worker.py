@@ -14,6 +14,7 @@ from arq.connections import RedisSettings
 from backend.core.config import settings
 from backend.services.parser.orchestrator import parse_pdf
 from backend.services.parser.v4_orchestrator import parse_pdf_v4
+from backend.services.parser.unified_orchestrator import parse_pdf_unified
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [parse_pdf, parse_pdf_v4]
+    functions = [parse_pdf, parse_pdf_v4, parse_pdf_unified]
     on_startup = startup
     on_shutdown = shutdown
 
