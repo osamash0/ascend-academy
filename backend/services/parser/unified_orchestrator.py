@@ -26,6 +26,7 @@ lecture. Per-page resume is inherited from v2's `slide_parse_cache` checkpoint.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -50,6 +51,32 @@ def _clean_title(filename: str) -> str:
     if base.lower().endswith(".pdf"):
         base = base[:-4]
     return base.strip() or "Untitled Lecture"
+
+
+async def _store_lecture_pdf(lecture_id: UUID, filename: str, pdf_bytes: bytes) -> Optional[str]:
+    """Upload the source PDF to the lecture-pdfs bucket at the path the lecture
+    viewer resolves (``lectures/{id}/{name}``) and return that storage path.
+
+    Non-fatal: on failure the lecture simply has no source PDF (pdf_url stays
+    NULL → viewer shows "No source PDF" rather than a broken render).
+    """
+    name = os.path.basename(filename or "lecture.pdf") or "lecture.pdf"
+    path = f"lectures/{lecture_id}/{name}"
+
+    def _upload() -> None:
+        from backend.core.database import get_client
+        sb = get_client(use_admin=True)
+        sb.storage.from_("lecture-pdfs").upload(
+            path, pdf_bytes,
+            file_options={"content-type": "application/pdf", "upsert": "true"},
+        )
+
+    try:
+        await asyncio.to_thread(_upload)
+        return path
+    except Exception as exc:
+        logger.warning("lecture PDF storage upload failed (non-fatal): %s", exc)
+        return None
 
 
 async def parse_pdf_unified(
@@ -160,6 +187,11 @@ async def parse_pdf_unified(
                         pdf_hash=pdf_hash,
                     )
                     await persist.set_run_lecture(run_uuid, created_lecture_id)
+                # Store the source PDF in the bucket the lecture viewer reads
+                # (lecture-pdfs) so "Original Source Material" renders. Non-fatal.
+                pdf_path = await _store_lecture_pdf(created_lecture_id, filename, pdf_bytes)
+                if pdf_path:
+                    await persist.set_lecture_pdf_url(created_lecture_id, pdf_path)
                 await emit("meta", {"pdf_hash": pdf_hash, "lecture_id": str(created_lecture_id)})
 
             elif etype == "slide":

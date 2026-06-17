@@ -64,6 +64,9 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
   const [processedSlides, setProcessedSlides] = useState<SlideData[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfHash, setPdfHash] = useState<string | null>(null);
+  // Set from the `meta` SSE event when the unified server pipeline
+  // (PARSER_VERSION=5) has already created the lecture server-side.
+  const [serverLectureId, setServerLectureId] = useState<string | null>(null);
   const [parserUsed, setParserUsed] = useState<string | null>(null);
   const [parsePhase, setParsePhase] = useState<'extract' | 'enhance' | 'finalize' | null>(null);
   // Authoritative completion signal — set only when the backend SSE
@@ -99,6 +102,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
       setParsePhase(null);
       setParseCompleted(false);
       setPdfHash(opts.precomputedHash ?? null);
+      setServerLectureId(null);
       setDeckQuiz([]);
 
       const formData = new FormData();
@@ -157,6 +161,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
               }
             } else if (data.type === 'meta') {
               if (data.pdf_hash) setPdfHash(data.pdf_hash);
+              if (data.lecture_id) setServerLectureId(data.lecture_id);
             } else if (data.type === 'progress') {
               const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
               setUploadProgress(pct);
@@ -435,6 +440,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
     processedSlides,
     pdfFile,
     pdfHash,
+    serverLectureId,
     parserUsed,
     parsePhase,
     parseCompleted,

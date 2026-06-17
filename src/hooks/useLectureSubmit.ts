@@ -29,11 +29,18 @@ interface UseLectureSubmitOptions {
    * Defaults to 'ai' for backward compatibility.
    */
   parsingMode?: 'ai' | 'on_demand';
+  /**
+   * When set, the unified server pipeline (PARSER_VERSION=5) already created
+   * the lecture + slides + quizzes + embeddings during parsing. Save then only
+   * applies the professor's metadata edits (title/description/course) to that
+   * existing lecture instead of inserting everything client-side.
+   */
+  serverLectureId?: string | null;
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode = 'ai' }: UseLectureSubmitOptions) {
+export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode = 'ai', serverLectureId }: UseLectureSubmitOptions) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -48,6 +55,38 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
 
       if (slides.length === 0) {
         toast({ title: 'Error', description: 'Add at least one slide.', variant: 'destructive' });
+        return;
+      }
+
+      // Unified pipeline (PARSER_VERSION=5): the server already persisted the
+      // lecture, slides, quizzes and embeddings during parsing. Save only
+      // applies the professor's metadata edits to that existing lecture
+      // (slide-level edits are made afterwards in the lecture editor).
+      if (serverLectureId) {
+        setLoading(true);
+        try {
+          const { error } = await supabase
+            .from('lectures')
+            .update({ title, description, course_id: courseId ?? null })
+            .eq('id', serverLectureId);
+          if (error) throw error;
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            fetch(`${API_BASE}/api/concepts/ingest/${serverLectureId}`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${session?.access_token}` },
+            }).catch(() => { /* swallow */ });
+          } catch (e) {
+            console.warn('Failed to schedule concept ingestion (non-fatal):', e);
+          }
+          toast({ title: 'Success!', description: 'Lecture created successfully.' });
+          navigate('/professor/dashboard');
+        } catch (error) {
+          console.error('Error saving lecture:', error);
+          toast({ title: 'Error', description: 'Failed to save lecture. Please try again.', variant: 'destructive' });
+        } finally {
+          setLoading(false);
+        }
         return;
       }
 
@@ -207,7 +246,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         setLoading(false);
       }
     },
-    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, user, navigate, toast]
+    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, serverLectureId, user, navigate, toast]
   );
 
   return { loading, handleSubmit };

@@ -344,7 +344,7 @@ export default function LectureUpload() {
   const {
     isUploading, setIsUploading,
     uploadProgress, uploadTotal, uploadStatus,
-    processedSlides, pdfFile, pdfHash, parserUsed, parsePhase, parseCompleted,
+    processedSlides, pdfFile, pdfHash, serverLectureId, parserUsed, parsePhase, parseCompleted,
     deckQuiz,
     handleFileUpload,
     startUpload,
@@ -601,7 +601,7 @@ export default function LectureUpload() {
     }
   }, [suggestedQuizzes, updateSlide, setSuggestedQuizzes, toast]);
 
-  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode });
+  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, serverLectureId });
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];

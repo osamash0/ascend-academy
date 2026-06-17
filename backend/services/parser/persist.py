@@ -67,10 +67,15 @@ async def create_lecture(
         lecture_id,
         title,
         professor_id,
-        pdf_url or f"{pdf_hash}.pdf",
+        pdf_url,  # NULL initially; set to the lecture-pdfs path after upload
         pdf_hash,
     )
     return lecture_id
+
+
+async def set_lecture_pdf_url(lecture_id: UUID, pdf_url: str) -> None:
+    """Set the lecture's source-PDF storage path (resolved by the viewer)."""
+    await _execute("UPDATE lectures SET pdf_url = $1 WHERE id = $2", pdf_url, lecture_id)
 
 
 async def finalize_lecture(lecture_id: UUID, description: str, total_slides: int) -> None:

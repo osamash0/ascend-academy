@@ -113,7 +113,8 @@ def _fake_engine_events(pdf_hash="h"):
 def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None):
     """Patch repos + storage + persist + cache; return a recorder dict."""
     rec = {"status": [], "errors": [], "lectures": [], "slides": [], "slide_quiz": [],
-           "deck_quiz": [], "finalize": [], "attach": [], "run_lecture": [], "cleared": []}
+           "deck_quiz": [], "finalize": [], "attach": [], "run_lecture": [], "cleared": [],
+           "pdf": []}
     run = types.SimpleNamespace(run_id=uuid4(), status=run_status, lecture_id=lecture_id)
 
     async def get_or_create_run(pdf_hash, lid, ver):
@@ -139,6 +140,13 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None):
     async def clear_lecture_content(lid):
         rec["cleared"].append(lid)
 
+    async def store_pdf(lecture_id, filename, pdf_bytes):
+        rec["pdf"].append(("stored", lecture_id))
+        return f"lectures/{lecture_id}/x.pdf"
+
+    async def set_lecture_pdf_url(lid, url):
+        rec["pdf"].append(("url", lid, url))
+
     async def insert_slide(lecture_id, idx, slide):
         sid = uuid4()
         rec["slides"].append((idx, slide.get("title")))
@@ -162,6 +170,8 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None):
     monkeypatch.setattr(persist, "create_lecture", create_lecture)
     monkeypatch.setattr(persist, "set_run_lecture", set_run_lecture)
     monkeypatch.setattr(persist, "clear_lecture_content", clear_lecture_content)
+    monkeypatch.setattr(persist, "set_lecture_pdf_url", set_lecture_pdf_url)
+    monkeypatch.setattr(uo, "_store_lecture_pdf", store_pdf)
     monkeypatch.setattr(persist, "insert_slide", insert_slide)
     monkeypatch.setattr(persist, "insert_slide_quizzes", insert_slide_quizzes)
     monkeypatch.setattr(persist, "insert_deck_quizzes", insert_deck_quizzes)
