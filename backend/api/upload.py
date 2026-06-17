@@ -374,6 +374,11 @@ async def parse_pdf_stream_endpoint(
         run_id = str(uuid.uuid4())
         await _upload_pdf_to_storage(pdf_hash, content)
         unified_parser_label = parser_used if odl_succeeded else "unified"
+        # The unified pipeline's text LLM is server-configured (the institution
+        # decides the model — OpenAI, or a self-hosted OpenAI-compatible
+        # university LLM via OPENAI_BASE_URL), not chosen per-upload. Falls back
+        # to the request's model only when PARSER_LLM_MODEL is unset.
+        unified_ai_model = _cfg.parser_llm_model or ai_model
 
         use_arq = True
         try:
@@ -383,7 +388,7 @@ async def parse_pdf_stream_endpoint(
                 pdf_hash=pdf_hash,
                 lecture_id="",          # unified creates + owns the lecture
                 run_id=run_id,
-                ai_model=ai_model,
+                ai_model=unified_ai_model,
                 user_id=str(user_id),
                 filename=filename,
                 odl_pages=odl_pages,
@@ -433,7 +438,7 @@ async def parse_pdf_stream_endpoint(
                     pdf_hash=pdf_hash,
                     lecture_id="",
                     run_id=run_id,
-                    ai_model=ai_model,
+                    ai_model=unified_ai_model,
                     user_id=str(user_id),
                     filename=filename,
                     emit_fn=emit_fn,

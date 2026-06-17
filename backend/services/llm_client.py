@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -46,10 +47,13 @@ async def _call_with_retry(fn):
         raise
 
 
-async def call_llm(fn, timeout_seconds: float = 25.0):
+async def call_llm(fn, timeout_seconds: float | None = None):
     """
     Wraps any LLM call with:
-    - 25s hard timeout (raises LLMTimeoutError)
+    - a hard timeout (raises LLMTimeoutError), configurable via the
+      LLM_TIMEOUT_SECONDS env var (default 25s). Raise it for slower providers
+      such as OpenAI gpt-4o-mini or a self-hosted university LLM, whose
+      batch/deck calls can exceed 25s.
     - 3x exponential backoff on rate limits / transient errors
 
     fn must be a CALLABLE (lambda or partial), NOT a coroutine.
@@ -58,6 +62,8 @@ async def call_llm(fn, timeout_seconds: float = 25.0):
 
     The callable is dispatched to a thread executor so it never blocks the event loop.
     """
+    if timeout_seconds is None:
+        timeout_seconds = float(os.environ.get("LLM_TIMEOUT_SECONDS", "25"))
     try:
         return await asyncio.wait_for(
             _call_with_retry(fn),

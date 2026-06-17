@@ -215,11 +215,14 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             base_url="https://api.groq.com/openai/v1",
         ),
         ProviderConfig(
+            # OpenAI-compatible provider. model + base_url are env-overridable
+            # so the same path serves OpenAI now and a self-hosted university
+            # LLM later (any OpenAI-compatible endpoint) by changing env only.
             id="openai",
-            model="gpt-4o-mini",
+            model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
             daily_limit=0, rpm=60, tpm=100000,
             env_var="OPENAI_API_KEY",
-            base_url="https://api.openai.com/v1",
+            base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
         ),
     ]
 }

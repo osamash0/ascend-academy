@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     # image/scanned/diagram slides so they get real OCR/vision content instead
     # of empty text. Must be a vision-capable provider (groq, gemini-2.0-flash).
     vision_model: str = Field(alias="VISION_MODEL", default="gemini-2.0-flash")
+    # Bulk text model the unified pipeline (PARSER_VERSION=5) uses for slide
+    # analysis + deck summary/quiz — server-configured, not chosen per upload.
+    # Set to "openai" to use OpenAI, or a self-hosted OpenAI-compatible
+    # university LLM via OPENAI_BASE_URL + OPENAI_MODEL. Slower models may need
+    # a higher LLM_TIMEOUT_SECONDS (default 25; gpt-4o-mini wants ~90).
+    parser_llm_model: str = Field(alias="PARSER_LLM_MODEL", default="cerebras")
 
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")
