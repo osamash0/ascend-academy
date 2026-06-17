@@ -67,7 +67,7 @@ class RoutingManifest:
     route_labels:      Dict[int, str] = field(default_factory=dict)
 
 
-_VISION_MODELS = frozenset({"groq", "gemini-2.0-flash"})
+_VISION_MODELS = frozenset({"groq", "gemini-2.0-flash", "openai", "gpt-4o-mini"})
 
 
 def classify_page(

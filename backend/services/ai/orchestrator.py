@@ -361,6 +361,7 @@ except Exception:
 cerebras_client   = _clients.get("cerebras")
 openrouter_client = _clients.get("openrouter")
 cloudflare_client = _clients.get("cloudflare")
+openai_client     = _clients.get("openai")  # OpenAI-compatible; used for vision too
 gemini_client     = _google_client
 ollama            = _ollama_lib
 

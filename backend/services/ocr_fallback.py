@@ -21,7 +21,7 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-_VISION_MODELS = frozenset({"groq", "gemini-2.0-flash"})
+_VISION_MODELS = frozenset({"groq", "gemini-2.0-flash", "openai", "gpt-4o-mini"})
 
 
 class OCRFallback:

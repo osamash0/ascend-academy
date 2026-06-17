@@ -1,10 +1,11 @@
 import base64
 import logging
 import asyncio
+import os
 import time
 from typing import Dict, Any
 from .orchestrator import (
-    groq_client, gemini_client, GROQ_VISION_MODEL, GEMINI_MODEL,
+    groq_client, gemini_client, openai_client, GROQ_VISION_MODEL, GEMINI_MODEL,
     _rotator, parse_json_response
 )
 
@@ -54,6 +55,24 @@ def _call_groq_vision(b64_image: str, raw_text: str, prompt: str) -> Dict[str, A
     return parse_json_response(res.choices[0].message.content)
 
 
+def _call_openai_vision(b64_image: str, raw_text: str, prompt: str) -> Dict[str, Any]:
+    """OpenAI-compatible vision (gpt-4o-mini is multimodal). Same wire format as
+    Groq; honors OPENAI_BASE_URL/OPENAI_MODEL so a self-hosted multimodal
+    university LLM works through this path too."""
+    if openai_client is None:
+        raise RuntimeError("OpenAI client not initialised")
+    content = [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}}]
+    if raw_text:
+        content.append({"type": "text", "text": f"Extracted text: {raw_text[:1000]}"})
+    res = openai_client.chat.completions.create(
+        model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+        messages=[{"role": "system", "content": prompt}, {"role": "user", "content": content}],
+        temperature=0.2,
+        response_format={"type": "json_object"},
+    )
+    return parse_json_response(res.choices[0].message.content)
+
+
 def _call_gemini_vision(b64_image: str, prompt: str) -> Dict[str, Any]:
     if gemini_client is None:
         raise RuntimeError("Gemini client not initialised")
@@ -85,16 +104,29 @@ def _sync_analyze_vision(
         providers.append("groq_vision")
     if gemini_client:
         providers.append("gemini_vision")
+    if openai_client:
+        providers.append("openai_vision")
 
-    # If caller explicitly requests Gemini, try it first
-    if "gemini" in ai_model and gemini_client:
-        providers = ["gemini_vision"] + [p for p in providers if p != "gemini_vision"]
+    # Honor the caller's requested vision model by trying it first. Lets
+    # VISION_MODEL=openai use reliable paid OpenAI instead of the free,
+    # easily-rate-limited Gemini/Groq vision tiers.
+    preferred = None
+    if "openai" in ai_model or "gpt" in ai_model:
+        preferred = "openai_vision"
+    elif "gemini" in ai_model:
+        preferred = "gemini_vision"
+    elif "groq" in ai_model:
+        preferred = "groq_vision"
+    if preferred and preferred in providers:
+        providers = [preferred] + [p for p in providers if p != preferred]
 
     last_exc = None
     for provider in providers:
         try:
             if provider == "groq_vision":
                 result = _call_groq_vision(b64_image, raw_text, prompt)
+            elif provider == "openai_vision":
+                result = _call_openai_vision(b64_image, raw_text, prompt)
             else:
                 result = _call_gemini_vision(b64_image, prompt)
             _rotator.record_success(provider)
