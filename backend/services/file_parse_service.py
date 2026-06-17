@@ -86,6 +86,7 @@ async def parse_pdf_stream(
     use_blueprint: bool = True,
     odl_pages: Optional[Dict[int, Dict[str, Any]]] = None,
     parsing_mode: str = "ai",
+    vision_model: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Streaming PDF parser.  Yields SSE-compatible dicts:
@@ -150,7 +151,7 @@ async def parse_pdf_stream(
         meta = is_metadata_slide(txt, idx, total_pages, ai_model)
         metadata_flags[idx] = meta.get("is_metadata", False)
 
-    manifest: RoutingManifest = build_routing_manifest(layouts, metadata_flags, ai_model)
+    manifest: RoutingManifest = build_routing_manifest(layouts, metadata_flags, ai_model, vision_model=vision_model)
     logger.info(
         "Routing for %s (%d pages): text=%d vision=%d table_llm=%d skip=%d",
         filename, total_pages,
@@ -314,7 +315,7 @@ async def parse_pdf_stream(
             if idx in manifest.odl_table_indices:
                 continue  # ODL markdown is already a better signal than OCR
             layout = layouts[idx]
-            if not OCRFallback.is_needed(ai_model, layout.alpha_ratio):
+            if not OCRFallback.is_needed(vision_model or ai_model, layout.alpha_ratio):
                 continue
             try:
                 image_bytes = await reader.render_page_jpeg(idx, zoom=2.0)
@@ -380,7 +381,7 @@ async def parse_pdf_stream(
         ]
         vision_tasks = [
             _process_vision_slide(
-                reader, i, layouts[i], ai_model, blueprint,
+                reader, i, layouts[i], vision_model or ai_model, blueprint,
                 vision_sem, fallback_counters,
                 use_table_prompt=(i in manifest.table_llm_indices),
             )

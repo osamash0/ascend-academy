@@ -19,7 +19,7 @@ source of truth for ``_meta.route_reason`` recorded on every slide.
 """
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from backend.services.layout_analyzer import PageLayout
 
@@ -178,14 +178,20 @@ def build_routing_manifest(
     layouts: Dict[int, PageLayout],
     metadata_flags: Dict[int, bool],
     ai_model: str,
+    vision_model: Optional[str] = None,
 ) -> RoutingManifest:
     """
     Classifies every page and builds the full routing manifest.
 
     TABLE_ODL pages are added to both odl_table_indices and text_indices
     so they flow through the text batch path with ODL markdown injected.
+
+    ``vision_model`` decouples the vision-capability decision from the bulk
+    text model: when set, slides route to VISION based on whether the vision
+    model supports images, even if ``ai_model`` (used for text batches) does
+    not. Defaults to ``ai_model`` — existing callers are unaffected.
     """
-    vision_available = ai_model in _VISION_MODELS
+    vision_available = (vision_model or ai_model) in _VISION_MODELS
     manifest = RoutingManifest(layouts=dict(layouts))
 
     for idx, layout in sorted(layouts.items()):

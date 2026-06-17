@@ -251,6 +251,26 @@ def test_build_routing_manifest_no_vision_model_degrades_table_llm_and_vision():
     assert manifest.odl_table_indices == [2]
 
 
+def test_build_routing_manifest_vision_model_decouples_from_bulk_model():
+    # The bulk (text) model is NOT vision-capable, but a separate vision_model
+    # is. Image/table slides must still route to VISION/TABLE_LLM — this is the
+    # unified pipeline's decoupling (fast text model + capable vision model).
+    layouts = {
+        0: make_layout(index=0, has_table=True),                      # -> TABLE_LLM
+        1: make_layout(index=1, image_coverage=0.40, word_count=80),  # -> VISION
+        2: make_layout(index=2, word_count=200),                      # -> TEXT
+    }
+    manifest = build_routing_manifest(
+        layouts, metadata_flags={}, ai_model="cerebras", vision_model="gemini-2.0-flash",
+    )
+    assert manifest.vision_indices == [1]
+    assert manifest.table_llm_indices == [0]
+    assert 2 in manifest.text_indices
+    # Backward-compat: the same deck on the bulk model alone still degrades.
+    degraded = build_routing_manifest(layouts, metadata_flags={}, ai_model="cerebras")
+    assert degraded.vision_indices == []
+
+
 def test_build_routing_manifest_empty_input():
     manifest = build_routing_manifest({}, {}, ai_model="groq")
     assert manifest.text_indices == []

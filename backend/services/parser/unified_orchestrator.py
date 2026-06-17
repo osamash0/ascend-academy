@@ -153,19 +153,21 @@ async def parse_pdf_unified(
         if owner is None:
             raise ValueError("parse_pdf_unified requires user_id (lectures.professor_id is NOT NULL)")
 
-        # Vision-capable model so image/scanned slides get real content.
-        effective_model = settings.vision_model or ai_model
-
         deck_quiz: List[dict] = []
         total = 0
 
         # Imported here to keep worker cold-start cheap (fitz/PIL/LLM clients).
         from backend.services.file_parse_service import parse_pdf_stream
 
+        # Decouple models: the fast bulk model handles text slides + deck
+        # summary/quiz, while the vision-capable model handles only image/
+        # diagram slides — so images get real content (not the v4 empty-text
+        # hallucination) without paying the vision model's cost on every slide.
         async for event in parse_pdf_stream(
             pdf_bytes,
             filename=filename,
-            ai_model=effective_model,
+            ai_model=ai_model,
+            vision_model=settings.vision_model,
             use_blueprint=True,
             odl_pages=odl_pages,
             parsing_mode="ai",
