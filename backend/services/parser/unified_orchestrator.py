@@ -1,0 +1,238 @@
+"""Unified PDF ingestion pipeline (PARSER_VERSION=5).
+
+Design
+------
+This orchestrator does NOT reimplement extraction. It *composes* the tested v2
+engine (`file_parse_service.parse_pdf_stream` — layout routing, OCR fallback,
+VLM vision, overlapping-window text batching, blueprint coherence, preflight
+quota guard) and adds the two things v4 fundamentally lacked:
+
+  1. Server-authoritative persistence — the pipeline writes `lectures`,
+     `slides`, `quiz_questions` itself (via `persist`), so the database is the
+     single source of truth. The frontend no longer persists parse output.
+  2. Real-world PDF handling — it runs the engine with a vision-capable model
+     (`settings.vision_model`) so image/scanned/PowerPoint slides actually
+     route to vision/OCR and get real content instead of hallucinated text.
+
+It re-emits the engine's events over Redis (or an inline `emit_fn`) in the
+FLAT shape the frontend already speaks: `info / phase(extract|enhance|finalize)
+/ meta / progress / slide / deck_complete / complete / error`.
+
+Run lifecycle / idempotency
+---------------------------
+`parse_runs` tracks the run (deduped on `(pdf_hash, "5")`). A re-enqueued run
+that is already COMPLETED replays from the DB instead of creating a duplicate
+lecture. Per-page resume is inherited from v2's `slide_parse_cache` checkpoint.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+from typing import Any, Awaitable, Callable, Dict, List, Optional
+from uuid import UUID
+
+import redis.asyncio as aioredis
+
+from backend.core.config import settings
+from backend.domain.parse_models import RunStatus
+from backend.services.parser import repos, persist
+from backend.services.parser.orchestrator import _fetch_pdf_bytes
+
+logger = logging.getLogger(__name__)
+
+REDIS_CHANNEL_PREFIX = "parse:"
+PIPELINE_VERSION_UNIFIED = "5"
+
+
+def _clean_title(filename: str) -> str:
+    base = os.path.basename(filename or "")
+    if base.lower().endswith(".pdf"):
+        base = base[:-4]
+    return base.strip() or "Untitled Lecture"
+
+
+async def parse_pdf_unified(
+    ctx: dict,
+    *,
+    pdf_hash: str,
+    lecture_id: str = "",
+    run_id: Optional[str] = None,
+    ai_model: str = "cerebras",
+    user_id: Optional[str] = None,
+    emit_fn: Optional[Callable[[str, dict], Awaitable[None]]] = None,
+    odl_pages: Optional[Dict[int, dict]] = None,
+    filename: str = "upload.pdf",
+    parser_used: str = "unified",
+) -> str:
+    """Unified parse pipeline entry point (Arq job or inline).
+
+    Args:
+        ctx:         Arq worker context (signature compat).
+        pdf_hash:    SHA-256 of the PDF bytes (storage lookup + run key).
+        lecture_id:  Ignored for new parses (the pipeline creates the lecture);
+                     accepted for API compatibility with the v4 job.
+        run_id:      Optional run identifier (not required — the run is keyed by
+                     (pdf_hash, pipeline_version)).
+        ai_model:    Bulk text model hint (the vision model is resolved
+                     separately from settings.vision_model).
+        user_id:     Authenticated uploader — becomes lectures.professor_id.
+        emit_fn:     Optional async callable(event_type, data) for inline/test
+                     runs. When None, events are published to the Redis channel.
+        odl_pages:   Pre-extracted page dict (LlamaParse/MinerU/ODL), 1-based.
+        filename:    Original filename (seeds the lecture title).
+        parser_used: Label reported in the `info` SSE event.
+    """
+    redis_client = None
+    if not emit_fn:
+        redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    channel = f"{REDIS_CHANNEL_PREFIX}{pdf_hash}"
+
+    async def emit(event_type: str, data: dict) -> None:
+        if emit_fn:
+            await emit_fn(event_type, data)
+            return
+        if redis_client:
+            try:
+                await redis_client.publish(channel, json.dumps({"type": event_type, **data}))
+            except Exception as exc:
+                logger.debug("SSE emit failed: %s", exc)
+
+    try:
+        await emit("info", {"parser": parser_used})
+
+        run = await repos.get_or_create_run(pdf_hash, None, PIPELINE_VERSION_UNIFIED)
+        run_uuid = run.run_id
+
+        # ── Idempotent replay: a completed run never re-parses ───────────────
+        if run.status == RunStatus.COMPLETED and run.lecture_id:
+            await _replay_from_db(run.lecture_id, pdf_hash, emit)
+            return str(run_uuid)
+
+        await repos.set_status(run_uuid, RunStatus.EXTRACTING)
+
+        pdf_bytes = await _fetch_pdf_bytes(pdf_hash)
+        if not pdf_bytes:
+            raise ValueError("PDF not found in storage")
+
+        owner = UUID(user_id) if user_id else None
+        if owner is None:
+            raise ValueError("parse_pdf_unified requires user_id (lectures.professor_id is NOT NULL)")
+
+        # Vision-capable model so image/scanned slides get real content.
+        effective_model = settings.vision_model or ai_model
+
+        created_lecture_id: Optional[UUID] = None
+        slide_db_ids: Dict[int, UUID] = {}
+        deck_summary = ""
+        deck_quiz: List[dict] = []
+        total = 0
+
+        # Imported here to keep worker cold-start cheap (fitz/PIL/LLM clients).
+        from backend.services.file_parse_service import parse_pdf_stream
+
+        async for event in parse_pdf_stream(
+            pdf_bytes,
+            filename=filename,
+            ai_model=effective_model,
+            use_blueprint=True,
+            odl_pages=odl_pages,
+            parsing_mode="ai",
+        ):
+            etype = event.get("type")
+            payload = {k: v for k, v in event.items() if k != "type"}
+
+            if etype == "meta":
+                created_lecture_id = await persist.create_lecture(
+                    title=_clean_title(filename),
+                    professor_id=owner,
+                    pdf_hash=pdf_hash,
+                )
+                await persist.set_run_lecture(run_uuid, created_lecture_id)
+                await emit("meta", {"pdf_hash": pdf_hash, "lecture_id": str(created_lecture_id)})
+
+            elif etype == "slide":
+                idx = event.get("index")
+                slide = event.get("slide", {}) or {}
+                if created_lecture_id is not None and isinstance(idx, int):
+                    try:
+                        sid = await persist.insert_slide(created_lecture_id, idx, slide)
+                        slide_db_ids[idx] = sid
+                        await persist.insert_slide_quizzes(sid, slide.get("questions", []))
+                    except Exception as exc:
+                        logger.error("Failed to persist slide %s: %s", idx, exc)
+                await emit("slide", {"index": idx, "slide": slide})
+
+            elif etype == "deck_complete":
+                deck_summary = event.get("deck_summary", "") or ""
+                deck_quiz = event.get("deck_quiz", []) or []
+                total = len(slide_db_ids)
+                if created_lecture_id is not None:
+                    try:
+                        await persist.insert_deck_quizzes(created_lecture_id, slide_db_ids, deck_quiz)
+                        await persist.finalize_lecture(created_lecture_id, deck_summary, total)
+                    except Exception as exc:
+                        logger.error("Failed to persist deck/finalize lecture: %s", exc)
+                await emit("deck_complete", {
+                    "deck_summary": deck_summary,
+                    "deck_quiz": deck_quiz,
+                    "total_slides": total,
+                })
+
+            elif etype == "complete":
+                total = event.get("total", total) or total
+                # Embeddings were written by the engine with lecture_id=None;
+                # attach the created lecture so the tutor can scope retrieval.
+                if created_lecture_id is not None:
+                    try:
+                        from backend.services.cache import attach_lecture_id_to_embeddings
+                        await attach_lecture_id_to_embeddings(pdf_hash, str(created_lecture_id))
+                    except Exception as exc:
+                        logger.warning("attach embeddings failed (non-fatal): %s", exc)
+                await repos.set_status(run_uuid, RunStatus.COMPLETED)
+                await emit("complete", {"total": total})
+
+            elif etype == "error":
+                await repos.set_error(run_uuid, event.get("message", "parse error"))
+                await emit("error", payload)
+                return str(run_uuid)
+
+            elif etype == "partial_complete":
+                # Frontend ignores this; log for observability only.
+                logger.warning("Unified parse partial_complete: %s", payload)
+
+            else:
+                # phase / progress / anything else — forward verbatim (flat).
+                await emit(etype, payload)
+
+        return str(run_uuid)
+
+    except Exception as exc:
+        logger.exception("Unified pipeline failed for pdf_hash=%s: %s", pdf_hash, exc)
+        try:
+            await emit("error", {"message": str(exc)})
+        except Exception:
+            pass
+        raise
+    finally:
+        if redis_client:
+            await redis_client.aclose()
+
+
+async def _replay_from_db(
+    lecture_id: UUID,
+    pdf_hash: str,
+    emit: Callable[[str, dict], Awaitable[None]],
+) -> None:
+    """Replay a completed run's slides/deck from the DB (no re-parse)."""
+    data = await persist.fetch_lecture_for_replay(lecture_id)
+    slides = data["slides"]
+    total = len(slides)
+    await emit("phase", {"phase": "extract"})
+    await emit("meta", {"pdf_hash": pdf_hash, "lecture_id": str(lecture_id)})
+    await emit("progress", {"current": 0, "total": total, "message": "Loading from saved course…"})
+    for s in slides:
+        await emit("slide", {"index": s["index"], "slide": s})
+    await emit("phase", {"phase": "finalize"})
+    await emit("deck_complete", {"deck_summary": data["deck_summary"], "deck_quiz": [], "total_slides": total})
+    await emit("complete", {"total": total})

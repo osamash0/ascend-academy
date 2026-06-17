@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # gateway. Must match the gateway's general_settings.master_key.
     litellm_master_key: str = Field(alias="LITELLM_MASTER_KEY", default="")
     parser_version: str = Field(alias="PARSER_VERSION", default="2")
+    # Vision-capable model the unified pipeline (PARSER_VERSION=5) uses for
+    # image/scanned/diagram slides so they get real OCR/vision content instead
+    # of empty text. Must be a vision-capable provider (groq, gemini-2.0-flash).
+    vision_model: str = Field(alias="VISION_MODEL", default="gemini-2.0-flash")
 
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")
