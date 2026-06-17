@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from typing import AsyncIterator, Optional
 from uuid import UUID
 
-from backend.core.database import db_pool, init_db_pool
+import backend.core.database as _db
 from backend.domain.parse_models import (
     DeckOutline,
     ExtractedPage,
@@ -27,12 +27,16 @@ logger = logging.getLogger(__name__)
 
 
 async def _pool():
-    global db_pool
-    if db_pool is None:
-        await init_db_pool()
-    if db_pool is None:
+    # Read the pool live from the core module. Importing the name directly
+    # (`from ... import db_pool`) captures a stale ``None`` that never updates
+    # after init_db_pool() rebinds the core global, so _pool() would always
+    # raise once initialized. This bug was latent because the only caller (v3)
+    # is dormant — the unified pipeline (v5) exercises it on every parse.
+    if _db.db_pool is None:
+        await _db.init_db_pool()
+    if _db.db_pool is None:
         raise RuntimeError("Database pool not available — check DATABASE_URL")
-    return db_pool
+    return _db.db_pool
 
 
 # ── Run-level helpers ────────────────────────────────────────────────────────
