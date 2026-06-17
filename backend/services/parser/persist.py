@@ -78,6 +78,11 @@ async def set_lecture_pdf_url(lecture_id: UUID, pdf_url: str) -> None:
     await _execute("UPDATE lectures SET pdf_url = $1 WHERE id = $2", pdf_url, lecture_id)
 
 
+async def set_lecture_title(lecture_id: UUID, title: str) -> None:
+    """Update the lecture title (used when reusing a lecture on re-parse)."""
+    await _execute("UPDATE lectures SET title = $1 WHERE id = $2", title, lecture_id)
+
+
 async def finalize_lecture(lecture_id: UUID, description: str, total_slides: int) -> None:
     await _execute(
         "UPDATE lectures SET description = $1, total_slides = $2 WHERE id = $3",

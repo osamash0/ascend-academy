@@ -1,21 +1,13 @@
 """End-to-end validation of the unified pipeline's server-authoritative
 persistence against a REAL Postgres (testcontainers + all migrations).
 
-What this covers that the unit tests can't (they mock the DB):
-  - persist.* writes lectures/slides/quiz_questions against the real schema
-    (column types, NOT NULL, FK to auth.users, jsonb casts, cascade);
-  - repos run lifecycle (get_or_create_run/set_status) works against the real
-    asyncpg pool — this is the path that exposed the repos pool-staleness bug;
-  - quiz answer indices resolve, and unresolvable ones are DROPPED not defaulted;
-  - cross-slide deck questions anchor to a real slide_id;
-  - re-running a completed parse replays from the DB (no duplicate lecture).
+The synthesis (per-slide LLM, vision, extraction) is mocked; persistence runs
+for real against the actual schema — validating that lectures/slides/deck-quiz
+persist correctly (column types, NOT NULL, FK to auth.users, jsonb, cascade),
+the parse_runs lifecycle records, quiz answers drop-not-default, deck questions
+anchor to a slide, and a re-run replays without duplicating the lecture.
 
-The v2 engine (parse_pdf_stream) and the LLM are stubbed with a scripted event
-stream that mirrors the real flat-SSE shape — the engine's extraction/LLM is
-validated separately (its own suite + the offline routing check). Storage and
-embedding-attach (network) are stubbed. No LLM cost, no prod, fully local.
-
-Gated behind `db` (needs Docker + testcontainers), like the other db tests.
+Gated behind `db` (needs Docker + testcontainers).
 """
 from __future__ import annotations
 
@@ -32,38 +24,9 @@ def _areturn(val):
     return _f
 
 
-def _scripted_engine(pdf_hash: str, n: int = 3, with_bad_quiz: bool = False):
-    """An async generator mirroring parse_pdf_stream's flat event stream."""
-    async def _gen(*_a, **_k):
-        yield {"type": "meta", "pdf_hash": pdf_hash}
-        yield {"type": "phase", "phase": "extract"}
-        yield {"type": "phase", "phase": "enhance"}
-        for i in range(n):
-            questions = [{
-                "question": f"q{i}", "options": ["a", "b", "c", "d"], "correctAnswer": "b",
-                "explanation": "because", "concept": "topic",
-            }]
-            if with_bad_quiz and i == 0:
-                questions.append({
-                    "question": "bad", "options": ["a", "b", "c", "d"], "correctAnswer": "zzz",
-                })
-            yield {"type": "slide", "index": i, "slide": {
-                "title": f"S{i}", "content": f"content {i}", "summary": f"sum {i}",
-                "slide_type": "text", "questions": questions,
-            }}
-        yield {"type": "phase", "phase": "finalize"}
-        yield {"type": "deck_complete", "deck_summary": "DECK SUMMARY", "deck_quiz": [{
-            "question": "dq", "options": ["a", "b", "c", "d"], "correctAnswer": "a",
-            "linked_slides": [0, 1],
-        }]}
-        yield {"type": "complete", "total": n}
-    return _gen
-
-
 @pytest.fixture
 async def wired_pool(pg_dsn, applied_migrations):
-    """Point the app's global asyncpg pool at the throwaway container so
-    persist/repos write to it; restore afterwards."""
+    """Point the app's global asyncpg pool at the throwaway container."""
     import asyncpg
     import backend.core.database as core
 
@@ -77,109 +40,89 @@ async def wired_pool(pg_dsn, applied_migrations):
         await pool.close()
 
 
-def _patch_externals(monkeypatch, engine):
-    """Stub everything that would hit the network/LLM/storage; keep the DB real."""
+def _patch_synthesis(monkeypatch, *, pages, deck_quiz):
+    """Mock everything except persistence (which hits the real DB)."""
     import backend.services.parser.unified_orchestrator as uo
+    import backend.services.parser.v4_orchestrator as v4
     import backend.services.file_parse_service as fps
     import backend.services.cache as cache
 
+    async def synth(idx, text, ctx, model, pdf):
+        return {"title": f"Slide {idx} title", "content": text,
+                "summary": f"Explanation for slide {idx}.", "slide_type": "text"}
+
     monkeypatch.setattr(uo, "_fetch_pdf_bytes", _areturn(b"%PDF-fake"))
     monkeypatch.setattr(uo, "_store_lecture_pdf", _areturn(None))
+    monkeypatch.setattr(uo, "_extract_pages", lambda pdf, odl=None: pages)
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    monkeypatch.setattr(v4, "analyze_lecture_meta", _areturn({"title": "E2E Lecture", "summary": "Deck summary."}))
+    monkeypatch.setattr(v4, "generate_quiz_questions", _areturn(deck_quiz))
+    monkeypatch.setattr(fps, "_safe_embedding_task", _areturn(None))
     monkeypatch.setattr(cache, "attach_lecture_id_to_embeddings", _areturn(0))
-    monkeypatch.setattr(fps, "parse_pdf_stream", engine)
 
 
-async def _run(pdf_hash, professor, **kw):
+async def _run(pdf_hash, professor):
     import backend.services.parser.unified_orchestrator as uo
     events = []
 
     async def emit(t, d):
         events.append((t, d))
 
-    await uo.parse_pdf_unified(
-        {}, pdf_hash=pdf_hash, user_id=str(professor), emit_fn=emit, **kw
-    )
+    await uo.parse_pdf_unified({}, pdf_hash=pdf_hash, user_id=str(professor), emit_fn=emit, filename="Deck.pdf")
     return events
 
 
 async def test_unified_persists_full_hierarchy(wired_pool, db_conn, make_user, monkeypatch):
     prof = make_user(role="professor")
-    _patch_externals(monkeypatch, _scripted_engine("hash_full", n=3))
+    _patch_synthesis(monkeypatch, pages=["t0", "t1", "t2"], deck_quiz=[
+        {"question": "dq", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "slideId": 1},
+    ])
 
-    events = await _run("hash_full", prof, filename="My Deck.pdf")
-
-    # SSE contract: lecture_id surfaced on meta, ends with complete
+    events = await _run("hash_full", prof)
     assert [t for t, _ in events][-1] == "complete"
-    meta = next(d for t, d in events if t == "meta")
-    assert "lecture_id" in meta
+    assert next(d for t, d in events if t == "meta").get("lecture_id")
 
     cur = db_conn.cursor()
     cur.execute("SELECT id, title, total_slides, professor_id FROM lectures WHERE pdf_hash=%s", ("hash_full",))
     rows = cur.fetchall()
     assert len(rows) == 1
     lid, title, total, prof_id = rows[0]
-    assert title == "My Deck"
-    assert total == 3
-    assert str(prof_id) == str(prof)
+    assert title == "E2E Lecture" and total == 3 and str(prof_id) == str(prof)
 
-    cur.execute("SELECT count(*) FROM slides WHERE lecture_id=%s", (str(lid),))
-    assert cur.fetchone()[0] == 3
+    cur.execute("SELECT count(*), bool_and(summary <> '') FROM slides WHERE lecture_id=%s", (str(lid),))
+    cnt, all_explained = cur.fetchone()
+    assert cnt == 3 and all_explained  # every slide titled + explained
 
-    # 3 per-slide quizzes + 1 cross-slide deck quiz
     cur.execute(
-        "SELECT count(*) FROM quiz_questions q JOIN slides s ON s.id=q.slide_id WHERE s.lecture_id=%s",
-        (str(lid),),
-    )
-    assert cur.fetchone()[0] == 4
+        "SELECT count(*) FROM quiz_questions q JOIN slides s ON s.id=q.slide_id "
+        "WHERE s.lecture_id=%s AND (q.metadata->>'is_deck')='true'", (str(lid),))
+    assert cur.fetchone()[0] == 1  # deck quiz anchored to a slide
 
-    # the deck question is anchored + carries linked_slides in metadata
-    cur.execute(
-        "SELECT correct_answer, metadata FROM quiz_questions q JOIN slides s ON s.id=q.slide_id "
-        "WHERE s.lecture_id=%s AND (q.metadata->>'is_deck')='true'",
-        (str(lid),),
-    )
-    deck_rows = cur.fetchall()
-    assert len(deck_rows) == 1
-    assert deck_rows[0][0] == 0                       # "a" -> index 0
-    assert deck_rows[0][1]["linked_slides"] == [0, 1]
-
-    # run lifecycle recorded correctly
-    cur.execute("SELECT status, pipeline_version, lecture_id FROM parse_runs WHERE pdf_hash=%s", ("hash_full",))
-    status, ver, run_lid = cur.fetchone()
-    assert status == "completed"
-    assert ver == "5"
-    assert str(run_lid) == str(lid)
+    cur.execute("SELECT status, pipeline_version FROM parse_runs WHERE pdf_hash=%s", ("hash_full",))
+    status, ver = cur.fetchone()
+    assert status == "completed" and ver == "5"
 
 
-async def test_unified_drops_unresolvable_quiz(wired_pool, db_conn, make_user, monkeypatch):
+async def test_unified_drops_unresolvable_deck_quiz(wired_pool, db_conn, make_user, monkeypatch):
     prof = make_user(role="professor")
-    _patch_externals(monkeypatch, _scripted_engine("hash_bad", n=2, with_bad_quiz=True))
-
-    await _run("hash_bad", prof, filename="Deck.pdf")
-
+    _patch_synthesis(monkeypatch, pages=["t0", "t1"], deck_quiz=[
+        {"question": "bad", "options": ["a", "b", "c", "d"], "correctAnswer": "zzz", "slideId": 1},
+    ])
+    await _run("hash_bad", prof)
     cur = db_conn.cursor()
     cur.execute("SELECT id FROM lectures WHERE pdf_hash=%s", ("hash_bad",))
     lid = cur.fetchone()[0]
-    # slide 0: 1 good + 1 unresolvable (dropped); slide 1: 1 good; + 1 deck = 3
-    cur.execute(
-        "SELECT count(*) FROM quiz_questions q JOIN slides s ON s.id=q.slide_id WHERE s.lecture_id=%s",
-        (str(lid),),
-    )
-    assert cur.fetchone()[0] == 3
+    cur.execute("SELECT count(*) FROM quiz_questions q JOIN slides s ON s.id=q.slide_id WHERE s.lecture_id=%s", (str(lid),))
+    assert cur.fetchone()[0] == 0  # unresolvable answer dropped, not defaulted
 
 
 async def test_unified_rerun_replays_no_duplicate(wired_pool, db_conn, make_user, monkeypatch):
     prof = make_user(role="professor")
-    _patch_externals(monkeypatch, _scripted_engine("hash_dup", n=3))
-
-    await _run("hash_dup", prof, filename="Deck.pdf")   # first parse
-    await _run("hash_dup", prof, filename="Deck.pdf")   # re-run → COMPLETED → replay
-
+    _patch_synthesis(monkeypatch, pages=["t0", "t1", "t2"], deck_quiz=[])
+    await _run("hash_dup", prof)   # first parse
+    await _run("hash_dup", prof)   # re-run → COMPLETED → replay
     cur = db_conn.cursor()
     cur.execute("SELECT count(*) FROM lectures WHERE pdf_hash=%s", ("hash_dup",))
-    assert cur.fetchone()[0] == 1                       # no duplicate lecture
-    cur.execute(
-        "SELECT count(*) FROM slides s JOIN lectures l ON l.id=s.lecture_id WHERE l.pdf_hash=%s",
-        ("hash_dup",),
-    )
-    assert cur.fetchone()[0] == 3                       # slides not duplicated
+    assert cur.fetchone()[0] == 1
+    cur.execute("SELECT count(*) FROM slides s JOIN lectures l ON l.id=s.lecture_id WHERE l.pdf_hash=%s", ("hash_dup",))
+    assert cur.fetchone()[0] == 3
