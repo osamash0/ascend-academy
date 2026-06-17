@@ -152,6 +152,7 @@ async def parse_pdf_stream(
         metadata_flags[idx] = meta.get("is_metadata", False)
 
     manifest: RoutingManifest = build_routing_manifest(layouts, metadata_flags, ai_model, vision_model=vision_model)
+    repeating_lines = _detect_repeating_lines(layouts)
     logger.info(
         "Routing for %s (%d pages): text=%d vision=%d table_llm=%d skip=%d",
         filename, total_pages,
@@ -295,7 +296,7 @@ async def parse_pdf_stream(
         for idx in manifest.skip_indices:
             if idx in already_done:
                 continue
-            slide = _make_skip_slide(idx, layouts[idx], filename, manifest)
+            slide = _make_skip_slide(idx, layouts[idx], filename, manifest, skip_lines=repeating_lines)
             asyncio.create_task(
                 _safe_cache_task(idx, slide, pdf_hash, _failed_cache_queue, fallback_counters)
             )
@@ -384,6 +385,7 @@ async def parse_pdf_stream(
                 reader, i, layouts[i], vision_model or ai_model, blueprint,
                 vision_sem, fallback_counters,
                 use_table_prompt=(i in manifest.table_llm_indices),
+                skip_lines=repeating_lines,
             )
             for i in pending_vision
         ]
@@ -546,6 +548,7 @@ async def _process_vision_slide(
     sem: asyncio.Semaphore,
     fallback_counters: Optional[Dict[str, int]] = None,
     use_table_prompt: bool = False,
+    skip_lines: frozenset = frozenset(),
 ) -> Dict:
     """
     Renders the page and calls the VLM.
@@ -574,9 +577,19 @@ async def _process_vision_slide(
                 result["title"] = (
                     result.get("metadata", {}).get("lecture_title")
                     or ce.get("main_topic")
-                    or f"Slide {page_index + 1}"
+                    or _title_from_layout(layout, page_index, skip_lines)
                 )
-                result["summary"] = ce.get("summary", "")
+                # Surface the explanation the vision model actually produced:
+                # if it left `summary` blank but gave key points / content, use
+                # those rather than showing the slide as unexplained.
+                summary = (ce.get("summary") or "").strip()
+                if not summary:
+                    kps = ce.get("key_points") or []
+                    if kps:
+                        summary = " ".join(str(k) for k in kps)
+                    elif (result["content"] or "").strip():
+                        summary = result["content"]
+                result["summary"] = summary
                 result["questions"] = [result["quiz"]] if result.get("quiz") else []
 
             return result
@@ -591,7 +604,7 @@ async def _process_vision_slide(
         logger.error("Vision failed for slide %d: %s", page_index, e)
         return {
             "index": page_index,
-            "title": f"Slide {page_index + 1}",
+            "title": _title_from_layout(layout, page_index, skip_lines),
             "content": layout.raw_text[:500] or "(visual content)",
             "summary": "",
             "questions": [],
@@ -633,16 +646,46 @@ def _enrich_result(
     }
 
 
+def _detect_repeating_lines(layouts: Dict[int, PageLayout]) -> frozenset:
+    """Lines appearing on many pages are headers/footers, not slide titles."""
+    from collections import Counter
+    counts: Counter = Counter()
+    for layout in layouts.values():
+        seen = {ln.strip() for ln in (layout.raw_text or "").splitlines() if len(ln.strip()) > 2}
+        counts.update(seen)
+    n = len(layouts)
+    if n < 4:
+        return frozenset()
+    threshold = max(3, int(n * 0.4))
+    return frozenset(line for line, c in counts.items() if c >= threshold)
+
+
+def _title_from_layout(layout: PageLayout, idx: int, skip_lines: frozenset = frozenset()) -> str:
+    """Best-effort title from the slide's own text so skipped/metadata and
+    vision-fallback slides aren't labeled a generic 'Slide N'. Skips repeating
+    header/footer lines. No fabrication — it's the slide's actual leading text."""
+    raw = (layout.raw_text or "").strip()
+    if raw:
+        lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+        for s in lines:
+            if len(s) > 2 and s not in skip_lines:
+                return s[:80]
+        if lines:
+            return lines[0][:80]
+    return f"Slide {idx + 1}"
+
+
 def _make_skip_slide(
     idx: int,
     layout: PageLayout,
     filename: str,
     manifest: Optional[RoutingManifest] = None,
+    skip_lines: frozenset = frozenset(),
 ) -> Dict:
     return {
         "index": idx,
         "slide_index": idx,
-        "title": f"Slide {idx + 1}",
+        "title": _title_from_layout(layout, idx, skip_lines),
         "content": layout.raw_text[:300] if layout.raw_text else "",
         "summary": "",
         "questions": [],
