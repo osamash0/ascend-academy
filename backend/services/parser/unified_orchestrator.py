@@ -98,15 +98,22 @@ async def parse_pdf_unified(
             except Exception as exc:
                 logger.debug("SSE emit failed: %s", exc)
 
+    # Accumulators declared before `try` so the except path can finalize.
+    run_uuid: Optional[UUID] = None
+    created_lecture_id: Optional[UUID] = None
+    slide_db_ids: Dict[int, UUID] = {}
+    deck_summary = ""
+
     try:
         await emit("info", {"parser": parser_used})
 
         run = await repos.get_or_create_run(pdf_hash, None, PIPELINE_VERSION_UNIFIED)
         run_uuid = run.run_id
+        existing_lecture_id = run.lecture_id  # set by a prior (partial) attempt
 
         # ── Idempotent replay: a completed run never re-parses ───────────────
-        if run.status == RunStatus.COMPLETED and run.lecture_id:
-            await _replay_from_db(run.lecture_id, pdf_hash, emit)
+        if run.status == RunStatus.COMPLETED and existing_lecture_id:
+            await _replay_from_db(existing_lecture_id, pdf_hash, emit)
             return str(run_uuid)
 
         await repos.set_status(run_uuid, RunStatus.EXTRACTING)
@@ -122,9 +129,6 @@ async def parse_pdf_unified(
         # Vision-capable model so image/scanned slides get real content.
         effective_model = settings.vision_model or ai_model
 
-        created_lecture_id: Optional[UUID] = None
-        slide_db_ids: Dict[int, UUID] = {}
-        deck_summary = ""
         deck_quiz: List[dict] = []
         total = 0
 
@@ -143,12 +147,19 @@ async def parse_pdf_unified(
             payload = {k: v for k, v in event.items() if k != "type"}
 
             if etype == "meta":
-                created_lecture_id = await persist.create_lecture(
-                    title=_clean_title(filename),
-                    professor_id=owner,
-                    pdf_hash=pdf_hash,
-                )
-                await persist.set_run_lecture(run_uuid, created_lecture_id)
+                if existing_lecture_id:
+                    # Resuming a prior (failed/partial) run — reuse its lecture
+                    # and clear stale slides so the re-parse is idempotent
+                    # (exactly one lecture row per PDF, no duplicates).
+                    created_lecture_id = existing_lecture_id
+                    await persist.clear_lecture_content(created_lecture_id)
+                else:
+                    created_lecture_id = await persist.create_lecture(
+                        title=_clean_title(filename),
+                        professor_id=owner,
+                        pdf_hash=pdf_hash,
+                    )
+                    await persist.set_run_lecture(run_uuid, created_lecture_id)
                 await emit("meta", {"pdf_hash": pdf_hash, "lecture_id": str(created_lecture_id)})
 
             elif etype == "slide":
@@ -193,6 +204,10 @@ async def parse_pdf_unified(
                 await emit("complete", {"total": total})
 
             elif etype == "error":
+                # Slides persisted before the failure are still usable — record
+                # the count so the lecture isn't left with total_slides=0.
+                if created_lecture_id is not None and slide_db_ids:
+                    await persist.finalize_lecture(created_lecture_id, deck_summary, len(slide_db_ids))
                 await repos.set_error(run_uuid, event.get("message", "parse error"))
                 await emit("error", payload)
                 return str(run_uuid)
@@ -209,6 +224,13 @@ async def parse_pdf_unified(
 
     except Exception as exc:
         logger.exception("Unified pipeline failed for pdf_hash=%s: %s", pdf_hash, exc)
+        try:
+            if run_uuid is not None:
+                if created_lecture_id is not None and slide_db_ids:
+                    await persist.finalize_lecture(created_lecture_id, deck_summary, len(slide_db_ids))
+                await repos.set_error(run_uuid, str(exc))
+        except Exception:
+            pass
         try:
             await emit("error", {"message": str(exc)})
         except Exception:

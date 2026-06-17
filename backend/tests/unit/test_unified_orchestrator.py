@@ -113,7 +113,7 @@ def _fake_engine_events(pdf_hash="h"):
 def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None):
     """Patch repos + storage + persist + cache; return a recorder dict."""
     rec = {"status": [], "errors": [], "lectures": [], "slides": [], "slide_quiz": [],
-           "deck_quiz": [], "finalize": [], "attach": [], "run_lecture": []}
+           "deck_quiz": [], "finalize": [], "attach": [], "run_lecture": [], "cleared": []}
     run = types.SimpleNamespace(run_id=uuid4(), status=run_status, lecture_id=lecture_id)
 
     async def get_or_create_run(pdf_hash, lid, ver):
@@ -135,6 +135,9 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None):
 
     async def set_run_lecture(rid, lid):
         rec["run_lecture"].append((rid, lid))
+
+    async def clear_lecture_content(lid):
+        rec["cleared"].append(lid)
 
     async def insert_slide(lecture_id, idx, slide):
         sid = uuid4()
@@ -158,6 +161,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None):
     monkeypatch.setattr(uo, "_fetch_pdf_bytes", fetch_pdf)
     monkeypatch.setattr(persist, "create_lecture", create_lecture)
     monkeypatch.setattr(persist, "set_run_lecture", set_run_lecture)
+    monkeypatch.setattr(persist, "clear_lecture_content", clear_lecture_content)
     monkeypatch.setattr(persist, "insert_slide", insert_slide)
     monkeypatch.setattr(persist, "insert_slide_quizzes", insert_slide_quizzes)
     monkeypatch.setattr(persist, "insert_deck_quizzes", insert_deck_quizzes)
@@ -253,4 +257,54 @@ async def test_parse_pdf_unified_engine_error_marks_failed(monkeypatch):
 
     assert rec["errors"] == ["boom"]
     assert any(t == "error" for t, _ in events)
+    assert "complete" not in [t for t, _ in events]
+
+
+async def test_resume_reuses_lecture_and_clears_no_duplicate(monkeypatch):
+    """A re-run of a non-completed run reuses its lecture (clearing stale
+    slides) instead of creating a duplicate lecture row."""
+    existing = uuid4()
+    rec, run = _patch_common(monkeypatch, run_status=RunStatus.FAILED, lecture_id=existing)
+    import backend.services.file_parse_service as fps
+    monkeypatch.setattr(fps, "parse_pdf_stream", _fake_engine_events("h"))
+
+    events = []
+
+    async def emit_fn(etype, data):
+        events.append((etype, data))
+
+    await uo.parse_pdf_unified({}, pdf_hash="h", user_id=OWNER, emit_fn=emit_fn, filename="L.pdf")
+
+    assert rec["cleared"] == [existing]      # stale slides cleared
+    assert rec["lectures"] == []             # NO new lecture created
+    meta_evt = next(d for t, d in events if t == "meta")
+    assert meta_evt["lecture_id"] == str(existing)
+    assert RunStatus.COMPLETED in rec["status"]
+
+
+async def test_error_after_slides_finalizes_total(monkeypatch):
+    """If the engine errors after slides persisted (e.g. deck-summary failure),
+    the lecture is still finalized with the persisted slide count."""
+    rec, run = _patch_common(monkeypatch)
+
+    def _err_after_slide():
+        async def _gen(*_a, **_k):
+            yield {"type": "meta", "pdf_hash": "h"}
+            yield {"type": "slide", "index": 0, "slide": {
+                "title": "S1", "content": "c", "summary": "", "slide_type": "text", "questions": []}}
+            yield {"type": "error", "message": "deck boom"}
+        return _gen
+
+    import backend.services.file_parse_service as fps
+    monkeypatch.setattr(fps, "parse_pdf_stream", _err_after_slide())
+
+    events = []
+
+    async def emit_fn(etype, data):
+        events.append((etype, data))
+
+    await uo.parse_pdf_unified({}, pdf_hash="h", user_id=OWNER, emit_fn=emit_fn)
+
+    assert rec["finalize"] == [("", 1)]      # total_slides set despite the error
+    assert rec["errors"] == ["deck boom"]
     assert "complete" not in [t for t, _ in events]

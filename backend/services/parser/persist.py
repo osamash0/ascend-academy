@@ -91,6 +91,14 @@ async def set_run_lecture(run_id: UUID, lecture_id: UUID) -> None:
     )
 
 
+async def clear_lecture_content(lecture_id: UUID) -> None:
+    """Delete a lecture's slides so a re-parse replaces content instead of
+    duplicating it. quiz_questions rows cascade via the slides FK
+    (ON DELETE CASCADE), so they're removed too.
+    """
+    await _execute("DELETE FROM slides WHERE lecture_id = $1", lecture_id)
+
+
 # ── slides ─────────────────────────────────────────────────────────────────
 
 async def insert_slide(lecture_id: UUID, slide_index: int, slide: Dict[str, Any]) -> UUID:
