@@ -7,13 +7,18 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 import sentry_sdk
+from backend.core.config import settings
+
+traces_sample_rate = 0.1 if settings.env != "development" else 1.0
+profiles_sample_rate = 0.1 if settings.env != "development" else 1.0
 
 if os.environ.get("SENTRY_DSN"):
     sentry_sdk.init(
         dsn=os.environ.get("SENTRY_DSN"),
-        traces_sample_rate=1.0,
-        profiles_sample_rate=1.0,
+        traces_sample_rate=traces_sample_rate,
+        profiles_sample_rate=profiles_sample_rate,
     )
 
 from backend.api.analytics import router as analytics_router
@@ -37,12 +42,23 @@ from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Learnstation API", version="0.1.0")
+docs_url = "/docs" if settings.env == "development" else None
+redoc_url = "/redoc" if settings.env == "development" else None
+
+app = FastAPI(
+    title="Learnstation API",
+    version="0.1.0",
+    docs_url=docs_url,
+    redoc_url=redoc_url
+)
 
 # ── Rate limiting ────────────────────────────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+
+# ── Compression ──────────────────────────────────────────────────────────────
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 def _build_cors_origins() -> list[str]:

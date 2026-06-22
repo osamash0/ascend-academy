@@ -19,6 +19,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # ─── Environment ───────────────────────────────────────────────────────────
+    env: str = Field(alias="ENV", default="development")
+
     # ─── Supabase ──────────────────────────────────────────────────────────────
     supabase_url: str = Field(alias="SUPABASE_URL", default="")
     supabase_key: str = Field(alias="SUPABASE_KEY", default="")
