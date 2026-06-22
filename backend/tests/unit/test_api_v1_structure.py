@@ -58,4 +58,5 @@ def test_domain_error_exception_handler():
         assert json_data["error"]["message"] == "Resource not found"
     finally:
         # Clean up the router from app routes
-        app.routes = [r for r in app.routes if getattr(r, "path", "") not in ("/test-domain-error", "/test-not-found-error")]
+        app.routes[:] = [r for r in app.routes if getattr(r, "path", "") not in ("/test-domain-error", "/test-not-found-error")]
+
