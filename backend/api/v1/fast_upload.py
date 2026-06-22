@@ -5,7 +5,7 @@ import uuid
 from typing import Any, List, Dict, Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Request
-from backend.core.database import supabase_admin, get_client
+from backend.core.database import supabase_admin, get_client, get_db_connection, db_transaction, handle_db_errors
 from backend.core.auth_middleware import verify_token, require_professor
 from backend.services.cache import compute_pdf_hash
 from backend.services.ai_service import generate_deck_summary, generate_deck_quiz
@@ -16,7 +16,6 @@ router = APIRouter(prefix="/fast-upload", tags=["fast-upload"])
 
 MAX_FILE_MB = 50
 
-from backend.core.database import get_db_connection
 
 # Strong references to in-flight background tasks.  asyncio.create_task only
 # keeps a weak reference to the task, so without holding one here a long-running
@@ -38,8 +37,9 @@ def _on_background_task_done(task: "asyncio.Task") -> None:
 # --- Helper logic similar to pipeline.ts ---
 
 async def execute_query(query: str, *args):
-    async with await get_db_connection() as conn:
-        return await conn.fetch(query, *args)
+    async with handle_db_errors():
+        async with await get_db_connection() as conn:
+            return await conn.fetch(query, *args)
 
 async def analyze_slide_fast(page_num: int, raw_text: str, lecture_context: str) -> dict:
     from litellm import acompletion
@@ -176,86 +176,98 @@ async def process_upload_isolated(run_id: str, pdf_hash: str, filename: str, con
         # Analyze lecture meta
         lecture_meta = await analyze_lecture_meta_fast(raw_slides)
         
-        # Create Lecture Record
+        # Pre-generate IDs
         lecture_id_obj = uuid.uuid4()
         lecture_id = str(lecture_id_obj)
-        await execute_query(
-            "INSERT INTO lectures (id, title, description, professor_id, total_slides, pdf_url, pdf_hash, lecture_type, subject, course_code, key_topics) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
-            lecture_id_obj,
-            lecture_meta.get("title", filename),
-            lecture_meta.get("summary", ""),
-            uuid.UUID(user_id) if isinstance(user_id, str) else user_id,
-            len(raw_slides),
-            path,
-            pdf_hash,
-            lecture_meta.get("lectureType"),
-            lecture_meta.get("subject"),
-            lecture_meta.get("courseCode"),
-            json.dumps(lecture_meta.get("keyTopics", []))
-        )
-
         lecture_context = f"{lecture_meta.get('title', '')}: {lecture_meta.get('summary', '')}"
 
         # Analyze Slides in parallel
         tasks = [analyze_slide_fast(s["page_num"], s["text"], lecture_context) for s in raw_slides]
         analyses = await asyncio.gather(*tasks)
 
-        # Insert Slides
+        # Build inserted_slides list with generated slide UUIDs
         inserted_slides = []
         for i, slide in enumerate(raw_slides):
             analysis = analyses[i]
             slide_id_obj = uuid.uuid4()
             slide_id = str(slide_id_obj)
-            await execute_query(
-                "INSERT INTO slides (id, lecture_id, slide_number, title, content_text, summary, slide_type, context_note) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-                slide_id_obj,
-                lecture_id_obj,
-                slide["page_num"],
-                analysis.get("title", f"Slide {slide['page_num']}"),
-                slide["text"],
-                analysis.get("aiInsight", ""),
-                analysis.get("slideType"),
-                analysis.get("contextNote")
-            )
             inserted_slides.append({
                 "dbId": slide_id,
                 "dbIdObj": slide_id_obj,
                 "slideNumber": slide["page_num"],
-                "rawText": slide["text"]
+                "rawText": slide["text"],
+                "title": analysis.get("title", f"Slide {slide['page_num']}"),
+                "summary": analysis.get("aiInsight", ""),
+                "slideType": analysis.get("slideType"),
+                "contextNote": analysis.get("contextNote")
             })
 
         # Generate Quiz
         quizzes = await generate_quiz_questions_fast(inserted_slides, lecture_meta.get("title", ""))
-        for q in quizzes:
-            options = q.get("options", [])
-            correct_text = q.get("correctAnswer", "")
-            correct_idx = options.index(correct_text) if correct_text in options else 0
-            
-            target_slide_obj = inserted_slides[0]["dbIdObj"]
-            if q.get("slideId"):
-                for s in inserted_slides:
-                    if s["dbId"] == q.get("slideId"):
-                        target_slide_obj = s["dbIdObj"]
-                        break
 
-            await execute_query(
-                "INSERT INTO quiz_questions (slide_id, question_text, options, correct_answer, metadata) VALUES ($1, $2, $3, $4, $5::jsonb)",
-                target_slide_obj,
-                q.get("question", ""),
-                options,
-                correct_idx,
-                json.dumps({
-                    "explanation": q.get("explanation", ""),
-                    "difficulty": q.get("difficulty", "medium")
-                })
+        # Perform atomic database writes in a single transaction
+        async with db_transaction() as conn:
+            # 1. Insert Lecture Record
+            await conn.execute(
+                "INSERT INTO lectures (id, title, description, professor_id, total_slides, pdf_url, pdf_hash, lecture_type, subject, course_code, key_topics) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+                lecture_id_obj,
+                lecture_meta.get("title", filename),
+                lecture_meta.get("summary", ""),
+                uuid.UUID(user_id) if isinstance(user_id, str) else user_id,
+                len(raw_slides),
+                path,
+                pdf_hash,
+                lecture_meta.get("lectureType"),
+                lecture_meta.get("subject"),
+                lecture_meta.get("courseCode"),
+                json.dumps(lecture_meta.get("keyTopics", []))
             )
 
-        # Update run status to completed and store lecture_id
-        await execute_query(
-            "UPDATE parse_runs SET status = 'completed', lecture_id = $1, finished_at = now() WHERE run_id = $2",
-            lecture_id_obj,
-            uuid.UUID(run_id)
-        )
+            # 2. Insert Slides
+            for s in inserted_slides:
+                await conn.execute(
+                    "INSERT INTO slides (id, lecture_id, slide_number, title, content_text, summary, slide_type, context_note) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                    s["dbIdObj"],
+                    lecture_id_obj,
+                    s["slideNumber"],
+                    s["title"],
+                    s["rawText"],
+                    s["summary"],
+                    s["slideType"],
+                    s["contextNote"]
+                )
+
+            # 3. Insert Quiz Questions
+            for q in quizzes:
+                options = q.get("options", [])
+                correct_text = q.get("correctAnswer", "")
+                correct_idx = options.index(correct_text) if correct_text in options else 0
+                
+                target_slide_obj = inserted_slides[0]["dbIdObj"]
+                if q.get("slideId"):
+                    for s in inserted_slides:
+                        if s["dbId"] == q.get("slideId"):
+                            target_slide_obj = s["dbIdObj"]
+                            break
+
+                await conn.execute(
+                    "INSERT INTO quiz_questions (slide_id, question_text, options, correct_answer, metadata) VALUES ($1, $2, $3, $4, $5::jsonb)",
+                    target_slide_obj,
+                    q.get("question", ""),
+                    options,
+                    correct_idx,
+                    json.dumps({
+                        "explanation": q.get("explanation", ""),
+                        "difficulty": q.get("difficulty", "medium")
+                    })
+                )
+
+            # 4. Update parse run status
+            await conn.execute(
+                "UPDATE parse_runs SET status = 'completed', lecture_id = $1, finished_at = now() WHERE run_id = $2",
+                lecture_id_obj,
+                uuid.UUID(run_id)
+            )
 
         logger.info(f"Isolated pipeline complete for run_id: {run_id}")
     except Exception as e:

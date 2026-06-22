@@ -65,6 +65,19 @@ async def get_cached_token(token: str) -> Optional[Any]:
         return None
     key = _hash_token(token)
     cache_key = f"auth_token:{key}"
+    
+    # Try Redis first
+    try:
+        from backend.core.redis import get_redis_client
+        redis_client = get_redis_client()
+        cached_data = await redis_client.get(cache_key)
+        if cached_data:
+            import json
+            return json.loads(cached_data)
+    except Exception as e:
+        logger.warning("Redis cache read failed for token: %s", e)
+        
+    # Fallback to PostgreSQL
     return await get_cache(cache_key)
 
 
@@ -83,6 +96,16 @@ async def store_cached_token(token: str, user: Any) -> None:
         # Filter out non-serializable or private internal state if necessary
         user_data = {k: v for k, v in user.__dict__.items() if not k.startswith("_")}
 
+    # Try writing to Redis
+    try:
+        from backend.core.redis import get_redis_client
+        redis_client = get_redis_client()
+        import json
+        safe_data = _to_json_safe(user_data)
+        await redis_client.setex(cache_key, 45, json.dumps(safe_data))
+    except Exception as e:
+        logger.warning("Redis cache write failed for token: %s", e)
+
     await set_cache(cache_key, user_data, ttl_seconds=45)
 
 
@@ -98,6 +121,18 @@ async def invalidate_cached_token(token: str) -> None:
         return
     key = _hash_token(token)
     cache_key = f"auth_token:{key}"
+    blocklist_key = f"blocklist:{key}"
+    
+    # Redis: blocklist the token and delete the cache entry
+    try:
+        from backend.core.redis import get_redis_client
+        redis_client = get_redis_client()
+        await redis_client.setex(blocklist_key, 45, "1")
+        await redis_client.delete(cache_key)
+    except Exception as e:
+        logger.warning("Redis token invalidation failed: %s", e)
+
+    # Delete from PostgreSQL
     try:
         if db_pool:
             async with db_pool.acquire() as conn:
@@ -110,7 +145,21 @@ async def invalidate_cached_token(token: str) -> None:
                 supabase_admin.table("backend_cache").delete().eq("cache_key", cache_key).execute()
             await run_in_threadpool(_sync_delete)
     except Exception as e:
-        logger.warning("Failed to invalidate token cache: %s", e)
+        logger.warning("Failed to invalidate token cache in PG: %s", e)
+
+async def is_token_blocklisted(token: str) -> bool:
+    """Check if a token has been blocklisted in Redis after logout."""
+    if not token:
+        return False
+    key = _hash_token(token)
+    try:
+        from backend.core.redis import get_redis_client
+        redis_client = get_redis_client()
+        if await redis_client.get(f"blocklist:{key}"):
+            return True
+    except Exception as e:
+        logger.warning("Redis blocklist check failed: %s", e)
+    return False
 
 
 async def purge_expired_backend_cache() -> int:

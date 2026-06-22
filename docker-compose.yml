@@ -50,7 +50,7 @@ services:
       - DISABLE_SCHEMA_UPDATE=true
       - STORE_MODEL_IN_DB=False
       - LITELLM_TELEMETRY=False
-      - DATABASE_URL=""
+      - DATABASE_URL=
     depends_on:
       redis:
         condition: service_healthy
@@ -112,6 +112,7 @@ services:
     env_file:
       - .env
     environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - LITELLM_BASE_URL=http://litellm:4000
     depends_on:
       redis:
