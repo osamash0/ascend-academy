@@ -20,7 +20,7 @@ from backend.services.ai_service import (
     analyze_slide_vision, generate_slide_title, enhance_slide_content
 )
 from backend.services.ai.analytics import generate_slide_recommendation
-from backend.services import analytics_service, analytics_cache
+from backend.services import analytics_service, analytics_cache, chat_memory
 from backend.services.content_filter import is_metadata_slide
 
 logger = logging.getLogger(__name__)
@@ -137,6 +137,7 @@ class ChatRequest(BaseModel):
     lecture_id: Optional[str] = Field(default=None, max_length=64)
     pdf_hash: Optional[str] = Field(default=None, max_length=128)
     current_slide_index: Optional[int] = Field(default=None, ge=0)
+    session_id: Optional[str] = Field(default=None, max_length=64)
 
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5_000)
@@ -185,6 +186,23 @@ class CitationModel(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     citations: List[CitationModel] = Field(default_factory=list)
+    session_id: Optional[str] = None
+
+class CreateSessionRequest(BaseModel):
+    lecture_id: Optional[str] = Field(default=None, max_length=64)
+    title: Optional[str] = Field(default=None, max_length=100)
+
+class SessionResponse(BaseModel):
+    id: str
+    user_id: str
+    lecture_id: Optional[str] = None
+    title: str
+    created_at: str
+    updated_at: str
+
+class MessageResponse(BaseModel):
+    role: str
+    content: str
 
 # --- Endpoints ---
 
@@ -475,10 +493,43 @@ async def chat_with_tutor_endpoint(request: Request, body: ChatRequest, user: An
         except Exception as e:
             logger.error("Lecture authorization check failed: %s", e)
             raise HTTPException(status_code=500, detail="Authorization check failed.")
-    try:
+
+    # Load history from Redis if session_id is provided, otherwise from request body.
+    history = None
+    if body.session_id:
+        meta = await chat_memory.get_session_metadata(body.session_id)
+        if not meta:
+            raise HTTPException(status_code=404, detail="Chat session not found.")
+        if meta.get("user_id") != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized to access this session.")
+        
+        session_lecture_id = meta.get("lecture_id")
+        if session_lecture_id and not safe_lecture_id:
+            safe_lecture_id = session_lecture_id
+            # Perform authorization check for the session's lecture
+            try:
+                q = supabase_admin.table("lectures").select("id, professor_id, pdf_hash").eq("id", safe_lecture_id)
+                res = q.limit(1).execute()
+                rows = res.data or []
+                if not rows:
+                    raise HTTPException(status_code=404, detail="Lecture not found.")
+                row = rows[0]
+                if user_role == "professor" and row.get("professor_id") != user_id:
+                    raise HTTPException(status_code=403, detail="Not your lecture.")
+                safe_pdf_hash = row.get("pdf_hash")
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error("Session lecture authorization check failed: %s", e)
+                raise HTTPException(status_code=500, detail="Authorization check failed.")
+
+        history = await chat_memory.get_history(body.session_id, limit=20)
+    else:
         # tutor.chat_with_lecture consumes plain dicts (msg.get("role")/...),
         # so unwrap the validated ChatMessage models back into dicts.
         history = [m.model_dump() for m in body.chat_history] if body.chat_history else None
+
+    try:
         result = await chat_with_lecture(
             slide_text=body.slide_text,
             user_message=body.user_message,
@@ -488,12 +539,20 @@ async def chat_with_tutor_endpoint(request: Request, body: ChatRequest, user: An
             pdf_hash=safe_pdf_hash,
             current_slide_index=body.current_slide_index,
         )
+        reply_text = result if isinstance(result, str) else result.get("reply", "")
+        
+        # Save messages to Redis if session_id is provided.
+        if body.session_id:
+            await chat_memory.append_message(body.session_id, "user", body.user_message)
+            await chat_memory.append_message(body.session_id, "model", reply_text)
+
         # Back-compat: if a stub still returns a bare string, wrap it.
         if isinstance(result, str):
-            return ChatResponse(reply=result, citations=[])
+            return ChatResponse(reply=result, citations=[], session_id=body.session_id)
         return ChatResponse(
-            reply=result.get("reply", ""),
+            reply=reply_text,
             citations=result.get("citations", []),
+            session_id=body.session_id
         )
     except Exception as e:
         logger.error("AI tutor failed: %s", e)
@@ -508,6 +567,100 @@ async def text_to_speech_endpoint(request: Request, body: TTSRequest, user: Any 
     except Exception as e:
         logger.error("TTS failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to generate AI voice.")
+
+@router.post("/sessions", response_model=SessionResponse)
+@limiter.limit("20/minute")
+async def create_chat_session_endpoint(
+    request: Request,
+    body: CreateSessionRequest,
+    user: Any = Depends(verify_token)
+):
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication credentials not found.")
+    
+    # If lecture_id is provided, verify user has access to it
+    if body.lecture_id:
+        try:
+            res = supabase_admin.table("lectures").select("id").eq("id", body.lecture_id).limit(1).execute()
+            if not res.data:
+                raise HTTPException(status_code=404, detail="Lecture not found.")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("Lecture access check failed: %s", e)
+            raise HTTPException(status_code=500, detail="Database lookup failed.")
+
+    session_id = await chat_memory.create_session(
+        user_id=user_id,
+        lecture_id=body.lecture_id,
+        title=body.title
+    )
+    
+    meta = await chat_memory.get_session_metadata(session_id)
+    if not meta:
+        raise HTTPException(status_code=500, detail="Failed to retrieve created session.")
+    
+    if meta.get("lecture_id") == "":
+        meta["lecture_id"] = None
+        
+    return SessionResponse(**meta)
+
+@router.get("/sessions", response_model=List[SessionResponse])
+@limiter.limit("30/minute")
+async def list_chat_sessions_endpoint(
+    request: Request,
+    user: Any = Depends(verify_token)
+):
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication credentials not found.")
+    
+    sessions = await chat_memory.get_user_sessions(user_id)
+    return [SessionResponse(**s) for s in sessions]
+
+@router.get("/sessions/{session_id}/messages", response_model=List[MessageResponse])
+@limiter.limit("30/minute")
+async def get_session_messages_endpoint(
+    request: Request,
+    session_id: str,
+    limit: int = 50,
+    user: Any = Depends(verify_token)
+):
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication credentials not found.")
+    
+    meta = await chat_memory.get_session_metadata(session_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    
+    if meta.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized to access this session.")
+    
+    history = await chat_memory.get_history(session_id, limit=limit)
+    return [MessageResponse(**m) for m in history]
+
+@router.delete("/sessions/{session_id}")
+@limiter.limit("20/minute")
+async def delete_chat_session_endpoint(
+    request: Request,
+    session_id: str,
+    user: Any = Depends(verify_token)
+):
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication credentials not found.")
+    
+    deleted = await chat_memory.delete_session(session_id, user_id)
+    if not deleted:
+        meta = await chat_memory.get_session_metadata(session_id)
+        if not meta:
+            raise HTTPException(status_code=404, detail="Session not found.")
+        else:
+            raise HTTPException(status_code=403, detail="Unauthorized to delete this session.")
+            
+    return {"success": True}
 
 # --- Single Slide Regeneration ---
 
