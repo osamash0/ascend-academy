@@ -1220,7 +1220,16 @@ async def _compute_professor_overview(
     for e in course_events:
         if e.get("event_type") != "quiz_attempt":
             continue
-        ed = e.get("event_data") or {}
+        ed_raw = e.get("event_data") or {}
+        import json
+        ed = json.loads(ed_raw) if isinstance(ed_raw, str) else ed_raw
+        if isinstance(ed, str):
+            try:
+                ed = json.loads(ed)
+            except Exception:
+                ed = {}
+        if not isinstance(ed, dict):
+            ed = {}
         qid = ed.get("questionId")
         is_correct = bool(ed.get("correct"))
         concept = q_concept.get(qid)

@@ -322,7 +322,7 @@ export default function LectureEdit() {
 
     // ── AI Helpers ──────────────────────────────────────────────────────────────
     const handleGenerateSummary = async (slideIndex: number) => {
-        const content = slides[slideIndex].content;
+        const content = slides[slideIndex].content || slides[slideIndex].title || "Educational topic";
         if (!content.trim()) {
             toast({ title: 'No content', description: 'Add slide content first.', variant: 'destructive' });
             return;
@@ -340,7 +340,7 @@ export default function LectureEdit() {
     };
 
     const handleGenerateQuiz = async (slideIndex: number) => {
-        const content = slides[slideIndex].content;
+        const content = slides[slideIndex].content || slides[slideIndex].title || slides[slideIndex].summary || "Educational topic";
         if (!content.trim()) {
             toast({ title: 'No content', description: 'Add slide content first.', variant: 'destructive' });
             return;
@@ -367,7 +367,7 @@ export default function LectureEdit() {
     };
 
     const handleGenerateTitle = async (slideIndex: number) => {
-        const content = slides[slideIndex].content;
+        const content = slides[slideIndex].content || slides[slideIndex].summary || "Educational topic";
         if (!content.trim()) {
             toast({ title: 'No content', description: 'Add slide content first.', variant: 'destructive' });
             return;

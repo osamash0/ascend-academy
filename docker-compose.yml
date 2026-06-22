@@ -48,6 +48,9 @@ services:
       - .env
     environment:
       - DISABLE_SCHEMA_UPDATE=true
+      - STORE_MODEL_IN_DB=False
+      - LITELLM_TELEMETRY=False
+      - DATABASE_URL=""
     depends_on:
       redis:
         condition: service_healthy
