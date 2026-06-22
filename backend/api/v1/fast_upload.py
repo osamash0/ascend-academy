@@ -12,7 +12,7 @@ from backend.services.ai_service import generate_deck_summary, generate_deck_qui
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/fast-upload", tags=["fast-upload"])
+router = APIRouter(prefix="/fast-upload", tags=["fast-upload"])
 
 MAX_FILE_MB = 50
 

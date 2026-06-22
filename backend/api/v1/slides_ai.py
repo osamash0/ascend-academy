@@ -36,7 +36,7 @@ from backend.services.ai_service import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/ai", tags=["slides-ai"])
+router = APIRouter(prefix="/ai", tags=["slides-ai"])
 
 _AiModel = Literal[
     "cerebras", "openrouter", "cloudflare", "groq", "openai", "deepseek"

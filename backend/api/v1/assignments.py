@@ -35,7 +35,7 @@ from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/assignments", tags=["assignments"])
+router = APIRouter(prefix="/assignments", tags=["assignments"])
 
 
 # ── Models ──────────────────────────────────────────────────────────────────

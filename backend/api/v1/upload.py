@@ -183,7 +183,7 @@ async def validate_upload(file: UploadFile, content: bytes) -> int:
 
 # --- API Router ---
 
-router = APIRouter(prefix="/api/upload", tags=["upload"])
+router = APIRouter(prefix="/upload", tags=["upload"])
 
 @router.post("/parse-pdf-stream")
 @limiter.limit("5/minute")

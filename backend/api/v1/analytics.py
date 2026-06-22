@@ -142,7 +142,7 @@ class AIQueryItem(BaseModel):
 
 # ── Router ───────────────────────────────────────────────────────────────────
 
-router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 def _assert_course_owner(course_id: str, user_id: str) -> None:

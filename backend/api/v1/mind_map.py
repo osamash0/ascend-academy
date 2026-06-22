@@ -14,7 +14,7 @@ from backend.core.rate_limit import limiter
 from backend.services.ai_service import generate_mind_map
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/mind-map", tags=["mind-map"])
+router = APIRouter(prefix="/mind-map", tags=["mind-map"])
 security = HTTPBearer()
 
 # Bump this when the canonical tree shape changes; cached rows with a lower

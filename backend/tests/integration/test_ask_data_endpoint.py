@@ -27,7 +27,7 @@ def stub_ask(monkeypatch):
             "debug": {},
         }
 
-    monkeypatch.setattr("backend.api.analytics.ask_lecture_data", fake_ask)
+    monkeypatch.setattr("backend.api.v1.analytics.ask_lecture_data", fake_ask)
     return fake_ask
 
 
@@ -95,7 +95,7 @@ class TestAskEndpointOwnership:
                 "chart": None,
                 "debug": {},
             }
-        monkeypatch.setattr("backend.api.analytics.ask_lecture_data", fake_ask)
+        monkeypatch.setattr("backend.api.v1.analytics.ask_lecture_data", fake_ask)
 
         app.dependency_overrides[verify_token] = lambda: professor_user
         app.dependency_overrides[require_professor] = lambda: professor_user
@@ -123,7 +123,7 @@ class TestAskEndpointOwnership:
                 "chart": None,
                 "debug": {"parse_failed": True},
             }
-        monkeypatch.setattr("backend.api.analytics.ask_lecture_data", fake_ask)
+        monkeypatch.setattr("backend.api.v1.analytics.ask_lecture_data", fake_ask)
 
         app.dependency_overrides[verify_token] = lambda: professor_user
         app.dependency_overrides[require_professor] = lambda: professor_user
@@ -225,7 +225,7 @@ class TestAskEndpointSeededExecutors:
 
 class TestAskRateLimitKey:
     def test_key_derives_from_bearer_token(self):
-        from backend.api.analytics import _ask_rate_limit_key
+        from backend.api.v1.analytics import _ask_rate_limit_key
         from types import SimpleNamespace
 
         def _make(headers):

@@ -24,7 +24,7 @@ from backend.services import analytics_service, analytics_cache
 from backend.services.content_filter import is_metadata_slide
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/ai", tags=["ai"])
+router = APIRouter(prefix="/ai", tags=["ai"])
 
 _PDF_MAX_BYTES = 50 * 1024 * 1024  # 50 MB cap on PDF downloads
 

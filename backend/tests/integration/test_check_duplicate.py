@@ -229,7 +229,7 @@ class TestParsePdfStreamForceReparse:
     @pytest.fixture
     def stub_streaming(self, monkeypatch):
         """Replace the heavy parser + validation with deterministic stubs."""
-        from backend.api import upload as upload_mod
+        from backend.api.v1 import upload as upload_mod
         from backend.core.config import settings
         monkeypatch.setattr(settings, "parser_version", 2)
 

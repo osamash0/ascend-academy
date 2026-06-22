@@ -20,7 +20,7 @@ from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/admin/academic", tags=["academic"])
+router = APIRouter(prefix="/admin/academic", tags=["academic"])
 
 require_admin = require_role("admin")
 

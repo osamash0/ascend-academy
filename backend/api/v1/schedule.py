@@ -22,7 +22,7 @@ from backend.core.rate_limit import limiter
 from backend.services import scheduler
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/schedule", tags=["schedule"])
+router = APIRouter(prefix="/schedule", tags=["schedule"])
 
 
 class _Envelope(BaseModel):

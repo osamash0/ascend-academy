@@ -140,7 +140,7 @@ class SubmitAttemptBody(BaseModel):
 # Endpoints — list / create
 # ---------------------------------------------------------------------------
 
-@router.get("/api/lectures/{lecture_id}/practice-sheets")
+@router.get("/lectures/{lecture_id}/practice-sheets")
 @limiter.limit("120/minute")
 async def list_practice_sheets(
     request: Request,
@@ -188,7 +188,7 @@ async def list_practice_sheets(
         raise HTTPException(status_code=500, detail="Failed to load practice sheets.")
 
 
-@router.post("/api/lectures/{lecture_id}/practice-sheets", status_code=201)
+@router.post("/lectures/{lecture_id}/practice-sheets", status_code=201)
 @limiter.limit("30/minute")
 async def create_manual_sheet(
     request: Request,
@@ -236,7 +236,7 @@ async def create_manual_sheet(
 # Auto-generate endpoint
 # ---------------------------------------------------------------------------
 
-@router.post("/api/lectures/{lecture_id}/practice-sheets/auto", status_code=201)
+@router.post("/lectures/{lecture_id}/practice-sheets/auto", status_code=201)
 @limiter.limit("10/minute")
 async def generate_auto_sheet(
     request: Request,
@@ -369,7 +369,7 @@ async def generate_auto_sheet(
 # Single sheet endpoints
 # ---------------------------------------------------------------------------
 
-@router.get("/api/practice-sheets/{sheet_id}")
+@router.get("/practice-sheets/{sheet_id}")
 @limiter.limit("120/minute")
 async def get_practice_sheet(
     request: Request,
@@ -408,7 +408,7 @@ async def get_practice_sheet(
         raise HTTPException(status_code=500, detail="Failed to load practice sheet.")
 
 
-@router.patch("/api/practice-sheets/{sheet_id}")
+@router.patch("/practice-sheets/{sheet_id}")
 @limiter.limit("60/minute")
 async def update_practice_sheet(
     request: Request,
@@ -444,7 +444,7 @@ async def update_practice_sheet(
         raise HTTPException(status_code=500, detail="Failed to update practice sheet.")
 
 
-@router.delete("/api/practice-sheets/{sheet_id}", status_code=204)
+@router.delete("/practice-sheets/{sheet_id}", status_code=204)
 @limiter.limit("30/minute")
 async def delete_practice_sheet(
     request: Request,
@@ -475,7 +475,7 @@ async def delete_practice_sheet(
 # Question management (manual sheets only)
 # ---------------------------------------------------------------------------
 
-@router.post("/api/practice-sheets/{sheet_id}/questions", status_code=201)
+@router.post("/practice-sheets/{sheet_id}/questions", status_code=201)
 @limiter.limit("60/minute")
 async def add_question(
     request: Request,
@@ -526,7 +526,7 @@ async def add_question(
         raise HTTPException(status_code=500, detail="Failed to add question.")
 
 
-@router.patch("/api/practice-sheets/{sheet_id}/questions/{question_id}")
+@router.patch("/practice-sheets/{sheet_id}/questions/{question_id}")
 @limiter.limit("60/minute")
 async def update_question(
     request: Request,
@@ -580,7 +580,7 @@ async def update_question(
         raise HTTPException(status_code=500, detail="Failed to update question.")
 
 
-@router.delete("/api/practice-sheets/{sheet_id}/questions/{question_id}", status_code=204)
+@router.delete("/practice-sheets/{sheet_id}/questions/{question_id}", status_code=204)
 @limiter.limit("60/minute")
 async def delete_question(
     request: Request,
@@ -615,7 +615,7 @@ async def delete_question(
         raise HTTPException(status_code=500, detail="Failed to delete question.")
 
 
-@router.post("/api/practice-sheets/{sheet_id}/reorder")
+@router.post("/practice-sheets/{sheet_id}/reorder")
 @limiter.limit("60/minute")
 async def reorder_questions(
     request: Request,
@@ -663,7 +663,7 @@ def _grade_attempt(questions: List[dict], answers: dict) -> float:
     return round((correct / len(gradeable)) * 100, 1)
 
 
-@router.post("/api/practice-sheets/{sheet_id}/attempts", status_code=201)
+@router.post("/practice-sheets/{sheet_id}/attempts", status_code=201)
 @limiter.limit("30/minute")
 async def submit_attempt(
     request: Request,
@@ -729,7 +729,7 @@ async def submit_attempt(
         raise HTTPException(status_code=500, detail="Failed to submit attempt.")
 
 
-@router.get("/api/practice-sheets/{sheet_id}/attempts/mine")
+@router.get("/practice-sheets/{sheet_id}/attempts/mine")
 @limiter.limit("60/minute")
 async def get_my_attempts(
     request: Request,

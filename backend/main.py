@@ -1,8 +1,8 @@
 import os
 import logging
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -21,23 +21,23 @@ if os.environ.get("SENTRY_DSN"):
         profiles_sample_rate=profiles_sample_rate,
     )
 
-from backend.api.analytics import router as analytics_router
-from backend.api.auth import router as auth_router
-from backend.api.admin import router as admin_router
-from backend.api.upload import router as upload_router
-from backend.api.ai_content import router as ai_router
-from backend.api.mind_map import router as mind_map_router
-from backend.api.feedback import router as feedback_router
-from backend.api.assignments import router as assignments_router
-from backend.api.concepts import router as concepts_router
-from backend.api.courses import router as courses_router
-from backend.api.worksheets import router as worksheets_router
-from backend.api.nudges import router as nudges_router
-from backend.api.schedule import router as schedule_router
-from backend.api.slides_ai import router as slides_ai_router
-from backend.api.practice_sheets import router as practice_sheets_router
-from backend.api.fast_upload import router as fast_upload_router
-from backend.api.academic import router as academic_router
+from backend.api.v1.analytics import router as analytics_router
+from backend.api.v1.auth import router as auth_router
+from backend.api.v1.admin import router as admin_router
+from backend.api.v1.upload import router as upload_router
+from backend.api.v1.ai_content import router as ai_router
+from backend.api.v1.mind_map import router as mind_map_router
+from backend.api.v1.feedback import router as feedback_router
+from backend.api.v1.assignments import router as assignments_router
+from backend.api.v1.concepts import router as concepts_router
+from backend.api.v1.courses import router as courses_router
+from backend.api.v1.worksheets import router as worksheets_router
+from backend.api.v1.nudges import router as nudges_router
+from backend.api.v1.schedule import router as schedule_router
+from backend.api.v1.slides_ai import router as slides_ai_router
+from backend.api.v1.practice_sheets import router as practice_sheets_router
+from backend.api.v1.fast_upload import router as fast_upload_router
+from backend.api.v1.academic import router as academic_router
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -102,24 +102,61 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
 )
 
-# Include routers
-app.include_router(auth_router)
-app.include_router(analytics_router)
-app.include_router(admin_router)
-app.include_router(upload_router)
-app.include_router(ai_router)
-app.include_router(mind_map_router)
-app.include_router(feedback_router)
-app.include_router(assignments_router)
-app.include_router(concepts_router)
-app.include_router(courses_router)
-app.include_router(worksheets_router)
-app.include_router(nudges_router)
-app.include_router(schedule_router)
-app.include_router(slides_ai_router)
-app.include_router(practice_sheets_router)
-app.include_router(fast_upload_router)
-app.include_router(academic_router)
+# Create parent router for v1 endpoints
+v1_router = APIRouter(prefix="/api/v1")
+
+# Include all sub-routers onto v1_router
+v1_router.include_router(auth_router)
+v1_router.include_router(analytics_router)
+v1_router.include_router(admin_router)
+v1_router.include_router(upload_router)
+v1_router.include_router(ai_router)
+v1_router.include_router(mind_map_router)
+v1_router.include_router(feedback_router)
+v1_router.include_router(assignments_router)
+v1_router.include_router(concepts_router)
+v1_router.include_router(courses_router)
+v1_router.include_router(worksheets_router)
+v1_router.include_router(nudges_router)
+v1_router.include_router(schedule_router)
+v1_router.include_router(slides_ai_router)
+v1_router.include_router(practice_sheets_router)
+v1_router.include_router(fast_upload_router)
+v1_router.include_router(academic_router)
+
+# Mount parent v1_router onto app
+app.include_router(v1_router)
+
+# Import and register DomainError global exception handlers
+from backend.core.exceptions import DomainError
+
+@app.exception_handler(DomainError)
+async def domain_error_handler(request: Request, exc: DomainError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "data": None,
+            "error": {
+                "code": exc.code,
+                "message": exc.message,
+                "details": exc.details
+            }
+        }
+    )
+
+# ── Redirect Legacy API ──────────────────────────────────────────────────────
+@app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def redirect_legacy_api(request: Request, path: str):
+    if path.startswith("v1/"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404)
+        
+    query_params = request.url.query
+    new_path = f"/api/v1/{path}"
+    if query_params:
+        new_path = f"{new_path}?{query_params}"
+    return RedirectResponse(url=new_path, status_code=307)
+
 
 @app.on_event("startup")
 async def startup_event():

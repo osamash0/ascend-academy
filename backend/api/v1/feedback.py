@@ -17,7 +17,7 @@ from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/feedback", tags=["feedback"])
+router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 
 class FeedbackBody(BaseModel):

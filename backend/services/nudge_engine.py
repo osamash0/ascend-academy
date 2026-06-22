@@ -347,7 +347,7 @@ def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
             or []
         )
         # Compute status per assignment using the same rule the API uses.
-        from backend.api.assignments import compute_status_for_user, _fetch_lecture_ids_for_assignment
+        from backend.api.v1.assignments import compute_status_for_user, _fetch_lecture_ids_for_assignment
         for a in a_rows:
             lec_ids = _fetch_lecture_ids_for_assignment(a["id"])
             due_at = _parse_ts(a.get("due_at")) or now
