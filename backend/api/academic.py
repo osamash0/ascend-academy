@@ -42,7 +42,8 @@ async def trigger_scrape(body: ScrapeRequest, request: Request, user: Any = Depe
         summary = await run_ingest(body.source)
         return {"success": True, "data": summary}
     except KeyError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Catalog scrape configuration error: %s", e)
+        raise HTTPException(status_code=400, detail="Invalid scrape configuration.")
     except Exception as e:
         logger.error("Catalog scrape failed for %s: %s", body.source, e, exc_info=True)
         raise HTTPException(status_code=500, detail="Catalog scrape failed.")

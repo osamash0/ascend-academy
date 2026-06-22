@@ -209,7 +209,8 @@ async def generate_summary_endpoint(request: Request, body: SlideTextRequest, us
     except (asyncio.TimeoutError, LLMTimeoutError):
         raise HTTPException(status_code=504, detail="AI summary timed out. Please retry.")
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("AI summary validation error: %s", e)
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
     except Exception as e:
         logger.error("AI summary failed: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail="AI service unavailable. Please try a different model or retry shortly.")
@@ -257,7 +258,8 @@ async def generate_quiz_endpoint(request: Request, body: SlideTextRequest, user:
     except (asyncio.TimeoutError, LLMTimeoutError):
         raise HTTPException(status_code=504, detail="AI quiz timed out. Please retry.")
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=f"AI returned invalid quiz format: {e}")
+        logger.error("AI quiz format error: %s", e)
+        raise HTTPException(status_code=422, detail="AI returned an invalid quiz format.")
     except Exception as e:
         logger.error("AI quiz failed: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail="AI service unavailable. Please try a different model or retry shortly.")
@@ -575,8 +577,8 @@ async def regenerate_slide_content(
                 return b"".join(chunks)
         pdf_bytes = await asyncio.to_thread(_download)
     except ValueError as e:
-        logger.warning("PDF download rejected (size): %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("PDF download rejected (size or redirect): %s", e)
+        raise HTTPException(status_code=400, detail="Invalid or excessively large PDF response.")
     except Exception as e:
         logger.error("PDF download failed: %s", e)
         raise HTTPException(status_code=502, detail="Could not download PDF.")

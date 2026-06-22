@@ -326,9 +326,11 @@ async def parse_pdf_stream_endpoint(
             parser_used = "llamaparse"
             logger.info("LlamaParse extracted %d pages for %s", len(odl_pages), filename)
         except RuntimeError as e:
-            raise HTTPException(503, detail=str(e))
+            logger.error("LlamaParse extraction error: %s", e)
+            raise HTTPException(503, detail="Extraction service unavailable. Please try again later.")
         except Exception as e:
-            raise HTTPException(422, detail=f"LlamaParse extraction failed: {e}")
+            logger.error("LlamaParse extraction failed: %s", e)
+            raise HTTPException(422, detail="LlamaParse extraction failed. Please try a different parser.")
     elif parser == "mineru":
         try:
             from backend.services import mineru_service
@@ -337,9 +339,11 @@ async def parse_pdf_stream_endpoint(
             parser_used = "mineru"
             logger.info("MinerU extracted %d pages for %s", len(odl_pages), filename)
         except RuntimeError as e:
-            raise HTTPException(503, detail=str(e))
+            logger.error("MinerU extraction error: %s", e)
+            raise HTTPException(503, detail="Extraction service unavailable. Please try again later.")
         except Exception as e:
-            raise HTTPException(422, detail=f"MinerU extraction failed: {e}")
+            logger.error("MinerU extraction failed: %s", e)
+            raise HTTPException(422, detail="MinerU extraction failed. Please try a different parser.")
     elif parser == "opendataloader":
         try:
             from backend.services.odl_service import extract_pages as _odl
@@ -349,7 +353,7 @@ async def parse_pdf_stream_endpoint(
             logger.info("ODL extracted %d pages for %s", len(odl_pages), filename)
         except Exception as e:
             logger.error("ODL extraction failed (explicit): %s", e)
-            raise HTTPException(422, detail=f"OpenDataLoader extraction failed: {e}. Try 'auto' or 'pymupdf'.")
+            raise HTTPException(422, detail="OpenDataLoader extraction failed. Try 'auto' or 'pymupdf'.")
 
     # ── v4 pipeline branch ────────────────────────────────────────────────────
     from backend.core.config import settings as _cfg
@@ -879,9 +883,11 @@ async def parse_raw_endpoint(
             pages_raw = await llamaparse_service.extract_pages(content, filename)
             parser_used = "llamaparse"
         except RuntimeError as e:
-            raise HTTPException(503, detail=str(e))
+            logger.error("LlamaParse extraction error: %s", e)
+            raise HTTPException(503, detail="Extraction service unavailable. Please try again later.")
         except Exception as e:
-            raise HTTPException(422, detail=f"LlamaParse extraction failed: {e}")
+            logger.error("LlamaParse extraction failed: %s", e)
+            raise HTTPException(422, detail="LlamaParse extraction failed. Please try a different parser.")
 
     elif parser == "mineru":
         try:
@@ -889,9 +895,11 @@ async def parse_raw_endpoint(
             pages_raw = await mineru_service.extract_pages(content, filename)
             parser_used = "mineru"
         except RuntimeError as e:
-            raise HTTPException(503, detail=str(e))
+            logger.error("MinerU extraction error: %s", e)
+            raise HTTPException(503, detail="Extraction service unavailable. Please try again later.")
         except Exception as e:
-            raise HTTPException(422, detail=f"MinerU extraction failed: {e}")
+            logger.error("MinerU extraction failed: %s", e)
+            raise HTTPException(422, detail="MinerU extraction failed. Please try a different parser.")
 
     elif parser == "opendataloader":
         try:
@@ -899,7 +907,8 @@ async def parse_raw_endpoint(
             pages_raw = await _odl(content, filename)
             parser_used = "opendataloader-pdf"
         except Exception as e:
-            raise HTTPException(422, detail=f"OpenDataLoader extraction failed: {e}")
+            logger.error("OpenDataLoader extraction failed: %s", e)
+            raise HTTPException(422, detail="OpenDataLoader extraction failed. Please try a different parser.")
 
     elif parser == "pymupdf":
         def _pymupdf_extract() -> Dict[int, dict]:
@@ -915,7 +924,8 @@ async def parse_raw_endpoint(
             pages_raw = await asyncio.wait_for(asyncio.to_thread(_pymupdf_extract), timeout=60.0)
             parser_used = "pymupdf"
         except Exception as e:
-            raise HTTPException(422, detail=f"PyMuPDF extraction failed: {e}")
+            logger.error("PyMuPDF extraction failed: %s", e)
+            raise HTTPException(422, detail="PyMuPDF extraction failed. Please try a different parser.")
 
     else:  # auto — try ODL, fall back to PyMuPDF
         try:
@@ -936,7 +946,8 @@ async def parse_raw_endpoint(
                 pages_raw = await asyncio.wait_for(asyncio.to_thread(_pymupdf_extract_auto), timeout=60.0)
                 parser_used = "pymupdf"
             except Exception as e:
-                raise HTTPException(422, detail=f"Extraction failed: {e}")
+                logger.error("Extraction failed: %s", e)
+                raise HTTPException(422, detail="Extraction failed. Please try a different parser.")
 
     pages_out = []
     for page_num in sorted(pages_raw):
