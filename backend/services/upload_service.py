@@ -7,12 +7,13 @@ from fastapi import UploadFile
 
 from backend.services.file_parse_service import parse_pdf_stream, import_pdf_lazy, _safe_embedding_task
 from backend.services.slide_synth_service import synthesize_slide
-from backend.core.database import get_client, supabase_admin
+from backend.core.database import get_client, supabase_admin  # ADMIN: required for background storage operations
 from backend.services.cache import (
     compute_pdf_hash,
     get_cached_parse,
     store_cached_parse,
 )
+from backend.core.file_validation import validate_pdf_content, sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -59,14 +60,12 @@ async def validate_upload(filename: Optional[str], content: bytes) -> int:
     Validates the uploaded PDF file.
     Returns the page count if valid, otherwise raises ValueError.
     """
-    if not filename or not filename.lower().endswith(".pdf"):
+    safe_filename = sanitize_filename(filename)
+    if not safe_filename.lower().endswith(".pdf"):
         raise ValueError("Only PDF files are supported.")
 
-    if len(content) > MAX_FILE_MB * 1024 * 1024:
-        raise ValueError(f"File exceeds the {MAX_FILE_MB}MB limit.")
-
-    if len(content) < 8:
-        raise ValueError("File is too small to be a valid PDF.")
+    # Validate size and magic bytes
+    validate_pdf_content(content)
 
     def _get_info():
         try:

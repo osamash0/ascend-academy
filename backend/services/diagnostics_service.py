@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
-from backend.core.database import supabase_admin
+from backend.core.database import supabase_admin  # ADMIN: cross-tenant duplicate checking and cache lookups
 from backend.services.cache import get_cached_parse_meta, get_cached_slide_results, get_pipeline_run
 from backend.services.diagnostics import flag_suspicious
 from backend.repositories.lecture_repo import list_lectures_by_pdf_hash

@@ -8,6 +8,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import sentry_sdk
 from backend.core.config import settings
 
@@ -56,6 +57,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 # ── Compression ──────────────────────────────────────────────────────────────
 app.add_middleware(GZipMiddleware, minimum_size=1000)

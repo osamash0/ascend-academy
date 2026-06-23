@@ -32,7 +32,7 @@ from backend.core.auth_middleware import (
     verify_token,
 )
 from backend.core.pagination import PaginationParams, PaginatedResponse
-from backend.core.database import supabase_admin
+from backend.core.database import supabase_admin  # ADMIN: cross-table progress and roster queries
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ from backend.core.auth_middleware import verify_token, require_professor
 from backend.core.rate_limit import limiter
 from backend.services import chat_memory
 from backend.services.ai import chat_service, tutor_service
-from backend.core.database import supabase_admin
+from backend.core.database import supabase_admin  # ADMIN: direct access needed for session retrieval and lecture metadata
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["ai"])

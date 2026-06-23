@@ -12,12 +12,13 @@ from backend.services import diagnostics_service
 from backend.services.slide_synth_service import synthesize_slide
 from backend.core.auth_middleware import require_professor
 from backend.core.rate_limit import limiter
+from backend.core.file_validation import sanitize_filename
 from backend.services.cache import (
     compute_pdf_hash,
     get_cached_parse,
     purge_expired_slide_checkpoints,
 )
-from backend.core.database import supabase_admin
+from backend.core.database import supabase_admin  # ADMIN: cross-tenant authorization lookup for diagnostics and lectures
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ async def parse_pdf_stream_endpoint(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    filename = file.filename or "upload.pdf"
+    filename = sanitize_filename(file.filename)
     pdf_hash = compute_pdf_hash(content)
     parsing_mode = parsing_mode if parsing_mode in {"ai", "on_demand"} else "ai"
 
@@ -160,7 +161,7 @@ async def import_pdf_lazy_endpoint(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    filename = file.filename or "upload.pdf"
+    filename = sanitize_filename(file.filename)
     return StreamingResponse(
         upload_service.process_pdf_lazy(content, filename, ai_model),
         media_type="text/event-stream",
@@ -313,7 +314,7 @@ async def parse_raw_endpoint(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    filename = file.filename or "upload.pdf"
+    filename = sanitize_filename(file.filename)
     
     try:
         return await upload_service.extract_raw_pages(content, filename, parser)

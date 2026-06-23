@@ -40,7 +40,13 @@ async function request<T>(
   extraHeaders?: Record<string, string>,
 ): Promise<T> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}${path}`, {
+  
+  let finalPath = path;
+  if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
+    finalPath = path.replace('/api/', '/api/v1/');
+  }
+
+  const res = await fetch(`${API_BASE}${finalPath}`, {
     method,
     headers: { ...headers, ...extraHeaders },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -68,7 +74,13 @@ export const apiClient = {
   /** Stream variant — returns the raw Response for SSE/NDJSON consumers. */
   stream: async (path: string, body: unknown, signal?: AbortSignal): Promise<Response> => {
     const headers = await getAuthHeaders();
-    const res = await fetch(`${API_BASE}${path}`, {
+    
+    let finalPath = path;
+    if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
+      finalPath = path.replace('/api/', '/api/v1/');
+    }
+
+    const res = await fetch(`${API_BASE}${finalPath}`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
