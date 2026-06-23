@@ -31,6 +31,7 @@ from backend.core.auth_middleware import (
     require_professor,
     verify_token,
 )
+from backend.core.pagination import PaginationParams, PaginatedResponse
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
 
@@ -255,7 +256,11 @@ def _is_professor(user: Any) -> bool:
 
 @router.get("")
 @limiter.limit("60/minute")
-async def list_assignments(request: Request, user: Any = Depends(verify_token)):
+async def list_assignments(
+    request: Request,
+    user: Any = Depends(verify_token),
+    params: PaginationParams = Depends(),
+):
     """Role-aware list.
 
     Professor → their own assignments (no per-user status).
@@ -273,7 +278,14 @@ async def list_assignments(request: Request, user: Any = Depends(verify_token)):
         )
         if is_prof:
             q = q.eq("professor_id", uid)
-        rows = q.order("due_at").execute().data or []
+            
+        if params.cursor:
+            q = q.gt("due_at", params.cursor)
+
+        rows = q.order("due_at").limit(params.limit + 1).execute().data or []
+        has_more = len(rows) > params.limit
+        if has_more:
+            rows = rows[:-1]
 
         # Students only see assignments they are explicitly enrolled in.
         if not is_prof:
@@ -322,11 +334,13 @@ async def list_assignments(request: Request, user: Any = Depends(verify_token)):
             if is_prof:
                 base["student_ids"] = roster_by_id.get(r["id"], [])
             out.append(base)
-        return out
+            
+        next_cursor = rows[-1]["due_at"] if rows else None
+        return PaginatedResponse(data=out, cursor=next_cursor, has_more=has_more)
 
     try:
         data = await run_in_threadpool(_load)
-        return {"success": True, "data": data}
+        return data
     except Exception as e:
         logger.error("Assignments list failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load assignments.")

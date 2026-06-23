@@ -27,6 +27,7 @@ from backend.core.auth_middleware import (
     require_student,
     verify_token,
 )
+from backend.core.pagination import PaginationParams, PaginatedResponse
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
 
@@ -150,6 +151,7 @@ async def list_courses(
     user: Any = Depends(verify_token),
     only_archived: bool = Query(default=False),
     include_archived: bool = Query(default=False),
+    params: PaginationParams = Depends(),
 ):
     """List courses.
 
@@ -174,7 +176,13 @@ async def list_courses(
         elif not include_archived:
             q = q.eq("is_archived", False)
 
-        rows = q.order("created_at", desc=True).execute().data or []
+        if params.cursor:
+            q = q.lt("created_at", params.cursor)
+
+        rows = q.order("created_at", desc=True).limit(params.limit + 1).execute().data or []
+        has_more = len(rows) > params.limit
+        if has_more:
+            rows = rows[:-1]
 
         if not is_prof:
             visible = _student_visible_course_ids(uid)
@@ -197,11 +205,12 @@ async def list_courses(
                 if cid in counts:
                     if only_archived or l.get("is_archived") is False:
                         counts[cid] = counts[cid] + 1
-        return [_serialize(r, counts.get(r["id"], 0)) for r in rows]
+        next_cursor = rows[-1]["created_at"] if rows else None
+        return PaginatedResponse(data=[_serialize(r, counts.get(r["id"], 0)) for r in rows], cursor=next_cursor, has_more=has_more)
 
     try:
         data = await run_in_threadpool(_load)
-        return {"success": True, "data": data}
+        return data
     except Exception as e:
         logger.error("Courses list failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load courses.")
@@ -212,6 +221,7 @@ async def list_courses(
 async def browse_courses(
     request: Request,
     user: Any = Depends(verify_token),
+    params: PaginationParams = Depends(),
 ):
     """Browse all available (non-archived) courses. Useful for onboarding and discovery."""
     uid = _user_id(user)
@@ -219,15 +229,18 @@ async def browse_courses(
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
     def _load() -> List[dict]:
-        rows = (
+        q = (
             supabase_admin.table("courses")
             .select("id, professor_id, title, description, color, icon, is_archived, created_at, updated_at")
             .eq("is_archived", False)
-            .order("created_at", desc=True)
-            .execute()
-            .data
-            or []
         )
+        if params.cursor:
+            q = q.lt("created_at", params.cursor)
+            
+        rows = q.order("created_at", desc=True).limit(params.limit + 1).execute().data or []
+        has_more = len(rows) > params.limit
+        if has_more:
+            rows = rows[:-1]
         # Batch-load lecture counts
         counts: dict[str, int] = {r["id"]: 0 for r in rows}
         if rows:
@@ -245,11 +258,12 @@ async def browse_courses(
                 if cid in counts and l.get("is_archived") is False:
                     counts[cid] = counts[cid] + 1
 
-        return [{**_serialize(r, counts.get(r["id"], 0)), "professor_id": None} for r in rows]
+        next_cursor = rows[-1]["created_at"] if rows else None
+        return PaginatedResponse(data=[{**_serialize(r, counts.get(r["id"], 0)), "professor_id": None} for r in rows], cursor=next_cursor, has_more=has_more)
 
     try:
         data = await run_in_threadpool(_load)
-        return {"success": True, "data": data}
+        return data
     except Exception as e:
         logger.error("Courses browse failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to browse courses.")
