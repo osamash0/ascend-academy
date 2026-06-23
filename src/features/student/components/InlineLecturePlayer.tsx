@@ -676,7 +676,7 @@ export function InlineLecturePlayer({
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
       const ctrl = new AbortController();
       chatAbortRef.current = ctrl;
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/ai/chat`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
