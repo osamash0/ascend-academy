@@ -444,6 +444,7 @@ export function LectureChat({
                                                         prose-h4:text-sm prose-h4:font-medium prose-h4:text-muted-foreground
                                                         prose-li:marker:text-primary/60 prose-li:my-1
                                                         prose-ul:space-y-1
+                                                        prose-blockquote:border-l-2 prose-blockquote:border-primary/40 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:bg-primary/5 prose-blockquote:py-2 prose-blockquote:pr-4 prose-blockquote:rounded-r-lg
                                                         max-w-none text-sm break-words">
                                                         <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
                                                             {msg.content}
@@ -496,7 +497,8 @@ export function LectureChat({
                                             <Sparkles className="w-3.5 h-3.5" />
                                         </div>
                                         <div className="glass-card rounded-2xl rounded-tl-sm px-4 py-3">
-                                            <div className="prose prose-sm dark:prose-invert max-w-none text-sm break-words">
+                                            <div className="prose prose-sm dark:prose-invert max-w-none text-sm break-words 
+                                                prose-blockquote:border-l-2 prose-blockquote:border-primary/40 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:bg-primary/5 prose-blockquote:py-2 prose-blockquote:pr-4 prose-blockquote:rounded-r-lg">
                                                 <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
                                                     {streamingContent}
                                                 </ReactMarkdown>
