@@ -337,15 +337,15 @@ async def purge_old_blueprint_versions(keep_version: int) -> int:
 
 # --- pgvector Semantic Cache ---
 
-async def get_similar_slides(embedding: List[float], limit: int = 5, threshold: float = 0.8) -> List[Dict[str, Any]]:
+async def get_similar_slides(query_text: str, embedding: List[float], limit: int = 5, threshold: float = 0.8) -> List[Dict[str, Any]]:
     """
-    Search for similar slides in Supabase using cosine similarity.
-    Requires the match_slides RPC function in PostgreSQL.
+    Search for similar slides in Supabase using hybrid search (pgvector + BM25 RRF).
+    Requires the hybrid_search_slides RPC function in PostgreSQL.
     """
     try:
-        res = supabase_admin.rpc("match_slides", {
+        res = supabase_admin.rpc("hybrid_search_slides", {
+            "query_text": query_text,
             "query_embedding": embedding,
-            "match_threshold": threshold,
             "match_count": limit
         }).execute()
         return res.data or []

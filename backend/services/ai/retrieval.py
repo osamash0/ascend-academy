@@ -63,7 +63,7 @@ async def retrieve_relevant_slides(
     raw_matches: List[Dict[str, Any]]
     try:
         raw_matches = await get_similar_slides(
-            embedding, limit=max(k * 4, 8), threshold=threshold
+            query, embedding, limit=max(k * 4, 8), threshold=threshold
         )
     except Exception as e:
         logger.warning("match_slides RPC failed: %s", e)
