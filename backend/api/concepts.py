@@ -150,13 +150,21 @@ async def get_related_lectures(
 
 def _caller_shares_course_with_student(prof_id: str, student_id: str) -> bool:
     try:
-        res = supabase_admin.table("assignment_enrollments").select("assignment_id").eq("user_id", student_id).execute()
-        a_ids = [e["assignment_id"] for e in (res.data or []) if e.get("assignment_id")]
-        if not a_ids: return False
-        res2 = supabase_admin.table("assignments").select("course_id").in_("id", a_ids).execute()
-        c_ids = [a["course_id"] for a in (res2.data or []) if a.get("course_id")]
-        if not c_ids: return False
-        res3 = supabase_admin.table("courses").select("id").eq("professor_id", prof_id).in_("id", c_ids).execute()
+        # Check direct course enrollments first
+        res = supabase_admin.table("course_enrollments").select("course_id").eq("user_id", student_id).execute()
+        c_ids = [e["course_id"] for e in (res.data or []) if e.get("course_id")]
+
+        # Check assignment enrollments too
+        res_ae = supabase_admin.table("assignment_enrollments").select("assignment_id").eq("user_id", student_id).execute()
+        a_ids = [e["assignment_id"] for e in (res_ae.data or []) if e.get("assignment_id")]
+        if a_ids:
+            res_a = supabase_admin.table("assignments").select("course_id").in_("id", a_ids).execute()
+            c_ids.extend([a["course_id"] for a in (res_a.data or []) if a.get("course_id")])
+
+        if not c_ids:
+            return False
+
+        res3 = supabase_admin.table("courses").select("id").eq("professor_id", prof_id).in_("id", list(set(c_ids))).execute()
         return bool(res3.data)
     except Exception as e:
         logger.warning("Course overlap lookup failed for prof %s student %s: %s", prof_id, student_id, e)
@@ -170,13 +178,21 @@ def _get_accessible_course_ids(user_id: str) -> set[str]:
             cres = supabase_admin.table("courses").select("id").eq("professor_id", user_id).execute()
             return {c["id"] for c in (cres.data or []) if c.get("id")}
         else:
+            # 1. Enrolled via course_enrollments
+            c_res = supabase_admin.table("course_enrollments").select("course_id").eq("user_id", user_id).execute()
+            course_ids = {r["course_id"] for r in (c_res.data or []) if r.get("course_id")}
+
+            # 2. Enrolled via assignments
             enroll = supabase_admin.table("assignment_enrollments").select("assignment_id").eq("user_id", user_id).execute()
             a_ids = [e["assignment_id"] for e in (enroll.data or []) if e.get("assignment_id")]
-            if not a_ids: return set()
-            al = supabase_admin.table("assignment_lectures").select("lecture_id").in_("assignment_id", a_ids).execute()
-            l_ids = [r["lecture_id"] for r in (al.data or []) if r.get("lecture_id")]
-            if not l_ids: return set()
-            lectures = supabase_admin.table("lectures").select("course_id").in_("id", l_ids).execute()
-            return {l["course_id"] for l in (lectures.data or []) if l.get("course_id")}
+            if a_ids:
+                al = supabase_admin.table("assignment_lectures").select("lecture_id").in_("assignment_id", a_ids).execute()
+                l_ids = [r["lecture_id"] for r in (al.data or []) if r.get("lecture_id")]
+                if l_ids:
+                    lectures = supabase_admin.table("lectures").select("course_id").in_("id", l_ids).execute()
+                    course_ids.update({l["course_id"] for l in (lectures.data or []) if l.get("course_id")})
+
+            return course_ids
     except Exception:
         return set()
+

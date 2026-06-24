@@ -29,6 +29,13 @@ services:
       retries: 3
 
   # ── LLM gateway ────────────────────────────────────────────────────────────
+  # NOTE: LiteLLM is optional.
+  # It acts as a gateway to external LLM providers (Groq, Gemini, OpenAI, etc.).
+  # If the university server hosts its own LLM (e.g. via vLLM or an
+  # OpenAI-compatible endpoint), LiteLLM can be removed entirely and the
+  # LITELLM_BASE_URL variable in the api and worker services should point
+  # directly to the university-hosted LLM endpoint instead.
+  # In that case, no external LLM API keys would be needed.
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
     networks:

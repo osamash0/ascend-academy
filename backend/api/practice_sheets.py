@@ -41,7 +41,7 @@ router = APIRouter(tags=["practice_sheets"])
 def _fetch_lecture(lecture_id: str) -> Optional[dict]:
     res = (
         supabase_admin.table("lectures")
-        .select("id, professor_id")
+        .select("id, professor_id, course_id")
         .eq("id", lecture_id)
         .execute()
     )
@@ -75,9 +75,24 @@ def _fetch_questions(sheet_id: str) -> List[dict]:
 
 
 def _user_can_read_lecture(user_id: str, lecture: dict) -> bool:
-    """Professor owns it OR student is enrolled via any assignment."""
+    """Professor owns it OR student is enrolled via course OR student is enrolled via any assignment."""
     if lecture["professor_id"] == user_id:
         return True
+
+    course_id = lecture.get("course_id")
+    if course_id:
+        ce = (
+            supabase_admin.table("course_enrollments")
+            .select("course_id")
+            .eq("user_id", user_id)
+            .eq("course_id", course_id)
+            .execute()
+            .data
+            or []
+        )
+        if ce:
+            return True
+
     enroll = (
         supabase_admin.table("assignment_enrollments")
         .select("assignment_id")
@@ -99,6 +114,7 @@ def _user_can_read_lecture(user_id: str, lecture: dict) -> bool:
         or []
     )
     return bool(al)
+
 
 
 def _is_professor_of_lecture(user_id: str, lecture: dict) -> bool:

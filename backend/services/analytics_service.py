@@ -1,8 +1,8 @@
 import logging
 logger = logging.getLogger(__name__)
-from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, db_pool, get_db_connection
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, db_pool, get_db_connection, create_client
 from backend.services.utils.analytics_utils import calculate_student_typology, generate_anon_name
-from supabase import create_client, Client
+from supabase import Client
 from functools import lru_cache
 from backend.services import cache
 from backend.services import analytics_cache
@@ -1157,7 +1157,16 @@ async def _compute_professor_overview(
                 WHERE created_at >= $1::timestamptz
                   AND (event_data->>'lectureId') = ANY($2::text[])
             """, cutoff, lecture_ids)
-        course_events = [dict(r) for r in event_rows]
+        def _row_to_dict(r):
+            d = dict(r)
+            ed = d.get("event_data")
+            if isinstance(ed, str):
+                try:
+                    d["event_data"] = json.loads(ed)
+                except Exception:
+                    d["event_data"] = {}
+            return d
+        course_events = [_row_to_dict(r) for r in event_rows]
 
     active_students = len({
         e["user_id"] for e in course_events if e.get("user_id")

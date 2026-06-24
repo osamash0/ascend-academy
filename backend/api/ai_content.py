@@ -8,9 +8,9 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
-from supabase import create_client, Client
+from supabase import Client
 
-from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, create_client
 from backend.core.auth_middleware import verify_token, require_professor
 from backend.core.rate_limit import limiter
 from backend.services.llm_client import LLMTimeoutError
@@ -533,7 +533,7 @@ async def regenerate_slide_content(
         .maybe_single() \
         .execute()
 
-    if not res.data:
+    if not res or not res.data:
         raise HTTPException(status_code=404, detail="Slide not found.")
 
     lecture_info = res.data.get("lectures", {}) or {}

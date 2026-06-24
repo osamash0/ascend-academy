@@ -56,7 +56,7 @@ def _sanitize_filename(name: str) -> str:
 def _fetch_lecture(lecture_id: str) -> Optional[dict]:
     res = (
         supabase_admin.table("lectures")
-        .select("id, professor_id")
+        .select("id, professor_id, course_id")
         .eq("id", lecture_id)
         .execute()
     )
@@ -76,9 +76,24 @@ def _fetch_worksheet(worksheet_id: str) -> Optional[dict]:
 
 
 def _user_can_read_lecture(user_id: str, lecture: dict) -> bool:
-    """Owner OR enrolled-via-assignment student."""
+    """Owner OR enrolled-via-course student OR enrolled-via-assignment student."""
     if lecture["professor_id"] == user_id:
         return True
+
+    course_id = lecture.get("course_id")
+    if course_id:
+        ce = (
+            supabase_admin.table("course_enrollments")
+            .select("course_id")
+            .eq("user_id", user_id)
+            .eq("course_id", course_id)
+            .execute()
+            .data
+            or []
+        )
+        if ce:
+            return True
+
     enroll = (
         supabase_admin.table("assignment_enrollments")
         .select("assignment_id")
@@ -100,6 +115,7 @@ def _user_can_read_lecture(user_id: str, lecture: dict) -> bool:
         or []
     )
     return bool(al)
+
 
 
 # ── Models ──────────────────────────────────────────────────────────────────

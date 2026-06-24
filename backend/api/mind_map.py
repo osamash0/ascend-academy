@@ -6,10 +6,10 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from supabase import create_client, Client
+from supabase import Client
 
 from backend.core.auth_middleware import verify_token, require_professor
-from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, create_client
 from backend.core.rate_limit import limiter
 from backend.services.ai_service import generate_mind_map
 
@@ -61,7 +61,7 @@ async def get_mind_map(
                 .eq("lecture_id", lecture_id) \
                 .maybe_single() \
                 .execute()
-            data = res.data
+            data = res.data if res else None
         except Exception as e:
             # Handle postgrest-py bug where maybe_single() on 0 rows raises a 204 APIError
             if hasattr(e, 'code') and str(e.code) == '204':
@@ -177,7 +177,7 @@ async def generate_lecture_mind_map(
             .maybe_single() \
             .execute()
 
-        if not ownership_res.data:
+        if not ownership_res or not ownership_res.data:
             raise HTTPException(status_code=404, detail="Lecture not found.")
 
         if ownership_res.data.get("professor_id") != user_id:

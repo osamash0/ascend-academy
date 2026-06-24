@@ -76,15 +76,26 @@ async def verify_token(
 
     # 2. Verify with Supabase Auth (slow path)
     try:
-        user_response = await run_in_threadpool(supabase_admin.auth.get_user, token)
+        import httpx
+        url = f"{supabase_admin.auth_url}/user"
+        async with httpx.AsyncClient(http2=False) as client:
+            resp = await client.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "apikey": supabase_admin.supabase_key,
+                }
+            )
 
-        if not user_response or not user_response.user:
+        if resp.status_code != 200:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token.",
             )
 
-        user = user_response.user
+        user_data = resp.json()
+        user = CachedUser.from_dict(user_data)
+        
         # Store in shared cache so other workers skip the Auth round-trip
         await store_cached_token(token, user)
         return user
@@ -92,7 +103,7 @@ async def verify_token(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Authentication failed: %s", e)
+        logger.error("Authentication failed: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication system error.",

@@ -17,7 +17,13 @@ from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 import asyncpg
-from supabase import create_client, Client
+import httpx
+from supabase import create_client as _create_client, Client, ClientOptions
+
+def create_client(supabase_url: str, supabase_key: str) -> Client:
+    """Helper to create a Supabase client with HTTP/2 disabled to prevent ConnectionTerminated errors."""
+    options = ClientOptions(httpx_client=httpx.Client(http2=False))
+    return _create_client(supabase_url, supabase_key, options=options)
 
 logger = logging.getLogger(__name__)
 

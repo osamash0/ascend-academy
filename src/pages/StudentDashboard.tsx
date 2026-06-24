@@ -105,11 +105,12 @@ export default function StudentDashboard() {
   const railItems = lectures;
 
   // Start focus on the resolver's hero; clamp when the filter changes.
+  const heroLectureId = hero?.view.lecture.id;
   useEffect(() => {
-    if (!hero) return;
-    const i = railItems.findIndex((l) => l.id === hero.view.lecture.id);
+    if (!heroLectureId) return;
+    const i = railItems.findIndex((l) => l.id === heroLectureId);
     setFocused(i >= 0 ? i : 0);
-  }, [hero, railItems]);
+  }, [heroLectureId, railItems]);
 
   const focusedLec = railItems[focused];
   const focusedView = focusedLec ? toLectureView(focusedLec, byId.get(focusedLec.id)) : null;

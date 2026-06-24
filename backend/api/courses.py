@@ -107,7 +107,19 @@ def _is_professor(user: Any) -> bool:
 
 
 def _student_visible_course_ids(user_id: str) -> set[str]:
-    """Course ids whose lectures the student can see via assignment enrollment."""
+    """Course ids whose lectures the student can see via course enrollment or assignment enrollment."""
+    # 1. Direct course enrollments
+    ce = (
+        supabase_admin.table("course_enrollments")
+        .select("course_id")
+        .eq("user_id", user_id)
+        .execute()
+        .data
+        or []
+    )
+    course_ids = {r["course_id"] for r in ce if r.get("course_id")}
+
+    # 2. Assignment enrollments
     enroll = (
         supabase_admin.table("assignment_enrollments")
         .select("assignment_id")
@@ -118,7 +130,8 @@ def _student_visible_course_ids(user_id: str) -> set[str]:
     )
     a_ids = [e["assignment_id"] for e in enroll if e.get("assignment_id")]
     if not a_ids:
-        return set()
+        return course_ids
+
     al = (
         supabase_admin.table("assignment_lectures")
         .select("lecture_id")
@@ -129,7 +142,8 @@ def _student_visible_course_ids(user_id: str) -> set[str]:
     )
     lecture_ids = [r["lecture_id"] for r in al if r.get("lecture_id")]
     if not lecture_ids:
-        return set()
+        return course_ids
+
     lectures = (
         supabase_admin.table("lectures")
         .select("id, course_id")
@@ -138,7 +152,9 @@ def _student_visible_course_ids(user_id: str) -> set[str]:
         .data
         or []
     )
-    return {l["course_id"] for l in lectures if l.get("course_id")}
+    course_ids.update({l["course_id"] for l in lectures if l.get("course_id")})
+    return course_ids
+
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────────

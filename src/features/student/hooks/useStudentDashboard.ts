@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchStudentLectures,
@@ -87,16 +87,27 @@ export function useStudentDashboard() {
   const isLoading = lecturesQuery.isLoading || coursesQuery.isLoading || progressQuery.isLoading || achievementsQuery.isLoading || visitsQuery.isLoading;
   const isError = lecturesQuery.isError || coursesQuery.isError || progressQuery.isError || achievementsQuery.isError || visitsQuery.isError;
 
-  const data: StudentDashboardData | null = user?.id && !isLoading ? {
-    lectures: lecturesQuery.data as any || [],
-    courses: coursesQuery.data as any || [],
-    progress: ((progressQuery.data as any) || []).map((p: any) => ({
-      ...p,
-      completed_slides: Array.isArray(p.completed_slides) ? p.completed_slides : [],
-    })),
-    achievements: achievementsQuery.data as any || [],
-    courseVisits: visitsQuery.data as any || [],
-  } : null;
+  const data = useMemo<StudentDashboardData | null>(() => {
+    if (!user?.id || isLoading) return null;
+    return {
+      lectures: (lecturesQuery.data as any) || [],
+      courses: (coursesQuery.data as any) || [],
+      progress: (((progressQuery.data as any) || [])).map((p: any) => ({
+        ...p,
+        completed_slides: Array.isArray(p.completed_slides) ? p.completed_slides : [],
+      })),
+      achievements: (achievementsQuery.data as any) || [],
+      courseVisits: (visitsQuery.data as any) || [],
+    };
+  }, [
+    user?.id,
+    isLoading,
+    lecturesQuery.data,
+    coursesQuery.data,
+    progressQuery.data,
+    achievementsQuery.data,
+    visitsQuery.data,
+  ]);
 
   return {
     data,
