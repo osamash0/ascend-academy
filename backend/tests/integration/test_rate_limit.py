@@ -10,7 +10,7 @@ def stub_ai(monkeypatch):
     async def _chat(*a, **k):
         return {"reply": "ok", "citations": []}
 
-    from backend.api import ai_content as mod
+    from backend.api.v1 import ai_content as mod
 
     monkeypatch.setattr(mod, "chat_with_lecture", _chat)
 

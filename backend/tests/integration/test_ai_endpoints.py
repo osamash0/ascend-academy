@@ -24,7 +24,7 @@ def stub_ai(monkeypatch):
     async def _insights(*a, **k):
         return {"summary": "ok", "suggestions": ["x"]}
 
-    from backend.api import ai_content as mod
+    from backend.api.v1 import ai_content as mod
     monkeypatch.setattr(mod, "generate_summary", _summary)
     monkeypatch.setattr(mod, "generate_quiz", _quiz)
     monkeypatch.setattr(mod, "chat_with_lecture", _chat)
@@ -57,7 +57,7 @@ class TestSummary:
         assert r.status_code == 400
 
     def test_metadata_short_circuit(self, app, professor_user, monkeypatch):
-        from backend.api import ai_content as mod
+        from backend.api.v1 import ai_content as mod
 
         monkeypatch.setattr(
             mod, "is_metadata_slide", lambda *a, **k: {"is_metadata": True}
@@ -99,7 +99,7 @@ class TestQuiz:
         assert 0 <= body["correctAnswer"] <= 3
 
     def test_metadata_returns_placeholder(self, app, professor_user, monkeypatch):
-        from backend.api import ai_content as mod
+        from backend.api.v1 import ai_content as mod
 
         monkeypatch.setattr(
             mod, "is_metadata_slide", lambda *a, **k: {"is_metadata": True}

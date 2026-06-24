@@ -54,7 +54,7 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     """
     from backend.core import database
     from backend.services import analytics_service
-    from backend.api import analytics as analytics_api
+    from backend.api.v1 import analytics as analytics_api
     from backend.services import cache as cache_module
 
     monkeypatch.setattr(database, "supabase_admin", fake_supabase, raising=True)
@@ -70,33 +70,33 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     # upload.py imports supabase_admin by name at module-load — patch the
     # local reference so each test's fresh fake is the one used.
     try:
-        from backend.api import upload as upload_api
+        from backend.api.v1 import upload as upload_api
         monkeypatch.setattr(upload_api, "supabase_admin", fake_supabase, raising=False)
     except Exception:
         pass
 
     # assignments.py also imports supabase_admin by name at module-load.
     try:
-        from backend.api import assignments as assignments_api
+        from backend.api.v1 import assignments as assignments_api
         monkeypatch.setattr(assignments_api, "supabase_admin", fake_supabase, raising=False)
     except Exception:
         pass
 
     # schedule.py imports supabase_admin by name at module-load.
     try:
-        from backend.api import schedule as schedule_api
+        from backend.api.v1 import schedule as schedule_api
         monkeypatch.setattr(schedule_api, "supabase_admin", fake_supabase, raising=False)
     except Exception:
         pass
 
     # courses.py / worksheets.py import supabase_admin at module load too.
     try:
-        from backend.api import courses as courses_api
+        from backend.api.v1 import courses as courses_api
         monkeypatch.setattr(courses_api, "supabase_admin", fake_supabase, raising=False)
     except Exception:
         pass
     try:
-        from backend.api import worksheets as worksheets_api
+        from backend.api.v1 import worksheets as worksheets_api
         monkeypatch.setattr(worksheets_api, "supabase_admin", fake_supabase, raising=False)
     except Exception:
         pass
@@ -111,8 +111,8 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     )
 
     # Patch create_client used by mind_map / ai_content / analytics
-    from backend.api import mind_map as mind_map_api
-    from backend.api import ai_content as ai_api
+    from backend.api.v1 import mind_map as mind_map_api
+    from backend.api.v1 import ai_content as ai_api
 
     monkeypatch.setattr(mind_map_api, "create_client", lambda url, key: fake_supabase, raising=True)
     monkeypatch.setattr(ai_api, "create_client", lambda url, key: fake_supabase, raising=True)

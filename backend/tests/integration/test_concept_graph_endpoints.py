@@ -16,7 +16,7 @@ from backend.core.auth_middleware import require_professor, verify_token
 def patch_concepts_modules(monkeypatch, fake_supabase, patch_supabase):
     """The concept api + service modules import `supabase_admin` by name
     at module load, so re-bind those names to the fake too."""
-    from backend.api import concepts as concepts_api
+    from backend.api.v1 import concepts as concepts_api
     from backend.services import concept_graph as cg
 
     monkeypatch.setattr(concepts_api, "supabase_admin", fake_supabase, raising=True)

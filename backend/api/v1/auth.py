@@ -22,12 +22,12 @@ from backend.services.cache import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 _bearer = HTTPBearer()
 
 
 @router.post("/logout")
-@limiter.limit("20/minute")
+@limiter.limit("10/minute")
 async def logout_endpoint(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(_bearer),

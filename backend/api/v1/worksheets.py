@@ -126,7 +126,7 @@ class WorksheetUpdate(BaseModel):
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
-@router.get("/api/lectures/{lecture_id}/worksheets")
+@router.get("/lectures/{lecture_id}/worksheets")
 @limiter.limit("120/minute")
 async def list_worksheets(
     request: Request,
@@ -164,7 +164,7 @@ async def list_worksheets(
         raise HTTPException(status_code=500, detail="Failed to load worksheets.")
 
 
-@router.post("/api/lectures/{lecture_id}/worksheets", status_code=201)
+@router.post("/lectures/{lecture_id}/worksheets", status_code=201)
 @limiter.limit("20/minute")
 async def upload_worksheet(
     request: Request,
@@ -272,7 +272,7 @@ async def upload_worksheet(
         raise HTTPException(status_code=500, detail="Failed to upload worksheet.")
 
 
-@router.patch("/api/worksheets/{worksheet_id}")
+@router.patch("/worksheets/{worksheet_id}")
 @limiter.limit("60/minute")
 async def update_worksheet(
     request: Request,
@@ -308,7 +308,7 @@ async def update_worksheet(
         raise HTTPException(status_code=500, detail="Failed to update worksheet.")
 
 
-@router.delete("/api/worksheets/{worksheet_id}", status_code=204)
+@router.delete("/worksheets/{worksheet_id}", status_code=204)
 @limiter.limit("60/minute")
 async def delete_worksheet(
     request: Request,
@@ -344,7 +344,7 @@ async def delete_worksheet(
         raise HTTPException(status_code=500, detail="Failed to delete worksheet.")
 
 
-@router.get("/api/worksheets/{worksheet_id}/download_url")
+@router.get("/worksheets/{worksheet_id}/download_url")
 @limiter.limit("120/minute")
 async def get_worksheet_download_url(
     request: Request,

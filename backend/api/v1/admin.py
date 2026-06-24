@@ -21,7 +21,7 @@ from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"])
 
 # Secure all endpoints strictly to users with the 'admin' role
 require_admin = require_role("admin")

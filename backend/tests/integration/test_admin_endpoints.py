@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.api import admin as admin_api
+from backend.api.v1 import admin as admin_api
 from backend.core import auth_middleware
 from backend.core.auth_middleware import verify_token
 

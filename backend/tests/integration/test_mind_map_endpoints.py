@@ -77,7 +77,7 @@ class TestMindMapGenerate:
         async def _gen(*a, **k):
             return {"name": "Root"}
 
-        from backend.api import mind_map as mod
+        from backend.api.v1 import mind_map as mod
 
         monkeypatch.setattr(mod, "generate_mind_map", _gen)
         patch_supabase.seed("lectures", [])
@@ -94,7 +94,7 @@ class TestMindMapGenerate:
         async def _gen(*a, **k):
             return {"name": "Root"}
 
-        from backend.api import mind_map as mod
+        from backend.api.v1 import mind_map as mod
 
         monkeypatch.setattr(mod, "generate_mind_map", _gen)
         patch_supabase.seed(
@@ -115,7 +115,7 @@ class TestMindMapGenerate:
         async def _gen(*a, **k):
             return {"name": "Root", "children": [{"name": "Topic A"}]}
 
-        from backend.api import mind_map as mod
+        from backend.api.v1 import mind_map as mod
 
         monkeypatch.setattr(mod, "generate_mind_map", _gen)
         patch_supabase.seed(
@@ -185,7 +185,7 @@ class TestMindMapGenerate:
                 ],
             }
 
-        from backend.api import mind_map as mod
+        from backend.api.v1 import mind_map as mod
 
         monkeypatch.setattr(mod, "generate_mind_map", _gen)
         patch_supabase.seed(

@@ -24,7 +24,7 @@ from backend.services.concept_graph import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/concepts", tags=["concepts"])
+router = APIRouter(prefix="/concepts", tags=["concepts"])
 
 
 class _Envelope(BaseModel):

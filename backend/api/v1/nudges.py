@@ -24,7 +24,7 @@ from backend.core.rate_limit import limiter
 from backend.services import nudge_engine
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/nudges", tags=["nudges"])
+router = APIRouter(prefix="/nudges", tags=["nudges"])
 
 
 class _Envelope(BaseModel):

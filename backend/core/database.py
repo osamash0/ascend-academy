@@ -13,12 +13,17 @@ explicitly opt-in to admin via use_admin=True.
 """
 import os
 import logging
+import contextlib
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 import asyncpg
 import httpx
 from supabase import create_client as _create_client, Client, ClientOptions
+from postgrest.exceptions import APIError
+
+from backend.core.exceptions import DomainError, NotFoundError, ForbiddenError, UnauthorizedError
+
 
 def create_client(supabase_url: str, supabase_key: str) -> Client:
     """Helper to create a Supabase client with HTTP/2 disabled to prevent ConnectionTerminated errors."""
@@ -156,6 +161,123 @@ async def get_db_connection():
     return db_pool.acquire()
 
 
+@contextlib.asynccontextmanager
+async def handle_db_errors():
+    """Async context manager to catch database-related errors (postgrest-py and asyncpg)
+    and raise standard domain-specific exceptions.
+    """
+    try:
+        yield
+    except APIError as e:
+        code_str = str(e.code) if e.code is not None else ""
+        
+        # 404: Single row request found 0 rows
+        if code_str == "PGRST116":
+            raise NotFoundError(
+                message=e.message or "Resource not found.",
+                code="NOT_FOUND",
+                details=e.details
+            ) from e
+            
+        # 42501: Postgres Insufficient Privilege (RLS failure)
+        if code_str == "42501":
+            raise ForbiddenError(
+                message=e.message or "Access forbidden. Database policy restriction.",
+                code="FORBIDDEN",
+                details=e.details
+            ) from e
+            
+        # HTTP Status Code mapping
+        if code_str == "404":
+            raise NotFoundError(message=e.message or "Resource not found.") from e
+        elif code_str in ("403", "401"):
+            raise ForbiddenError(message=e.message or "Access forbidden.") from e
+            
+        # DB Constraints
+        if code_str == "23505":
+            raise DomainError(
+                message="A record with this unique value already exists.",
+                code="DB_CONFLICT",
+                details=e.details
+            ) from e
+        if code_str == "23503":
+            raise DomainError(
+                message="Referenced record does not exist (Foreign Key Violation).",
+                code="DB_FOREIGN_KEY_VIOLATION",
+                details=e.details
+            ) from e
+        if code_str == "23502":
+            raise DomainError(
+                message="Required field is missing or null.",
+                code="DB_NOT_NULL_VIOLATION",
+                details=e.details
+            ) from e
+
+        raise DomainError(
+            message=e.message or "Database operation failed.",
+            code=f"DB_ERROR_{code_str}" if code_str else "DB_ERROR",
+            details=e.details
+        ) from e
+
+    except asyncpg.exceptions.PostgresError as e:
+        code_str = getattr(e, "sqlstate", "")
+        
+        # Safely convert to string in case asyncpg's __str__ fails (e.g. empty args)
+        try:
+            details_str = str(e)
+        except Exception:
+            details_str = e.__class__.__name__
+        
+        if code_str == "23505":
+            raise DomainError(
+                message="A record with this unique value already exists.",
+                code="DB_CONFLICT",
+                details=details_str
+            ) from e
+        if code_str == "23503":
+            raise DomainError(
+                message="Referenced record does not exist (Foreign Key Violation).",
+                code="DB_FOREIGN_KEY_VIOLATION",
+                details=details_str
+            ) from e
+        if code_str == "23502":
+            raise DomainError(
+                message="Required field is missing or null.",
+                code="DB_NOT_NULL_VIOLATION",
+                details=details_str
+            ) from e
+        if code_str == "42501":
+            raise ForbiddenError(
+                message="Access forbidden. Database policy restriction.",
+                code="FORBIDDEN",
+                details=details_str
+            ) from e
+            
+        raise DomainError(
+            message="Database query failed.",
+            code=f"DB_ERROR_{code_str}" if code_str else "DB_ERROR",
+            details=details_str
+        ) from e
+
+
+
+@contextlib.asynccontextmanager
+async def db_transaction():
+    """Async context manager to acquire an asyncpg connection and execute a block
+    inside a transaction. Automatically handles rolls backs on failure and maps
+    database errors.
+    """
+    if not db_pool:
+        await init_db_pool()
+    if not db_pool:
+        raise RuntimeError("Database pool not initialized. Check DATABASE_URL.")
+
+    async with handle_db_errors():
+        async with db_pool.acquire() as conn:
+            async with conn.transaction():
+                yield conn
+
+
 async def close_db_pool():
     """Gracefully close all active pool connections during worker shutdown."""
     global db_pool
@@ -167,3 +289,4 @@ async def close_db_pool():
             logger.error("Failed to close asyncpg pool: %s", e)
         finally:
             db_pool = None
+

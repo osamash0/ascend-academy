@@ -67,6 +67,14 @@ async def verify_token(
 
     token: str = credentials.credentials
 
+    # 0. Check blocklist first
+    from backend.services.cache import is_token_blocklisted
+    if await is_token_blocklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session invalidated.",
+        )
+
     # 1. Check shared database L2 cache first
     cached_user = await get_cached_token(token)
     if cached_user:
