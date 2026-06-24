@@ -100,7 +100,7 @@ If the text is nearly empty or only has symbols/numbers, classify as "image-only
     if not isinstance(res, dict):
         res = {}
     res["slide_index"] = slide_number - 1
-    res["content"] = text
+    res["content"] = text if text.strip() else res.get("aiInsight") or res.get("title") or "No extractable text."
     return res
 
 
