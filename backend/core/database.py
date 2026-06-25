@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 import asyncpg
 from supabase import create_client, Client
 from postgrest.exceptions import APIError
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from backend.core.exceptions import DomainError, NotFoundError, ForbiddenError, UnauthorizedError
 
@@ -123,9 +125,25 @@ def get_client(use_admin: bool = False) -> Client:
 # --- asyncpg Connection Pool ---
 # Used for high-performance direct SQL queries (bypass REST overhead)
 DB_URL: Optional[str] = os.environ.get("DATABASE_URL")
+
+# AsyncPG Pool initialization
 db_pool: Optional[asyncpg.Pool] = None
 
-async def init_db_pool():
+# SQLModel Async Engine
+async_db_url = DB_URL.replace("postgres://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://") if DB_URL else ""
+if async_db_url:
+    async_engine = create_async_engine(async_db_url, echo=False, pool_size=10, max_overflow=20)
+else:
+    async_engine = None
+
+async def get_session():
+    """Dependency to provide an async SQLModel session."""
+    if not async_engine:
+        raise RuntimeError("SQLModel engine not initialized. Check DATABASE_URL.")
+    async with AsyncSession(async_engine) as session:
+        yield session
+
+async def init_db_pool() -> None:
     """Initialize the asyncpg connection pool."""
     global db_pool
     if not DB_URL:
