@@ -87,6 +87,30 @@ services:
           path: ./backend
           target: /app/backend
 
+  # ── Arq background worker ───────────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: arq backend.core.worker.WorkerSettings
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - LITELLM_BASE_URL=http://litellm:4000
+    depends_on:
+      redis:
+        condition: service_healthy
+      litellm:
+        condition: service_started
+    volumes:
+      - ./backend:/app/backend:ro
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app/backend
+
   # ── React frontend served by nginx ─────────────────────────────────────────
   frontend:
     build:
