@@ -225,21 +225,27 @@ async def get_sentry_errors(request: Request, user: Any = Depends(require_admin)
         }
 
 
+from sqlmodel.ext.asyncio.session import AsyncSession
+from backend.core.database import get_session
+from backend.services import course_service
+from backend.services import lecture_service
+
 # ── Student Content Visibility (Data Control) ──────────────────────────────
 
 @router.post("/courses/{course_id}/toggle-visibility")
 @limiter.limit("30/minute")
-async def toggle_course_visibility(course_id: str, request: Request, user: Any = Depends(require_admin)):
+async def toggle_course_visibility(
+    course_id: str, 
+    request: Request, 
+    user: Any = Depends(require_admin),
+    session: AsyncSession = Depends(get_session)
+):
     """Toggle visibility (is_archived status) of a course for students."""
     try:
-        res = supabase_admin.table("courses").select("is_archived").eq("id", course_id).execute()
-        if not res.data:
+        success, new_state = await course_service.toggle_course_visibility(session, course_id)
+        if not success:
             raise HTTPException(status_code=404, detail="Course not found.")
-        
-        current_state = res.data[0]["is_archived"]
-        new_state = not current_state
-        
-        supabase_admin.table("courses").update({"is_archived": new_state}).eq("id", course_id).execute()
+            
         return {"success": True, "data": {"course_id": course_id, "is_archived": new_state}}
     except HTTPException:
         raise
@@ -250,23 +256,25 @@ async def toggle_course_visibility(course_id: str, request: Request, user: Any =
 
 @router.post("/lectures/{lecture_id}/toggle-visibility")
 @limiter.limit("30/minute")
-async def toggle_lecture_visibility(lecture_id: str, request: Request, user: Any = Depends(require_admin)):
+async def toggle_lecture_visibility(
+    lecture_id: str, 
+    request: Request, 
+    user: Any = Depends(require_admin),
+    session: AsyncSession = Depends(get_session)
+):
     """Toggle visibility (is_archived status) of a lecture for students."""
     try:
-        res = supabase_admin.table("lectures").select("is_archived").eq("id", lecture_id).execute()
-        if not res.data:
+        success, new_state = await lecture_service.toggle_lecture_visibility(session, lecture_id)
+        if not success:
             raise HTTPException(status_code=404, detail="Lecture not found.")
-        
-        current_state = res.data[0]["is_archived"]
-        new_state = not current_state
-        
-        supabase_admin.table("lectures").update({"is_archived": new_state}).eq("id", lecture_id).execute()
+            
         return {"success": True, "data": {"lecture_id": lecture_id, "is_archived": new_state}}
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Toggle lecture visibility failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to toggle lecture visibility.")
+
 
 
 # ── Analytics Reset & Snapshots (Backup & Restore) ─────────────────────────

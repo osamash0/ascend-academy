@@ -142,6 +142,10 @@ def _student_visible_course_ids(user_id: str) -> set[str]:
     return {l["course_id"] for l in lectures if l.get("course_id")}
 
 
+from sqlmodel.ext.asyncio.session import AsyncSession
+from backend.core.database import get_session
+from backend.services import course_service
+
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.get("")
@@ -152,65 +156,26 @@ async def list_courses(
     only_archived: bool = Query(default=False),
     include_archived: bool = Query(default=False),
     params: PaginationParams = Depends(),
+    session: AsyncSession = Depends(get_session)
 ):
-    """List courses.
-
-    Professor → their own courses (with lecture_count).
-    Student   → courses tied to lectures they're enrolled in via assignments.
-    """
+    """List courses."""
     uid = _user_id(user)
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
     is_prof = await run_in_threadpool(_is_professor, user)
 
-    def _load() -> List[dict]:
-        q = supabase_admin.table("courses").select(
-            "id, professor_id, title, description, color, icon, is_archived, created_at, updated_at"
-        )
-        if is_prof:
-            q = q.eq("professor_id", uid)
-        
-        if only_archived:
-            q = q.eq("is_archived", True)
-        elif not include_archived:
-            q = q.eq("is_archived", False)
-
-        if params.cursor:
-            q = q.lt("created_at", params.cursor)
-
-        rows = q.order("created_at", desc=True).limit(params.limit + 1).execute().data or []
-        has_more = len(rows) > params.limit
-        if has_more:
-            rows = rows[:-1]
-
-        if not is_prof:
-            visible = _student_visible_course_ids(uid)
-            rows = [r for r in rows if r["id"] in visible]
-
-        # Batch-load lecture counts.
-        counts: dict[str, int] = {r["id"]: 0 for r in rows}
-        if rows:
-            ids = [r["id"] for r in rows]
-            lecs = (
-                supabase_admin.table("lectures")
-                .select("id, course_id, is_archived")
-                .in_("course_id", ids)
-                .execute()
-                .data
-                or []
-            )
-            for l in lecs:
-                cid = l.get("course_id")
-                if cid in counts:
-                    if only_archived or l.get("is_archived") is False:
-                        counts[cid] = counts[cid] + 1
-        next_cursor = rows[-1]["created_at"] if rows else None
-        return PaginatedResponse(data=[_serialize(r, counts.get(r["id"], 0)) for r in rows], cursor=next_cursor, has_more=has_more)
-
     try:
-        data = await run_in_threadpool(_load)
-        return data
+        data, next_cursor, has_more = await course_service.list_courses(
+            session=session,
+            uid=uid,
+            is_prof=is_prof,
+            only_archived=only_archived,
+            include_archived=include_archived,
+            limit=params.limit,
+            cursor=params.cursor
+        )
+        return PaginatedResponse(data=data, cursor=next_cursor, has_more=has_more)
     except Exception as e:
         logger.error("Courses list failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load courses.")
@@ -222,48 +187,19 @@ async def browse_courses(
     request: Request,
     user: Any = Depends(verify_token),
     params: PaginationParams = Depends(),
+    session: AsyncSession = Depends(get_session)
 ):
-    """Browse all available (non-archived) courses. Useful for onboarding and discovery."""
     uid = _user_id(user)
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
-    def _load() -> List[dict]:
-        q = (
-            supabase_admin.table("courses")
-            .select("id, professor_id, title, description, color, icon, is_archived, created_at, updated_at")
-            .eq("is_archived", False)
-        )
-        if params.cursor:
-            q = q.lt("created_at", params.cursor)
-            
-        rows = q.order("created_at", desc=True).limit(params.limit + 1).execute().data or []
-        has_more = len(rows) > params.limit
-        if has_more:
-            rows = rows[:-1]
-        # Batch-load lecture counts
-        counts: dict[str, int] = {r["id"]: 0 for r in rows}
-        if rows:
-            ids = [r["id"] for r in rows]
-            lecs = (
-                supabase_admin.table("lectures")
-                .select("id, course_id, is_archived")
-                .in_("course_id", ids)
-                .execute()
-                .data
-                or []
-            )
-            for l in lecs:
-                cid = l.get("course_id")
-                if cid in counts and l.get("is_archived") is False:
-                    counts[cid] = counts[cid] + 1
-
-        next_cursor = rows[-1]["created_at"] if rows else None
-        return PaginatedResponse(data=[{**_serialize(r, counts.get(r["id"], 0)), "professor_id": None} for r in rows], cursor=next_cursor, has_more=has_more)
-
     try:
-        data = await run_in_threadpool(_load)
-        return data
+        data, next_cursor, has_more = await course_service.browse_courses(
+            session=session,
+            limit=params.limit,
+            cursor=params.cursor
+        )
+        return PaginatedResponse(data=data, cursor=next_cursor, has_more=has_more)
     except Exception as e:
         logger.error("Courses browse failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to browse courses.")
@@ -275,29 +211,19 @@ async def enroll_course(
     request: Request,
     course_id: str,
     user: Any = Depends(require_student),
+    session: AsyncSession = Depends(get_session)
 ):
-    """Enroll a student into a course explicitly."""
     uid = _user_id(user)
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
-    def _enroll():
-        course = _fetch_course(course_id)
-        if not course:
-            raise HTTPException(status_code=404, detail="Course not found.")
-
-        # Upsert enrollment
-        supabase_admin.table("course_enrollments").upsert(
-            {"user_id": uid, "course_id": course_id},
-            on_conflict="user_id,course_id"
-        ).execute()
-        return {"course_id": course_id, "enrolled": True}
-
     try:
-        data = await run_in_threadpool(_enroll)
-        return {"success": True, "data": data}
-    except HTTPException:
-        raise
+        await course_service.enroll_course(session, uid, course_id)
+        return {"success": True, "data": {"course_id": course_id, "enrolled": True}}
+    except ValueError as e:
+        if str(e) == "NotFound":
+            raise HTTPException(status_code=404, detail="Course not found.")
+        raise HTTPException(status_code=500, detail="Failed to enroll.")
     except Exception as e:
         logger.error("Course enrollment failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to enroll in course.")
@@ -309,20 +235,15 @@ async def unenroll_course(
     request: Request,
     course_id: str,
     user: Any = Depends(require_student),
+    session: AsyncSession = Depends(get_session)
 ):
-    """Unenroll a student from a course."""
     uid = _user_id(user)
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
-    def _unenroll():
-        supabase_admin.table("course_enrollments").delete().eq("user_id", uid).eq("course_id", course_id).execute()
-
     try:
-        await run_in_threadpool(_unenroll)
+        await course_service.unenroll_course(session, uid, course_id)
         return None
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error("Course unenrollment failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to unenroll from course.")
@@ -330,71 +251,26 @@ async def unenroll_course(
 
 @router.get("/{course_id}")
 @limiter.limit("120/minute")
-async def get_course(request: Request, course_id: str, user: Any = Depends(verify_token)):
+async def get_course(
+    request: Request, 
+    course_id: str, 
+    user: Any = Depends(verify_token),
+    session: AsyncSession = Depends(get_session)
+):
     uid = _user_id(user)
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
-    def _load():
-        c = _fetch_course(course_id)
-        if not c:
-            return ("missing", None)
-        is_owner = c["professor_id"] == uid
-        if not is_owner:
-            visible = _student_visible_course_ids(uid)
-            if course_id not in visible:
-                return ("forbidden", None)
-
-        lec_query = (
-            supabase_admin.table("lectures")
-            .select("id, title, description, total_slides, created_at, pdf_url, course_id, is_archived")
-            .eq("course_id", course_id)
-        )
-        if not c.get("is_archived"):
-            lec_query = lec_query.eq("is_archived", False)
-
-        all_lectures = (
-            lec_query.order("created_at", desc=True)
-            .execute()
-            .data
-            or []
-        )
-        if is_owner:
-            lectures = all_lectures
-        else:
-            # Students may only see lectures inside this course that they are
-            # actually enrolled in via an assignment — never the full course
-            # roster, even if they are enrolled in *some* lecture of it.
-            enroll = (
-                supabase_admin.table("assignment_enrollments")
-                .select("assignment_id")
-                .eq("user_id", uid)
-                .execute()
-                .data
-                or []
-            )
-            a_ids = [e["assignment_id"] for e in enroll if e.get("assignment_id")]
-            allowed_lecture_ids: set[str] = set()
-            if a_ids:
-                al = (
-                    supabase_admin.table("assignment_lectures")
-                    .select("lecture_id")
-                    .in_("assignment_id", a_ids)
-                    .execute()
-                    .data
-                    or []
-                )
-                allowed_lecture_ids = {r["lecture_id"] for r in al if r.get("lecture_id")}
-            lectures = [l for l in all_lectures if l["id"] in allowed_lecture_ids]
-
-        payload = _serialize(c, len(all_lectures) if is_owner else len(lectures))
-        payload["lectures"] = lectures
-        return ("ok", payload)
-
-    outcome, data = await run_in_threadpool(_load)
-    if outcome != "ok":
-        raise HTTPException(status_code=404, detail="Course not found.")
-    return {"success": True, "data": data}
+    try:
+        outcome, data = await course_service.get_course_details(session, course_id, uid)
+        if outcome != "ok":
+            raise HTTPException(status_code=404, detail="Course not found.")
+        return {"success": True, "data": data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Course fetch failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch course.")
 
 
 @router.post("", status_code=201)
@@ -403,32 +279,16 @@ async def create_course(
     request: Request,
     body: CourseCreate,
     user: Any = Depends(require_professor),
+    session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)
-
-    def _create():
-        ins = (
-            supabase_admin.table("courses")
-            .insert(
-                {
-                    "professor_id": uid,
-                    "title": body.title.strip(),
-                    "description": (body.description or "").strip() or None,
-                    "color": body.color,
-                    "icon": body.icon,
-                }
-            )
-            .execute()
-        )
-        if not ins.data:
-            raise HTTPException(status_code=500, detail="Failed to create course.")
-        return _serialize(ins.data[0], 0)
-
     try:
-        data = await run_in_threadpool(_create)
+        data = await course_service.create_course(
+            session, uid, body.title.strip(), 
+            (body.description or "").strip() or None, 
+            body.color, body.icon
+        )
         return {"success": True, "data": data}
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error("Course create failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to create course.")
@@ -441,17 +301,11 @@ async def update_course(
     course_id: str,
     body: CourseUpdate,
     user: Any = Depends(require_professor),
+    session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)
-
-    def _update():
-        existing = _fetch_course(course_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Course not found.")
-        if existing["professor_id"] != uid:
-            raise HTTPException(status_code=403, detail="You do not own this course.")
-
-        patch: dict[str, Any] = {}
+    try:
+        patch = {}
         if body.title is not None:
             patch["title"] = body.title.strip()
         if "description" in body.model_fields_set:
@@ -462,24 +316,15 @@ async def update_course(
             patch["icon"] = body.icon
         if body.is_archived is not None:
             patch["is_archived"] = body.is_archived
-
-        if patch:
-            supabase_admin.table("courses").update(patch).eq("id", course_id).execute()
-        refreshed = _fetch_course(course_id) or existing
-        # Get current lecture count
-        lec_query = (
-            supabase_admin.table("lectures")
-            .select("id, is_archived")
-            .eq("course_id", course_id)
-        )
-        if not refreshed.get("is_archived"):
-            lec_query = lec_query.eq("is_archived", False)
-        lecs = lec_query.execute().data or []
-        return _serialize(refreshed, len(lecs))
-
-    try:
-        data = await run_in_threadpool(_update)
+            
+        success, data = await course_service.update_course(session, course_id, uid, patch)
+        if not success:
+            raise HTTPException(status_code=404, detail="Course not found.")
         return {"success": True, "data": data}
+    except ValueError as e:
+        if str(e) == "Forbidden":
+            raise HTTPException(status_code=403, detail="You do not own this course.")
+        raise HTTPException(status_code=500, detail="Failed to update course.")
     except HTTPException:
         raise
     except Exception as e:
@@ -494,57 +339,22 @@ async def delete_course(
     course_id: str,
     user: Any = Depends(require_professor),
     reassign_to: Optional[str] = Query(default=None),
+    session: AsyncSession = Depends(get_session)
 ):
-    """Delete a course.
-
-    If the course still has lectures, the request is rejected (409) unless
-    `reassign_to=<other_course_id>` is provided — in which case the
-    lectures are reassigned to that course before deletion. A `null` /
-    sentinel value is intentionally not supported here; the migration's
-    ON DELETE SET NULL will handle the "Uncategorized" case for an empty
-    course delete only.
-    """
     uid = _user_id(user)
-
-    def _delete():
-        existing = _fetch_course(course_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Course not found.")
-        if existing["professor_id"] != uid:
-            raise HTTPException(status_code=403, detail="You do not own this course.")
-
-        lecs = (
-            supabase_admin.table("lectures")
-            .select("id")
-            .eq("course_id", course_id)
-            .execute()
-            .data
-            or []
-        )
-        if lecs:
-            if reassign_to:
-                target = _fetch_course(reassign_to)
-                if not target or target["professor_id"] != uid:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="reassign_to course not found or not owned by you.",
-                    )
-                supabase_admin.table("lectures").update(
-                    {"course_id": reassign_to}
-                ).eq("course_id", course_id).execute()
-            else:
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        "Course still has lectures. Pass ?reassign_to=<other_course_id> "
-                        "to move them, or unassign each lecture first."
-                    ),
-                )
-        supabase_admin.table("courses").delete().eq("id", course_id).execute()
-
     try:
-        await run_in_threadpool(_delete)
+        success = await course_service.delete_course(session, course_id, uid, reassign_to)
+        if not success:
+            raise HTTPException(status_code=404, detail="Course not found.")
         return None
+    except ValueError as e:
+        if str(e) == "Forbidden":
+            raise HTTPException(status_code=403, detail="You do not own this course.")
+        elif str(e) == "Target":
+            raise HTTPException(status_code=400, detail="reassign_to course not found or not owned by you.")
+        elif str(e) == "LecturesExist":
+            raise HTTPException(status_code=409, detail="Course still has lectures. Pass ?reassign_to=<other_course_id> to move them, or unassign each lecture first.")
+        raise HTTPException(status_code=500, detail="Failed to delete course.")
     except HTTPException:
         raise
     except Exception as e:
@@ -559,28 +369,20 @@ async def assign_lecture(
     course_id: str,
     lecture_id: str,
     user: Any = Depends(require_professor),
+    session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)
-
-    def _assign():
-        course = _fetch_course(course_id)
-        if not course or course["professor_id"] != uid:
-            raise HTTPException(status_code=404, detail="Course not found.")
-        lecture = _fetch_lecture(lecture_id)
-        if not lecture:
-            raise HTTPException(status_code=404, detail="Lecture not found.")
-        if lecture["professor_id"] != uid:
-            raise HTTPException(status_code=403, detail="You do not own this lecture.")
-        supabase_admin.table("lectures").update({"course_id": course_id}).eq(
-            "id", lecture_id
-        ).execute()
-        return {"course_id": course_id, "lecture_id": lecture_id}
-
     try:
-        data = await run_in_threadpool(_assign)
-        return {"success": True, "data": data}
-    except HTTPException:
-        raise
+        await course_service.assign_lecture(session, uid, course_id, lecture_id)
+        return {"success": True, "data": {"course_id": course_id, "lecture_id": lecture_id}}
+    except ValueError as e:
+        if str(e) == "CourseNotFound":
+            raise HTTPException(status_code=404, detail="Course not found.")
+        elif str(e) == "LectureNotFound":
+            raise HTTPException(status_code=404, detail="Lecture not found.")
+        elif str(e) == "Forbidden":
+            raise HTTPException(status_code=403, detail="You do not own this lecture.")
+        raise HTTPException(status_code=500, detail="Failed to assign lecture.")
     except Exception as e:
         logger.error("Lecture assign failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to assign lecture.")
@@ -593,30 +395,20 @@ async def unassign_lecture(
     course_id: str,
     lecture_id: str,
     user: Any = Depends(require_professor),
+    session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)
-
-    def _unassign():
-        course = _fetch_course(course_id)
-        if not course or course["professor_id"] != uid:
-            raise HTTPException(status_code=404, detail="Course not found.")
-        lecture = _fetch_lecture(lecture_id)
-        if not lecture or lecture["professor_id"] != uid:
-            raise HTTPException(status_code=404, detail="Lecture not found.")
-        if lecture.get("course_id") != course_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Lecture is not assigned to this course.",
-            )
-        supabase_admin.table("lectures").update({"course_id": None}).eq(
-            "id", lecture_id
-        ).execute()
-
     try:
-        await run_in_threadpool(_unassign)
+        await course_service.unassign_lecture(session, uid, course_id, lecture_id)
         return None
-    except HTTPException:
-        raise
+    except ValueError as e:
+        if str(e) == "CourseNotFound":
+            raise HTTPException(status_code=404, detail="Course not found.")
+        elif str(e) == "LectureNotFound":
+            raise HTTPException(status_code=404, detail="Lecture not found.")
+        elif str(e) == "NotAssigned":
+            raise HTTPException(status_code=400, detail="Lecture is not assigned to this course.")
+        raise HTTPException(status_code=500, detail="Failed to unassign lecture.")
     except Exception as e:
         logger.error("Lecture unassign failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to unassign lecture.")
