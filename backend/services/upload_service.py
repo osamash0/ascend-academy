@@ -288,13 +288,37 @@ async def process_pdf_stream(
             )
 
 async def process_pdf_lazy(content: bytes, filename: str, ai_model: str) -> AsyncGenerator[str, None]:
-    yield f"data: {json.dumps({'type': 'info', 'parser': 'pymupdf-lazy'})}\n\n"
+    import hashlib
+    pdf_hash = hashlib.sha256(content).hexdigest()
+    
+    # 1. Upload to storage
+    await upload_pdf_to_storage(pdf_hash, content)
+    
+    # 2. Enqueue the arq task
+    pool = await get_arq_pool()
+    await pool.enqueue_job("process_pdf_lazy_worker", pdf_hash=pdf_hash, filename=filename, ai_model=ai_model)
+    
+    # 3. Subscribe to Redis for the SSE stream
+    import redis.asyncio as aioredis
+    from backend.core.config import settings
+    redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    channel = f"parse_lazy:{pdf_hash}"
+    
     try:
-        async for update in import_pdf_lazy(content, filename=filename, ai_model=ai_model):
-            yield f"data: {json.dumps(update)}\n\n"
-    except Exception as e:
-        logger.error("Lazy import failed: %s", e, exc_info=True)
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'recoverable': False})}\n\n"
+        async with redis_client.pubsub() as pubsub:
+            await pubsub.subscribe(channel)
+            async for message in pubsub.listen():
+                if message.get("type") != "message":
+                    continue
+                try:
+                    event = json.loads(message["data"])
+                    yield f"data: {json.dumps(event)}\n\n"
+                    if event.get("type") in ("complete", "error"):
+                        break
+                except Exception:
+                    continue
+    finally:
+        await redis_client.aclose()
 
 async def extract_raw_pages(content: bytes, filename: str, parser: str) -> Dict[str, Any]:
     pages_raw: Dict[int, dict] = {}

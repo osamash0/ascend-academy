@@ -380,33 +380,24 @@ async def refresh_course_analytics_cache(
     user=Depends(require_professor),
     creds: HTTPAuthorizationCredentials = Depends(security),
 ):
-    """Force-invalidate the cached professor overview for a course.
-
-    Professor-only. Drops every ``professor_overview`` cache row for the
-    course, then warms the cache by recomputing the overview so the next
-    dashboard load is already populated. Returns the number of rows
-    dropped and whether the recompute succeeded.
+    """Force-invalidate the cached professor overview for a course and enqueue background refresh.
+    
+    Professor-only. Returns a 202 Accepted style response.
     """
     await run_in_threadpool(_assert_course_owner, course_id, user.id)
     try:
         deleted = await run_in_threadpool(
             analytics_cache.invalidate_course_overview, course_id
         )
-        recomputed = False
         try:
-            await analytics_service.get_professor_overview(
-                course_id,
-                days,
-                creds.credentials,
-            )
-            recomputed = True
+            from backend.core.redis import enqueue_job
+            await enqueue_job("refresh_analytics_worker", "course", course_id, days)
         except Exception as e:
-            logger.warning(
-                "Course cache refresh recompute failed (will lazy-fill): %s", e
-            )
+            logger.warning("Course cache refresh enqueue failed: %s", e)
+            
         return AnalyticsResponse(
             success=True,
-            data={"invalidated_rows": deleted, "recomputed": recomputed},
+            data={"invalidated_rows": deleted, "recomputed": False},
         )
     except HTTPException:
         raise
@@ -419,7 +410,7 @@ async def refresh_course_analytics_cache(
 
 @router.post("/lecture/{lecture_id}/cache/refresh", response_model=AnalyticsResponse)
 async def refresh_analytics_cache(lecture_id: str, user=Depends(verify_token), creds: HTTPAuthorizationCredentials = Depends(security)):
-    """Force-invalidate every cached analytics aggregate for a lecture.
+    """Force-invalidate every cached analytics aggregate for a lecture and enqueue background refresh.
 
     Professor-only. Returns the number of cache rows dropped so the UI can
     surface a confirmation. The next dashboard load will recompute and
@@ -428,20 +419,16 @@ async def refresh_analytics_cache(lecture_id: str, user=Depends(verify_token), c
     await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
     try:
         deleted = await run_in_threadpool(analytics_cache.invalidate, lecture_id)
-        # Force-recompute the dashboard so the next read is already warm.
-        # Other per-feature aggregates repopulate lazily on first read.
-        recomputed = False
+        
         try:
-            await analytics_service.get_dashboard_data(
-                lecture_id, creds.credentials, force_refresh=True
-            )
-            recomputed = True
+            from backend.core.redis import enqueue_job
+            await enqueue_job("refresh_analytics_worker", "lecture", lecture_id, 7)
         except Exception as e:
-            logger.warning("Cache refresh recompute failed (will lazy-fill): %s", e)
+            logger.warning("Cache refresh enqueue failed: %s", e)
 
         return AnalyticsResponse(
             success=True,
-            data={"invalidated_rows": deleted, "recomputed": recomputed},
+            data={"invalidated_rows": deleted, "recomputed": False},
         )
     except HTTPException:
         raise
