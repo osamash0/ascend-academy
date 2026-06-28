@@ -223,11 +223,13 @@ export interface SupabaseMock {
     signOut: ReturnType<typeof vi.fn>;
     onAuthStateChange: ReturnType<typeof vi.fn>;
     resetPasswordForEmail: ReturnType<typeof vi.fn>;
+    updateUser: ReturnType<typeof vi.fn>;
   };
   rpc: ReturnType<typeof vi.fn>;
   storage: {
     from: ReturnType<typeof vi.fn>;
   };
+  channel: ReturnType<typeof vi.fn>;
 }
 
 export function createSupabaseMock(): SupabaseMock {
@@ -260,6 +262,7 @@ export function createSupabaseMock(): SupabaseMock {
         data: { subscription: { unsubscribe: vi.fn() } },
       }),
       resetPasswordForEmail: vi.fn().mockResolvedValue({ data: {}, error: null }),
+      updateUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }),
     },
     storage: {
       from: vi.fn().mockReturnValue({
@@ -268,6 +271,13 @@ export function createSupabaseMock(): SupabaseMock {
         getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: "https://fake/url" } }),
       }),
     },
+    channel: vi.fn().mockReturnValue({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+      unsubscribe: vi.fn().mockReturnThis(),
+      send: vi.fn().mockResolvedValue("ok"),
+      track: vi.fn().mockResolvedValue("ok"),
+    }),
   };
   return mock;
 }

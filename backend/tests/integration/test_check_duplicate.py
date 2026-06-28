@@ -23,13 +23,13 @@ def _seed_two_owners(fake_supabase):
     fake_supabase.seed(
         "lectures",
         [
-            {"id": "L1", "professor_id": "professor-uuid-1", "title": "Mine",
+            {"id": "L1", "professor_id": "00000000-0000-0000-0000-000000000001", "title": "Mine",
              "pdf_hash": VALID_HASH, "total_slides": 5,
              "created_at": "2026-01-01T00:00:00Z"},
-            {"id": "L2", "professor_id": "professor-uuid-1", "title": "Mine v2",
+            {"id": "L2", "professor_id": "00000000-0000-0000-0000-000000000001", "title": "Mine v2",
              "pdf_hash": VALID_HASH, "total_slides": 6,
              "created_at": "2026-02-01T00:00:00Z"},
-            {"id": "L3", "professor_id": "professor-uuid-2", "title": "Theirs",
+            {"id": "L3", "professor_id": "00000000-0000-0000-0000-000000000003", "title": "Theirs",
              "pdf_hash": VALID_HASH, "total_slides": 9,
              "created_at": "2026-03-01T00:00:00Z"},
         ],

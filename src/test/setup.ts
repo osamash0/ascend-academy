@@ -49,6 +49,19 @@ if (!("scrollTo" in window)) {
   (window as any).scrollTo = () => {};
 }
 
+// Polyfill for Radix UI Pointer Events
+if (typeof Element !== 'undefined') {
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false;
+  }
+  if (!Element.prototype.setPointerCapture) {
+    Element.prototype.setPointerCapture = () => {};
+  }
+  if (!Element.prototype.releasePointerCapture) {
+    Element.prototype.releasePointerCapture = () => {};
+  }
+}
+
 // jsdom does not implement <canvas>.getContext; pages that draw decorative
 // effects (e.g. Landing's animated background) call it during effects. A
 // minimal no-op 2D-context stub is sufficient for unit tests. We override

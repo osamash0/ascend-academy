@@ -38,6 +38,7 @@ arq>=0.26,<0.27
 litellm>=1.40,<2.0
 openai>=1.50.0,<2.0
 sentry-sdk>=2.0.0,<3.0
+python-json-logger>=3.0  # required by backend/core/logging_config.py
 
 # --- Reproducible builds (recommended follow-up) ---------------------------
 # These ranges still float within a major. For a deterministic image:

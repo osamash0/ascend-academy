@@ -101,6 +101,18 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     except Exception:
         pass
 
+    # slides_ai.py / practice_sheets.py import supabase_admin at module load too.
+    try:
+        from backend.api.v1 import slides_ai as slides_ai_api
+        monkeypatch.setattr(slides_ai_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+    try:
+        from backend.api.v1 import practice_sheets as practice_sheets_api
+        monkeypatch.setattr(practice_sheets_api, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+
     # diagnostics_service imports supabase_admin by name at module-load; its
     # get_pdf_diagnostics ownership lookup uses that local binding directly, so
     # patch it or the lookup hits the real network.
@@ -141,7 +153,7 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
 
 def _user(role: str, uid: str | None = None) -> SimpleNamespace:
     return SimpleNamespace(
-        id=uid or f"{role}-uuid-1",
+        id=uid or ("00000000-0000-0000-0000-000000000001" if role == "professor" else "00000000-0000-0000-0000-000000000002"),
         app_metadata={"role": role},
         user_metadata={},
     )
@@ -149,17 +161,17 @@ def _user(role: str, uid: str | None = None) -> SimpleNamespace:
 
 @pytest.fixture
 def student_user() -> SimpleNamespace:
-    return _user("student", "student-uuid-1")
+    return _user("student", "00000000-0000-0000-0000-000000000002")
 
 
 @pytest.fixture
 def professor_user() -> SimpleNamespace:
-    return _user("professor", "professor-uuid-1")
+    return _user("professor", "00000000-0000-0000-0000-000000000001")
 
 
 @pytest.fixture
 def other_professor_user() -> SimpleNamespace:
-    return _user("professor", "professor-uuid-2")
+    return _user("professor", "00000000-0000-0000-0000-000000000003")
 
 
 # ── FastAPI test client ───────────────────────────────────────────────────────
@@ -187,10 +199,6 @@ def app_client(app, professor_user):
         return lambda: professor_user
 
     app.dependency_overrides[verify_token] = _verify
-    # require_role is a factory; override its returned dependency
-    from backend.core import auth_middleware as am
-    am.require_professor.__wrapped__ = lambda *a, **k: professor_user  # type: ignore[attr-defined]
-
     return TestClient(app)
 
 
@@ -208,13 +216,9 @@ def authed(app):
     class _Authed:
         def as_user(self, user):
             app.dependency_overrides[verify_token] = lambda: user
-            app.dependency_overrides[require_professor] = lambda: user
-            app.dependency_overrides[require_student] = lambda: user
 
         def clear(self):
             app.dependency_overrides.pop(verify_token, None)
-            app.dependency_overrides.pop(require_professor, None)
-            app.dependency_overrides.pop(require_student, None)
 
     return _Authed()
 

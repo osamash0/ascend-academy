@@ -47,7 +47,7 @@ def _patch_admin(monkeypatch, fake):
 def test_run_daily_emits_streak_nudge_once(monkeypatch, patch_supabase):
     fake = patch_supabase
     _patch_admin(monkeypatch, fake)
-    _seed_streak_student(fake, "student-uuid-1")
+    _seed_streak_student(fake, "00000000-0000-0000-0000-000000000002")
 
     report = nudge_engine.run_daily(now=NOW, client=fake)
     assert report["notifications_emitted"] == 1
@@ -56,7 +56,7 @@ def test_run_daily_emits_streak_nudge_once(monkeypatch, patch_supabase):
     notifs = fake.tables.get("notifications", [])
     assert len(notifs) == 1
     assert notifs[0]["type"] == "streak"
-    assert notifs[0]["user_id"] == "student-uuid-1"
+    assert notifs[0]["user_id"] == "00000000-0000-0000-0000-000000000002"
 
     # Re-running the same day is a no-op because of quiet_until.
     report2 = nudge_engine.run_daily(now=NOW + timedelta(minutes=5), client=fake)
@@ -67,7 +67,7 @@ def test_run_daily_emits_streak_nudge_once(monkeypatch, patch_supabase):
 def test_run_daily_emits_assignment_and_concept(monkeypatch, patch_supabase):
     fake = patch_supabase
     _patch_admin(monkeypatch, fake)
-    uid = "student-uuid-1"
+    uid = "00000000-0000-0000-0000-000000000002"
     fake.tables.setdefault("profiles", []).append({"user_id": uid, "current_streak": 0})
     fake.tables.setdefault("learning_events", []).append({
         "id": "e1", "user_id": uid, "event_type": "slide_view",
