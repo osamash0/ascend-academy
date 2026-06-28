@@ -16,9 +16,14 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 
 _security = HTTPBearer()
 
+# Source of truth: orchestrator._USER_MODEL_TO_PROVIDER keys. Keep this in sync
+# with slides_ai._AiModel so a model accepted by one AI router isn't rejected by
+# the other. Unknown models fall back to the default chain, so the list is the
+# public request contract, not a hard capability gate.
 _AiModelLiteral = Literal[
     "cerebras", "groq", "groq_fast", "openrouter", "cloudflare", "gemini",
-    "gemini-2.0-flash", "gemini-2.5-flash", "gemma", "mistral", "llama3", "openai"
+    "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemma",
+    "mistral", "openai", "gpt-4o-mini"
 ]
 _AiModel = Annotated[_AiModelLiteral, Field("cerebras", description="Preferred LLM backend")]
 

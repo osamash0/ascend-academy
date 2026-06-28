@@ -121,10 +121,6 @@ def _extract_citations(
     return citations
 
 
-                return False
-    return True
-
-
 async def chat_with_lecture(
     slide_text: str,
     user_message: str,

@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # the loopback-only port binding). Leave empty for an unauthenticated local
     # gateway. Must match the gateway's general_settings.master_key.
     litellm_master_key: str = Field(alias="LITELLM_MASTER_KEY", default="")
-    parser_version: str = Field(alias="PARSER_VERSION", default="2")
+    parser_version: str = Field(alias="PARSER_VERSION", default="5")
     # Vision-capable model the unified pipeline (PARSER_VERSION=5) uses for
     # image/scanned/diagram slides so they get real OCR/vision content instead
     # of empty text. Must be a vision-capable provider (groq, gemini-2.0-flash).
@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     # university LLM via OPENAI_BASE_URL + OPENAI_MODEL. Slower models may need
     # a higher LLM_TIMEOUT_SECONDS (default 25; gpt-4o-mini wants ~90).
     parser_llm_model: str = Field(alias="PARSER_LLM_MODEL", default="cerebras")
+    # Model used by the standalone Fast Upload pipeline (backend/api/v1/fast_upload.py),
+    # which calls litellm.acompletion directly — so this is a litellm-style,
+    # provider-prefixed id (e.g. "gemini/gemini-2.0-flash", "openai/gpt-4o-mini"),
+    # NOT an orchestrator key. Server-configured so institutions can retarget it.
+    fast_upload_model: str = Field(alias="FAST_UPLOAD_MODEL", default="gemini/gemini-2.0-flash")
 
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")

@@ -5,6 +5,7 @@ import uuid
 from typing import Any, List, Dict, Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Request
+from backend.core.config import settings
 from backend.core.database import supabase_admin, get_client, get_db_connection, db_transaction, handle_db_errors
 from backend.core.auth_middleware import verify_token, require_professor
 from backend.services.cache import compute_pdf_hash
@@ -59,7 +60,7 @@ Slide {page_num} raw text:
 """
     try:
         resp = await acompletion(
-            model="gemini/gemini-2.0-flash",
+            model=settings.fast_upload_model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             max_tokens=800,
@@ -94,7 +95,7 @@ Analyze these lecture slides:
 """
     try:
         resp = await acompletion(
-            model="gemini/gemini-2.0-flash",
+            model=settings.fast_upload_model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             max_tokens=1000,
@@ -138,7 +139,7 @@ Slides:
 Generate 5-8 diverse, well-formed multiple choice questions covering key concepts. Mix difficulties."""
     try:
         resp = await acompletion(
-            model="gemini/gemini-2.0-flash",
+            model=settings.fast_upload_model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2000,
         )

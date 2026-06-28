@@ -30,6 +30,7 @@ from backend.core.auth_middleware import (
 from backend.core.pagination import PaginationParams, PaginatedResponse
 from backend.core.database import supabase_admin  # ADMIN: bulk relationship queries spanning multiple tables and roles
 from backend.core.rate_limit import limiter
+from backend.core.idempotency import check_idempotency
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/courses", tags=["courses"])
@@ -419,6 +420,7 @@ async def create_course(
     request: Request,
     body: CourseCreate,
     user: Any = Depends(require_professor),
+    idempotency: Optional[str] = Depends(check_idempotency),
 ):
     uid = _user_id(user)
 

@@ -1,8 +1,11 @@
 import os
 import logging
+import time
+import uuid
 from fastapi import FastAPI, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -11,7 +14,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import sentry_sdk
 from backend.core.config import settings
+from backend.core.logging_config import setup_logging, set_correlation_id
 
+# Initialize JSON structured logging
+setup_logging()
 traces_sample_rate = 0.1 if settings.env != "development" else 1.0
 profiles_sample_rate = 0.1 if settings.env != "development" else 1.0
 
@@ -58,6 +64,42 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+
+# ── Security & Logging Middleware ────────────────────────────────────────────
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+class RequestLogMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+        set_correlation_id(correlation_id)
+        request.state.correlation_id = correlation_id
+        start_time = time.perf_counter()
+        
+        response = await call_next(request)
+        
+        process_time_ms = (time.perf_counter() - start_time) * 1000
+        logger.info(
+            "Request handled",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": round(process_time_ms, 2),
+                "ip": request.client.host if request.client else None
+            }
+        )
+        response.headers["X-Correlation-ID"] = correlation_id
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLogMiddleware)
 
 # ── Compression ──────────────────────────────────────────────────────────────
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -134,6 +176,9 @@ from backend.core.exceptions import DomainError
 
 @app.exception_handler(DomainError)
 async def domain_error_handler(request: Request, exc: DomainError):
+    # NB: don't use the key "msg" in `extra` — it's a reserved LogRecord
+    # attribute and logging raises KeyError, which would crash this handler.
+    logger.warning("Domain error", extra={"code": exc.code, "error_message": exc.message, "details": exc.details})
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -146,6 +191,20 @@ async def domain_error_handler(request: Request, exc: DomainError):
         }
     )
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled server error", extra={"error": str(exc)})
+    return JSONResponse(
+        status_code=500,
+        content={
+            "data": None,
+            "error": {
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "An unexpected error occurred.",
+                "details": None
+            }
+        }
+    )
 # ── Redirect Legacy API ──────────────────────────────────────────────────────
 @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 async def redirect_legacy_api(request: Request, path: str):
