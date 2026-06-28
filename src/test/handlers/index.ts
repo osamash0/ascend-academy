@@ -2,9 +2,29 @@ import { http, HttpResponse } from "msw";
 
 const API = "http://api.test";
 
+/**
+ * Route helper that registers each endpoint at BOTH `/api/...` and
+ * `/api/v1/...`.
+ *
+ * The frontend has two URL conventions in play after the backend restructure:
+ *   - `apiClient` rewrites every `/api/...` path to `/api/v1/...`.
+ *   - A handful of services/hooks (concepts, upload/*, tts) still `fetch`
+ *     raw `/api/...` URLs directly, bypassing the rewrite.
+ * Registering both variants keeps these shared default handlers tolerant of
+ * either convention, so a test does not silently break depending on which
+ * code path its consumer uses.
+ */
+type Resolver = Parameters<typeof http.get>[1];
+const v1 = (path: string) => path.replace(/(^.*)\/api\//, "$1/api/v1/");
+const dual = (
+  method: "get" | "post",
+  path: string,
+  resolver: Resolver,
+) => [http[method](path, resolver), http[method](v1(path), resolver)];
+
 export const defaultHandlers = [
   // ── Analytics ─────────────────────────────────────────────────────────────
-  http.get(`${API}/api/analytics/lecture/:id/overview`, () =>
+  ...dual("get", `${API}/api/analytics/lecture/:id/overview`, () =>
     HttpResponse.json({
       success: true,
       data: {
@@ -16,7 +36,7 @@ export const defaultHandlers = [
       },
     }),
   ),
-  http.get(`${API}/api/analytics/lecture/:id/slides`, () =>
+  ...dual("get", `${API}/api/analytics/lecture/:id/slides`, () =>
     HttpResponse.json({
       success: true,
       data: [
@@ -30,7 +50,7 @@ export const defaultHandlers = [
       ],
     }),
   ),
-  http.get(`${API}/api/analytics/lecture/:id/students`, () =>
+  ...dual("get", `${API}/api/analytics/lecture/:id/students`, () =>
     HttpResponse.json({
       success: true,
       data: [
@@ -46,7 +66,7 @@ export const defaultHandlers = [
       ],
     }),
   ),
-  http.get(`${API}/api/analytics/lecture/:id/dashboard`, () =>
+  ...dual("get", `${API}/api/analytics/lecture/:id/dashboard`, () =>
     HttpResponse.json({
       success: true,
       data: {
@@ -57,45 +77,45 @@ export const defaultHandlers = [
       },
     }),
   ),
-  http.get(`${API}/api/analytics/lecture/:id/dropoff`, () =>
+  ...dual("get", `${API}/api/analytics/lecture/:id/dropoff`, () =>
     HttpResponse.json({ success: true, data: [] }),
   ),
-  http.get(`${API}/api/analytics/lecture/:id/distractors`, () =>
+  ...dual("get", `${API}/api/analytics/lecture/:id/distractors`, () =>
     HttpResponse.json({ success: true, data: [] }),
   ),
-  http.get(`${API}/api/analytics/lecture/:id/ai-queries`, () =>
+  ...dual("get", `${API}/api/analytics/lecture/:id/ai-queries`, () =>
     HttpResponse.json({ success: true, data: [] }),
   ),
-  http.get(`${API}/api/analytics/lecture/:id/confidence-by-slide`, () =>
+  ...dual("get", `${API}/api/analytics/lecture/:id/confidence-by-slide`, () =>
     HttpResponse.json({ success: true, data: [] }),
   ),
 
   // ── AI generation ─────────────────────────────────────────────────────────
-  http.post(`${API}/api/ai/generate-summary`, () =>
+  ...dual("post", `${API}/api/ai/generate-summary`, () =>
     HttpResponse.json({ summary: "Test summary." }),
   ),
-  http.post(`${API}/api/ai/generate-quiz`, () =>
+  ...dual("post", `${API}/api/ai/generate-quiz`, () =>
     HttpResponse.json({
       question: "What is 2+2?",
       options: ["3", "4", "5", "6"],
       correctAnswer: 1,
     }),
   ),
-  http.post(`${API}/api/ai/chat`, () =>
+  ...dual("post", `${API}/api/ai/chat`, () =>
     HttpResponse.json({ reply: "Test reply.", citations: [] }),
   ),
-  http.post(`${API}/api/upload/attach-lecture`, () =>
+  ...dual("post", `${API}/api/upload/attach-lecture`, () =>
     HttpResponse.json({ updated: 0 }),
   ),
-  http.post(`${API}/api/ai/analytics-insights`, () =>
+  ...dual("post", `${API}/api/ai/analytics-insights`, () =>
     HttpResponse.json({ summary: "Insight.", suggestions: ["Try X"] }),
   ),
 
   // ── Mind map ──────────────────────────────────────────────────────────────
-  http.get(`${API}/api/mind-map/:id`, () =>
+  ...dual("get", `${API}/api/mind-map/:id`, () =>
     HttpResponse.json({ success: true, data: null }),
   ),
-  http.post(`${API}/api/mind-map/:id/generate`, () =>
+  ...dual("post", `${API}/api/mind-map/:id/generate`, () =>
     HttpResponse.json({
       success: true,
       data: {
@@ -118,7 +138,7 @@ export const defaultHandlers = [
   ),
 
   // ── Streaming PDF parse ───────────────────────────────────────────────────
-  http.post(`${API}/api/upload/parse-pdf-stream`, () => {
+  ...dual("post", `${API}/api/upload/parse-pdf-stream`, () => {
     const body =
       [
         `data: ${JSON.stringify({ type: "info", parser: "pymupdf" })}\n\n`,
@@ -162,19 +182,19 @@ export const defaultHandlers = [
   }),
 
   // ── Courses ───────────────────────────────────────────────────────────────
-  http.get(`${API}/api/courses`, () =>
+  ...dual("get", `${API}/api/courses`, () =>
     HttpResponse.json({
       success: true,
       data: [],
     }),
   ),
-  http.get(`${API}/api/courses/browse`, () =>
+  ...dual("get", `${API}/api/courses/browse`, () =>
     HttpResponse.json({
       success: true,
       data: [],
     }),
   ),
-  http.post(`${API}/api/courses/:id/enroll`, () =>
+  ...dual("post", `${API}/api/courses/:id/enroll`, () =>
     HttpResponse.json({
       success: true,
       data: { enrolled: true },
@@ -182,13 +202,13 @@ export const defaultHandlers = [
   ),
 
   // ── Assignments ───────────────────────────────────────────────────────────
-  http.get(`${API}/api/assignments`, () =>
+  ...dual("get", `${API}/api/assignments`, () =>
     HttpResponse.json({
       success: true,
       data: [],
     }),
   ),
-  http.get(`${API}/api/assignments/_meta/students`, () =>
+  ...dual("get", `${API}/api/assignments/_meta/students`, () =>
     HttpResponse.json({
       success: true,
       data: [],
@@ -196,13 +216,13 @@ export const defaultHandlers = [
   ),
 
   // ── Worksheets & Practice Sheets ──────────────────────────────────────────
-  http.get(`${API}/api/lectures/:id/worksheets`, () =>
+  ...dual("get", `${API}/api/lectures/:id/worksheets`, () =>
     HttpResponse.json({
       success: true,
       data: [],
     }),
   ),
-  http.get(`${API}/api/lectures/:id/practice-sheets`, () =>
+  ...dual("get", `${API}/api/lectures/:id/practice-sheets`, () =>
     HttpResponse.json({
       success: true,
       data: [],
@@ -210,13 +230,13 @@ export const defaultHandlers = [
   ),
 
   // ── Concepts ──────────────────────────────────────────────────────────────
-  http.get(`http://localhost:8000/api/concepts/lecture/:id`, () =>
+  ...dual("get", `http://localhost:8000/api/concepts/lecture/:id`, () =>
     HttpResponse.json({
       success: true,
       data: [],
     }),
   ),
-  http.get(`${API}/api/concepts/lecture/:id`, () =>
+  ...dual("get", `${API}/api/concepts/lecture/:id`, () =>
     HttpResponse.json({
       success: true,
       data: [],

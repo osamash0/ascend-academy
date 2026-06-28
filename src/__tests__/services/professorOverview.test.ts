@@ -18,7 +18,7 @@ beforeEach(() => supabaseMock.reset());
 describe("getProfessorOverview", () => {
   it("unwraps the envelope and returns the overview payload", async () => {
     server.use(
-      http.get("http://api.test/api/analytics/professor/overview", ({ request }) => {
+      http.get("http://api.test/api/v1/analytics/professor/overview", ({ request }) => {
         const url = new URL(request.url);
         expect(url.searchParams.get("course_id")).toBe("C1");
         expect(url.searchParams.get("days")).toBe("7");

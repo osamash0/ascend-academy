@@ -228,8 +228,21 @@ class TestParsePdfStreamForceReparse:
 
     @pytest.fixture
     def stub_streaming(self, monkeypatch):
-        """Replace the heavy parser + validation with deterministic stubs."""
+        """Replace the heavy parser + validation with deterministic stubs.
+
+        After the v1 restructure the endpoint delegates the fresh-parse path
+        to ``upload_service.process_pdf_stream`` (which internally calls
+        ``parse_pdf_stream`` / ``store_cached_parse`` resolved in the
+        upload_service namespace) and validates via
+        ``upload_service.validate_upload``. The cache short-circuit lives on
+        the endpoint module (``get_cached_parse``) and the cached path's
+        embedding fan-out resolves ``_safe_embedding_task`` from
+        ``file_parse_service``. Patch each symbol where it is actually
+        resolved.
+        """
         from backend.api.v1 import upload as upload_mod
+        from backend.services import upload_service
+        from backend.services import file_parse_service
         from backend.core.config import settings
         monkeypatch.setattr(settings, "parser_version", 2)
 
@@ -237,16 +250,16 @@ class TestParsePdfStreamForceReparse:
             return 1  # page count
 
         async def _parse(content, *_a, **_k):
-            # The endpoint now emits its own parser `info` event up front,
-            # so the parser stream only needs to yield the phase/complete
-            # markers the frontend listens for.
+            # process_pdf_stream emits the parser `info` event up front, so
+            # the parser stream only needs to yield the phase/complete markers
+            # the frontend listens for.
             yield {"type": "phase", "phase": "extract"}
             yield {"type": "phase", "phase": "enhance"}
             yield {"type": "phase", "phase": "finalize"}
             yield {"type": "complete", "total": 0}
 
-        monkeypatch.setattr(upload_mod, "validate_upload", _validate)
-        monkeypatch.setattr(upload_mod, "parse_pdf_stream", _parse)
+        monkeypatch.setattr(upload_service, "validate_upload", _validate)
+        monkeypatch.setattr(upload_service, "parse_pdf_stream", _parse)
 
         # Track whether the cache lookup happened.
         calls: dict[str, int] = {"get_cached_parse": 0}
@@ -265,9 +278,13 @@ class TestParsePdfStreamForceReparse:
         async def _safe_embed(*a, **k):
             return None
 
+        # The endpoint resolves get_cached_parse in its own module namespace.
         monkeypatch.setattr(upload_mod, "get_cached_parse", _get_cached)
-        monkeypatch.setattr(upload_mod, "store_cached_parse", _store_cached)
-        monkeypatch.setattr(upload_mod, "_safe_embedding_task", _safe_embed)
+        # store_cached_parse runs inside process_pdf_stream (upload_service).
+        monkeypatch.setattr(upload_service, "store_cached_parse", _store_cached)
+        # The cached-stream generator imports _safe_embedding_task from
+        # file_parse_service at call time.
+        monkeypatch.setattr(file_parse_service, "_safe_embedding_task", _safe_embed)
         return calls
 
     def _post(self, client, force):

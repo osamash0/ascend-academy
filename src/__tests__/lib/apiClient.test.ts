@@ -15,7 +15,7 @@ beforeEach(() => supabaseMock.reset());
 describe("apiClient", () => {
   it("attaches Bearer token from session", async () => {
     server.use(
-      http.get("http://api.test/api/echo", ({ request }) => {
+      http.get("http://api.test/api/v1/echo", ({ request }) => {
         return HttpResponse.json({ auth: request.headers.get("authorization") });
       }),
     );
@@ -33,7 +33,7 @@ describe("apiClient", () => {
 
   it("converts non-2xx to thrown Error containing status + path", async () => {
     server.use(
-      http.get("http://api.test/api/boom", () =>
+      http.get("http://api.test/api/v1/boom", () =>
         new HttpResponse("internal", { status: 500 }),
       ),
     );
@@ -42,7 +42,7 @@ describe("apiClient", () => {
 
   it("POST sends JSON body", async () => {
     server.use(
-      http.post("http://api.test/api/items", async ({ request }) => {
+      http.post("http://api.test/api/v1/items", async ({ request }) => {
         const body = await request.json();
         return HttpResponse.json({ received: body });
       }),
@@ -53,7 +53,7 @@ describe("apiClient", () => {
 
   it("PUT works", async () => {
     server.use(
-      http.put("http://api.test/api/items/1", () => HttpResponse.json({ ok: true })),
+      http.put("http://api.test/api/v1/items/1", () => HttpResponse.json({ ok: true })),
     );
     const out: Record<string, unknown> = await apiClient.put("/api/items/1", { x: 2 });
     expect(out.ok).toBe(true);
@@ -61,7 +61,7 @@ describe("apiClient", () => {
 
   it("DELETE works", async () => {
     server.use(
-      http.delete("http://api.test/api/items/1", () => HttpResponse.json({ deleted: 1 })),
+      http.delete("http://api.test/api/v1/items/1", () => HttpResponse.json({ deleted: 1 })),
     );
     const out: Record<string, unknown> = await apiClient.delete("/api/items/1");
     expect(out.deleted).toBe(1);
@@ -69,7 +69,7 @@ describe("apiClient", () => {
 
   it("stream returns the raw Response", async () => {
     server.use(
-      http.post("http://api.test/api/stream", () =>
+      http.post("http://api.test/api/v1/stream", () =>
         new HttpResponse("data: x\n\n", {
           status: 200,
           headers: { "Content-Type": "text/event-stream" },
@@ -84,7 +84,7 @@ describe("apiClient", () => {
 
   it("stream throws on 500", async () => {
     server.use(
-      http.post("http://api.test/api/streambad", () =>
+      http.post("http://api.test/api/v1/streambad", () =>
         new HttpResponse("nope", { status: 500 }),
       ),
     );

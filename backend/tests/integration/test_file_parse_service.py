@@ -237,8 +237,10 @@ async def test_vision_route_calls_vision_and_normalizes(patch_pipeline_deps, mon
 
     real_build = fps.build_routing_manifest
 
-    def forced_manifest(layouts, metadata_flags, ai_model):
-        manifest = real_build(layouts, metadata_flags, ai_model)
+    def forced_manifest(layouts, metadata_flags, ai_model, vision_model=None, **kwargs):
+        # Production now passes vision_model= to build_routing_manifest; accept
+        # and forward it so the stub mirrors the real signature.
+        manifest = real_build(layouts, metadata_flags, ai_model, vision_model=vision_model)
         # Move slide 1 from text to vision
         if 1 in manifest.text_indices:
             manifest.text_indices.remove(1)

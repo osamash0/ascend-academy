@@ -45,40 +45,71 @@ async def test_verify_token_uses_cache(monkeypatch, patched_auth):
     assert called["hit"] is False
 
 
-async def test_verify_token_calls_supabase_on_miss(monkeypatch, patched_auth):
-    user = SimpleNamespace(id="u-2", app_metadata={"role": "student"})
+class _FakeResp:
+    """Minimal stand-in for an httpx.Response."""
 
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def _patch_supabase_user_http(monkeypatch, patched_auth, payload, status_code=200):
+    """Mock the httpx GET {auth_url}/user call verify_token now performs.
+
+    The slow path was changed to hit Supabase Auth directly via
+    httpx.AsyncClient.get instead of supabase_admin.auth.get_user, then
+    rehydrate the user through CachedUser.from_dict(resp.json()). Tests mock
+    the HTTP call and capture how many times it ran.
+    """
+    import httpx
+
+    # verify_token reads supabase_admin.auth_url / .supabase_key to build the
+    # request; the FakeSupabaseClient doesn't define these, so provide them.
     monkeypatch.setattr(
-        patched_auth.auth,
-        "get_user",
-        lambda token: _AuthRes(user),
-        raising=False,
+        patched_auth, "auth_url", "https://stub.supabase.co/auth/v1", raising=False
     )
+    monkeypatch.setattr(patched_auth, "supabase_key", "stub-key", raising=False)
+
+    calls = {"count": 0}
+
+    async def fake_get(self, url, *args, **kwargs):
+        calls["count"] += 1
+        return _FakeResp(status_code, payload)
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get, raising=True)
+    return calls
+
+
+async def test_verify_token_calls_supabase_on_miss(monkeypatch, patched_auth):
+    # New slow path: GET {auth_url}/user -> CachedUser.from_dict(resp.json()).
+    payload = {"id": "u-2", "app_metadata": {"role": "student"}}
+    calls = _patch_supabase_user_http(monkeypatch, patched_auth, payload)
 
     creds = SimpleNamespace(credentials="fresh-token")
     out = await auth_middleware.verify_token(credentials=creds)
-    assert out is user
+
+    # verify_token now reconstructs a CachedUser from the JSON response, so it
+    # is no longer the same object — assert on the rehydrated fields instead.
+    assert calls["count"] == 1
+    assert out.id == "u-2"
+    assert out.app_metadata == {"role": "student"}
 
 
 async def test_verify_token_caches_after_supabase_lookup(monkeypatch, patched_auth):
     """A successful Supabase lookup populates the shared cache."""
-    user = SimpleNamespace(id="u-3", app_metadata={"role": "professor"})
-    monkeypatch.setattr(
-        patched_auth.auth,
-        "get_user",
-        lambda token: _AuthRes(user),
-        raising=False,
-    )
+    payload = {"id": "u-3", "app_metadata": {"role": "professor"}}
+    calls = _patch_supabase_user_http(monkeypatch, patched_auth, payload)
 
     creds = SimpleNamespace(credentials="cache-me")
     await auth_middleware.verify_token(credentials=creds)
+    assert calls["count"] == 1
 
-    # The next lookup must come from the cache, not Supabase.
-    def explode(_token):
-        raise AssertionError("get_user should not be called twice")
-
-    monkeypatch.setattr(patched_auth.auth, "get_user", explode, raising=False)
+    # The next lookup must come from the cache, not the Supabase HTTP call.
     cached = await auth_middleware.verify_token(credentials=creds)
+    assert calls["count"] == 1  # still 1 — HTTP path not hit again
     assert cached.id == "u-3"
     assert cached.app_metadata == {"role": "professor"}
 

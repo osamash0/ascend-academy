@@ -101,6 +101,15 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
     except Exception:
         pass
 
+    # diagnostics_service imports supabase_admin by name at module-load; its
+    # get_pdf_diagnostics ownership lookup uses that local binding directly, so
+    # patch it or the lookup hits the real network.
+    try:
+        from backend.services import diagnostics_service as diagnostics_svc
+        monkeypatch.setattr(diagnostics_svc, "supabase_admin", fake_supabase, raising=False)
+    except Exception:
+        pass
+
     # Ensure get_client/get_auth_client return the fake
     monkeypatch.setattr(database, "get_client", lambda use_admin=False: fake_supabase, raising=True)
     monkeypatch.setattr(
@@ -110,12 +119,17 @@ def patch_supabase(monkeypatch: pytest.MonkeyPatch, fake_supabase: FakeSupabaseC
         raising=True,
     )
 
-    # Patch create_client used by mind_map / ai_content / analytics
+    # Patch create_client used by mind_map / analytics (module-level import).
     from backend.api.v1 import mind_map as mind_map_api
     from backend.api.v1 import ai_content as ai_api
 
     monkeypatch.setattr(mind_map_api, "create_client", lambda url, key: fake_supabase, raising=True)
-    monkeypatch.setattr(ai_api, "create_client", lambda url, key: fake_supabase, raising=True)
+    # ai_content (v1) no longer imports create_client — it uses supabase_admin
+    # directly, and the AI create_client flows moved into services/ai/tutor_service
+    # (which imports create_client from backend.core.database at call time). Patch
+    # the source binding so those flows resolve the fake, plus ai_content's admin.
+    monkeypatch.setattr(database, "create_client", lambda url, key: fake_supabase, raising=False)
+    monkeypatch.setattr(ai_api, "supabase_admin", fake_supabase, raising=False)
     # mind_map.py imports supabase_admin by name at module-load — patch the
     # local binding so the admin-client ownership check uses the fake.
     monkeypatch.setattr(mind_map_api, "supabase_admin", fake_supabase, raising=False)

@@ -112,7 +112,7 @@ async function sendQuestion(user: ReturnType<typeof userEvent.setup>) {
 describe("LectureChat citation chips", () => {
   it("renders a clickable [Slide N] chip and forwards the 0-indexed slide_index to onSlideJump", async () => {
     server.use(
-      http.post("http://api.test/api/ai/chat", () =>
+      http.post("http://api.test/api/v1/ai/chat", () =>
         HttpResponse.json({
           reply: "See the cited slide for context.",
           citations: [{ slide_index: 2, similarity: 0.9 }],
@@ -136,9 +136,9 @@ describe("LectureChat citation chips", () => {
 
   it("renders no chips and never invokes onSlideJump when the response carries no citations", async () => {
     server.use(
-      http.post("http://api.test/api/ai/chat", () =>
+      http.post("http://api.test/api/v1/ai/chat", () =>
         HttpResponse.json({
-          reply: "I cannot answer from the provided slides.",
+          reply: "Newton's third law describes equal and opposite forces.",
           citations: [],
         }),
       ),
@@ -152,7 +152,7 @@ describe("LectureChat citation chips", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/cannot answer from the provided slides/i),
+        screen.getByText(/equal and opposite forces/i),
       ).toBeInTheDocument();
     });
 

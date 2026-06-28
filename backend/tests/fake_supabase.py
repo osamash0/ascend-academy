@@ -29,9 +29,34 @@ for assertions on what the SUT did.
 """
 from __future__ import annotations
 import copy
+import itertools
 import re
 from dataclasses import dataclass, field
 from typing import Any
+
+# Tables whose real schema defines created_at/updated_at TIMESTAMPTZ DEFAULT
+# now(). The fake doesn't emulate column defaults, so production code that
+# orders by / paginates on created_at (e.g. the courses list endpoint) would
+# KeyError. Mirror the DB defaults for these tables on insert/upsert.
+_TIMESTAMP_DEFAULT_TABLES = {"courses", "lectures"}
+
+# Monotonic, strictly-increasing synthetic timestamps so that
+# `.order("created_at", desc=True)` yields the most-recently-inserted row first,
+# matching how now() behaves across sequential inserts.
+_ts_counter = itertools.count(1)
+
+
+def _next_synthetic_timestamp() -> str:
+    n = next(_ts_counter)
+    # Encode the counter into a sortable ISO-8601 UTC string.
+    return f"2026-01-01T00:00:{n // 60:02d}.{n % 60:06d}Z"
+
+
+def _apply_timestamp_defaults(table: str, row: dict) -> None:
+    if table in _TIMESTAMP_DEFAULT_TABLES:
+        ts = _next_synthetic_timestamp()
+        row.setdefault("created_at", ts)
+        row.setdefault("updated_at", ts)
 
 
 @dataclass
@@ -189,6 +214,7 @@ class _QueryBuilder:
                 row.setdefault("id", f"fake-id-{len(rows)+1}")
                 if self._table in ("courses", "lectures"):
                     row.setdefault("is_archived", False)
+                _apply_timestamp_defaults(self._table, row)
                 rows.append(row)
                 inserted.append(row)
             self._client.calls.append(("insert", self._table, payloads))
@@ -212,6 +238,7 @@ class _QueryBuilder:
                 row.setdefault("id", f"fake-id-{len(rows)+1}")
                 if self._table in ("courses", "lectures"):
                     row.setdefault("is_archived", False)
+                _apply_timestamp_defaults(self._table, row)
                 rows.append(row)
                 upserted.append(row)
             self._client.calls.append(("upsert", self._table, payloads, self._on_conflict))

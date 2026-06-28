@@ -24,13 +24,20 @@ def stub_ai(monkeypatch):
     async def _insights(*a, **k):
         return {"summary": "ok", "suggestions": ["x"]}
 
-    from backend.api.v1 import ai_content as mod
-    monkeypatch.setattr(mod, "generate_summary", _summary)
-    monkeypatch.setattr(mod, "generate_quiz", _quiz)
-    monkeypatch.setattr(mod, "chat_with_lecture", _chat)
-    monkeypatch.setattr(mod, "generate_analytics_insights", _insights)
+    # The v1 ai_content endpoint resolves these symbols through the service
+    # modules (tutor_service / chat_service), not on the router module itself.
+    from backend.services.ai import tutor_service, chat_service
+    monkeypatch.setattr(tutor_service, "generate_summary", _summary)
+    monkeypatch.setattr(tutor_service, "generate_quiz", _quiz)
+    monkeypatch.setattr(tutor_service, "generate_analytics_insights", _insights)
+    # process_chat_request is the entrypoint the /chat endpoint calls; it returns
+    # the full reply envelope.
+    async def _process_chat(*a, **k):
+        return {"reply": "Stubbed reply.", "citations": []}
+    monkeypatch.setattr(chat_service, "process_chat_request", _process_chat)
+    # is_metadata_slide lives in tutor_service's namespace (imported there).
     monkeypatch.setattr(
-        mod, "is_metadata_slide", lambda *a, **k: {"is_metadata": False}
+        tutor_service, "is_metadata_slide", lambda *a, **k: {"is_metadata": False}
     )
 
 
@@ -57,10 +64,12 @@ class TestSummary:
         assert r.status_code == 400
 
     def test_metadata_short_circuit(self, app, professor_user, monkeypatch):
-        from backend.api.v1 import ai_content as mod
+        # is_metadata_slide is resolved inside tutor_service (where the
+        # short-circuit lives), so patch it there.
+        from backend.services.ai import tutor_service
 
         monkeypatch.setattr(
-            mod, "is_metadata_slide", lambda *a, **k: {"is_metadata": True}
+            tutor_service, "is_metadata_slide", lambda *a, **k: {"is_metadata": True}
         )
         app.dependency_overrides[verify_token] = lambda: professor_user
         client = TestClient(app)
@@ -99,10 +108,12 @@ class TestQuiz:
         assert 0 <= body["correctAnswer"] <= 3
 
     def test_metadata_returns_placeholder(self, app, professor_user, monkeypatch):
-        from backend.api.v1 import ai_content as mod
+        # is_metadata_slide is resolved inside tutor_service (where the
+        # short-circuit lives), so patch it there.
+        from backend.services.ai import tutor_service
 
         monkeypatch.setattr(
-            mod, "is_metadata_slide", lambda *a, **k: {"is_metadata": True}
+            tutor_service, "is_metadata_slide", lambda *a, **k: {"is_metadata": True}
         )
         app.dependency_overrides[verify_token] = lambda: professor_user
         client = TestClient(app)
@@ -126,7 +137,10 @@ class TestChat:
             headers={"Authorization": "Bearer x"},
         )
         assert r.status_code == 200
-        assert r.json() == {"reply": "Stubbed reply.", "citations": []}
+        # ChatResponse now carries an optional session_id field in the envelope.
+        body = r.json()
+        assert body["reply"] == "Stubbed reply."
+        assert body["citations"] == []
 
     def test_empty_user_message_validation(self, app, professor_user, stub_ai):
         app.dependency_overrides[verify_token] = lambda: professor_user

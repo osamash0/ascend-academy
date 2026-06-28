@@ -10,9 +10,10 @@ def stub_ai(monkeypatch):
     async def _chat(*a, **k):
         return {"reply": "ok", "citations": []}
 
-    from backend.api.v1 import ai_content as mod
+    # The /ai/chat endpoint now delegates to chat_service.process_chat_request.
+    from backend.services.ai import chat_service
 
-    monkeypatch.setattr(mod, "chat_with_lecture", _chat)
+    monkeypatch.setattr(chat_service, "process_chat_request", _chat)
 
 
 def test_chat_rate_limit_kicks_in(app, professor_user, stub_ai):

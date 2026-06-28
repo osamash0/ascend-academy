@@ -105,12 +105,20 @@ async def test_citations_extracted_and_filtered_to_retrieved(stub_llm, stub_retr
 
 
 # ---------------------------------------------------------------------------
-# 3. When retrieval finds nothing on-topic, the tutor refuses Socratically
-#    *without* calling the LLM.
+# 3. Out-of-scope questions: the tutor now ALWAYS answers (grounded), it no
+#    longer short-circuits to a deterministic refusal before the LLM call.
+#
+#    The out-of-scope refusal short-circuit was intentionally REMOVED from
+#    tutor.py (see chat_with_lecture "Step 2": "We now pass everything to the
+#    LLM so it can provide supplementary knowledge"). The tutor relies on the
+#    prompt's HARD RULES to keep the model grounded / honest instead of
+#    refusing before the round-trip. This test now asserts the new behavior:
+#    the LLM IS invoked, and hallucinated citations not present in the
+#    retrieved context are still filtered out.
 # ---------------------------------------------------------------------------
-async def test_out_of_scope_refusal_short_circuits_llm(stub_llm, stub_retrieval):
-    # Anchor is included but its similarity is 0 (synthetic), and no other
-    # retrieved slide cleared the threshold — this is "off-topic" per spec.
+async def test_out_of_scope_question_still_calls_llm_grounded(stub_llm, stub_retrieval):
+    # Only slide 0 was retrieved (anchor, similarity 0). The stub LLM reply
+    # cites [Slide 3], which was never retrieved.
     stub_retrieval.return_value = [
         {"slide_index": 0, "title": "Intro", "content": "Welcome.", "similarity": 0.0},
     ]
@@ -122,13 +130,11 @@ async def test_out_of_scope_refusal_short_circuits_llm(stub_llm, stub_retrieval)
         current_slide_index=0,
     )
 
-    # No LLM round-trip — refusal is deterministic.
-    stub_llm.assert_not_awaited()
+    # New behavior: the tutor always answers grounded — the LLM IS awaited.
+    stub_llm.assert_awaited_once()
+    # Hallucinated [Slide 3] is filtered out because it wasn't in the
+    # retrieved context (only slide 0 was).
     assert out["citations"] == []
-    # Refusal must read as Socratic redirection, not a flat "no".
-    reply = out["reply"].lower()
-    assert "lecture" in reply
-    assert "?" in out["reply"]
 
 
 # ---------------------------------------------------------------------------

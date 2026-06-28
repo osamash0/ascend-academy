@@ -27,7 +27,7 @@ beforeEach(() => supabaseMock.reset());
 describe("getLectureOverview", () => {
   it("unwraps the success envelope (returns .data)", async () => {
     server.use(
-      http.get("http://api.test/api/analytics/lecture/L1/overview", () =>
+      http.get("http://api.test/api/v1/analytics/lecture/L1/overview", () =>
         HttpResponse.json({
           success: true,
           data: { uniqueStudents: 7, averageScore: 80 },
@@ -41,7 +41,7 @@ describe("getLectureOverview", () => {
 
   it("throws on 500", async () => {
     server.use(
-      http.get("http://api.test/api/analytics/lecture/Lx/overview", () =>
+      http.get("http://api.test/api/v1/analytics/lecture/Lx/overview", () =>
         new HttpResponse("boom", { status: 500 }),
       ),
     );
@@ -96,7 +96,7 @@ describe("getDashboardData", () => {
 describe("getAiInsights", () => {
   it("posts to /api/ai/analytics-insights", async () => {
     server.use(
-      http.post("http://api.test/api/ai/analytics-insights", async ({ request }) => {
+      http.post("http://api.test/api/v1/ai/analytics-insights", async ({ request }) => {
         const body = (await request.json()) as Record<string, unknown>;
         expect(body.lecture_id).toBe("L1");
         return HttpResponse.json({ summary: "s", suggestions: ["a"] });
