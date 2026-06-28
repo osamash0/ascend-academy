@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Star, Flame, Target, BookOpen, Award, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Trophy, Star, Flame, Target, Award, Zap } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { AchievementCard } from '@/components/AchievementCard';
 import { XPProgress } from '@/components/XPProgress';
+import { fetchBadgeCatalog, type BadgeDefinition } from '@/services/gamificationService';
+import { badgeLabel } from '@/lib/gamification/badgeLabel';
 
 interface Achievement {
   id: string;
@@ -14,20 +17,11 @@ interface Achievement {
   earned_at: string;
 }
 
-const possibleAchievements = [
-  { name: 'First Quiz Completed', description: 'Complete your first lecture quiz', icon: '🎯' },
-  { name: '5 Streak Master', description: 'Get 5 correct answers in a row', icon: '🔥' },
-  { name: '10 Streak Champion', description: 'Get 10 correct answers in a row', icon: '⚡' },
-  { name: 'Level 5 Scholar', description: 'Reach level 5', icon: '⭐' },
-  { name: 'Level 10 Expert', description: 'Reach level 10', icon: '🌟' },
-  { name: 'Perfect Score', description: 'Get 100% on a lecture quiz', icon: '💯' },
-  { name: 'Bookworm', description: 'Complete 5 lectures', icon: '📚' },
-  { name: 'Graduate', description: 'Complete 10 lectures', icon: '🎓' },
-];
-
 export default function Achievements() {
+  const { t } = useTranslation(['common']);
   const { user, profile } = useAuth();
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [catalog, setCatalog] = useState<BadgeDefinition[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,20 +31,32 @@ export default function Achievements() {
   }, [user?.id]);
 
   const fetchAchievements = async () => {
-    const { data } = await supabase
-      .from('achievements')
-      .select('id, badge_name, badge_description, badge_icon, earned_at')
-      .eq('user_id', user?.id)
-      .order('earned_at', { ascending: false })
-      .limit(50);
+    // Earned badges + the full DB catalog (for the locked "Potential
+    // Milestones" list), so locked badges stay in sync with the real catalog
+    // instead of a hard-coded array.
+    const [{ data }, catalogData] = await Promise.all([
+      supabase
+        .from('achievements')
+        .select('id, badge_name, badge_description, badge_icon, earned_at')
+        .eq('user_id', user?.id)
+        .order('earned_at', { ascending: false })
+        .limit(50),
+      fetchBadgeCatalog(),
+    ]);
 
     if (data) {
       setAchievements(data);
     }
+    setCatalog(catalogData);
     setLoading(false);
   };
 
-  const earnedBadgeNames = achievements.map(a => a.badge_name);
+  const earnedBadgeNames = new Set(achievements.map(a => a.badge_name));
+  // Catalog entry keyed by its canonical English name, so earned rows (stored
+  // by badge_name) can resolve their stable key for localization.
+  const defByName = new Map(catalog.map(b => [b.name, b]));
+  // Locked, non-secret badges from the real catalog.
+  const lockedBadges = catalog.filter(b => !earnedBadgeNames.has(b.name) && !b.is_secret);
 
   if (loading) {
     return (
@@ -184,21 +190,27 @@ export default function Achievements() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {achievements.map((achievement, index) => (
-                <motion.div
-                  key={achievement.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <AchievementCard
-                    name={achievement.badge_name}
-                    description={achievement.badge_description || ''}
-                    icon={achievement.badge_icon || '🏆'}
-                    earnedAt={achievement.earned_at}
-                  />
-                </motion.div>
-              ))}
+              {achievements.map((achievement, index) => {
+                const def = defByName.get(achievement.badge_name);
+                const label = def
+                  ? badgeLabel(t, def)
+                  : { name: achievement.badge_name, description: achievement.badge_description || '' };
+                return (
+                  <motion.div
+                    key={achievement.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <AchievementCard
+                      name={label.name}
+                      description={label.description}
+                      icon={achievement.badge_icon || def?.icon || '🏆'}
+                      earnedAt={achievement.earned_at}
+                    />
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -215,23 +227,24 @@ export default function Achievements() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {possibleAchievements
-              .filter(a => !earnedBadgeNames.includes(a.name))
-              .map((achievement, index) => (
+            {lockedBadges.map((badge, index) => {
+              const label = badgeLabel(t, badge);
+              return (
                 <motion.div
-                  key={achievement.name}
+                  key={badge.key}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.05 }}
                 >
                   <AchievementCard
-                    name={achievement.name}
-                    description={achievement.description}
-                    icon={achievement.icon}
+                    name={label.name}
+                    description={label.description}
+                    icon={badge.icon || '🏆'}
                     isLocked
                   />
                 </motion.div>
-              ))}
+              );
+            })}
           </div>
         </div>
       </div>

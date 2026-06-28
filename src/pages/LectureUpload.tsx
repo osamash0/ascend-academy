@@ -768,7 +768,7 @@ export default function LectureUpload() {
                 onChange={(e) => setParserChoice(e.target.value as ParserChoice)}
                 className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="auto">{t('upload:form.parserAuto', { defaultValue: 'Auto (v4 Recommended)' })}</option>
+                <option value="auto">{t('upload:form.parserAuto', { defaultValue: 'Auto (Recommended)' })}</option>
                 <option value="llamaparse">LlamaParse</option>
                 <option value="mineru">MinerU</option>
                 <option value="opendataloader">OpenDataLoader</option>

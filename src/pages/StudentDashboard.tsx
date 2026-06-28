@@ -11,6 +11,7 @@ import { STREAK_BANNER_DURATION_MS } from '@/lib/constants';
 import { MicroQuizCard } from '@/components/MicroQuizCard';
 import { AssignmentsPanel } from '@/features/assignments/AssignmentsPanel';
 import { KnowledgeMapCard } from '@/components/KnowledgeMapCard';
+import { OptimalScheduleCard } from '@/components/OptimalScheduleCard';
 import { NudgeBanner } from '@/components/NudgeBanner';
 import { splitLectureTitle } from '@/lib/utils';
 import { topicIcon } from '@/lib/topicIcon';
@@ -417,6 +418,11 @@ export default function StudentDashboard() {
           </section>
 
           {user?.id && <KnowledgeMapCard userId={user.id} />}
+
+          {/* Personalized study plan (assignments, weak-concept reviews,
+              continue-where-you-left-off). Self-contained: fetches
+              /api/schedule/me and renders empty/error states internally. */}
+          <OptimalScheduleCard />
         </div>
       </motion.div>
       )}

@@ -59,6 +59,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 // Lazy Pages
 const Landing = lazy(() => import("./pages/Landing"));
 const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const StudentCourseView = lazy(() => import("./pages/StudentCourseView"));
@@ -158,14 +159,7 @@ function StudentDashboardRoute() {
 }
 
 function SettingsWrapper() {
-  const { role } = useAuth();
-  if (role === 'professor') {
-    return (
-      <ConsoleLayout>
-        <Settings />
-      </ConsoleLayout>
-    );
-  }
+  // Settings is identical for every role — render inside the console shell.
   return (
     <ConsoleLayout>
       <Settings />
@@ -174,18 +168,11 @@ function SettingsWrapper() {
 }
 
 function ProtectedNotFound() {
-  const { role, user } = useAuth();
-  
+  const { user } = useAuth();
+
+  // Unauthenticated: bare 404. Authenticated (any role): 404 inside the shell.
   if (!user) {
     return <NotFound />;
-  }
-
-  if (role === 'professor') {
-    return (
-      <ConsoleLayout>
-        <NotFound />
-      </ConsoleLayout>
-    );
   }
 
   return (
@@ -202,6 +189,9 @@ function AppRoutes() {
         {/* Public routes */}
         <Route path={PublicRoutes.LANDING} element={<PublicRoute><Landing /></PublicRoute>} />
         <Route path={PublicRoutes.AUTH} element={<PublicRoute><Auth /></PublicRoute>} />
+        {/* Bare route (no PublicRoute): the recovery session is "authenticated",
+            so PublicRoute would bounce it to the dashboard before reset. */}
+        <Route path={PublicRoutes.RESET_PASSWORD} element={<ResetPassword />} />
         <Route path={PublicRoutes.IMPRESSUM} element={<Impressum />} />
         <Route path={PublicRoutes.DATENSCHUTZ} element={<Datenschutz />} />
 

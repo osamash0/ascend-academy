@@ -90,7 +90,7 @@ export default function Leaderboard() {
                 period === "week" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"
               )}
             >
-              Daily
+              This Week
             </button>
             <button
               onClick={() => setPeriod("all")}
@@ -99,7 +99,7 @@ export default function Leaderboard() {
                 period === "all" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"
               )}
             >
-              Monthly
+              All Time
             </button>
           </div>
         </div>

@@ -1397,7 +1397,7 @@ export default function AdvancedAnalytics() {
               </div>
 
               {/* AI Question Feed */}
-              <Section title="Student Questions Feed" subtitle="What students asked the AI tutor (Grouped by similarity)" icon={MessageSquare}>
+              <Section title="Student Questions Feed" subtitle="What students asked the AI tutor (most recent first)" icon={MessageSquare}>
                 {extraLoading ? (
                   <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
                 ) : groupedQueries.length === 0 ? (

@@ -48,8 +48,8 @@ export function CourseDetailsSheet({
   title,
   description,
   whatYouWillLearn = [],
-  averageRating = 4.8,
-  ratingCount = 124,
+  averageRating,
+  ratingCount = 0,
   instructorName = 'Ascend Instructor',
   lectures,
   onStartLecture,
@@ -73,12 +73,18 @@ export function CourseDetailsSheet({
           </SheetDescription>
           
           <div className="flex items-center gap-4 mt-6">
-            <div className="flex items-center gap-1.5 text-amber-400">
-              <Star className="w-4 h-4 fill-current" />
-              <span className="font-bold text-sm">{averageRating}</span>
-              <span className="text-muted-foreground text-xs font-medium ml-1">({ratingCount} ratings)</span>
-            </div>
-            <div className="w-1 h-1 rounded-full bg-white/20" />
+            {/* Only show a rating when the course actually has ratings —
+                never fabricate a star score. */}
+            {ratingCount > 0 && averageRating != null && (
+              <>
+                <div className="flex items-center gap-1.5 text-amber-400">
+                  <Star className="w-4 h-4 fill-current" />
+                  <span className="font-bold text-sm">{averageRating}</span>
+                  <span className="text-muted-foreground text-xs font-medium ml-1">({ratingCount} ratings)</span>
+                </div>
+                <div className="w-1 h-1 rounded-full bg-white/20" />
+              </>
+            )}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <User className="w-4 h-4" />
               <span className="font-medium text-foreground/80">{instructorName}</span>

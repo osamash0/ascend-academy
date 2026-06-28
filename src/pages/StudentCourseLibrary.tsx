@@ -49,7 +49,7 @@ interface DerivedCourse {
   title: string;
   description: string | null;
   whatYouWillLearn: string[];
-  averageRating: number;
+  averageRating?: number;
   ratingCount: number;
   lecturesCount: number;
   completedLectures: number;
@@ -101,9 +101,9 @@ export default function StudentCourseLibrary() {
         id: c.id,
         title: cTitle,
         description: c.description ?? null,
-        whatYouWillLearn: (c as any).what_you_will_learn ?? ['Master the fundamentals of the subject', 'Apply concepts to practical scenarios', 'Develop problem-solving skills'],
-        averageRating: (c as any).average_rating ?? 4.8,
-        ratingCount: (c as any).rating_count ?? 124,
+        whatYouWillLearn: (c as any).what_you_will_learn ?? [],
+        averageRating: (c as any).average_rating ?? undefined,
+        ratingCount: (c as any).rating_count ?? 0,
         lecturesCount: 0,
         completedLectures: 0,
         progress: 0,
@@ -122,9 +122,9 @@ export default function StudentCourseLibrary() {
           id: cid,
           title: fallbackTitle,
           description: l.course?.description ?? null,
-          whatYouWillLearn: (l.course as any)?.what_you_will_learn ?? ['Master the fundamentals of the subject', 'Apply concepts to practical scenarios', 'Develop problem-solving skills'],
-          averageRating: (l.course as any)?.average_rating ?? 4.8,
-          ratingCount: (l.course as any)?.rating_count ?? 124,
+          whatYouWillLearn: (l.course as any)?.what_you_will_learn ?? [],
+          averageRating: (l.course as any)?.average_rating ?? undefined,
+          ratingCount: (l.course as any)?.rating_count ?? 0,
           lecturesCount: 0,
           completedLectures: 0,
           progress: 0,
@@ -164,10 +164,6 @@ export default function StudentCourseLibrary() {
       })
       .sort((a, b) => {
         if (a.id === b.id) return 0;
-        // Database Systems always first
-        const aDB = /database/i.test(a.title) ? 0 : 1;
-        const bDB = /database/i.test(b.title) ? 0 : 1;
-        if (aDB !== bDB) return aDB - bDB;
         // Courses with lectures before empty ones
         const aHas = a.lecturesCount > 0 ? 0 : 1;
         const bHas = b.lecturesCount > 0 ? 0 : 1;
@@ -211,8 +207,8 @@ export default function StudentCourseLibrary() {
   }, []);
 
   // The semester that leads the rail = the semester of the highest-priority
-  // course in the sorted courseList (Database Systems first, then has-lectures,
-  // then progress). This keeps the lead semester in sync with the sort order.
+  // course in the sorted courseList (has-lectures, then last-opened, then
+  // progress). This keeps the lead semester in sync with the sort order.
   const leadSemester = useMemo(() => {
     const first = courseList.find((c) => semesterOf(c) != null);
     return first ? semesterOf(first) : null;

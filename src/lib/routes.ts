@@ -6,6 +6,7 @@
 export const PublicRoutes = {
   LANDING: '/',
   AUTH: '/auth',
+  RESET_PASSWORD: '/reset-password',
   IMPRESSUM: '/impressum',
   DATENSCHUTZ: '/datenschutz',
 } as const;

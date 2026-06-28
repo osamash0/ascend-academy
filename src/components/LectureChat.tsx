@@ -166,12 +166,11 @@ export function LectureChat({
 
             abortControllerRef.current = new AbortController();
 
-            // Try streaming first
             const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/ai/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'text/event-stream',
+                    'Accept': 'application/json',
                     ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
                 },
                 body: JSON.stringify({
@@ -187,65 +186,18 @@ export function LectureChat({
 
             if (!res.ok) throw new Error(t('lecture:chat.requestFailed'));
 
-            // Check if response is streaming
-            const contentType = res.headers.get('content-type');
-
-            if (contentType?.includes('text/event-stream')) {
-                // Handle SSE streaming
-                const reader = res.body?.getReader();
-                const decoder = new TextDecoder();
-                let fullContent = '';
-
-                if (!reader) throw new Error(t('lecture:chat.noReader'));
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
-                            if (data === '[DONE]') {
-                                streamingRef.current = false;
-                                aiResponseText = fullContent;
-                                setMessages(prev => [...prev, {
-                                    id: generateMsgId(),
-                                    role: 'model',
-                                    content: fullContent,
-                                    timestamp: new Date(),
-                                }]);
-                                setStreamingContent('');
-                            } else {
-                                try {
-                                    const parsed = JSON.parse(data);
-                                    if (parsed.content) {
-                                        fullContent += parsed.content;
-                                        setStreamingContent(fullContent);
-                                    }
-                                } catch {
-                                    // Handle plain text chunks
-                                    fullContent += data;
-                                    setStreamingContent(fullContent);
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                // JSON response (this is what the grounded /api/ai/chat returns).
-                const data = await res.json();
-                aiResponseText = data.reply ?? '';
-                setMessages(prev => [...prev, {
-                    id: generateMsgId(),
-                    role: 'model',
-                    content: data.reply,
-                    citations: Array.isArray(data.citations) ? data.citations : [],
-                    timestamp: new Date(),
-                }]);
-            }
+            // The grounded /api/v1/ai/chat endpoint returns a JSON ChatResponse
+            // ({ reply, citations }); it does not stream (the previous SSE branch
+            // was dead — the backend never sent text/event-stream).
+            const data = await res.json();
+            aiResponseText = data.reply ?? '';
+            setMessages(prev => [...prev, {
+                id: generateMsgId(),
+                role: 'model',
+                content: data.reply,
+                citations: Array.isArray(data.citations) ? data.citations : [],
+                timestamp: new Date(),
+            }]);
 
             // Fire-and-forget analytics
             if (user) {
