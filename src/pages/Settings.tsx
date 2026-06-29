@@ -10,6 +10,7 @@ import { useAuth, Profile } from '@/lib/auth';
 import { useLanguagePreference } from '@/hooks/useLanguagePreference';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/apiClient';
 import { exportAccountData, deleteAccountData } from '@/services/studentService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -651,15 +652,28 @@ function DataPrivacySection({
         safeSetState(setIsDeleting, true);
 
         try {
-            // Sequential deletion to respect potential foreign key constraints
-            const tables = ['learning_events', 'student_progress', 'achievements', 'user_roles', 'profiles'] as const;
-            
-            for (const table of tables) {
-                const { error } = await supabase.from(table).delete().eq('user_id', user.id);
-                if (error) {
-                    console.error(`Error deleting from ${table}:`, error);
-                    // We continue for some tables but profiles is critical
-                    if (table === 'profiles') throw error;
+            // Authoritative deletion: the backend removes the auth.users row via
+            // the service-role admin API, which cascades to every table that
+            // references it (profiles, achievements, progress, attempts, …) —
+            // including data the client can't reach. This is the AUTH-29 fix.
+            let serverDeleted = false;
+            try {
+                await apiClient.post('/api/auth/delete-account', {});
+                serverDeleted = true;
+            } catch (e) {
+                console.warn('Server-side account deletion unavailable; falling back to client-side row deletion', e);
+            }
+
+            if (!serverDeleted) {
+                // Fallback for an older backend: delete the client-reachable rows.
+                // (This path leaves the auth identity behind — the original AUTH-29 gap.)
+                const tables = ['learning_events', 'student_progress', 'achievements', 'user_roles', 'profiles'] as const;
+                for (const table of tables) {
+                    const { error } = await supabase.from(table).delete().eq('user_id', user.id);
+                    if (error) {
+                        console.error(`Error deleting from ${table}:`, error);
+                        if (table === 'profiles') throw error;
+                    }
                 }
             }
 

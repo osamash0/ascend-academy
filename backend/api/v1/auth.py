@@ -12,9 +12,11 @@ and session minting; this router handles backend-side cleanup.
 import logging
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from backend.core.auth_middleware import verify_token, require_role
+from backend.core.auth_middleware import verify_token, require_role, _user_id
+from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
 from backend.services.cache import (
     invalidate_cached_token,
@@ -52,6 +54,41 @@ async def logout_endpoint(
     token = credentials.credentials
     await invalidate_cached_token(token)
     return {"message": "Session invalidated."}
+
+
+@router.post("/delete-account")
+@limiter.limit("3/minute")
+async def delete_account_endpoint(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    user: Any = Depends(verify_token),
+):
+    """Permanently delete the caller's account (GDPR right to erasure).
+
+    Deleting the ``auth.users`` row is a service-role-only operation, so it
+    cannot be done from the client. It also cascades: every table that
+    references ``auth.users(id) ON DELETE CASCADE`` (profiles, achievements,
+    student_progress, practice_attempts, …) is cleaned up by Postgres, which is
+    why client-side row deletion alone (the old Settings flow) left the auth
+    identity — and anything not client-reachable — behind.
+
+    We invalidate the token cache first so the just-deleted user can't replay
+    their bearer token within the 45s TTL window.
+    """
+    uid = _user_id(user)
+    if not uid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user context.")
+
+    await invalidate_cached_token(credentials.credentials)
+    try:
+        await run_in_threadpool(supabase_admin.auth.admin.delete_user, uid)
+    except Exception as e:
+        logger.error("Account deletion failed for %s: %s", uid, e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not delete the account. Please contact support.",
+        )
+    return {"message": "Account deleted."}
 
 
 @router.post("/cleanup-token-cache")

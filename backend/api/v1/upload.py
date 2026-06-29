@@ -93,10 +93,13 @@ async def parse_pdf_stream_endpoint(
         cached_parser = cached.get("parser") or "pymupdf"
         requested_parser = parser
         if parser == "auto":
-            if str(_cfg.parser_version) == "4": requested_parser = "v4"
+            if str(_cfg.parser_version) == "5": requested_parser = "unified"
+            elif str(_cfg.parser_version) == "4": requested_parser = "v4"
             elif str(_cfg.parser_version) == "3": requested_parser = "v3"
             else: requested_parser = "auto"
-        if requested_parser in ("v4", "v3") and cached_parser != requested_parser:
+        # Drop a cache produced by a different pipeline so we never replay, e.g.,
+        # v4-shaped slides when the live pipeline is v5/unified (PDF-10).
+        if requested_parser in ("v4", "v3", "unified") and cached_parser != requested_parser:
             cached = None
 
     if cached:
