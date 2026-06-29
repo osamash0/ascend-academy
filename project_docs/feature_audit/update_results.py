@@ -78,6 +78,28 @@ UPDATES = {
     "PDF-04": {"test": "BROKEN (confirmed)", "errors": "'Skip AI'/on_demand toggle is a no-op under live v5 (unified branch never reads parsing_mode; always full-AI synth).", "severity": "Medium", "fix": "DEFERRED — needs product decision: (a) honor on_demand in the unified pipeline (skip synthesis) = real pipeline work, or (b) hide the toggle when v5 is live (frontend can't currently see PARSER_VERSION). Not silently changed."},
     "PDF-05": {"test": "Partial (confirmed)", "errors": "use_blueprint only threaded into the legacy parser; ignored by v4/v5.", "severity": "Low", "fix": "DEFERRED — dev/Pipeline-Lab-only option; harmless no-op. Left as-is (documenting rather than removing a tester control)."},
     "PDF-27": {"test": "Partial (confirmed)", "errors": "Pipeline Test Lab reads slide._meta + question.answer (v4 shape); v5 emits flat slides + correctAnswer index → route/layout/token stats empty, deck correct-option highlight wrong.", "severity": "Low", "fix": "DEFERRED — professor-only internal dev inspector, not a student/prof production surface. Tracked for a v5-aware rework."},
+
+    # ── Phase 3 batch 3 (this pass): two remaining genuine logistical errors ──
+    "PDF-10": {"test": "Partial (confirmed)", "errors": "Cache-invalidation guard omitted v5: at PARSER_VERSION=5 a v4-shaped parse cache could be replayed instead of running the unified pipeline.", "severity": "Medium", "fix": "upload.py: map auto→'unified' at v5 and add 'unified' to the parser-mismatch invalidation set so a non-unified cache is dropped before replay.", "retest": "PASS (check_duplicate suite green; backend 703 non-db)."},
+    "AUTH-29": {"test": "Partial (confirmed)", "errors": "Account deletion removed client-reachable rows but NOT the Supabase auth user → auth identity (and non-client-reachable data) persisted. GDPR erasure gap.", "severity": "High", "fix": "New POST /api/auth/delete-account (verify_token, 3/min) calls supabase_admin.auth.admin.delete_user(uid) → cascades via auth.users FKs; invalidates token cache first. Settings.handleDelete calls it authoritatively, falling back to client row-deletes if unavailable. +3 backend tests (mocked admin API).", "retest": "PASS (backend tests green; tsc 0). NOTE: live admin-delete + FK cascade need verification against a real Supabase project."},
+
+    # ── Dispositioned non-defects (config / feature-gap / by-design) — NOT code errors ──
+    "PDF-15": {"fix": "BY DESIGN — documented", "retest": "v5 generates a deck-level quiz only; per-slide quizzes are authored in the editor. Intentional."},
+    "PDF-16": {"fix": "KNOWN GAP — documented", "retest": "Client auto-suggested quizzes not persisted on the v5 server-authoritative save path. Needs save-path rework; deferred (Tier 2+)."},
+    "CRS-18": {"fix": "FEATURE GAP — documented", "retest": "Unenroll endpoint exists; no UI calls it. Missing feature, not an error."},
+    "AI-02":  {"fix": "CONFIG — documented", "retest": "Zero-vector embeddings only when GEMINI_API_KEY unset (tutor degrades to current-slide grounding). Ops config, not a code defect."},
+    "WRK-14": {"fix": "BY DESIGN — documented", "retest": "free_form self-assessed (excluded from score); short_answer exact-match. Pinned in test_practice_sheet_grading; intentional 'for now'."},
+    "NDG-08": {"fix": "CONFIG — documented", "retest": "Nudge scheduler gated behind ENABLE_NUDGE_SCHEDULER (ops choice)."},
+    "NDG-13": {"fix": "FEATURE GAP — documented", "retest": "Backend honors study_minutes_per_day; no UI to set it yet."},
+    "ONB-09": {"fix": "BY DESIGN — documented", "retest": "Course recs surfaced in the library catalog sheet; dashboard placement is optional polish."},
+    "SOC-05": {"fix": "FEATURE GAP — documented", "retest": "remove_friend RPC + mutation wired; no remove-friend button in audited pages."},
+    "SOC-16": {"fix": "DEAD CODE — documented", "retest": "bootstrap_demo_friends is a demo-seeding util with no UI caller by design."},
+    "ANL-16": {"fix": "INTENTIONAL — documented", "retest": "Predictive/Spatial panels feature-flagged off in code on purpose."},
+    "ANL-22": {"fix": "MINOR — documented", "retest": "Real metrics with canned headlines; /insights intentionally redirects to the Intelligence Center."},
+    "ADM-02": {"fix": "FEATURE GAP — documented", "retest": "Admin user view is read-only; role management (endpoint+UI) not built. Future feature."},
+    "ADM-05": {"fix": "CONFIG — documented", "retest": "Sentry diagnostics show mock data unless SENTRY_* env set; the UI banner says so."},
+    "ADM-08": {"fix": "COSMETIC — documented", "retest": "app_version/pool sizes are hardcoded display strings; non-functional."},
+    "FBK-03": {"fix": "FEATURE GAP — documented", "retest": "Feedback is write-only; no admin review surface yet. Future feature."},
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -101,6 +123,10 @@ TEST_LOG = [
     ("2026-06-24", "P3", "FIX batch 2 (logistical/UX)", "8 FIXED", "AUTH-15 (deleted dead routeGuards+test); AUTH-34/38 (collapsed identical-branch JSX); ANL-12 (truthful feed label); PDF-29 (version-agnostic parser label); PDF-23 (configurable FAST_UPLOAD_MODEL); CRS-27 (removed Database-first sort bias); CRS-23 (no fabricated ratings — render only with real data); AI-08 (removed dead SSE branch from LectureChat)."),
     ("2026-06-24", "P3", "DEFER: 3 items documented", "DEFERRED", "PDF-04 (Skip-AI no-op under v5 — needs product decision: honor on_demand vs hide toggle); PDF-05 (dead use_blueprint, dev-lab only); PDF-27 (Pipeline Test Lab v4-meta drift, professor-only dev inspector). Not silently changed; tracked in the workbook."),
     ("2026-06-24", "P4", "RETEST: full suites + typecheck (final batch)", "ALL GREEN", "After batch 2: backend pytest 638 passed; frontend vitest 209 passed (was 219 − 10 deleted dead-code tests); tsc --noEmit 0 errors. All landed Phase-3 fixes retested green."),
+    ("2026-06-29", "P3", "FIX batch 3 (remaining genuine errors)", "2 FIXED", "PDF-10 (v5 added to cache-invalidation guard — stale v4 cache no longer replayed under v5); AUTH-29 (new POST /api/auth/delete-account using service-role admin.delete_user → GDPR cascade erasure; Settings wired best-effort with the old client-row-delete as fallback)."),
+    ("2026-06-29", "P3", "DISPOSITION: 16 non-defects", "DOCUMENTED", "Every remaining Broken/Partial item is now dispositioned in the workbook: config (AI-02, NDG-08, ADM-05), feature-gap (CRS-18, NDG-13, SOC-05, ADM-02, FBK-03), by-design (PDF-15, WRK-14, ONB-09, ANL-16), dead-code/cosmetic/minor (SOC-16, ADM-08, ANL-22), known-gap-deferred (PDF-16). None are code defects to fix."),
+    ("2026-06-29", "P3", "TEST SUITE: Tier-1 expansion", "54 NEW", "Built per the approved test plan: file_validation (13), practice_sheet grading (10), idempotency (6), upload_service routing (4), slides_ai endpoints (10), practice_sheets access-control (5), + practice_sheets RLS db tests (6). Consolidated the duplicate usePDFUpload test file (8 tests, 2→1). Coverage: backend 67%→69%; file_validation/idempotency 100%; slides_ai 16→68%."),
+    ("2026-06-29", "P4", "RETEST: FULL post-fix (all phases)", "GREEN + 2 pre-existing", "Backend non-db 703 passed / 0 fail; backend db 45 passed / 0 fail; tsc 0 errors; frontend 386 passed / 2 failed. The 2 frontend failures are in Onboarding.test.tsx — caused by an uncommitted teammate WIP (native <select>→Radix <Select>) out of sync with the committed test; NOT from any audit change. Flagged for the owner."),
 ]
 
 
