@@ -128,7 +128,7 @@ services:
       - api
 
   # ── Arq pipeline worker ─────────────────────────────────────────────────────
-  worker:
+  pipeline-worker:
     build:
       context: .
       dockerfile: Dockerfile
