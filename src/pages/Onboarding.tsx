@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight, User, Sparkles, BookOpen, Check, Loader2, Camera,
-  GraduationCap, Building2, ShieldCheck,
+  GraduationCap, Building2, ShieldCheck, Rocket, Volume2, VolumeX,
+  Users, Trophy, MapPin,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,9 +12,14 @@ import { browseCourses, enrollInCourse, type Course } from '@/services/coursesSe
 import {
   getUniversities, getFaculties, getDegreePrograms, getSuggestedCourses,
   setAcademicProfile, confirmCatalogCourses, verifyMyInstitution,
+  getRecommendedCourses,
 } from '@/services/academicService';
-import { setMySocialProfile } from '@/features/social/api';
+import { setMySocialProfile, fetchFriendSuggestions } from '@/features/social/api';
 import { useGamification } from '@/lib/gamification/GamificationProvider';
+import { RankRing } from '@/components/RankRing';
+import { rankForXp, rankProgress } from '@/lib/rank';
+import { useSound } from '@/lib/useSound';
+import { OnboardingJourneyMap } from '@/features/onboarding/pixi/OnboardingJourneyMap';
 import type {
   University, Faculty, DegreeProgram, SuggestedCourse, StudentCatalogStatus,
 } from '@/types/academic';
@@ -21,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UniversityEmailLink } from '@/components/UniversityEmailLink';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const PRESET_AVATARS = [
   { url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Felix&backgroundColor=b6e3f4', label: 'Robot' },
@@ -32,6 +39,15 @@ const PRESET_AVATARS = [
 ];
 
 const TOTAL_STEPS = 5;
+const JOURNEY_LABELS = ['You', 'Avatar', 'Studies', 'Courses', 'Explore'];
+
+type Stage = 'intro' | 'form' | 'reveal';
+
+interface RevealData {
+  classmates: number;
+  recommendations: number;
+  courses: number;
+}
 
 const STATUS_LABELS: Record<StudentCatalogStatus, string> = {
   completed: 'Completed',
@@ -40,22 +56,58 @@ const STATUS_LABELS: Record<StudentCatalogStatus, string> = {
 };
 const STATUS_ORDER: StudentCatalogStatus[] = ['completed', 'in_progress', 'planned'];
 
-const selectClass =
-  'w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground ' +
-  'focus:border-primary/50 focus:outline-none transition-all disabled:opacity-40 ' +
-  'disabled:cursor-not-allowed appearance-none';
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 }
+  }
+};
 
-export default function Onboarding() {
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+};
+
+/** Forward = slide left, back = slide right — so steps feel like a space you move through. */
+function stepVariants(dir: number) {
+  return {
+    initial: { opacity: 0, x: 30 * dir },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -30 * dir },
+  };
+}
+
+function SoundToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={enabled ? 'Mute sound' : 'Unmute sound'}
+      title={enabled ? 'Sound on' : 'Sound off'}
+      className="fixed top-5 right-5 z-30 w-10 h-10 rounded-full bg-white/5 border border-white/10 backdrop-blur flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all"
+    >
+      {enabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+    </button>
+  );
+}
+
+function OnboardingInner() {
   const { user, profile } = useAuth();
   const gamification = useGamification();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { play, enabled: soundOn, toggle: toggleSound } = useSound();
+  const reduceMotion = useReducedMotion() ?? false;
 
+  const [stage, setStage] = useState<Stage>('intro');
   const [step, setStep] = useState(1);
+  const [dir, setDir] = useState(1); // 1 forward, -1 back (transition direction)
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || PRESET_AVATARS[0].url);
   const [loading, setLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [revealData, setRevealData] = useState<RevealData>({ classmates: 0, recommendations: 0, courses: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 5 — platform content courses (existing behaviour)
@@ -72,6 +124,7 @@ export default function Onboarding() {
   const [progId, setProgId] = useState('');
   const [semester, setSemester] = useState(1);
   const [freeInstitution, setFreeInstitution] = useState('');
+  const [autoMatched, setAutoMatched] = useState(false); // uni pre-filled from email domain
 
   // Step 4 — confirm pre-populated courses
   const [suggested, setSuggested] = useState<SuggestedCourse[]>([]);
@@ -82,6 +135,26 @@ export default function Onboarding() {
   const selectedUni = universities.find((u) => u.id === uniId);
   // No usable catalog if a university is chosen but has no faculties/program.
   const noCatalog = !!selectedUni && !selectedUni.hasCatalog;
+
+  const firstName =
+    fullName.trim().split(' ')[0] || profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
+  const tier = rankForXp(profile?.total_xp);
+  const rankProg = rankProgress(profile?.total_xp);
+
+  // Cold-open auto-advances after a beat (a safety net if the user doesn't click).
+  useEffect(() => {
+    if (stage !== 'intro') return;
+    const t = setTimeout(() => beginJourney(), 6000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
+  const beginJourney = () => {
+    if (stage !== 'intro') return;
+    play('advance');
+    setDir(1);
+    setStage('form');
+  };
 
   useEffect(() => {
     if (profile?.full_name && profile?.avatar_url && step === 1) {
@@ -110,7 +183,10 @@ export default function Onboarding() {
         const domain = (user?.email?.split('@')[1] || '').toLowerCase();
         if (domain) {
           const match = unis.find((u) => u.emailDomains.includes(domain));
-          if (match) setUniId(match.id);
+          if (match) {
+            setUniId(match.id);
+            setAutoMatched(true);
+          }
         }
       } catch (err) {
         console.error('Failed to load universities', err);
@@ -172,6 +248,8 @@ export default function Onboarding() {
   };
 
   const handleNext = async () => {
+    play('advance');
+    setDir(1);
     if (step === 3) {
       // Skip the confirm step when there is no usable catalog.
       if (noCatalog || !progId) {
@@ -186,6 +264,8 @@ export default function Onboarding() {
   };
 
   const handleBack = () => {
+    play('back');
+    setDir(-1);
     if (step === 5 && (noCatalog || !progId)) {
       setStep(3);
       return;
@@ -193,19 +273,28 @@ export default function Onboarding() {
     if (step > 1) setStep(step - 1);
   };
 
-  const toggleCourse = (id: string) =>
+  const toggleCourse = (id: string) => {
+    play('select');
     setSelectedCourses((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
+  };
 
-  const toggleSuggested = (id: string, fallback: StudentCatalogStatus) =>
+  const toggleSuggested = (id: string, fallback: StudentCatalogStatus) => {
+    play('select');
     setStatusMap((prev) => {
       const next = { ...prev };
       if (next[id]) delete next[id];
       else next[id] = fallback;
       return next;
     });
+  };
 
   const setSuggestedStatus = (id: string, status: StudentCatalogStatus) =>
     setStatusMap((prev) => ({ ...prev, [id]: status }));
+
+  const selectAvatar = (url: string) => {
+    play('avatar');
+    setAvatarUrl(url);
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files?.length || !user) return;
@@ -226,6 +315,7 @@ export default function Onboarding() {
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
       setAvatarUrl(publicUrl);
+      play('avatar');
       toast({ title: 'Avatar Uploaded', description: 'Your custom avatar is looking good!' });
     } catch (error: unknown) {
       toast({
@@ -292,16 +382,33 @@ export default function Onboarding() {
         console.error('Institution verification failed', e);
       }
 
+      // 6. Pull the personalization we just unlocked so the reveal can show it off.
+      let classmates = 0;
+      let recommendations = 0;
+      try { classmates = (await fetchFriendSuggestions(3)).length; } catch { /* dormant for new cohorts */ }
+      try { recommendations = (await getRecommendedCourses(3)).length; } catch { /* none yet */ }
+      setRevealData({
+        classmates,
+        recommendations,
+        courses: Object.keys(statusMap).length + selectedCourses.length,
+      });
+
       // Name + photo are set → award "Identity Set" (and "Verified Scholar" if the
       // institution was just verified). The popup is owned by the global provider,
       // which outlives this page, so it surfaces on the dashboard after navigation.
       gamification.evaluate();
 
-      toast({ title: 'Setup Complete!', description: 'Welcome to your learning journey.' });
+      // The reveal montage — the payoff for setting everything up.
+      setStep(TOTAL_STEPS);
+      setStage('reveal');
+      play('boot');
+      setTimeout(() => play('complete'), 3600);
+
       setTimeout(() => {
-        navigate('/dashboard');
+        // Hard navigate so the dashboard mounts with a freshly-refreshed profile
+        // (name, avatar, rank ring) instead of stale onboarding-time state.
         window.location.href = '/dashboard';
-      }, 800);
+      }, 5400);
     } catch (error: unknown) {
       toast({
         title: 'Something went wrong',
@@ -314,30 +421,198 @@ export default function Onboarding() {
 
   const includedCount = Object.keys(statusMap).length;
 
+  /* ----------------------------- Cold open ------------------------------- */
+  if (stage === 'intro') {
+    return (
+      <div
+        className="min-h-screen console-bg flex relative overflow-hidden items-center justify-center cursor-pointer"
+        onClick={beginJourney}
+      >
+        <SoundToggle enabled={soundOn} onToggle={toggleSound} />
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute top-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full bg-primary/15 blur-[130px] animate-pulse" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[55%] h-[55%] rounded-full bg-secondary/15 blur-[130px] animate-pulse delay-700" />
+        </div>
+
+        <motion.div
+          className="relative z-10 text-center px-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6 }}
+        >
+          <motion.div
+            initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 16, delay: 0.2 }}
+            className="w-24 h-24 mx-auto mb-8 rounded-[28px] bg-primary/20 border-2 border-primary/40 flex items-center justify-center shadow-glow-primary"
+          >
+            <Rocket className="w-12 h-12 text-primary" />
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="text-5xl md:text-6xl font-bold text-foreground mb-4"
+          >
+            Welcome to Learnstation
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="text-muted-foreground text-xl mb-12"
+          >
+            Hey {firstName}, let's set up your journey.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.6 }}
+          >
+            <Button
+              size="xl"
+              onClick={(e) => { e.stopPropagation(); beginJourney(); }}
+              className="h-16 px-12 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-glow-primary"
+            >
+              Press to begin <ArrowRight className="w-6 h-6 ml-2" />
+            </Button>
+            <p className="text-xs text-muted-foreground/60 mt-6 tracking-widest uppercase">Tap anywhere to continue</p>
+          </motion.div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  /* ------------------------------ Reveal --------------------------------- */
+  if (stage === 'reveal') {
+    const teases = [
+      { show: revealData.courses > 0, icon: BookOpen, label: `Semester ${semester} set up`, value: `${revealData.courses} course${revealData.courses === 1 ? '' : 's'}` },
+      { show: revealData.classmates > 0, icon: Users, label: 'Classmates to meet', value: `${revealData.classmates} waiting` },
+      { show: revealData.recommendations > 0, icon: Sparkles, label: 'Picked for you', value: `${revealData.recommendations} course${revealData.recommendations === 1 ? '' : 's'}` },
+    ].filter((t) => t.show);
+
+    return (
+      <div className="min-h-screen console-bg flex relative overflow-hidden items-center justify-center">
+        <SoundToggle enabled={soundOn} onToggle={toggleSound} />
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute top-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full bg-primary/15 blur-[130px] animate-pulse" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[55%] h-[55%] rounded-full bg-secondary/15 blur-[130px] animate-pulse delay-700" />
+        </div>
+
+        <div className="relative z-10 w-full max-w-xl px-6 text-center">
+          {/* Avatar + rank ring draw on */}
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
+            className="w-28 h-28 mx-auto mb-6"
+          >
+            <RankRing tier={tier} size="xl">
+              <img src={avatarUrl} alt="You" className="w-full h-full object-cover rounded-[18px]" />
+            </RankRing>
+          </motion.div>
+
+          <motion.h2
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="text-3xl font-bold text-foreground"
+          >
+            You're all set, {firstName}
+          </motion.h2>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.9 }}
+            className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground"
+          >
+            <Trophy className="w-4 h-4 text-xp" />
+            <span>Rank: <span className="text-foreground font-semibold">{tier.name}</span></span>
+            {rankProg.next && (
+              <span className="opacity-70">· {rankProg.toNext} XP to {rankProg.next.name}</span>
+            )}
+          </motion.div>
+
+          {/* Badge chip */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 1.6 }}
+            className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-xp/15 border border-xp/30 text-xp font-semibold text-sm"
+          >
+            <Sparkles className="w-4 h-4" /> Badge unlocked · Identity Set
+          </motion.div>
+
+          {/* Personalization teases */}
+          {teases.length > 0 && (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              transition={{ delayChildren: 2.4 }}
+              className="mt-8 grid gap-3"
+              style={{ gridTemplateColumns: `repeat(${Math.min(teases.length, 3)}, minmax(0, 1fr))` }}
+            >
+              {teases.map((t) => (
+                <motion.div
+                  key={t.label}
+                  variants={itemVariants}
+                  className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center"
+                >
+                  <t.icon className="w-5 h-5 text-primary mx-auto mb-2" />
+                  <div className="text-foreground font-bold text-sm">{t.value}</div>
+                  <div className="text-muted-foreground text-xs mt-0.5">{t.label}</div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {/* Boot bar */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 3.4 }}
+            className="mt-10"
+          >
+            <p className="text-sm text-muted-foreground font-mono mb-3">&gt; Booting Learnstation OS…</p>
+            <div className="h-2 w-full max-w-xs mx-auto rounded-full bg-white/5 overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-primary to-secondary"
+                initial={{ width: '0%' }}
+                animate={{ width: '100%' }}
+                transition={{ delay: 3.4, duration: 1.8, ease: 'easeInOut' }}
+              />
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ------------------------------- Form ---------------------------------- */
+  const v = stepVariants(dir);
+
   return (
     <div className="min-h-screen console-bg flex relative overflow-hidden items-center justify-center">
+      <SoundToggle enabled={soundOn} onToggle={toggleSound} />
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[120px] animate-pulse" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/10 blur-[120px] animate-pulse delay-700" />
       </div>
 
       <div className="relative z-10 w-full max-w-2xl p-6">
-        {/* Progress Dots */}
-        <div className="flex items-center justify-center gap-3 mb-12">
-          {Array.from({ length: TOTAL_STEPS }, (_, idx) => idx + 1).map((i) => (
-            <div
-              key={i}
-              className={`h-2 rounded-full transition-all duration-500 ${
-                i === step ? 'w-12 bg-primary' : i < step ? 'w-4 bg-primary/50' : 'w-4 bg-white/10'
-              }`}
-            />
-          ))}
+        {/* Animated journey map (replaces plain progress dots) */}
+        <div className="mb-6">
+          <OnboardingJourneyMap current={step} total={TOTAL_STEPS} labels={JOURNEY_LABELS} height={120} reduceMotion={reduceMotion} />
         </div>
 
-        <div className="glass-panel rounded-[32px] border-white/10 p-8 md:p-12 shadow-2xl relative overflow-hidden min-h-[500px] flex flex-col">
-          <AnimatePresence mode="wait">
+        <div className="glass-panel rounded-[32px] border-white/10 p-8 md:p-12 shadow-2xl ring-1 ring-inset ring-white/5 relative overflow-hidden min-h-[500px] flex flex-col">
+          <AnimatePresence mode="wait" custom={dir}>
             {step === 1 && (
-              <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">
+              <motion.div key="step1" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col">
                 <div className="mb-10 text-center">
                   <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow-primary">
                     <User className="w-8 h-8 text-primary" />
@@ -349,6 +624,7 @@ export default function Onboarding() {
                   <Input
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && fullName.trim()) handleNext(); }}
                     placeholder="Enter your name..."
                     className="h-16 text-center text-xl bg-white/5 border-white/10 focus:border-primary/50 rounded-2xl transition-all"
                     autoFocus
@@ -363,13 +639,21 @@ export default function Onboarding() {
             )}
 
             {step === 2 && (
-              <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">
+              <motion.div key="step2" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col">
                 <div className="mb-8 text-center">
-                  <div className="w-24 h-24 bg-secondary/20 rounded-[32px] flex items-center justify-center mx-auto mb-6 shadow-glow-secondary overflow-hidden border-2 border-secondary/50">
-                    <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover" />
-                  </div>
+                  <motion.div
+                    key={avatarUrl}
+                    initial={{ scale: 0.85 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+                    className="w-24 h-24 mx-auto mb-6"
+                  >
+                    <RankRing tier={tier} size="xl">
+                      <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover rounded-[18px]" />
+                    </RankRing>
+                  </motion.div>
                   <h1 className="text-4xl font-bold text-foreground mb-3">Choose Your Avatar</h1>
-                  <p className="text-muted-foreground text-lg">Pick an icon that represents you, or upload your own.</p>
+                  <p className="text-muted-foreground text-lg">This is how you'll appear across Learnstation. Pick one or upload your own.</p>
                 </div>
                 <div className="flex-1 flex flex-col items-center max-w-md mx-auto w-full">
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} disabled={isUploading} />
@@ -381,7 +665,7 @@ export default function Onboarding() {
                     {PRESET_AVATARS.map((preset) => (
                       <button
                         key={preset.url}
-                        onClick={() => setAvatarUrl(preset.url)}
+                        onClick={() => selectAvatar(preset.url)}
                         className={`aspect-square rounded-2xl flex items-center justify-center p-3 border-2 transition-all duration-300 hover:scale-105 ${
                           avatarUrl === preset.url ? 'border-primary bg-primary/20 scale-105 shadow-glow-primary' : 'border-white/5 bg-white/5 hover:border-white/20'
                         }`}
@@ -399,7 +683,7 @@ export default function Onboarding() {
             )}
 
             {step === 3 && (
-              <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">
+              <motion.div key="step3" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col">
                 <div className="mb-8 text-center">
                   <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow-primary">
                     <GraduationCap className="w-8 h-8 text-primary" />
@@ -409,18 +693,39 @@ export default function Onboarding() {
                 </div>
 
                 <div className="flex-1 space-y-4 max-w-md mx-auto w-full">
-                  <select className={selectClass} value={uniId} onChange={(e) => setUniId(e.target.value)}>
-                    <option value="">Select your university…</option>
-                    {universities.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}{u.city ? ` — ${u.city}` : ''}</option>
-                    ))}
-                  </select>
+                  <div>
+                    <Select value={uniId} onValueChange={(val) => { play('select'); setAutoMatched(false); setUniId(val); }}>
+                      <SelectTrigger className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground focus:border-primary/50 transition-all text-base">
+                        <SelectValue placeholder="Select your university…" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-white/10">
+                        {universities.map((u) => (
+                          <SelectItem key={u.id} value={u.id} className="rounded-lg cursor-pointer">
+                            {u.name}{u.city ? `, ${u.city}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <AnimatePresence>
+                      {autoMatched && selectedUni && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="flex items-center gap-2 mt-2 ml-1 text-sm text-primary"
+                        >
+                          <MapPin className="w-4 h-4" />
+                          <span>Looks like you're at {selectedUni.name}. Pre-filled from your email.</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
                   {noCatalog ? (
-                    <div className="space-y-3">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                       <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 text-sm text-muted-foreground">
                         <Building2 className="w-5 h-5 shrink-0 text-secondary mt-0.5" />
-                        <span>We don't have {selectedUni?.name}'s course catalog yet. You can still tell us your institution — we'll personalize once it's available.</span>
+                        <span>We don't have {selectedUni?.name}'s course catalog yet. You can still tell us your institution, and we'll personalize once it's available.</span>
                       </div>
                       <Input
                         value={freeInstitution || selectedUni?.name || ''}
@@ -428,34 +733,69 @@ export default function Onboarding() {
                         placeholder="Your institution"
                         className="h-14 bg-white/5 border-white/10 focus:border-primary/50 rounded-2xl"
                       />
-                    </div>
+                    </motion.div>
                   ) : (
                     <>
-                      <select className={selectClass} value={facId} onChange={(e) => setFacId(e.target.value)} disabled={!uniId || faculties.length === 0}>
-                        <option value="">{uniId ? 'Select your faculty…' : 'Pick a university first'}</option>
-                        {faculties.map((f) => (
-                          <option key={f.id} value={f.id}>{f.name}</option>
-                        ))}
-                      </select>
+                      <AnimatePresence>
+                        {uniId && (
+                          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                            <Select value={facId} onValueChange={(val) => { play('select'); setFacId(val); }} disabled={!uniId || faculties.length === 0}>
+                              <SelectTrigger className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground focus:border-primary/50 transition-all text-base">
+                                <SelectValue placeholder={uniId ? 'Select your faculty…' : 'Pick a university first'} />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl border-white/10">
+                                {faculties.map((f) => (
+                                  <SelectItem key={f.id} value={f.id} className="rounded-lg cursor-pointer">
+                                    {f.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
-                      <select className={selectClass} value={progId} onChange={(e) => setProgId(e.target.value)} disabled={!facId || programs.length === 0}>
-                        <option value="">{facId ? 'Select your degree program…' : 'Pick a faculty first'}</option>
-                        {programs.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
+                      <AnimatePresence>
+                        {facId && (
+                          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                            <Select value={progId} onValueChange={(val) => { play('select'); setProgId(val); }} disabled={!facId || programs.length === 0}>
+                              <SelectTrigger className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground focus:border-primary/50 transition-all text-base">
+                                <SelectValue placeholder={facId ? 'Select your degree program…' : 'Pick a faculty first'} />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl border-white/10">
+                                {programs.map((p) => (
+                                  <SelectItem key={p.id} value={p.id} className="rounded-lg cursor-pointer">
+                                    {p.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
-                      <div>
-                        <label className="block text-sm text-muted-foreground mb-2 ml-1">Current semester</label>
-                        <select className={selectClass} value={semester} onChange={(e) => setSemester(Number(e.target.value))} disabled={!progId}>
-                          {Array.from(
-                            { length: programs.find((p) => p.id === progId)?.totalSemesters || 12 },
-                            (_, i) => i + 1,
-                          ).map((n) => (
-                            <option key={n} value={n}>Semester {n}</option>
-                          ))}
-                        </select>
-                      </div>
+                      <AnimatePresence>
+                        {progId && (
+                          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                            <label className="block text-sm text-muted-foreground mb-2 ml-1">Current semester</label>
+                            <Select value={semester.toString()} onValueChange={(val) => { play('select'); setSemester(Number(val)); }} disabled={!progId}>
+                              <SelectTrigger className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground focus:border-primary/50 transition-all text-base">
+                                <SelectValue placeholder="Semester" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl border-white/10 max-h-[300px]">
+                                {Array.from(
+                                  { length: programs.find((p) => p.id === progId)?.totalSemesters || 12 },
+                                  (_, i) => i + 1,
+                                ).map((n) => (
+                                  <SelectItem key={n} value={n.toString()} className="rounded-lg cursor-pointer">
+                                    Semester {n}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </>
                   )}
 
@@ -476,14 +816,14 @@ export default function Onboarding() {
             )}
 
             {step === 4 && (
-              <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col max-h-[70vh]">
+              <motion.div key="step4" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col max-h-[70vh]">
                 <div className="mb-6 text-center">
                   <div className="w-16 h-16 bg-secondary/20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow-secondary">
                     <ShieldCheck className="w-8 h-8 text-secondary" />
                   </div>
-                  <h1 className="text-4xl font-bold text-foreground mb-2">Confirm your courses</h1>
+                  <h1 className="text-4xl font-bold text-foreground mb-2">We set up your Semester {semester}</h1>
                   <p className="text-muted-foreground text-base">
-                    Based on semester {semester}, here's what you've likely done and what you're taking. Adjust anything that's off.
+                    Here's what you've likely done and what you're taking now. Adjust anything that's off.
                   </p>
                 </div>
 
@@ -495,11 +835,12 @@ export default function Onboarding() {
                       <p className="text-muted-foreground">No catalog courses found for this program.</p>
                     </div>
                   ) : (
-                    suggested.map((c) => {
-                      const included = !!statusMap[c.id];
-                      const status = statusMap[c.id] ?? c.suggestedStatus;
-                      return (
-                        <div key={c.id} className={`p-3 rounded-2xl border-2 transition-all ${included ? 'border-primary/40 bg-primary/5' : 'border-white/5 bg-white/5'}`}>
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-2">
+                      {suggested.map((c) => {
+                        const included = !!statusMap[c.id];
+                        const status = statusMap[c.id] ?? c.suggestedStatus;
+                        return (
+                          <motion.div variants={itemVariants} key={c.id} className={`p-3 rounded-2xl border-2 transition-all ${included ? 'border-primary/40 bg-primary/5' : 'border-white/5 bg-white/5'}`}>
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() => toggleSuggested(c.id, c.suggestedStatus)}
@@ -527,9 +868,10 @@ export default function Onboarding() {
                               </div>
                             )}
                           </div>
-                        </div>
+                        </motion.div>
                       );
-                    })
+                    })}
+                    </motion.div>
                   )}
                 </div>
 
@@ -543,7 +885,7 @@ export default function Onboarding() {
             )}
 
             {step === 5 && (
-              <motion.div key="step5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col max-h-[70vh]">
+              <motion.div key="step5" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col max-h-[70vh]">
                 <div className="mb-6 text-center">
                   <div className="w-16 h-16 bg-xp/20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow-primary">
                     <BookOpen className="w-8 h-8 text-xp" />
@@ -560,14 +902,16 @@ export default function Onboarding() {
                       <p className="text-muted-foreground">No public courses available right now.</p>
                     </div>
                   ) : (
-                    courses.map((course) => {
-                      const isSelected = selectedCourses.includes(course.id);
-                      return (
-                        <button
-                          key={course.id}
-                          onClick={() => toggleCourse(course.id)}
-                          className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${isSelected ? 'border-primary bg-primary/10 shadow-glow-primary/20' : 'border-white/5 bg-white/5 hover:border-white/20'}`}
-                        >
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
+                      {courses.map((course) => {
+                        const isSelected = selectedCourses.includes(course.id);
+                        return (
+                          <motion.button
+                            variants={itemVariants}
+                            key={course.id}
+                            onClick={() => toggleCourse(course.id)}
+                            className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${isSelected ? 'border-primary bg-primary/10 shadow-glow-primary/20' : 'border-white/5 bg-white/5 hover:border-white/20'}`}
+                          >
                           <div className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-primary border-primary text-white' : 'border-white/20'}`}>
                             {isSelected && <Check className="w-4 h-4" />}
                           </div>
@@ -575,9 +919,10 @@ export default function Onboarding() {
                             <h3 className="font-bold text-foreground text-lg leading-tight">{course.title}</h3>
                             {course.description && <p className="text-sm text-muted-foreground line-clamp-1 mt-1">{course.description}</p>}
                           </div>
-                        </button>
+                        </motion.button>
                       );
-                    })
+                    })}
+                    </motion.div>
                   )}
                 </div>
 
@@ -593,5 +938,16 @@ export default function Onboarding() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Onboarding() {
+  // `reducedMotion="user"` makes every Motion animation in the tree honor
+  // prefers-reduced-motion automatically (skill §6.B). The PIXI journey map is
+  // calmed separately via its own reduceMotion prop.
+  return (
+    <MotionConfig reducedMotion="user">
+      <OnboardingInner />
+    </MotionConfig>
   );
 }

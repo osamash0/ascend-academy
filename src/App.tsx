@@ -81,6 +81,7 @@ const Datenschutz = lazy(() => import("./pages/Datenschutz"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PipelineTestPage = lazy(() => import("./pages/PipelineTestPage"));
+const PixiLab = lazy(() => import("./pages/PixiLab"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
 const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
@@ -194,6 +195,8 @@ function AppRoutes() {
         <Route path={PublicRoutes.RESET_PASSWORD} element={<ResetPassword />} />
         <Route path={PublicRoutes.IMPRESSUM} element={<Impressum />} />
         <Route path={PublicRoutes.DATENSCHUTZ} element={<Datenschutz />} />
+        {/* Experimental PixiJS playground (dev-only, unlinked) — branch feature/building-scene */}
+        <Route path="/pixi-lab" element={<PixiLab />} />
 
         {/* Student routes */}
         <Route
