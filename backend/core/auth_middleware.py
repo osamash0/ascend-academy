@@ -5,12 +5,13 @@ Validates Supabase access tokens on protected routes.
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from backend.core.database import supabase_admin, get_client
+from backend.core.database import supabase_admin, get_client, get_session
 from backend.services.cache import get_cached_token, store_cached_token, invalidate_cached_token
+from backend.core.rbac import has_permission
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
@@ -194,3 +195,38 @@ def require_role(*allowed_roles: str):
 # Convenience aliases
 require_professor = require_role("professor")
 require_student = require_role("student")
+
+
+def require_permission(permission: str, check_course: bool = False):
+    """
+    Dependency factory that ensures the authenticated user has the required permission.
+    If check_course is True, it will attempt to extract course_id from path_params
+    and verify the user has the permission specifically for that course.
+    """
+
+    async def _checker(
+        request: Request,
+        user: Any = Depends(verify_token),
+        session=Depends(get_session)
+    ) -> Any:
+        uid = _user_id(user)
+        if not uid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid user context.",
+            )
+
+        course_id = None
+        if check_course:
+            course_id = request.path_params.get("course_id")
+            
+        allowed = await has_permission(session, uid, permission, course_id)
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions for this action.",
+            )
+            
+        return user
+
+    return _checker

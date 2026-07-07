@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from backend.core.auth_middleware import verify_token, require_role
+from backend.core.auth_middleware import verify_token, require_permission
 from backend.core.rate_limit import limiter
 from backend.services.cache import (
     invalidate_cached_token,
@@ -58,7 +58,7 @@ async def logout_endpoint(
 @limiter.limit("5/minute")
 async def cleanup_token_cache_endpoint(
     request: Request,
-    user: Any = Depends(require_role("admin")),
+    user: Any = Depends(require_permission("manage:platform")),
 ):
     """Purge all expired rows from the shared ``backend_cache`` table.
 

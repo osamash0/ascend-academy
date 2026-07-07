@@ -15,14 +15,14 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from backend.core.auth_middleware import require_role
+from backend.core.auth_middleware import require_permission
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/academic", tags=["academic"])
 
-require_admin = require_role("admin")
+require_admin = require_permission("manage:platform")
 
 
 class ScrapeRequest(BaseModel):

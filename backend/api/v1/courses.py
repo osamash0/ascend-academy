@@ -23,8 +23,7 @@ from pydantic import BaseModel, Field
 
 from backend.core.auth_middleware import (
     _user_id,
-    require_professor,
-    require_student,
+    require_permission,
     verify_token,
 )
 from backend.core.pagination import PaginationParams, PaginatedResponse
@@ -210,7 +209,7 @@ async def browse_courses(
 async def enroll_course(
     request: Request,
     course_id: str,
-    user: Any = Depends(require_student),
+    user: Any = Depends(require_permission("enroll:course")),
     session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)
@@ -234,7 +233,7 @@ async def enroll_course(
 async def unenroll_course(
     request: Request,
     course_id: str,
-    user: Any = Depends(require_student),
+    user: Any = Depends(require_permission("enroll:course")),
     session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)
@@ -278,7 +277,7 @@ async def get_course(
 async def create_course(
     request: Request,
     body: CourseCreate,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_permission("manage:course", check_course=True)),
     session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)
@@ -300,7 +299,7 @@ async def update_course(
     request: Request,
     course_id: str,
     body: CourseUpdate,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_permission("manage:course", check_course=True)),
     session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)
@@ -337,7 +336,7 @@ async def update_course(
 async def delete_course(
     request: Request,
     course_id: str,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_permission("manage:course", check_course=True)),
     reassign_to: Optional[str] = Query(default=None),
     session: AsyncSession = Depends(get_session)
 ):
@@ -368,7 +367,7 @@ async def assign_lecture(
     request: Request,
     course_id: str,
     lecture_id: str,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_permission("manage:course", check_course=True)),
     session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)
@@ -394,7 +393,7 @@ async def unassign_lecture(
     request: Request,
     course_id: str,
     lecture_id: str,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_permission("manage:course", check_course=True)),
     session: AsyncSession = Depends(get_session)
 ):
     uid = _user_id(user)

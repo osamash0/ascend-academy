@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from backend.core.auth_middleware import (
     _user_id,
-    require_role,
+    require_permission,
     verify_token,
 )
 from backend.core.database import supabase_admin
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 # Secure all endpoints strictly to users with the 'admin' role
-require_admin = require_role("admin")
+require_admin = require_permission("manage:platform")
 
 
 # ── User Auditing & Activity Logs ───────────────────────────────────────────
