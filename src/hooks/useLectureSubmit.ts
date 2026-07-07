@@ -5,6 +5,7 @@ import { insertQuizQuestion } from '@/services/lectureService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { safeGetUUID } from '@/lib/utils';
+import { apiClient } from '@/lib/apiClient';
 import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
 
 interface UseLectureSubmitOptions {
@@ -38,7 +39,7 @@ interface UseLectureSubmitOptions {
   serverLectureId?: string | null;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 
 export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode = 'ai', serverLectureId }: UseLectureSubmitOptions) {
   const { user } = useAuth();
@@ -71,11 +72,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
             .eq('id', serverLectureId);
           if (error) throw error;
           try {
-            const { data: { session } } = await supabase.auth.getSession();
-            fetch(`${API_BASE}/api/concepts/ingest/${serverLectureId}`, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${session?.access_token}` },
-            }).catch(() => { /* swallow */ });
+            apiClient.post(`/api/v1/concepts/ingest/${serverLectureId}`, {}).catch(() => { /* swallow */ });
           } catch (e) {
             console.warn('Failed to schedule concept ingestion (non-fatal):', e);
           }
@@ -136,15 +133,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         // a failure here must not block lecture creation.
         if (pdfHash) {
           try {
-            const { data: { session } } = await supabase.auth.getSession();
-            await fetch(`${API_BASE}/api/upload/attach-lecture`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${session?.access_token}`,
-              },
-              body: JSON.stringify({ pdf_hash: pdfHash, lecture_id: lecture.id }),
-            });
+            await apiClient.post('/api/v1/upload/attach-lecture', { pdf_hash: pdfHash, lecture_id: lecture.id });
           } catch (e) {
             console.warn('Failed to attach lecture to embeddings (non-fatal):', e);
           }
@@ -228,11 +217,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         // ingestion service so it shows up in cross-course mastery
         // queries.  Failure here must not block lecture creation.
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          fetch(`${API_BASE}/api/concepts/ingest/${lecture.id}`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${session?.access_token}` },
-          }).catch(() => { /* swallow */ });
+          apiClient.post(`/api/v1/concepts/ingest/${lecture.id}`, {}).catch(() => { /* swallow */ });
         } catch (e) {
           console.warn('Failed to schedule concept ingestion (non-fatal):', e);
         }

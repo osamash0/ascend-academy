@@ -47,27 +47,27 @@ COURSES = [
     {"title": "MarSkills-Modul 3", "description": "6 LP - 6. Semester", "color": "bg-gray-300", "icon": "Globe"},
 ]
 
-def get_or_create_prof():
+def get_or_create_user(email, role="professor", full_name="User"):
     user = None
     try:
         res = supabase_admin.auth.admin.create_user({
-            "email": PROF_EMAIL,
+            "email": email,
             "password": PROF_PASSWORD,
             "email_confirm": True,
-            "app_metadata": {"role": "professor"}
+            "app_metadata": {"role": role}
         })
         user = res.user
-        print(f"Created user {PROF_EMAIL}")
+        print(f"Created user {email}")
     except Exception as e:
         if "already been registered" in str(e):
-            print("User already exists. Finding by iterating...")
+            print(f"User {email} already exists. Finding by iterating...")
             page = 1
             while True:
                 # the python client list_users returns a list, wait, let me just try listing more if possible
                 # actually, I can just query `profiles` or `user_roles` if they have email, but they don't always.
                 # let's just query profiles since it's there
                 try:
-                    profile_res = supabase_admin.table("profiles").select("user_id").eq("email", PROF_EMAIL).execute()
+                    profile_res = supabase_admin.table("profiles").select("user_id").eq("email", email).execute()
                     if profile_res.data:
                         user_id = profile_res.data[0]['user_id']
                         print(f"Found via profiles: {user_id}")
@@ -80,7 +80,7 @@ def get_or_create_prof():
                 
                 users_res = supabase_admin.auth.admin.list_users() # unfortunately the python client does not paginate nicely, it returns a generator or list
                 for u in users_res:
-                    if u.email == PROF_EMAIL:
+                    if u.email == email:
                         user = u
                         break
                 break
@@ -93,7 +93,7 @@ def get_or_create_prof():
     try:
         supabase_admin.table("user_roles").upsert({
             "user_id": user.id,
-            "role": "professor"
+            "role": role
         }).execute()
     except Exception:
         pass
@@ -102,8 +102,8 @@ def get_or_create_prof():
     try:
         supabase_admin.table("profiles").upsert({
             "user_id": user.id,
-            "email": PROF_EMAIL,
-            "full_name": "Informatics Professor"
+            "email": email,
+            "full_name": full_name
         }).execute()
     except Exception:
         pass
@@ -111,18 +111,20 @@ def get_or_create_prof():
     return user.id
 
 def seed():
-    prof_id = get_or_create_prof()
+    prof_id = get_or_create_user(PROF_EMAIL, "professor", "Informatics Professor")
+    admin_id = get_or_create_user("admin@admin.com", "admin", "Admin")
     
-    print("Deleting existing courses for prof...")
-    supabase_admin.table("courses").delete().eq("professor_id", prof_id).execute()
+    print("Deleting existing mock courses...")
+    supabase_admin.table("courses").delete().in_("professor_id", [prof_id, admin_id]).execute()
     
     print("Inserting mock courses...")
     db_course_id = None
     inserted_courses = []
     
     for c in COURSES:
+        owner_id = prof_id if c["title"] == "Datenbanksysteme" else admin_id
         res = supabase_admin.table("courses").insert({
-            "professor_id": prof_id,
+            "professor_id": owner_id,
             "title": c["title"],
             "description": c["description"],
             "color": c["color"],

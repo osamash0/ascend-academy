@@ -55,14 +55,50 @@ async def upload_pdf_to_storage(pdf_hash: str, content: bytes) -> None:
                 logger.warning("Failed to create pdf-uploads bucket: %s", create_e)
         logger.warning("PDF storage upload failed for %s: %s — worker will retry", pdf_hash, e)
 
+async def _validate_pptx(content: bytes) -> int:
+    """Validate a PowerPoint upload and return its slide count.
+
+    .pptx is an OOXML (ZIP) container — magic bytes "PK\\x03\\x04".
+    """
+    from backend.core.file_validation import MAX_FILE_BYTES
+    if len(content) > MAX_FILE_BYTES:
+        raise ValueError(f"File exceeds the {MAX_FILE_BYTES // (1024 * 1024)}MB limit.")
+    if len(content) < 4 or content[:4] != b"PK\x03\x04":
+        raise ValueError("Invalid PowerPoint file.")
+
+    def _count_slides() -> int:
+        try:
+            import io
+            from pptx import Presentation
+            return len(Presentation(io.BytesIO(content)).slides)
+        except Exception:
+            return -1
+
+    slides = await asyncio.wait_for(asyncio.to_thread(_count_slides), timeout=30.0)
+    if slides == -1:
+        raise ValueError("File appears to be corrupted or is not a valid .pptx.")
+    if slides == 0:
+        raise ValueError("Presentation has no slides.")
+    if slides > MAX_PAGES:
+        raise ValueError(f"Maximum {MAX_PAGES} slides supported. This file has {slides}.")
+    return slides
+
+
 async def validate_upload(filename: Optional[str], content: bytes) -> int:
     """
-    Validates the uploaded PDF file.
-    Returns the page count if valid, otherwise raises ValueError.
+    Validates the uploaded file (PDF or .pptx).
+    Returns the page/slide count if valid, otherwise raises ValueError.
     """
     safe_filename = sanitize_filename(filename)
-    if not safe_filename.lower().endswith(".pdf"):
-        raise ValueError("Only PDF files are supported.")
+    lower = safe_filename.lower()
+
+    # PowerPoint decks are imported via markitdown (text) + LibreOffice→PDF
+    # (rendering); validate the OOXML container and count slides here.
+    if lower.endswith(".pptx"):
+        return await _validate_pptx(content)
+
+    if not lower.endswith(".pdf"):
+        raise ValueError("Only PDF and PowerPoint (.pptx) files are supported.")
 
     # Validate size and magic bytes
     validate_pdf_content(content)
@@ -143,7 +179,21 @@ async def process_pdf_stream(
     odl_succeeded = False
     parser_used = "pymupdf"
 
-    if parser == "llamaparse":
+    # PowerPoint uploads are handled only by the markitdown path (clean
+    # per-slide text + LibreOffice render), whatever parser was requested.
+    if (filename or "").lower().endswith(".pptx"):
+        parser = "markitdown"
+
+    if parser == "markitdown":
+        from backend.services import markitdown_service, office_convert
+        # Per-slide text from the original deck (the orchestrator's text layer)…
+        odl_pages = await markitdown_service.extract_pages(content, filename)
+        # …and a rendered PDF so the downstream PDF-centric logic (fitz pages,
+        # vision OCR, storage) keeps working unchanged.
+        content = await office_convert.to_pdf(content, filename)
+        odl_succeeded = True
+        parser_used = "markitdown"
+    elif parser == "llamaparse":
         from backend.services import llamaparse_service
         odl_pages = await llamaparse_service.extract_pages(content, filename)
         odl_succeeded = True
@@ -166,18 +216,20 @@ async def process_pdf_stream(
     # slides/quizzes itself and emits the lecture_id on the `meta` event.
     # Additive — inert at PARSER_VERSION=4 unless `parser=unified` is requested.
     if parser == "unified" or (
-        parser in ("auto", "llamaparse", "mineru", "opendataloader")
+        parser in ("auto", "llamaparse", "mineru", "opendataloader", "markitdown")
         and str(_cfg.parser_version) == "5"
     ):
         import uuid
         run_id = str(uuid.uuid4())
         await upload_pdf_to_storage(pdf_hash, content)
         unified_parser_label = parser_used if odl_succeeded else "unified"
-        # The unified pipeline's text LLM is server-configured (the institution
-        # decides the model — OpenAI, or a self-hosted OpenAI-compatible
-        # university LLM via OPENAI_BASE_URL), not chosen per-upload. Falls back
-        # to the request's model only when PARSER_LLM_MODEL is unset.
-        unified_ai_model = _cfg.parser_llm_model or ai_model
+        # The unified pipeline's text LLM is server-configured by default
+        # (e.g. OpenAI), but explicitly selected models in the UI take precedence.
+        # Falls back to PARSER_LLM_MODEL if 'auto' or not provided.
+        if ai_model and ai_model.lower() != "auto":
+            unified_ai_model = ai_model
+        else:
+            unified_ai_model = _cfg.parser_llm_model or "cerebras"
 
         use_arq = True
         try:
@@ -253,7 +305,7 @@ async def process_pdf_stream(
                     continue
             return
 
-    if parser in ("v4", "llamaparse", "mineru", "opendataloader") or (parser == "auto" and str(_cfg.parser_version) == "4"):
+    if parser in ("v4", "llamaparse", "mineru", "opendataloader", "markitdown") or (parser == "auto" and str(_cfg.parser_version) == "4"):
         import uuid
         run_id = str(uuid.uuid4())
         await upload_pdf_to_storage(pdf_hash, content)

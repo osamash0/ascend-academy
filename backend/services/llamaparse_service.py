@@ -1,17 +1,18 @@
-import os
 import asyncio
 import logging
 from typing import Dict, Optional
+
+from backend.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 def _get_api_key() -> str:
-    key = os.environ.get("LLAMA_CLOUD_API_KEY")
+    key = settings.llama_cloud_api_key
     if not key:
         raise RuntimeError(
             "LLAMA_CLOUD_API_KEY is not set. "
-            "Get a key from https://cloud.llamaindex.ai and export it, "
+            "Get a key from https://cloud.llamaindex.ai and add it to backend/.env, "
             "or choose a different parser."
         )
     return key
@@ -49,8 +50,8 @@ async def extract_pages(pdf_bytes: bytes, filename: str) -> Dict[int, dict]:
             "Run `pip install llama-cloud-services` or choose a different parser."
         ) from exc
 
-    result_type = os.environ.get("LLAMAPARSE_RESULT_TYPE", "markdown")
-    model = os.environ.get("LLAMAPARSE_MODEL")
+    result_type = settings.llamaparse_result_type or "markdown"
+    model = settings.llamaparse_model
 
     kwargs = {"api_key": api_key, "result_type": result_type}
     if model:

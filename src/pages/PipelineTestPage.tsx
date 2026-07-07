@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useAuth } from '@/lib/auth'
+import { apiClient } from '@/lib/apiClient'
 import { cn, safeGetUUID } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -113,9 +114,7 @@ interface TestRun {
   error: string | null
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const EMPTY_RUN: TestRun = {
   file: null, events: [], slides: [], deckSummary: '',
@@ -374,15 +373,7 @@ export default function PipelineTestPage() {
     formData.append('parser', parser)
 
     try {
-      const res = await fetch(`${API_BASE}/api/upload/parse-raw`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
-      })
-      if (!res.ok) {
-        const text = await res.text().catch(() => res.statusText)
-        throw new Error(`HTTP ${res.status}: ${text}`)
-      }
+      const res = await apiClient.upload('/api/v1/upload/parse-raw', formData)
       const data: RawParseResult = await res.json()
       setRawParse(data)
       setRawSheetOpen(true)
@@ -414,17 +405,7 @@ export default function PipelineTestPage() {
     abortRef.current = controller
 
     try {
-      const response = await fetch(`${API_BASE}/api/upload/parse-pdf-stream`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => response.statusText)
-        throw new Error(`HTTP ${response.status}: ${text}`)
-      }
+      const response = await apiClient.upload('/api/v1/upload/parse-pdf-stream', formData, controller.signal)
 
       if (!response.body) throw new Error('No response body')
 

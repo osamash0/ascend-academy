@@ -24,6 +24,7 @@ paddlepaddle
 paddleocr
 lxml
 llama-cloud-services
+markitdown[pptx]>=0.1.6   # native PPTX → per-slide markdown import (markitdown_service.py)
 
 # ── Parser v3 ─────────────────────────────────────────────────────────────────
 docling>=2.0

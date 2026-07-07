@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/apiClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { useParsingMode } from '@/hooks/useParsingMode';
@@ -7,7 +7,6 @@ import { usePDFPipelineMode } from '@/hooks/usePDFPipelineMode';
 import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
 import type { DuplicateMatch } from '@/components/DuplicatePDFDialog';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const MAX_PDF_BYTES = 50 * 1024 * 1024; // 50 MB
 const UPLOAD_TIMEOUT_MS = 10 * 60_000; // 10 minutes — LLM batch analysis can be slow
 
@@ -36,16 +35,22 @@ async function sha256OfFile(file: File): Promise<string> {
     .join('');
 }
 
+const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
 function validatePdfFile(
   file: File,
   toast: ReturnType<typeof useToast>['toast'],
 ): boolean {
-  if (file.type !== 'application/pdf') {
-    toast({ title: 'Invalid file type', description: 'Please upload a PDF file.', variant: 'destructive' });
+  // Accept PDF and PowerPoint (.pptx). Some browsers report an empty/odd MIME
+  // for .pptx, so fall back to the extension.
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  const isPptx = file.type === PPTX_MIME || file.name.toLowerCase().endsWith('.pptx');
+  if (!isPdf && !isPptx) {
+    toast({ title: 'Invalid file type', description: 'Please upload a PDF or PowerPoint (.pptx) file.', variant: 'destructive' });
     return false;
   }
   if (file.size > MAX_PDF_BYTES) {
-    toast({ title: 'File too large', description: 'PDF must be under 50 MB.', variant: 'destructive' });
+    toast({ title: 'File too large', description: 'File must be under 50 MB.', variant: 'destructive' });
     return false;
   }
   return true;
@@ -117,20 +122,9 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
       const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const endpoint = isLazy ? '/api/upload/import-pdf-lazy' : '/api/upload/parse-pdf-stream';
-        const response = await fetch(`${API_BASE}${endpoint}`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${session?.access_token}` },
-          body: formData,
-          signal: controller.signal,
-        });
+        const endpoint = isLazy ? '/api/v1/upload/import-pdf-lazy' : '/api/v1/upload/parse-pdf-stream';
+        const response = await apiClient.upload(endpoint, formData, controller.signal);
 
-        if (!response.ok) {
-          let detail = 'Failed to start PDF parsing';
-          try { const b = await response.json() as { detail?: string }; if (b.detail) detail = b.detail; } catch { /* ignore */ }
-          throw new Error(detail);
-        }
         if (!response.body) throw new Error('No response body');
 
         const reader = response.body.getReader();
@@ -237,7 +231,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
                 const finalSlides = prev.filter(Boolean) as SlideData[];
                 setSlides(finalSlides);
                 setActiveSlideIndex(0);
-                if (!title) setTitle(file.name.replace('.pdf', ''));
+                if (!title) setTitle(file.name.replace(/\.(pdf|pptx)$/i, ''));
                 setPdfFile(file);
                 toast({
                   title: 'PDF Imported Successfully',
@@ -298,20 +292,10 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
       if (!validatePdfFile(file, toast)) return null;
       try {
         const hash = await sha256OfFile(file);
-        const { data: { session } } = await supabase.auth.getSession();
-        const response = await fetch(`${API_BASE}/api/upload/check-duplicate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ pdf_hash: hash }),
-        });
-        if (!response.ok) {
-          // Soft-fail: surface no duplicates so the upload still proceeds.
-          return { hash, matches: [] };
-        }
-        const json = (await response.json()) as { duplicates?: DuplicateMatch[] };
+        const json = await apiClient.post<{ duplicates?: DuplicateMatch[] }>(
+          '/api/v1/upload/check-duplicate',
+          { pdf_hash: hash },
+        );
         return { hash, matches: Array.isArray(json.duplicates) ? json.duplicates : [] };
       } catch (err) {
         console.warn('Duplicate-PDF check failed; continuing without prompt', err);
@@ -334,20 +318,10 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
   const checkParseCache = useCallback(
     async (hash: string): Promise<{ cached: boolean; parsedAt: string | null }> => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const response = await fetch(`${API_BASE}/api/upload/check-parse-cache`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ pdf_hash: hash }),
-        });
-        if (!response.ok) return { cached: false, parsedAt: null };
-        const json = (await response.json()) as {
-          cached?: boolean;
-          parsed_at?: string | null;
-        };
+        const json = await apiClient.post<{ cached?: boolean; parsed_at?: string | null }>(
+          '/api/v1/upload/check-parse-cache',
+          { pdf_hash: hash },
+        );
         return {
           cached: !!json.cached,
           parsedAt: typeof json.parsed_at === 'string' ? json.parsed_at : null,

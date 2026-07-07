@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/apiClient";
+import { useAiModel } from "@/hooks/use-ai-model";
 
 type UploadState = "idle" | "uploading" | "processing" | "done" | "error";
 
@@ -18,8 +19,7 @@ export default function FastUpload() {
   const [lectureId, setLectureId] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const { aiModel } = useAiModel();
 
   function handleFile(f: File) {
     if (!f.name.endsWith(".pdf") && f.type !== "application/pdf") {
@@ -49,24 +49,12 @@ export default function FastUpload() {
     setProgress(10);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const form = new FormData();
       form.append("file", file);
+      form.append("ai_model", aiModel);
 
       setProgress(30);
-      const res = await fetch(`${API_BASE}/api/fast-upload/`, { 
-        method: "POST", 
-        body: form,
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`
-        }
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Upload failed" }));
-        throw new Error(err.detail || "Upload failed");
-      }
-
+      const res = await apiClient.upload('/api/v1/fast-upload/', form);
       const upload = await res.json();
       setProgress(60);
       setState("processing");
@@ -76,12 +64,9 @@ export default function FastUpload() {
         attempts++;
         setProgress(Math.min(60 + Math.log1p(attempts) * 8, 95));
         try {
-          const r = await fetch(`${API_BASE}/api/fast-upload/status/${upload.id}`, {
-            headers: {
-              Authorization: `Bearer ${session?.access_token}`
-            }
-          });
-          const u = await r.json();
+          const u = await apiClient.get<{ status: string; lectureId?: string; errorMessage?: string }>(
+            `/api/v1/fast-upload/status/${upload.id}`
+          );
 
           if (u.status === "completed" && u.lectureId) {
             setProgress(100);

@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     groq_api_key: str = Field(alias="GROQ_API_KEY", default="")
     gemini_api_key: str = Field(alias="GEMINI_API_KEY", default="")
     google_api_key: str = Field(alias="GOOGLE_API_KEY", default="")
+    llama_cloud_api_key: str = Field(alias="LLAMA_CLOUD_API_KEY", default="")
+    llamaparse_result_type: str = Field(alias="LLAMAPARSE_RESULT_TYPE", default="markdown")
+    llamaparse_model: str = Field(alias="LLAMAPARSE_MODEL", default="")
 
     # ─── Parser v3 infra ───────────────────────────────────────────────────────
     redis_url: str = Field(alias="REDIS_URL", default="redis://localhost:6379")

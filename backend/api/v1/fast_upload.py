@@ -4,7 +4,7 @@ import asyncio
 import uuid
 from typing import Any, List, Dict, Optional
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Request
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Request
 from backend.core.config import settings
 from backend.core.database import supabase_admin, get_client, get_db_connection, db_transaction, handle_db_errors
 from backend.core.auth_middleware import verify_token, require_professor
@@ -42,7 +42,19 @@ async def execute_query(query: str, *args):
         async with await get_db_connection() as conn:
             return await conn.fetch(query, *args)
 
-async def analyze_slide_fast(page_num: int, raw_text: str, lecture_context: str) -> dict:
+def _get_litellm_model(ai_model: str) -> str:
+    if not ai_model or ai_model.lower() == "auto":
+        return settings.fast_upload_model
+    from backend.services.ai.orchestrator import _USER_MODEL_TO_PROVIDER, PROVIDER_REGISTRY
+    pid = _USER_MODEL_TO_PROVIDER.get(ai_model.lower())
+    if not pid:
+        return settings.fast_upload_model
+    cfg = PROVIDER_REGISTRY.get(pid)
+    if not cfg:
+        return settings.fast_upload_model
+    return f"{pid}/{cfg.model}"
+
+async def analyze_slide_fast(page_num: int, raw_text: str, lecture_context: str, litellm_model: str) -> dict:
     from litellm import acompletion
     
     prompt = f"""You are an expert at analyzing university lecture slides. Given raw text extracted from a PDF slide, analyze it and return a JSON object.
@@ -60,7 +72,7 @@ Slide {page_num} raw text:
 """
     try:
         resp = await acompletion(
-            model=settings.fast_upload_model,
+            model=litellm_model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             max_tokens=800,
@@ -76,7 +88,7 @@ Slide {page_num} raw text:
             "contextNote": ""
         }
 
-async def analyze_lecture_meta_fast(pages: List[dict]) -> dict:
+async def analyze_lecture_meta_fast(pages: List[dict], litellm_model: str) -> dict:
     from litellm import acompletion
     combined = "\n\n".join([f"[Slide {p['page_num']}]: {p['text'][:400]}" for p in pages[:15]])
     
@@ -95,7 +107,7 @@ Analyze these lecture slides:
 """
     try:
         resp = await acompletion(
-            model=settings.fast_upload_model,
+            model=litellm_model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             max_tokens=1000,
@@ -113,7 +125,7 @@ Analyze these lecture slides:
             "keyTopics": []
         }
 
-async def generate_quiz_questions_fast(slides: List[dict], lecture_title: str) -> List[dict]:
+async def generate_quiz_questions_fast(slides: List[dict], lecture_title: str, litellm_model: str) -> List[dict]:
     from litellm import acompletion
     content_slides = [s for s in slides if len(s.get('rawText', '')) > 50][:10]
     if not content_slides:
@@ -139,7 +151,7 @@ Slides:
 Generate 5-8 diverse, well-formed multiple choice questions covering key concepts. Mix difficulties."""
     try:
         resp = await acompletion(
-            model=settings.fast_upload_model,
+            model=litellm_model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2000,
         )
@@ -152,7 +164,7 @@ Generate 5-8 diverse, well-formed multiple choice questions covering key concept
         logger.error(f"Quiz generation failed: {e}")
         return []
 
-async def process_upload_isolated(run_id: str, pdf_hash: str, filename: str, content: bytes, user_id: str):
+async def process_upload_isolated(run_id: str, pdf_hash: str, filename: str, content: bytes, user_id: str, litellm_model: str):
     try:
         logger.info(f"Starting isolated pipeline for run_id: {run_id}")
         
@@ -175,7 +187,7 @@ async def process_upload_isolated(run_id: str, pdf_hash: str, filename: str, con
             raw_slides = [{"page_num": 1, "text": "Empty PDF"}]
 
         # Analyze lecture meta
-        lecture_meta = await analyze_lecture_meta_fast(raw_slides)
+        lecture_meta = await analyze_lecture_meta_fast(raw_slides, litellm_model)
         
         # Pre-generate IDs
         lecture_id_obj = uuid.uuid4()
@@ -183,7 +195,7 @@ async def process_upload_isolated(run_id: str, pdf_hash: str, filename: str, con
         lecture_context = f"{lecture_meta.get('title', '')}: {lecture_meta.get('summary', '')}"
 
         # Analyze Slides in parallel
-        tasks = [analyze_slide_fast(s["page_num"], s["text"], lecture_context) for s in raw_slides]
+        tasks = [analyze_slide_fast(s["page_num"], s["text"], lecture_context, litellm_model) for s in raw_slides]
         analyses = await asyncio.gather(*tasks)
 
         # Build inserted_slides list with generated slide UUIDs
@@ -204,7 +216,7 @@ async def process_upload_isolated(run_id: str, pdf_hash: str, filename: str, con
             })
 
         # Generate Quiz
-        quizzes = await generate_quiz_questions_fast(inserted_slides, lecture_meta.get("title", ""))
+        quizzes = await generate_quiz_questions_fast(inserted_slides, lecture_meta.get("title", ""), litellm_model)
 
         # Perform atomic database writes in a single transaction
         async with db_transaction() as conn:
@@ -290,6 +302,7 @@ async def process_upload_isolated(run_id: str, pdf_hash: str, filename: str, con
 async def upload_fast_endpoint(
     request: Request,
     file: UploadFile = File(...),
+    ai_model: str = Form("auto"),
     user: Any = Depends(require_professor),
 ):
     content = await file.read()
@@ -321,8 +334,9 @@ async def upload_fast_endpoint(
     # Process async.  Retain a strong reference (see _BACKGROUND_TASKS) and
     # attach a done-callback so a crash that escapes the handler is logged
     # rather than silently swallowed by asyncio.
+    litellm_model = _get_litellm_model(ai_model)
     task = asyncio.create_task(
-        process_upload_isolated(run_id, pdf_hash, file.filename or "upload.pdf", content, user_id)
+        process_upload_isolated(run_id, pdf_hash, file.filename or "upload.pdf", content, user_id, litellm_model)
     )
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_on_background_task_done)
