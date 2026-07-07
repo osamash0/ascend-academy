@@ -32,10 +32,12 @@ interface ExportData {
 }
 
 type AiModelOption =
+    | 'auto'
     | 'cerebras'
     | 'groq'
     | 'openrouter'
-    | 'cloudflare';
+    | 'cloudflare'
+    | 'openai';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -49,8 +51,10 @@ const PRESET_AVATARS = [
 ] as const;
 
 const AI_MODEL_IDS: AiModelOption[] = [
+    'auto',
     'cerebras',
     'groq',
+    'openai',
     'openrouter',
     'cloudflare',
 ];

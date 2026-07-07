@@ -616,7 +616,7 @@ async def professor_chat(
     if len(msgs) > _MAX_CHAT_MESSAGES:
         raise HTTPException(status_code=400, detail=f"Too many messages (max {_MAX_CHAT_MESSAGES}).")
     for m in msgs:
-        if len(m.get("content") or "") > PUBLIC_MAX_QUESTION_LENGTH:
+        if m.get("role") == "user" and len(m.get("content") or "") > PUBLIC_MAX_QUESTION_LENGTH:
             raise HTTPException(status_code=400, detail=f"Message is too long (max {PUBLIC_MAX_QUESTION_LENGTH} chars).")
 
     try:

@@ -58,6 +58,14 @@
     "preferences": "AI Preferences",
     "preferencesDescription": "Choose which AI model powers your intelligent tutor, quizzes, and summaries.",
     "models": {
+      "auto": {
+        "name": "Auto (Server Default)",
+        "description": "Uses the model recommended and configured by the server administrator (currently OpenAI)."
+      },
+      "openai": {
+        "name": "OpenAI (GPT-4o-mini)",
+        "description": "High-intelligence general-purpose model by OpenAI. Excellent for complex reasoning and structured outputs."
+      },
       "cerebras": {
         "name": "Cerebras (Recommended)",
         "description": "Primary engine: GPT-OSS-120B on Cerebras inference — extremely fast, high quality, and the highest free-tier daily quota of any provider."

@@ -321,7 +321,7 @@ export default function LectureUpload() {
   const prefilledCourseId = searchParams.get('courseId');
   const [courseId, setCourseId] = useState<string | null>(prefilledCourseId);
   const [courses, setCourses] = useState<Course[]>([]);
-  type ParserChoice = 'auto' | 'pymupdf' | 'opendataloader' | 'mineru' | 'llamaparse';
+  type ParserChoice = 'auto' | 'pymupdf' | 'opendataloader' | 'mineru' | 'llamaparse' | 'markitdown';
   const [parserChoice, setParserChoice] = useState<ParserChoice>('auto');
   useEffect(() => {
     listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
@@ -772,9 +772,10 @@ export default function LectureUpload() {
                 <option value="llamaparse">LlamaParse</option>
                 <option value="mineru">MinerU</option>
                 <option value="opendataloader">OpenDataLoader</option>
+                <option value="markitdown">MarkItDown (PowerPoint)</option>
                 <option value="pymupdf">PyMuPDF (Fallback)</option>
               </select>
-              <p className="text-[10px] text-muted-foreground mt-1">{t('upload:form.parserHelpText', { defaultValue: 'Select the engine used to extract text and layout from your PDF.' })}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{t('upload:form.parserHelpText', { defaultValue: 'Select the engine used to extract text and layout. PowerPoint (.pptx) files always use MarkItDown.' })}</p>
             </div>
             {/* Parsing-mode selector (Task #58) */}
             <div
@@ -838,7 +839,7 @@ export default function LectureUpload() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf"
+          accept=".pdf,.pptx"
           onChange={onPickFile}
           className="hidden"
         />
@@ -1781,7 +1782,7 @@ export default function LectureUpload() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf,.pptx"
         onChange={onPickFile}
         className="hidden"
       />

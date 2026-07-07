@@ -21,7 +21,7 @@ vi.mock("framer-motion", () => {
             ({ children, ...rest }, ref) => {
                 const safe: Record<string, unknown> = {};
                 for (const k of Object.keys(rest)) if (!ANIM.has(k)) safe[k] = rest[k];
-                return React.createElement(tag, { ref, ...safe }, children);
+                return React.createElement(tag, { ref, ...safe } as any, children as any);
             },
         );
         return Cmp;
@@ -170,7 +170,7 @@ describe("NudgeBanner", () => {
 
             await screen.findByText("Time to review", {}, { timeout: 2000 });
             expect(fetchSpy).toHaveBeenCalledTimes(1);
-            const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+            const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
             expect(url).toBe("/api/nudges/n_high/dismiss");
             expect(init.method).toBe("POST");
         } finally {

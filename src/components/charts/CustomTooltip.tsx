@@ -8,9 +8,10 @@ interface CustomTooltipProps {
     color: string;
   }>;
   label?: string;
+  valueFormatter?: (value: any) => string;
 }
 
-export const CustomTooltip = memo(function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+export const CustomTooltip = memo(function CustomTooltip({ active, payload, label, valueFormatter }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
 
   return (
@@ -30,7 +31,7 @@ export const CustomTooltip = memo(function CustomTooltip({ active, payload, labe
               <span className="text-xs text-muted-foreground font-medium">{entry.name}</span>
             </div>
             <span className="text-sm font-bold text-foreground tabular-nums">
-              {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
+              {valueFormatter ? valueFormatter(entry.value) : (typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value)}
             </span>
           </div>
         ))}

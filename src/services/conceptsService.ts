@@ -1,9 +1,7 @@
 /**
  * Concept-graph client.  Talks to the backend cross-course concept API.
  */
-import { supabase } from '@/integrations/supabase/client';
-
-const API_BASE = (import.meta as ImportMeta).env?.VITE_API_URL || 'http://localhost:8000';
+import { apiClient } from '@/lib/apiClient';
 
 export interface ConceptMasteryItem {
   concept_id: string;
@@ -28,17 +26,11 @@ export interface RelatedLecture {
   weight: number;
 }
 
-async function authHeader(): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-}
-
 export async function fetchStudentMastery(userId: string): Promise<StudentMastery> {
-  const headers = await authHeader();
-  const res = await fetch(`${API_BASE}/api/concepts/student/${userId}`, { headers, credentials: 'include' });
-  if (!res.ok) throw new Error(`mastery fetch failed: ${res.status}`);
-  const json = await res.json();
-  const data = json?.data || {};
+  const env = await apiClient.get<{ data?: { vector?: ConceptMasteryItem[]; mastered?: ConceptMasteryItem[]; weak?: ConceptMasteryItem[] } }>(
+    `/api/v1/concepts/student/${userId}`,
+  );
+  const data = env?.data || {};
   return {
     vector: data.vector || [],
     mastered: data.mastered || [],
@@ -54,11 +46,8 @@ export interface LectureConcept {
 }
 
 export async function fetchLectureConcepts(lectureId: string): Promise<LectureConcept[]> {
-  const headers = await authHeader();
-  const res = await fetch(`${API_BASE}/api/concepts/lecture/${lectureId}`, { headers, credentials: 'include' });
-  if (!res.ok) throw new Error(`lecture-concepts fetch failed: ${res.status}`);
-  const json = await res.json();
-  return json?.data || [];
+  const env = await apiClient.get<{ data?: LectureConcept[] }>(`/api/v1/concepts/lecture/${lectureId}`);
+  return env?.data || [];
 }
 
 export async function fetchRelatedLectures(
@@ -66,12 +55,10 @@ export async function fetchRelatedLectures(
   limit = 10,
   excludeLectureId?: string,
 ): Promise<RelatedLecture[]> {
-  const headers = await authHeader();
-  const url = new URL(`${API_BASE}/api/concepts/${conceptId}/related-lectures`);
-  url.searchParams.set('limit', String(limit));
-  if (excludeLectureId) url.searchParams.set('exclude_lecture_id', excludeLectureId);
-  const res = await fetch(url.toString(), { headers, credentials: 'include' });
-  if (!res.ok) throw new Error(`related-lectures fetch failed: ${res.status}`);
-  const json = await res.json();
-  return json?.data || [];
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (excludeLectureId) params.set('exclude_lecture_id', excludeLectureId);
+  const env = await apiClient.get<{ data?: RelatedLecture[] }>(
+    `/api/v1/concepts/${conceptId}/related-lectures?${params}`,
+  );
+  return env?.data || [];
 }

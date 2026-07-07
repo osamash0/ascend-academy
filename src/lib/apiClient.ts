@@ -74,7 +74,7 @@ export const apiClient = {
   /** Stream variant — returns the raw Response for SSE/NDJSON consumers. */
   stream: async (path: string, body: unknown, signal?: AbortSignal): Promise<Response> => {
     const headers = await getAuthHeaders();
-    
+
     let finalPath = path;
     if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
       finalPath = path.replace('/api/', '/api/v1/');
@@ -88,6 +88,30 @@ export const apiClient = {
       credentials: 'include',
     });
     if (!res.ok) throw new Error(`Stream ${path} → ${res.status}`);
+    return res;
+  },
+
+  /** FormData upload — lets the browser set the multipart boundary. Returns raw Response. */
+  upload: async (path: string, body: FormData, signal?: AbortSignal): Promise<Response> => {
+    const headers = await getAuthHeaders();
+    delete headers['Content-Type'];
+
+    let finalPath = path;
+    if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
+      finalPath = path.replace('/api/', '/api/v1/');
+    }
+
+    const res = await fetch(`${API_BASE}${finalPath}`, {
+      method: 'POST',
+      headers,
+      body,
+      signal,
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`Upload ${path} → ${res.status}: ${text}`);
+    }
     return res;
   },
 };

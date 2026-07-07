@@ -7,9 +7,6 @@
  * privacy are enforced uniformly.
  */
 import { apiClient } from '@/lib/apiClient';
-import { supabase } from '@/integrations/supabase/client';
-
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:8000';
 
 export interface Worksheet {
   id: string;
@@ -40,21 +37,10 @@ export async function uploadWorksheet(
   file: File,
   title?: string,
 ): Promise<Worksheet> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Unauthenticated');
   const fd = new FormData();
   fd.append('file', file);
   if (title) fd.append('title', title);
-  const res = await fetch(`${API_BASE}/api/lectures/${lectureId}/worksheets`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    body: fd,
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`Upload failed (${res.status}): ${text}`);
-  }
+  const res = await apiClient.upload(`/api/v1/lectures/${lectureId}/worksheets`, fd);
   const body = (await res.json()) as Envelope<Worksheet>;
   return body.data;
 }

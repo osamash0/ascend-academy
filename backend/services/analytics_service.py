@@ -8,7 +8,7 @@ from backend.services import cache
 from backend.services import analytics_cache
 import json
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 def _fetch_all(query: Any, limit: int = 10000) -> List[Dict[str, Any]]:
     """Helper to fetch all records from a Supabase query using pagination."""
@@ -1295,7 +1295,11 @@ async def _compute_professor_overview(
             "lecture_complete", "confidence_rating",
         ):
             continue
-        day = (e.get("created_at") or "")[:10]
+        created = e.get("created_at")
+        if isinstance(created, (datetime, date)):
+            day = created.isoformat()[:10]
+        else:
+            day = (created or "")[:10]
         if day:
             by_day[day] += 1
     today = datetime.utcnow().date()

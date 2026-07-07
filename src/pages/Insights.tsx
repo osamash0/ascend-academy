@@ -10,6 +10,7 @@ import { SkillTreeView } from '@/components/SkillTreeView';
 import { buildKnowledgeMapTree } from '@/features/mindmap/knowledgeMapTree';
 import { useSkillTree } from '@/features/skilltree/useSkillTree';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
 import { SharedRoutes } from '@/lib/routes';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
 import {
@@ -135,10 +136,10 @@ function FloatingMetric({ value, label, sub, color, index }: FloatingMetricProps
 export default function Insights() {
   const navigate = useNavigate();
   const { data } = useStudentDashboard();
+  const { profile } = useAuth();
 
   const progress = data?.progress ?? [];
   const lectures = data?.lectures ?? [];
-  const profile  = data?.profile;
 
   // Build a progress index to determine lecture status
   const byId = useMemo(() => {

@@ -135,7 +135,7 @@ function FloatingMetric({ value, label, sub, color, index }: FloatingMetricProps
 }
 
 function AscentTabs({ view, onChange }: { view: AscentView; onChange: (v: AscentView) => void }) {
-  const TABS: { id: AscentView; label: string; icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }> }[] = [
+  const TABS: { id: AscentView; label: string; icon: React.ComponentType<any> }[] = [
     { id: 'overview', label: 'Overview', icon: Brain },
     { id: 'trophies', label: 'Trophies', icon: Trophy },
     { id: 'mindmap', label: 'Mind Map', icon: Network },

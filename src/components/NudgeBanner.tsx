@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, X, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { apiClient } from '@/lib/apiClient';
 
 interface NudgeNotification {
     id: string;
@@ -36,7 +37,7 @@ const FALLBACK_DEEP_LINK_BY_TYPE: Record<string, string> = {
  * the same nudge does not reappear tomorrow.
  */
 export function NudgeBanner() {
-    const { user, session } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [nudges, setNudges] = useState<NudgeNotification[]>([]);
     const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
@@ -55,7 +56,7 @@ export function NudgeBanner() {
                 .order('created_at', { ascending: false })
                 .limit(10);
             if (!cancelled && data) {
-                setNudges(data as NudgeNotification[]);
+                setNudges(data as unknown as NudgeNotification[]);
             }
         })();
         return () => {
@@ -84,13 +85,7 @@ export function NudgeBanner() {
     const dismiss = async () => {
         setHiddenIds(prev => new Set(prev).add(top.id));
         try {
-            await fetch(`/api/nudges/${top.id}/dismiss`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${session?.access_token ?? ''}`,
-                    'Content-Type': 'application/json',
-                },
-            });
+            await apiClient.post(`/api/nudges/${top.id}/dismiss`, {});
         } catch (e) {
             console.error('Failed to dismiss nudge', e);
         }

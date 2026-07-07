@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { AUTH_INIT_TIMEOUT_MS, AUTH_PROFILE_TIMEOUT_MS } from '@/lib/constants';
 import { toast } from '@/hooks/use-toast';
+import { apiClient } from '@/lib/apiClient';
 
 type UserRole = 'student' | 'professor' | 'admin' | null;
 
@@ -272,16 +273,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       // Coordinate with backend cache invalidation before wiping local credentials
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        await fetch(`${apiBase}/api/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
-      }
+      await apiClient.post('/api/v1/auth/logout', {});
     } catch (err) {
       console.warn("Backend session cache invalidation failed (non-blocking):", err);
     } finally {

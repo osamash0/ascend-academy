@@ -258,11 +258,12 @@ export default function Auth() {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder={t('auth:fields.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
+                  autoComplete="username"
                   className={`h-14 pl-12 text-black bg-white border-white/5 focus:border-primary/50 rounded-2xl transition-all ${errors.email ? 'border-destructive' : ''}`}
                 />
               </div>
@@ -289,6 +290,7 @@ export default function Auth() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   id="password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder={t('auth:fields.passwordPlaceholder')}
                   value={password}

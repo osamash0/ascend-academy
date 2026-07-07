@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/apiClient';
 
 interface TTSState {
   isSpeaking: boolean;
@@ -89,19 +89,7 @@ export function useTTS(): UseTTSReturn {
 
     try {
       // Try backend high-quality AI voice first
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${API_BASE}/api/ai/tts`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ text, voice: "en-US-AvaNeural" })
-      });
-
+      const res = await apiClient.stream('/api/v1/ai/tts', { text, voice: 'en-US-AvaNeural' });
       if (!res.ok) throw new Error('Backend TTS failed');
 
       const blob = await res.blob();

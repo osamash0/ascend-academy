@@ -34,16 +34,16 @@ const variants = {
     x: 0,
     scale: 1,
     transition: {
-      x: { type: 'spring', stiffness: 320, damping: 34 },
-      opacity: { duration: 0.28, ease: 'easeOut' },
-      scale: { duration: 0.32, ease: [0.16, 1, 0.3, 1] },
+      x: { type: 'spring' as const, stiffness: 320, damping: 34 },
+      opacity: { duration: 0.28, ease: 'easeOut' as any },
+      scale: { duration: 0.32, ease: [0.16, 1, 0.3, 1] as any },
     },
   },
   exit: (dir: number) => ({
     opacity: 0,
     x: dir * -72,
     scale: 0.985,
-    transition: { duration: 0.18, ease: 'easeIn' },
+    transition: { duration: 0.18, ease: 'easeIn' as any },
   }),
 };
 

@@ -232,13 +232,13 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
 # ---------------------------------------------------------------------------
 
 # Bulk slide processing: highest daily capacity first; Groq 70B last (conserve quota)
-BULK_CHAIN:    List[str] = ["cerebras", "groq_fast", "cloudflare", "gemma", "mistral", "openrouter", "gemini", "groq"]
+BULK_CHAIN:    List[str] = ["cerebras", "groq_fast", "cloudflare", "gemma", "mistral", "openrouter", "gemini", "groq", "openai"]
 
 # Blueprint / planning / deck summaries: Cerebras (gpt-oss-120b) is now the
 # primary — it is both fast and high quality, and has the highest free-tier
 # daily quota of any provider in the registry. Groq 70B is held back as a
 # quality fallback after Cerebras and the deep-resilience providers.
-QUALITY_CHAIN: List[str] = ["cerebras", "groq", "openrouter", "cloudflare", "gemini", "mistral", "groq_fast", "gemma"]
+QUALITY_CHAIN: List[str] = ["cerebras", "groq", "openrouter", "cloudflare", "gemini", "mistral", "groq_fast", "gemma", "openai"]
 
 # Maps the user-facing ai_model string (sent from the frontend) to the
 # orchestrator's internal provider id. Values that don't map fall back to
@@ -262,13 +262,20 @@ _USER_MODEL_TO_PROVIDER: Dict[str, str] = {
 
 def _resolve_preferred(ai_model: Optional[str]) -> Optional[str]:
     """Map a user-facing model selection to a provider id, or None."""
-    if not ai_model:
-        return None
+    if not ai_model or ai_model.lower() == "auto":
+        from backend.core.config import settings
+        ai_model = settings.parser_llm_model or "cerebras"
     return _USER_MODEL_TO_PROVIDER.get(ai_model.lower())
 
 
 def _chain_with_preferred(chain: List[str], preferred: Optional[str]) -> List[str]:
-    """Return ``chain`` with ``preferred`` moved to the front (if known)."""
+    """Return ``chain`` with ``preferred`` moved to (or inserted at) the front.
+
+    If ``preferred`` is a valid registered provider it is promoted to position 0
+    regardless of whether it already appears in ``chain``. This ensures that a
+    user-selected provider (e.g. openai) is always tried first even if the
+    default chain doesn't include it.
+    """
     if not preferred or preferred not in PROVIDER_REGISTRY:
         return chain
     rest = [p for p in chain if p != preferred]

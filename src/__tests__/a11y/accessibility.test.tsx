@@ -39,7 +39,7 @@ describe('Accessibility (A11y)', () => {
     );
     // Testing basic WCAG rules
     const results = await axe(container);
-    expect(results).toHaveNoViolations();
+    (expect(results) as any).toHaveNoViolations();
   });
 
   test('StudentDashboard should have no accessibility violations', async () => {
@@ -55,7 +55,7 @@ describe('Accessibility (A11y)', () => {
     
     // Testing landmarks, headings, images
     const results = await axe(container);
-    expect(results).toHaveNoViolations();
+    (expect(results) as any).toHaveNoViolations();
   });
 
   test('AdvancedAnalytics should have no accessibility violations', async () => {
@@ -70,6 +70,6 @@ describe('Accessibility (A11y)', () => {
     const results = await axe(container);
     // Ignore color-contrast for charts if they fail natively from recharts
     // For now we test general structure
-    expect(results).toHaveNoViolations();
+    (expect(results) as any).toHaveNoViolations();
   });
 });

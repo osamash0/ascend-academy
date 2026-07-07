@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export type AiModelChoice =
+  | 'auto'
   | 'cerebras'
   | 'groq'
   | 'openrouter'
@@ -10,6 +11,7 @@ export type AiModelChoice =
 const STORAGE_KEY = 'ascend-academy-ai-model';
 
 const VALID_MODELS: ReadonlyArray<AiModelChoice> = [
+  'auto',
   'cerebras',
   'groq',
   'openrouter',
@@ -29,7 +31,7 @@ export function useAiModel() {
         return stored;
       }
     }
-    return 'cerebras';
+    return 'auto';
   });
 
   useEffect(() => {

@@ -16,7 +16,7 @@ export interface StudentDashboardData {
 }
 
 export async function fetchStudentLectures() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('lectures')
     .select('id, title, description, total_slides, created_at, pdf_url, course_id, course:courses(id, title, color, description)')
     .eq('is_archived', false)
@@ -27,7 +27,7 @@ export async function fetchStudentLectures() {
 }
 
 export async function fetchStudentProgress(userId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('student_progress')
     .select('lecture_id, completed_slides, slide_states, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
     .eq('user_id', userId)
@@ -48,7 +48,7 @@ export async function fetchStudentAchievements(userId: string) {
 }
 
 export async function fetchStudentCourseVisits(userId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('course_visits')
     .select('course_id, last_visited_at, visit_count')
     .eq('user_id', userId)
@@ -59,7 +59,7 @@ export async function fetchStudentCourseVisits(userId: string) {
 }
 
 export async function fetchStudentCourses() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('courses')
     .select('id, title, color, description')
     .order('created_at', { ascending: false })
@@ -92,7 +92,7 @@ export async function fetchStudentDashboard(userId: string): Promise<StudentDash
 }
 
 export async function fetchLectureProgress(userId: string, lectureId: string): Promise<StudentProgress | null> {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('student_progress')
     .select('lecture_id, completed_slides, slide_states, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
     .eq('user_id', userId)
@@ -134,7 +134,7 @@ export async function logLearningEvent(
  * Fire-and-forget: caller should not await this on the critical render path.
  */
 export async function recordCourseVisit(userId: string, courseId: string): Promise<void> {
-  await supabase.rpc('upsert_course_visit', { p_user_id: userId, p_course_id: courseId });
+  await (supabase as any).rpc('upsert_course_visit', { p_user_id: userId, p_course_id: courseId });
   // Fallback if RPC not deployed: raw upsert.
 }
 
@@ -143,7 +143,7 @@ export async function recordCourseVisit(userId: string, courseId: string): Promi
  * Fire-and-forget: caller should not await this on the critical render path.
  */
 export async function recordDailyActivity(): Promise<void> {
-  await supabase.rpc('record_daily_activity');
+  await (supabase as any).rpc('record_daily_activity');
 }
 
 /**
@@ -155,7 +155,7 @@ export async function recordLectureVisit(
   lectureId: string,
   courseId: string | null,
 ): Promise<void> {
-  await supabase
+  await (supabase as any)
     .from('lecture_visits')
     .insert({ user_id: userId, lecture_id: lectureId, course_id: courseId });
 }
@@ -168,7 +168,7 @@ export async function fetchRecentLectureVisits(
   userId: string,
   limit = 6,
 ): Promise<LectureVisit[]> {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('lecture_visits')
     .select('id, lecture_id, course_id, visited_at')
     .eq('user_id', userId)

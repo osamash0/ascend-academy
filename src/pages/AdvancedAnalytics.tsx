@@ -650,7 +650,7 @@ export default function AdvancedAnalytics() {
 
   // Dashboard hook
   const { dashboard } = useAnalytics(resolvedLectureId ?? null);
-  const dashboardData = dashboard.data as DashboardData | null;
+  const dashboardData = dashboard.data as any as DashboardData | null;
 
   // Sync state with dashboard data when it arrives
   useEffect(() => {

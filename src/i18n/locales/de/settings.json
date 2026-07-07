@@ -53,6 +53,14 @@
   },
   "ai": {
     "models": {
+      "auto": {
+        "name": "Auto (Server-Standard)",
+        "description": "Verwendet das vom Server-Administrator konfigurierte Modell (aktuell OpenAI)."
+      },
+      "openai": {
+        "name": "OpenAI (GPT-4o-mini)",
+        "description": "Hochentwickeltes Allzweck-Modell von OpenAI. Hervorragend geeignet für komplexe Logik und strukturierte Ausgaben."
+      },
       "cerebras": {
         "name": "Cerebras (empfohlen)",
         "description": "Primäres Modell: GPT-OSS-120B auf Cerebras-Inferenz – extrem schnell, hochwertig und mit dem höchsten kostenlosen Tageskontingent aller Anbieter."

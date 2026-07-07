@@ -357,7 +357,7 @@ export function GardenLecturePicker({
         renderTile={(c, { isActive, index }) => (
           <ConsoleTile
             isActive={isActive}
-            selection="glow"
+            selection="ring"
             gradientIndex={index}
             title={c.title}
             progress={0}

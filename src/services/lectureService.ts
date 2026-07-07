@@ -154,7 +154,7 @@ export async function fetchProfessorLectures(
   professorId: string,
   options?: { includeArchived?: boolean; onlyArchived?: boolean }
 ): Promise<Lecture[]> {
-  let query = supabase
+  let query: any = supabase
     .from('lectures')
     .select('id, title, description, total_slides, created_at, pdf_url, course_id, is_archived');
 
@@ -226,7 +226,7 @@ export async function insertQuizQuestion(q: QuizQuestionInput): Promise<void> {
   if (cleanedMetadata && Object.keys(cleanedMetadata).length > 0) {
     payload.metadata = cleanedMetadata;
   }
-  await supabase.from('quiz_questions').insert(payload);
+  await supabase.from('quiz_questions').insert(payload as any);
 }
 
 export async function updateQuizQuestion(

@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/apiClient';
 import {
   fetchLecture,
   fetchSlides,
@@ -676,24 +677,14 @@ export function InlineLecturePlayer({
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
       const ctrl = new AbortController();
       chatAbortRef.current = ctrl;
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/ai/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({
-          slide_text: currentSlide?.content_text || narrative,
-          user_message: q,
-          chat_history: history,
-          ai_model: aiModel,
-          lecture_id: lectureId,
-          current_slide_index: currentIndex,
-        }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok) throw new Error('Request failed');
+      const res = await apiClient.stream('/api/v1/ai/chat', {
+        slide_text: currentSlide?.content_text || narrative,
+        user_message: q,
+        chat_history: history,
+        ai_model: aiModel,
+        lecture_id: lectureId,
+        current_slide_index: currentIndex,
+      }, ctrl.signal);
 
       const ct = res.headers.get('content-type');
       if (ct?.includes('text/event-stream')) {

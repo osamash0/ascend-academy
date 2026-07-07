@@ -66,7 +66,7 @@ export default function AdminDashboard() {
       } else if (activeTab === 'visibility') {
         // Load courses and lectures directly using bypass policies
         const [cRes, lRes] = await Promise.all([
-          supabase.from('courses').select('id, title, description, color, is_archived, created_at').order('created_at', { ascending: false }),
+          (supabase as any).from('courses').select('id, title, description, color, is_archived, created_at').order('created_at', { ascending: false }),
           supabase.from('lectures').select('id, title, is_archived, created_at, course_id').order('created_at', { ascending: false })
         ]);
         setCourses(cRes.data || []);

@@ -85,7 +85,7 @@ export default function ProfessorDashboard() {
     setIsError(false);
     try {
       // Fetch the professor's own lectures first so we can scope progress queries.
-      const { data: lecturesData, error: lecturesError } = await supabase
+      const { data: lecturesData, error: lecturesError } = await (supabase as any)
         .from('lectures')
         .select('id, title, description, total_slides, created_at, pdf_url, course_id')
         .eq('professor_id', user?.id)
@@ -112,8 +112,8 @@ export default function ProfessorDashboard() {
 
       if (progressData) {
         const uniqueStudents = new Set(progressData.map(p => p.user_id));
-        const totalAttempts = progressData.reduce((sum: number, p: any) => sum + (p.total_questions_answered || 0), 0);
-        const totalCorrect = progressData.reduce((sum: number, p: any) => sum + (p.correct_answers || 0), 0);
+        const totalAttempts = (progressData as any[]).reduce((sum: number, p: any) => sum + (p.total_questions_answered || 0), 0);
+        const totalCorrect = (progressData as any[]).reduce((sum: number, p: any) => sum + (p.correct_answers || 0), 0);
         const avgScore = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
 
         setStats({

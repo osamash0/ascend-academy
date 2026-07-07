@@ -66,7 +66,7 @@ const shelfContainer = {
 };
 const shelfCard = {
   hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
+  show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 30 } },
 };
 
 import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';

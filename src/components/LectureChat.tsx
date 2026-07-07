@@ -91,7 +91,7 @@ export function LectureChat({
     const [isLoading, setIsLoading] = useState(false);
     const [streamingContent, setStreamingContent] = useState('');
     const { aiModel: selectedModel, setAiModel: setSelectedModel } = useAiModel();
-    const { user, session } = useAuth();
+    const { user } = useAuth();
     const gamification = useGamification();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -166,29 +166,15 @@ export function LectureChat({
 
             abortControllerRef.current = new AbortController();
 
-            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/ai/chat`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
-                },
-                body: JSON.stringify({
-                    slide_text: slideText,
-                    user_message: userMsg,
-                    chat_history: historyToPass,
-                    ai_model: selectedModel,
-                    lecture_id: lectureId,
-                    current_slide_index: currentSlideIndex,
-                }),
-                signal: abortControllerRef.current.signal,
-            });
+            const res = await apiClient.stream('/api/v1/ai/chat', {
+                slide_text: slideText,
+                user_message: userMsg,
+                chat_history: historyToPass,
+                ai_model: selectedModel,
+                lecture_id: lectureId,
+                current_slide_index: currentSlideIndex,
+            }, abortControllerRef.current.signal);
 
-            if (!res.ok) throw new Error(t('lecture:chat.requestFailed'));
-
-            // The grounded /api/v1/ai/chat endpoint returns a JSON ChatResponse
-            // ({ reply, citations }); it does not stream (the previous SSE branch
-            // was dead — the backend never sent text/event-stream).
             const data = await res.json();
             aiResponseText = data.reply ?? '';
             setMessages(prev => [...prev, {
@@ -234,7 +220,7 @@ export function LectureChat({
             streamingRef.current = false;
             abortControllerRef.current = null;
         }
-    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, slideId, sessionId, user, session, lectureId, currentSlideIndex]);
+    }, [input, isLoading, messages, selectedModel, slideText, slideTitle, slideId, sessionId, user, lectureId, currentSlideIndex]);
 
     const handleCancel = useCallback(() => {
         if (abortControllerRef.current) {
