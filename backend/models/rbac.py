@@ -36,3 +36,24 @@ class CourseAccess(SQLModel, table=True):
     access_level: str = Field(default="student")
     
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+
+class ApiToken(SQLModel, table=True):
+    __tablename__ = "api_tokens"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="profiles.id", index=True)
+    
+    # Store hashed token (e.g. SHA-256) for security
+    token_hash: str = Field(unique=True, index=True)
+    
+    name: str
+    description: Optional[str] = None
+    
+    # Optional explicit course binding for fine-grained scoping
+    # If null, the token assumes the user's normal scopes
+    course_id_scope: Optional[uuid.UUID] = Field(default=None, foreign_key="courses.id")
+    
+    is_active: bool = Field(default=True)
+    expires_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    last_used_at: Optional[datetime] = None

@@ -44,8 +44,19 @@ class CachedUser:
             role=data.get("role", ""),
         )
 
+@dataclass
+class ApiTokenUser:
+    id: str
+    email: str = ""
+    app_metadata: dict = field(default_factory=dict)
+    user_metadata: dict = field(default_factory=dict)
+    role: str = ""
+    course_id_scope: Optional[str] = None
+    is_api_token: bool = True
+
 async def verify_token(
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    session = Depends(get_session)
 ) -> Any:
     """
     FastAPI dependency that verifies the Supabase JWT from the Authorization
@@ -67,6 +78,25 @@ async def verify_token(
         )
 
     token: str = credentials.credentials
+
+    # Intercept API Tokens (aa_...)
+    if token.startswith("aa_"):
+        import hashlib
+        from sqlmodel import select
+        from backend.models.rbac import ApiToken
+        
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        stmt = select(ApiToken).where(ApiToken.token_hash == token_hash, ApiToken.is_active == True)
+        res = await session.exec(stmt)
+        api_token = res.first()
+        
+        if not api_token:
+            raise HTTPException(status_code=401, detail="Invalid API token.")
+            
+        return ApiTokenUser(
+            id=str(api_token.user_id),
+            course_id_scope=str(api_token.course_id_scope) if api_token.course_id_scope else None
+        )
 
     # 0. Check blocklist first
     from backend.services.cache import is_token_blocklisted
@@ -220,6 +250,18 @@ def require_permission(permission: str, check_course: bool = False):
         if check_course:
             course_id = request.path_params.get("course_id")
             
+        # 1. Enforce ApiToken strict scoping
+        if getattr(user, "is_api_token", False):
+            scope = getattr(user, "course_id_scope", None)
+            if scope is not None:
+                # Token is scoped to a specific course
+                if not check_course or not course_id or str(scope) != str(course_id):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="API token scope does not permit this action.",
+                    )
+            
+        # 2. Check RBAC permissions
         allowed = await has_permission(session, uid, permission, course_id)
         if not allowed:
             raise HTTPException(
