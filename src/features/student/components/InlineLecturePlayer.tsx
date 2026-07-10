@@ -841,6 +841,17 @@ export function InlineLecturePlayer({
               {correctAnswers}/{totalForScore}
             </span>
           </div>
+          <button
+            onClick={() => setIsEditingLayout((prev) => !prev)}
+            className={cn(
+              'console-focusable flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground',
+              isEditingLayout && 'bg-white/10 text-foreground',
+            )}
+            aria-label="Edit layout"
+            title="Edit layout"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </button>
           {onExpand && (
             <button
               onClick={onExpand}
@@ -853,6 +864,110 @@ export function InlineLecturePlayer({
           )}
         </div>
       </div>
+
+      {/* ── Sliding Control Panel ── */}
+      <AnimatePresence>
+        {isEditingLayout && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-md mb-4 flex flex-wrap gap-6 items-center justify-between">
+              <div className="flex flex-wrap items-center gap-6">
+                {/* Column Placement */}
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 block mb-1.5">
+                    Column Placement
+                  </span>
+                  <div className="flex items-center gap-1.5 rounded-xl bg-white/5 p-1 border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setColumnPlacement('left-right')}
+                      className={cn(
+                        'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
+                        columnPlacement === 'left-right'
+                          ? 'bg-white/10 text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      Slide Left / Chat Right
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setColumnPlacement('right-left')}
+                      className={cn(
+                        'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
+                        columnPlacement === 'right-left'
+                          ? 'bg-white/10 text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      Chat Left / Slide Right
+                    </button>
+                  </div>
+                </div>
+
+                {/* Column Split Ratio */}
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 block mb-1.5">
+                    Column Split Ratio
+                  </span>
+                  <div className="flex items-center gap-1.5 rounded-xl bg-white/5 p-1 border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setColumnRatio('40-60')}
+                      className={cn(
+                        'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
+                        columnRatio === '40-60'
+                          ? 'bg-white/10 text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      40/60
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setColumnRatio('50-50')}
+                      className={cn(
+                        'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
+                        columnRatio === '50-50'
+                          ? 'bg-white/10 text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      50/50
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setColumnRatio('60-40')}
+                      className={cn(
+                        'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
+                        columnRatio === '60-40'
+                          ? 'bg-white/10 text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      60/40
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Done button */}
+              <button
+                type="button"
+                onClick={() => setIsEditingLayout(false)}
+                className="console-focusable rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-foreground transition-all hover:bg-white/15"
+              >
+                Done
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Syllabus: thin meta row + horizontal slide rail ── */}
       <div className="pt-4">
