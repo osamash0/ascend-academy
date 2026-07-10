@@ -147,7 +147,7 @@ export function InlineLecturePlayer({
       const stored = localStorage.getItem('ascend_player_layout_pref');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.columnPlacement === 'left-right' || parsed.columnPlacement === 'right-left') {
+        if (parsed && (parsed.columnPlacement === 'left-right' || parsed.columnPlacement === 'right-left')) {
           return parsed.columnPlacement;
         }
       }
@@ -162,7 +162,7 @@ export function InlineLecturePlayer({
       const stored = localStorage.getItem('ascend_player_layout_pref');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.columnRatio === '50-50' || parsed.columnRatio === '60-40' || parsed.columnRatio === '40-60') {
+        if (parsed && (parsed.columnRatio === '50-50' || parsed.columnRatio === '60-40' || parsed.columnRatio === '40-60')) {
           return parsed.columnRatio;
         }
       }
@@ -844,11 +844,11 @@ export function InlineLecturePlayer({
           <button
             onClick={() => setIsEditingLayout((prev) => !prev)}
             className={cn(
-              'console-focusable flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground',
+              'console-focusable hidden lg:flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground',
               isEditingLayout && 'bg-white/10 text-foreground',
             )}
-            aria-label="Edit layout"
-            title="Edit layout"
+            aria-label={t('lecture:editLayout', 'Edit layout')}
+            title={t('lecture:editLayout', 'Edit layout')}
           >
             <SlidersHorizontal className="h-4 w-4" />
           </button>
@@ -880,12 +880,13 @@ export function InlineLecturePlayer({
                 {/* Column Placement */}
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 block mb-1.5">
-                    Column Placement
+                    {t('lecture:columnPlacement', 'Column Placement')}
                   </span>
                   <div className="flex items-center gap-1.5 rounded-xl bg-white/5 p-1 border border-white/5">
                     <button
                       type="button"
                       onClick={() => setColumnPlacement('left-right')}
+                      aria-pressed={columnPlacement === 'left-right'}
                       className={cn(
                         'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
                         columnPlacement === 'left-right'
@@ -893,11 +894,12 @@ export function InlineLecturePlayer({
                           : 'text-muted-foreground hover:text-foreground',
                       )}
                     >
-                      Slide Left / Chat Right
+                      {t('lecture:slideLeftChatRight', 'Slide Left / Chat Right')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setColumnPlacement('right-left')}
+                      aria-pressed={columnPlacement === 'right-left'}
                       className={cn(
                         'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
                         columnPlacement === 'right-left'
@@ -905,7 +907,7 @@ export function InlineLecturePlayer({
                           : 'text-muted-foreground hover:text-foreground',
                       )}
                     >
-                      Chat Left / Slide Right
+                      {t('lecture:chatLeftSlideRight', 'Chat Left / Slide Right')}
                     </button>
                   </div>
                 </div>
@@ -913,12 +915,13 @@ export function InlineLecturePlayer({
                 {/* Column Split Ratio */}
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 block mb-1.5">
-                    Column Split Ratio
+                    {t('lecture:columnSplitRatio', 'Column Split Ratio')}
                   </span>
                   <div className="flex items-center gap-1.5 rounded-xl bg-white/5 p-1 border border-white/5">
                     <button
                       type="button"
                       onClick={() => setColumnRatio('40-60')}
+                      aria-pressed={columnRatio === '40-60'}
                       className={cn(
                         'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
                         columnRatio === '40-60'
@@ -931,6 +934,7 @@ export function InlineLecturePlayer({
                     <button
                       type="button"
                       onClick={() => setColumnRatio('50-50')}
+                      aria-pressed={columnRatio === '50-50'}
                       className={cn(
                         'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
                         columnRatio === '50-50'
@@ -943,6 +947,7 @@ export function InlineLecturePlayer({
                     <button
                       type="button"
                       onClick={() => setColumnRatio('60-40')}
+                      aria-pressed={columnRatio === '60-40'}
                       className={cn(
                         'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all',
                         columnRatio === '60-40'
@@ -962,7 +967,7 @@ export function InlineLecturePlayer({
                 onClick={() => setIsEditingLayout(false)}
                 className="console-focusable rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-foreground transition-all hover:bg-white/15"
               >
-                Done
+                {t('common:done', 'Done')}
               </button>
             </div>
           </motion.div>
@@ -1108,8 +1113,8 @@ export function InlineLecturePlayer({
         className={cn(
           "grid grid-cols-1 gap-6 pt-4",
           columnRatio === '50-50' && "lg:grid-cols-2",
-          columnRatio === '60-40' && (columnPlacement === 'left-right' ? 'lg:grid-cols-[1.2fr_0.8fr]' : 'lg:grid-cols-[0.8fr_1.2fr]'),
-          columnRatio === '40-60' && (columnPlacement === 'left-right' ? 'lg:grid-cols-[0.8fr_1.2fr]' : 'lg:grid-cols-[1.2fr_0.8fr]')
+          columnRatio === '60-40' && (columnPlacement === 'left-right' ? 'lg:grid-cols-[3fr_2fr]' : 'lg:grid-cols-[2fr_3fr]'),
+          columnRatio === '40-60' && (columnPlacement === 'left-right' ? 'lg:grid-cols-[2fr_3fr]' : 'lg:grid-cols-[3fr_2fr]')
         )}
       >
         {/* Left column: slide image then the Ask-AI bar / tutor */}
