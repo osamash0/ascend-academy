@@ -159,6 +159,16 @@ export const QuizCard = memo(function QuizCard({
           className="flex flex-wrap items-center gap-2 mb-4"
           data-testid="quiz-meta-row"
         >
+          {/* A cross-slide (≥2 linked slides) question is a lecture-wide deck
+              quiz, not a single-slide one — label it distinctly. */}
+          {linkedSlides && linkedSlides.length >= 2 && (
+            <span
+              className="text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30"
+              data-testid="quiz-deck-badge"
+            >
+              {t('lecture:quiz.deckBadge', { defaultValue: 'Lecture Quiz' })}
+            </span>
+          )}
           {concept && (
             <span
               className="text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20"

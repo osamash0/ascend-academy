@@ -1,13 +1,15 @@
-"""Unit tests for parser-version routing in upload_service.process_pdf_stream.
+"""Unit tests for parser routing in upload_service.process_pdf_stream.
 
-This is the live upload entrypoint and the highest-churn code (the unified v5
-branch was ported in during the v1 restructure). The risk is routing to the
-wrong pipeline or — the bug fixed in that merge — failing to thread user_id into
-the server-authoritative unified parser (which needs it to own the lecture).
+This is the live upload entrypoint. As of the Phase-0 legacy sweep the unified
+(v5) pipeline is the ONLY parse path: every upload routes to parse_pdf_unified
+regardless of PARSER_VERSION, and a retired version just logs a warning. The
+risks worth guarding: routing anywhere other than unified, and — the bug fixed
+in the v1 restructure — failing to thread user_id into the server-authoritative
+unified parser (which needs it to own the lecture).
 
 We force the Redis-down *sync* fallback (get_arq_pool raises) and replace the
-orchestrators with fakes that just emit a `complete` event, so no real parsing /
-Arq / Redis runs. We assert which orchestrator was invoked and with what args.
+orchestrator with a fake that just emits a `complete` event, so no real parsing /
+Arq / Redis runs. We assert the orchestrator was invoked and with what args.
 """
 from __future__ import annotations
 
@@ -15,7 +17,7 @@ import pytest
 
 from backend.core.config import settings
 from backend.services import upload_service
-from backend.services.parser import unified_orchestrator, v4_orchestrator
+from backend.services.parser import unified_orchestrator
 
 
 async def _drain(agen, limit=50):
@@ -29,7 +31,7 @@ async def _drain(agen, limit=50):
 
 @pytest.fixture
 def routing(monkeypatch):
-    """Force the sync fallback and capture which orchestrator ran + its kwargs."""
+    """Force the sync fallback and capture the unified orchestrator's kwargs."""
     calls: dict = {}
 
     async def _no_storage(*_a, **_k):
@@ -47,17 +49,16 @@ def routing(monkeypatch):
     monkeypatch.setattr(upload_service, "upload_pdf_to_storage", _no_storage)
     monkeypatch.setattr(upload_service, "get_arq_pool", _arq_down)
     monkeypatch.setattr(unified_orchestrator, "parse_pdf_unified", _fake("unified"))
-    monkeypatch.setattr(v4_orchestrator, "parse_pdf_v4", _fake("v4"))
     return calls
 
 
-async def _run(parser="auto", user_id="prof-1"):
+async def _run(parser="auto", user_id="prof-1", ai_model="cerebras"):
     return await _drain(upload_service.process_pdf_stream(
         content=b"%PDF-1.4 fake",
         filename="lecture.pdf",
         pdf_hash="h" * 64,
         page_count=3,
-        ai_model="cerebras",
+        ai_model=ai_model,
         use_blueprint=False,
         parsing_mode="ai",
         parser=parser,
@@ -66,31 +67,39 @@ async def _run(parser="auto", user_id="prof-1"):
     ))
 
 
-async def test_v5_routes_to_unified_and_threads_user_id(routing, monkeypatch):
+async def test_routes_to_unified_and_threads_user_id(routing, monkeypatch):
     monkeypatch.setattr(settings, "parser_version", "5", raising=False)
     chunks = await _run(parser="auto", user_id="prof-42")
 
-    assert "unified" in routing and "v4" not in routing      # unified, not v4
+    assert "unified" in routing
     assert routing["unified"]["user_id"] == "prof-42"          # the merge bug-fix
     assert routing["unified"]["filename"] == "lecture.pdf"
     assert any("complete" in c for c in chunks)                # the event was streamed
 
 
-async def test_v5_unified_uses_server_configured_model(routing, monkeypatch):
+async def test_unified_uses_server_configured_model_when_auto(routing, monkeypatch):
     monkeypatch.setattr(settings, "parser_version", "5", raising=False)
     monkeypatch.setattr(settings, "parser_llm_model", "server-llm", raising=False)
-    await _run(parser="auto")
-    # ai_model is the server-configured PARSER_LLM_MODEL, not the request's "cerebras".
+    # An explicit request model wins; "auto" defers to the server-configured model.
+    await _run(parser="auto", ai_model="auto")
     assert routing["unified"]["ai_model"] == "server-llm"
 
 
-async def test_v4_routes_to_v4_orchestrator_not_unified(routing, monkeypatch):
+async def test_explicit_request_model_overrides_server_default(routing, monkeypatch):
+    monkeypatch.setattr(settings, "parser_version", "5", raising=False)
+    monkeypatch.setattr(settings, "parser_llm_model", "server-llm", raising=False)
+    await _run(parser="auto", ai_model="cerebras")
+    assert routing["unified"]["ai_model"] == "cerebras"
+
+
+async def test_retired_parser_version_still_routes_to_unified(routing, monkeypatch):
+    """A retired PARSER_VERSION logs a warning but runs the unified pipeline."""
     monkeypatch.setattr(settings, "parser_version", "4", raising=False)
     await _run(parser="auto")
-    assert "v4" in routing and "unified" not in routing
+    assert "unified" in routing
 
 
-async def test_parser_unified_forces_unified_even_at_version_4(routing, monkeypatch):
-    monkeypatch.setattr(settings, "parser_version", "4", raising=False)
-    await _run(parser="unified")
-    assert "unified" in routing and "v4" not in routing
+async def test_explicit_legacy_parser_name_routes_to_unified(routing, monkeypatch):
+    monkeypatch.setattr(settings, "parser_version", "5", raising=False)
+    await _run(parser="v4")
+    assert "unified" in routing

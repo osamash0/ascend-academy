@@ -57,11 +57,16 @@ class Settings(BaseSettings):
     # university LLM via OPENAI_BASE_URL + OPENAI_MODEL. Slower models may need
     # a higher LLM_TIMEOUT_SECONDS (default 25; gpt-4o-mini wants ~90).
     parser_llm_model: str = Field(alias="PARSER_LLM_MODEL", default="cerebras")
-    # Model used by the standalone Fast Upload pipeline (backend/api/v1/fast_upload.py),
-    # which calls litellm.acompletion directly — so this is a litellm-style,
-    # provider-prefixed id (e.g. "gemini/gemini-2.0-flash", "openai/gpt-4o-mini"),
-    # NOT an orchestrator key. Server-configured so institutions can retarget it.
+    # LEGACY: the standalone Fast Upload pipeline was retired in the Phase-0
+    # sweep (module archived under backend/_legacy/). This field is unused by the
+    # live app and kept only so the archived module remains revertable.
     fast_upload_model: str = Field(alias="FAST_UPLOAD_MODEL", default="gemini/gemini-2.0-flash")
+
+    # ─── Uploads ───────────────────────────────────────────────────────────────
+    # Single source of truth for the max upload size (PDF/PPTX). Enforced by the
+    # endpoint stream guard AND file validation, and served to the frontend via
+    # GET /api/v1/upload/config so the client rejects with the same number.
+    max_upload_mb: int = Field(alias="MAX_UPLOAD_MB", default=50)
 
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")

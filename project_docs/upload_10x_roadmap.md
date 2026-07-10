@@ -53,33 +53,57 @@ assumes current velocity; all DB changes stay additive (flag-not-delete policy).
 
 Prerequisite hygiene: everything later builds on ONE pipeline with consistent limits.
 
+> **Execution status (2026-07-08):** 0.1 (single path), 0.2 (one size limit), 0.4
+> (deck-quiz label + Skip-AI/enhance) DONE & tested; 0.3 re-scoped to the real v5
+> replay path and DONE (`force_reparse` now works). The deferred legacy-module
+> archival (task #4) is now **DONE**: the 4 synthesis fns were relocated verbatim
+> from `v4_orchestrator` into `backend/services/parser/synthesis.py` (imports only
+> the AI orchestrator + quiz validator — no v3/v4), the unified orchestrator + its
+> tests were repointed, and v4_orchestrator / v3 orchestrator / stage1–5 /
+> parser-classifier / summarizer_service were `git mv`'d to `backend/_legacy/`.
+> Gates: import OK; grep gate clean; tsc 0; backend pytest 755✓ / 8 pre-existing
+> env fails (offline DNS + `.env` LlamaCloud key leak — none touch changed code);
+> `-m db` e2e 3✓; both real-LLM smokes PASS (broad `parse_pdf_stream` engine +
+> focused `uo._synthesize_slide → synthesis.*`). A manual browser pass of the
+> enhance-flow + `/professor/fast-upload` redirect is still recommended (needs an
+> authed stack).
+
 #### 0.1 Single upload path
 Retire `fast_upload.py` + `FastUpload.tsx` route and the v3/v4 branches per the
 already-planned Phase-2 sweep (archive to `_legacy/`, not delete).
 
 **Acceptance criteria**
-- [ ] `/professor/fast-upload` route removed; any inbound links redirect to `/professor/upload`.
-- [ ] `PARSER_VERSION` values 3/4 no longer reachable from `upload_service.py`; only unified path executes. Env values other than 5 log a warning and run 5.
-- [ ] All archived modules moved under `backend/_legacy/`, importable nowhere (`grep -r "fast_upload\|parse_pdf_v4" backend/ --include="*.py"` returns only `_legacy/`).
-- [ ] Full suites green: backend pytest, vitest, tsc.
+- [x] `/professor/fast-upload` route removed; any inbound links redirect to `/professor/upload`. *(App.tsx: route → `<Navigate to={UPLOAD}>`; page deleted; `fast_upload.py` archived to `backend/_legacy/`, router unmounted from main.py.)*
+- [x] `PARSER_VERSION` values 3/4 no longer reachable from `upload_service.py`; only unified path executes. Env values other than 5 log a warning and run 5. *(routing branches removed; only `parse_pdf_unified` is enqueueable; Arq worker `functions=[parse_pdf_unified]`.)*
+- [x] All archived modules moved under `backend/_legacy/`, importable nowhere. *(fast_upload + task #4 DONE: v4_orchestrator, v3 orchestrator, stage1–5, parser-classifier, summarizer_service `git mv`'d to `backend/_legacy/`. The 4 synthesis fns (analyze_slide / analyze_lecture_meta / generate_quiz_questions / _map_deck_quiz) were first relocated verbatim into `parser/synthesis.py` — standalone, imports only the AI orchestrator + quiz validator; the unified orchestrator's 3 import sites + 3 tests repointed to it. Grep gate `parse_pdf_v4|stage1_ingest|summarizer_service` over services/api/workers is empty.)*
+- [x] Full suites green: backend pytest, vitest, tsc. *(tsc 0; vitest 386 pass / 5 pre-existing fails; backend 683 pass / 5 pre-existing `test_ask_professor` fails; zero new failures introduced. Task #4 re-verify: backend 755 pass / 8 pre-existing env fails — offline DNS + `.env` LlamaCloud key leak, none touch changed code; `-m db` e2e 3 pass; both real-LLM smokes PASS.)*
 
 #### 0.2 One size limit, one config
 **Acceptance criteria**
-- [ ] Max upload size defined once in `backend/core/config.py` (e.g. `MAX_UPLOAD_MB`), served to the frontend via a config endpoint or build-time constant — no hardcoded 25/50 duplicates.
-- [ ] Frontend rejects oversize files client-side with the same number the backend enforces; backend returns 413 with a message naming the limit.
+- [x] Max upload size defined once in `backend/core/config.py` (`MAX_UPLOAD_MB`, default 50), served to the frontend via `GET /api/v1/upload/config` — no hardcoded 25/50 duplicates. *(file_validation `MAX_FILE_BYTES` + upload.py `MAX_FILE_MB` both derive from it; dead `MAX_FILE_MB=25` removed from upload_service. Effective limit was silently 25 at the endpoint guard; now 50 everywhere.)*
+- [x] Frontend rejects oversize files client-side with the same number the backend enforces; backend returns 413 with a message naming the limit. *(usePDFUpload hydrates the served limit on mount, falls back to 50; new tests: `/config` value == `settings.max_upload_mb` == endpoint guard, and a +1-byte-over file → 413 naming the limit.)*
 
-#### 0.3 Correct cache identity
+#### 0.3 Correct cache identity → **re-scoped: fix `force_reparse` under v5**
+**Finding (2026-07-07):** the original premise is invalid. Under the unified (v5)
+pipeline `pdf_parse_cache` is **never written** — only the retired v2/v4 paths
+called `store_cached_parse`. The live replay is `parse_runs` (`UNIQUE (pdf_hash,
+pipeline_version)`) + `_replay_from_db`, and `force_reparse` was a **no-op** for
+v5 (it only gated the dead `get_cached_parse`). User chose the additive fix (no
+schema/constraint change); auto-keying `parse_runs` by parser/parsing_mode was
+deferred (would require altering the UNIQUE constraint — not purely additive).
+
 **Acceptance criteria**
-- [ ] `pdf_parse_cache` lookups key on `(pdf_hash, parser, parsing_mode, pipeline_version)` — changing parser or mode never replays a stale cache entry.
-- [ ] Existing cache rows remain readable (additive column with backfill default), verified by the `-m db` e2e suite.
+- [x] `force_reparse=true` re-parses even when a COMPLETED run exists, reusing the same lecture_id (no duplicate, student links survive) — threaded endpoint → `process_pdf_stream` → `parse_pdf_unified`, which now skips the `_replay_from_db` short-circuit under force. *(unit tests: force→rebuild-in-place; default→replay-from-DB.)*
+- [x] Switching parser or parsing_mode on the same PDF is covered by the same escape hatch (tick "reparse"). *(Auto-detection deferred per user; documented above.)*
+- [ ] ~~additive column verified by `-m db` e2e~~ — N/A: no schema change in the chosen approach.
 
 #### 0.4 Surface what's already generated
 Deck quizzes exist in the DB but have no UI; "Skip AI" slides can never be enhanced.
 
 **Acceptance criteria**
-- [ ] Lecture view renders deck-level quizzes in a distinct "Lecture Quiz" section with slide-jump chips built from `linked_slides` metadata.
-- [ ] Slides with `ai_enhanced=false` show an "Enhance with AI" button in the editor that runs the same per-slide synthesis and flips the flag; works for a single slide and "enhance all remaining."
-- [ ] PDF-04 audit item closes: parsing-mode toggle is either honored end-to-end under v5 or removed.
+- [x] Lecture view renders deck-level quizzes distinctly with slide-jump chips from `linked_slides`. *(Finding: the student `InlineLecturePlayer` already passed `linkedSlides`+`onJumpToSlide` to `QuizCard`, sorted deck questions first, and avoided duplication. Added the one missing piece — a distinct "Lecture Quiz" badge for cross-slide (≥2) questions, with tests.)*
+- [x] Slides with `ai_enhanced=false` show an "Enhance with AI" button in the editor that runs the same per-slide synthesis and flips the flag; works for a single slide and "enhance all remaining." *(LectureEdit: per-slide button + "Enhance all remaining" banner → `lectureService.enhanceSlide` → `POST /upload/enhance-slide/{id}` reusing `_synthesize_slide`; backend + service + endpoint tests.)*
+- [x] PDF-04 audit item closes: parsing-mode toggle honored end-to-end under v5. *(frontend sends `parsing_mode` → `parse_pdf_unified` now skips ALL LLM (meta/synthesis/deck-quiz) for `on_demand`, persisting `ai_enhanced=false` + `parser_engine='heuristic-v1'`; unit test asserts zero LLM calls. Workbook PDF-04 row flipped Deferred→Fixed on 2026-07-08.)*
 
 ---
 
@@ -114,16 +138,15 @@ original rebuild plan, generalized.
 
 ### Phase 2 — Any-source ingestion (≈2–3 weeks)
 
-#### 2.1 Audio & video lecture recordings
-Most courses have recordings that never enter the system. Transcribe → segment →
-same downstream pipeline (summary, quiz, embeddings, concepts).
-
-**Acceptance criteria**
-- [ ] Accept mp3/m4a/wav/mp4/webm up to a configured media limit via chunked/resumable upload (tus or multipart), since recordings routinely exceed 100 MB.
-- [ ] Transcription runs as an Arq job (Whisper-family model, self-hostable to match the university-LLM constraint; provider behind a config flag like `TRANSCRIPTION_MODEL`), with language auto-detect covering German and English.
-- [ ] Transcript is segmented into topical "slides" (time-coded sections) that flow through the existing per-slide synthesis, persist, embedding, and concept-graph stages unchanged — verified by one shared e2e test parameterized over source type.
-- [ ] Student lecture view shows section start-timestamps; if a recording is uploaded *alongside* a slide deck for the same lecture, sections link to slide numbers (best-effort alignment by content similarity, explicitly labeled as approximate).
-- [ ] Failure of transcription degrades gracefully: file stored, lecture created in "needs processing" state, retry available.
+#### 2.1 Audio & video lecture recordings — **DEFERRED (future, not scheduled)**
+> Decision 2026-07-07: skipped for now, revisit later. Left here for context.
+> Most courses have recordings that never enter the system. Transcribe → segment →
+> same downstream pipeline (summary, quiz, embeddings, concepts). When picked up:
+> accept mp3/m4a/wav/mp4/webm via resumable upload; transcription as an Arq job
+> (self-hostable Whisper-family model behind a `TRANSCRIPTION_MODEL` flag, DE+EN);
+> transcript segmented into time-coded sections that flow through the existing
+> synthesis/persist/embedding/concept stages unchanged; graceful failure to a
+> "needs processing" state.
 
 #### 2.2 Documents beyond slides
 **Acceptance criteria**

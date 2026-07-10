@@ -1,7 +1,10 @@
 import os
 from typing import Optional
 
-MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MB
+from backend.core.config import settings
+
+# Single source of truth: backend/core/config.py (MAX_UPLOAD_MB).
+MAX_FILE_BYTES = settings.max_upload_mb * 1024 * 1024
 
 def validate_pdf_content(content: bytes) -> None:
     """

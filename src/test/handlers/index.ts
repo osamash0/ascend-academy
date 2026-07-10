@@ -107,6 +107,12 @@ export const defaultHandlers = [
   ...dual("post", `${API}/api/upload/attach-lecture`, () =>
     HttpResponse.json({ updated: 0 }),
   ),
+  ...dual("get", `${API}/api/upload/config`, () =>
+    HttpResponse.json({ maxUploadMb: 50, acceptedExtensions: [".pdf", ".pptx"] }),
+  ),
+  ...dual("post", `${API}/api/upload/enhance-slide/:slideId`, () =>
+    HttpResponse.json({ slide_id: "s1", title: "Enhanced", summary: "Summary.", ai_enhanced: true }),
+  ),
   ...dual("post", `${API}/api/ai/analytics-insights`, () =>
     HttpResponse.json({ summary: "Insight.", suggestions: ["Try X"] }),
   ),

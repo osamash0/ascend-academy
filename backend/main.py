@@ -43,7 +43,6 @@ from backend.api.v1.nudges import router as nudges_router
 from backend.api.v1.schedule import router as schedule_router
 from backend.api.v1.slides_ai import router as slides_ai_router
 from backend.api.v1.practice_sheets import router as practice_sheets_router
-from backend.api.v1.fast_upload import router as fast_upload_router
 from backend.api.v1.academic import router as academic_router
 from backend.core.rate_limit import limiter
 
@@ -165,7 +164,6 @@ v1_router.include_router(nudges_router)
 v1_router.include_router(schedule_router)
 v1_router.include_router(slides_ai_router)
 v1_router.include_router(practice_sheets_router)
-v1_router.include_router(fast_upload_router)
 v1_router.include_router(academic_router)
 
 # Mount parent v1_router onto app

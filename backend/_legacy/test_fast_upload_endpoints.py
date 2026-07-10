@@ -3,10 +3,16 @@ import uuid
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 
+# The fast-upload pipeline was retired in the Phase-0 legacy sweep: its router is
+# no longer mounted and the module lives under backend/_legacy/. These tests are
+# kept for reference only (they hit the unmounted endpoint) and are not collected
+# (pytest testpaths = backend/tests).
+pytestmark = pytest.mark.skip(reason="fast-upload retired — archived in backend/_legacy/")
+
 @pytest.fixture
 def mock_db():
-    with patch("backend.api.v1.fast_upload.execute_query", new_callable=AsyncMock) as mock_eq, \
-         patch("backend.api.v1.fast_upload.process_upload_isolated", new_callable=AsyncMock) as mock_process:
+    with patch("backend._legacy.fast_upload.execute_query", new_callable=AsyncMock) as mock_eq, \
+         patch("backend._legacy.fast_upload.process_upload_isolated", new_callable=AsyncMock) as mock_process:
         yield mock_eq, mock_process
 
 def test_upload_fast_happy_path(app_client: TestClient, sample_pdf_bytes: bytes, mock_db):

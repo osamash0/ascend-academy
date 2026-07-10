@@ -1,15 +1,16 @@
-"""Phase 0 safety patch — v4 deck-quiz mapping must never ship a wrong answer key.
+"""Phase 0 safety patch — deck-quiz mapping must never ship a wrong answer key.
 
 The old v4 / fast_upload code resolved the correct-answer index with
 ``options.index(ans) if ans in options else 0`` — silently marking option A
 correct whenever the LLM's ``correctAnswer`` string didn't exactly match an
-option (whitespace, case, paraphrase). These tests pin the corrected behavior:
-resolve via the shared quiz validator, and DROP (not default to A) any
-question whose answer can't be matched to an option.
+option (whitespace, case, paraphrase). These tests pin the corrected behavior
+of the live ``synthesis._map_deck_quiz``: resolve via the shared quiz
+validator, and DROP (not default to A) any question whose answer can't be
+matched to an option.
 """
 from __future__ import annotations
 
-from backend.services.parser.v4_orchestrator import _map_deck_quiz
+from backend.services.parser.synthesis import _map_deck_quiz
 
 
 def test_exact_text_answer_resolves_index_and_slide():

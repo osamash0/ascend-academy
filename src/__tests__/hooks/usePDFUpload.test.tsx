@@ -73,9 +73,14 @@ function installFetchRouter(
   const spy = vi.fn(async (input: RequestInfo, init: RequestInit = {}) => {
     const url = typeof input === "string" ? input : (input as Request).url;
     calls.push({ url, init });
+    // apiClient rewrites `/api/...` → `/api/v1/...`; normalize so route
+    // patterns written against the un-versioned path still match.
+    const norm = url.replace("/api/v1/", "/api/");
     for (const [pattern, handler] of Object.entries(routes)) {
-      if (url.includes(pattern)) return handler(init);
+      if (norm.includes(pattern)) return handler(init);
     }
+    // Unmatched (e.g. the mount-time GET /api/upload/config hydration) → 404;
+    // callers that fire it swallow the failure and keep their fallback.
     return new Response("not found", { status: 404 });
   });
   vi.stubGlobal("fetch", spy);

@@ -77,6 +77,16 @@ describe("QuizCard concept-testing UI", () => {
     expect((chip as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("labels a cross-slide (≥2 linked) question as a distinct Lecture Quiz", () => {
+    renderWithProviders(<QuizCard {...baseProps} linkedSlides={[2, 5]} />);
+    expect(screen.getByTestId("quiz-deck-badge").textContent).toContain("Lecture Quiz");
+  });
+
+  it("does not label a single-slide question as a Lecture Quiz", () => {
+    renderWithProviders(<QuizCard {...baseProps} linkedSlides={[3]} />);
+    expect(screen.queryByTestId("quiz-deck-badge")).toBeNull();
+  });
+
   it("hides the explanation toggle until an option is selected", async () => {
     renderWithProviders(
       <QuizCard

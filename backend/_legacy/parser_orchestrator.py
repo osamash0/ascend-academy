@@ -160,19 +160,6 @@ async def parse_pdf(
 
 
 # ── Storage helper ────────────────────────────────────────────────────────────
-
-
-async def _fetch_pdf_bytes(pdf_hash: str) -> Optional[bytes]:
-    """Download PDF bytes from Supabase Storage by sha256 hash."""
-    import asyncio
-
-    def _sync_fetch():
-        sb = get_client(use_admin=True)
-        try:
-            data = sb.storage.from_("pdf-uploads").download(f"{pdf_hash}.pdf")
-            return data
-        except Exception as e:
-            logger.warning("Failed to fetch PDF %s from storage: %s", pdf_hash, e)
-            return None
-
-    return await asyncio.to_thread(_sync_fetch)
+# Relocated to backend/services/parser/storage.py; re-exported here for the
+# legacy v3/v4 orchestrators until they are archived.
+from backend.services.parser.storage import _fetch_pdf_bytes  # noqa: E402,F401

@@ -38,7 +38,7 @@ import redis.asyncio as aioredis
 from backend.core.config import settings
 from backend.domain.parse_models import RunStatus
 from backend.services.parser import repos, persist
-from backend.services.parser.orchestrator import _fetch_pdf_bytes
+from backend.services.parser.storage import _fetch_pdf_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ async def _synthesize_slide(
     when the slide has text; vision when it's image-only. Never raises."""
     text = text or ""
     if len(text.strip()) >= _MIN_TEXT_FOR_SYNTH:
-        from backend.services.parser.v4_orchestrator import analyze_slide
+        from backend.services.parser.synthesis import analyze_slide
         res = await analyze_slide(idx + 1, text, lecture_context, ai_model)
         if not isinstance(res, dict):
             res = {}
@@ -161,8 +161,16 @@ async def parse_pdf_unified(
     odl_pages: Optional[Dict[int, dict]] = None,
     filename: str = "upload.pdf",
     parser_used: str = "unified",
+    force_reparse: bool = False,
+    parsing_mode: str = "ai",
 ) -> str:
-    """Unified parse pipeline entry point (Arq job or inline)."""
+    """Unified parse pipeline entry point (Arq job or inline).
+
+    When ``force_reparse`` is True, a COMPLETED run is NOT replayed from the DB;
+    the pipeline re-parses and reuses the existing lecture (same lecture_id, so
+    student links/progress survive). This is the user's escape hatch for a stale
+    parse — including switching parser or parsing_mode on the same PDF.
+    """
     redis_client = None
     if not emit_fn:
         redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
@@ -192,7 +200,9 @@ async def parse_pdf_unified(
         existing_lecture_id = run.lecture_id  # set by a prior (partial) attempt
 
         # ── Idempotent replay: a completed run never re-parses ───────────────
-        if run.status == RunStatus.COMPLETED and existing_lecture_id:
+        # …unless the caller forced a re-parse, in which case we fall through and
+        # rebuild the existing lecture in place (step 3 reuses existing_lecture_id).
+        if run.status == RunStatus.COMPLETED and existing_lecture_id and not force_reparse:
             await _replay_from_db(existing_lecture_id, pdf_hash, emit)
             return str(run_uuid)
 
@@ -212,14 +222,21 @@ async def parse_pdf_unified(
         total = len(raw_slides)
         await emit("progress", {"current": total, "total": total, "message": f"Extracted {total} slides"})
 
+        # ``on_demand`` (Skip AI): persist raw extracted slides with no LLM
+        # synthesis, quizzes, or deck summary; the editor enhances them later.
+        ai_mode = parsing_mode != "on_demand"
+
         # ── 2. Lecture-level analysis (title + summary) ──────────────────────
         await emit("phase", {"phase": "enhance"})
         await emit("progress", {"current": 0, "total": total, "message": "Analyzing lecture…"})
-        from backend.services.parser.v4_orchestrator import analyze_lecture_meta
-        try:
-            meta = await analyze_lecture_meta(raw_slides, ai_model)
-        except Exception as exc:
-            logger.warning("lecture meta failed (non-fatal): %s", exc)
+        if ai_mode:
+            from backend.services.parser.synthesis import analyze_lecture_meta
+            try:
+                meta = await analyze_lecture_meta(raw_slides, ai_model)
+            except Exception as exc:
+                logger.warning("lecture meta failed (non-fatal): %s", exc)
+                meta = {}
+        else:
             meta = {}
         lecture_title = (meta.get("title") or "").strip() or _clean_title(filename)
         deck_summary = (meta.get("summary") or "").strip()
@@ -255,12 +272,21 @@ async def parse_pdf_unified(
                 ctx_for_chunk += f"\n\nIn the previous slide, you explained: {previous_narrative}"
             await emit("progress", {
                 "current": chunk_start, "total": total,
-                "message": f"Analyzing slides {chunk_start + 1}–{chunk_end}/{total}…",
+                "message": (f"Analyzing slides {chunk_start + 1}–{chunk_end}/{total}…"
+                            if ai_mode else f"Importing slides {chunk_start + 1}–{chunk_end}/{total}…"),
             })
-            results = await asyncio.gather(*[
-                _synthesize_slide(i, raw_slides[i], ctx_for_chunk, ai_model, pdf_bytes)
-                for i in range(chunk_start, chunk_end)
-            ], return_exceptions=True)
+            if ai_mode:
+                results = await asyncio.gather(*[
+                    _synthesize_slide(i, raw_slides[i], ctx_for_chunk, ai_model, pdf_bytes)
+                    for i in range(chunk_start, chunk_end)
+                ], return_exceptions=True)
+            else:
+                # Skip AI: raw text only, no LLM. Title = first line / fallback.
+                results = [
+                    {"title": _first_line(raw_slides[i]), "content": raw_slides[i],
+                     "summary": "", "slide_type": "text"}
+                    for i in range(chunk_start, chunk_end)
+                ]
 
             for rel, res in enumerate(results):
                 i = chunk_start + rel
@@ -274,10 +300,15 @@ async def parse_pdf_unified(
                     "summary": res.get("summary", "") or "",
                     "slide_type": res.get("slide_type", "text"),
                     "questions": [],
+                    "ai_enhanced": ai_mode,
                 }
                 if created_lecture_id is not None:
                     try:
-                        sid = await persist.insert_slide(created_lecture_id, i, ui_slide)
+                        sid = await persist.insert_slide(
+                            created_lecture_id, i, ui_slide,
+                            ai_enhanced=ai_mode,
+                            parser_engine="unified" if ai_mode else "heuristic-v1",
+                        )
                         slide_db_ids[i] = sid
                     except Exception as exc:
                         logger.error("persist slide %d failed: %s", i, exc)
@@ -288,14 +319,16 @@ async def parse_pdf_unified(
             last = results[-1] if results else None
             previous_narrative = last.get("summary", "") if isinstance(last, dict) else ""
 
-        # ── 5. Deck-level quiz ───────────────────────────────────────────────
-        await emit("progress", {"current": total, "total": total, "message": "Generating quiz…"})
-        from backend.services.parser.v4_orchestrator import generate_quiz_questions, _map_deck_quiz
-        try:
-            deck_quiz = _map_deck_quiz(await generate_quiz_questions(raw_slides, lecture_title, ai_model))
-        except Exception as exc:
-            logger.warning("deck quiz failed (non-fatal): %s", exc)
-            deck_quiz = []
+        # ── 5. Deck-level quiz (AI mode only) ────────────────────────────────
+        deck_quiz = []
+        if ai_mode:
+            await emit("progress", {"current": total, "total": total, "message": "Generating quiz…"})
+            from backend.services.parser.synthesis import generate_quiz_questions, _map_deck_quiz
+            try:
+                deck_quiz = _map_deck_quiz(await generate_quiz_questions(raw_slides, lecture_title, ai_model))
+            except Exception as exc:
+                logger.warning("deck quiz failed (non-fatal): %s", exc)
+                deck_quiz = []
 
         # ── 6. Finalize + persist deck quiz ──────────────────────────────────
         await emit("phase", {"phase": "finalize"})

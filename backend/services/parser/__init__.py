@@ -1,10 +1,14 @@
-"""Parser v3 — five-stage PDF → course pipeline.
+"""Parser package — unified PDF → course pipeline (PARSER_VERSION=5).
 
-Stage 1  stage1_ingest.py    Docling + PyMuPDF → ExtractedPage per slide
-Stage 2  stage2_synthesize.py  Single LLM call → DeckOutline
-Stage 3  stage3_generate.py  Per-slide AI (batched text + individual vision)
-Stage 4  stage4_embed.py     FastEmbed bge-small → slide_chunks
-Stage 5  stage5_finalize.py  Deck quiz + summary → mark run COMPLETED
+Modules
+-------
+unified_orchestrator.py  Server-authoritative parse pipeline (Arq job target:
+                         ``parse_pdf_unified``); per-slide + lecture-level synthesis.
+synthesis.py             LLM synthesis helpers (analyze_slide / analyze_lecture_meta /
+                         generate_quiz_questions / _map_deck_quiz).
+storage.py               PDF-bytes fetch from Supabase Storage.
+persist.py, repos.py     Server-authoritative persistence + run lifecycle.
 
-Entry point: orchestrator.parse_pdf (Arq job target)
+The legacy v3 (five-stage) and v4 orchestrators have been archived to
+``backend/_legacy/`` (flag-not-delete); nothing here imports them.
 """

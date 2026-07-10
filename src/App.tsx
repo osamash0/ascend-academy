@@ -70,7 +70,6 @@ const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
 const ProfessorAnalytics = lazy(() => import("./pages/ProfessorAnalytics"));
 const AdvancedAnalytics = lazy(() => import("./pages/AdvancedAnalytics"));
 const LectureUpload = lazy(() => import("./pages/LectureUpload"));
-const FastUpload = lazy(() => import("./pages/FastUpload"));
 const LectureEdit = lazy(() => import("./pages/LectureEdit"));
 const ProfessorCourses = lazy(() => import("./pages/ProfessorCourses"));
 const ProfessorCourseDetail = lazy(() => import("./pages/ProfessorCourseDetail"));
@@ -338,16 +337,8 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path={ProfessorRoutes.FAST_UPLOAD}
-          element={
-            <ProtectedRoute allowedRoles={['professor']}>
-              <ConsoleLayout>
-                <FastUpload />
-              </ConsoleLayout>
-            </ProtectedRoute>
-          }
-        />
+        {/* Fast Upload was retired — redirect old links to the main upload page. */}
+        <Route path={ProfessorRoutes.FAST_UPLOAD} element={<Navigate to={ProfessorRoutes.UPLOAD} replace />} />
         <Route
           path={ProfessorRoutes.COURSES}
           element={

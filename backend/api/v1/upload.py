@@ -19,10 +19,15 @@ from backend.services.cache import (
     purge_expired_slide_checkpoints,
 )
 from backend.core.database import supabase_admin  # ADMIN: cross-tenant authorization lookup for diagnostics and lectures
+from backend.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-MAX_FILE_MB = 25
+# Single source of truth for the upload size limit (backend/core/config.py).
+MAX_FILE_MB = settings.max_upload_mb
+
+# Extensions the upload pipeline accepts (served to the frontend for parity).
+ACCEPTED_UPLOAD_EXTENSIONS = [".pdf", ".pptx"]
 
 class SlideMetadata(BaseModel):
     filename: str
@@ -44,6 +49,18 @@ class ParsedSlideBatchResponse(BaseModel):
     total: int
 
 router = APIRouter(prefix="/upload", tags=["upload"])
+
+@router.get("/config")
+async def upload_config_endpoint():
+    """Upload constraints for the client so it enforces the same limits.
+
+    Public (no auth): exposes only non-sensitive limits, and the client needs
+    them before the user picks a file.
+    """
+    return {
+        "maxUploadMb": MAX_FILE_MB,
+        "acceptedExtensions": ACCEPTED_UPLOAD_EXTENSIONS,
+    }
 
 @router.post("/parse-pdf-stream")
 @limiter.limit("5/minute")
@@ -89,17 +106,11 @@ async def parse_pdf_stream_endpoint(
     cached = None if force_reparse else await get_cached_parse(pdf_hash, parsing_mode=parsing_mode)
     
     if cached:
-        from backend.core.config import settings as _cfg
+        # The unified (v5) pipeline is the only parse path. Drop any cache that
+        # wasn't produced by it (e.g. legacy v4-shaped slides) so we never replay
+        # content in a shape the current pipeline no longer emits (PDF-10).
         cached_parser = cached.get("parser") or "pymupdf"
-        requested_parser = parser
-        if parser == "auto":
-            if str(_cfg.parser_version) == "5": requested_parser = "unified"
-            elif str(_cfg.parser_version) == "4": requested_parser = "v4"
-            elif str(_cfg.parser_version) == "3": requested_parser = "v3"
-            else: requested_parser = "auto"
-        # Drop a cache produced by a different pipeline so we never replay, e.g.,
-        # v4-shaped slides when the live pipeline is v5/unified (PDF-10).
-        if requested_parser in ("v4", "v3", "unified") and cached_parser != requested_parser:
+        if cached_parser not in ("unified", "llamaparse", "mineru", "opendataloader-pdf", "markitdown"):
             cached = None
 
     if cached:
@@ -142,7 +153,7 @@ async def parse_pdf_stream_endpoint(
         upload_service.process_pdf_stream(
             content=content, filename=filename, pdf_hash=pdf_hash, page_count=page_count,
             ai_model=ai_model, use_blueprint=use_blueprint, parsing_mode=parsing_mode,
-            parser=parser, lecture_id=lecture_id, user_id=user_id
+            parser=parser, lecture_id=lecture_id, user_id=user_id, force_reparse=force_reparse
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
@@ -300,6 +311,92 @@ async def attach_lecture_endpoint(
     except Exception as e:
         logger.error("attach-lecture failed: %s", e)
         raise HTTPException(status_code=500, detail="Authorization check failed.")
+
+@router.post("/enhance-slide/{slide_id}")
+@limiter.limit("60/minute")
+async def enhance_slide_endpoint(
+    request: Request,
+    slide_id: str,
+    ai_model: str = "auto",
+    user: Any = Depends(require_professor),
+):
+    """Run the unified per-slide synthesis on a single slide that was imported
+    with 'Skip AI' (ai_enhanced=false), then flip the flag.
+
+    Reuses ``unified_orchestrator._synthesize_slide`` so an enhanced slide is
+    identical to one produced by a full AI parse. Idempotent: an already-enhanced
+    slide is returned unchanged.
+    """
+    user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    try:
+        srow = (
+            supabase_admin.table("slides")
+            .select("id, lecture_id, slide_number, content_text, title, summary, ai_enhanced")
+            .eq("id", slide_id).limit(1).execute()
+        )
+        rows = srow.data or []
+        if not rows:
+            raise HTTPException(status_code=404, detail="Slide not found.")
+        slide = rows[0]
+
+        lrow = (
+            supabase_admin.table("lectures")
+            .select("id, professor_id, title, description, pdf_hash")
+            .eq("id", slide["lecture_id"]).limit(1).execute()
+        )
+        lecture = (lrow.data or [None])[0]
+        if not lecture:
+            raise HTTPException(status_code=404, detail="Lecture not found.")
+        if lecture.get("professor_id") != user_id:
+            raise HTTPException(status_code=403, detail="You do not own this slide.")
+
+        # Idempotent: don't re-spend LLM on an already-enhanced slide.
+        if slide.get("ai_enhanced"):
+            return {"slide_id": slide_id, "title": slide.get("title"),
+                    "summary": slide.get("summary"), "ai_enhanced": True, "already_enhanced": True}
+
+        from backend.core.config import settings as _cfg
+        from backend.services.parser import unified_orchestrator as _uo
+        from backend.services.parser.storage import _fetch_pdf_bytes
+
+        resolved_model = ai_model if (ai_model and ai_model.lower() != "auto") else (_cfg.parser_llm_model or "cerebras")
+        lecture_context = f"{lecture.get('title') or ''}: {lecture.get('description') or ''}".strip(": ")
+        idx0 = int(slide.get("slide_number") or 1) - 1
+        content_text = slide.get("content_text") or ""
+
+        pdf_bytes = b""
+        if lecture.get("pdf_hash"):
+            pdf_bytes = await _fetch_pdf_bytes(lecture["pdf_hash"]) or b""
+
+        res = await _uo._synthesize_slide(idx0, content_text, lecture_context, resolved_model, pdf_bytes)
+        new_title = (res.get("title") or "").strip() or slide.get("title") or f"Slide {idx0 + 1}"
+        new_summary = (res.get("summary") or "").strip()
+        new_content = (res.get("content") or "").strip() or content_text
+
+        supabase_admin.table("slides").update({
+            "title": new_title,
+            "summary": new_summary,
+            "content_text": new_content,
+            "ai_enhanced": True,
+            "parser_engine": "unified",
+        }).eq("id", slide_id).execute()
+
+        # Refresh this slide's embedding (best-effort; keyed by pdf_hash+index).
+        if lecture.get("pdf_hash"):
+            try:
+                import asyncio as _asyncio
+                from backend.services.file_parse_service import _safe_embedding_task
+                ui_slide = {"title": new_title, "content": new_content, "summary": new_summary}
+                await _safe_embedding_task(idx0, ui_slide, lecture["pdf_hash"], [], _asyncio.Semaphore(1))
+            except Exception as exc:
+                logger.warning("enhance-slide embedding refresh failed (non-fatal): %s", exc)
+
+        return {"slide_id": slide_id, "title": new_title, "summary": new_summary, "ai_enhanced": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("enhance-slide failed for %s: %s", slide_id, e)
+        raise HTTPException(status_code=500, detail="Slide enhancement failed.")
 
 @router.post("/parse-raw")
 @limiter.limit("10/minute")

@@ -1,23 +1,15 @@
 import logging
 import json
 import asyncio
-from typing import Any, List, Dict, Optional, AsyncGenerator
-from uuid import UUID
+from typing import Any, Dict, Optional, AsyncGenerator
 from fastapi import UploadFile
 
-from backend.services.file_parse_service import parse_pdf_stream, import_pdf_lazy, _safe_embedding_task
-from backend.services.slide_synth_service import synthesize_slide
-from backend.core.database import get_client, supabase_admin  # ADMIN: required for background storage operations
-from backend.services.cache import (
-    compute_pdf_hash,
-    get_cached_parse,
-    store_cached_parse,
-)
+from backend.services.file_parse_service import import_pdf_lazy
+from backend.core.database import get_client  # ADMIN: required for background storage operations
 from backend.core.file_validation import validate_pdf_content, sanitize_filename
 
 logger = logging.getLogger(__name__)
 
-MAX_FILE_MB = 25
 MAX_PAGES = 300
 
 _arq_pool = None
@@ -122,45 +114,6 @@ async def validate_upload(filename: Optional[str], content: bytes) -> int:
         
     return page_count
 
-async def _v3_sse_stream(pdf_hash: str, run_id: str) -> AsyncGenerator[str, None]:
-    import redis.asyncio as aioredis
-    from backend.core.config import settings
-    from backend.services.parser import repos
-    from backend.domain.parse_models import RunStatus
-
-    redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
-    channel = f"parse:{pdf_hash}"
-
-    try:
-        async with redis_client.pubsub() as pubsub:
-            await pubsub.subscribe(channel)
-
-            try:
-                run = await repos.get_run_by_id(UUID(run_id))
-                if run:
-                    completed = await repos.get_completed_pages(run.run_id)
-                    for slide in completed:
-                        yield f"data: {json.dumps({'type': 'slide_ready', 'data': slide.model_dump()})}\n\n"
-                    if run.status == RunStatus.COMPLETED:
-                        yield f"data: {json.dumps({'type': 'complete', 'data': {'run_id': run_id}})}\n\n"
-                        return
-            except Exception as e:
-                logger.warning("v3 SSE replay failed: %s", e)
-
-            async for message in pubsub.listen():
-                if message.get("type") != "message":
-                    continue
-                try:
-                    event = json.loads(message["data"])
-                    yield f"data: {json.dumps(event)}\n\n"
-                    if event.get("type") in ("complete", "error", "deck_complete"):
-                        if event.get("type") in ("complete", "error"):
-                            break
-                except Exception:
-                    continue
-    finally:
-        await redis_client.aclose()
-
 async def process_pdf_stream(
     content: bytes,
     filename: str,
@@ -172,9 +125,8 @@ async def process_pdf_stream(
     parser: str,
     lecture_id: Optional[str],
     user_id: Optional[str] = None,
+    force_reparse: bool = False,
 ) -> AsyncGenerator[str, None]:
-    collected_slides: List[Dict[str, Any]] = []
-    collected_deck: Dict[str, Any] = {}
     odl_pages = None
     odl_succeeded = False
     parser_used = "pymupdf"
@@ -211,227 +163,104 @@ async def process_pdf_stream(
 
     from backend.core.config import settings as _cfg
 
-    # ── Unified pipeline branch (PARSER_VERSION=5) ─────────────────────────────
+    if str(_cfg.parser_version) != "5":
+        logger.warning(
+            "PARSER_VERSION=%s is retired; running the unified (v5) pipeline instead.",
+            _cfg.parser_version,
+        )
+
+    # ── Unified pipeline (the only parse path) ─────────────────────────────────
     # Server-authoritative: parse_pdf_unified creates the lecture + persists
     # slides/quizzes itself and emits the lecture_id on the `meta` event.
-    # Additive — inert at PARSER_VERSION=4 unless `parser=unified` is requested.
-    if parser == "unified" or (
-        parser in ("auto", "llamaparse", "mineru", "opendataloader", "markitdown")
-        and str(_cfg.parser_version) == "5"
-    ):
-        import uuid
-        run_id = str(uuid.uuid4())
-        await upload_pdf_to_storage(pdf_hash, content)
-        unified_parser_label = parser_used if odl_succeeded else "unified"
-        # The unified pipeline's text LLM is server-configured by default
-        # (e.g. OpenAI), but explicitly selected models in the UI take precedence.
-        # Falls back to PARSER_LLM_MODEL if 'auto' or not provided.
-        if ai_model and ai_model.lower() != "auto":
-            unified_ai_model = ai_model
-        else:
-            unified_ai_model = _cfg.parser_llm_model or "cerebras"
+    import uuid
+    run_id = str(uuid.uuid4())
+    await upload_pdf_to_storage(pdf_hash, content)
+    unified_parser_label = parser_used if odl_succeeded else "unified"
+    # The unified pipeline's text LLM is server-configured by default
+    # (e.g. OpenAI), but explicitly selected models in the UI take precedence.
+    # Falls back to PARSER_LLM_MODEL if 'auto' or not provided.
+    if ai_model and ai_model.lower() != "auto":
+        unified_ai_model = ai_model
+    else:
+        unified_ai_model = _cfg.parser_llm_model or "cerebras"
 
-        use_arq = True
-        try:
-            pool = await get_arq_pool()
-            await pool.enqueue_job(
-                "parse_pdf_unified",
-                pdf_hash=pdf_hash,
-                lecture_id="",          # unified creates + owns the lecture
-                run_id=run_id,
-                ai_model=unified_ai_model,
-                user_id=str(user_id),
-                filename=filename,
-                odl_pages=odl_pages,
-                parser_used=unified_parser_label,
-            )
-        except Exception as e:
-            logger.warning("Redis connection failed, running unified synchronously: %s", e)
-            use_arq = False
-
-        if use_arq:
-            import redis.asyncio as aioredis
-            redis_client = aioredis.from_url(_cfg.redis_url, decode_responses=True)
-            channel = f"parse:{pdf_hash}"
-            try:
-                async with redis_client.pubsub() as pubsub:
-                    await pubsub.subscribe(channel)
-                    async for message in pubsub.listen():
-                        if message.get("type") != "message":
-                            continue
-                        try:
-                            event = json.loads(message["data"])
-                            yield f"data: {json.dumps(event)}\n\n"
-                            if event.get("type") in ("complete", "error"):
-                                break
-                        except Exception:
-                            continue
-            finally:
-                await redis_client.aclose()
-            return
-        else:
-            q = asyncio.Queue()
-
-            async def emit_fn(event_type: str, data: dict):
-                await q.put({"type": event_type, **data})
-
-            from backend.services.parser.unified_orchestrator import parse_pdf_unified
-
-            task = asyncio.create_task(parse_pdf_unified(
-                ctx={},
-                pdf_hash=pdf_hash,
-                lecture_id="",
-                run_id=run_id,
-                ai_model=unified_ai_model,
-                user_id=str(user_id),
-                filename=filename,
-                emit_fn=emit_fn,
-                odl_pages=odl_pages,
-                parser_used=unified_parser_label,
-            ))
-
-            while True:
-                try:
-                    event = await asyncio.wait_for(q.get(), timeout=1.0)
-                    yield f"data: {json.dumps(event)}\n\n"
-                    if event.get("type") in ("complete", "error"):
-                        break
-                except asyncio.TimeoutError:
-                    if task.done():
-                        if task.exception():
-                            logger.error("Sync unified parser failed: %s", task.exception())
-                            yield f"data: {json.dumps({'type': 'error', 'message': str(task.exception())})}\n\n"
-                        break
-                    continue
-            return
-
-    if parser in ("v4", "llamaparse", "mineru", "opendataloader", "markitdown") or (parser == "auto" and str(_cfg.parser_version) == "4"):
-        import uuid
-        run_id = str(uuid.uuid4())
-        await upload_pdf_to_storage(pdf_hash, content)
-        
-        lecture_uuid = UUID(lecture_id) if lecture_id else None
-        use_arq = True
-        try:
-            pool = await get_arq_pool()
-            await pool.enqueue_job(
-                "parse_pdf_v4",
-                pdf_hash=pdf_hash,
-                lecture_id=str(lecture_uuid) if lecture_uuid else "",
-                run_id=run_id,
-                ai_model=ai_model,
-                odl_pages=odl_pages,
-                parser_used=parser_used,
-            )
-        except Exception as e:
-            logger.warning("Redis connection failed, running v4 synchronously: %s", e)
-            use_arq = False
-
-        if use_arq:
-            import redis.asyncio as aioredis
-            redis_client = aioredis.from_url(_cfg.redis_url, decode_responses=True)
-            channel = f"parse:{pdf_hash}"
-            try:
-                async with redis_client.pubsub() as pubsub:
-                    await pubsub.subscribe(channel)
-                    async for message in pubsub.listen():
-                        if message.get("type") != "message":
-                            continue
-                        try:
-                            event = json.loads(message["data"])
-                            yield f"data: {json.dumps(event)}\n\n"
-                            if event.get("type") in ("complete", "error"):
-                                break
-                        except Exception:
-                            continue
-            finally:
-                await redis_client.aclose()
-            return
-        else:
-            q = asyncio.Queue()
-            async def emit_fn(event_type: str, data: dict):
-                await q.put({"type": event_type, **data})
-            from backend.services.parser.v4_orchestrator import parse_pdf_v4
-            task = asyncio.create_task(parse_pdf_v4(
-                ctx={}, pdf_hash=pdf_hash, lecture_id=str(lecture_uuid) if lecture_uuid else "",
-                run_id=run_id, ai_model=ai_model, emit_fn=emit_fn,
-                odl_pages=odl_pages, parser_used=parser_used,
-            ))
-            while True:
-                try:
-                    event = await asyncio.wait_for(q.get(), timeout=1.0)
-                    if event.get("type") == "slide":
-                        collected_slides.append(event["slide"])
-                    elif event.get("type") == "deck_complete":
-                        collected_deck.update({
-                            "deck_summary": event.get("deck_summary", ""),
-                            "deck_quiz": event.get("deck_quiz", []),
-                        })
-                    yield f"data: {json.dumps(event)}\n\n"
-                    if event.get("type") in ("complete", "error"):
-                        if collected_slides:
-                            await store_cached_parse(
-                                pdf_hash,
-                                {"slides": collected_slides, "deck": collected_deck, "parser": "v4"}
-                            )
-                        break
-                except asyncio.TimeoutError:
-                    if task.done():
-                        if task.exception():
-                            yield f"data: {json.dumps({'type': 'error', 'message': str(task.exception())})}\n\n"
-                        break
-                    continue
-            return
-
-    if parser == "v3" or (parser == "auto" and str(_cfg.parser_version) == "3"):
-        await upload_pdf_to_storage(pdf_hash, content)
-        from backend.services.parser import repos as _repos
-        from backend.domain.parse_models import PIPELINE_VERSION as _PV
-        lecture_uuid = UUID(lecture_id) if lecture_id else None
-        run = await _repos.get_or_create_run(pdf_hash, lecture_uuid, _PV)
+    use_arq = True
+    try:
         pool = await get_arq_pool()
         await pool.enqueue_job(
-            "parse_pdf",
+            "parse_pdf_unified",
             pdf_hash=pdf_hash,
-            lecture_id=str(lecture_uuid) if lecture_uuid else "",
-            run_id=str(run.run_id),
+            lecture_id="",          # unified creates + owns the lecture
+            run_id=run_id,
+            ai_model=unified_ai_model,
+            user_id=str(user_id),
+            filename=filename,
+            odl_pages=odl_pages,
+            parser_used=unified_parser_label,
+            force_reparse=force_reparse,
+            parsing_mode=parsing_mode,
         )
-        async for msg in _v3_sse_stream(pdf_hash, str(run.run_id)):
-            yield msg
-        return
-
-    if parser == "auto":
-        try:
-            from backend.services.odl_service import extract_pages as _odl
-            odl_pages = await _odl(content, filename)
-            odl_succeeded = True
-        except Exception:
-            pass
-        parser_used = "opendataloader-pdf" if odl_succeeded else "pymupdf"
-
-    yield f"data: {json.dumps({'type': 'info', 'parser': parser_used})}\n\n"
-    try:
-        async for update in parse_pdf_stream(content, filename=filename, ai_model=ai_model, use_blueprint=use_blueprint, odl_pages=odl_pages, parsing_mode=parsing_mode):
-            if update.get("type") == "slide":
-                collected_slides.append(update["slide"])
-            elif update.get("type") == "deck_complete":
-                collected_deck = {
-                    "deck_summary": update.get("deck_summary", ""),
-                    "deck_quiz": update.get("deck_quiz", []),
-                }
-            yield f"data: {json.dumps(update)}\n\n"
     except Exception as e:
-        logger.error("Streaming parse failed after %d slides: %s", len(collected_slides), e, exc_info=True)
-        if collected_slides:
-            yield f"data: {json.dumps({'type': 'partial_complete', 'slides_processed': len(collected_slides), 'total_expected': page_count})}\n\n"
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'recoverable': len(collected_slides) > 0})}\n\n"
-    finally:
-        if collected_slides:
-            await store_cached_parse(
-                pdf_hash,
-                {"slides": collected_slides, "deck": collected_deck, "parser": parser_used, "parsing_mode": parsing_mode},
-                parsing_mode=parsing_mode,
-            )
+        logger.warning("Redis connection failed, running unified synchronously: %s", e)
+        use_arq = False
+
+    if use_arq:
+        import redis.asyncio as aioredis
+        redis_client = aioredis.from_url(_cfg.redis_url, decode_responses=True)
+        channel = f"parse:{pdf_hash}"
+        try:
+            async with redis_client.pubsub() as pubsub:
+                await pubsub.subscribe(channel)
+                async for message in pubsub.listen():
+                    if message.get("type") != "message":
+                        continue
+                    try:
+                        event = json.loads(message["data"])
+                        yield f"data: {json.dumps(event)}\n\n"
+                        if event.get("type") in ("complete", "error"):
+                            break
+                    except Exception:
+                        continue
+        finally:
+            await redis_client.aclose()
+        return
+    else:
+        q = asyncio.Queue()
+
+        async def emit_fn(event_type: str, data: dict):
+            await q.put({"type": event_type, **data})
+
+        from backend.services.parser.unified_orchestrator import parse_pdf_unified
+
+        task = asyncio.create_task(parse_pdf_unified(
+            ctx={},
+            pdf_hash=pdf_hash,
+            lecture_id="",
+            run_id=run_id,
+            ai_model=unified_ai_model,
+            user_id=str(user_id),
+            filename=filename,
+            emit_fn=emit_fn,
+            odl_pages=odl_pages,
+            parser_used=unified_parser_label,
+            force_reparse=force_reparse,
+            parsing_mode=parsing_mode,
+        ))
+
+        while True:
+            try:
+                event = await asyncio.wait_for(q.get(), timeout=1.0)
+                yield f"data: {json.dumps(event)}\n\n"
+                if event.get("type") in ("complete", "error"):
+                    break
+            except asyncio.TimeoutError:
+                if task.done():
+                    if task.exception():
+                        logger.error("Sync unified parser failed: %s", task.exception())
+                        yield f"data: {json.dumps({'type': 'error', 'message': str(task.exception())})}\n\n"
+                    break
+                continue
+        return
 
 async def process_pdf_lazy(content: bytes, filename: str, ai_model: str) -> AsyncGenerator[str, None]:
     yield f"data: {json.dumps({'type': 'info', 'parser': 'pymupdf-lazy'})}\n\n"

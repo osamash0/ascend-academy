@@ -1,8 +1,16 @@
 export interface SlideData {
+  /** Persisted slide row id (present once the slide exists server-side). */
+  id?: string;
   title: string;
   content: string;
   summary: string;
   questions: QuestionData[];
+  /**
+   * False for slides imported with "Skip AI" (parsing_mode='on_demand'); such
+   * slides can be enhanced later via the enhance-slide endpoint. Undefined for
+   * legacy/AI slides (treated as enhanced).
+   */
+  ai_enhanced?: boolean;
 }
 
 export interface QuestionData {

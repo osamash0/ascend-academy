@@ -111,15 +111,27 @@ async def clear_lecture_content(lecture_id: UUID) -> None:
 
 # ── slides ─────────────────────────────────────────────────────────────────
 
-async def insert_slide(lecture_id: UUID, slide_index: int, slide: Dict[str, Any]) -> UUID:
-    """Insert one slide row (mapping the SSE slide dict → slides columns)."""
+async def insert_slide(
+    lecture_id: UUID,
+    slide_index: int,
+    slide: Dict[str, Any],
+    *,
+    ai_enhanced: bool = True,
+    parser_engine: str = "unified",
+) -> UUID:
+    """Insert one slide row (mapping the SSE slide dict → slides columns).
+
+    ``ai_enhanced=False`` + ``parser_engine='heuristic-v1'`` marks a slide that
+    skipped LLM synthesis (parsing_mode='on_demand'); the editor can later
+    enhance it via the enhance-slide endpoint.
+    """
     slide_id = uuid4()
     await _execute(
         """
         INSERT INTO slides
           (id, lecture_id, slide_number, title, content_text, summary,
            slide_type, context_note, image_url, ai_enhanced, parser_engine)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, 'unified')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         """,
         slide_id,
         lecture_id,
@@ -130,6 +142,8 @@ async def insert_slide(lecture_id: UUID, slide_index: int, slide: Dict[str, Any]
         slide.get("slide_type"),
         slide.get("context_note"),
         slide.get("image_url"),
+        ai_enhanced,
+        parser_engine,
     )
     return slide_id
 

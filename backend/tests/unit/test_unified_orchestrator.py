@@ -73,12 +73,12 @@ async def test_create_lecture_requires_owner(monkeypatch):
 # ── _synthesize_slide: text vs vision routing ────────────────────────────────
 
 async def test_synthesize_slide_uses_text_when_present(monkeypatch):
-    import backend.services.parser.v4_orchestrator as v4
+    import backend.services.parser.synthesis as synthesis
 
     async def fake_analyze_slide(num, text, ctx, model):
         return {"title": "Real Title", "aiInsight": "A clear explanation.", "slideType": "text"}
 
-    monkeypatch.setattr(v4, "analyze_slide", fake_analyze_slide)
+    monkeypatch.setattr(synthesis, "analyze_slide", fake_analyze_slide)
     out = await uo._synthesize_slide(0, "A slide with plenty of real text content here.", "ctx", "openai", b"")
     assert out["title"] == "Real Title"
     assert out["summary"] == "A clear explanation."
@@ -142,8 +142,9 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def set_lecture_pdf_url(lid, url):
         rec["pdf"].append((lid, url))
 
-    async def insert_slide(lecture_id, idx, slide):
+    async def insert_slide(lecture_id, idx, slide, *, ai_enhanced=True, parser_engine="unified"):
         rec["slides"].append((idx, slide.get("title"), slide.get("summary")))
+        rec.setdefault("slide_flags", []).append((idx, ai_enhanced, parser_engine))
         return uuid4()
 
     async def insert_slide_quizzes(sid, questions):
@@ -173,7 +174,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(persist, "insert_deck_quizzes", insert_deck_quizzes)
     monkeypatch.setattr(persist, "finalize_lecture", finalize_lecture)
 
-    import backend.services.parser.v4_orchestrator as v4
+    import backend.services.parser.synthesis as synthesis
     import backend.services.file_parse_service as fps
     import backend.services.cache as cache
 
@@ -189,8 +190,8 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def attach(pdf_hash, lid):
         return 0
 
-    monkeypatch.setattr(v4, "analyze_lecture_meta", meta)
-    monkeypatch.setattr(v4, "generate_quiz_questions", quiz)
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", meta)
+    monkeypatch.setattr(synthesis, "generate_quiz_questions", quiz)
     monkeypatch.setattr(fps, "_safe_embedding_task", embed)
     monkeypatch.setattr(cache, "attach_lecture_id_to_embeddings", attach)
     return rec, run
@@ -244,6 +245,44 @@ async def test_parse_pdf_unified_replays_when_completed(monkeypatch):
     assert rec["lectures"] == []  # no new lecture on replay
 
 
+async def test_parse_pdf_unified_force_reparse_rebuilds_completed(monkeypatch):
+    """force_reparse=True must NOT replay a COMPLETED run — it re-synthesizes and
+    rebuilds the existing lecture in place (same lecture_id, no duplicate)."""
+    existing = uuid4()
+    rec, run = _patch_common(monkeypatch, run_status=RunStatus.COMPLETED, lecture_id=existing)
+
+    async def fake_replay(lecture_id):
+        raise AssertionError("replay must not run when force_reparse=True")
+
+    monkeypatch.setattr(persist, "fetch_lecture_for_replay", fake_replay)
+    events = await _run("h", OWNER, filename="L.pdf", force_reparse=True)
+
+    types_seq = [t for t, _ in events]
+    assert types_seq[-1] == "complete"
+    assert rec["cleared"] == [existing]      # stale slides cleared, lecture reused
+    assert rec["lectures"] == []             # NO new lecture created
+    assert [s[0] for s in rec["slides"]] == [0, 1, 2]  # re-synthesized fresh
+    assert RunStatus.COMPLETED in rec["status"]
+
+
+async def test_parse_pdf_unified_completed_replays_without_force(monkeypatch):
+    """The default (force_reparse=False) still replays a COMPLETED run from DB."""
+    existing = uuid4()
+    rec, run = _patch_common(monkeypatch, run_status=RunStatus.COMPLETED, lecture_id=existing)
+
+    replayed = {"called": False}
+
+    async def fake_replay(lecture_id):
+        replayed["called"] = True
+        return {"slides": [], "deck_summary": "DS"}
+
+    monkeypatch.setattr(persist, "fetch_lecture_for_replay", fake_replay)
+    await _run("h", OWNER, force_reparse=False)
+    assert replayed["called"] is True
+    assert rec["cleared"] == []              # no re-synthesis on replay
+    assert rec["slides"] == []
+
+
 async def test_parse_pdf_unified_resume_reuses_lecture(monkeypatch):
     existing = uuid4()
     rec, run = _patch_common(monkeypatch, run_status=RunStatus.FAILED, lecture_id=existing)
@@ -252,6 +291,40 @@ async def test_parse_pdf_unified_resume_reuses_lecture(monkeypatch):
     assert rec["lectures"] == []                 # NO new lecture
     assert rec["titled"] and rec["titled"][0][0] == existing
     assert RunStatus.COMPLETED in rec["status"]
+
+
+async def test_parse_pdf_unified_on_demand_skips_all_ai(monkeypatch):
+    """parsing_mode='on_demand' persists raw slides with NO LLM calls, no deck
+    quiz, and ai_enhanced=False / parser_engine='heuristic-v1'."""
+    rec, run = _patch_common(monkeypatch, pages=["raw text 0", "raw text 1"])
+
+    import backend.services.parser.synthesis as synthesis
+
+    async def boom_meta(slides, model):
+        raise AssertionError("analyze_lecture_meta must not run in on_demand")
+
+    async def boom_synth(idx, text, ctx, model, pdf):
+        raise AssertionError("_synthesize_slide must not run in on_demand")
+
+    async def boom_quiz(slides, title, model):
+        raise AssertionError("generate_quiz_questions must not run in on_demand")
+
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", boom_meta)
+    monkeypatch.setattr(uo, "_synthesize_slide", boom_synth)
+    monkeypatch.setattr(synthesis, "generate_quiz_questions", boom_quiz)
+
+    events = await _run("h", OWNER, filename="Deck.pdf", parsing_mode="on_demand")
+
+    types_seq = [t for t, _ in events]
+    assert types_seq[-1] == "complete"
+    # All slides persisted, flagged not-AI-enhanced via the heuristic engine.
+    assert [f[1] for f in rec["slide_flags"]] == [False, False]
+    assert all(f[2] == "heuristic-v1" for f in rec["slide_flags"])
+    # No deck quiz persisted; content is the raw extracted text.
+    assert rec["deck_quiz"] == [0]
+    slide_evts = [d["slide"] for t, d in events if t == "slide"]
+    assert slide_evts[0]["content"] == "raw text 0"
+    assert slide_evts[0]["ai_enhanced"] is False
 
 
 async def test_parse_pdf_unified_pdf_missing_errors(monkeypatch):

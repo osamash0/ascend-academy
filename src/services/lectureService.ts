@@ -3,8 +3,26 @@
  * All supabase access for the lecture domain goes through here.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/apiClient';
 import type { Lecture, Slide, QuizQuestion } from '@/types/domain';
 import { toSlug } from '@/lib/utils';
+
+export interface EnhancedSlideResult {
+  slide_id: string;
+  title: string;
+  summary: string;
+  ai_enhanced: boolean;
+  already_enhanced?: boolean;
+}
+
+/**
+ * Run the unified per-slide synthesis on a slide imported with "Skip AI"
+ * (ai_enhanced=false) and flip the flag. Server-authoritative — the row is
+ * updated server-side; the returned title/summary let the editor refresh in place.
+ */
+export async function enhanceSlide(slideId: string): Promise<EnhancedSlideResult> {
+  return apiClient.post<EnhancedSlideResult>(`/api/upload/enhance-slide/${slideId}`, {});
+}
 
 
 /**

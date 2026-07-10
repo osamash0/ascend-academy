@@ -21,6 +21,7 @@ import {
   updateSlideContent,
   deleteSlideWithQuestions,
   deleteLecture,
+  enhanceSlide,
 } from "@/services/lectureService";
 
 beforeEach(() => supabaseMock.reset());
@@ -148,5 +149,15 @@ describe("deleteLecture", () => {
     expect(supabaseMock.data["student_progress"].rows).toEqual([]);
     expect(supabaseMock.data["slides"].rows).toEqual([]);
     expect(supabaseMock.data["lectures"].rows).toEqual([]);
+  });
+});
+
+describe("enhanceSlide", () => {
+  it("posts to the enhance endpoint and returns the enhanced fields", async () => {
+    // Served by the default MSW handler for /api/upload/enhance-slide/:id.
+    const res = await enhanceSlide("SL1");
+    expect(res.ai_enhanced).toBe(true);
+    expect(res.title).toBe("Enhanced");
+    expect(res.summary).toBe("Summary.");
   });
 });

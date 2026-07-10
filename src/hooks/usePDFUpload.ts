@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiClient } from '@/lib/apiClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAiModel } from '@/hooks/use-ai-model';
@@ -7,7 +7,25 @@ import { usePDFPipelineMode } from '@/hooks/usePDFPipelineMode';
 import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
 import type { DuplicateMatch } from '@/components/DuplicatePDFDialog';
 
-const MAX_PDF_BYTES = 50 * 1024 * 1024; // 50 MB
+// The max upload size is owned by the backend (config MAX_UPLOAD_MB) and served
+// by GET /api/upload/config. We cache it module-wide and fall back to this value
+// until the fetch resolves; it matches the backend default so the fallback never
+// diverges. The backend re-enforces the limit regardless (413).
+const FALLBACK_MAX_UPLOAD_MB = 50;
+let cachedMaxUploadMb = FALLBACK_MAX_UPLOAD_MB;
+let uploadConfigLoaded = false;
+
+async function loadUploadConfig(): Promise<void> {
+  if (uploadConfigLoaded) return;
+  uploadConfigLoaded = true;
+  try {
+    const cfg = await apiClient.get<{ maxUploadMb?: number }>('/api/upload/config');
+    if (cfg?.maxUploadMb && cfg.maxUploadMb > 0) cachedMaxUploadMb = cfg.maxUploadMb;
+  } catch {
+    uploadConfigLoaded = false; // allow a later retry; keep the fallback for now
+  }
+}
+
 const UPLOAD_TIMEOUT_MS = 10 * 60_000; // 10 minutes — LLM batch analysis can be slow
 
 interface UsePDFUploadOptions {
@@ -49,8 +67,8 @@ function validatePdfFile(
     toast({ title: 'Invalid file type', description: 'Please upload a PDF or PowerPoint (.pptx) file.', variant: 'destructive' });
     return false;
   }
-  if (file.size > MAX_PDF_BYTES) {
-    toast({ title: 'File too large', description: 'File must be under 50 MB.', variant: 'destructive' });
+  if (file.size > cachedMaxUploadMb * 1024 * 1024) {
+    toast({ title: 'File too large', description: `File must be under ${cachedMaxUploadMb} MB.`, variant: 'destructive' });
     return false;
   }
   return true;
@@ -61,6 +79,10 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
   const { aiModel } = useAiModel();
   const { parsingMode } = useParsingMode();
   const { isLazy } = usePDFPipelineMode();
+
+  // Hydrate the server-owned upload limit once so client-side validation
+  // rejects with the same number the backend enforces.
+  useEffect(() => { void loadUploadConfig(); }, []);
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);

@@ -1,3 +1,9 @@
+"""RETIRED (Phase-0 legacy sweep): the standalone Fast Upload pipeline.
+
+This parallel path was superseded by the unified (v5) pipeline. It is no longer
+mounted in backend/main.py and is kept here only for reference / revertability.
+Do not import from application code.
+"""
 import logging
 import json
 import asyncio

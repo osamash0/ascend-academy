@@ -43,7 +43,7 @@ async def wired_pool(pg_dsn, applied_migrations):
 def _patch_synthesis(monkeypatch, *, pages, deck_quiz):
     """Mock everything except persistence (which hits the real DB)."""
     import backend.services.parser.unified_orchestrator as uo
-    import backend.services.parser.v4_orchestrator as v4
+    import backend.services.parser.synthesis as synthesis
     import backend.services.file_parse_service as fps
     import backend.services.cache as cache
 
@@ -55,8 +55,8 @@ def _patch_synthesis(monkeypatch, *, pages, deck_quiz):
     monkeypatch.setattr(uo, "_store_lecture_pdf", _areturn(None))
     monkeypatch.setattr(uo, "_extract_pages", lambda pdf, odl=None: pages)
     monkeypatch.setattr(uo, "_synthesize_slide", synth)
-    monkeypatch.setattr(v4, "analyze_lecture_meta", _areturn({"title": "E2E Lecture", "summary": "Deck summary."}))
-    monkeypatch.setattr(v4, "generate_quiz_questions", _areturn(deck_quiz))
+    monkeypatch.setattr(synthesis, "analyze_lecture_meta", _areturn({"title": "E2E Lecture", "summary": "Deck summary."}))
+    monkeypatch.setattr(synthesis, "generate_quiz_questions", _areturn(deck_quiz))
     monkeypatch.setattr(fps, "_safe_embedding_task", _areturn(None))
     monkeypatch.setattr(cache, "attach_lecture_id_to_embeddings", _areturn(0))
 

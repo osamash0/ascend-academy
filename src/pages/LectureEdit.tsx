@@ -4,7 +4,7 @@ import { useAiModel } from '@/hooks/use-ai-model';
 import { motion } from 'framer-motion';
 import { Save, Plus, Trash2, CheckCircle2, Loader2, Sparkles, ArrowLeft, FileText, Upload, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { insertQuizQuestion, updateQuizQuestion, deleteSlideWithQuestions, resolvePdfUrl } from '@/services/lectureService';
+import { insertQuizQuestion, updateQuizQuestion, deleteSlideWithQuestions, resolvePdfUrl, enhanceSlide } from '@/services/lectureService';
 import { Document, pdfjs } from 'react-pdf';
 import { PDFPagePreview } from '@/components/PDFPagePreview';
 import { PDFLightbox } from '@/components/PDFLightbox';
@@ -160,6 +160,7 @@ export default function LectureEdit() {
                     title: slide.title ?? '',
                     content: slide.content_text ?? '',
                     summary: slide.summary ?? '',
+                    ai_enhanced: (slide as { ai_enhanced?: boolean }).ai_enhanced ?? true,
                     questions: slideQuestions.length > 0
                         ? slideQuestions
                         : [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
@@ -419,6 +420,50 @@ export default function LectureEdit() {
             toast({ title: 'AI Error', description: 'Failed to generate cross-slide quiz.', variant: 'destructive' });
         } finally {
             setDeckQuizLoading(false);
+        }
+    };
+
+    // ── Skip-AI enhancement ──────────────────────────────────────────────────────
+    // Slides imported with "Skip AI" (ai_enhanced=false) can be synthesized later.
+    const [enhancingIds, setEnhancingIds] = useState<Set<string>>(new Set());
+
+    const enhanceOneSlide = async (index: number): Promise<boolean> => {
+        const slide = slides[index];
+        if (!slide.id || slide.ai_enhanced) return false;
+        setEnhancingIds(prev => new Set(prev).add(slide.id as string));
+        try {
+            const res = await enhanceSlide(slide.id);
+            setSlides(prev => prev.map((s, i) =>
+                i === index
+                    ? { ...s, title: res.title ?? s.title, summary: res.summary ?? s.summary, ai_enhanced: true }
+                    : s,
+            ));
+            return true;
+        } catch (err) {
+            console.error('enhance slide failed', err);
+            toast({ title: 'Enhancement failed', description: 'Could not enhance this slide. Try again.', variant: 'destructive' });
+            return false;
+        } finally {
+            setEnhancingIds(prev => { const next = new Set(prev); next.delete(slide.id as string); return next; });
+        }
+    };
+
+    const [enhancingAll, setEnhancingAll] = useState(false);
+    const unenhancedCount = slides.filter(s => s.id && s.ai_enhanced === false).length;
+
+    const enhanceAllRemaining = async () => {
+        setEnhancingAll(true);
+        let ok = 0;
+        try {
+            // Sequential to respect the endpoint rate limit and keep LLM load bounded.
+            for (let i = 0; i < slides.length; i++) {
+                if (slides[i].id && slides[i].ai_enhanced === false) {
+                    if (await enhanceOneSlide(i)) ok += 1;
+                }
+            }
+            toast({ title: 'Enhancement complete', description: `Enhanced ${ok} slide${ok === 1 ? '' : 's'} with AI.` });
+        } finally {
+            setEnhancingAll(false);
         }
     };
 
@@ -750,6 +795,29 @@ export default function LectureEdit() {
                     </Button>
                 </motion.div>
 
+                {/* Skip-AI banner: offer to enhance all raw-imported slides at once. */}
+                {unenhancedCount > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center justify-between gap-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4"
+                    >
+                        <p className="text-sm text-foreground">
+                            <span className="font-semibold">{unenhancedCount}</span> slide{unenhancedCount === 1 ? ' was' : 's were'} imported without AI. Enhance to generate titles and explanations.
+                        </p>
+                        <Button
+                            type="button"
+                            onClick={enhanceAllRemaining}
+                            disabled={enhancingAll}
+                            className="gap-1.5 shrink-0"
+                            data-testid="enhance-all-remaining"
+                        >
+                            {enhancingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {enhancingAll ? 'Enhancing…' : 'Enhance all remaining'}
+                        </Button>
+                    </motion.div>
+                )}
+
                 {/* Slide Cards */}
                 {slides.map((slide, slideIndex) => (
                     <motion.div
@@ -788,11 +856,29 @@ export default function LectureEdit() {
                                     </Button>
                                 </div>
                             </div>
-                            {slides.length > 1 && (
-                                <Button type="button" variant="ghost" size="sm" onClick={() => removeSlide(slideIndex)} className="text-destructive hover:text-destructive">
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {slide.id && slide.ai_enhanced === false && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => enhanceOneSlide(slideIndex)}
+                                        disabled={enhancingIds.has(slide.id) || enhancingAll}
+                                        className="gap-1.5"
+                                        title="Run AI synthesis on this slide"
+                                    >
+                                        {enhancingIds.has(slide.id)
+                                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            : <Sparkles className="w-3.5 h-3.5" />}
+                                        Enhance with AI
+                                    </Button>
+                                )}
+                                {slides.length > 1 && (
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeSlide(slideIndex)} className="text-destructive hover:text-destructive">
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                )}
+                            </div>
                         </div>
 
                         <div className="md:grid md:grid-cols-[1fr,320px] gap-8">
