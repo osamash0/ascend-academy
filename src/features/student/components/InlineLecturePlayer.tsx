@@ -11,7 +11,7 @@
  * / XP glue is kept here (a leaner version of the full LectureView route, which
  * still owns review/recap/achievements and is reachable via "open full page").
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,11 +34,9 @@ import {
   ChevronRight,
   CheckCircle2,
   SkipForward,
-  Sparkles,
   Plus,
   Send,
   ArrowLeft,
-  User,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
