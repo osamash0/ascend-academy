@@ -951,7 +951,7 @@ export function InlineLecturePlayer({
       {/* ── Body: slide image + AI (left) · content / quiz (right) ── */}
       <div className="grid grid-cols-1 gap-6 pt-4 lg:grid-cols-2">
         {/* Left column: slide image then the Ask-AI bar / tutor */}
-        <div className="space-y-4">
+        <div className="space-y-4 lg:sticky lg:top-8 lg:h-fit">
           <div
             ref={pdfContainerRef}
             className="relative overflow-hidden rounded-2xl border border-white/5 bg-black/30"
@@ -1034,8 +1034,7 @@ export function InlineLecturePlayer({
         {/* Right column: content / chat / quiz / completion — height-matched to
             the PDF so the panel stays aligned with the slide on the left. */}
         <div
-          className="custom-scrollbar lg:h-[var(--pdf-h)] lg:overflow-y-auto"
-          style={pdfHeight ? ({ '--pdf-h': `${pdfHeight}px` } as CSSProperties) : undefined}
+          className="flex flex-col lg:h-full"
         >
           <AnimatePresence mode="wait" custom={dir}>
             {completed ? (
@@ -1074,41 +1073,30 @@ export function InlineLecturePlayer({
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -16 }}
-                className="flex h-full min-h-[320px] flex-col rounded-3xl border border-white/5 bg-[#0a0a12]/50 backdrop-blur-sm"
+                className="flex flex-col min-h-[320px]"
               >
-                <div className="flex items-center gap-3 border-b border-white/5 px-5 py-3.5">
+                <div className="flex items-center gap-3 px-5 py-3.5">
                   <button
                     onClick={() => setChatActive(false)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
                     aria-label="Back to slide notes"
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </button>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary text-white shadow-glow-primary">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold leading-tight">AI Tutor</p>
-                    <p className="truncate text-[11px] text-muted-foreground">{currentSlide?.title || translateCurriculum(lecture?.title)}</p>
-                  </div>
                 </div>
-                <div ref={chatScrollRef} className="custom-scrollbar flex-1 space-y-4 overflow-y-auto p-5">
+                <div ref={chatScrollRef} className="flex-1 space-y-8 px-2 py-4">
                   {messages.map((m) =>
                     m.role === 'user' ? (
-                      <div key={m.id} className="flex justify-end gap-2">
-                        <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+                      <div key={m.id} className="flex flex-col items-end text-right w-full">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-1">You</span>
+                        <div className="text-sm text-foreground max-w-[85%]">
                           {m.content}
-                        </div>
-                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
-                          <User className="h-3.5 w-3.5" />
                         </div>
                       </div>
                     ) : (
-                      <div key={m.id} className="flex gap-2">
-                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/5 bg-white/5 text-primary">
-                          <Sparkles className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-white/5 bg-white/[0.03] px-4 py-2.5">
+                      <div key={m.id} className="flex flex-col items-start text-left w-full">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Response</span>
+                        <div className="text-sm text-foreground max-w-[85%]">
                           <div className={PROSE_CLASS + ' prose-p:text-sm prose-li:text-sm'}>
                             <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                               {m.content}
@@ -1119,11 +1107,9 @@ export function InlineLecturePlayer({
                     ),
                   )}
                   {streaming && (
-                    <div className="flex gap-2">
-                      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/5 bg-white/5 text-primary">
-                        <Sparkles className="h-3.5 w-3.5" />
-                      </div>
-                      <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-white/5 bg-white/[0.03] px-4 py-2.5">
+                    <div className="flex flex-col items-start text-left w-full">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Response</span>
+                      <div className="text-sm text-foreground max-w-[85%]">
                         <div className={PROSE_CLASS + ' prose-p:text-sm prose-li:text-sm'}>
                           <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                             {streaming}
