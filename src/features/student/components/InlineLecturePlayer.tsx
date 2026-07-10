@@ -142,26 +142,35 @@ export function InlineLecturePlayer({
   const correctStreakRef = useRef(0);
 
   const [isEditingLayout, setIsEditingLayout] = useState(false);
-  const [columnPlacement, setColumnPlacement] = useState<'left-right' | 'right-left'>('left-right');
-  const [columnRatio, setColumnRatio] = useState<'50-50' | '60-40' | '40-60'>('50-50');
-
-  // Load layout preferences from localStorage on component mount
-  useEffect(() => {
+  const [columnPlacement, setColumnPlacement] = useState<'left-right' | 'right-left'>(() => {
     try {
       const stored = localStorage.getItem('ascend_player_layout_pref');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed.columnPlacement === 'left-right' || parsed.columnPlacement === 'right-left') {
-          setColumnPlacement(parsed.columnPlacement);
-        }
-        if (parsed.columnRatio === '50-50' || parsed.columnRatio === '60-40' || parsed.columnRatio === '40-60') {
-          setColumnRatio(parsed.columnRatio);
+          return parsed.columnPlacement;
         }
       }
     } catch (e) {
-      console.error('Failed to load layout preferences:', e);
+      console.error('Failed to load layout preferences columnPlacement:', e);
     }
-  }, []);
+    return 'left-right';
+  });
+
+  const [columnRatio, setColumnRatio] = useState<'50-50' | '60-40' | '40-60'>(() => {
+    try {
+      const stored = localStorage.getItem('ascend_player_layout_pref');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.columnRatio === '50-50' || parsed.columnRatio === '60-40' || parsed.columnRatio === '40-60') {
+          return parsed.columnRatio;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load layout preferences columnRatio:', e);
+    }
+    return '50-50';
+  });
 
   // Save layout preferences to localStorage whenever columnPlacement or columnRatio changes
   useEffect(() => {
