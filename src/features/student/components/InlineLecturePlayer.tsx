@@ -520,7 +520,7 @@ export function InlineLecturePlayer({
 
   // Keep the conversation scrolled to the latest message.
   useEffect(() => {
-    chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
+    chatScrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, streaming, chatLoading]);
 
   useEffect(() => () => chatAbortRef.current?.abort(), []);
@@ -1029,8 +1029,7 @@ export function InlineLecturePlayer({
           </form>
         </div>
 
-        {/* Right column: content / chat / quiz / completion — height-matched to
-            the PDF so the panel stays aligned with the slide on the left. */}
+        {/* Right column: content / chat / quiz / completion — flows naturally and scroll is page-level */}
         <div
           className="flex flex-col lg:h-full"
         >
@@ -1085,9 +1084,9 @@ export function InlineLecturePlayer({
                 <div ref={chatScrollRef} className="flex-1 space-y-8 px-2 py-4">
                   {messages.map((m) =>
                     m.role === 'user' ? (
-                      <div key={m.id} className="flex flex-col items-end text-right w-full">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-1">You</span>
-                        <div className="text-sm text-foreground max-w-[85%]">
+                      <div key={m.id} className="flex flex-col items-start text-left w-full">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/45 mb-1">You</span>
+                        <div className="text-sm text-indigo-200/80 max-w-[85%] leading-relaxed whitespace-pre-wrap">
                           {m.content}
                         </div>
                       </div>
