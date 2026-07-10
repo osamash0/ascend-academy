@@ -37,6 +37,7 @@ import {
   Plus,
   Send,
   ArrowLeft,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -139,6 +140,38 @@ export function InlineLecturePlayer({
 
   // In-session consecutive-correct counter for the "On Fire" / "Unstoppable" badges.
   const correctStreakRef = useRef(0);
+
+  const [isEditingLayout, setIsEditingLayout] = useState(false);
+  const [columnPlacement, setColumnPlacement] = useState<'left-right' | 'right-left'>('left-right');
+  const [columnRatio, setColumnRatio] = useState<'50-50' | '60-40' | '40-60'>('50-50');
+
+  // Load layout preferences from localStorage on component mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('ascend_player_layout_pref');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.columnPlacement === 'left-right' || parsed.columnPlacement === 'right-left') {
+          setColumnPlacement(parsed.columnPlacement);
+        }
+        if (parsed.columnRatio === '50-50' || parsed.columnRatio === '60-40' || parsed.columnRatio === '40-60') {
+          setColumnRatio(parsed.columnRatio);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load layout preferences:', e);
+    }
+  }, []);
+
+  // Save layout preferences to localStorage whenever columnPlacement or columnRatio changes
+  useEffect(() => {
+    try {
+      const preferences = { columnPlacement, columnRatio };
+      localStorage.setItem('ascend_player_layout_pref', JSON.stringify(preferences));
+    } catch (e) {
+      console.error('Failed to save layout preferences:', e);
+    }
+  }, [columnPlacement, columnRatio]);
 
   const [lecture, setLecture] = useState<Lecture | null>(null);
   const [slides, setSlides] = useState<Slide[]>([]);
