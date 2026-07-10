@@ -1104,9 +1104,21 @@ export function InlineLecturePlayer({
       </div>
 
       {/* ── Body: slide image + AI (left) · content / quiz (right) ── */}
-      <div className="grid grid-cols-1 gap-6 pt-4 lg:grid-cols-2">
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-6 pt-4",
+          columnRatio === '50-50' && "lg:grid-cols-2",
+          columnRatio === '60-40' && (columnPlacement === 'left-right' ? 'lg:grid-cols-[1.2fr_0.8fr]' : 'lg:grid-cols-[0.8fr_1.2fr]'),
+          columnRatio === '40-60' && (columnPlacement === 'left-right' ? 'lg:grid-cols-[0.8fr_1.2fr]' : 'lg:grid-cols-[1.2fr_0.8fr]')
+        )}
+      >
         {/* Left column: slide image then the Ask-AI bar / tutor */}
-        <div className="space-y-4 lg:sticky lg:top-8 lg:h-fit">
+        <div
+          className={cn(
+            "space-y-4 lg:sticky lg:top-8 lg:h-fit",
+            columnPlacement === 'left-right' ? 'lg:order-1' : 'lg:order-2'
+          )}
+        >
           <div
             ref={pdfContainerRef}
             className="relative overflow-hidden rounded-2xl border border-white/5 bg-black/30"
@@ -1188,7 +1200,10 @@ export function InlineLecturePlayer({
 
         {/* Right column: content / chat / quiz / completion — flows naturally and scroll is page-level */}
         <div
-          className="flex flex-col lg:h-full"
+          className={cn(
+            "flex flex-col lg:h-full",
+            columnPlacement === 'left-right' ? 'lg:order-2' : 'lg:order-1'
+          )}
         >
           <AnimatePresence mode="wait" custom={dir}>
             {completed ? (
