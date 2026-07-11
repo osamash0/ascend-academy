@@ -7,13 +7,16 @@ import {
   Sparkles,
   FileText,
   PartyPopper,
-  Cpu
+  Cpu,
+  ScanEye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
 interface ProcessedSlide {
   title?: string;
+  /** True when this slide needed OCR/vision rescue (Roadmap Phase 2.2). */
+  vision_routed?: boolean;
 }
 
 type ParsePhase = 'extract' | 'enhance' | 'finalize' | null | undefined;
@@ -82,6 +85,7 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
   const slideListRef = useRef<HTMLDivElement>(null);
 
   const completedCount = processedSlides.filter(Boolean).length;
+  const visionRescuedCount = processedSlides.filter((s) => s?.vision_routed).length;
   // Backend `complete` is the source of truth. When the backend is
   // emitting phase markers we trust `parseCompleted` exclusively — the
   // counter heuristic would otherwise flip "AI Enhance" to done as soon
@@ -230,21 +234,40 @@ export const PDFUploadOverlay = memo(function PDFUploadOverlay({
                   <Cpu className="w-3.5 h-3.5" aria-hidden="true" />
                   {t('upload:overlay.extractionEngine', { defaultValue: 'Extraction engine' })}
                 </div>
-                {parserUsed ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className={cn("flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border", parserPillStyle(parserUsed))}
-                  >
-                    <span className={cn("w-2 h-2 rounded-full", parserDotStyle(parserUsed))} />
-                    {parserLabel(parserUsed, t)}
-                  </motion.div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
-                    {t('upload:overlay.detecting', { defaultValue: 'Detecting…' })}
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  {visionRescuedCount > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-950/40 dark:border-sky-700 dark:text-sky-300"
+                      data-testid="vision-rescue-badge"
+                      title={t('upload:overlay.visionRescueTitle', {
+                        defaultValue: 'Slides with little extractable text (scans, handwriting, images) were read using AI vision instead.',
+                      })}
+                    >
+                      <ScanEye className="w-3 h-3" aria-hidden="true" />
+                      {t('upload:overlay.visionRescue', {
+                        count: visionRescuedCount,
+                        defaultValue: `${visionRescuedCount} vision-assisted`,
+                      })}
+                    </motion.div>
+                  )}
+                  {parserUsed ? (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className={cn("flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border", parserPillStyle(parserUsed))}
+                    >
+                      <span className={cn("w-2 h-2 rounded-full", parserDotStyle(parserUsed))} />
+                      {parserLabel(parserUsed, t)}
+                    </motion.div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                      {t('upload:overlay.detecting', { defaultValue: 'Detecting…' })}
+                    </div>
+                  )}
+                </div>
               </motion.div>
 
               {/* Progress bar */}

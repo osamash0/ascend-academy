@@ -82,6 +82,7 @@ async def test_synthesize_slide_uses_text_when_present(monkeypatch):
     out = await uo._synthesize_slide(0, "A slide with plenty of real text content here.", "ctx", "openai", b"")
     assert out["title"] == "Real Title"
     assert out["summary"] == "A clear explanation."
+    assert out["vision_routed"] is False
 
 
 async def test_synthesize_slide_uses_vision_when_text_empty(monkeypatch):
@@ -96,6 +97,41 @@ async def test_synthesize_slide_uses_vision_when_text_empty(monkeypatch):
     out = await uo._synthesize_slide(2, "", "ctx", "openai", b"%PDF")
     assert out["title"] == "Diagram Topic"
     assert out["summary"] == "What the diagram shows."
+    assert out["vision_routed"] is True
+
+
+async def test_synthesize_slide_vision_routed_true_even_when_typed_non_image(monkeypatch):
+    """Roadmap Phase 2.2: vision_routed must be the reliable "needed OCR/
+    vision rescue" signal — independent of slide_type, since a vision-routed
+    slide can still come back typed math-diagram/graph/mixed, not just
+    "image-only"."""
+    import backend.services.ai.vision as vision
+
+    monkeypatch.setattr(uo, "_render_page_jpeg", lambda pdf, idx: b"jpegbytes")
+
+    async def fake_vision(b64, text, model, ctx):
+        return {
+            "slide_type": "math-diagram",
+            "content_extraction": {"main_topic": "Integral", "summary": "A calculus diagram."},
+        }
+
+    monkeypatch.setattr(vision, "analyze_slide_vision", fake_vision)
+    out = await uo._synthesize_slide(0, "", "ctx", "openai", b"%PDF")
+    assert out["slide_type"] == "math-diagram"
+    assert out["vision_routed"] is True
+
+
+async def test_synthesize_slide_vision_failure_still_marks_vision_routed(monkeypatch):
+    import backend.services.ai.vision as vision
+
+    monkeypatch.setattr(uo, "_render_page_jpeg", lambda pdf, idx: b"jpegbytes")
+
+    async def failing_vision(b64, text, model, ctx):
+        raise RuntimeError("vision provider down")
+
+    monkeypatch.setattr(vision, "analyze_slide_vision", failing_vision)
+    out = await uo._synthesize_slide(0, "", "ctx", "openai", b"%PDF")
+    assert out["vision_routed"] is True  # the attempt was made, even though it failed
 
 
 # ── orchestrator: end-to-end with mocked synthesis + DB ──────────────────────
@@ -255,6 +291,27 @@ async def test_parse_pdf_unified_happy_path(monkeypatch):
     assert rec["deck_quiz"] == [1]
     assert rec["finalize"] == [("Deck summary.", 3)]
     assert RunStatus.COMPLETED in rec["status"]
+
+
+async def test_parse_pdf_unified_propagates_vision_routed_on_slide_event(monkeypatch):
+    """Roadmap Phase 2.2: vision_routed must survive from _synthesize_slide's
+    return value into the per-slide SSE ui_slide dict, so the frontend
+    overlay can show a "vision-assisted" signal for scanned/handwritten
+    pages."""
+    rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
+
+    async def synth(idx, text, ctx, model, pdf):
+        if idx == 1:
+            return {"title": "Scan", "content": text, "summary": "s", "slide_type": "image-only", "vision_routed": True}
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+
+    slide_events = {d["index"]: d["slide"] for t, d in events if t == "slide"}
+    assert slide_events[0]["vision_routed"] is False
+    assert slide_events[1]["vision_routed"] is True
+    assert slide_events[2]["vision_routed"] is False
 
 
 async def test_parse_pdf_unified_ingests_concepts_when_flag_on(monkeypatch):

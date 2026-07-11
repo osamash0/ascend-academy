@@ -82,4 +82,29 @@ describe("PDFUploadOverlay", () => {
     renderOverlay({ parserUsed: null, parsePhase: null });
     expect(screen.getByText(/Detecting/)).toBeInTheDocument();
   });
+
+  it("shows the vision-assisted badge with a count when slides needed OCR/vision rescue", () => {
+    renderOverlay({
+      parserUsed: "pymupdf",
+      parsePhase: "extract",
+      processedSlides: [{ title: "A", vision_routed: true }, { title: "B" }, { title: "C", vision_routed: true }],
+    });
+    const badge = screen.getByTestId("vision-rescue-badge");
+    expect(badge).toBeInTheDocument();
+    expect(badge.textContent).toContain("2");
+  });
+
+  it("hides the vision-assisted badge when no slide needed rescue", () => {
+    renderOverlay({
+      parserUsed: "pymupdf",
+      parsePhase: "extract",
+      processedSlides: [{ title: "A" }, { title: "B" }],
+    });
+    expect(screen.queryByTestId("vision-rescue-badge")).not.toBeInTheDocument();
+  });
+
+  it("hides the vision-assisted badge before any slide has arrived", () => {
+    renderOverlay({ parserUsed: "pymupdf", parsePhase: "extract", processedSlides: [] });
+    expect(screen.queryByTestId("vision-rescue-badge")).not.toBeInTheDocument();
+  });
 });

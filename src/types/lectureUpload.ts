@@ -11,6 +11,13 @@ export interface SlideData {
    * legacy/AI slides (treated as enhanced).
    */
   ai_enhanced?: boolean;
+  /**
+   * True when this slide had near-empty extractable text and was routed to
+   * the vision model instead of text synthesis (Roadmap Phase 2.2) — the
+   * reliable "needed OCR/vision rescue" signal, independent of slide_type
+   * (a vision-routed slide can still come back typed math-diagram/graph).
+   */
+  vision_routed?: boolean;
 }
 
 export interface QuestionData {

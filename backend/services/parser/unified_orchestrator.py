@@ -87,9 +87,16 @@ def _render_page_jpeg(pdf_bytes: bytes, idx: int) -> bytes:
 
 async def _synthesize_slide(
     idx: int, text: str, lecture_context: str, ai_model: str, pdf_bytes: bytes
-) -> Dict[str, str]:
-    """One slide → {title, content, summary, slide_type}. Text-based synthesis
-    when the slide has text; vision when it's image-only. Never raises."""
+) -> Dict[str, Any]:
+    """One slide → {title, content, summary, slide_type, vision_routed}.
+    Text-based synthesis when the slide has text; vision when it's
+    image-only. Never raises.
+
+    ``vision_routed`` (Roadmap Phase 2.2, AC2) is the reliable "this slide
+    needed OCR/vision rescue" signal — NOT the same question as
+    ``slide_type``, since a vision-routed slide can still come back typed
+    "math-diagram"/"graph"/"mixed" rather than "image-only".
+    """
     text = text or ""
     if len(text.strip()) >= _MIN_TEXT_FOR_SYNTH:
         from backend.services.parser.synthesis import analyze_slide
@@ -101,6 +108,7 @@ async def _synthesize_slide(
             "content": text,
             "summary": (res.get("aiInsight") or "").strip(),
             "slide_type": res.get("slideType") or "text",
+            "vision_routed": False,
         }
     # Image-only slide → render + vision.
     try:
@@ -121,10 +129,11 @@ async def _synthesize_slide(
             "content": content,
             "summary": summary,
             "slide_type": vres.get("slide_type") or "image-only",
+            "vision_routed": True,
         }
     except Exception as exc:
         logger.warning("vision synth slide %d failed: %s", idx, exc)
-        return {"title": "", "content": text, "summary": "", "slide_type": "image-only"}
+        return {"title": "", "content": text, "summary": "", "slide_type": "image-only", "vision_routed": True}
 
 
 async def _store_lecture_pdf(lecture_id: UUID, filename: str, pdf_bytes: bytes) -> Optional[str]:
@@ -370,6 +379,7 @@ async def parse_pdf_unified(
                     "slide_type": res.get("slide_type", "text"),
                     "questions": [],
                     "ai_enhanced": ai_mode,
+                    "vision_routed": bool(res.get("vision_routed", False)),
                 }
                 if created_lecture_id is not None:
                     try:
