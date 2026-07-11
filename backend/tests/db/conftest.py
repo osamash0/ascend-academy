@@ -290,6 +290,46 @@ def make_quiz(db_conn):
 
 
 @pytest.fixture
+def make_course(db_conn):
+    """Insert a course owned by the given professor uuid. Returns the course uuid."""
+
+    def _make(professor_id: uuid.UUID, title: str = "Test Course") -> uuid.UUID:
+        cid = uuid.uuid4()
+        with db_conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO public.courses (id, professor_id, title)
+                VALUES (%s, %s, %s)
+                """,
+                (str(cid), str(professor_id), title),
+            )
+        return cid
+
+    return _make
+
+
+@pytest.fixture
+def make_course_enrollment(db_conn):
+    """Enroll a student in a course via course_enrollments (the modern,
+    explicit-join path — distinct from the legacy assignment_enrollments
+    path used elsewhere in this file)."""
+
+    def _make(user_id: uuid.UUID, course_id: uuid.UUID) -> uuid.UUID:
+        eid = uuid.uuid4()
+        with db_conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO public.course_enrollments (id, user_id, course_id)
+                VALUES (%s, %s, %s)
+                """,
+                (str(eid), str(user_id), str(course_id)),
+            )
+        return eid
+
+    return _make
+
+
+@pytest.fixture
 def make_progress(db_conn):
     """Insert a student_progress row for (user, lecture)."""
 

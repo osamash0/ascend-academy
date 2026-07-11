@@ -171,7 +171,7 @@ describe("NudgeBanner", () => {
             await screen.findByText("Time to review", {}, { timeout: 2000 });
             expect(fetchSpy).toHaveBeenCalledTimes(1);
             const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
-            expect(url).toBe("/api/nudges/n_high/dismiss");
+            expect(url).toBe("http://api.test/api/v1/nudges/n_high/dismiss");
             expect(init.method).toBe("POST");
         } finally {
             vi.unstubAllGlobals();

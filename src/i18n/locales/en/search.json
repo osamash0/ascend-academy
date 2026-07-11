@@ -1,0 +1,34 @@
+{
+  "palette": {
+    "placeholder": "Search lectures, slides, concepts, worksheets…",
+    "askPlaceholder": "Ask anything about your courses…",
+    "emptyPrompt": "Type to search your enrolled courses",
+    "noResults": "No results for \"{{query}}\"",
+    "recent": "Recent",
+    "clearRecent": "Clear",
+    "askAi": "Ask AI",
+    "askAiHint": "Ask AI: \"{{query}}\"",
+    "sections": {
+      "lectures": "Lectures",
+      "slides": "Slides",
+      "concepts": "Concepts",
+      "worksheets": "Worksheets"
+    },
+    "hint": "Navigate",
+    "openHint": "Open",
+    "closeHint": "Close"
+  },
+  "ask": {
+    "thinking": "Thinking…",
+    "notCovered": "Not covered by your course materials",
+    "citeLabel": "Slide {{number}}",
+    "askAnyway": "Answer from general knowledge instead",
+    "send": "Send",
+    "backToResults": "Back to results",
+    "title": "Ask this course",
+    "subtitle": "Grounded in every published lecture in this course."
+  },
+  "entry": {
+    "askThisCourse": "Ask this course"
+  }
+}

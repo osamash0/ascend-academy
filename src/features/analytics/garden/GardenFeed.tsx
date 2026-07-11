@@ -1,6 +1,7 @@
 import { AnimatePresence } from 'framer-motion';
 import type { Insight } from '@/features/analytics/types';
 import { InsightCard } from './InsightCard';
+import type { EvidenceRequest } from './useGardenState';
 
 const VISIBLE_AT_REST = 4;
 
@@ -11,15 +12,40 @@ interface GardenFeedProps {
   onExpand: (id: string) => void;
   onCollapse: () => void;
   onToggleShowAll: () => void;
+  lectureId: string;
+  evidence: EvidenceRequest | null;
+  onOpenEvidence: (request: EvidenceRequest) => void;
+  onCloseEvidence: () => void;
 }
 
-export function GardenFeed({ insights, expandedId, showAll, onExpand, onCollapse, onToggleShowAll }: GardenFeedProps) {
+export function GardenFeed({
+  insights,
+  expandedId,
+  showAll,
+  onExpand,
+  onCollapse,
+  onToggleShowAll,
+  lectureId,
+  evidence,
+  onOpenEvidence,
+  onCloseEvidence,
+}: GardenFeedProps) {
   const expanded = insights.find((i) => i.id === expandedId);
 
   if (expanded) {
     return (
       <div className="grid grid-cols-1">
-        <InsightCard insight={expanded} isExpanded dimmed={false} onExpand={onExpand} onCollapse={onCollapse} />
+        <InsightCard
+          insight={expanded}
+          isExpanded
+          dimmed={false}
+          onExpand={onExpand}
+          onCollapse={onCollapse}
+          lectureId={lectureId}
+          evidence={evidence}
+          onOpenEvidence={onOpenEvidence}
+          onCloseEvidence={onCloseEvidence}
+        />
       </div>
     );
   }

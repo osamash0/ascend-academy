@@ -1,5 +1,4 @@
 """Integration tests for /api/mind-map/* endpoints."""
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.core.auth_middleware import verify_token

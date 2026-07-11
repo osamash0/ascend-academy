@@ -17,12 +17,17 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from backend.core.database import supabase_admin
 from backend.services.ai.embeddings import generate_embeddings
-from backend.services.cache import get_similar_slides
+from backend.services.cache import (
+    get_similar_slides,
+    get_similar_slides_scoped,
+    search_slides_keyword_scoped,
+)
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_K = 5
 DEFAULT_THRESHOLD = 0.65
+DEFAULT_COURSE_K = 6
 
 
 async def retrieve_relevant_slides(
@@ -120,6 +125,114 @@ async def retrieve_relevant_slides(
             enriched.sort(key=lambda e: 0 if e["slide_index"] == current_slide_index else 1)
 
     return enriched
+
+
+async def retrieve_relevant_slides_course_scoped(
+    query: str,
+    *,
+    course_ids: List[str],
+    k: int = DEFAULT_COURSE_K,
+    threshold: float = DEFAULT_THRESHOLD,
+) -> List[Dict[str, Any]]:
+    """Retrieve top-K slides relevant to `query` across every lecture in
+    `course_ids`, fusing semantic (pgvector) and keyword (Postgres FTS)
+    results with Reciprocal Rank Fusion so an exact-title query and a
+    paraphrase query both surface the right slide.
+
+    Returns entries shaped like `retrieve_relevant_slides` plus
+    `lecture_id`/`lecture_title`, since a course spans multiple lectures:
+        [{"lecture_id": str, "lecture_title": str, "slide_index": int,
+          "title": str, "content": str, "similarity": float}, ...]
+    """
+    if not query or not query.strip() or not course_ids:
+        return []
+
+    vector_hits: List[Dict[str, Any]] = []
+    try:
+        embedding = await generate_embeddings(query)
+        vector_hits = await get_similar_slides_scoped(
+            embedding, course_ids, limit=max(k * 2, 8), threshold=threshold
+        )
+    except Exception as e:
+        logger.warning("Scoped query embedding/search failed: %s", e)
+
+    keyword_hits: List[Dict[str, Any]] = []
+    try:
+        keyword_hits = await search_slides_keyword_scoped(
+            query, course_ids, limit=max(k * 2, 8)
+        )
+    except Exception as e:
+        logger.warning("Scoped keyword slide search failed: %s", e)
+
+    fused = rrf_fuse(vector_hits, keyword_hits, k=k)
+
+    enriched: List[Dict[str, Any]] = []
+    lecture_titles: Dict[str, str] = {}
+    for r in fused:
+        lecture_id = r["lecture_id"]
+        idx = r["slide_index"]
+        slide = await _fetch_from_slides_table(lecture_id, idx)
+        if not slide:
+            continue
+        if lecture_id not in lecture_titles:
+            lecture_titles[lecture_id] = await _fetch_lecture_title(lecture_id)
+        enriched.append({
+            "lecture_id": lecture_id,
+            "lecture_title": lecture_titles[lecture_id],
+            "slide_index": idx,
+            "title": slide.get("title") or f"Slide {idx + 1}",
+            "content": slide.get("content") or "",
+            "similarity": float(r.get("similarity", 0.0)),
+        })
+    return enriched
+
+
+def rrf_fuse(
+    vector_hits: List[Dict[str, Any]],
+    keyword_hits: List[Dict[str, Any]],
+    *,
+    k: int,
+    rrf_constant: int = 60,
+) -> List[Dict[str, Any]]:
+    """Reciprocal Rank Fusion over two ranked result lists, keyed by
+    (lecture_id, slide_index). Preserves the best-available `similarity`
+    (vector score when present, else 0.0) for downstream refusal logic.
+    """
+    scores: Dict[Tuple[str, int], float] = {}
+    best: Dict[Tuple[str, int], Dict[str, Any]] = {}
+
+    def _key(r: Dict[str, Any]) -> Tuple[str, int]:
+        return (str(r["lecture_id"]), int(r["slide_index"]))
+
+    for rank, r in enumerate(vector_hits):
+        key = _key(r)
+        scores[key] = scores.get(key, 0.0) + 1.0 / (rrf_constant + rank + 1)
+        best[key] = r
+
+    for rank, r in enumerate(keyword_hits):
+        key = _key(r)
+        scores[key] = scores.get(key, 0.0) + 1.0 / (rrf_constant + rank + 1)
+        if key not in best:
+            best[key] = {**r, "similarity": 0.0}
+
+    ordered_keys = sorted(scores.keys(), key=lambda key: scores[key], reverse=True)
+    return [best[key] for key in ordered_keys[:k]]
+
+
+async def _fetch_lecture_title(lecture_id: str) -> str:
+    try:
+        res = (
+            supabase_admin.table("lectures")
+            .select("title")
+            .eq("id", lecture_id)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        return rows[0]["title"] if rows else "Untitled lecture"
+    except Exception as e:
+        logger.debug("Lecture title lookup failed for %s: %s", lecture_id, e)
+        return "Untitled lecture"
 
 
 async def _current_only(

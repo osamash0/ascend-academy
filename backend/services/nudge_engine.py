@@ -12,6 +12,7 @@ Public surface:
     StreakAtRiskRule           — fires when a streak is about to break today
     AssignmentDueSoonRule      — fires when an active assignment is due in N days
     WeakConceptStaleRule       — fires when a weak concept hasn't been touched
+    ReviewsPilingUpRule        — fires when the SRS due-queue backlog is large
     DEFAULT_RULES              — registered rule instances
     evaluate_user(...)         — run all rules for one user
     run_daily(...)             — fan-out for every active user, write notifs
@@ -27,6 +28,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, List, Optional
 
+from backend.core.config import settings
 from backend.core.database import supabase_admin
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,7 @@ ASSIGNMENT_DUE_WINDOW_DAYS = 2
 WEAK_CONCEPT_STALE_DAYS = 14
 WEAK_CONCEPT_THRESHOLD = 0.5  # mastery_score < this is "weak"
 DEFAULT_QUIET_DAYS = 1  # global default quiet-period after emission
+REVIEWS_PILING_UP_THRESHOLD = 50  # due-card count that triggers ReviewsPilingUpRule
 
 
 # ── Models ───────────────────────────────────────────────────────────────────
@@ -71,6 +74,7 @@ class UserContext:
     assignments: List[dict] = field(default_factory=list)
     weak_concepts: List[dict] = field(default_factory=list)
     dismissals: dict = field(default_factory=dict)  # {(rule_key, subject_key): quiet_until}
+    due_review_count: int = 0  # Roadmap Phase 1.1 (review engine)
 
 
 # ── Rule base class ──────────────────────────────────────────────────────────
@@ -131,6 +135,36 @@ class StreakAtRiskRule(Rule):
                 priority=80,
                 deep_link="/dashboard",
                 quiet_days=1,
+            )
+        ]
+
+
+class ReviewsPilingUpRule(Rule):
+    """Fire when a student's spaced-repetition queue has grown past the
+    threshold — a backlog that keeps growing (Roadmap Phase 1.1)."""
+
+    key = "reviews_piling_up"
+    dismiss_quiet_days = 3
+
+    def should_fire(self, ctx: UserContext) -> List[Nudge]:
+        if ctx.due_review_count <= REVIEWS_PILING_UP_THRESHOLD:
+            return []
+        return [
+            Nudge(
+                rule_key=self.key,
+                subject_key="",
+                title="Your reviews are piling up",
+                message=(
+                    f"You have {ctx.due_review_count} cards due. A quick session "
+                    "now keeps them from stacking up further."
+                ),
+                # NOT "review" — WeakConceptStaleRule already uses that type for
+                # a different concept (single weak-concept nudge); this is the
+                # SRS daily-queue backlog, a distinct notion.
+                type="daily_review",
+                priority=60,
+                deep_link="/review",
+                quiet_days=3,
             )
         ]
 
@@ -231,6 +265,7 @@ DEFAULT_RULES: List[Rule] = [
     StreakAtRiskRule(),
     AssignmentDueSoonRule(),
     WeakConceptStaleRule(),
+    ReviewsPilingUpRule(),
 ]
 
 
@@ -390,6 +425,25 @@ def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
                 "canonical_name": name_by_id.get(r.get("concept_id")),
             })
 
+    # Due review count (Roadmap Phase 1.1) -------------------------------------
+    # Off-flag: query is skipped, due_review_count stays 0, ReviewsPilingUpRule
+    # never fires. One extra per-user query, consistent with every other
+    # section here — this function already does 6+ round trips per user.
+    due_review_count = 0
+    if settings.feature_review_engine:
+        try:
+            due_res = (
+                cli.table("review_schedule")
+                .select("card_id", count="exact")
+                .eq("user_id", user_id)
+                .eq("suspended", False)
+                .lte("due_at", now.isoformat())
+                .execute()
+            )
+            due_review_count = due_res.count or 0
+        except Exception as e:
+            logger.warning("Failed to fetch due_review_count for %s: %s", user_id, e)
+
     # Dismissals / quiet periods ---------------------------------------------
     dis_rows = (
         cli.table("nudge_dismissals")
@@ -413,6 +467,7 @@ def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
         assignments=assignments,
         weak_concepts=weak_concepts,
         dismissals=dismissals,
+        due_review_count=due_review_count,
     )
 
 

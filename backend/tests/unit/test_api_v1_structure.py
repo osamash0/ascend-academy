@@ -1,7 +1,6 @@
-import pytest
 from fastapi.testclient import TestClient
 from backend.main import app
-from backend.core.exceptions import DomainError, NotFoundError, ForbiddenError
+from backend.core.exceptions import DomainError, NotFoundError
 
 client = TestClient(app)
 

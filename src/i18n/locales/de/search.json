@@ -1,0 +1,34 @@
+{
+  "palette": {
+    "placeholder": "Vorlesungen, Folien, Konzepte, Arbeitsblätter durchsuchen…",
+    "askPlaceholder": "Frag etwas zu deinen Kursen…",
+    "emptyPrompt": "Tippe, um deine Kurse zu durchsuchen",
+    "noResults": "Keine Ergebnisse für \"{{query}}\"",
+    "recent": "Zuletzt gesucht",
+    "clearRecent": "Löschen",
+    "askAi": "KI fragen",
+    "askAiHint": "KI fragen: \"{{query}}\"",
+    "sections": {
+      "lectures": "Vorlesungen",
+      "slides": "Folien",
+      "concepts": "Konzepte",
+      "worksheets": "Arbeitsblätter"
+    },
+    "hint": "Navigieren",
+    "openHint": "Öffnen",
+    "closeHint": "Schließen"
+  },
+  "ask": {
+    "thinking": "Denke nach…",
+    "notCovered": "Nicht in deinen Kursunterlagen enthalten",
+    "citeLabel": "Folie {{number}}",
+    "askAnyway": "Stattdessen mit Allgemeinwissen antworten",
+    "send": "Senden",
+    "backToResults": "Zurück zu den Ergebnissen",
+    "title": "Diesen Kurs fragen",
+    "subtitle": "Basierend auf allen veröffentlichten Vorlesungen dieses Kurses."
+  },
+  "entry": {
+    "askThisCourse": "Diesen Kurs fragen"
+  }
+}

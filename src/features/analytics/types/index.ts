@@ -84,3 +84,44 @@ export interface InsightFeed {
   computedAt: string;
   insights: Insight[];
 }
+
+// ── Layer 3 — Evidence Drawer ─────────────────────────────────────────────────
+
+export interface AiQueryEvidenceItem {
+  query: string;
+  response: string | null;
+  createdAt: string;
+}
+
+export interface AiQueriesEvidence {
+  kind: 'ai_queries';
+  queries: AiQueryEvidenceItem[];
+  totalCount: number;
+}
+
+export interface ConfidenceBreakdownEvidence {
+  kind: 'confidence_breakdown';
+  quadrants: {
+    confidentCorrect: number;
+    confidentWrong: number;
+    unsureCorrect: number;
+    unsureWrong: number;
+  };
+  total: number;
+}
+
+export interface StudentJourneyStep {
+  slideNumber: number;
+  title: string;
+  dwellSeconds: number;
+  confidence: 'got_it' | 'unsure' | 'confused' | null;
+  quizCorrect: boolean | null;
+  askedAi: boolean;
+}
+
+export interface StudentJourneyEvidence {
+  kind: 'student_journey';
+  steps: StudentJourneyStep[];
+}
+
+export type InsightEvidence = AiQueriesEvidence | ConfidenceBreakdownEvidence | StudentJourneyEvidence;

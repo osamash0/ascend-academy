@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, ArrowUp, Loader2, Sparkles, ThumbsUp, ThumbsDown, RotateCcw, Copy } from 'lucide-react';
+import { Plus, ArrowUp, Loader2, Sparkles, ThumbsUp, ThumbsDown, RotateCcw, Copy, RefreshCw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,7 +17,7 @@ const MAX_LEN = 500;
  * - variant "panel": full-height conversation column (left pane of the console).
  */
 export function ProfessorAskBar({ chat, variant }: { chat: ProfessorChat; variant: 'idle' | 'panel' }) {
-  const { input, setInput, loading, suggestions, messages, aiModel, submit, regenerate } = chat;
+  const { input, setInput, loading, suggestions, messages, aiModel, submit, regenerate, reset, close } = chat;
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -99,6 +99,29 @@ export function ProfessorAskBar({ chat, variant }: { chat: ProfessorChat; varian
   // variant "panel" — fills the left pane; messages scroll, input pinned bottom.
   return (
     <div className="flex h-full flex-col">
+      <div className="mb-3 flex shrink-0 items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-white/40">Assistant</span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={reset}
+            aria-label="New chat"
+            title="New chat"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/5 hover:text-white/80"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Close chat"
+            title="Close chat"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/5 hover:text-white/80"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
       <div className="flex flex-1 flex-col overflow-y-auto pr-1 custom-scrollbar">
         <div className="mt-auto space-y-6">
           <AnimatePresence initial={false}>

@@ -1,18 +1,23 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, FolderOpen, BookOpen } from 'lucide-react';
+import { ChevronLeft, FolderOpen, BookOpen, GraduationCap, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/auth';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
 import { LectureCard } from '@/components/LectureCard';
+import { CommandPalette } from '@/components/CommandPalette';
+import { FEATURES } from '@/lib/featureFlags';
 import { splitLectureTitle } from '@/lib/utils';
+import { StudentRoutes } from '@/lib/routes';
 
 export default function StudentCourseView() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
-  
+  const [askOpen, setAskOpen] = useState(false);
+
   const { data, isLoading } = useStudentDashboard();
   const lectures = data?.lectures || [];
   const progress = data?.progress || [];
@@ -77,13 +82,33 @@ export default function StudentCourseView() {
               Back to Dashboard
             </motion.button>
 
-            {/* Temporary toggle to preview the experimental PS5-style library */}
-            <button
-              onClick={() => navigate(`/course-v3/${courseId}`)}
-              className="rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
-            >
-              Try new view →
-            </button>
+            <div className="flex items-center gap-2">
+              {FEATURES.globalSearch && courseId && courseId !== '__uncat__' && (
+                <button
+                  onClick={() => setAskOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {t('search:entry.askThisCourse')}
+                </button>
+              )}
+              {courseId && courseId !== '__uncat__' && (
+                <button
+                  onClick={() => navigate(StudentRoutes.EXAM(courseId))}
+                  className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  {t('exam:generate.title')}
+                </button>
+              )}
+              {/* Temporary toggle to preview the experimental PS5-style library */}
+              <button
+                onClick={() => navigate(`/course-v3/${courseId}`)}
+                className="rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
+              >
+                Try new view →
+              </button>
+            </div>
           </div>
 
           <motion.div
@@ -170,6 +195,15 @@ export default function StudentCourseView() {
           </div>
         )}
       </div>
+
+      {FEATURES.globalSearch && courseId && courseId !== '__uncat__' && (
+        <CommandPalette
+          open={askOpen}
+          onOpenChange={setAskOpen}
+          initialCourseId={courseId}
+          initialCourseTitle={courseTitle}
+        />
+      )}
     </div>
   );
 }

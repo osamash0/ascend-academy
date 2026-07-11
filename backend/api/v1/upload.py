@@ -2,6 +2,7 @@ import logging
 import json
 import asyncio
 from typing import Any, List, Dict, Optional
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request
 from fastapi.responses import StreamingResponse
@@ -10,6 +11,8 @@ from pydantic import BaseModel
 from backend.services import upload_service
 from backend.services import diagnostics_service
 from backend.services.slide_synth_service import synthesize_slide
+from backend.services.parser import repos as parser_repos
+from backend.domain.parse_models import RunStatus
 from backend.core.auth_middleware import require_professor
 from backend.core.rate_limit import limiter
 from backend.core.file_validation import sanitize_filename
@@ -60,6 +63,7 @@ async def upload_config_endpoint():
     return {
         "maxUploadMb": MAX_FILE_MB,
         "acceptedExtensions": ACCEPTED_UPLOAD_EXTENSIONS,
+        "maxBatchFiles": settings.max_batch_files,
     }
 
 @router.post("/parse-pdf-stream")
@@ -73,6 +77,7 @@ async def parse_pdf_stream_endpoint(
     parsing_mode: str = Form("ai"),
     parser: str = Form("auto"),
     lecture_id: Optional[str] = Form(None),
+    course_id: Optional[str] = Form(None),
     user: Any = Depends(require_professor),
 ):
     user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
@@ -81,18 +86,10 @@ async def parse_pdf_stream_endpoint(
         if not res.data or res.data[0].get("professor_id") != user_id:
             raise HTTPException(status_code=403, detail="You do not own this lecture.")
 
-    max_bytes = MAX_FILE_MB * 1024 * 1024
-    chunks = []
-    bytes_read = 0
-    while True:
-        chunk = await file.read(65536)
-        if not chunk:
-            break
-        bytes_read += len(chunk)
-        if bytes_read > max_bytes:
-            raise HTTPException(status_code=413, detail=f"File exceeds the {MAX_FILE_MB}MB limit.")
-        chunks.append(chunk)
-    content = b"".join(chunks)
+    try:
+        content = await upload_service.read_upload_capped(file, MAX_FILE_MB)
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail=str(e))
 
     try:
         page_count = await upload_service.validate_upload(file.filename, content)
@@ -153,7 +150,8 @@ async def parse_pdf_stream_endpoint(
         upload_service.process_pdf_stream(
             content=content, filename=filename, pdf_hash=pdf_hash, page_count=page_count,
             ai_model=ai_model, use_blueprint=use_blueprint, parsing_mode=parsing_mode,
-            parser=parser, lecture_id=lecture_id, user_id=user_id, force_reparse=force_reparse
+            parser=parser, lecture_id=lecture_id, user_id=user_id, force_reparse=force_reparse,
+            course_id=course_id,
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
@@ -167,18 +165,11 @@ async def import_pdf_lazy_endpoint(
     ai_model: str = Form("cerebras"),
     user: Any = Depends(require_professor),
 ):
-    max_bytes = MAX_FILE_MB * 1024 * 1024
-    chunks = []
-    bytes_read = 0
-    while True:
-        chunk = await file.read(65536)
-        if not chunk: break
-        bytes_read += len(chunk)
-        if bytes_read > max_bytes:
-            raise HTTPException(status_code=413, detail=f"File exceeds the {MAX_FILE_MB}MB limit.")
-        chunks.append(chunk)
-    content = b"".join(chunks)
-    
+    try:
+        content = await upload_service.read_upload_capped(file, MAX_FILE_MB)
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail=str(e))
+
     try:
         await upload_service.validate_upload(file.filename, content)
     except ValueError as e:
@@ -406,17 +397,10 @@ async def parse_raw_endpoint(
     parser: str = Form("auto"),
     user: Any = Depends(require_professor),
 ):
-    max_bytes = MAX_FILE_MB * 1024 * 1024
-    chunks = []
-    bytes_read = 0
-    while True:
-        chunk = await file.read(65536)
-        if not chunk: break
-        bytes_read += len(chunk)
-        if bytes_read > max_bytes:
-            raise HTTPException(status_code=413, detail=f"File exceeds the {MAX_FILE_MB}MB limit.")
-        chunks.append(chunk)
-    content = b"".join(chunks)
+    try:
+        content = await upload_service.read_upload_capped(file, MAX_FILE_MB)
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail=str(e))
 
     try:
         await upload_service.validate_upload(file.filename, content)
@@ -424,7 +408,7 @@ async def parse_raw_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
     filename = sanitize_filename(file.filename)
-    
+
     try:
         return await upload_service.extract_raw_pages(content, filename, parser)
     except Exception as e:
@@ -459,3 +443,220 @@ async def cleanup_cache_endpoint(
 ):
     deleted = await purge_expired_slide_checkpoints()
     return {"deleted": deleted, "message": f"Purged {deleted} expired checkpoint rows."}
+
+
+# ── Phase 1: course-at-once ingestion (multi-file batch upload) ─────────────
+
+def _user_id(user: Any) -> Optional[str]:
+    return user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+
+
+@router.post("/batch")
+@limiter.limit("5/minute")
+async def upload_batch_endpoint(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    course_id: Optional[str] = Form(None),
+    parsing_mode: str = Form("ai"),
+    ai_model: str = Form("cerebras"),
+    user: Any = Depends(require_professor),
+):
+    """Multi-file upload: enqueues one parse_pdf_unified job per file sharing
+    a batch_id, and returns immediately (no SSE — poll GET /upload/jobs or
+    GET /upload/batches/{id} instead; N held-open SSE streams don't scale and
+    can't survive the tab closing, which this flow is explicitly meant to
+    support). A bad file is isolated — recorded failed with run_id=null,
+    never aborting the rest of the batch.
+
+    PowerPoint (.pptx) isn't supported here yet — the markitdown+LibreOffice
+    conversion path used by /parse-pdf-stream isn't wired into this loop;
+    a .pptx file is rejected per-file with a clear message rather than
+    silently mishandled.
+    """
+    from backend.services.parser.unified_orchestrator import PIPELINE_VERSION_UNIFIED
+
+    user_id = _user_id(user)
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided.")
+    if len(files) > settings.max_batch_files:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch exceeds the {settings.max_batch_files}-file limit.",
+        )
+
+    if course_id:
+        res = supabase_admin.table("courses").select("professor_id").eq("id", course_id).execute()
+        if not res.data or res.data[0].get("professor_id") != user_id:
+            raise HTTPException(status_code=403, detail="You do not own this course.")
+
+    parsing_mode = parsing_mode if parsing_mode in {"ai", "on_demand"} else "ai"
+    resolved_model = ai_model if (ai_model and ai_model.lower() != "auto") else (settings.parser_llm_model or "cerebras")
+    batch_id = uuid4()
+    course_uuid = UUID(course_id) if course_id else None
+    user_uuid = UUID(user_id) if user_id else None
+
+    results: List[Dict[str, Any]] = []
+    for file in files:
+        raw_name = file.filename or "upload.pdf"
+        if raw_name.lower().endswith(".pptx"):
+            results.append({
+                "filename": raw_name, "pdf_hash": None, "run_id": None, "status": "failed",
+                "error": "PowerPoint isn't supported in batch upload yet — upload it individually.",
+            })
+            continue
+
+        try:
+            content = await upload_service.read_upload_capped(file, MAX_FILE_MB)
+            await upload_service.validate_upload(raw_name, content)
+        except ValueError as e:
+            results.append({"filename": raw_name, "pdf_hash": None, "run_id": None,
+                             "status": "failed", "error": str(e)})
+            continue
+
+        filename = sanitize_filename(raw_name)
+        pdf_hash = compute_pdf_hash(content)
+        try:
+            await upload_service.upload_pdf_to_storage(pdf_hash, content)
+            run = await parser_repos.get_or_create_run(
+                pdf_hash, None, PIPELINE_VERSION_UNIFIED,
+                batch_id=batch_id, user_id=user_uuid, course_id=course_uuid,
+                filename=filename, parsing_mode=parsing_mode,
+            )
+            pool = await upload_service.get_arq_pool()
+            await pool.enqueue_job(
+                "parse_pdf_unified",
+                pdf_hash=pdf_hash,
+                lecture_id="",
+                run_id=str(run.run_id),
+                ai_model=resolved_model,
+                user_id=str(user_id),
+                filename=filename,
+                parser_used="unified",
+                force_reparse=False,
+                parsing_mode=parsing_mode,
+                batch_id=str(batch_id),
+                course_id=course_id,
+            )
+            results.append({"filename": filename, "pdf_hash": pdf_hash,
+                             "run_id": str(run.run_id), "status": "queued"})
+        except Exception as e:
+            logger.error("batch upload enqueue failed for %s: %s", filename, e)
+            results.append({"filename": filename, "pdf_hash": pdf_hash, "run_id": None,
+                             "status": "failed", "error": "Failed to queue this file for parsing."})
+
+    return {"batch_id": str(batch_id), "files": results}
+
+
+@router.post("/jobs/{run_id}/retry")
+@limiter.limit("10/minute")
+async def retry_run_endpoint(
+    request: Request,
+    run_id: str,
+    user: Any = Depends(require_professor),
+):
+    """Retry a FAILED parse run without re-uploading bytes — the original PDF
+    is already in permanent storage, keyed by pdf_hash."""
+    user_id = _user_id(user)
+    try:
+        run_uuid = UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id.")
+
+    run = await parser_repos.get_run_by_id(run_uuid)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found.")
+    if run.user_id is None or str(run.user_id) != str(user_id):
+        raise HTTPException(status_code=403, detail="You do not own this run.")
+    if run.status != RunStatus.FAILED:
+        raise HTTPException(status_code=409, detail="Only failed runs can be retried.")
+
+    await parser_repos.set_status(run_uuid, RunStatus.QUEUED)
+    pool = await upload_service.get_arq_pool()
+    await pool.enqueue_job(
+        "parse_pdf_unified",
+        pdf_hash=run.pdf_hash,
+        lecture_id="",
+        run_id=str(run.run_id),
+        ai_model=settings.parser_llm_model or "cerebras",
+        user_id=str(run.user_id),
+        filename=run.filename or "upload.pdf",
+        parser_used="unified",
+        force_reparse=True,
+        parsing_mode=run.parsing_mode or "ai",
+        batch_id=str(run.batch_id) if run.batch_id else None,
+        course_id=str(run.course_id) if run.course_id else None,
+    )
+    return {"run_id": str(run.run_id), "status": "queued"}
+
+
+@router.get("/jobs")
+@limiter.limit("60/minute")
+async def list_upload_jobs_endpoint(
+    request: Request,
+    batch_id: Optional[str] = None,
+    user: Any = Depends(require_professor),
+):
+    """In-flight + recently-finished parse runs for the authenticated
+    professor — powers the persistent "Uploads" nav indicator (no batch_id)
+    and per-batch queue polling (with batch_id)."""
+    user_id = _user_id(user)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid user context.")
+
+    runs = await parser_repos.list_runs_by_user(
+        UUID(user_id), UUID(batch_id) if batch_id else None,
+    )
+    return {"jobs": [
+        {
+            "run_id": str(r.run_id),
+            "batch_id": str(r.batch_id) if r.batch_id else None,
+            "filename": r.filename,
+            "pdf_hash": r.pdf_hash,
+            "status": r.status.value,
+            "lecture_id": str(r.lecture_id) if r.lecture_id else None,
+            "course_id": str(r.course_id) if r.course_id else None,
+            "error": r.error,
+            "started_at": r.started_at.isoformat() if r.started_at else None,
+            "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+        }
+        for r in runs
+    ]}
+
+
+@router.get("/batches/{batch_id}")
+@limiter.limit("60/minute")
+async def get_batch_endpoint(
+    request: Request,
+    batch_id: str,
+    user: Any = Depends(require_professor),
+):
+    """Batch review summary: per-lecture slide/quiz/flagged counts + deck
+    summary for the Phase-1 batch review screen."""
+    user_id = _user_id(user)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid user context.")
+
+    try:
+        batch_uuid = UUID(batch_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid batch_id.")
+
+    rows = await parser_repos.get_batch_summary(batch_uuid, UUID(user_id))
+    if not rows:
+        raise HTTPException(status_code=404, detail="Batch not found.")
+
+    return {"batch_id": batch_id, "lectures": [
+        {
+            "run_id": str(r["run_id"]),
+            "status": r["status"],
+            "error": r["error"],
+            "filename": r["filename"],
+            "lecture_id": str(r["lecture_id"]) if r["lecture_id"] else None,
+            "title": r["title"],
+            "deck_summary": r["deck_summary"],
+            "slide_count": r["slide_count"],
+            "quiz_count": r["quiz_count"],
+            "flagged_count": r["flagged_count"],
+        }
+        for r in rows
+    ]}

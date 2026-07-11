@@ -16,7 +16,6 @@ from backend.domain.parse_models import (
     DeckOutline,
     ExtractedPage,
     PageStatus,
-    ParsePage,
     ParseRun,
     RunStatus,
     SlideContent,
@@ -46,34 +45,53 @@ async def get_or_create_run(
     pdf_hash: str,
     lecture_id: Optional[UUID],
     pipeline_version: str = PIPELINE_VERSION,
+    *,
+    batch_id: Optional[UUID] = None,
+    user_id: Optional[UUID] = None,
+    course_id: Optional[UUID] = None,
+    filename: Optional[str] = None,
+    parsing_mode: Optional[str] = None,
 ) -> ParseRun:
-    """Return an existing run or INSERT a new QUEUED one."""
+    """Return the run for (pdf_hash, pipeline_version), creating it if needed.
+
+    Upserts on the existing UNIQUE(pdf_hash, pipeline_version) constraint:
+    re-enqueuing byte-identical PDF content (e.g. the same file uploaded in a
+    later batch) updates batch_id/user_id/course_id/filename/parsing_mode to
+    the new values rather than silently keeping the first caller's — "last
+    batch touching this hash wins" is made explicit instead of a latent
+    surprise. All five use COALESCE so a call that doesn't know a value (e.g.
+    the orchestrator's own internal re-fetch, which doesn't pass batch_id)
+    never clobbers a value an earlier call already recorded — only an
+    explicit new value overwrites. Known v1 sharp edge: this is not scoped by
+    user_id, so two different professors uploading the same PDF share one run
+    row — accepted for now, a candidate to scope by user_id in a fast-follow.
+    """
     pool = await _pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT run_id, pdf_hash, lecture_id, pipeline_version, status,
-                   page_count, started_at, finished_at, outline, error
-            FROM parse_runs
-            WHERE pdf_hash = $1 AND pipeline_version = $2
-            """,
-            pdf_hash,
-            pipeline_version,
-        )
-        if row:
-            return _run_from_row(row)
-
-        row = await conn.fetchrow(
-            """
-            INSERT INTO parse_runs (pdf_hash, lecture_id, pipeline_version, status)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO parse_runs (pdf_hash, lecture_id, pipeline_version, status,
+                                     batch_id, user_id, course_id, filename, parsing_mode)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (pdf_hash, pipeline_version) DO UPDATE
+                SET batch_id = COALESCE(EXCLUDED.batch_id, parse_runs.batch_id),
+                    user_id = COALESCE(EXCLUDED.user_id, parse_runs.user_id),
+                    course_id = COALESCE(EXCLUDED.course_id, parse_runs.course_id),
+                    filename = COALESCE(EXCLUDED.filename, parse_runs.filename),
+                    parsing_mode = COALESCE(EXCLUDED.parsing_mode, parse_runs.parsing_mode)
             RETURNING run_id, pdf_hash, lecture_id, pipeline_version, status,
-                      page_count, started_at, finished_at, outline, error
+                      page_count, started_at, finished_at, outline, error,
+                      batch_id, user_id, course_id, filename, parsing_mode
             """,
             pdf_hash,
             lecture_id,
             pipeline_version,
             RunStatus.QUEUED.value,
+            batch_id,
+            user_id,
+            course_id,
+            filename,
+            parsing_mode,
         )
         return _run_from_row(row)
 
@@ -84,12 +102,110 @@ async def get_run_by_id(run_id: UUID) -> Optional[ParseRun]:
         row = await conn.fetchrow(
             """
             SELECT run_id, pdf_hash, lecture_id, pipeline_version, status,
-                   page_count, started_at, finished_at, outline, error
+                   page_count, started_at, finished_at, outline, error,
+                   batch_id, user_id, course_id, filename, parsing_mode
             FROM parse_runs WHERE run_id = $1
             """,
             run_id,
         )
         return _run_from_row(row) if row else None
+
+
+async def list_runs_by_user(
+    user_id: UUID, batch_id: Optional[UUID] = None, limit: int = 100,
+) -> list[ParseRun]:
+    """Runs for the uploads UI: either every run in one batch, or — when
+    batch_id is omitted — every non-terminal run plus anything that finished
+    in the last 24h (recent-enough to still be worth showing/toasting)."""
+    pool = await _pool()
+    async with pool.acquire() as conn:
+        if batch_id:
+            rows = await conn.fetch(
+                """
+                SELECT run_id, pdf_hash, lecture_id, pipeline_version, status,
+                       page_count, started_at, finished_at, outline, error,
+                       batch_id, user_id, course_id, filename, parsing_mode
+                FROM parse_runs WHERE user_id = $1 AND batch_id = $2
+                ORDER BY started_at DESC
+                """,
+                user_id, batch_id,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT run_id, pdf_hash, lecture_id, pipeline_version, status,
+                       page_count, started_at, finished_at, outline, error,
+                       batch_id, user_id, course_id, filename, parsing_mode
+                FROM parse_runs
+                WHERE user_id = $1
+                  AND (status NOT IN ('completed', 'failed', 'cancelled')
+                       OR finished_at > now() - interval '24 hours')
+                ORDER BY started_at DESC LIMIT $2
+                """,
+                user_id, limit,
+            )
+        return [_run_from_row(r) for r in rows]
+
+
+async def get_batch_summary(batch_id: UUID, user_id: UUID) -> list[dict]:
+    """Per-lecture rollup for the Phase-1 batch review screen: one row per
+    parse_runs entry in the batch, with slide/quiz/flagged counts joined from
+    the lecture it produced (if any yet). "Flagged" is a v1 heuristic on
+    existing columns (unsynthesized or empty-summary slides), not a stored
+    concept — no schema column backs it."""
+    pool = await _pool()
+    async with pool.acquire() as conn:
+        run_rows = await conn.fetch(
+            """
+            SELECT run_id, pdf_hash, lecture_id, status, error, filename, finished_at
+            FROM parse_runs WHERE batch_id = $1 AND user_id = $2
+            ORDER BY started_at
+            """,
+            batch_id, user_id,
+        )
+        lecture_ids = [r["lecture_id"] for r in run_rows if r["lecture_id"]]
+        counts: dict = {}
+        lectures: dict = {}
+        if lecture_ids:
+            agg_rows = await conn.fetch(
+                """
+                SELECT s.lecture_id,
+                       COUNT(*) AS slide_count,
+                       COUNT(*) FILTER (
+                           WHERE s.ai_enhanced = false OR trim(coalesce(s.summary, '')) = ''
+                       ) AS flagged_count,
+                       (SELECT COUNT(*) FROM quiz_questions q
+                          JOIN slides s2 ON s2.id = q.slide_id
+                         WHERE s2.lecture_id = s.lecture_id) AS quiz_count
+                FROM slides s WHERE s.lecture_id = ANY($1::uuid[])
+                GROUP BY s.lecture_id
+                """,
+                lecture_ids,
+            )
+            counts = {r["lecture_id"]: dict(r) for r in agg_rows}
+            lecture_rows = await conn.fetch(
+                "SELECT id, title, description FROM lectures WHERE id = ANY($1::uuid[])",
+                lecture_ids,
+            )
+            lectures = {r["id"]: r for r in lecture_rows}
+
+        out = []
+        for r in run_rows:
+            c = counts.get(r["lecture_id"], {})
+            lec = lectures.get(r["lecture_id"])
+            out.append({
+                "run_id": r["run_id"],
+                "status": r["status"],
+                "error": r["error"],
+                "filename": r["filename"],
+                "lecture_id": r["lecture_id"],
+                "title": (lec["title"] if lec else None) or r["filename"],
+                "deck_summary": lec["description"] if lec else None,
+                "slide_count": c.get("slide_count", 0),
+                "quiz_count": c.get("quiz_count", 0),
+                "flagged_count": c.get("flagged_count", 0),
+            })
+        return out
 
 
 async def set_status(run_id: UUID, status: RunStatus) -> None:
@@ -286,4 +402,9 @@ def _run_from_row(row) -> ParseRun:
         finished_at=row["finished_at"],
         outline=outline,
         error=row["error"],
+        batch_id=row["batch_id"] if "batch_id" in row.keys() else None,
+        user_id=row["user_id"] if "user_id" in row.keys() else None,
+        course_id=row["course_id"] if "course_id" in row.keys() else None,
+        filename=row["filename"] if "filename" in row.keys() else None,
+        parsing_mode=row["parsing_mode"] if "parsing_mode" in row.keys() else None,
     )

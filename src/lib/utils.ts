@@ -22,6 +22,12 @@ export function toSlug(text: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
+/** Sort files by filename so "Lecture 2.pdf" < "Lecture 10.pdf" (not lexicographic). */
+export function naturalSort<T extends { name: string }>(files: T[]): T[] {
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  return [...files].sort((a, b) => collator.compare(a.name, b.name));
+}
+
 export function safeGetUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();

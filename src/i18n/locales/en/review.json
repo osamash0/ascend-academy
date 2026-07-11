@@ -1,0 +1,25 @@
+{
+  "session": {
+    "loading": "Loading your review queue…",
+    "doneTitle": "Session complete — {{count}} reviewed",
+    "doneSubtitle": "Nice work. Come back tomorrow for more.",
+    "caughtUpTitle": "You're all caught up",
+    "caughtUpSubtitle": "No cards are due right now.",
+    "backToDashboard": "Back to dashboard",
+    "revealHint": "Tap or press space to reveal the answer",
+    "answerLabel": "Answer",
+    "showAnswer": "Show answer",
+    "progress": "{{current}} / {{total}}"
+  },
+  "rating": {
+    "again": "Again",
+    "hard": "Hard",
+    "good": "Good",
+    "easy": "Easy"
+  },
+  "widget": {
+    "title": "Daily Review",
+    "due": "due",
+    "start": "Start review"
+  }
+}

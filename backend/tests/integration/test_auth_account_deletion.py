@@ -8,7 +8,6 @@ mocked; we assert it's called with the caller's id and that failures surface as
 """
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.core.auth_middleware import verify_token

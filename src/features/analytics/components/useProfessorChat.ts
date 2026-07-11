@@ -21,6 +21,10 @@ export interface ProfessorChat {
   aiModel: string;
   submit: (text: string) => void;
   regenerate: () => void;
+  /** Clears the conversation and starts fresh. */
+  reset: () => void;
+  /** Hides the chat panel (back to full lecture browsing) without losing history. */
+  close: () => void;
 }
 
 /**
@@ -39,6 +43,7 @@ export function useProfessorChat(opts?: { onAsk?: (text: string) => void }): Pro
   const { user } = useAuth();
   const storageKey = user?.id ? `${STORAGE_KEY}_${user.id}` : STORAGE_KEY;
   const tsKey = `${storageKey}_ts`;
+  const closedKey = `${storageKey}_closed`;
 
   const loadMessages = (sKey: string, tKey: string): ChatMsg[] => {
     if (typeof window === 'undefined') return [];
@@ -60,10 +65,18 @@ export function useProfessorChat(opts?: { onAsk?: (text: string) => void }): Pro
     return [];
   };
 
+  const loadClosed = (cKey: string): boolean =>
+    typeof window !== 'undefined' && localStorage.getItem(cKey) === '1';
+
   const [messages, setMessages] = useState<ChatMsg[]>(() => loadMessages(storageKey, tsKey));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  // Whether the professor explicitly closed the chat panel. Persisted so it
+  // survives navigating away from /professor/analytics and back — without
+  // this, the docked chat would silently reopen every time the page remounts
+  // (messages persist, but component state like `closed` doesn't).
+  const [closed, setClosed] = useState<boolean>(() => loadClosed(closedKey));
 
   useEffect(() => {
     let cancelled = false;
@@ -77,12 +90,17 @@ export function useProfessorChat(opts?: { onAsk?: (text: string) => void }): Pro
   // or on mount if coming back from another tab after expiry.
   useEffect(() => {
     setMessages(loadMessages(storageKey, tsKey));
-  }, [storageKey, tsKey]);
+    setClosed(loadClosed(closedKey));
+  }, [storageKey, tsKey, closedKey]);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(messages));
     localStorage.setItem(tsKey, Date.now().toString());
   }, [messages, storageKey, tsKey]);
+
+  useEffect(() => {
+    localStorage.setItem(closedKey, closed ? '1' : '0');
+  }, [closed, closedKey]);
 
   const ask = useCallback(
     async (history: ChatMsg[]) => {
@@ -104,6 +122,7 @@ export function useProfessorChat(opts?: { onAsk?: (text: string) => void }): Pro
     (text: string) => {
       const t = text.trim();
       if (!t || loading) return;
+      setClosed(false);
       opts?.onAsk?.(t);
       const userMsg: ChatMsg = { id: nextId(), role: 'user', content: t };
       const next = [...messages, userMsg];
@@ -113,6 +132,16 @@ export function useProfessorChat(opts?: { onAsk?: (text: string) => void }): Pro
     },
     [loading, messages, ask, opts],
   );
+
+  const reset = useCallback(() => {
+    setMessages([]);
+    setClosed(false);
+    localStorage.removeItem(storageKey);
+    localStorage.removeItem(tsKey);
+    localStorage.removeItem(closedKey);
+  }, [storageKey, tsKey, closedKey]);
+
+  const close = useCallback(() => setClosed(true), []);
 
   const regenerate = useCallback(() => {
     if (loading) return;
@@ -129,9 +158,11 @@ export function useProfessorChat(opts?: { onAsk?: (text: string) => void }): Pro
     setInput,
     loading,
     suggestions,
-    active: messages.length > 0,
+    active: messages.length > 0 && !closed,
     aiModel,
     submit,
     regenerate,
+    reset,
+    close,
   };
 }

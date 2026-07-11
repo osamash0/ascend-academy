@@ -3,7 +3,6 @@ import io
 
 import pytest
 from pptx import Presentation
-from pptx.util import Inches
 
 from backend.services import office_convert, upload_service
 

@@ -7,10 +7,8 @@ existing analytics_service function. The shaped result (table + summary
 """
 from __future__ import annotations
 
-import json
 import logging
-import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 from backend.services import analytics_service
 from backend.services.ai.orchestrator import generate_text, parse_json_response

@@ -1,13 +1,10 @@
 import hashlib
 import json
 import logging
-import time
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional, List, Dict, Tuple
-from collections import OrderedDict
-from threading import Lock
+from typing import Any, Optional, List, Dict
 from uuid import UUID
 
 from backend.core.database import supabase_admin, db_pool
@@ -351,6 +348,52 @@ async def get_similar_slides(embedding: List[float], limit: int = 5, threshold: 
         return res.data or []
     except Exception as e:
         logger.error("Failed to get similar slides: %s", e)
+        return []
+
+
+async def get_similar_slides_scoped(
+    embedding: List[float],
+    course_ids: List[str],
+    limit: int = 8,
+    threshold: float = 0.6,
+) -> List[Dict[str, Any]]:
+    """Course-scoped ANN search via the `match_slides_scoped` RPC.
+
+    Unlike `get_similar_slides`, the course filter is applied in SQL (not a
+    Python post-filter over a global candidate window) so results from an
+    enrolled course are never dropped because the ANN window filled up with
+    other courses' slides first.
+    """
+    if not course_ids:
+        return []
+    try:
+        res = supabase_admin.rpc("match_slides_scoped", {
+            "query_embedding": embedding,
+            "scoped_course_ids": course_ids,
+            "match_threshold": threshold,
+            "match_count": limit,
+        }).execute()
+        return res.data or []
+    except Exception as e:
+        logger.error("Failed to get scoped similar slides: %s", e)
+        return []
+
+
+async def search_slides_keyword_scoped(
+    query: str, course_ids: List[str], limit: int = 8
+) -> List[Dict[str, Any]]:
+    """Postgres full-text fallback via `search_slides_keyword`, same course scope."""
+    if not course_ids or not query.strip():
+        return []
+    try:
+        res = supabase_admin.rpc("search_slides_keyword", {
+            "search_query": query,
+            "scoped_course_ids": course_ids,
+            "match_count": limit,
+        }).execute()
+        return res.data or []
+    except Exception as e:
+        logger.error("Failed keyword slide search: %s", e)
         return []
 
 

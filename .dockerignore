@@ -8,16 +8,18 @@ dist
 .vite
 
 # Python virtual envs and cache
-__pycache__
-*.pyc
-*.pyo
-.venv
-venv
+# NOTE: dockerignore patterns are root-relative — bare `venv` would only match
+# ./venv, so nested trees (backend/venv, backend/__pycache__) need `**/`.
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.venv
+**/venv
 mineru-env
-*.egg-info
-.pytest_cache
-.mypy_cache
-.ruff_cache
+**/*.egg-info
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
 
 # Local env files (never copy secrets into image)
 .env
@@ -39,7 +41,10 @@ mineru_server.py
 # Test outputs
 htmlcov/
 .coverage
+coverage/
 coverage.xml
+test-results/
+e2e/
 
 # Editor & OS
 .DS_Store

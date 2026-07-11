@@ -22,7 +22,7 @@ import httpx
 from supabase import create_client as _create_client, Client, ClientOptions
 from postgrest.exceptions import APIError
 
-from backend.core.exceptions import DomainError, NotFoundError, ForbiddenError, UnauthorizedError
+from backend.core.exceptions import DomainError, NotFoundError, ForbiddenError
 
 
 def create_client(supabase_url: str, supabase_key: str) -> Client:

@@ -163,6 +163,10 @@ async def parse_pdf_unified(
     parser_used: str = "unified",
     force_reparse: bool = False,
     parsing_mode: str = "ai",
+    batch_id: Optional[str] = None,
+    course_id: Optional[str] = None,
+    visibility: str = "course",
+    student_owner_id: Optional[str] = None,
 ) -> str:
     """Unified parse pipeline entry point (Arq job or inline).
 
@@ -170,7 +174,26 @@ async def parse_pdf_unified(
     the pipeline re-parses and reuses the existing lecture (same lecture_id, so
     student links/progress survive). This is the user's escape hatch for a stale
     parse — including switching parser or parsing_mode on the same PDF.
+
+    ``batch_id``/``course_id`` (Phase 1, course-at-once ingestion) let a
+    multi-file upload assign the course server-side at parse time, so a batch
+    is fully detached — no client-side wizard step is required to finish it.
+
+    ``visibility``/``student_owner_id`` (Roadmap 3.1, "My Materials") route a
+    private student upload instead of a professor's lecture. Private uploads
+    use a distinct ``pipeline_version`` namespace (see below) so they never
+    collide with — or silently replay into — someone else's `parse_runs` row
+    for the same `pdf_hash`. Known v1 scope cut: unlike the professor path,
+    two different owners uploading byte-identical PDF content each pay their
+    own full parse (no cross-owner sharing) — `slide_embeddings.lecture_id` is
+    a single-column backfill keyed by pdf_hash (see `attach_lecture_id_to_
+    embeddings`), so sharing one parse across owners would silently reassign
+    embeddings to whichever owner parsed last. Fixing that is a prerequisite
+    for cross-owner dedupe and is out of scope here.
     """
+    pipeline_version = (
+        f"{PIPELINE_VERSION_UNIFIED}-student" if visibility == "private_student" else PIPELINE_VERSION_UNIFIED
+    )
     redis_client = None
     if not emit_fn:
         redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
@@ -195,7 +218,13 @@ async def parse_pdf_unified(
     try:
         await emit("info", {"parser": parser_used})
 
-        run = await repos.get_or_create_run(pdf_hash, None, PIPELINE_VERSION_UNIFIED)
+        run = await repos.get_or_create_run(
+            pdf_hash, None, pipeline_version,
+            batch_id=UUID(batch_id) if batch_id else None,
+            user_id=UUID(user_id) if user_id else None,
+            course_id=UUID(course_id) if course_id else None,
+            filename=filename,
+        )
         run_uuid = run.run_id
         existing_lecture_id = run.lecture_id  # set by a prior (partial) attempt
 
@@ -214,7 +243,7 @@ async def parse_pdf_unified(
 
         owner = UUID(user_id) if user_id else None
         if owner is None:
-            raise ValueError("parse_pdf_unified requires user_id (lectures.professor_id is NOT NULL)")
+            raise ValueError("parse_pdf_unified requires user_id (lectures.professor_id/student_owner_id is required)")
 
         # ── 1. Extract text per page ─────────────────────────────────────────
         await emit("phase", {"phase": "extract"})
@@ -243,14 +272,24 @@ async def parse_pdf_unified(
         lecture_context = f"{lecture_title}: {deck_summary}"
 
         # ── 3. Create / reuse the lecture row (server-authoritative) ─────────
+        course_uuid = UUID(course_id) if course_id else None
         if existing_lecture_id:
             created_lecture_id = existing_lecture_id
             await persist.clear_lecture_content(created_lecture_id)
             await persist.set_lecture_title(created_lecture_id, lecture_title)
+            if course_uuid is not None:
+                await persist.set_course_id(created_lecture_id, course_uuid)
         else:
-            created_lecture_id = await persist.create_lecture(
-                title=lecture_title, professor_id=owner, pdf_hash=pdf_hash,
-            )
+            if visibility == "private_student":
+                created_lecture_id = await persist.create_lecture(
+                    title=lecture_title, pdf_hash=pdf_hash,
+                    visibility=visibility, student_owner_id=owner,
+                )
+            else:
+                created_lecture_id = await persist.create_lecture(
+                    title=lecture_title, professor_id=owner, pdf_hash=pdf_hash,
+                    course_id=course_uuid,
+                )
             await persist.set_run_lecture(run_uuid, created_lecture_id)
         pdf_path = await _store_lecture_pdf(created_lecture_id, filename, pdf_bytes)
         if pdf_path:
@@ -339,6 +378,20 @@ async def parse_pdf_unified(
                 await persist.finalize_lecture(created_lecture_id, deck_summary, total_persisted)
             except Exception as exc:
                 logger.error("deck/finalize persist failed: %s", exc)
+            # Roadmap Phase 1.1 (review engine): generate spaced-repetition
+            # cards from this lecture's quiz questions. Best-effort — never
+            # blocks parse completion. Off by default (FEATURE_REVIEW_ENGINE).
+            if settings.feature_review_engine:
+                try:
+                    redis_pool = ctx.get("redis")
+                    if redis_pool:
+                        await redis_pool.enqueue_job("generate_review_cards", lecture_id=str(created_lecture_id))
+                    else:
+                        from backend.services.upload_service import get_arq_pool
+                        pool = await get_arq_pool()
+                        await pool.enqueue_job("generate_review_cards", lecture_id=str(created_lecture_id))
+                except Exception as exc:
+                    logger.warning("review card-factory enqueue failed (non-fatal): %s", exc)
             # Attach embeddings (written keyed by pdf_hash) to this lecture.
             try:
                 from backend.services.cache import attach_lecture_id_to_embeddings

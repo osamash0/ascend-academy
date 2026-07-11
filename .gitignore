@@ -50,3 +50,8 @@ dump.rdb
 pdf_testset/
 # Loadtest credentials
 backend/loadtest/.students.json
+
+# Test coverage artifacts (untracked 2026-07-11 cleanup)
+.coverage
+coverage/
+htmlcov/

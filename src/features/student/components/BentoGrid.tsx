@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Flame, Trophy, Layers, Play, ChevronRight, Zap } from 'lucide-react';
+import { Flame, Trophy, Layers, Play, ChevronRight, Zap, Sparkles, UploadCloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConsoleTile } from '@/components/console';
 import type {
@@ -8,6 +8,8 @@ import type {
   TrophiesWidget,
   UpNextWidget,
   CourseProgressWidget,
+  ReviewWidget,
+  MyMaterialsWidget,
 } from '@/features/student/homeFeed';
 
 /** XP needed per level (matches the dashboard "/ 100 XP" copy). */
@@ -17,6 +19,8 @@ interface BentoGridProps {
   widgets: Widget[];
   onOpenLecture: (id: string) => void;
   onViewTrophies: () => void;
+  onOpenReview: () => void;
+  onOpenMyMaterials: () => void;
 }
 
 /** Floating glass cell — the depth "panel" every widget sits in. */
@@ -200,11 +204,55 @@ function CourseProgressCell({ w }: { w: CourseProgressWidget }) {
   );
 }
 
+function ReviewCell({ w, onOpen }: { w: ReviewWidget; onOpen: () => void }) {
+  return (
+    <Cell
+      className="flex flex-col justify-between md:col-span-2"
+      onClick={onOpen}
+      label={`Daily review — ${w.dueCount} due`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/50">Daily Review</span>
+        <Sparkles className="h-4 w-4 text-primary" />
+      </div>
+      <div className="flex items-end gap-2">
+        <span className="text-5xl font-black leading-none">{w.dueCount}</span>
+        <span className="pb-1 text-xs font-bold uppercase tracking-wider text-white/50">due</span>
+      </div>
+      <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-black text-slate-900">
+        <Play className="h-4 w-4 fill-slate-900" /> Start review
+      </span>
+    </Cell>
+  );
+}
+
+function MyMaterialsCell({ w, onOpen }: { w: MyMaterialsWidget; onOpen: () => void }) {
+  return (
+    <Cell
+      className="flex flex-col justify-between"
+      onClick={onOpen}
+      label={`My Materials — ${w.count} uploaded`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/50">My Materials</span>
+        <UploadCloud className="h-4 w-4 text-primary" />
+      </div>
+      <div className="flex items-end gap-2">
+        <span className="text-4xl font-black leading-none">{w.count}</span>
+        <span className="pb-1 text-xs font-bold uppercase tracking-wider text-white/50">uploaded</span>
+      </div>
+      <span className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-white/70">
+        Upload a PDF <ChevronRight className="h-3.5 w-3.5" />
+      </span>
+    </Cell>
+  );
+}
+
 /**
  * The PS5-style bento: a grid of floating glass widgets (streak, trophies, up
  * next, course progress). Renders whatever buildWidgets() returns, in order.
  */
-export function BentoGrid({ widgets, onOpenLecture, onViewTrophies }: BentoGridProps) {
+export function BentoGrid({ widgets, onOpenLecture, onViewTrophies, onOpenReview, onOpenMyMaterials }: BentoGridProps) {
   if (widgets.length === 0) return null;
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -218,6 +266,10 @@ export function BentoGrid({ widgets, onOpenLecture, onViewTrophies }: BentoGridP
             return <UpNextCell key="upNext" w={w} onOpen={onOpenLecture} />;
           case 'courseProgress':
             return <CourseProgressCell key="courseProgress" w={w} />;
+          case 'review':
+            return <ReviewCell key="review" w={w} onOpen={onOpenReview} />;
+          case 'myMaterials':
+            return <MyMaterialsCell key="myMaterials" w={w} onOpen={onOpenMyMaterials} />;
           default:
             return null;
         }

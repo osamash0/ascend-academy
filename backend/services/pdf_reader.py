@@ -8,7 +8,7 @@ released before the bytes object crosses back to the async caller.
 """
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import fitz
 

@@ -1,6 +1,5 @@
 import sys
 import importlib.util
-import os
 from pathlib import Path
 
 def check_package(package_name):
@@ -21,7 +20,7 @@ def check_env_file():
         return False
 
 def main():
-    print(f"🔍 Checking Backend Environment...\n")
+    print("🔍 Checking Backend Environment...\n")
     
     # Check Python Version
     print(f"Python Version: {sys.version}")

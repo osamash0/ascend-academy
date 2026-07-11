@@ -7,7 +7,6 @@ refusal heuristic it uses when retrieval returns nothing on-topic.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
 from unittest.mock import AsyncMock
 
 import pytest

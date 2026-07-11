@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import sys
 import types
-from typing import List
 
 import pytest
 
@@ -30,14 +29,14 @@ def _install_fake_module(monkeypatch: pytest.MonkeyPatch, fake_class) -> None:
 
 @pytest.mark.asyncio
 async def test_extract_pages_raises_when_api_key_missing(monkeypatch):
-    monkeypatch.delenv("LLAMA_CLOUD_API_KEY", raising=False)
+    monkeypatch.setattr(llamaparse_service.settings, "llama_cloud_api_key", None)
     with pytest.raises(RuntimeError, match="LLAMA_CLOUD_API_KEY"):
         await llamaparse_service.extract_pages(b"%PDF-1.4 fake", "x.pdf")
 
 
 @pytest.mark.asyncio
 async def test_extract_pages_returns_one_indexed_dict(monkeypatch):
-    monkeypatch.setenv("LLAMA_CLOUD_API_KEY", "sk-test")
+    monkeypatch.setattr(llamaparse_service.settings, "llama_cloud_api_key", "sk-test")
 
     captured = {}
 
@@ -68,7 +67,7 @@ async def test_extract_pages_returns_one_indexed_dict(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_extract_pages_falls_back_to_index_when_metadata_missing(monkeypatch):
-    monkeypatch.setenv("LLAMA_CLOUD_API_KEY", "sk-test")
+    monkeypatch.setattr(llamaparse_service.settings, "llama_cloud_api_key", "sk-test")
 
     class FakeParser:
         def __init__(self, **kwargs):
@@ -87,7 +86,7 @@ async def test_extract_pages_falls_back_to_index_when_metadata_missing(monkeypat
 
 @pytest.mark.asyncio
 async def test_extract_pages_wraps_sdk_failure_as_runtime_error(monkeypatch):
-    monkeypatch.setenv("LLAMA_CLOUD_API_KEY", "sk-test")
+    monkeypatch.setattr(llamaparse_service.settings, "llama_cloud_api_key", "sk-test")
 
     class FakeParser:
         def __init__(self, **kwargs):
@@ -104,7 +103,7 @@ async def test_extract_pages_wraps_sdk_failure_as_runtime_error(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_extract_pages_rejects_non_list_response(monkeypatch):
-    monkeypatch.setenv("LLAMA_CLOUD_API_KEY", "sk-test")
+    monkeypatch.setattr(llamaparse_service.settings, "llama_cloud_api_key", "sk-test")
 
     class FakeParser:
         def __init__(self, **kwargs):
@@ -121,9 +120,9 @@ async def test_extract_pages_rejects_non_list_response(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_extract_pages_passes_optional_model_env(monkeypatch):
-    monkeypatch.setenv("LLAMA_CLOUD_API_KEY", "sk-test")
-    monkeypatch.setenv("LLAMAPARSE_MODEL", "premium-mode")
-    monkeypatch.setenv("LLAMAPARSE_RESULT_TYPE", "text")
+    monkeypatch.setattr(llamaparse_service.settings, "llama_cloud_api_key", "sk-test")
+    monkeypatch.setattr(llamaparse_service.settings, "llamaparse_model", "premium-mode")
+    monkeypatch.setattr(llamaparse_service.settings, "llamaparse_result_type", "text")
 
     captured = {}
 

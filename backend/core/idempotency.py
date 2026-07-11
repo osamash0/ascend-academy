@@ -1,4 +1,3 @@
-import hashlib
 from fastapi import Request, HTTPException
 from backend.core.redis import get_redis_client
 

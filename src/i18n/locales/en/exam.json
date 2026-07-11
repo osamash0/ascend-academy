@@ -1,0 +1,45 @@
+{
+  "generate": {
+    "title": "Prepare for exam",
+    "subtitle": "A timed mock exam sampled from this course's own quiz questions, weighted toward what you're weakest on.",
+    "numQuestions": "Questions",
+    "timeLimit": "Time limit",
+    "start": "Start exam",
+    "starting": "Generating your exam…",
+    "notEnoughQuestions": "This course doesn't have enough quiz questions yet for a mock exam.",
+    "rateLimited": "You've generated a few exams recently — try again later."
+  },
+  "runner": {
+    "loading": "Loading your exam…",
+    "question": "Question {{current}} of {{total}}",
+    "timeRemaining": "Time remaining",
+    "flagForReview": "Flag for review",
+    "flagged": "Flagged",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit exam",
+    "submitConfirmTitle": "Submit your exam?",
+    "submitConfirmBody": "You've answered {{answered}} of {{total}} questions. You can't change your answers after submitting.",
+    "submitConfirmCancel": "Keep going",
+    "submitConfirmOk": "Submit",
+    "autosaving": "Saving…",
+    "expiredWarning": "Time's up — submit now before the grace period ends."
+  },
+  "report": {
+    "title": "Exam results",
+    "score": "Score",
+    "expiredNotice": "This attempt was submitted after the time limit and was marked expired.",
+    "weakestConcepts": "Where to focus next",
+    "viewSlide": "Review the slide",
+    "sendToReview": "Send misses to Daily Review",
+    "sendingToReview": "Adding to your review queue…",
+    "sentToReview": "{{count}} cards added to your Daily Review",
+    "alreadySent": "Already sent to review",
+    "backToDashboard": "Back to dashboard",
+    "history": "Past attempts"
+  },
+  "widget": {
+    "title": "Mock Exam",
+    "cta": "Prepare for exam"
+  }
+}

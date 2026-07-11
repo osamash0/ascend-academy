@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, type LucideIcon } from 'lucide-react';
+import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, Search, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/NotificationBell';
+import { UploadsIndicator } from '@/components/UploadsIndicator';
 import { ProfileChip } from './ProfileChip';
 import { StudentRoutes, PublicRoutes, SharedRoutes, ProfessorRoutes, AdminRoutes } from '@/lib/routes';
 
@@ -51,7 +52,11 @@ function LiveClock() {
  * Console OS top bar: identity (left), tab nav (center), system tray (right).
  * The persistent chrome of the console experience.
  */
-export function ConsoleTopBar() {
+interface ConsoleTopBarProps {
+  onOpenSearch?: () => void;
+}
+
+export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
   const { signOut, role } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -107,7 +112,19 @@ export function ConsoleTopBar() {
 
       {/* Right: system tray */}
       <div className="flex items-center gap-2 lg:gap-3">
+        {onOpenSearch && (
+          <button
+            onClick={onOpenSearch}
+            className="console-focusable flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-white/10 transition"
+            aria-label="Search"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="hidden lg:inline">Ask anything</span>
+            <kbd className="hidden rounded border border-white/10 bg-white/5 px-1 text-[10px] font-black lg:inline">⌘K</kbd>
+          </button>
+        )}
         <LiveClock />
+        {role === 'professor' && <UploadsIndicator />}
         <NotificationBell />
         <Link
           to={SharedRoutes.SETTINGS}

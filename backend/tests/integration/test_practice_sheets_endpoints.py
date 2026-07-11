@@ -8,7 +8,6 @@ is_preview must be ignored so preview attempts can't pollute analytics).
 """
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.core.auth_middleware import verify_token

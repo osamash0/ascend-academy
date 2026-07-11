@@ -2,7 +2,6 @@
 import pytest
 
 from backend.services.ai import ask_professor
-from backend.services import analytics_service
 
 
 LECTURES = [
@@ -16,24 +15,35 @@ OVERVIEW = {
 }
 
 STUDENTS = {
-    "L1": [{"student_id": "u1", "student_name": "Fox", "quiz_score": 30, "progress_percentage": 40}],
+    "L1": [{"student_name": "Fox", "quiz_score": 30, "total_questions_answered": 5}],
     "L2": [
-        {"student_id": "u1", "student_name": "Fox", "quiz_score": 20, "progress_percentage": 30},
-        {"student_id": "u2", "student_name": "Owl", "quiz_score": 90, "progress_percentage": 100},
+        {"student_name": "Fox", "quiz_score": 20, "total_questions_answered": 4},
+        {"student_name": "Owl", "quiz_score": 90, "total_questions_answered": 6},
     ],
 }
 
 CONFIDENCE = {
-    "L1": [{"slide_number": 3, "title": "B-Trees", "confusion_rate": 55.0, "total": 9}],
-    "L2": [{"slide_number": 1, "title": "Inner", "confusion_rate": 20.0, "total": 6}],
+    "L1": [{"slide_number": 3, "confusion_rate": 55.0, "total": 9}],
+    "L2": [{"slide_number": 1, "confusion_rate": 20.0, "total": 6}],
 }
 
 
 @pytest.fixture(autouse=True)
 def _mock_analytics(monkeypatch):
-    monkeypatch.setattr(analytics_service, "get_lecture_overview", lambda lid, token: OVERVIEW[lid])
-    monkeypatch.setattr(analytics_service, "get_student_performance", lambda lid, token: STUDENTS[lid])
-    monkeypatch.setattr(analytics_service, "get_confidence_by_slide", lambda lid, token: CONFIDENCE[lid])
+    # The executors fetch through the bulk helpers (one Supabase round-trip);
+    # mock at that seam so no client is ever constructed.
+    monkeypatch.setattr(
+        ask_professor, "_bulk_fetch_overviews",
+        lambda ids, token: {lid: OVERVIEW[lid] for lid in ids},
+    )
+    monkeypatch.setattr(
+        ask_professor, "_bulk_fetch_student_scores",
+        lambda ids, token: {lid: STUDENTS[lid] for lid in ids},
+    )
+    monkeypatch.setattr(
+        ask_professor, "_bulk_fetch_confidence",
+        lambda ids, token: {lid: CONFIDENCE[lid] for lid in ids},
+    )
 
 
 def test_lectures_by_dropoff_ranks_lowest_completion_first():

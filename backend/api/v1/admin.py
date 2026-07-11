@@ -6,16 +6,13 @@ backup/restore, and server/deployment diagnostics.
 """
 import os
 import logging
-from typing import Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.concurrency import run_in_threadpool
+from typing import Any
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 import httpx
 from pydantic import BaseModel
 
 from backend.core.auth_middleware import (
-    _user_id,
     require_role,
-    verify_token,
 )
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter

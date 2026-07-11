@@ -376,6 +376,12 @@ export function GardenLecturePicker({
       onFocus={(i) => {
         setLectureIndex(i);
         setActiveRail('lectures');
+        // Once stats are already open, browsing to another lecture should
+        // refresh them immediately instead of requiring a second "activate".
+        const lec = focusedCourseLectures[i];
+        if (selectedLectureId && lec && lec.id !== selectedLectureId) {
+          onSelectLecture(lec.id);
+        }
       }}
       onActivate={(l) => onSelectLecture(l.id)}
       getKey={(l) => l.id}

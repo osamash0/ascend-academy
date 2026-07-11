@@ -13,7 +13,6 @@ import re
 import json
 import logging
 from pydantic import BaseModel
-from typing import Optional
 
 from backend.services.ai.orchestrator import _llm_generate_text_sync, parse_json_response
 

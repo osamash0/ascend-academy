@@ -13,10 +13,14 @@ export const PublicRoutes = {
 
 export const StudentRoutes = {
   HOME: '/dashboard',
+  REVIEW: '/review',
+  MY_MATERIALS: '/materials',
   ONBOARDING: '/onboarding',
   LIBRARY: '/library',
   COURSE_V3: (id: string) => `/course-v3/${id}`,
   COURSE_DETAIL: (id: string) => `/course/${id}`,
+  EXAM: (courseId: string) => `/exam/${courseId}`,
+  EXAM_REPORT: (examId: string) => `/exam/report/${examId}`,
   ASCENT: '/ascent',
   ACHIEVEMENTS: '/achievements',
   LEADERBOARD: '/leaderboard',
@@ -35,6 +39,7 @@ export const ProfessorRoutes = {
   ANALYTICS_LECTURE: (id: string) => `/professor/analytics/${id}`,
   ADVANCED_ANALYTICS: (id: string) => `/professor/analytics/${id}/advanced`,
   UPLOAD: '/professor/upload',
+  UPLOAD_BATCH_REVIEW: (batchId: string) => `/professor/upload/batch/${batchId}/review`,
   FAST_UPLOAD: '/professor/fast-upload',
   COURSES: '/professor/courses',
   COURSE_DETAIL: (id: string) => `/professor/courses/${id}`,

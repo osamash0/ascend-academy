@@ -9,7 +9,7 @@ import type {
   QuizAnalytics,
   StudentPerformance,
 } from '@/types/domain';
-import type { InsightFeed } from '@/features/analytics/types';
+import type { InsightFeed, InsightEvidence } from '@/features/analytics/types';
 
 export interface DropoffPoint {
   slide_number: number;
@@ -133,6 +133,20 @@ export async function getAiInsights(lectureId: string, context: Record<string, u
 export async function getLectureInsights(lectureId: string): Promise<InsightFeed> {
   const res = await apiClient.get<{ success: boolean; data: InsightFeed }>(
     `/api/analytics/lecture/${lectureId}/insights`,
+  );
+  return res.data;
+}
+
+export async function getInsightEvidence(
+  lectureId: string,
+  kind: string,
+  params: { slideId?: string; studentId?: string },
+): Promise<InsightEvidence> {
+  const query = new URLSearchParams({ kind });
+  if (params.slideId) query.set('slide_id', params.slideId);
+  if (params.studentId) query.set('student_id', params.studentId);
+  const res = await apiClient.get<{ success: boolean; data: InsightEvidence }>(
+    `/api/analytics/lecture/${lectureId}/evidence?${query.toString()}`,
   );
   return res.data;
 }

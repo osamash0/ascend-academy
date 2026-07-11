@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
 
 from backend.services.nudge_engine import (
     AssignmentDueSoonRule,
-    Nudge,
+    REVIEWS_PILING_UP_THRESHOLD,
+    ReviewsPilingUpRule,
     StreakAtRiskRule,
     UserContext,
     WeakConceptStaleRule,
@@ -59,6 +59,34 @@ class TestStreakAtRisk:
             dismissals={("streak_at_risk", ""): NOW + timedelta(hours=2)},
         )
         assert evaluate_user(ctx, [StreakAtRiskRule()]) == []
+
+
+# ── ReviewsPilingUpRule ──────────────────────────────────────────────────────
+
+class TestReviewsPilingUp:
+    def test_silent_at_or_below_threshold(self):
+        ctx = _ctx(due_review_count=REVIEWS_PILING_UP_THRESHOLD)
+        assert ReviewsPilingUpRule().should_fire(ctx) == []
+
+    def test_silent_when_no_reviews_due(self):
+        ctx = _ctx(due_review_count=0)
+        assert ReviewsPilingUpRule().should_fire(ctx) == []
+
+    def test_fires_above_threshold(self):
+        ctx = _ctx(due_review_count=REVIEWS_PILING_UP_THRESHOLD + 1)
+        nudges = ReviewsPilingUpRule().should_fire(ctx)
+        assert len(nudges) == 1
+        assert nudges[0].rule_key == "reviews_piling_up"
+        assert nudges[0].type == "daily_review"
+        assert nudges[0].deep_link == "/review"
+        assert str(REVIEWS_PILING_UP_THRESHOLD + 1) in nudges[0].message
+
+    def test_quiet_period_suppresses(self):
+        ctx = _ctx(
+            due_review_count=REVIEWS_PILING_UP_THRESHOLD + 1,
+            dismissals={("reviews_piling_up", ""): NOW + timedelta(hours=2)},
+        )
+        assert evaluate_user(ctx, [ReviewsPilingUpRule()]) == []
 
 
 # ── AssignmentDueSoonRule ───────────────────────────────────────────────────

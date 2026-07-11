@@ -1,7 +1,6 @@
 import pytest
 from httpx import AsyncClient
 from backend.main import app
-from backend.core.database import supabase_admin
 
 @pytest.mark.asyncio
 async def test_security_headers():

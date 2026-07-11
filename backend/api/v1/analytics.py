@@ -8,7 +8,9 @@ logger = logging.getLogger(__name__)
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
+from uuid import UUID
 from backend.services import analytics_service, analytics_cache
+from backend.services.insights import evidence as insight_evidence
 from backend.services.ai.ask_data import (
     PUBLIC_MAX_QUESTION_LENGTH,
     ask_lecture_data,
@@ -21,8 +23,9 @@ from backend.services.ai.ask_professor import (
 )
 import os as _os
 from backend.core.auth_middleware import verify_token, require_professor, security
-from backend.core.database import supabase
+from backend.core.database import supabase, get_db_connection
 from backend.core.rate_limit import limiter
+from backend.services import exam_service
 from fastapi.security import HTTPAuthorizationCredentials
 
 
@@ -253,6 +256,36 @@ async def get_lecture_insights(lecture_id: str, user=Depends(verify_token), cred
     except Exception as e:
         logger.error("Analytics endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load insights. Please try again.")
+
+
+@router.get("/lecture/{lecture_id}/evidence", response_model=AnalyticsResponse)
+async def get_insight_evidence(
+    lecture_id: str,
+    kind: str = Query(..., description="Evidence kind: ai_queries | confidence_breakdown | student_journey"),
+    slide_id: Optional[str] = Query(None),
+    student_id: Optional[str] = Query(None),
+    user=Depends(verify_token),
+    creds: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Layer-3 drill-down evidence for a single insight card (on-demand, uncached)."""
+    await run_in_threadpool(_assert_lecture_owner, lecture_id, user.id, creds.credentials)
+    try:
+        data = await run_in_threadpool(
+            insight_evidence.get_evidence,
+            kind,
+            lecture_id,
+            slide_id=slide_id,
+            student_id=student_id,
+            token=creds.credentials,
+        )
+        return AnalyticsResponse(success=True, data=data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Analytics endpoint error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load evidence. Please try again.")
 
 
 # ── New endpoints ────────────────────────────────────────────────────────────
@@ -720,6 +753,39 @@ async def get_course_benchmarks(
     except Exception as e:
         logger.error("Course benchmarks endpoint error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load course benchmarks.")
+
+
+@router.get("/course/{course_id}/exam-aggregate", response_model=AnalyticsResponse)
+async def get_course_exam_aggregate(
+    course_id: str,
+    user=Depends(require_professor),
+):
+    """Anonymized mock-exam performance for a course (Roadmap Phase 1.2).
+
+    `exam_attempts` RLS grants professors zero row-level access by design —
+    this is the only sanctioned professor read path, and it never returns a
+    single student's attempt, only an aggregate suppressed below
+    MIN_ATTEMPTS_FOR_AGGREGATE distinct students.
+    """
+    await run_in_threadpool(_assert_course_owner, course_id, user.id)
+    try:
+        try:
+            course_uuid = UUID(course_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid course_id.")
+        async with await get_db_connection() as conn:
+            data = await exam_service.get_course_exam_aggregate(conn, course_uuid)
+        if data is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Not enough mock-exam attempts yet for an anonymized aggregate (minimum {exam_service.MIN_ATTEMPTS_FOR_AGGREGATE} students).",
+            )
+        return AnalyticsResponse(success=True, data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Exam aggregate endpoint error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load exam aggregate.")
 
 
 @router.get("/personal/optimal-schedule", response_model=AnalyticsResponse)

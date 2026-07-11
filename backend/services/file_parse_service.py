@@ -49,7 +49,6 @@ from backend.services.cache import (
 from backend.services.ai.embeddings import generate_embeddings
 from backend.services.content_filter import is_metadata_slide
 from backend.services.deterministic_extractor import (
-    ENGINE_NAME as DETERMINISTIC_ENGINE,
     build_slides_from_layouts,
 )
 from backend.services.layout_analyzer import (

@@ -109,12 +109,20 @@ CREATE TABLE IF NOT EXISTS public.pdf_parse_cache (
     created_at  timestamptz DEFAULT now()
 );
 
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TABLE IF NOT EXISTS public.slide_embeddings (
-    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    pdf_hash    text NOT NULL,
-    slide_index int  NOT NULL,
-    embedding   bytea,
-    created_at  timestamptz DEFAULT now()
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- No FK to lectures: this bootstrap runs before supabase/migrations/
+    -- creates that table (out-of-band cache table, same rationale as
+    -- pdf_parse_cache above).
+    lecture_id   uuid,
+    pdf_hash     text,
+    slide_index  int NOT NULL,
+    embedding    vector(768),
+    metadata     jsonb DEFAULT '{}'::jsonb,
+    content_hash text,
+    created_at   timestamptz DEFAULT now()
 );
 
 -- The cache tables exist on the live project with grants baked in. Mirror

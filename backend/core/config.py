@@ -67,6 +67,37 @@ class Settings(BaseSettings):
     # endpoint stream guard AND file validation, and served to the frontend via
     # GET /api/v1/upload/config so the client rejects with the same number.
     max_upload_mb: int = Field(alias="MAX_UPLOAD_MB", default=50)
+    # Max files accepted by one multi-file batch upload (Phase 1).
+    max_batch_files: int = Field(alias="MAX_BATCH_FILES", default=30)
+    # Arq worker concurrency — tunable per deploy target's RAM/CPU budget
+    # rather than hardcoded, since a 30-file batch enqueues 30 jobs at once
+    # and the worker throttles to this number regardless of origin batch.
+    arq_max_jobs: int = Field(alias="ARQ_MAX_JOBS", default=4)
+
+    # ─── Review engine (Roadmap Phase 1.1, "Daily Ascent") ─────────────────────
+    # Off by default — gates the /review router mount and the card-factory
+    # enqueue call in unified_orchestrator.py. Set FEATURE_REVIEW_ENGINE=1 to enable.
+    feature_review_engine: bool = Field(alias="FEATURE_REVIEW_ENGINE", default=False)
+
+    # ─── Exam Mode (Roadmap Phase 1.2) ──────────────────────────────────────────
+    # Off by default — gates the /exams router mount. Set FEATURE_EXAM_MODE=1
+    # to enable. Depends only on review-engine's DB schema (review_cards/
+    # review_schedule), not FEATURE_REVIEW_ENGINE being on.
+    feature_exam_mode: bool = Field(alias="FEATURE_EXAM_MODE", default=False)
+
+    # ─── Global search + course tutor (Roadmap Phase 2.2, "Ask anything") ──────
+    # Off by default — gates the /search router mount. Depends on the
+    # match_slides_scoped/search_*_keyword RPCs (migration
+    # 20260710030000_global_search.sql). Set FEATURE_GLOBAL_SEARCH=1 to enable.
+    feature_global_search: bool = Field(alias="FEATURE_GLOBAL_SEARCH", default=False)
+
+    # ─── Student self-serve uploads (Roadmap Phase 3.1, "My Materials") ────────
+    # Off by default — gates the /materials router mount. Depends on migration
+    # 20260710040000_student_uploads.sql (lectures.visibility/student_owner_id,
+    # upload_quotas). Set FEATURE_STUDENT_UPLOADS=1 to enable.
+    feature_student_uploads: bool = Field(alias="FEATURE_STUDENT_UPLOADS", default=False)
+    # Monthly cap on private uploads per student; quota is the monetization seam.
+    student_upload_monthly_limit: int = Field(alias="STUDENT_UPLOAD_MONTHLY_LIMIT", default=5)
 
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")

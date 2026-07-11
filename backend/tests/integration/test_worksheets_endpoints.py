@@ -1,7 +1,6 @@
 """Integration tests for worksheets endpoints."""
 from __future__ import annotations
 
-import io
 from types import SimpleNamespace
 
 import pytest

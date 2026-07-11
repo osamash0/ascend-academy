@@ -23,6 +23,8 @@ import { OnboardingJourneyMap } from '@/features/onboarding/pixi/OnboardingJourn
 import type {
   University, Faculty, DegreeProgram, SuggestedCourse, StudentCatalogStatus,
 } from '@/types/academic';
+import { LanguageToggle } from '@/components/LanguageToggle';
+import { LunaAstronaut } from '../../learnstation-luna';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UniversityEmailLink } from '@/components/UniversityEmailLink';
@@ -109,6 +111,12 @@ function OnboardingInner() {
   const [isUploading, setIsUploading] = useState(false);
   const [revealData, setRevealData] = useState<RevealData>({ classmates: 0, recommendations: 0, courses: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Step 2 — Luna always selected, customization only
+  const LUNA_AVATAR_KEY = '__luna__';
+  const [lunaSuit, setLunaSuit] = useState('#FFF8E7');
+  const [lunaVisor, setLunaVisor] = useState('#88B0B5');
+  const [lunaPatch, setLunaPatch] = useState('');
 
   // Step 5 — platform content courses (existing behaviour)
   const [courses, setCourses] = useState<Course[]>([]);
@@ -394,9 +402,9 @@ function OnboardingInner() {
       });
 
       // Name + photo are set → award "Identity Set" (and "Verified Scholar" if the
-      // institution was just verified). The popup is owned by the global provider,
-      // which outlives this page, so it surfaces on the dashboard after navigation.
-      gamification.evaluate();
+      // institution was just verified). We intentionally DO NOT call evaluate()
+      // here because it would spawn a popup that obscures the 5-second cinematic.
+      // Instead, we let the Dashboard's on-mount useEffect trigger the evaluation.
 
       // The reveal montage — the payoff for setting everything up.
       setStep(TOTAL_STEPS);
@@ -444,9 +452,9 @@ function OnboardingInner() {
             initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
             animate={{ scale: 1, opacity: 1, rotate: 0 }}
             transition={{ type: 'spring', stiffness: 200, damping: 16, delay: 0.2 }}
-            className="w-24 h-24 mx-auto mb-8 rounded-[28px] bg-primary/20 border-2 border-primary/40 flex items-center justify-center shadow-glow-primary"
+            className="w-40 h-40 mx-auto mb-8 flex items-center justify-center"
           >
-            <Rocket className="w-12 h-12 text-primary" />
+            <LunaAstronaut phase="full" size="xl" animated />
           </motion.div>
 
           <motion.h1
@@ -507,11 +515,9 @@ function OnboardingInner() {
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
-            className="w-28 h-28 mx-auto mb-6"
+            className="mx-auto mb-6 flex justify-center"
           >
-            <RankRing tier={tier} size="xl">
-              <img src={avatarUrl} alt="You" className="w-full h-full object-cover rounded-[18px]" />
-            </RankRing>
+            <LunaAstronaut phase="full" size="xl" animated />
           </motion.div>
 
           <motion.h2
@@ -639,43 +645,127 @@ function OnboardingInner() {
             )}
 
             {step === 2 && (
-              <motion.div key="step2" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col">
-                <div className="mb-8 text-center">
-                  <motion.div
-                    key={avatarUrl}
-                    initial={{ scale: 0.85 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-                    className="w-24 h-24 mx-auto mb-6"
-                  >
-                    <RankRing tier={tier} size="xl">
-                      <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover rounded-[18px]" />
-                    </RankRing>
-                  </motion.div>
-                  <h1 className="text-4xl font-bold text-foreground mb-3">Choose Your Avatar</h1>
-                  <p className="text-muted-foreground text-lg">This is how you'll appear across Learnstation. Pick one or upload your own.</p>
-                </div>
-                <div className="flex-1 flex flex-col items-center max-w-md mx-auto w-full">
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} disabled={isUploading} />
-                  <Button variant="outline" className="w-full mb-6 h-14 rounded-2xl border-white/10 hover:bg-white/5 transition-all text-base" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                    {isUploading ? <Loader2 className="w-5 h-5 mr-2 animate-spin text-secondary" /> : <Camera className="w-5 h-5 mr-2 text-secondary" />}
-                    {isUploading ? 'Uploading...' : 'Upload Custom Avatar'}
-                  </Button>
-                  <div className="grid grid-cols-3 gap-4 place-content-center w-full">
-                    {PRESET_AVATARS.map((preset) => (
-                      <button
-                        key={preset.url}
-                        onClick={() => selectAvatar(preset.url)}
-                        className={`aspect-square rounded-2xl flex items-center justify-center p-3 border-2 transition-all duration-300 hover:scale-105 ${
-                          avatarUrl === preset.url ? 'border-primary bg-primary/20 scale-105 shadow-glow-primary' : 'border-white/5 bg-white/5 hover:border-white/20'
-                        }`}
-                      >
-                        <img src={preset.url} alt={preset.label} className="w-full h-full object-contain" />
-                      </button>
-                    ))}
+              <motion.div key="step2" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col items-center justify-center gap-6">
+
+                {/* ── Luna character card ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  className="relative w-full max-w-[280px] mx-auto rounded-3xl overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(160deg, hsl(235 40% 18%) 0%, hsl(250 35% 14%) 100%)',
+                    boxShadow: '0 0 0 1px hsl(235 40% 25% / 0.6), 0 24px 48px -8px hsl(235 85% 65% / 0.15)',
+                  }}
+                >
+                  {/* Starfield dots */}
+                  {[[14,18],[48,12],[72,22],[90,10],[18,44],[80,38],[30,60]].map(([x,y], i) => (
+                    <span key={i} className="absolute w-0.5 h-0.5 rounded-full bg-white/30" style={{ left: `${x}%`, top: `${y}%` }} />
+                  ))}
+
+                  <div className="flex flex-col items-center px-8 pt-10 pb-8 gap-4 relative z-10">
+                    {/* Luna preview */}
+                    <motion.div
+                      key={`${lunaSuit}-${lunaVisor}-${lunaPatch}`}
+                      initial={{ scale: 0.9 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    >
+                      <LunaAstronaut size="lg" phase="full" animated suitColor={lunaSuit} visorTint={lunaVisor} patchEmoji={lunaPatch || undefined} />
+                    </motion.div>
+
+                    {/* Name & description */}
+                    <div className="text-center space-y-1">
+                      <p className="text-2xl font-black text-foreground tracking-tight">luna</p>
+                      <p className="text-sm text-muted-foreground leading-snug">your study companion &middot; night mode guardian</p>
+                    </div>
+
+                    {/* Personality tags */}
+                    <div className="flex gap-2">
+                      {['curious', 'focused', 'always there'].map((tag) => (
+                        <span key={tag} className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white/8 text-muted-foreground border border-white/10">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="mt-10 flex justify-between">
+                </motion.div>
+
+                {/* ── Customizer ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.18, duration: 0.4 }}
+                  className="w-full max-w-[280px] mx-auto space-y-4"
+                >
+                  {/* Suit colour */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground">Suit</p>
+                    <div className="flex gap-2.5">
+                      {[
+                        { hex: '#FFF8E7', label: 'Classic' },
+                        { hex: '#C8E6FA', label: 'Arctic' },
+                        { hex: '#F9D5E5', label: 'Rose' },
+                        { hex: '#D5F5E3', label: 'Sage' },
+                        { hex: '#EAD9FF', label: 'Nebula' },
+                      ].map(({ hex, label }) => (
+                        <button
+                          key={hex}
+                          onClick={() => setLunaSuit(hex)}
+                          title={label}
+                          className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                            lunaSuit === hex ? 'border-primary scale-110 ring-2 ring-primary/30' : 'border-white/20'
+                          }`}
+                          style={{ backgroundColor: hex }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Visor tint */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground">Visor</p>
+                    <div className="flex gap-2.5">
+                      {[
+                        { hex: '#88B0B5', label: 'Teal' },
+                        { hex: '#8B5CF6', label: 'Violet' },
+                        { hex: '#F59E0B', label: 'Amber' },
+                        { hex: '#EC4899', label: 'Pink' },
+                        { hex: '#34D399', label: 'Emerald' },
+                      ].map(({ hex, label }) => (
+                        <button
+                          key={hex}
+                          onClick={() => setLunaVisor(hex)}
+                          title={label}
+                          className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                            lunaVisor === hex ? 'border-primary scale-110 ring-2 ring-primary/30' : 'border-white/20'
+                          }`}
+                          style={{ backgroundColor: hex }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Patch emoji */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground">Patch</p>
+                    <div className="flex gap-2">
+                      {['', '🚀', '⭐', '🌙', '🔥', '💎'].map((emoji) => (
+                        <button
+                          key={emoji || 'default'}
+                          onClick={() => setLunaPatch(emoji)}
+                          className={`w-8 h-8 rounded-xl text-sm flex items-center justify-center border-2 transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                            lunaPatch === emoji ? 'border-primary bg-primary/20 scale-110' : 'border-white/10 bg-white/5'
+                          }`}
+                        >
+                          {emoji || '★'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+
+                <div className="w-full max-w-[280px] mx-auto flex justify-between mt-2">
                   <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">Back</Button>
                   <Button size="xl" onClick={handleNext} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">Next <ArrowRight className="w-5 h-5 ml-2" /></Button>
                 </div>

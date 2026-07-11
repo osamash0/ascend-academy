@@ -14,7 +14,6 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from backend.services import scheduler
 from backend.services.scheduler import (
     AssignmentState,
     LectureState,

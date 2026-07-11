@@ -134,6 +134,75 @@ function FloatingMetric({ value, label, sub, color, index }: FloatingMetricProps
   );
 }
 
+// ─── Category colour tokens for milestone badges ──────────────────────────────
+const CATEGORY_TOKENS: Record<string, {
+  accent: string;      // left border bar
+  iconBg: string;      // icon pill background
+  iconRing: string;    // icon pill border
+  glow: string;        // hover box-shadow glow class
+  label: string;       // label text colour
+}> = {
+  learning:    { accent: 'bg-amber-400',    iconBg: 'bg-amber-400/15',   iconRing: 'border-amber-400/30',   glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.amber.400/0.25)]',   label: 'text-amber-400' },
+  streak:      { accent: 'bg-rose-400',     iconBg: 'bg-rose-400/15',    iconRing: 'border-rose-400/30',    glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.rose.400/0.25)]',     label: 'text-rose-400' },
+  social:      { accent: 'bg-violet-400',   iconBg: 'bg-violet-400/15',  iconRing: 'border-violet-400/30',  glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.violet.400/0.25)]',   label: 'text-violet-400' },
+  exploration: { accent: 'bg-sky-400',      iconBg: 'bg-sky-400/15',     iconRing: 'border-sky-400/30',     glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.sky.400/0.25)]',      label: 'text-sky-400' },
+  mastery:     { accent: 'bg-emerald-400',  iconBg: 'bg-emerald-400/15', iconRing: 'border-emerald-400/30', glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.emerald.400/0.25)]',  label: 'text-emerald-400' },
+  milestone:   { accent: 'bg-fuchsia-400',  iconBg: 'bg-fuchsia-400/15', iconRing: 'border-fuchsia-400/30', glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.fuchsia.400/0.25)]',  label: 'text-fuchsia-400' },
+  default:     { accent: 'bg-primary',      iconBg: 'bg-primary/15',     iconRing: 'border-primary/30',     glow: 'hover:shadow-glow-primary/20',                                  label: 'text-primary' },
+};
+
+function getCategoryTokens(category: string) {
+  return CATEGORY_TOKENS[category.toLowerCase()] ?? CATEGORY_TOKENS.default;
+}
+
+interface MilestoneBadgeProps {
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  xpReward: number;
+  index: number;
+}
+
+function MilestoneBadge({ name, description, icon, category, xpReward, index }: MilestoneBadgeProps) {
+  const t = getCategoryTokens(category);
+  const displayIcon = icon && icon.length <= 4 ? icon : '🏆';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -3 }}
+      className={`glass-card relative overflow-hidden flex items-center gap-4 p-4 pr-5 cursor-default group transition-all duration-300 ${t.glow} hover:border-white/15`}
+    >
+      {/* Left category accent bar */}
+      <div className={`absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full ${t.accent} opacity-70`} />
+
+      {/* Icon pill */}
+      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${t.iconBg} ${t.iconRing} transition-transform duration-300 group-hover:scale-110`}>
+        <span className="text-2xl select-none" role="img" aria-label={name}>{displayIcon}</span>
+      </div>
+
+      {/* Text */}
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-sm text-foreground leading-tight truncate group-hover:text-foreground/100 transition-colors">
+          {name}
+        </p>
+        <p className="text-xs text-muted-foreground/70 leading-snug mt-0.5 line-clamp-1">{description}</p>
+      </div>
+
+      {/* XP badge */}
+      {xpReward > 0 && (
+        <div className="shrink-0 flex items-center gap-0.5 bg-xp/10 border border-xp/20 rounded-lg px-2 py-1">
+          <span className="text-[10px] font-black text-xp leading-none">+{xpReward}</span>
+          <span className="text-[10px] text-muted-foreground/60 leading-none ml-0.5">XP</span>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 function AscentTabs({ view, onChange }: { view: AscentView; onChange: (v: AscentView) => void }) {
   const TABS: { id: AscentView; label: string; icon: React.ComponentType<any> }[] = [
     { id: 'overview', label: 'Overview', icon: Brain },
@@ -599,8 +668,8 @@ export default function Ascent() {
                   )}
                 </div>
 
-                {/* Potential milestones — grouped by category, driven by the DB catalog */}
-                <div className="space-y-8">
+                {/* Potential milestones — grouped by category, circular badge style */}
+                <div className="space-y-10">
                   <div className="flex items-center justify-between border-b border-white/5 pb-4">
                     <h2 className="text-xl font-bold text-foreground flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center">
@@ -608,33 +677,30 @@ export default function Ascent() {
                       </div>
                       Potential Milestones
                     </h2>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full">
+                      {lockedByCategory.reduce((acc, [, b]) => acc + b.length, 0)} unlockable
+                    </span>
                   </div>
                   {lockedByCategory.map(([category, badges]) => (
-                    <div key={category} className="space-y-4">
-                      <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground">
+                    <div key={category} className="space-y-5">
+                      <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground flex items-center gap-2">
+                        <span className="inline-block w-4 h-px bg-white/10" />
                         {categoryLabel(t, category)}
+                        <span className="inline-block flex-1 h-px bg-white/5" />
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {badges.map((badge, index) => {
                           const label = badgeLabel(t, badge);
                           return (
-                            <motion.div
+                            <MilestoneBadge
                               key={badge.key}
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: index * 0.04 }}
-                            >
-                              <AchievementCard
-                                name={label.name}
-                                description={
-                                  badge.xp_reward > 0
-                                    ? `${label.description} · +${badge.xp_reward} XP`
-                                    : label.description
-                                }
-                                icon={badge.icon}
-                                isLocked
-                              />
-                            </motion.div>
+                              name={label.name}
+                              description={label.description}
+                              icon={badge.icon}
+                              category={category}
+                              xpReward={badge.xp_reward}
+                              index={index}
+                            />
                           );
                         })}
                       </div>

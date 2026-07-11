@@ -224,7 +224,23 @@ export interface StreakWidget {
   xp: number;
 }
 
-export type Widget = TrophiesWidget | CourseProgressWidget | UpNextWidget | StreakWidget;
+export interface ReviewWidget {
+  kind: 'review';
+  dueCount: number;
+}
+
+export interface MyMaterialsWidget {
+  kind: 'myMaterials';
+  count: number;
+}
+
+export type Widget =
+  | TrophiesWidget
+  | CourseProgressWidget
+  | UpNextWidget
+  | StreakWidget
+  | ReviewWidget
+  | MyMaterialsWidget;
 
 const UNCATEGORIZED = '__uncat__';
 const UNCATEGORIZED_TITLE = 'Other';
@@ -234,6 +250,10 @@ export function buildWidgets(
   byId: ProgressIndex,
   achievements: Achievement[],
   profile?: Profile | null,
+  reviewDueCount = 0,
+  /** Roadmap 3.1 ("My Materials") — undefined means the feature is off or
+   * its count hasn't loaded yet, so the widget stays hidden either way. */
+  myMaterialsCount?: number,
 ): Widget[] {
   const views = buildViews(lectures, byId);
   const widgets: Widget[] = [];
@@ -270,6 +290,18 @@ export function buildWidgets(
       courses,
       overallPct: total > 0 ? Math.round((completed / total) * 100) : 0,
     });
+  }
+
+  // My Materials (Roadmap Phase 3.1) — student self-serve uploads.
+  if (myMaterialsCount !== undefined) {
+    widgets.push({ kind: 'myMaterials', count: myMaterialsCount });
+  }
+
+  // Daily review (Roadmap Phase 1.1) — surfaced in the TOP slot when there's
+  // something due. No existing "priority" concept in this array (order is
+  // pure insertion order elsewhere), so this is the one deliberate exception.
+  if (reviewDueCount > 0) {
+    widgets.unshift({ kind: 'review', dueCount: reviewDueCount });
   }
 
   return widgets;

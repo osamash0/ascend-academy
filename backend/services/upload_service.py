@@ -12,6 +12,25 @@ logger = logging.getLogger(__name__)
 
 MAX_PAGES = 300
 
+
+async def read_upload_capped(file: UploadFile, max_mb: int) -> bytes:
+    """Read an UploadFile in chunks, raising ValueError once it exceeds
+    max_mb. Shared by every upload endpoint's size guard (previously
+    duplicated per-endpoint in api/v1/upload.py)."""
+    max_bytes = max_mb * 1024 * 1024
+    chunks = []
+    bytes_read = 0
+    while True:
+        chunk = await file.read(65536)
+        if not chunk:
+            break
+        bytes_read += len(chunk)
+        if bytes_read > max_bytes:
+            raise ValueError(f"File exceeds the {max_mb}MB limit.")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 _arq_pool = None
 
 async def get_arq_pool():
@@ -126,6 +145,7 @@ async def process_pdf_stream(
     lecture_id: Optional[str],
     user_id: Optional[str] = None,
     force_reparse: bool = False,
+    course_id: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     odl_pages = None
     odl_succeeded = False
@@ -199,6 +219,7 @@ async def process_pdf_stream(
             parser_used=unified_parser_label,
             force_reparse=force_reparse,
             parsing_mode=parsing_mode,
+            course_id=course_id,
         )
     except Exception as e:
         logger.warning("Redis connection failed, running unified synchronously: %s", e)
@@ -245,6 +266,7 @@ async def process_pdf_stream(
             parser_used=unified_parser_label,
             force_reparse=force_reparse,
             parsing_mode=parsing_mode,
+            course_id=course_id,
         ))
 
         while True:

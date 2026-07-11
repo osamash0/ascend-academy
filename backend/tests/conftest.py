@@ -12,7 +12,6 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Any
 from types import SimpleNamespace
 
 # ── Stub heavyweight env BEFORE any backend.* import ──────────────────────────
@@ -27,6 +26,11 @@ os.environ.setdefault("VITE_SUPABASE_URL", "https://fake.supabase.test")
 os.environ.setdefault("VITE_SUPABASE_PUBLISHABLE_KEY", "fake-anon-key-for-tests")
 os.environ.setdefault("GROQ_API_KEY", "fake-groq")
 os.environ.setdefault("GEMINI_API_KEY", "fake-gemini")
+# Mount the review router during tests regardless of the real deploy's flag,
+# so its own tests can exercise it through the real app. Production defaults
+# to off (FEATURE_REVIEW_ENGINE unset) unless explicitly enabled.
+os.environ.setdefault("FEATURE_REVIEW_ENGINE", "1")
+os.environ.setdefault("FEATURE_EXAM_MODE", "1")
 
 # Make repo root importable as `backend.*`
 ROOT = Path(__file__).resolve().parents[2]
@@ -190,7 +194,7 @@ def app_client(app, professor_user):
     `client.app.dependency_overrides[verify_token] = lambda: ...` themselves.
     """
     from fastapi.testclient import TestClient
-    from backend.core.auth_middleware import verify_token, require_role
+    from backend.core.auth_middleware import verify_token
 
     def _verify():
         return professor_user
@@ -211,7 +215,7 @@ def authed(app):
         authed.as_user(student_user)
         ...
     """
-    from backend.core.auth_middleware import verify_token, require_professor, require_student
+    from backend.core.auth_middleware import verify_token
 
     class _Authed:
         def as_user(self, user):

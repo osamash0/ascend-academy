@@ -21,6 +21,7 @@ vi.mock('@/lib/auth', () => ({
 import Auth from '@/pages/Auth';
 import StudentDashboard from '@/pages/StudentDashboard';
 import AdvancedAnalytics from '@/pages/AdvancedAnalytics';
+import MyMaterialsPage from '@/features/materials/MyMaterialsPage';
 
 expect.extend(matchers);
 
@@ -70,6 +71,19 @@ describe('Accessibility (A11y)', () => {
     const results = await axe(container);
     // Ignore color-contrast for charts if they fail natively from recharts
     // For now we test general structure
+    (expect(results) as any).toHaveNoViolations();
+  });
+
+  test('MyMaterialsPage should have no accessibility violations', async () => {
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <MyMaterialsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const results = await axe(container);
     (expect(results) as any).toHaveNoViolations();
   });
 });

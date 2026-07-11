@@ -6,8 +6,7 @@ from fastapi import FastAPI, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -44,6 +43,10 @@ from backend.api.v1.schedule import router as schedule_router
 from backend.api.v1.slides_ai import router as slides_ai_router
 from backend.api.v1.practice_sheets import router as practice_sheets_router
 from backend.api.v1.academic import router as academic_router
+from backend.api.v1.review import router as review_router
+from backend.api.v1.exams import router as exams_router
+from backend.api.v1.search import router as search_router
+from backend.api.v1.materials import router as materials_router
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -165,6 +168,19 @@ v1_router.include_router(schedule_router)
 v1_router.include_router(slides_ai_router)
 v1_router.include_router(practice_sheets_router)
 v1_router.include_router(academic_router)
+# Roadmap Phase 1.1 (review engine) — off by default; FEATURE_REVIEW_ENGINE=1 to enable.
+if settings.feature_review_engine:
+    v1_router.include_router(review_router)
+# Roadmap Phase 1.2 (exam mode) — off by default; FEATURE_EXAM_MODE=1 to enable.
+if settings.feature_exam_mode:
+    v1_router.include_router(exams_router)
+
+if settings.feature_global_search:
+    v1_router.include_router(search_router)
+
+# Roadmap Phase 3.1 (student self-serve uploads) — off by default; FEATURE_STUDENT_UPLOADS=1 to enable.
+if settings.feature_student_uploads:
+    v1_router.include_router(materials_router)
 
 # Mount parent v1_router onto app
 app.include_router(v1_router)

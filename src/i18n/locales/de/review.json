@@ -1,0 +1,25 @@
+{
+  "session": {
+    "loading": "Deine Wiederholungen werden geladen…",
+    "doneTitle": "Sitzung abgeschlossen — {{count}} wiederholt",
+    "doneSubtitle": "Gut gemacht. Schau morgen wieder vorbei.",
+    "caughtUpTitle": "Du bist auf dem neuesten Stand",
+    "caughtUpSubtitle": "Aktuell stehen keine Karten an.",
+    "backToDashboard": "Zurück zum Dashboard",
+    "revealHint": "Tippen oder Leertaste drücken, um die Antwort zu zeigen",
+    "answerLabel": "Antwort",
+    "showAnswer": "Antwort zeigen",
+    "progress": "{{current}} / {{total}}"
+  },
+  "rating": {
+    "again": "Nochmal",
+    "hard": "Schwer",
+    "good": "Gut",
+    "easy": "Leicht"
+  },
+  "widget": {
+    "title": "Tägliche Wiederholung",
+    "due": "fällig",
+    "start": "Wiederholung starten"
+  }
+}

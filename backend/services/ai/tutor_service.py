@@ -1,13 +1,10 @@
 import logging
 import asyncio
-import io
 import urllib.request
 import urllib.parse
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
-from backend.services.llm_client import LLMTimeoutError
 from backend.services.ai_service import (
     generate_summary as _generate_summary,
     generate_quiz as _generate_quiz,

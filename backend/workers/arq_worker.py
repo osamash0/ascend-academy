@@ -13,6 +13,7 @@ from arq.connections import RedisSettings
 
 from backend.core.config import settings
 from backend.services.parser.unified_orchestrator import parse_pdf_unified
+from backend.services.review.card_factory import generate_review_cards
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +33,16 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [parse_pdf_unified]
+    functions = [parse_pdf_unified, generate_review_cards]
     on_startup = startup
     on_shutdown = shutdown
 
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
 
-    # At most 4 concurrent jobs per worker — respects the VPS RAM budget.
-    max_jobs = 4
+    # Concurrent jobs per worker — respects the VPS RAM budget; tunable via
+    # ARQ_MAX_JOBS since a multi-file batch (Phase 1) can enqueue many jobs
+    # at once and the worker throttles to this number regardless of origin.
+    max_jobs = settings.arq_max_jobs
 
     # Stage 2 (vision) can take up to 15 minutes for a 200-page deck.
     job_timeout = 900

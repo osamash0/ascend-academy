@@ -318,6 +318,7 @@ export default function LectureUpload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const slideListRef = useRef<HTMLDivElement>(null);
+  const editorScrollRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
 
@@ -829,6 +830,13 @@ export default function LectureUpload() {
     }
   }, [activeSlideIndex]);
 
+  // Switching slides swaps the editor content but the scroll container keeps
+  // its old scrollTop, so picking a slide from further down the sidebar can
+  // land you mid-scroll on the new slide's fields instead of at its title.
+  useEffect(() => {
+    editorScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }, [activeSlideIndex]);
+
   /* ── Keyboard navigation (stable — uses functional updaters) ───────────── */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1116,8 +1124,13 @@ export default function LectureUpload() {
   }
 
   /* ── Render: Full Editor ───────────────────────────────────────────────── */
+  // h-screen (not min-h-screen) so the sidebar and slide-editor panes below
+  // are genuinely height-bounded and scroll internally via their own
+  // overflow-y-auto — otherwise this whole column just grows with content
+  // (e.g. 20+ slides) and the ENTIRE page scrolls instead, which is what let
+  // a newly-selected slide's fields land off-screen above the fold.
   const editorContent = (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col">
       {/* ═══════ TOP BAR ═══════ */}
       <div className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-30">
         <div className="flex items-center justify-between px-4 lg:px-6 h-16">
@@ -1387,7 +1400,7 @@ export default function LectureUpload() {
             </div>
 
             {/* Slide Editor Tab */}
-            <TabsContent value="editor" className="flex-1 overflow-y-auto m-0 focus-visible:ring-0">
+            <TabsContent ref={editorScrollRef} value="editor" className="flex-1 overflow-y-auto m-0 focus-visible:ring-0">
               <AnimatePresence mode="wait">
                 {activeSlide && (
               <motion.div

@@ -9,8 +9,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from backend.core.database import supabase_admin, get_client
-from backend.services.cache import get_cached_token, store_cached_token, invalidate_cached_token
+from backend.core.database import supabase_admin
+from backend.services.cache import get_cached_token, store_cached_token
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)

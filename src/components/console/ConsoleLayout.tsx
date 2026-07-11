@@ -1,9 +1,18 @@
-import { useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
+import { CommandPalette } from '@/components/CommandPalette';
+import { FEATURES } from '@/lib/featureFlags';
 import { ConsoleTopBar } from './ConsoleTopBar';
 import { ConsoleBoot } from './ConsoleBoot';
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+}
 
 interface ConsoleLayoutProps {
   children: ReactNode;
@@ -69,10 +78,29 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
   // page can run its own smooth in-screen drill-down.
   const tabKey = TAB_ORDER.find((p) => location.pathname.startsWith(p)) ?? location.pathname;
 
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    if (!FEATURES.globalSearch) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      } else if (e.key === '/' && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const openPalette = useCallback(() => setPaletteOpen(true), []);
+
   return (
     <div className="console-bg relative min-h-screen flex flex-col text-foreground selection:bg-primary/20">
       <ConsoleBoot />
-      <ConsoleTopBar />
+      <ConsoleTopBar onOpenSearch={FEATURES.globalSearch ? openPalette : undefined} />
       <AnimatePresence mode="wait" custom={dir} initial={false}>
         <motion.main
           key={tabKey}
@@ -87,6 +115,7 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
         </motion.main>
       </AnimatePresence>
       <FeedbackWidget />
+      {FEATURES.globalSearch && <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { LunaAstronaut } from '../../learnstation-luna';
 import { GraduationCap, BookOpen, User, Mail, Lock, ArrowRight, ArrowLeft, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -183,8 +184,9 @@ export default function Auth() {
         </Button>
       </div>
 
-      {/* Top-right language toggle */}
-      <div className="absolute top-6 right-6 z-20">
+      {/* Top-right language toggle and Luna */}
+      <div className="absolute top-6 right-6 z-20 flex items-center gap-4">
+        <LunaAstronaut phase="gibbous" size="sm" animated={false} />
         <LanguageToggle variant="icon-dark" />
       </div>
 

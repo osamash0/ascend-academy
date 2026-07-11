@@ -47,28 +47,45 @@ async def _execute(query: str, *args):
 async def create_lecture(
     *,
     title: str,
-    professor_id: UUID,
+    professor_id: Optional[UUID] = None,
     pdf_hash: str,
     pdf_url: Optional[str] = None,
+    course_id: Optional[UUID] = None,
+    visibility: str = "course",
+    student_owner_id: Optional[UUID] = None,
 ) -> UUID:
     """Create the lecture row up front and return its id.
 
-    `professor_id` is NOT NULL in the schema — the caller must supply the
-    authenticated uploader's user id.
+    Two owner shapes, matching the `lectures_owner_consistency` CHECK
+    constraint (migration 20260710040000): a course lecture needs
+    `professor_id` (course_id optional), a private student upload (Roadmap
+    3.1, "My Materials") needs `student_owner_id` and no course_id.
+    `course_id` on the professor path lets a batch/detached upload assign the
+    course server-side at parse time instead of a client-side wizard step.
     """
-    if professor_id is None:
+    if visibility == "private_student":
+        if student_owner_id is None:
+            raise ValueError("create_lecture requires student_owner_id when visibility='private_student'")
+        if course_id is not None:
+            raise ValueError("private_student lectures cannot have a course_id")
+    elif professor_id is None:
         raise ValueError("create_lecture requires a professor_id (lectures.professor_id is NOT NULL)")
     lecture_id = uuid4()
     await _execute(
         """
-        INSERT INTO lectures (id, title, description, professor_id, total_slides, pdf_url, pdf_hash)
-        VALUES ($1, $2, '', $3, 0, $4, $5)
+        INSERT INTO lectures
+          (id, title, description, professor_id, total_slides, pdf_url, pdf_hash,
+           course_id, visibility, student_owner_id)
+        VALUES ($1, $2, '', $3, 0, $4, $5, $6, $7, $8)
         """,
         lecture_id,
         title,
         professor_id,
         pdf_url,  # NULL initially; set to the lecture-pdfs path after upload
         pdf_hash,
+        course_id,
+        visibility,
+        student_owner_id,
     )
     return lecture_id
 
@@ -76,6 +93,13 @@ async def create_lecture(
 async def set_lecture_pdf_url(lecture_id: UUID, pdf_url: str) -> None:
     """Set the lecture's source-PDF storage path (resolved by the viewer)."""
     await _execute("UPDATE lectures SET pdf_url = $1 WHERE id = $2", pdf_url, lecture_id)
+
+
+async def set_course_id(lecture_id: UUID, course_id: Optional[UUID]) -> None:
+    """Assign/reassign a lecture's course. Only called when course_id was
+    explicitly provided by the caller — a re-parse must never clobber an
+    existing manual course assignment with NULL."""
+    await _execute("UPDATE lectures SET course_id = $1 WHERE id = $2", course_id, lecture_id)
 
 
 async def set_lecture_title(lecture_id: UUID, title: str) -> None:

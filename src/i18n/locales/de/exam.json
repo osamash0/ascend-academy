@@ -1,0 +1,45 @@
+{
+  "generate": {
+    "title": "Auf die Prüfung vorbereiten",
+    "subtitle": "Eine zeitlich begrenzte Probeprüfung aus den Quizfragen dieses Kurses, gewichtet nach deinen Schwächen.",
+    "numQuestions": "Fragen",
+    "timeLimit": "Zeitlimit",
+    "start": "Prüfung starten",
+    "starting": "Deine Prüfung wird erstellt…",
+    "notEnoughQuestions": "Dieser Kurs hat noch nicht genug Quizfragen für eine Probeprüfung.",
+    "rateLimited": "Du hast zuletzt schon einige Prüfungen erstellt — versuch es später erneut."
+  },
+  "runner": {
+    "loading": "Deine Prüfung wird geladen…",
+    "question": "Frage {{current}} von {{total}}",
+    "timeRemaining": "Verbleibende Zeit",
+    "flagForReview": "Zur Überprüfung markieren",
+    "flagged": "Markiert",
+    "next": "Weiter",
+    "previous": "Zurück",
+    "submit": "Prüfung abgeben",
+    "submitConfirmTitle": "Prüfung abgeben?",
+    "submitConfirmBody": "Du hast {{answered}} von {{total}} Fragen beantwortet. Nach dem Abgeben kannst du deine Antworten nicht mehr ändern.",
+    "submitConfirmCancel": "Weitermachen",
+    "submitConfirmOk": "Abgeben",
+    "autosaving": "Wird gespeichert…",
+    "expiredWarning": "Die Zeit ist um — gib jetzt ab, bevor die Kulanzzeit endet."
+  },
+  "report": {
+    "title": "Prüfungsergebnis",
+    "score": "Ergebnis",
+    "expiredNotice": "Dieser Versuch wurde nach Ablauf der Zeit abgegeben und als abgelaufen markiert.",
+    "weakestConcepts": "Worauf du dich als Nächstes konzentrieren solltest",
+    "viewSlide": "Folie ansehen",
+    "sendToReview": "Fehler an Tägliche Wiederholung senden",
+    "sendingToReview": "Wird zur Wiederholung hinzugefügt…",
+    "sentToReview": "{{count}} Karten zur Täglichen Wiederholung hinzugefügt",
+    "alreadySent": "Bereits zur Wiederholung gesendet",
+    "backToDashboard": "Zurück zum Dashboard",
+    "history": "Frühere Versuche"
+  },
+  "widget": {
+    "title": "Probeprüfung",
+    "cta": "Auf die Prüfung vorbereiten"
+  }
+}

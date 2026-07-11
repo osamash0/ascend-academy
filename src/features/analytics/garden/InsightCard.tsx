@@ -3,6 +3,13 @@ import { ChevronLeft } from 'lucide-react';
 import type { Insight } from '@/features/analytics/types';
 import { attentionStyle } from './attention';
 import { Layer2Viz } from './Layer2Viz';
+import { EvidenceDrawer } from './EvidenceDrawer';
+import type { EvidenceRequest } from './useGardenState';
+
+const EVIDENCE_PROMPTS: Record<string, string> = {
+  ai_queries: 'Want to see what students asked the AI here?',
+  confidence_breakdown: 'See the confidence vs. accuracy breakdown',
+};
 
 interface InsightCardProps {
   insight: Insight;
@@ -10,9 +17,23 @@ interface InsightCardProps {
   dimmed: boolean;
   onExpand: (id: string) => void;
   onCollapse: () => void;
+  lectureId?: string;
+  evidence?: EvidenceRequest | null;
+  onOpenEvidence?: (request: EvidenceRequest) => void;
+  onCloseEvidence?: () => void;
 }
 
-export function InsightCard({ insight, isExpanded, dimmed, onExpand, onCollapse }: InsightCardProps) {
+export function InsightCard({
+  insight,
+  isExpanded,
+  dimmed,
+  onExpand,
+  onCollapse,
+  lectureId,
+  evidence,
+  onOpenEvidence,
+  onCloseEvidence,
+}: InsightCardProps) {
   const s = attentionStyle(insight.attention);
   const cueMetric = insight.cue?.metric;
   // The positive "healthy" kind is genuinely reassuring; other calm-band cards
@@ -65,8 +86,31 @@ export function InsightCard({ insight, isExpanded, dimmed, onExpand, onCollapse 
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{insight.interpretation || insight.summary}</p>
 
           <div className="mt-8">
-            <Layer2Viz insight={insight} />
+            <Layer2Viz insight={insight} onOpenEvidence={onOpenEvidence} />
           </div>
+
+          {onOpenEvidence && !evidence && (
+            <div className="mt-6 flex flex-wrap gap-2">
+              {insight.evidenceKinds
+                .filter((kind) => kind in EVIDENCE_PROMPTS && insight.targetRef.slideId)
+                .map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => onOpenEvidence({ kind, slideId: insight.targetRef.slideId })}
+                    className="rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
+                  >
+                    {EVIDENCE_PROMPTS[kind]}
+                  </button>
+                ))}
+            </div>
+          )}
+
+          {lectureId && evidence && (
+            <div className="mt-6">
+              <EvidenceDrawer lectureId={lectureId} request={evidence} onClose={onCloseEvidence ?? (() => {})} />
+            </div>
+          )}
         </div>
       )}
     </motion.div>

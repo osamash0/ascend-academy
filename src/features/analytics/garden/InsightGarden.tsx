@@ -10,7 +10,8 @@ import { attentionStyle } from './attention';
 
 export function InsightGarden({ lectureId, inline }: { lectureId: string; inline?: boolean }) {
   const { data, isLoading, isError, error } = useInsights(lectureId);
-  const { expandedId, expand, collapse, showAll, toggleShowAll } = useGardenState();
+  const { expandedId, expand, collapse, showAll, toggleShowAll, evidence, openEvidence, closeEvidence } =
+    useGardenState();
 
   const insights = data?.insights ?? [];
   const topAttention = insights[0]?.attention;
@@ -96,6 +97,10 @@ export function InsightGarden({ lectureId, inline }: { lectureId: string; inline
               onExpand={expand}
               onCollapse={collapse}
               onToggleShowAll={toggleShowAll}
+              lectureId={lectureId}
+              evidence={evidence}
+              onOpenEvidence={openEvidence}
+              onCloseEvidence={closeEvidence}
             />
           )}
         </div>

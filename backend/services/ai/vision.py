@@ -2,7 +2,6 @@ import base64
 import logging
 import asyncio
 import os
-import time
 from typing import Dict, Any
 from .orchestrator import (
     groq_client, gemini_client, openai_client, GROQ_VISION_MODEL, GEMINI_MODEL,
@@ -10,9 +9,6 @@ from .orchestrator import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Vision chain: Groq vision (free, 14400/day) → Gemini Flash (multimodal, 1500/day)
-VISION_CHAIN = ["groq_vision", "gemini_vision"]
 
 # --- Prompts ---
 SLIDE_VISION_PROMPT = """Analyze the lecture slide image and return ONLY a valid JSON object:
@@ -24,13 +20,6 @@ SLIDE_VISION_PROMPT = """Analyze the lecture slide image and return ONLY a valid
 }
 Pick one slide_type: title_slide, meta_slide, content_slide, example_slide, diagram_slide.
 Rules: title/meta slides set quiz to null. content/example/diagram slides require a quiz."""
-
-DIAGRAM_VISION_PROMPT = """This slide contains a diagram or mathematical visualization.
-Describe in detail: axes, labels, trends, components, relationships. Convert equations to LaTeX.
-Return ONLY valid JSON: {"title": "...", "content": "...", "summary": "...", "questions": [...], "slide_type": "diagram_slide", "is_metadata": false}"""
-
-TABLE_VISION_PROMPT = """This slide contains a table. Extract ALL data in markdown format.
-Return ONLY valid JSON: {"title": "...", "content": "markdown_table", "summary": "...", "questions": [...], "slide_type": "table_slide", "is_metadata": false}"""
 
 _FALLBACK_RESULT: Dict[str, Any] = {
     "slide_type": "content_slide",

@@ -1,0 +1,22 @@
+{
+  "title": "Meine Materialien",
+  "subtitle": "Lade deine eigenen PDFs hoch — erhalte Folien, Quizfragen, Tutor-Chat und tägliche Wiederholung, nur für dich.",
+  "quotaLabel": "Uploads diesen Monat",
+  "quotaExhausted": "Du hast alle {{limit}} Uploads für diesen Monat verbraucht. Schau nächsten Monat wieder vorbei.",
+  "emptyState": "Noch keine Materialien — lade ein PDF hoch, um loszulegen.",
+  "slideQuizCount": "{{slides}} Folien · {{quizzes}} Quizfragen",
+  "processing": "Wird verarbeitet…",
+  "open": "Öffnen",
+  "delete": "Material löschen",
+  "duplicateToast": "Diese Datei hast du bereits hochgeladen.",
+  "uploadedToast": "Upload eingereiht — wird jetzt verarbeitet.",
+  "quotaErrorToast": "Du hast alle Uploads für diesen Monat verbraucht.",
+  "uploadErrorToast": "Upload fehlgeschlagen. Bitte versuche es erneut.",
+  "deletedToast": "Material gelöscht.",
+  "deleteErrorToast": "Dieses Material konnte nicht gelöscht werden.",
+  "widget": {
+    "title": "Meine Materialien",
+    "uploaded": "hochgeladen",
+    "cta": "PDF hochladen"
+  }
+}

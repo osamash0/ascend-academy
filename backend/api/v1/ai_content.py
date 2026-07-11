@@ -184,7 +184,7 @@ async def slide_recommendation_endpoint(
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=502, detail="AI suggestion failed. Please retry.")
 
 @router.post("/metric-feedback")
@@ -317,7 +317,7 @@ async def regenerate_slide_content(
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=502, detail="Failed to regenerate slide content.")
 
 class LectureDescriptionRequest(BaseModel):
@@ -337,7 +337,7 @@ async def lecture_description_endpoint(request: Request, body: LectureDescriptio
     try:
         desc = await tutor_service.generate_lecture_description(body.lecture_title, body.course_name, summaries, body.ai_model or "cerebras")
         return LectureDescriptionResponse(description=desc)
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=502, detail="AI service unavailable.")
 
 class CourseDescriptionRequest(BaseModel):
@@ -360,7 +360,7 @@ async def course_description_endpoint(
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=502, detail="AI service unavailable.")
 
 class LectureTaglineRequest(BaseModel):
@@ -384,5 +384,5 @@ async def lecture_tagline_endpoint(
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=502, detail="AI service unavailable.")

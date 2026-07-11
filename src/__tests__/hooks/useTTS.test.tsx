@@ -52,7 +52,7 @@ const synthSpeak = vi.fn().mockImplementation((utterance: SpeechSynthesisUtteran
 const synthPause = vi.fn();
 const synthResume = vi.fn();
 
-const TTS_URL = 'http://api.test/api/ai/tts';
+const TTS_URL = 'http://api.test/api/v1/ai/tts';
 
 // happy-dom doesn't define SpeechSynthesisUtterance — provide a minimal stub
 class MockSpeechSynthesisUtterance {

@@ -12,6 +12,10 @@ import enProfessor from './locales/en/professor.json';
 import enUpload from './locales/en/upload.json';
 import enLecture from './locales/en/lecture.json';
 import enLegal from './locales/en/legal.json';
+import enReview from './locales/en/review.json';
+import enExam from './locales/en/exam.json';
+import enSearch from './locales/en/search.json';
+import enMyMaterials from './locales/en/myMaterials.json';
 
 import deCommon from './locales/de/common.json';
 import deNav from './locales/de/nav.json';
@@ -23,6 +27,10 @@ import deProfessor from './locales/de/professor.json';
 import deUpload from './locales/de/upload.json';
 import deLecture from './locales/de/lecture.json';
 import deLegal from './locales/de/legal.json';
+import deReview from './locales/de/review.json';
+import deExam from './locales/de/exam.json';
+import deSearch from './locales/de/search.json';
+import deMyMaterials from './locales/de/myMaterials.json';
 
 export const SUPPORTED_LANGUAGES = ['en', 'de'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -41,6 +49,10 @@ const resources = {
     upload: enUpload,
     lecture: enLecture,
     legal: enLegal,
+    review: enReview,
+    exam: enExam,
+    search: enSearch,
+    myMaterials: enMyMaterials,
   },
   de: {
     common: deCommon,
@@ -53,6 +65,10 @@ const resources = {
     upload: deUpload,
     lecture: deLecture,
     legal: deLegal,
+    review: deReview,
+    exam: deExam,
+    search: deSearch,
+    myMaterials: deMyMaterials,
   },
 };
 
@@ -65,7 +81,7 @@ i18n
     supportedLngs: SUPPORTED_LANGUAGES as unknown as string[],
     nonExplicitSupportedLngs: true,
     load: 'languageOnly',
-    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal'],
+    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal', 'review', 'exam', 'search', 'myMaterials'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage', 'navigator'],

@@ -1,10 +1,8 @@
 import logging
 logger = logging.getLogger(__name__)
-from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, db_pool, get_db_connection, create_client
+from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, get_db_connection, create_client
 from backend.services.utils.analytics_utils import calculate_student_typology, generate_anon_name
 from supabase import Client
-from functools import lru_cache
-from backend.services import cache
 from backend.services import analytics_cache
 import json
 from typing import Dict, List, Any, Optional

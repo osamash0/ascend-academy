@@ -11,7 +11,6 @@ Gated behind `db` (needs Docker + testcontainers).
 """
 from __future__ import annotations
 
-import uuid
 
 import pytest
 

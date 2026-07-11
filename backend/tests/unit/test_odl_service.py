@@ -17,7 +17,7 @@ Covers:
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import pytest
 

@@ -42,7 +42,7 @@ services:
       - ascend_net
     volumes:
       - ./litellm/config.yaml:/app/config.yaml:ro
-    command: --config /app/config.yaml --port 4000 --detailed_debug
+    command: --config /app/config.yaml --port 4000
     env_file:
       - .env
     environment:

@@ -16,7 +16,6 @@ def _seed_lecture(fake, lecture_id, professor_id):
 @pytest.fixture
 def stub_ask(monkeypatch):
     """Replace the LLM-driven pipeline with a deterministic stub."""
-    from backend.services.ai import ask_data
 
     async def fake_ask(*, lecture_id, question, token, ai_model="cerebras"):
         return {

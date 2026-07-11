@@ -176,7 +176,12 @@ function ConceptRow({ concept, open, onToggle, variant, related, relatedLoading,
         onClick={onToggle}
         className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left"
       >
-        <span className="truncate text-sm text-foreground">{concept.name}</span>
+        <span className="truncate text-sm text-foreground flex items-center gap-2">
+          {variant === 'mastered' && (
+            <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+          )}
+          {concept.name}
+        </span>
         <span className="flex items-center gap-2 shrink-0">
           <span className={`text-xs font-bold ${tone}`}>{pct}%</span>
           <ChevronRight

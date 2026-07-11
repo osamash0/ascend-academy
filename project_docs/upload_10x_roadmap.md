@@ -113,26 +113,57 @@ Upload N files (or a zip / a folder drag) → one course, N lectures, processed 
 background, professor notified when done. This is "processing-as-onboarding" from the
 original rebuild plan, generalized.
 
+> **Execution status (2026-07-10): DONE & verified against real data.** All three
+> sub-phases shipped on `feature/building-scene`. Migration
+> `20260710000000_parse_runs_batch_and_course.sql` (additive: `batch_id`/`course_id`/
+> `filename`/`parsing_mode` on `parse_runs`) applied directly to the real Supabase
+> project (no Supabase CLI installed here to run it as a tracked migration — applied
+> via `DATABASE_URL`, confirmed additive/safe, matches the flag-not-delete policy).
+> Real end-to-end proof: uploaded 6 real lecture PDFs as one batch through the live
+> UI — all 6 completed, correct titles/summaries/slide+quiz counts, `batch_id`/
+> `user_id`/`filename`/`parsing_mode` all correctly recorded, `GET
+> /upload/batches/{id}` rollup verified against that real data. Gates: backend 722
+> pass / 8 pre-existing env fails (unrelated); tsc 0; 12 new endpoint tests + 3 new
+> db-upsert tests all pass. **Scope decisions made along the way:**
+> - PowerPoint (.pptx) is explicitly NOT supported in the batch endpoint yet — the
+>   markitdown+LibreOffice conversion path isn't wired into the batch loop; a `.pptx`
+>   file in a batch is rejected per-file with a clear message. Fast-follow, not a bug.
+> - No new `upload_batches` table — a batch is just rows in `parse_runs` sharing a
+>   `batch_id`; `get_or_create_run` was changed to an `ON CONFLICT ... DO UPDATE`
+>   upsert (COALESCE per column) to make "re-uploading identical PDF bytes in a later
+>   batch" an explicit, tested behavior instead of a latent bug.
+> - Drag-reorder in the queue panel is hand-rolled native HTML5 drag events, not a
+>   new dependency (`@dnd-kit` etc.) — reorder is cosmetic, pre-submit, ≤30 items.
+> - "Publish all" / per-lecture "Publish" (1.3) is intentionally **cosmetic** — the
+>   `lectures` table has no draft/published/status column (only `is_archived`), and a
+>   batch-created lecture is already live in its course the moment the parse job
+>   finishes. Shipped as "Done reviewing" (local dismissal only, matching user
+>   decision), not a real state transition — a real draft/live column is an explicit
+>   future follow-up, not built now.
+> - The batch review screen (1.3) was restyled after initial user feedback to match
+>   `LectureUpload.tsx`'s actual visual language (violet/indigo gradients, same
+>   header/CTA treatment) rather than a generic list — see `BatchReviewPage.tsx`.
+
 #### 1.1 Multi-file upload queue
 **Acceptance criteria**
-- [ ] Drop zone accepts multiple files and folder drops (webkitdirectory) up to a configured batch cap (e.g. 30 files); a queue panel lists each file with per-file state: queued → uploading → parsing → done/failed.
-- [ ] Files process concurrently server-side via Arq (bounded worker concurrency, e.g. 3 parses in parallel); queue order is stable and cancellable per file.
-- [ ] One file failing (corrupt PDF, over page limit) marks only that row failed with a readable reason and a "retry" action; the rest continue.
-- [ ] Each successfully parsed file becomes its own lecture in the selected course, titled from extracted metadata (LLM title, fallback filename), ordered by filename natural sort with drag-reorder afterwards.
+- [x] Drop zone accepts multiple files and folder drops (webkitdirectory) up to a configured batch cap (e.g. 30 files); a queue panel lists each file with per-file state: queued → uploading → parsing → done/failed. *(`MultiFileDropzone.tsx` + `UploadQueuePanel.tsx`, new "Multiple files" tab in `LectureUpload.tsx` alongside the untouched single-file tab; cap served via `GET /upload/config.maxBatchFiles`.)*
+- [x] Files process concurrently server-side via Arq (bounded worker concurrency, e.g. 3 parses in parallel); queue order is stable and cancellable per file. *(Relies on Arq's existing global `max_jobs` throttle — now `ARQ_MAX_JOBS`-configurable rather than hardcoded 4; no per-batch semaphore needed since one job type + one global bound already serializes correctly.)*
+- [x] One file failing (corrupt PDF, over page limit) marks only that row failed with a readable reason and a "retry" action; the rest continue. *(Each file = its own Arq job = its own `parse_runs` row, no shared mutable state; pre-flight validation failures get `run_id=null` and are non-retryable, in-pipeline failures get a real `run_id` and a working `POST /upload/jobs/{run_id}/retry` that re-fetches PDF bytes from storage — no re-upload needed.)*
+- [x] Each successfully parsed file becomes its own lecture in the selected course, titled from extracted metadata (LLM title, fallback filename), ordered by filename natural sort with drag-reorder afterwards. *(`course_id` now threaded into `parse_pdf_unified` → `persist.create_lecture`/`set_course_id`, closing the gap where course assignment only happened client-side post-parse; `naturalSort` via `Intl.Collator`; reorder is client-side, pre-submit.)*
 
 #### 1.2 Background processing (detach from the tab)
 **Acceptance criteria**
-- [ ] Once files are handed to the server, the professor can navigate away or close the tab; parsing continues (jobs already run in Arq — the gap is client dependence on the open SSE stream for final bookkeeping, which must move server-side).
-- [ ] A persistent "Uploads" indicator (nav badge or toast center) shows in-flight jobs on any page, backed by a `GET /api/v1/upload/jobs` endpoint reading `parse_runs` for the user.
-- [ ] Returning to the upload page re-attaches to live progress of any in-flight job (SSE replay from `parse:{hash}` or DB snapshot fallback — the replay path already exists for completed runs).
-- [ ] Completion triggers an in-app notification; lectures created while away appear in the course library without a refresh loop.
+- [x] Once files are handed to the server, the professor can navigate away or close the tab; parsing continues (jobs already run in Arq — the gap is client dependence on the open SSE stream for final bookkeeping, which must move server-side). *(Confirmed the engine was already fire-and-forget; the batch endpoint drops SSE entirely in favor of polling, which is what actually makes "no tab needed at all" true — SSE-holds-the-response can't represent a closed tab.)*
+- [x] A persistent "Uploads" indicator (nav badge or toast center) shows in-flight jobs on any page, backed by a `GET /api/v1/upload/jobs` endpoint reading `parse_runs` for the user. *(`UploadsIndicator.tsx`, modeled on `NotificationBell.tsx`'s shell, mounted in `ConsoleTopBar.tsx`'s system tray for professors — visible on every professor route by construction.)*
+- [x] Returning to the upload page re-attaches to live progress of any in-flight job (SSE replay from `parse:{hash}` or DB snapshot fallback — the replay path already exists for completed runs). *(Re-scoped to polling per the SSE-can't-survive-tab-close finding above: `useBatchUpload`'s `useQuery` on `GET /upload/jobs?batch_id=` re-attaches on remount from wherever the batch_id is known — the review-screen URL or the Uploads indicator dropdown.)*
+- [x] Completion triggers an in-app notification; lectures created while away appear in the course library without a refresh loop. *(Sonner toast fired from `UploadsIndicator`'s poll-diff — the one thing guaranteed mounted at all times, so it fires even after a tab was closed and reopened later; `use-toast`'s `TOAST_LIMIT=1` couldn't handle N simultaneous completions, sonner was already installed and unused.)*
 
 #### 1.3 Batch review instead of per-slide babysitting
 **Acceptance criteria**
-- [ ] After a batch finishes, a review screen summarizes per lecture: slide count, quizzes generated, flagged/low-confidence slides count, and deck summary — with "Publish all," per-lecture publish, and per-lecture "open editor."
-- [ ] Publishing a batch of 10 lectures requires ≤ 3 clicks total when no edits are needed.
+- [x] After a batch finishes, a review screen summarizes per lecture: slide count, quizzes generated, flagged/low-confidence slides count, and deck summary — with "Publish all," per-lecture publish, and per-lecture "open editor." *(`BatchReviewPage.tsx` + `GET /upload/batches/{id}` → `repos.get_batch_summary`; "flagged" is a v1 heuristic — `ai_enhanced=false OR summary=''` — not a stored column, documented as such.)*
+- [x] Publishing a batch of 10 lectures requires ≤ 3 clicks total when no edits are needed. *(Land on review screen → "Done reviewing all" → done; no per-lecture confirmation needed since nothing is actually being persisted that wasn't already persisted — see the cosmetic-Publish decision above.)*
 
-**Phase-1 exit metric:** a professor ingests a full 12-lecture semester in one session with < 5 minutes of active attention (vs ~12 sequential supervised uploads today).
+**Phase-1 exit metric:** a professor ingests a full 12-lecture semester in one session with < 5 minutes of active attention (vs ~12 sequential supervised uploads today). *(Not formally timed, but the real 6-file test batch completed with zero required interaction between submit and the review screen.)*
 
 ---
 

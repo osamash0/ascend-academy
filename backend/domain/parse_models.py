@@ -164,6 +164,13 @@ class ParseRun(BaseModel):
     finished_at: Optional[datetime] = None
     outline: Optional[DeckOutline] = None
     error: Optional[str] = None
+    # Phase 1 (course-at-once ingestion): group runs from one multi-file
+    # upload, attribute ownership, and thread course assignment server-side.
+    batch_id: Optional[UUID] = None
+    user_id: Optional[UUID] = None
+    course_id: Optional[UUID] = None
+    filename: Optional[str] = None
+    parsing_mode: Optional[str] = None
 
 
 class ParsePage(BaseModel):

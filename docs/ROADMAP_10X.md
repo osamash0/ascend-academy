@@ -82,6 +82,21 @@ These are blanket acceptance criteria; each feature's list below is *in addition
 
 **Impact ★★★★★ · Effort L (2–3 weeks) · Dependencies: none · Flag: `FEATURE_REVIEW_ENGINE`**
 
+> **Execution status (2026-07-10): DONE, all 7 slices, real-DB-verified.** Full
+> writeup in [[project_srs_daily_ascent]] memory / `project_docs/srs_daily_ascent_plan.md`.
+> Shipped SM-2 (not FSRS) behind the stable interface as planned. **Scope cut
+> found mid-build:** concept cards (QA/cloze from `slide_chunks`) deferred —
+> `slide_chunks` has zero writers anywhere in the live v5 pipeline (dead table,
+> only the archived v3 stage ever wrote it) and `concept_lectures` is never
+> auto-populated by the parse pipeline (only a manual API call/backfill
+> script). Shipped quiz-question cards only — real, working, backfilled 42
+> cards across 8 real lectures on the actual Supabase project. The
+> `source_type` CHECK still allows `concept_qa`/`concept_cloze` for later.
+> Gates: 804 backend pytest (8 pre-existing unrelated fails) + 61 `-m db`
+> tests (all new, real Postgres) + tsc 0 + 385 vitest (6 pre-existing
+> unrelated fails) + real end-to-end backfill against prod data. NOT
+> committed yet — WIP on `feature/building-scene`.
+
 #### Why
 Retention is the product for students. Every quiz question and concept the pipeline already generates becomes *daily recurring value* instead of one-shot content. Engagement shifts from "when a lecture drops" to "every day." This is also the substrate for Exam Mode (1.2), the Planner (2.1), and Group Challenges (3.2).
 
@@ -352,6 +367,89 @@ Professor analytics diagnose (confusion index, drop-off, struggling students) bu
 ### 3.1 Student self-serve uploads — "My Materials"
 
 **Impact ★★★★★ (strategic) · Effort L (2–3 weeks) · Dependencies: technically none; sequence after Phase 1 so uploads land in a rich loop · Flag: `FEATURE_STUDENT_UPLOADS`**
+
+> **Execution status (2026-07-11): DONE, real-DB-verified, all 7 slices.**
+> Migration `20260710040000_student_uploads.sql` (additive: `lectures.visibility`/
+> `student_owner_id`, `professor_id` made nullable, an owner-consistency CHECK,
+> `upload_quotas` + `increment_upload_quota()` RPC) applied directly to the real
+> Supabase project via `DATABASE_URL` (no Supabase CLI in this environment,
+> same pattern as the two prior migrations this session). New
+> `backend/services/materials_service.py` + `backend/api/v1/materials.py`
+> (`POST/GET /materials`, `/materials/quota`, `DELETE /materials/{id}`, all
+> `require_student`-gated); `persist.create_lecture` and
+> `unified_orchestrator.parse_pdf_unified` now accept `visibility`/
+> `student_owner_id` and thread them through unchanged for the professor path.
+> Frontend: `src/features/materials/` (`MyMaterialsPage.tsx` +
+> `useMyMaterials.ts`), `myMaterialsService.ts`, a `MyMaterialsCell` bento tile
+> gated by `FEATURES.studentUploads`, route `/materials`, full en/de i18n, a11y
+> test. Gates: 804 backend pytest (2 pre-existing unrelated fails — an
+> `httpx.AsyncClient(app=...)` API-version mismatch in
+> `test_courses_prod.py`, nothing to do with this feature) + 16 new `-m db`
+> RLS tests (real Postgres) + tsc 0 + 386 vitest (6 pre-existing unrelated
+> fails). **Real end-to-end proof**, not just tests: uploaded a real PDF as a
+> fresh student account through the live UI/API — got a private lecture with
+> 5 slides, 7 quiz questions, 7 auto-generated review cards, and a working
+> tutor-chat panel in the actual lecture player; deleted it and confirmed the
+> lecture, slides, quiz questions, review cards, and its `parse_runs` row all
+> cascaded to zero. NOT committed yet — WIP on `feature/building-scene`.
+>
+> **Two real bugs found and fixed during that real-DB pass** (would not have
+> been caught by mocks): (1) `increment_upload_quota()`'s `RETURNS
+> TABLE(...)` output columns silently shadowed the `upload_quotas` table's own
+> column names inside the function body, causing `AmbiguousColumn` — fixed by
+> qualifying every reference with a table alias. (2) The naive
+> `slides`/`quiz_questions` visibility policy (`EXISTS (SELECT ... FROM
+> lectures WHERE ...)`) recursed into `lectures`' *own* RLS for the querying
+> role — since a non-enrolled student can't `SELECT` an ordinary course
+> lecture row at all, that recursion silently narrowed today's
+> intentionally-open slide/quiz visibility instead of only gating the new
+> private lane. Fixed with a `SECURITY DEFINER` helper function
+> (`lecture_visible_to_caller`, same pattern as the existing `has_role()`)
+> that checks the raw columns without re-applying `lectures` RLS. A dedicated
+> regression test (`test_course_lecture_slides_still_open_to_any_authenticated_user`)
+> guards against reintroducing this.
+>
+> **Scope cuts made along the way (all deliberate, documented in code):**
+> - **No cross-owner `pdf_hash` sharing.** The roadmap's dedupe goal ("30
+>   students upload the same deck, it parses once, progress stays isolated")
+>   is NOT implemented. Investigation found the professor path already has a
+>   real, pre-existing bug this would inherit: `slide_embeddings` rows are
+>   attached to a lecture via `.update({lecture_id}).eq("pdf_hash", ...)` — a
+>   plain overwrite, not additive — so a second owner materializing from the
+>   same cached content would silently reassign the first owner's embeddings
+>   to themselves, breaking that owner's tutor retrieval. Fixing that
+>   cross-owner embedding model is a prerequisite for real dedupe and is out
+>   of scope here. Instead, private uploads run under a distinct
+>   `pipeline_version` namespace (`"5-student"` vs. the professor path's
+>   `"5"`), so they never collide with or silently replay into any other
+>   owner's `parse_runs` row for the same hash — full correctness and
+>   isolation, at the cost of each student independently paying the parse
+>   cost even for byte-identical content. Fast-follow, not built now.
+> - **Concept graph isolation is achieved by non-participation, not an
+>   `owner_scope` column.** Per the SRS build ([[project_srs_daily_ascent]]),
+>   concept-graph ingestion was already not wired into the live parse
+>   pipeline for anyone — it only runs via a manual API call / backfill
+>   script. Private uploads simply never call it, so private concepts never
+>   exist in the shared `concepts`/`concept_lectures` tables at all — the
+>   isolation criterion holds trivially. Verified live: a private lecture's
+>   `GET /concepts/lecture/{id}` returns 403, and its mind-map/related-lecture
+>   surfaces show nothing extra.
+> - **Quota usage is shown on the My Materials page itself, not duplicated
+>   into Settings** — one source of truth for now; a Settings-page rollup is
+>   a trivial follow-up if wanted.
+> - **No separate "daily parse rate limit"** beyond the existing route-level
+>   SlowAPI limit (`10/minute`, matching the batch-upload endpoint's
+>   `5/minute`) and the monthly quota itself (default 5/month) — the monthly
+>   cap already bounds parse-cost abuse far tighter than a daily counter
+>   would add on top; a dedicated daily limiter was judged not worth the
+>   extra state for the marginal protection it'd add.
+> - **Professor-analytics exclusion is structural, not filtered.** A
+>   `lectures_owner_consistency` CHECK constraint makes `course_id IS NULL`
+>   for every `visibility='private_student'` row — since
+>   `analytics_service.py`'s course/lecture queries all scope by `course_id`,
+>   a private lecture is unreachable from any analytics query by
+>   construction, with no risk of a missed `visibility != 'private_student'`
+>   filter somewhere down the line.
 
 #### Why
 The biggest strategic unlock. Today a student's value is capped by whether *their* professors upload. Student-private ingestion means every pipeline feature (tutor, quizzes, review cards, exam mode, search) works on *their* material — valuable to any student at any university on day one. Quota is also the natural monetization boundary.

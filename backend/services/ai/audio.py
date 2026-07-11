@@ -1,7 +1,6 @@
 import io
 import logging
 import edge_tts
-from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 

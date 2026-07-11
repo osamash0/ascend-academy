@@ -1,0 +1,22 @@
+{
+  "title": "My Materials",
+  "subtitle": "Upload your own PDFs — get slides, quizzes, tutor chat, and daily review, private to you.",
+  "quotaLabel": "Uploads this month",
+  "quotaExhausted": "You've used all {{limit}} uploads for this month. Come back next month for more.",
+  "emptyState": "No materials yet — upload a PDF to get started.",
+  "slideQuizCount": "{{slides}} slides · {{quizzes}} quiz questions",
+  "processing": "Processing…",
+  "open": "Open",
+  "delete": "Delete material",
+  "duplicateToast": "You've already uploaded this file.",
+  "uploadedToast": "Upload queued — processing now.",
+  "quotaErrorToast": "You've used all your uploads for this month.",
+  "uploadErrorToast": "Upload failed. Please try again.",
+  "deletedToast": "Material deleted.",
+  "deleteErrorToast": "Could not delete this material.",
+  "widget": {
+    "title": "My Materials",
+    "uploaded": "uploaded",
+    "cta": "Upload a PDF"
+  }
+}

@@ -174,6 +174,7 @@ def detect_silent_strugglers(bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
             detail={
                 "students": [
                     {
+                        "studentId": s.get("student_id"),
                         "name": s.get("student_name", "Student"),
                         "progress": int(s.get("progress_percentage") or 0),
                         "quizScore": int(s.get("quiz_score") or 0),
@@ -465,6 +466,7 @@ def detect_silent_misleader(bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
                     "ratingsTotal": ratings_total,
                     "quizAttempts": attempts,
                 },
+                evidence_kinds=["confidence_breakdown"],
             )
         )
     return out
@@ -555,6 +557,7 @@ def detect_calibration_gap(bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
                     "overconfidentCount": int(s.get("overconfident_count") or 0),
                     "confidentStudents": pairs,
                 },
+                evidence_kinds=["confidence_breakdown"],
             )
         )
     return out

@@ -2,7 +2,6 @@
 Analytics Utilities - Shared heuristics and calculations
 """
 import hashlib
-from typing import List, Dict, Any
 
 def calculate_student_typology(prog_pct: int, score: int, ai_queries: int, revisions: int) -> str:
     """Centralized logic to classify student behavior based on engagement and performance."""

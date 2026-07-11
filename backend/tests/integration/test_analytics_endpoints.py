@@ -3,7 +3,6 @@
 These exercise the full FastAPI stack but with a fake Supabase client
 and stubbed authentication.
 """
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.core.auth_middleware import verify_token

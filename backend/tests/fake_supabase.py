@@ -30,8 +30,7 @@ for assertions on what the SUT did.
 from __future__ import annotations
 import copy
 import itertools
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 # Tables whose real schema defines created_at/updated_at TIMESTAMPTZ DEFAULT

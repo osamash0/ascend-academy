@@ -1,8 +1,6 @@
 import logging
 import json
-import re
 from typing import List, Dict, Any, Optional, AsyncGenerator
-from backend.services.llm_client import call_llm
 from backend.services.ai.orchestrator import generate_text, parse_json_response
 
 logger = logging.getLogger(__name__)
@@ -97,7 +95,7 @@ def get_slide_context(blueprint: Optional[Dict[str, Any]], slide_index: int) -> 
     
     plan = plans[slide_index]
     context_parts = [
-        f"PEDAGOGICAL GOAL:",
+        "PEDAGOGICAL GOAL:",
         f"- Target Title: {plan.get('proposed_title')}",
         f"- Core Concepts: {', '.join(plan.get('concepts', []))}",
         f"- Connective Context: {plan.get('previous_context')}",

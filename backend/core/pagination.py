@@ -1,6 +1,5 @@
 from typing import Generic, List, Optional, TypeVar
 from pydantic import BaseModel, Field
-from fastapi import Query
 
 T = TypeVar('T')
 

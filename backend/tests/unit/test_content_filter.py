@@ -1,5 +1,4 @@
 """Unit tests for the 3-layer content filter."""
-import pytest
 
 from backend.services.content_filter import (
     _compute_content_density,

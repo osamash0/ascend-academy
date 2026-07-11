@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from backend.services import analytics_service
 from backend.services.ai.ask_data import _clamp_int

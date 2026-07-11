@@ -271,10 +271,10 @@ def seed(user_id: str):
             except Exception as e:
                 print(f"  ⚠️  student_progress upsert failed: {e}")
 
-    print(f"\n✅  Done!")
+    print("\n✅  Done!")
     print(f"   {events_inserted}   learning_events inserted")
     print(f"   {progress_inserted}   student_progress records upserted")
-    print(f"\n🔗  Open Analytics: http://localhost:8080/professor/analytics")
+    print("\n🔗  Open Analytics: http://localhost:8080/professor/analytics")
 
 
 if __name__ == "__main__":

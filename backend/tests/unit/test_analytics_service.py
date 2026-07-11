@@ -3,7 +3,6 @@
 These bypass FastAPI and Supabase entirely — they exercise the analytics
 math against in-memory event lists.
 """
-from datetime import datetime, timedelta
 
 from freezegun import freeze_time
 

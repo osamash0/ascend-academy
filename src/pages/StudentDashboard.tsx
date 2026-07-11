@@ -39,6 +39,11 @@ import {
 import { recordCourseVisit, recordLectureVisit, recordDailyActivity } from '@/services/studentService';
 import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { SharedRoutes, StudentRoutes } from '@/lib/routes';
+import { useQuery } from '@tanstack/react-query';
+import { getStats as getReviewStats } from '@/services/reviewService';
+import { listMaterials } from '@/services/myMaterialsService';
+import { FEATURES } from '@/lib/featureFlags';
+import { LunaAstronaut } from '../../learnstation-luna';
 
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
@@ -65,11 +70,27 @@ export default function StudentDashboard() {
 
   const byId = useMemo(() => indexProgress(progressList), [progressList]);
 
+  const reviewStatsQuery = useQuery({
+    queryKey: ['review-stats'],
+    queryFn: getReviewStats,
+    enabled: FEATURES.reviewEngine && !!user?.id,
+    staleTime: 1000 * 60,
+  });
+  const reviewDueCount = reviewStatsQuery.data?.due_today ?? 0;
+
+  const myMaterialsQuery = useQuery({
+    queryKey: ['my-materials'],
+    queryFn: listMaterials,
+    enabled: FEATURES.studentUploads && !!user?.id,
+    staleTime: 1000 * 60,
+  });
+  const myMaterialsCount = FEATURES.studentUploads ? myMaterialsQuery.data?.materials.length ?? 0 : undefined;
+
   // The "brains": hero / bento widgets / browse rows.
   const hero = useMemo(() => selectHero(lectures, byId), [lectures, byId]);
   const widgets = useMemo(
-    () => buildWidgets(lectures, byId, achievements, profile),
-    [lectures, byId, achievements, profile],
+    () => buildWidgets(lectures, byId, achievements, profile, reviewDueCount, myMaterialsCount),
+    [lectures, byId, achievements, profile, reviewDueCount, myMaterialsCount],
   );
   // Pass courseVisits so buildRows can apply LIFS ordering.
   const rows = useMemo(() => buildRows(lectures, byId, courseVisits), [lectures, byId, courseVisits]);
@@ -344,6 +365,8 @@ export default function StudentDashboard() {
             widgets={widgets}
             onOpenLecture={(id) => openLecture(id)}
             onViewTrophies={() => navigate(StudentRoutes.ACHIEVEMENTS)}
+            onOpenReview={() => navigate(StudentRoutes.REVIEW)}
+            onOpenMyMaterials={() => navigate(StudentRoutes.MY_MATERIALS)}
           />
 
           {/* Recently Viewed: lectures + courses, MRF ordered, deduplicated */}
@@ -418,6 +441,17 @@ export default function StudentDashboard() {
           </section>
 
           {user?.id && <KnowledgeMapCard userId={user.id} />}
+
+          {/* Socratic AI Tutor Invite */}
+          <div className="ai-tutor-invite p-4 rounded-2xl glass-card border border-primary/20 shadow-glow-primary bg-primary/5">
+            <div className="flex items-center gap-4">
+              <LunaAstronaut phase="crescent" size="sm" animated />
+              <div>
+                <p className="font-bold text-foreground text-lg">Ready to explore?</p>
+                <p className="text-muted-foreground text-sm">Upload your first lecture PDF</p>
+              </div>
+            </div>
+          </div>
 
           {/* Personalized study plan (assignments, weak-concept reviews,
               continue-where-you-left-off). Self-contained: fetches

@@ -1,7 +1,6 @@
 """
 Redis client initialization and connection pooling.
 """
-from typing import AsyncGenerator
 import redis.asyncio as redis
 from backend.core.config import settings
 import logging

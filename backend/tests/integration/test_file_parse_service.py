@@ -13,8 +13,6 @@ import fitz
 import pytest
 
 from backend.services import file_parse_service as fps
-from backend.services.layout_analyzer import PageLayout
-from backend.services.slide_classifier import RoutingManifest
 
 
 # ---------------------------------------------------------------------------

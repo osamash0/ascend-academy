@@ -106,7 +106,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     run = types.SimpleNamespace(run_id=uuid4(), status=run_status, lecture_id=lecture_id)
     pages = pages if pages is not None else ["text 0", "text 1", "text 2"]
 
-    async def get_or_create_run(pdf_hash, lid, ver):
+    async def get_or_create_run(pdf_hash, lid, ver, **_kwargs):
         return run
 
     async def set_status(rid, status):
@@ -125,7 +125,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
         rec["pdf"].append(lecture_id)
         return f"lectures/{lecture_id}/x.pdf"
 
-    async def create_lecture(*, title, professor_id, pdf_hash, pdf_url=None):
+    async def create_lecture(*, title, professor_id, pdf_hash, pdf_url=None, course_id=None):
         lid = uuid4()
         rec["lectures"].append((title, professor_id, lid))
         return lid
