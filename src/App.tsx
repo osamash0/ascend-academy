@@ -16,6 +16,7 @@ import i18n from "@/i18n";
 
 import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, AdminRoutes } from "@/lib/routes";
 import { SocialProvider } from "@/features/social/store";
+import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
@@ -67,8 +68,10 @@ const StudentCourseView = lazy(() => import("./pages/StudentCourseView"));
 const StudentCourseLibrary = lazy(() => import("./pages/StudentCourseLibrary"));
 const ReviewSession = lazy(() => import("./features/review/ReviewSession"));
 const MyMaterialsPage = lazy(() => import("./features/materials/MyMaterialsPage"));
-const ExamRunner = lazy(() => import("./features/exam/ExamRunner"));
-const ExamReport = lazy(() => import("./features/exam/ExamReport"));
+const MockExamTake = lazy(() => import("./pages/MockExam").then(m => ({ default: m.MockExamTake })));
+const MockExamConfig = lazy(() => import("./pages/MockExam").then(m => ({ default: m.MockExamConfig })));
+const MockExamReport = lazy(() => import("./pages/MockExamReport").then(m => ({ default: m.MockExamReport })));
+const StudyGuide = lazy(() => import("./pages/StudyGuide"));
 const LectureView = lazy(() => import("./pages/LectureView"));
 const Ascent = lazy(() => import("./pages/Ascent"));
 const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
@@ -104,7 +107,17 @@ const PageLoader = () => {
   );
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Avoid refetch storms on tab focus/remount; feature hooks can override
+      // with a shorter/longer staleTime where they need fresher data.
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { user, role, loading } = useAuth();
@@ -129,7 +142,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, role, loading } = useAuth();
+  const { user, role, profile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -147,6 +160,10 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     if (role === 'admin') {
       return <Navigate to="/admin/dashboard" replace />;
     }
+    // If student hasn't finished onboarding (no full name), enforce onboarding
+    if (profile && !profile.full_name) {
+      return <Navigate to="/onboarding" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -154,10 +171,15 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 function StudentDashboardRoute() {
-  const { role } = useAuth();
+  const { role, profile } = useAuth();
 
   if (role === 'professor') {
     return <Navigate to={ProfessorRoutes.DASHBOARD} replace />;
+  }
+
+  // Prevent accessing dashboard if onboarding isn't finished
+  if (profile && !profile.full_name) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <StudentDashboard />;
@@ -199,8 +221,8 @@ function AppRoutes() {
         <Route path={PublicRoutes.RESET_PASSWORD} element={<ResetPassword />} />
         <Route path={PublicRoutes.IMPRESSUM} element={<Impressum />} />
         <Route path={PublicRoutes.DATENSCHUTZ} element={<Datenschutz />} />
-        {/* Experimental PixiJS playground (dev-only, unlinked) — branch feature/building-scene */}
-        <Route path="/pixi-lab" element={<PixiLab />} />
+        {/* Experimental PixiJS playground — dev-only; never reachable in a production build. */}
+        {import.meta.env.DEV && <Route path="/pixi-lab" element={<PixiLab />} />}
 
         {/* Student routes */}
         <Route
@@ -256,7 +278,17 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <ConsoleLayout>
-                <ExamReport />
+                <MockExamReport />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exam/take/:examId"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <MockExamTake />
               </ConsoleLayout>
             </ProtectedRoute>
           }
@@ -266,7 +298,17 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <ConsoleLayout>
-                <ExamRunner />
+                <MockExamConfig />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/course/:courseId/study-guide"
+          element={
+            <ProtectedRoute allowedRoles={['student', 'professor']}>
+              <ConsoleLayout>
+                <StudyGuide />
               </ConsoleLayout>
             </ProtectedRoute>
           }
@@ -435,16 +477,19 @@ function AppRoutes() {
           }
         />
 
-        <Route
-          path={ProfessorRoutes.PIPELINE_TEST}
-          element={
-            <ProtectedRoute allowedRoles={['professor']}>
-              <ConsoleLayout>
-                <PipelineTestPage />
-              </ConsoleLayout>
-            </ProtectedRoute>
-          }
-        />
+        {/* Internal pipeline test lab — dev-only; excluded from production builds. */}
+        {import.meta.env.DEV && (
+          <Route
+            path={ProfessorRoutes.PIPELINE_TEST}
+            element={
+              <ProtectedRoute allowedRoles={['professor']}>
+                <ConsoleLayout>
+                  <PipelineTestPage />
+                </ConsoleLayout>
+              </ProtectedRoute>
+            }
+          />
+        )}
 
         {/* Admin routes */}
         <Route
@@ -533,6 +578,7 @@ const App = () => {
             <AuthProvider>
               <LanguagePreferenceBootstrap>
                 <SocialProvider>
+                  <ConfettiCanvas />
                   <GamificationProvider>
                     <AppRoutes />
                   </GamificationProvider>
