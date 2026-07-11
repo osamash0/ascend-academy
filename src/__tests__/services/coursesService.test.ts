@@ -22,6 +22,8 @@ import {
   browseCourses,
   assignLectureToCourse,
   unassignLectureFromCourse,
+  fetchCourseContext,
+  updateCourseContext,
 } from '@/services/coursesService';
 
 const API = 'http://api.test/api/v1';
@@ -241,5 +243,55 @@ describe('unassignLectureFromCourse', () => {
       ),
     );
     await expect(unassignLectureFromCourse('c1', 'l1')).resolves.not.toThrow();
+  });
+});
+
+describe('fetchCourseContext', () => {
+  it('returns null when no facts have been extracted yet', async () => {
+    server.use(
+      http.get(`${API}/courses/c1/context`, () =>
+        HttpResponse.json({ success: true, data: null }),
+      ),
+    );
+    expect(await fetchCourseContext('c1')).toBeNull();
+  });
+
+  it('returns extracted facts', async () => {
+    server.use(
+      http.get(`${API}/courses/c1/context`, () =>
+        HttpResponse.json({
+          success: true,
+          data: {
+            course_id: 'c1', instructor: 'Prof. Ada',
+            exam_dates: [{ label: 'Midterm', date: '2026-06-01' }],
+            syllabus_facts: {}, grading_scheme: '50/50', updated_at: null,
+          },
+        }),
+      ),
+    );
+    const result = await fetchCourseContext('c1');
+    expect(result?.instructor).toBe('Prof. Ada');
+    expect(result?.exam_dates).toEqual([{ label: 'Midterm', date: '2026-06-01' }]);
+  });
+});
+
+describe('updateCourseContext', () => {
+  it('patches and returns the updated context', async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.patch(`${API}/courses/c1/context`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({
+          success: true,
+          data: {
+            course_id: 'c1', instructor: 'Dr. Grace', exam_dates: [],
+            syllabus_facts: {}, grading_scheme: null, updated_at: null,
+          },
+        });
+      }),
+    );
+    const result = await updateCourseContext('c1', { instructor: 'Dr. Grace' });
+    expect(result.instructor).toBe('Dr. Grace');
+    expect(receivedBody).toEqual({ instructor: 'Dr. Grace' });
   });
 });

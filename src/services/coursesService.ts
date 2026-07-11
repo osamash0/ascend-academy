@@ -123,3 +123,39 @@ export async function browseCourses(): Promise<Course[]> {
 export async function enrollInCourse(courseId: string): Promise<void> {
   await apiClient.post<Envelope<unknown>>(`/api/courses/${courseId}/enroll`, {});
 }
+
+// ── Course context (Roadmap Phase 3, "course brain") ────────────────────────
+// Structured syllabus facts extracted from administrative slides during
+// parsing (behind FEATURE_COURSE_BRAIN), or entered directly by the professor.
+
+export interface ExamDate {
+  label: string;
+  date: string;
+}
+
+export interface CourseContext {
+  course_id: string;
+  instructor: string | null;
+  exam_dates: ExamDate[];
+  syllabus_facts: Record<string, string>;
+  grading_scheme: string | null;
+  updated_at: string | null;
+}
+
+export interface CourseContextUpdate {
+  instructor?: string | null;
+  exam_dates?: ExamDate[];
+  syllabus_facts?: Record<string, string>;
+  grading_scheme?: string | null;
+}
+
+/** Returns null when no facts have been extracted or entered yet. */
+export async function fetchCourseContext(courseId: string): Promise<CourseContext | null> {
+  const res = await apiClient.get<Envelope<CourseContext | null>>(`/api/courses/${courseId}/context`);
+  return res.data;
+}
+
+export async function updateCourseContext(courseId: string, patch: CourseContextUpdate): Promise<CourseContext> {
+  const res = await apiClient.patch<Envelope<CourseContext>>(`/api/courses/${courseId}/context`, patch);
+  return res.data;
+}

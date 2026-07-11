@@ -2,14 +2,22 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, BookOpen, Loader2, Plus, FileText, X, ExternalLink, Upload,
+  GraduationCap, Pencil, Save, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
   getCourse,
   unassignLectureFromCourse,
   assignLectureToCourse,
+  fetchCourseContext,
+  updateCourseContext,
   type CourseWithLectures,
+  type CourseContext,
+  type ExamDate,
 } from '@/services/coursesService';
 import { fetchProfessorLectures, archiveLecture } from '@/services/lectureService';
 import { useAuth } from '@/lib/auth';
@@ -22,6 +30,190 @@ import {
 import type { Lecture } from '@/types/domain';
 
 import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
+
+interface CourseFactsFormState {
+  instructor: string;
+  grading_scheme: string;
+  exam_dates: ExamDate[];
+}
+
+function emptyFormState(): CourseFactsFormState {
+  return { instructor: '', grading_scheme: '', exam_dates: [] };
+}
+
+function contextToForm(ctx: CourseContext | null): CourseFactsFormState {
+  if (!ctx) return emptyFormState();
+  return {
+    instructor: ctx.instructor ?? '',
+    grading_scheme: ctx.grading_scheme ?? '',
+    exam_dates: ctx.exam_dates ?? [],
+  };
+}
+
+function CourseFactsCard({ courseId }: { courseId: string }) {
+  const { toast } = useToast();
+  const [context, setContext] = useState<CourseContext | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<CourseFactsFormState>(emptyFormState());
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setContext(await fetchCourseContext(courseId));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [courseId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const startEditing = () => {
+    setForm(contextToForm(context));
+    setEditing(true);
+  };
+
+  const cancelEditing = () => setEditing(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const updated = await updateCourseContext(courseId, {
+        instructor: form.instructor.trim() || null,
+        grading_scheme: form.grading_scheme.trim() || null,
+        exam_dates: form.exam_dates.filter((d) => d.label.trim() || d.date.trim()),
+      });
+      setContext(updated);
+      setEditing(false);
+      toast({ title: 'Course facts saved' });
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'Failed to save course facts', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addExamDate = () => setForm((f) => ({ ...f, exam_dates: [...f.exam_dates, { label: '', date: '' }] }));
+  const removeExamDate = (i: number) => setForm((f) => ({ ...f, exam_dates: f.exam_dates.filter((_, idx) => idx !== i) }));
+  const updateExamDate = (i: number, patch: Partial<ExamDate>) =>
+    setForm((f) => ({ ...f, exam_dates: f.exam_dates.map((d, idx) => (idx === i ? { ...d, ...patch } : d)) }));
+
+  if (loading) {
+    return (
+      <div className="glass-card p-6 flex items-center justify-center">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const hasFacts = !!context && (context.instructor || context.grading_scheme || context.exam_dates.length > 0);
+
+  return (
+    <div className="glass-card p-6 space-y-4" data-testid="course-facts-card">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <GraduationCap className="w-5 h-5 text-primary" />
+          <h2 className="font-bold text-foreground">Course facts</h2>
+        </div>
+        {!editing && (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={startEditing} data-testid="course-facts-edit">
+            <Pencil className="w-3.5 h-3.5" /> {hasFacts ? 'Edit' : 'Add facts'}
+          </Button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="cf-instructor">Instructor</Label>
+            <Input
+              id="cf-instructor"
+              value={form.instructor}
+              onChange={(e) => setForm((f) => ({ ...f, instructor: e.target.value }))}
+              placeholder="e.g. Prof. Ada Lovelace"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="cf-grading">Grading scheme</Label>
+            <Textarea
+              id="cf-grading"
+              value={form.grading_scheme}
+              onChange={(e) => setForm((f) => ({ ...f, grading_scheme: e.target.value }))}
+              placeholder="e.g. 50% final exam, 30% homework, 20% participation"
+              rows={2}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Exam dates</Label>
+            {form.exam_dates.map((d, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <Input
+                  value={d.label}
+                  onChange={(e) => updateExamDate(i, { label: e.target.value })}
+                  placeholder="Label (e.g. Midterm)"
+                  className="flex-1"
+                />
+                <Input
+                  value={d.date}
+                  onChange={(e) => updateExamDate(i, { date: e.target.value })}
+                  placeholder="Date"
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeExamDate(i)}
+                  className="text-muted-foreground hover:text-destructive p-1.5"
+                  title="Remove"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <Button size="sm" variant="ghost" className="gap-1.5" onClick={addExamDate}>
+              <Plus className="w-3.5 h-3.5" /> Add date
+            </Button>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button size="sm" className="gap-1.5" onClick={save} disabled={saving} data-testid="course-facts-save">
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" onClick={cancelEditing} disabled={saving}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : hasFacts ? (
+        <div className="space-y-2 text-sm">
+          {context!.instructor && (
+            <p><span className="text-muted-foreground">Instructor:</span> {context!.instructor}</p>
+          )}
+          {context!.grading_scheme && (
+            <p><span className="text-muted-foreground">Grading:</span> {context!.grading_scheme}</p>
+          )}
+          {context!.exam_dates.length > 0 && (
+            <div>
+              <span className="text-muted-foreground">Exam dates:</span>
+              <ul className="mt-1 space-y-0.5">
+                {context!.exam_dates.map((d, i) => (
+                  <li key={i} className="text-foreground">{d.label}: {d.date}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          No course facts yet. They're extracted automatically from syllabus/administrative slides, or you can add them manually.
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function ProfessorCourseDetail() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -131,6 +323,8 @@ export default function ProfessorCourseDetail() {
           </Button>
         </div>
       </div>
+
+      {courseId && <CourseFactsCard courseId={courseId} />}
 
       {course.lectures.length === 0 ? (
         <div className="glass-card p-10 text-center space-y-3">

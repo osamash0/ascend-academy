@@ -99,6 +99,17 @@ class Settings(BaseSettings):
     # Monthly cap on private uploads per student; quota is the monetization seam.
     student_upload_monthly_limit: int = Field(alias="STUDENT_UPLOAD_MONTHLY_LIMIT", default=5)
 
+    # ─── Course brain (Roadmap Phase 3) ─────────────────────────────────────────
+    # Off by default — gates ALL new Phase-3 behavior added on top of the
+    # already-shipped cross-lecture concept dedup + course-scoped tutor
+    # retrieval: the server-side concept-ingestion trigger in
+    # unified_orchestrator, syllabus-fact extraction into course_context
+    # (migration 20260711000000_course_context.sql), and course-aware
+    # synthesis prompts (prior lecture titles/concepts threaded into
+    # analyze_lecture_meta/analyze_slide). With the flag off, parsing behaves
+    # byte-for-byte as before this phase. Set FEATURE_COURSE_BRAIN=1 to enable.
+    feature_course_brain: bool = Field(alias="FEATURE_COURSE_BRAIN", default=False)
+
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")
     def resolve_supabase_credentials(self) -> "Settings":

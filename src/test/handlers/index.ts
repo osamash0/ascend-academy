@@ -17,7 +17,7 @@ const API = "http://api.test";
 type Resolver = Parameters<typeof http.get>[1];
 const v1 = (path: string) => path.replace(/(^.*)\/api\//, "$1/api/v1/");
 const dual = (
-  method: "get" | "post",
+  method: "get" | "post" | "patch",
   path: string,
   resolver: Resolver,
 ) => [http[method](path, resolver), http[method](v1(path), resolver)];
@@ -204,6 +204,18 @@ export const defaultHandlers = [
     HttpResponse.json({
       success: true,
       data: { enrolled: true },
+    }),
+  ),
+  ...dual("get", `${API}/api/courses/:id/context`, () =>
+    HttpResponse.json({ success: true, data: null }),
+  ),
+  ...dual("patch", `${API}/api/courses/:id/context`, () =>
+    HttpResponse.json({
+      success: true,
+      data: {
+        course_id: "c1", instructor: null, exam_dates: [],
+        syllabus_facts: {}, grading_scheme: null, updated_at: null,
+      },
     }),
   ),
 

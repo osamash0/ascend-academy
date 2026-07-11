@@ -243,6 +243,13 @@ async def insert_deck_quizzes(
             continue
         linked = coerce_linked_slides(q.get("linked_slides"))
         anchor = next((slide_db_ids[i] for i in linked if i in slide_db_ids), fallback_slide_id)
+        extra: Dict[str, Any] = {"linked_slides": linked, "is_deck": True}
+        # Roadmap Phase 3.4: cross-lecture "connects to earlier material"
+        # questions carry which prior lecture they draw on.
+        if q.get("source_lecture_id"):
+            extra["source_lecture_id"] = q["source_lecture_id"]
+            if q.get("source_lecture_title"):
+                extra["source_lecture_title"] = q["source_lecture_title"]
         await _execute(
             """
             INSERT INTO quiz_questions (slide_id, question_text, options, correct_answer, metadata)
@@ -252,7 +259,7 @@ async def insert_deck_quizzes(
             q.get("question", "") or "",
             json.dumps(q.get("options", [])),
             idx,
-            json.dumps(_quiz_metadata(q, {"linked_slides": linked, "is_deck": True})),
+            json.dumps(_quiz_metadata(q, extra)),
         )
         inserted += 1
     return inserted

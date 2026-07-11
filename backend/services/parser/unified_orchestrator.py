@@ -30,7 +30,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 from uuid import UUID
 
 import redis.asyncio as aioredis
@@ -254,6 +254,28 @@ async def parse_pdf_unified(
         # ``on_demand`` (Skip AI): persist raw extracted slides with no LLM
         # synthesis, quizzes, or deck summary; the editor enhances them later.
         ai_mode = parsing_mode != "on_demand"
+        course_uuid = UUID(course_id) if course_id else None
+
+        # Roadmap Phase 3.4 ("new-upload awareness"): fetch prior-lecture
+        # titles/concepts/facts from this course ONCE, before synthesis, so
+        # titles/summaries stay consistent and a later deck-quiz step can add
+        # cross-lecture questions. Best-effort — a failure here must not
+        # affect the parse; course_synthesis_ctx stays None (no hint, no
+        # cross-lecture questions), which is exactly today's behavior.
+        course_synthesis_ctx: Optional[Dict[str, Any]] = None
+        if ai_mode and settings.feature_course_brain and course_uuid is not None:
+            try:
+                from backend.services.course_context_service import get_course_synthesis_context
+                course_synthesis_ctx = await get_course_synthesis_context(
+                    course_uuid, exclude_lecture_id=existing_lecture_id
+                )
+            except Exception as exc:
+                logger.warning("course synthesis context fetch failed (non-fatal): %s", exc)
+
+        course_context_hint = ""
+        if course_synthesis_ctx:
+            from backend.services.course_context_service import build_course_context_hint
+            course_context_hint = build_course_context_hint(course_synthesis_ctx)
 
         # ── 2. Lecture-level analysis (title + summary) ──────────────────────
         await emit("phase", {"phase": "enhance"})
@@ -261,7 +283,7 @@ async def parse_pdf_unified(
         if ai_mode:
             from backend.services.parser.synthesis import analyze_lecture_meta
             try:
-                meta = await analyze_lecture_meta(raw_slides, ai_model)
+                meta = await analyze_lecture_meta(raw_slides, ai_model, course_context_hint=course_context_hint)
             except Exception as exc:
                 logger.warning("lecture meta failed (non-fatal): %s", exc)
                 meta = {}
@@ -270,9 +292,10 @@ async def parse_pdf_unified(
         lecture_title = (meta.get("title") or "").strip() or _clean_title(filename)
         deck_summary = (meta.get("summary") or "").strip()
         lecture_context = f"{lecture_title}: {deck_summary}"
+        if course_context_hint:
+            lecture_context += f"\n\n{course_context_hint}"
 
         # ── 3. Create / reuse the lecture row (server-authoritative) ─────────
-        course_uuid = UUID(course_id) if course_id else None
         if existing_lecture_id:
             created_lecture_id = existing_lecture_id
             await persist.clear_lecture_content(created_lecture_id)
@@ -303,6 +326,13 @@ async def parse_pdf_unified(
         embed_q: list = []
         embed_sem = asyncio.Semaphore(3)
         previous_narrative = ""
+
+        # Roadmap Phase 3 (course brain): collect administrative-slide text
+        # during the loop so it can feed one combined syllabus-fact extraction
+        # afterwards. Only when a course is known — private/course-less
+        # uploads have no course_context row to write into.
+        collect_admin_slides = ai_mode and settings.feature_course_brain and course_uuid is not None
+        admin_slide_texts: List[str] = []
 
         for chunk_start in range(0, total, chunk_size):
             chunk_end = min(chunk_start + chunk_size, total)
@@ -355,8 +385,37 @@ async def parse_pdf_unified(
                 await emit("slide", {"index": i, "slide": ui_slide})
                 await emit("progress", {"current": i + 1, "total": total, "message": f"Analyzed {i + 1}/{total}"})
 
+                if collect_admin_slides:
+                    try:
+                        # is_metadata_slide's layer-3 (ambiguous ~5-10% of
+                        # slides) calls a SYNCHRONOUS LLM client — run it off
+                        # the event loop like the other blocking work in this
+                        # module (_extract_pages, _render_page_jpeg).
+                        from backend.services.content_filter import is_metadata_slide
+                        classification = await asyncio.to_thread(
+                            is_metadata_slide, raw_slides[i], i, total, ai_model
+                        )
+                        if classification.get("is_metadata"):
+                            admin_slide_texts.append(raw_slides[i])
+                    except Exception as exc:
+                        logger.warning("admin-slide classification failed for slide %d (non-fatal): %s", i, exc)
+
             last = results[-1] if results else None
             previous_narrative = last.get("summary", "") if isinstance(last, dict) else ""
+
+        # ── 4b. Course-context extraction from administrative slides ─────────
+        # A parallel side-channel — does NOT change what gets synthesized or
+        # quizzed above; it only feeds course_context. Best-effort, non-fatal.
+        if admin_slide_texts:
+            try:
+                from backend.services.parser.synthesis import extract_syllabus_facts
+                from backend.services.course_context_service import upsert_course_context_facts
+                combined = "\n\n---\n\n".join(admin_slide_texts[:5])
+                facts = await extract_syllabus_facts(combined, ai_model)
+                if facts:
+                    await upsert_course_context_facts(course_uuid, facts)
+            except Exception as exc:
+                logger.warning("course-context extraction failed (non-fatal): %s", exc)
 
         # ── 5. Deck-level quiz (AI mode only) ────────────────────────────────
         deck_quiz = []
@@ -368,6 +427,22 @@ async def parse_pdf_unified(
             except Exception as exc:
                 logger.warning("deck quiz failed (non-fatal): %s", exc)
                 deck_quiz = []
+
+            # Roadmap Phase 3.4: up to 2 "connects to earlier material"
+            # questions referencing a concept from a prior lecture in this
+            # course, each tagged with its source lecture. Best-effort —
+            # never blocks the main deck quiz above.
+            if course_synthesis_ctx and course_synthesis_ctx.get("prior_lectures"):
+                try:
+                    from backend.services.parser.synthesis import (
+                        generate_cross_lecture_questions, _map_cross_lecture_quiz,
+                    )
+                    cross_raw = await generate_cross_lecture_questions(
+                        lecture_title, course_synthesis_ctx["prior_lectures"], ai_model
+                    )
+                    deck_quiz += _map_cross_lecture_quiz(cross_raw)
+                except Exception as exc:
+                    logger.warning("cross-lecture quiz generation failed (non-fatal): %s", exc)
 
         # ── 6. Finalize + persist deck quiz ──────────────────────────────────
         await emit("phase", {"phase": "finalize"})
@@ -398,6 +473,32 @@ async def parse_pdf_unified(
                 await attach_lecture_id_to_embeddings(pdf_hash, str(created_lecture_id))
             except Exception as exc:
                 logger.warning("attach embeddings failed (non-fatal): %s", exc)
+            # Roadmap Phase 3 (course brain): feed this lecture's key topics
+            # into the shared cross-lecture concept graph. Best-effort — never
+            # blocks parse completion. Off by default (FEATURE_COURSE_BRAIN).
+            #
+            # ingest_lecture_concepts' own auto-fetch path reads a
+            # `lecture_blueprints` row (a v3/v4-only artifact the unified
+            # pipeline never writes) and falls back to quiz_questions.metadata.
+            # concept — which _map_deck_quiz above populates with the
+            # question's *difficulty* string, not a concept name. Calling it
+            # with no args on a v5 lecture would therefore tag the graph with
+            # "easy"/"medium"/"hard" instead of real concepts. Bypass that by
+            # constructing the blueprint shape directly from analyze_lecture_
+            # meta's `keyTopics` (already generated above, previously unused).
+            if ai_mode and settings.feature_course_brain:
+                try:
+                    key_topics = [t for t in (meta.get("keyTopics") or []) if isinstance(t, str) and t.strip()]
+                    if key_topics:
+                        from backend.services.concept_graph import ingest_lecture_concepts
+                        await ingest_lecture_concepts(
+                            str(created_lecture_id),
+                            blueprint={"slide_plans": [], "cross_slide_quiz_concepts": key_topics},
+                            questions=[],
+                            slide_id_to_index={},
+                        )
+                except Exception as exc:
+                    logger.warning("concept-graph ingestion failed (non-fatal): %s", exc)
         await emit("deck_complete", {
             "deck_summary": deck_summary, "deck_quiz": deck_quiz, "total_slides": total_persisted,
         })

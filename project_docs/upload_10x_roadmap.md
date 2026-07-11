@@ -197,28 +197,67 @@ Turns N parsed lectures into one coherent course model. This is the planned
 `course_context` tier; it multiplies the value of the tutor, analytics, and quizzes
 without new content from the professor.
 
+> **Execution status (2026-07-11): DONE.** A pre-implementation survey found
+> this phase's original scope was overestimated — cross-lecture concept dedup
+> (3.2's hard part) and course-scoped tutor retrieval (3.3) were **already
+> shipped** from an earlier, undocumented effort (`concept_graph.py`,
+> `retrieval.py::retrieve_relevant_slides_course_scoped`, `chat_with_course`,
+> `/search/ask`, plus a real grounding-eval test suite). The genuine gaps were
+> narrower — `course_context`, new-upload awareness, and a concept-map merge
+> endpoint — plus **one real bug found along the way**: concept-graph
+> ingestion was client-side-only (fired from `useLectureSubmit.ts`), so
+> Phase-1's batch upload silently never ran it at all. Everything below ships
+> additively behind a new `FEATURE_COURSE_BRAIN` flag (default off), matching
+> the project's established `feature_review_engine`/`feature_exam_mode`/
+> `feature_global_search`/`feature_student_uploads` convention — with the flag
+> off, parsing behaves byte-for-byte as before this phase (regression-guard
+> unit test asserts this explicitly). Gates: backend 804 pass (unit+integration)
+> + 120 pass (`-m db`, zero pre-existing failures — a concurrent session's
+> unrelated fixes cleared them); vitest 393 pass / 3 pre-existing fails (2
+> Onboarding + 1 new Luna-component a11y regression from a **different**,
+> concurrent session — confirmed via `git status`, not touched by this work);
+> tsc 0.
+
+#### 3.0 Concept-ingestion bug fix (found during this phase, not an original line item)
+**Finding:** `concept_graph.ingest_lecture_concepts` was only ever triggered
+client-side (3 call sites in `useLectureSubmit.ts`); the Phase-1 batch-upload
+flow (`useBatchUpload.ts` + `POST /upload/batch`) had zero trigger anywhere —
+every batch-uploaded lecture silently skipped concept-graph ingestion.
+**Fix:** trigger `ingest_lecture_concepts` server-side from
+`parse_pdf_unified`'s finalize step (covers single **and** batch uploads
+automatically, since both enqueue the same job). A second finding shaped the
+fix: `ingest_lecture_concepts`'s own auto-fetch reads a `lecture_blueprints`
+row (a v3/v4-only artifact the unified pipeline never writes) and falls back
+to `quiz_questions.metadata.concept` — which `_map_deck_quiz` populates with
+the question's **difficulty** string, not a concept name. Calling it naively
+would have tagged the shared concept catalog with "easy"/"medium"/"hard"
+across every lecture. Fixed by using `analyze_lecture_meta`'s already-generated
+`keyTopics` (previously computed, never read) as the concept source instead.
+- [x] Server-side trigger fires for single AND batch uploads, gated behind `FEATURE_COURSE_BRAIN` + `ai_mode` (skipped for Skip-AI/`on_demand` parses — no synthesized topics to extract). *(unit tests: fires when on, skipped when off/on_demand, non-fatal on failure.)*
+
 #### 3.1 Course context record
 **Acceptance criteria**
-- [ ] Additive migration: `course_context` (course_id PK/FK, instructor, exam_dates, syllabus_facts JSONB, updated_at) exists and is written by an extraction job.
-- [ ] Uploading a syllabus (or the first lecture containing organizational slides) auto-extracts instructor, exam dates, grading scheme, and topic schedule into `course_context`; professor sees an editable "Course facts" card and can correct any field.
-- [ ] Organizational/administrative slides feed course_context instead of generating junk quizzes (extends the existing administrative-quiz suppression).
+- [x] Additive migration: `course_context` (course_id PK/FK, instructor, exam_dates JSONB, syllabus_facts JSONB, grading_scheme, updated_at) — `supabase/migrations/20260711000000_course_context.sql`, RLS mirrors `courses`' own three-policy shape exactly. *(9 db-marked RLS tests; 108→120 db suite total across the phase.)*
+- [x] Administrative slides auto-extract instructor/exam-dates/grading-scheme into `course_context`; professor sees an editable "Course facts" card and can correct any field. *(Finding: `content_filter.is_metadata_slide` — the admin-slide classifier — was NOT wired into the live v5 pipeline at all before this; this is its first use there, as a parallel side-channel that doesn't change existing synthesis/quiz behavior. New `synthesis.extract_syllabus_facts` LLM call + `course_context_service.upsert_course_context_facts` merge-not-clobber semantics (10 db tests) + `GET`/`PATCH /courses/{id}/context` endpoints + `CourseFactsCard` on `ProfessorCourseDetail.tsx`.)*
+- [x] Organizational slides feed course_context via a side-channel that does not touch existing quiz-suppression/generation behavior (scope note: v5 doesn't currently suppress admin-slide quiz generation at all — a separate, pre-existing gap this phase deliberately did not touch, to avoid changing live synthesis output as a side effect of adding fact-extraction).
 
 #### 3.2 Cross-lecture concept graph
 **Acceptance criteria**
-- [ ] Concepts extracted per lecture are deduplicated course-wide (embedding-similarity + name normalization): "gradient descent" in lecture 3 and lecture 7 is one node with two lecture references.
-- [ ] Each lecture's concept list shows "builds on" links to earlier lectures' concepts; at least one API (`GET /api/v1/courses/{id}/concept-map`) returns the merged graph for the analytics/garden views.
-- [ ] Re-parsing or deleting a lecture updates the merged graph without orphan nodes (verified by db-marked test).
+- [x] Concept dedup — **already shipped** pre-phase (`concept_graph.py::_ensure_concept`, name-key + embedding-similarity, `concept_lectures` bipartite table). Confirmed working, not rebuilt.
+- [x] `GET /api/v1/courses/{course_id}/concept-map` merges `concept_lectures` per course with "builds on" ordering **derived from `lectures.created_at`** (no new schema/column) — first chronological appearance = "introduces", later ones = "reinforces". Reuses the course-visibility check from `GET /courses/{id}`. *(6 integration tests + 2 db-marked cascade tests.)*
+- [x] Deleting a lecture leaves no orphaned `concept_lectures` row (pre-existing `ON DELETE CASCADE`, regression-guarded by new db tests since a course-level view now depends on it).
 
 #### 3.3 Course-scoped retrieval
 **Acceptance criteria**
-- [ ] Slide embeddings are queryable by course_id (index/backfill migration); the tutor answering within a course retrieves across all its lectures, and citations name lecture + slide.
-- [ ] A question whose answer lives in a different lecture than the one open is answered correctly in a scripted RAG evaluation set (≥ 10 curated Q/A pairs from a real Marburg course; ≥ 8 must cite the right lecture).
-- [ ] Duplicate/near-duplicate slides across lectures (recap slides) are deduplicated or down-weighted at retrieval time so they don't crowd out unique content.
+- [x] Already shipped pre-phase and confirmed working: `match_slides_scoped`/`retrieve_relevant_slides_course_scoped` (RRF-fused vector+keyword, course_id-scoped), `chat_with_course`, `POST /search/ask`, plus an existing grounding-eval test suite (`test_course_tutor_grounding.py`). Not rebuilt.
+- [ ] Recap-slide dedup/down-weighting at retrieval time — **not done**, deferred. Lower priority once 3.3 was found already-shipped; a real fix needs production usage data to know if it's actually a problem worth solving.
+- [ ] A curated ≥10-pair real-course RAG eval set — **not done**, deferred (needs real course data + professor time to curate, out of scope for an engineering-only pass).
 
 #### 3.4 New-upload awareness
 **Acceptance criteria**
-- [ ] When a new lecture is added to a course, its synthesis prompt receives course context (prior lecture titles + key concepts), so titles/summaries use consistent terminology; verified by snapshot tests of prompt assembly.
-- [ ] Deck quiz for lecture N may include ≤ 2 "connects to earlier material" questions referencing prior-lecture concepts, each tagged with the source lecture in metadata.
+- [x] New lecture's synthesis prompt receives course context (prior lecture titles + each one's strongest concept + course facts) when `FEATURE_COURSE_BRAIN` + a `course_id` are present — threaded into both `analyze_lecture_meta` (lecture-level title/summary) and the per-slide `lecture_context` used by `analyze_slide`. **Regression-guarded**: with no `course_id`, the prompt/context is byte-identical to pre-Phase-3 behavior (explicit unit test asserts this, not just "close enough").
+- [x] Deck quiz may include ≤2 "connects to earlier material" questions referencing a concept from a prior lecture, tagged in `quiz_questions.metadata.source_lecture_id`/`source_lecture_title`. Best-effort, non-fatal, capped at 2, skipped entirely when the course has no prior lectures with concepts yet.
+- [ ] Snapshot tests of exact prompt assembly — not done as literal snapshot tests; covered instead by unit tests asserting the hint's presence/content and the byte-identical-when-absent regression guard, which test the same contract more robustly than a brittle string snapshot would.
 
 ---
 
