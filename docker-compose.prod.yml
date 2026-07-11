@@ -38,6 +38,7 @@ services:
   # In that case, no external LLM API keys would be needed.
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
+    entrypoint: ["sh", "-c", "unset DATABASE_URL && exec docker/prod_entrypoint.sh \"$$@\"", "--"]
     networks:
       - ascend_net
     volumes:
@@ -47,12 +48,22 @@ services:
       - .env
     environment:
       - DISABLE_SCHEMA_UPDATE=true
+      - STORE_MODEL_IN_DB=False
+      - LITELLM_TELEMETRY=False
+      - DATABASE_URL=
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          # Cap RAM/CPU so a LiteLLM leak/spike can't OOM the 4 GB box or
+          # starve the API on 2 vCPU. Was previously unbounded.
+          memory: 512M
+          cpus: "0.75"
     depends_on:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health')\" || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\" || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -72,18 +83,26 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - LITELLM_BASE_URL=http://litellm:4000
       - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    # Single uvicorn worker in prod: two workers each load FastAPI + PyMuPDF +
+    # Pillow + LLM clients and can jointly breach the 512M cap → OOM kill on the
+    # 4 GB box. On 2 vCPU a 2nd worker adds little throughput anyway.
+    command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
     restart: unless-stopped
     deploy:
       resources:
         limits:
           memory: 512M
+          cpus: "1.0"
     depends_on:
       redis:
         condition: service_healthy
       litellm:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
+      # Probe /health (always on), NOT /docs — docs are disabled in production
+      # (ENVIRONMENT!=development), so a /docs probe would 404 and mark api
+      # unhealthy, which would block the frontend from ever starting.
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 3
@@ -129,11 +148,14 @@ services:
       resources:
         limits:
           memory: 512M
+          # Cap CPU so a PyMuPDF/tiktoken-bound parse can't saturate both cores
+          # and stall the API on the 2 vCPU box.
+          cpus: "1.0"
     depends_on:
       redis:
         condition: service_healthy
       litellm:
-        condition: service_started
+        condition: service_healthy
 
 
 volumes:

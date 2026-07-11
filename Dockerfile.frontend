@@ -25,6 +25,9 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
     VITE_LAZY_PDF_IMPORT=$VITE_LAZY_PDF_IMPORT \
     VITE_ANON_SALT=$VITE_ANON_SALT
 
+# Cap the Node heap so the Vite/Rollup build can't OOM a small (4 GB) deploy
+# host. Building in-place on the VPS is the memory hot-spot that required swap.
+ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN npm run build
 
 # Stage 2: serve with nginx on port 3000

@@ -11,6 +11,7 @@ job without a real user JWT.
 """
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 from typing import Any
@@ -67,7 +68,8 @@ async def run_engine(
     expected = os.environ.get("NUDGE_RUN_SECRET", "")
     if not expected:
         raise HTTPException(status_code=404, detail="Not found.")
-    if x_nudge_run_secret != expected:
+    # Constant-time compare so the secret can't be recovered via timing.
+    if not hmac.compare_digest(x_nudge_run_secret, expected):
         raise HTTPException(status_code=401, detail="Unauthorized.")
     report = await run_in_threadpool(nudge_engine.run_daily)
     return _Envelope(success=True, data=report)

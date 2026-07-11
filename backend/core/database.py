@@ -149,7 +149,12 @@ async def init_db_pool():
         )
         logger.info("asyncpg connection pool initialized.")
     except Exception as e:
+        # Fail fast: DATABASE_URL is set but the pool can't be created, so the
+        # app is fundamentally broken (every asyncpg-backed route would 500 at
+        # runtime). Re-raise so the container crash-loops loudly at startup
+        # instead of silently serving a half-initialized API.
         logger.error("Failed to initialize asyncpg pool: %s", e)
+        raise
 
 
 async def get_db_connection():

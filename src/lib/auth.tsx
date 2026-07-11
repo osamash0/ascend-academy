@@ -110,17 +110,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    console.log("[DEBUG AUTH] useEffect running. localStorage keys:", Object.keys(localStorage));
-    supabase.auth.getSession().then(({ data, error }) => {
-      console.log("[DEBUG AUTH] getSession returned:", !!data.session, "error:", error?.message);
-    }).catch(err => {
-      console.error("[DEBUG AUTH] getSession rejected:", err);
-    });
-
     // Listen for auth changes (handles initial session automatically in Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("[DEBUG AUTH] onAuthStateChange fired:", event, "session user:", session?.user?.id);
         try {
           setSession(session);
           setUser(session?.user ?? null);

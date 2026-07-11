@@ -12,6 +12,7 @@ union `courses.py._student_visible_course_ids` uses):
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -88,11 +89,15 @@ async def global_search(
     if not course_ids:
         return empty
 
-    lectures = await _keyword_rpc("search_lectures_keyword", query, course_ids, limit)
-    concepts = await _keyword_rpc("search_concepts_keyword", query, course_ids, limit)
-    worksheets = await _keyword_rpc("search_worksheets_keyword", query, course_ids, limit)
-    slides = await retrieve_relevant_slides_course_scoped(
-        query, course_ids=course_ids, k=limit, threshold=SEARCH_SLIDE_THRESHOLD
+    # These four searches are independent — run them concurrently so overall
+    # latency is the slowest single round-trip, not their sum.
+    lectures, concepts, worksheets, slides = await asyncio.gather(
+        _keyword_rpc("search_lectures_keyword", query, course_ids, limit),
+        _keyword_rpc("search_concepts_keyword", query, course_ids, limit),
+        _keyword_rpc("search_worksheets_keyword", query, course_ids, limit),
+        retrieve_relevant_slides_course_scoped(
+            query, course_ids=course_ids, k=limit, threshold=SEARCH_SLIDE_THRESHOLD
+        ),
     )
 
     return {
