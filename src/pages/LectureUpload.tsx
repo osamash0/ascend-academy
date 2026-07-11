@@ -27,7 +27,6 @@ import {
   Type,
   ArrowRight,
   Eye,
-  EyeOff,
   PartyPopper,
   Lightbulb,
   Info
@@ -73,6 +72,8 @@ import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Cou
 import { loadLectureForEdit, deleteSlideWithQuestions, enhanceSlide } from '@/services/lectureService';
 import { WorksheetsPanel } from '@/components/WorksheetsPanel';
 import { ProfessorPracticeSheetsTab } from '@/features/practice_sheets/ProfessorPracticeSheetsTab';
+import { SlideViewer } from '@/components/SlideViewer';
+import { QuizCard } from '@/components/QuizCard';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  COMPONENT: Progress Ring                                                 */
@@ -381,7 +382,6 @@ export default function LectureUpload() {
 
   /* ── UI state ──────────────────────────────────────────────────────────── */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [currentTab, setCurrentTab] = useState<'editor' | 'quizzes' | 'lecture'>('editor');
 
@@ -1482,14 +1482,11 @@ export default function LectureUpload() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setShowPreview(!showPreview)}
-                      className={cn(
-                        "gap-1.5 transition-all duration-300",
-                        showPreview ? "bg-violet-50 text-violet-600 border-violet-200" : ""
-                      )}
+                      onClick={() => setShowFullPreview(true)}
+                      className="gap-1.5"
                     >
-                      {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      {showPreview ? t('upload:chrome.previewClose') : t('upload:chrome.previewOpen')}
+                      <Eye className="w-3.5 h-3.5" />
+                      {t('upload:chrome.previewOpen')}
                     </Button>
                     <Button
                       variant="outline"
@@ -2048,116 +2045,7 @@ export default function LectureUpload() {
             </TabsContent>
             )}
           </Tabs>
-        </div>        {/* ─── RIGHT SIDEBAR: Live Preview ─── */}
-        <AnimatePresence>
-          {showPreview && activeSlide && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 450, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="border-l border-border bg-card/50 backdrop-blur-xl flex flex-col shrink-0 overflow-hidden shadow-2xl"
-            >
-              <div className="p-4 border-b border-border flex items-center justify-between bg-muted/20">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    {t('upload:chrome.livePreview')}
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 hover:bg-muted"
-                  onClick={() => setShowPreview(false)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-8">
-                {/* Simulated Tablet Frame */}
-                <div className="relative aspect-[4/3] w-full bg-background rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
-
-                  {/* Status Bar */}
-                  <div className="h-6 px-4 flex items-center justify-between text-[8px] font-medium text-muted-foreground border-b border-border/50">
-                    <span>9:41 AM</span>
-                    <div className="flex gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full border border-current opacity-50" />
-                      <div className="w-2.5 h-2.5 rounded-sm border border-current opacity-50" />
-                    </div>
-                  </div>
-
-                  {/* Content Preview */}
-                  <div className="flex-1 p-8 flex flex-col">
-                    <div className="space-y-4">
-                      <motion.h1
-                        key={`title-${activeSlideIndex}`}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="text-2xl font-black text-foreground tracking-tight leading-none"
-                      >
-                        {activeSlide.title || t('upload:slide.untitledSlide')}
-                      </motion.h1>
-                      <div className="h-1 w-12 bg-violet-500 rounded-full" />
-                    </div>
-
-                    <motion.div
-                      key={`content-${activeSlideIndex}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                      className="mt-6 flex-1 text-sm text-muted-foreground leading-relaxed overflow-y-auto pr-2 custom-scrollbar flex flex-col"
-                    >
-                      {activePdf ? (
-                        <div className="flex-1 overflow-auto rounded-lg border border-border shadow-inner" onClick={() => setLightboxPage(activeSlideIndex + 1)}>
-                          <PDFPagePreview pageNumber={activeSlideIndex + 1} width={380} />
-                        </div>
-                      ) : activeSlide.content ? (
-                        <div className="prose prose-sm dark:prose-invert">
-                          {activeSlide.content.split('\n').map((line, i) => (
-                            <p key={i}>{line}</p>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full opacity-30 italic">
-                          <LayoutTemplate className="w-8 h-8 mb-2" />
-                          {t('upload:chrome.noContentPreview')}
-                        </div>
-                      )}
-                    </motion.div>
-
-                    {/* Quick Stats Overlay */}
-                    <div className="mt-auto pt-4 flex gap-3">
-                      <div className="px-2 py-1 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[10px] font-bold uppercase tracking-wider">
-                        {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })}
-                      </div>
-                      {activeSlide.questions[0]?.question && (
-                        <div className="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> {t('upload:chrome.quizIncluded')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Summary Peek */}
-                <div className="mt-8 space-y-3">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                    <Sparkles className="w-3 h-3 text-amber-500" />
-                    {t('upload:chrome.keyTakeaway')}
-                  </h4>
-                  <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-800/30">
-                    <p className="text-xs text-amber-800 dark:text-amber-200 italic leading-relaxed">
-                      {activeSlide.summary || t('upload:chrome.summaryWillAppear')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </div>
 
       {/* ═══════ FULL LECTURE PREVIEW MODAL ═══════ */}
@@ -2216,79 +2104,41 @@ export default function LectureUpload() {
                 </div>
               </div>
 
-              {/* Slide Viewer */}
+              {/* Slide Viewer — the real student-facing SlideViewer + QuizCard,
+                  fed straight from the editor's live (possibly unsaved) slide
+                  state. No progress/XP/analytics callbacks are wired up, so
+                  nothing here writes to student_progress or gamification. */}
               <div className="flex-1 overflow-y-auto bg-muted/10 p-12 flex flex-col items-center">
-                <div className="max-w-4xl w-full space-y-12">
-                  <div className="bg-card border border-border shadow-2xl rounded-3xl overflow-hidden flex flex-col min-h-[500px]">
-                    <div className="p-10 flex-1 space-y-8">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1 w-12 bg-violet-600 rounded-full" />
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-600">
-                            {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })}
-                          </span>
-                        </div>
-                        <h2 className="text-4xl font-black text-foreground tracking-tight leading-tight">
-                          {activeSlide?.title}
-                        </h2>
-                      </div>
-
-                      <div className="prose prose-lg dark:prose-invert max-w-none text-muted-foreground leading-relaxed">
-                        {activeSlide?.content.split('\n').map((p, i) => (
-                          <p key={i}>{p}</p>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Quiz Preview Area if exists */}
-                    {activeSlide?.questions[0]?.question && (
-                      <div className="p-10 bg-emerald-50/30 dark:bg-emerald-950/10 border-t border-emerald-100 dark:border-emerald-800/20">
-                        <div className="flex items-center gap-2 mb-6">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                          <span className="text-xs font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-                            {t('upload:chrome.practiceQuiz')}
-                          </span>
-                        </div>
-                        <div className="space-y-6">
-                          <p className="text-lg font-bold text-foreground">
-                            {activeSlide.questions[0].question}
-                          </p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {activeSlide.questions[0].options.map((opt, i) => (
-                              <div key={i} className={cn(
-                                "p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/30 text-sm font-medium",
-                                i === activeSlide.questions[0].correctAnswer ? "bg-emerald-500 text-white border-transparent" : "bg-card text-muted-foreground opacity-60"
-                              )}>
-                                {opt}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Navigation */}
-                  <div className="flex items-center justify-between">
-                    <Button
-                      variant="outline"
-                      onClick={handlePrevSlide}
-                      disabled={activeSlideIndex === 0}
-                      className="rounded-xl px-8"
-                    >
-                      <ChevronLeft className="mr-2 h-4 w-4" /> {t('common:actions.back')}
-                    </Button>
-                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                      {t('upload:slide.slideNumber', { number: activeSlideIndex + 1 })} / {slides.length}
-                    </span>
-                    <Button
-                      onClick={handleNextSlide}
-                      disabled={activeSlideIndex === slides.length - 1}
-                      className="rounded-xl px-8 bg-violet-600 hover:bg-violet-700 text-white border-none"
-                    >
-                      {t('common:actions.next')} <ChevronRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="max-w-3xl w-full space-y-8">
+                  {activeSlide && (
+                    <SlideViewer
+                      title={activeSlide.title}
+                      content={activeSlide.content}
+                      summary={activeSlide.summary}
+                      slideNumber={activeSlideIndex + 1}
+                      totalSlides={slides.length}
+                      onPrevious={handlePrevSlide}
+                      onNext={handleNextSlide}
+                      isFirst={activeSlideIndex === 0}
+                      isLast={activeSlideIndex === slides.length - 1}
+                      pdfUrl={typeof activePdf === 'string' ? activePdf : undefined}
+                      pageNumber={activeSlideIndex + 1}
+                    />
+                  )}
+                  {activeSlide?.questions[0]?.question && (
+                    <QuizCard
+                      question={activeSlide.questions[0].question}
+                      options={activeSlide.questions[0].options}
+                      correctAnswer={activeSlide.questions[0].correctAnswer}
+                      questionNumber={1}
+                      totalQuestions={1}
+                      onAnswer={() => { /* preview only — no persistence */ }}
+                      onContinue={handleNextSlide}
+                      continueLabel={activeSlideIndex === slides.length - 1 ? 'Finish preview' : 'Continue'}
+                      explanation={activeSlide.questions[0].explanation}
+                      concept={activeSlide.questions[0].concept}
+                    />
+                  )}
                 </div>
               </div>
             </div>
