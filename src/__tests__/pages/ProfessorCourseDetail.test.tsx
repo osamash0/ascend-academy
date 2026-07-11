@@ -61,6 +61,7 @@ function renderAtRoute() {
   return renderWithProviders(
     <Routes>
       <Route path="/professor/courses/:courseId" element={<ProfessorCourseDetail />} />
+      <Route path="/course/:courseId/study-guide" element={<div>Study Guide Page Stub</div>} />
     </Routes>,
     { initialEntries: [`/professor/courses/${CID}`] },
   );
@@ -151,5 +152,37 @@ describe("ProfessorCourseDetail — Course facts card", () => {
 
     await user.click(screen.getByTitle("Remove"));
     expect(screen.queryByPlaceholderText(/label \(e\.g\. midterm\)/i)).not.toBeInTheDocument();
+  });
+});
+
+function stubEmptyCourseContext() {
+  server.use(
+    http.get(`${API}/courses/${CID}/context`, () => HttpResponse.json({ success: true, data: null })),
+  );
+}
+
+describe("ProfessorCourseDetail — Study guide card", () => {
+  // The card is a thin entry point to the dedicated /course/:id/study-guide
+  // page (src/pages/StudyGuide.tsx), which owns generation/regeneration/
+  // printing — no need to stub GET .../study-guide here at all.
+
+  it("renders an entry point to the study guide", async () => {
+    stubCourse();
+    stubEmptyCourseContext();
+    renderAtRoute();
+
+    expect(await screen.findByTestId("study-guide-card")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /open study guide/i })).toBeInTheDocument();
+  });
+
+  it("navigates to the course's study guide page on click", async () => {
+    const user = userEvent.setup();
+    stubCourse();
+    stubEmptyCourseContext();
+    renderAtRoute();
+
+    await user.click(await screen.findByTestId("study-guide-open"));
+
+    expect(await screen.findByText("Study Guide Page Stub")).toBeInTheDocument();
   });
 });

@@ -159,3 +159,32 @@ export async function updateCourseContext(courseId: string, patch: CourseContext
   const res = await apiClient.patch<Envelope<CourseContext>>(`/api/courses/${courseId}/context`, patch);
   return res.data;
 }
+
+// ── Study guide (Roadmap Phase 4.4) ──────────────────────────────────────────
+
+export interface StudyGuideLecture {
+  lecture_id: string;
+  title: string;
+  synopsis: string;
+}
+
+export interface StudyGuideConcept {
+  name: string;
+  definition: string;
+}
+
+export interface StudyGuide {
+  lectures: StudyGuideLecture[];
+  concepts: StudyGuideConcept[];
+  course_facts: {
+    instructor: string | null;
+    exam_dates: ExamDate[];
+    grading_scheme: string | null;
+  };
+}
+
+export async function fetchStudyGuide(courseId: string, opts?: { regenerate?: boolean }): Promise<StudyGuide> {
+  const qs = opts?.regenerate ? '?regenerate=true' : '';
+  const res = await apiClient.get<Envelope<StudyGuide>>(`/api/courses/${courseId}/study-guide${qs}`);
+  return res.data;
+}

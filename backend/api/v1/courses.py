@@ -14,6 +14,7 @@ Endpoints:
     GET    /api/courses/{course_id}/context                — syllabus facts (Roadmap Phase 3)
     PATCH  /api/courses/{course_id}/context                — professor edits syllabus facts
     GET    /api/courses/{course_id}/concept-map             — merged cross-lecture concept graph
+    GET    /api/courses/{course_id}/study-guide[?regenerate] — per-course study guide (Roadmap Phase 4.4)
 """
 from __future__ import annotations
 
@@ -677,6 +678,45 @@ async def get_concept_map_endpoint(
         logger.error("Concept map fetch failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load concept map.")
     return {"success": True, "data": data}
+
+
+# ── Study guide (Roadmap Phase 4.4) ──────────────────────────────────────────
+# Off by default — gates only this endpoint (FEATURE_STUDY_GUIDE), not a whole
+# router, since it lives on the always-mounted courses router.
+
+@router.get("/{course_id}/study-guide")
+@limiter.limit("20/minute")
+async def get_study_guide_endpoint(
+    request: Request,
+    course_id: str,
+    regenerate: bool = Query(default=False),
+    user: Any = Depends(verify_token),
+):
+    from backend.core.config import settings
+    if not settings.feature_study_guide:
+        raise HTTPException(status_code=404, detail="Not found.")
+
+    uid = _user_id(user)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid user context.")
+
+    def _check_visibility() -> None:
+        c = _fetch_course(course_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="Course not found.")
+        is_owner = c["professor_id"] == uid
+        if not is_owner and course_id not in _student_visible_course_ids(uid):
+            raise HTTPException(status_code=403, detail="You do not have access to this course.")
+
+    await run_in_threadpool(_check_visibility)
+
+    from backend.services.study_guide_service import get_or_generate_study_guide
+    try:
+        content = await get_or_generate_study_guide(UUID(course_id), force_regenerate=regenerate)
+    except Exception as e:
+        logger.error("Study guide generation failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate study guide.")
+    return {"success": True, "data": content}
 
 
 @router.delete("/{course_id}", status_code=204)

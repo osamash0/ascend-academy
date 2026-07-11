@@ -113,6 +113,7 @@ Each object has:
 - options: array of 4 strings (A, B, C, D options — do NOT include "A)", "B)" prefixes, just the text)
 - correctAnswer: string (must match one of the options exactly)
 - explanation: string (brief explanation of why the answer is correct)
+- concept: string (the specific concept being tested — a short name, not a sentence)
 - difficulty: "easy" | "medium" | "hard"
 - slideId: number (1-based slide number the question is drawn from)
 
@@ -267,7 +268,8 @@ def _map_deck_quiz(quiz_questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]
             "options": options,
             "correctAnswer": ans_idx,
             "explanation": q.get("explanation", ""),
-            "concept": q.get("difficulty", ""),
+            "concept": q.get("concept", ""),
+            "difficulty": q.get("difficulty", ""),
             "linked_slides": [slide_id_0],
         })
     if dropped:

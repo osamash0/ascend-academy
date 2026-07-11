@@ -209,6 +209,17 @@ export const defaultHandlers = [
   ...dual("get", `${API}/api/courses/:id/context`, () =>
     HttpResponse.json({ success: true, data: null }),
   ),
+
+  // ── Review cards (professor control, Roadmap Phase 4.1) ────────────────────
+  ...dual("get", `${API}/api/review/lecture/:id/cards`, () =>
+    HttpResponse.json({ cards: [], total: 0 }),
+  ),
+  ...dual("post", `${API}/api/review/cards/:id/hide`, () =>
+    HttpResponse.json({ card_id: "card-1", hidden: true }),
+  ),
+  ...dual("post", `${API}/api/review/cards/:id/unhide`, () =>
+    HttpResponse.json({ card_id: "card-1", hidden: false }),
+  ),
   ...dual("patch", `${API}/api/courses/:id/context`, () =>
     HttpResponse.json({
       success: true,
@@ -217,6 +228,12 @@ export const defaultHandlers = [
         syllabus_facts: {}, grading_scheme: null, updated_at: null,
       },
     }),
+  ),
+  // Default: feature flag off (404), matching a real server with
+  // FEATURE_STUDY_GUIDE unset. Tests exercising the generated-guide path
+  // override this per-case via server.use().
+  ...dual("get", `${API}/api/courses/:id/study-guide`, () =>
+    HttpResponse.json({ detail: "Not found." }, { status: 404 }),
   ),
 
   // ── Assignments ───────────────────────────────────────────────────────────

@@ -17,7 +17,6 @@ import {
   Wand2,
   Save,
   AlertCircle,
-  LayoutTemplate,
   BookOpen,
   X,
   MoreHorizontal,
@@ -36,6 +35,7 @@ import { DuplicatePDFDialog, type DuplicateMatch } from '@/components/DuplicateP
 import { ParseCacheDialog } from '@/components/ParseCacheDialog';
 import { PDFPagePreview } from '@/components/PDFPagePreview';
 import { PDFLightbox } from '@/components/PDFLightbox';
+import { NebulaCloud } from '../../learnstation-luna';
 import { Document, pdfjs } from 'react-pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -72,6 +72,7 @@ import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Cou
 import { loadLectureForEdit, deleteSlideWithQuestions, enhanceSlide } from '@/services/lectureService';
 import { WorksheetsPanel } from '@/components/WorksheetsPanel';
 import { ProfessorPracticeSheetsTab } from '@/features/practice_sheets/ProfessorPracticeSheetsTab';
+import { ProfessorReviewCardsPanel } from '@/features/review/ProfessorReviewCardsPanel';
 import { SlideViewer } from '@/components/SlideViewer';
 import { QuizCard } from '@/components/QuizCard';
 
@@ -206,8 +207,8 @@ function EmptySlideState({ onAddSlide, onUploadPDF }: { onAddSlide: () => void; 
       animate={{ opacity: 1, scale: 1 }}
       className="flex flex-col items-center justify-center h-full min-h-[400px] text-center p-8"
     >
-      <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-950/50 dark:to-indigo-950/50 flex items-center justify-center mb-6 shadow-inner">
-        <LayoutTemplate className="w-10 h-10 text-violet-500" />
+      <div className="mb-4 flex justify-center">
+        <NebulaCloud size="sm" />
       </div>
       <h3 className="text-xl font-semibold text-foreground mb-2">{t('upload:empty.title')}</h3>
       <p className="text-muted-foreground max-w-sm mb-8">
@@ -1884,6 +1885,17 @@ export default function LectureUpload() {
                       Auto-generate a sheet from quiz questions or author your own. Students see published sheets on this lecture's page.
                     </p>
                     <ProfessorPracticeSheetsTab lectureId={editLectureId} />
+                  </div>
+                )}
+
+                {/* Review cards (spaced-repetition "Daily Ascent") */}
+                {editLectureId && (
+                  <div className="bg-card rounded-2xl border border-border p-6">
+                    <h2 className="text-lg font-semibold text-foreground mb-1">Review Cards</h2>
+                    <p className="text-xs text-muted-foreground mb-5">
+                      Auto-generated spaced-repetition cards from this lecture's quiz questions. Hide any that shouldn't reach students — hiding preserves their existing progress, it never deletes it.
+                    </p>
+                    <ProfessorReviewCardsPanel lectureId={editLectureId} />
                   </div>
                 )}
 

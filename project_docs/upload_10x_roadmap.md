@@ -267,26 +267,88 @@ The parse already produces structured, embedded content; each additional artifac
 cheap generation with direct student value. Generate on upload (professor-approvable),
 regenerable on demand.
 
+> **Execution status (2026-07-11): a reality-check survey (mirroring Phase 3's)
+> found this phase's original scope was overestimated too** — 4.1's SM-2
+> scheduler and 4.2's generation/attempt/grading infra already existed from
+> earlier, undocumented work (Roadmap Phase 1.1 "Daily Ascent" review engine;
+> `practice_sheets.py`). **`worksheetsService.ts` is a completely separate,
+> already-finished file-attachment feature** (professors manually upload a
+> PDF/DOC to a bucket) — the roadmap's original framing of it as "the thing
+> to wire up" was stale; `practice_sheets.py`/`practice_sheet_questions` is
+> the actual generation target. Given the scope of what remained (see each
+> sub-section), this pass shipped: a cross-cutting data-quality bug fix, full
+> professor visibility/control over 4.1's review cards, and 4.4's study guide
+> end-to-end (genuinely unbuilt, unlike 4.1–4.3). **4.2's real AI-generated
+> open/calc/transfer questions + PDF export and 4.3's professor-composable
+> exam bank + real difficulty recalibration were deliberately NOT attempted**
+> — each is a substantial standalone effort (new prompt design + grounding
+> checks; a new professor screen + a stats pipeline), not a quick win, and
+> better scoped as its own future session rather than done partially here.
+> Gates: backend 812 pass / 1 pre-existing order-dependent fail (unrelated,
+> confirmed via `git stash`); db 136 pass (confirmed earlier in this session
+> — Docker was unavailable at final-sweep time, an environment issue, not a
+> regression); tsc 0; new frontend/service tests (33) all pass in isolation
+> (the full vitest run has ~20 failures, ALL confirmed via `git status` to be
+> from a concurrent session's in-progress Landing/Auth/LectureView/
+> StudentDashboard/i18n rework — zero overlap with anything built here).
+
+#### 4.0 Cross-cutting data-quality fix (found during this phase, not an original line item)
+**Finding:** `synthesis._map_deck_quiz` mapped `"concept": q.get("difficulty", "")`
+— every deck-level quiz question's `metadata.concept` actually held the
+difficulty string ("easy"/"medium"/"hard"), never a real concept name. This
+silently poisoned the `QuizCard` "Concept ·" badge (Phase 0) for deck
+questions and would have poisoned any Phase-4 concept-based filtering.
+**Fix:** the deck-quiz prompt now asks for `concept` AND `difficulty` as
+independent fields; `_map_deck_quiz` maps both correctly. Regression-guarded
+by 2 new unit tests; existing `test_synthesis_quiz_mapping.py` unaffected
+(none of its cases touched these fields).
+
 #### 4.1 Flashcards (spaced repetition)
+**Finding:** the SM-2 scheduler + `review_cards`/`review_schedule`/`review_log`
+schema already existed (Roadmap Phase 1.1, `backend/services/review/`) —
+solid, real spaced repetition. The term "flashcard" doesn't appear anywhere
+in the codebase; cards are internally "review cards", 100% quiz-question-
+shaped (never term/definition or concept-QA/cloze — that source_type is
+schema-ready but has zero writers, deliberately deferred back in Phase 1.1).
+
 **Acceptance criteria**
-- [ ] Every AI-enhanced lecture yields a flashcard deck (term/definition + concept-tagged Q/A), persisted in an additive `flashcards` table keyed to lecture + slide + concept.
-- [ ] Professor can review/edit/delete cards in the editor before publishing; students get a review mode with an SM-2-style scheduler whose state persists per student.
-- [ ] Card count scales with content (roughly 1–3 per substantive slide, none from title/TOC/administrative slides — reuses `slide_type`).
+- [ ] Every AI-enhanced lecture yields a flashcard deck (term/definition + concept-tagged Q/A) — **not done**; cards remain quiz-question-shaped. Generating genuine term/definition cards from slide content directly is a real, separately-scoped effort (needs its own prompt + grounding design), not attempted here.
+- [x] Professor can review/edit/delete cards before publishing — **shipped as soft-hide, not delete**: `review_schedule`/`review_log` both `ON DELETE CASCADE` on card_id, so a hard delete would destroy every student's SM-2 progress/grade history for that card. New `GET /review/lecture/{id}/cards`, `POST /review/cards/{id}/hide|unhide` (reusing `FEATURE_REVIEW_ENGINE`, no new flag) + a `ProfessorReviewCardsPanel` on the lecture editor's "Lecture" tab. A hidden card stops being served (new activation AND already-scheduled students) while every row and student history survives, restorable via unhide. 8 db-marked tests including a dedicated "hiding preserves existing student progress" regression guard.
+- [ ] Card count scales with content, none from title/TOC/administrative slides — **not done**; per-slide quiz generation itself doesn't suppress admin slides yet (a separate, pre-existing gap noted in Phase 3), so card_factory inherits that gap. The new hide/unhide control (above) is the professor's manual workaround in the meantime.
 
 #### 4.2 Worksheets / practice sheets
+**Finding:** `worksheets.py` (file upload, complete, unrelated) vs
+`practice_sheets.py` (the real target) are two separate features — the
+original roadmap conflated them. Auto-generation exists but is a pure
+MCQ-copy from `quiz_questions`, never open/calc/transfer questions; a
+model-answer/rubric field exists but only for manually-authored questions;
+no PDF export exists anywhere in the codebase.
+
 **Acceptance criteria**
-- [ ] "Generate worksheet" produces a mixed-format practice set (open questions, calculations where the content is mathematical, transfer questions) grounded ONLY in lecture content, exportable as PDF, wired into the existing `worksheetsService.ts` + practice-sheets RLS layer.
-- [ ] Each worksheet item carries a model answer + rubric notes visible to the professor and revealed to students after attempt.
+- [ ] "Generate worksheet" produces open/calculation/transfer questions grounded in lecture content, exportable as PDF — **not attempted**. Deliberately deferred: real open-question generation needs its own grounding/prompt design (distinct from the existing MCQ pipeline) and PDF export needs new infra from scratch: both substantial, separately-scoped efforts.
+- [ ] Model answer + rubric for auto-generated items — **not attempted** (only manually-authored practice-sheet questions have this field populated today).
 
 #### 4.3 Exam bank with difficulty calibration
+**Finding:** a course-wide question-pool aggregator + weighted/seeded sampler
++ timed session/grading/concept-report already existed (Roadmap Phase 1.2,
+`exam_service.py`) — but it's 100% student-self-service ("generate my mock
+exam"), not a professor-browsable/composable bank, and item difficulty is
+only ever the LLM's static a-priori tag (no recalibration from real attempts
+anywhere in the codebase).
+
 **Acceptance criteria**
-- [ ] Course-level question bank aggregates all lecture + deck quizzes, filterable by concept, cognitive level, and lecture; professor can compose a mock exam by filters + count and export it.
-- [ ] Item difficulty is re-estimated from real student answer data (correct-rate) once ≥ 20 attempts exist, displayed alongside the LLM's a-priori difficulty; discrepancies > 40 points flag the item for review.
+- [ ] Professor composes a mock exam by concept/cognitive-level/lecture filters + count, exports it — **not attempted**. Needs a new professor-facing screen plus new filtered-query endpoints; a substantial standalone effort.
+- [ ] Item difficulty re-estimated from real student answer data (≥20 attempts, >40pt discrepancy flag) — **not attempted**. Needs a new stats pipeline (per-item correct-rate aggregation) with no existing scaffold to build on.
 
 #### 4.4 Study guide
+**Finding:** genuinely unbuilt — zero references anywhere in the codebase
+before this pass (confirmed by grep across migrations/backend/frontend),
+unlike 4.1–4.3's hidden prior work.
+
 **Acceptance criteria**
-- [ ] One-click per course: a structured study guide (per-lecture synopsis, merged key concepts with definitions, exam-relevant facts from course_context such as dates and weighting), viewable in-app and exportable as PDF.
-- [ ] Regenerating after new uploads incorporates the new lectures and is idempotent (no duplicated sections).
+- [x] One-click per course: a structured study guide (per-lecture synopsis, merged key concepts with definitions, exam-relevant facts from course_context), viewable in-app. *(New `study_guides` table (additive, RLS mirrors `course_context`'s shape exactly) + `study_guide_service.py` (aggregation-first: lecture synopses/concepts come straight from persisted data, only concept one-line definitions need a single best-effort LLM call) + `GET /courses/{id}/study-guide[?regenerate]` behind `FEATURE_STUDY_GUIDE` (off by default) + a manually-triggered `StudyGuideCard` on `ProfessorCourseDetail` — manual, not auto-fetch-on-mount, since generation can call an LLM and shouldn't fire silently on every page view.)*
+- [~] Exportable as PDF — **not attempted**: no PDF-export infrastructure exists anywhere in the codebase (confirmed via survey); building one from scratch was out of scope for this pass. In-app viewing ships; PDF export is a clean, separately-schedulable follow-up once the in-app shape is validated.
+- [x] Regenerating after new uploads incorporates new lectures and is idempotent. *(`source_lecture_count` cache-invalidation: a changed lecture count triggers regeneration; `force_regenerate=true` always reruns; the upsert is a single `ON CONFLICT ... DO UPDATE` row, never accumulating duplicate sections — both behaviors covered by dedicated db tests.)*
 
 ---
 

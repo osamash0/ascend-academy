@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, BookOpen, Loader2, Plus, FileText, X, ExternalLink, Upload,
-  GraduationCap, Pencil, Save, Trash2,
+  GraduationCap, Pencil, Save, Trash2, NotebookText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { Lecture } from '@/types/domain';
+import { StudentRoutes } from '@/lib/routes';
 
 import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
 
@@ -215,6 +216,37 @@ function CourseFactsCard({ courseId }: { courseId: string }) {
   );
 }
 
+/**
+ * StudyGuideCard — entry point to the full study guide page (Roadmap Phase
+ * 4.4, `/course/{id}/study-guide`, `src/pages/StudyGuide.tsx`). Kept
+ * deliberately thin here: the dedicated page owns generation/regeneration/
+ * printing, so this card only needs to get the professor there.
+ */
+function StudyGuideCard({ courseId }: { courseId: string }) {
+  const navigate = useNavigate();
+  return (
+    <div className="glass-card p-6 flex items-center justify-between gap-3" data-testid="study-guide-card">
+      <div className="flex items-center gap-2">
+        <NotebookText className="w-5 h-5 text-primary" />
+        <div>
+          <h2 className="font-bold text-foreground">Study Guide</h2>
+          <p className="text-xs text-muted-foreground">Per-lecture synopses, key concepts, and exam facts in one place.</p>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-1.5 shrink-0"
+        onClick={() => navigate(StudentRoutes.STUDY_GUIDE(courseId))}
+        data-testid="study-guide-open"
+      >
+        <NotebookText className="w-3.5 h-3.5" />
+        Open Study Guide
+      </Button>
+    </div>
+  );
+}
+
 export default function ProfessorCourseDetail() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
@@ -325,6 +357,7 @@ export default function ProfessorCourseDetail() {
       </div>
 
       {courseId && <CourseFactsCard courseId={courseId} />}
+      {courseId && <StudyGuideCard courseId={courseId} />}
 
       {course.lectures.length === 0 ? (
         <div className="glass-card p-10 text-center space-y-3">

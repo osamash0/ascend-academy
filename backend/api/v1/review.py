@@ -6,6 +6,11 @@ Endpoints:
     GET  /api/v1/review/stats                  — due-today / streak / retention
     POST /api/v1/review/cards/{card_id}/suspend
 
+    Professor-facing (Roadmap Phase 4.1):
+    GET  /api/v1/review/lecture/{lecture_id}/cards      — list a lecture's cards
+    POST /api/v1/review/cards/{card_id}/hide            — soft-hide a bad card
+    POST /api/v1/review/cards/{card_id}/unhide          — restore it
+
 Gamification is 100% client-driven in this app (grant_xp/award_badge RPCs run
 under auth.uid(), zero Python callers anywhere) — this router never grants XP;
 the client does, after a successful grade response.
@@ -20,7 +25,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from backend.core.auth_middleware import _user_id, require_student
+from backend.core.auth_middleware import _user_id, require_professor, require_student
 from backend.core.database import get_db_connection
 from backend.core.idempotency import check_idempotency
 from backend.core.rate_limit import limiter
@@ -57,6 +62,7 @@ async def _activate_new_cards(conn, user_id: str, cap: int, now: datetime) -> No
         JOIN assignment_lectures al ON al.lecture_id = l.id
         JOIN assignment_enrollments ae ON ae.assignment_id = al.assignment_id
         WHERE ae.user_id = $1
+          AND rc.hidden_at IS NULL
           AND NOT EXISTS (
               SELECT 1 FROM review_schedule rs WHERE rs.user_id = $1 AND rs.card_id = rc.id
           )
@@ -115,6 +121,7 @@ async def get_queue(
             FROM review_schedule rs
             JOIN review_cards rc ON rc.id = rs.card_id
             WHERE rs.user_id = $1 AND NOT rs.suspended AND rs.due_at <= $2
+              AND rc.hidden_at IS NULL
             ORDER BY rs.due_at
             LIMIT $3
             """,
@@ -282,3 +289,97 @@ async def suspend_card(request: Request, card_id: str, user: Any = Depends(requi
             user_id, card_uuid,
         )
     return {"card_id": card_id, "suspended": True}
+
+
+# ── Professor-facing: review-card visibility/control (Roadmap Phase 4.1) ────
+# Cards previously went live to students the instant the card-factory Arq job
+# ran, with zero professor review surface. Soft-hide, not delete —
+# review_schedule/review_log both CASCADE on card_id, so a hard delete of a
+# bad card would destroy every student's SM-2 progress and grade history for
+# it. A hidden card just stops being served (see the hidden_at filters added
+# to _activate_new_cards and get_queue above); its row and student history
+# survive, restorable via unhide.
+
+async def _assert_owns_lecture(conn, lecture_id: UUID, user_id: str) -> None:
+    professor_id = await conn.fetchval(
+        "SELECT professor_id FROM lectures WHERE id = $1", lecture_id,
+    )
+    if professor_id is None:
+        raise HTTPException(status_code=404, detail="Lecture not found.")
+    if str(professor_id) != user_id:
+        raise HTTPException(status_code=403, detail="You do not own this lecture.")
+
+
+@router.get("/lecture/{lecture_id}/cards")
+@limiter.limit("60/minute")
+async def list_lecture_cards(
+    request: Request,
+    lecture_id: str,
+    user: Any = Depends(require_professor),
+):
+    user_id = _user_id(user)
+    try:
+        lecture_uuid = UUID(lecture_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid lecture_id.")
+
+    async with await get_db_connection() as conn:
+        await _assert_owns_lecture(conn, lecture_uuid, user_id)
+        rows = await conn.fetch(
+            """
+            SELECT id, source_type, front, back, concept_id, hidden_at, created_at
+            FROM review_cards
+            WHERE lecture_id = $1
+            ORDER BY created_at
+            """,
+            lecture_uuid,
+        )
+
+    return {
+        "cards": [
+            {
+                "card_id": str(r["id"]),
+                "source_type": r["source_type"],
+                "front": r["front"],
+                "back": r["back"],
+                "concept_id": str(r["concept_id"]) if r["concept_id"] else None,
+                "hidden": r["hidden_at"] is not None,
+            }
+            for r in rows
+        ],
+        "total": len(rows),
+    }
+
+
+async def _set_card_hidden(request: Request, card_id: str, user: Any, hidden: bool) -> Dict[str, Any]:
+    user_id = _user_id(user)
+    try:
+        card_uuid = UUID(card_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid card_id.")
+
+    async with await get_db_connection() as conn:
+        lecture_id = await conn.fetchval(
+            "SELECT lecture_id FROM review_cards WHERE id = $1", card_uuid,
+        )
+        if lecture_id is None:
+            raise HTTPException(status_code=404, detail="Card not found.")
+        await _assert_owns_lecture(conn, lecture_id, user_id)
+        await conn.execute(
+            "UPDATE review_cards SET hidden_at = $1 WHERE id = $2",
+            datetime.now(timezone.utc) if hidden else None,
+            card_uuid,
+        )
+    return {"card_id": card_id, "hidden": hidden}
+
+
+@router.post("/cards/{card_id}/hide")
+@limiter.limit("60/minute")
+async def hide_card(request: Request, card_id: str, user: Any = Depends(require_professor)):
+    return await _set_card_hidden(request, card_id, user, hidden=True)
+
+
+@router.post("/cards/{card_id}/unhide")
+@limiter.limit("60/minute")
+async def unhide_card(request: Request, card_id: str, user: Any = Depends(require_professor)):
+    return await _set_card_hidden(request, card_id, user, hidden=False)

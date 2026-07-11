@@ -115,6 +115,11 @@ class Settings(BaseSettings):
     # byte-for-byte as before this phase. Set FEATURE_COURSE_BRAIN=1 to enable.
     feature_course_brain: bool = Field(alias="FEATURE_COURSE_BRAIN", default=False)
 
+    # ─── Study guide (Roadmap Phase 4.4) ────────────────────────────────────────
+    # Off by default — gates GET /courses/{id}/study-guide. Depends on migration
+    # 20260711020000_study_guides.sql. Set FEATURE_STUDY_GUIDE=1 to enable.
+    feature_study_guide: bool = Field(alias="FEATURE_STUDY_GUIDE", default=False)
+
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")
     def resolve_supabase_credentials(self) -> "Settings":

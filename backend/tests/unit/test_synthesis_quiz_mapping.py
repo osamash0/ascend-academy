@@ -54,3 +54,23 @@ def test_malformed_slideid_does_not_crash():
     q = {"question": "Q", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "slideId": "n/a"}
     out = _map_deck_quiz([q])
     assert out[0]["linked_slides"] == [0]
+
+
+def test_concept_and_difficulty_are_independent_fields():
+    """Regression guard: concept must never be populated from difficulty (a
+    prior bug shipped the difficulty string as the 'concept', so every
+    deck-quiz question's metadata.concept read 'easy'/'medium'/'hard')."""
+    q = {
+        "question": "Q", "options": ["a", "b", "c", "d"], "correctAnswer": "a",
+        "concept": "Gradient Descent", "difficulty": "hard",
+    }
+    out = _map_deck_quiz([q])
+    assert out[0]["concept"] == "Gradient Descent"
+    assert out[0]["difficulty"] == "hard"
+
+
+def test_missing_concept_defaults_to_empty_not_difficulty():
+    q = {"question": "Q", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "difficulty": "easy"}
+    out = _map_deck_quiz([q])
+    assert out[0]["concept"] == ""
+    assert out[0]["difficulty"] == "easy"
