@@ -10,6 +10,7 @@ import { ConsoleLayout } from "@/components/console";
 import { useLanguagePreference } from "@/hooks/useLanguagePreference";
 
 import { lazy, Suspense, Component, type ReactNode } from "react";
+import { useLunaPhase } from "../learnstation-luna";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
@@ -64,13 +65,17 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const StudentCourseView = lazy(() => import("./pages/StudentCourseView"));
 const StudentCourseLibrary = lazy(() => import("./pages/StudentCourseLibrary"));
+const ReviewSession = lazy(() => import("./features/review/ReviewSession"));
+const MyMaterialsPage = lazy(() => import("./features/materials/MyMaterialsPage"));
+const ExamRunner = lazy(() => import("./features/exam/ExamRunner"));
+const ExamReport = lazy(() => import("./features/exam/ExamReport"));
 const LectureView = lazy(() => import("./pages/LectureView"));
 const Ascent = lazy(() => import("./pages/Ascent"));
 const ProfessorDashboard = lazy(() => import("./pages/ProfessorDashboard"));
 const ProfessorAnalytics = lazy(() => import("./pages/ProfessorAnalytics"));
 const AdvancedAnalytics = lazy(() => import("./pages/AdvancedAnalytics"));
 const LectureUpload = lazy(() => import("./pages/LectureUpload"));
-const LectureEdit = lazy(() => import("./pages/LectureEdit"));
+const BatchReviewPage = lazy(() => import("./pages/BatchReviewPage"));
 const ProfessorCourses = lazy(() => import("./pages/ProfessorCourses"));
 const ProfessorCourseDetail = lazy(() => import("./pages/ProfessorCourseDetail"));
 const ProfessorArchive = lazy(() => import("./pages/ProfessorArchive"));
@@ -227,6 +232,46 @@ function AppRoutes() {
           }
         />
         <Route
+          path={StudentRoutes.REVIEW}
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <ReviewSession />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={StudentRoutes.MY_MATERIALS}
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <MyMaterialsPage />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exam/report/:examId"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <ExamReport />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exam/:courseId"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <ExamRunner />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path={StudentRoutes.LIBRARY}
           element={
             <ProtectedRoute allowedRoles={['student']}>
@@ -337,6 +382,16 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/professor/upload/batch/:batchId/review"
+          element={
+            <ProtectedRoute allowedRoles={['professor']}>
+              <ConsoleLayout>
+                <BatchReviewPage />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
         {/* Fast Upload was retired — redirect old links to the main upload page. */}
         <Route path={ProfessorRoutes.FAST_UPLOAD} element={<Navigate to={ProfessorRoutes.UPLOAD} replace />} />
         <Route
@@ -374,7 +429,7 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['professor']}>
               <ConsoleLayout>
-                <LectureEdit />
+                <LectureUpload />
               </ConsoleLayout>
             </ProtectedRoute>
           }
@@ -464,7 +519,10 @@ function AppRoutes() {
   );
 }
 
-const App = () => (
+const App = () => {
+  useLunaPhase('full');
+
+  return (
   <AppErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
@@ -486,6 +544,7 @@ const App = () => (
       </ThemeProvider>
     </QueryClientProvider>
   </AppErrorBoundary>
-);
+  );
+};
 
 export default App;

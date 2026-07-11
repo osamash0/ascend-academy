@@ -8,13 +8,26 @@ const makeEmptySlide = (): SlideData => ({
   questions: [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
 });
 
-export function useSlideManager() {
+interface UseSlideManagerOptions {
+  /**
+   * Called when a slide that already exists server-side (has a DB `id`) is
+   * removed, so edit mode can delete it from the database immediately. Ignored
+   * for not-yet-persisted slides (create flow).
+   */
+  onDeletePersisted?: (slide: SlideData) => void;
+}
+
+export function useSlideManager(options: UseSlideManagerOptions = {}) {
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
 
   // Ref so callbacks stay stable without listing slides as a dep
   const slidesRef = useRef(slides);
   slidesRef.current = slides;
+
+  // Ref so removeSlide can reach the latest delete callback without depending on it
+  const onDeletePersistedRef = useRef(options.onDeletePersisted);
+  onDeletePersistedRef.current = options.onDeletePersisted;
 
   const addSlide = useCallback((insertAfterIndex?: number) => {
     const current = slidesRef.current;
@@ -32,6 +45,10 @@ export function useSlideManager() {
 
   const removeSlide = useCallback((index: number) => {
     const current = slidesRef.current;
+    const removed = current[index];
+    // Delete the persisted row immediately in edit mode (matches the legacy
+    // LectureEdit behaviour). No-op for slides that only exist client-side.
+    if (removed?.id) onDeletePersistedRef.current?.(removed);
     if (current.length <= 1) {
       setSlides([]);
       setActiveSlideIndex(0);
@@ -39,6 +56,17 @@ export function useSlideManager() {
     }
     setSlides(current.filter((_, i) => i !== index));
     setActiveSlideIndex(prev => (prev >= index && prev > 0 ? prev - 1 : prev));
+  }, []);
+
+  const moveSlide = useCallback((index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    setSlides(prev => {
+      if (newIndex < 0 || newIndex >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[newIndex]] = [next[newIndex], next[index]];
+      return next;
+    });
+    setActiveSlideIndex(prev => (prev === index ? newIndex : prev === newIndex ? index : prev));
   }, []);
 
   const updateSlide = useCallback((index: number, field: keyof SlideData, value: string | QuestionData[]) => {
@@ -102,6 +130,7 @@ export function useSlideManager() {
     setActiveSlideIndex,
     addSlide,
     removeSlide,
+    moveSlide,
     updateSlide,
     updateQuestionText,
     updateCorrectAnswer,

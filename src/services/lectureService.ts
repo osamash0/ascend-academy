@@ -5,6 +5,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { apiClient } from '@/lib/apiClient';
 import type { Lecture, Slide, QuizQuestion } from '@/types/domain';
+import type { SlideData } from '@/types/lectureUpload';
 import { toSlug } from '@/lib/utils';
 
 export interface EnhancedSlideResult {
@@ -257,6 +258,188 @@ export async function updateQuizQuestion(
 export async function deleteSlideWithQuestions(slideId: string): Promise<void> {
   await supabase.from('quiz_questions').delete().eq('slide_id', slideId);
   await supabase.from('slides').delete().eq('id', slideId);
+}
+
+/**
+ * Everything the unified lecture editor needs to hydrate itself for an
+ * existing lecture: metadata plus fully-formed {@link SlideData} (with slide
+ * and question DB ids preserved so save can upsert rather than duplicate).
+ */
+export interface LectureForEdit {
+  title: string;
+  description: string;
+  courseId: string | null;
+  /** Raw stored pdf_url value (path or legacy URL), or null. */
+  pdfUrl: string | null;
+  /** Short-lived signed URL for rendering the PDF, or null. */
+  signedPdfUrl: string | null;
+  pdfHash: string | null;
+  slides: SlideData[];
+}
+
+/**
+ * Loads a persisted lecture + its slides + questions into the editor's
+ * {@link SlideData} shape. Ported from the legacy LectureEdit.fetchLecture so
+ * the unified editor can edit existing lectures with the same state model the
+ * upload flow uses. Throws on failure so the caller can surface a toast.
+ */
+export async function loadLectureForEdit(lectureId: string): Promise<LectureForEdit> {
+  const { data: lecture, error: lErr } = await supabase
+    .from('lectures')
+    .select('*')
+    .eq('id', lectureId)
+    .single();
+  if (lErr) throw lErr;
+
+  const lectureRow = lecture as typeof lecture & {
+    course_id?: string | null;
+    pdf_hash?: string | null;
+  };
+
+  const signedPdfUrl = lecture.pdf_url ? await resolvePdfUrl(lecture.pdf_url) : null;
+
+  const { data: slidesData, error: sErr } = await supabase
+    .from('slides')
+    .select('*')
+    .eq('lecture_id', lectureId)
+    .order('slide_number', { ascending: true });
+  if (sErr) throw sErr;
+
+  const slideIds = (slidesData ?? []).map(s => s.id);
+  const { data: questionsData } = slideIds.length
+    ? await supabase.from('quiz_questions').select('*').in('slide_id', slideIds)
+    : { data: [] as any[] };
+
+  const slides: SlideData[] = (slidesData ?? []).map(slide => {
+    const slideQuestions = (questionsData ?? [])
+      .filter((q: any) => q.slide_id === slide.id)
+      .map((q: any) => ({
+        id: q.id as string,
+        question: q.question_text as string,
+        options: Array.isArray(q.options) ? (q.options as string[]) : ['', '', '', ''],
+        correctAnswer: q.correct_answer ?? 0,
+      }));
+
+    return {
+      id: slide.id,
+      title: slide.title ?? '',
+      content: slide.content_text ?? '',
+      summary: slide.summary ?? '',
+      ai_enhanced: (slide as { ai_enhanced?: boolean }).ai_enhanced ?? true,
+      questions: slideQuestions.length > 0
+        ? slideQuestions
+        : [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],
+    };
+  });
+
+  return {
+    title: lecture.title,
+    description: lecture.description ?? '',
+    courseId: lectureRow.course_id ?? null,
+    pdfUrl: lecture.pdf_url,
+    signedPdfUrl,
+    pdfHash: lectureRow.pdf_hash ?? null,
+    slides,
+  };
+}
+
+export interface SaveExistingLectureInput {
+  title: string;
+  description: string;
+  slides: SlideData[];
+  /** New PDF to replace the current one (optional). */
+  pdfFile?: File | null;
+  /** Current stored pdf_url; kept when no replacement is uploaded. */
+  existingPdfUrl?: string | null;
+}
+
+/**
+ * Persists edits to an existing lecture: updates the lecture row, uploads a
+ * replacement PDF if provided, then upserts each slide (renumbering by array
+ * order) and its questions — updating rows that carry an id, inserting the
+ * rest. Ported from the legacy LectureEdit.handleSave so the unified editor
+ * shares one save path. Throws on failure.
+ */
+export async function saveExistingLecture(
+  lectureId: string,
+  { title, description, slides, pdfFile, existingPdfUrl }: SaveExistingLectureInput,
+): Promise<void> {
+  let finalPdfUrl = existingPdfUrl ?? null;
+
+  if (pdfFile) {
+    const filePath = `lectures/${lectureId}/${pdfFile.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from('lecture-pdfs')
+      .upload(filePath, pdfFile, { contentType: 'application/pdf', upsert: true });
+    if (uploadError) throw uploadError;
+    // Store only the storage path — the bucket is private; signed URLs are
+    // generated on demand.
+    finalPdfUrl = filePath;
+  }
+
+  const { error: lErr } = await supabase
+    .from('lectures')
+    .update({ title, description, total_slides: slides.length, pdf_url: finalPdfUrl })
+    .eq('id', lectureId);
+  if (lErr) throw lErr;
+
+  for (let i = 0; i < slides.length; i++) {
+    const s = slides[i];
+    if (s.id) {
+      const { error: sErr } = await supabase
+        .from('slides')
+        .update({
+          slide_number: i + 1,
+          title: s.title || `Slide ${i + 1}`,
+          content_text: s.content,
+          summary: s.summary,
+        })
+        .eq('id', s.id);
+      if (sErr) throw sErr;
+
+      for (const q of s.questions) {
+        if (!q.question.trim()) continue;
+        if (q.id) {
+          await updateQuizQuestion(q.id, {
+            question_text: q.question,
+            options: q.options,
+            correct_answer: q.correctAnswer,
+          });
+        } else {
+          await insertQuizQuestion({
+            slide_id: s.id,
+            question_text: q.question,
+            options: q.options,
+            correct_answer: q.correctAnswer,
+          });
+        }
+      }
+    } else {
+      const { data: newSlide, error: sErr } = await supabase
+        .from('slides')
+        .insert({
+          lecture_id: lectureId,
+          slide_number: i + 1,
+          title: s.title || `Slide ${i + 1}`,
+          content_text: s.content,
+          summary: s.summary,
+        })
+        .select()
+        .single();
+      if (sErr) throw sErr;
+
+      for (const q of s.questions) {
+        if (q.question.trim()) {
+          await insertQuizQuestion({
+            slide_id: newSlide.id,
+            question_text: q.question,
+            options: q.options,
+            correct_answer: q.correctAnswer,
+          });
+        }
+      }
+    }
+  }
 }
 
 export async function deleteLecture(lectureId: string): Promise<void> {

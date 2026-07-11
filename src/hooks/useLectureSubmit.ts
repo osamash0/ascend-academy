@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { insertQuizQuestion } from '@/services/lectureService';
+import { insertQuizQuestion, saveExistingLecture } from '@/services/lectureService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { safeGetUUID } from '@/lib/utils';
@@ -37,11 +37,22 @@ interface UseLectureSubmitOptions {
    * existing lecture instead of inserting everything client-side.
    */
   serverLectureId?: string | null;
+  /**
+   * When set, we are editing an EXISTING lecture whose slides were loaded from
+   * the database (so each {@link SlideData} carries its row `id`). Save then
+   * runs a full upsert via {@link saveExistingLecture} — updating rows with an
+   * id, inserting the rest — instead of creating a new lecture. Distinct from
+   * ``serverLectureId`` (post-upload metadata-only save on freshly-parsed,
+   * id-less client slides, where an upsert would duplicate the server's rows).
+   */
+  editLectureId?: string | null;
+  /** Current stored pdf_url for the edited lecture (kept unless replaced). */
+  existingPdfUrl?: string | null;
 }
 
 
 
-export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode = 'ai', serverLectureId }: UseLectureSubmitOptions) {
+export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode = 'ai', serverLectureId, editLectureId, existingPdfUrl }: UseLectureSubmitOptions) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -56,6 +67,30 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
 
       if (slides.length === 0) {
         toast({ title: 'Error', description: 'Add at least one slide.', variant: 'destructive' });
+        return;
+      }
+
+      // Editing an existing lecture loaded from the DB: full slide/question
+      // upsert (rows with an id are updated, the rest inserted). Course
+      // assignment is written directly by the editor's Lecture tab, so it is
+      // not re-applied here.
+      if (editLectureId) {
+        setLoading(true);
+        try {
+          await saveExistingLecture(editLectureId, { title, description, slides, pdfFile, existingPdfUrl });
+          try {
+            apiClient.post(`/api/v1/concepts/ingest/${editLectureId}`, {}).catch(() => { /* swallow */ });
+          } catch (e) {
+            console.warn('Failed to schedule concept ingestion (non-fatal):', e);
+          }
+          toast({ title: 'Saved!', description: 'Lecture updated successfully.' });
+          navigate('/professor/dashboard');
+        } catch (error) {
+          console.error('Error saving lecture:', error);
+          toast({ title: 'Error', description: 'Failed to save lecture. Please try again.', variant: 'destructive' });
+        } finally {
+          setLoading(false);
+        }
         return;
       }
 
@@ -231,7 +266,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         setLoading(false);
       }
     },
-    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, serverLectureId, user, navigate, toast]
+    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, serverLectureId, editLectureId, existingPdfUrl, user, navigate, toast]
   );
 
   return { loading, handleSubmit };

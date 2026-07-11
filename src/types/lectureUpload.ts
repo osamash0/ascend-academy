@@ -14,6 +14,8 @@ export interface SlideData {
 }
 
 export interface QuestionData {
+  /** Persisted quiz_questions row id (present once the question exists server-side). */
+  id?: string;
   question: string;
   options: string[];
   correctAnswer: number;

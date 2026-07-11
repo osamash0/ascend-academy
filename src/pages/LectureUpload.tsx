@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -57,6 +57,11 @@ import { usePDFPipelineMode } from '@/hooks/usePDFPipelineMode';
 import { useAIGeneration, isAdministrativeQuiz } from '@/hooks/useAIGeneration';
 import { useLectureSubmit } from '@/hooks/useLectureSubmit';
 import { useParsingMode } from '@/hooks/useParsingMode';
+import { useAiModel } from '@/hooks/use-ai-model';
+import { useBatchUpload } from '@/hooks/useBatchUpload';
+import { MultiFileDropzone } from '@/components/upload/MultiFileDropzone';
+import { UploadQueuePanel } from '@/components/upload/UploadQueuePanel';
+import { ProfessorRoutes } from '@/lib/routes';
 import { apiClient } from '@/lib/apiClient';
 import {
   getSlideStatus,
@@ -64,7 +69,10 @@ import {
   getOverallCompletion,
 } from '@/types/lectureUpload';
 import type { SlideStatus } from '@/types/lectureUpload';
-import { listCourses, type Course } from '@/services/coursesService';
+import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Course } from '@/services/coursesService';
+import { loadLectureForEdit, deleteSlideWithQuestions, enhanceSlide } from '@/services/lectureService';
+import { WorksheetsPanel } from '@/components/WorksheetsPanel';
+import { ProfessorPracticeSheetsTab } from '@/features/practice_sheets/ProfessorPracticeSheetsTab';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  COMPONENT: Progress Ring                                                 */
@@ -313,6 +321,19 @@ export default function LectureUpload() {
 
   const { toast } = useToast();
 
+  /* ── Edit mode ─────────────────────────────────────────────────────────── */
+  // When the route carries a :lectureId the page edits an EXISTING lecture:
+  // slides are loaded from the DB (with row ids) and Save runs a full upsert.
+  // Without it, the page is the create/upload flow.
+  const { lectureId: editLectureId } = useParams<{ lectureId: string }>();
+  const isEditMode = Boolean(editLectureId);
+  const [editLoading, setEditLoading] = useState(isEditMode);
+  const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null);
+  const [existingPdfUrl, setExistingPdfUrl] = useState<string | null>(null);
+  const [editPdfHash, setEditPdfHash] = useState<string | null>(null);
+  // PDF chosen to replace the current one (edit mode only).
+  const [replacementPdf, setReplacementPdf] = useState<File | null>(null);
+
   /* ── Lecture metadata ──────────────────────────────────────────────────── */
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -320,6 +341,7 @@ export default function LectureUpload() {
   const [searchParams] = useSearchParams();
   const prefilledCourseId = searchParams.get('courseId');
   const [courseId, setCourseId] = useState<string | null>(prefilledCourseId);
+  const [originalCourseId, setOriginalCourseId] = useState<string | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   type ParserChoice = 'auto' | 'pymupdf' | 'opendataloader' | 'mineru' | 'llamaparse' | 'markitdown';
   const [parserChoice, setParserChoice] = useState<ParserChoice>('auto');
@@ -327,19 +349,54 @@ export default function LectureUpload() {
     listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
   }, []);
 
+  // Edit mode: hydrate the editor from an existing lecture (slides carry DB ids).
+  useEffect(() => {
+    if (!editLectureId) return;
+    let cancelled = false;
+    setEditLoading(true);
+    loadLectureForEdit(editLectureId)
+      .then((data) => {
+        if (cancelled) return;
+        setTitle(data.title);
+        setDescription(data.description);
+        setCourseId(data.courseId);
+        setOriginalCourseId(data.courseId);
+        setExistingPdfUrl(data.pdfUrl);
+        setSignedPdfUrl(data.signedPdfUrl);
+        setEditPdfHash(data.pdfHash);
+        setSlides(data.slides);
+        setActiveSlideIndex(0);
+      })
+      .catch((e) => {
+        console.error('Failed to load lecture for edit', e);
+        toast({ title: 'Error', description: 'Failed to load lecture.', variant: 'destructive' });
+      })
+      .finally(() => {
+        if (!cancelled) setEditLoading(false);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editLectureId]);
+
   /* ── UI state ──────────────────────────────────────────────────────────── */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'editor' | 'quizzes'>('editor');
+  const [currentTab, setCurrentTab] = useState<'editor' | 'quizzes' | 'lecture'>('editor');
 
   /* ── Hooks ─────────────────────────────────────────────────────────────── */
   const {
     slides, setSlides,
     activeSlideIndex, setActiveSlideIndex,
-    addSlide, removeSlide,
+    addSlide, removeSlide, moveSlide,
     updateSlide, updateQuestionText, updateCorrectAnswer, updateOption,
-  } = useSlideManager();
+  } = useSlideManager({
+    // In edit mode, deleting a slide that exists server-side must remove the
+    // row (and its questions) immediately, matching the legacy editor.
+    onDeletePersisted: (slide) => {
+      if (slide.id) void deleteSlideWithQuestions(slide.id);
+    },
+  });
 
   const {
     isUploading, setIsUploading,
@@ -359,6 +416,123 @@ export default function LectureUpload() {
   // localStorage but each has its own React state. We pass our value
   // down so a toggle here is reflected on the very next upload.
   const { parsingMode, setParsingMode } = useParsingMode();
+
+  /* ── Multi-file batch upload (Phase 1: course-at-once ingestion) ──────── */
+  const { aiModel } = useAiModel();
+  const batchUpload = useBatchUpload({ courseId, parsingMode, aiModel });
+  useEffect(() => {
+    if (batchUpload.batchId && batchUpload.allSettled) {
+      navigate(ProfessorRoutes.UPLOAD_BATCH_REVIEW(batchUpload.batchId));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchUpload.batchId, batchUpload.allSettled]);
+
+  /* ── Edit-mode: lecture-level actions (ported from legacy LectureEdit) ──── */
+  // Course reassignment — persisted immediately via assign/unassign RPCs.
+  const handleChangeCourse = useCallback(async (next: string | null) => {
+    setCourseId(next);
+    if (!editLectureId) return;
+    try {
+      if (originalCourseId && originalCourseId !== next) {
+        await unassignLectureFromCourse(originalCourseId, editLectureId);
+      }
+      if (next && next !== originalCourseId) {
+        await assignLectureToCourse(next, editLectureId);
+      }
+      setOriginalCourseId(next);
+      toast({ title: 'Course updated' });
+    } catch (err) {
+      toast({ title: 'Failed to change course', description: String(err), variant: 'destructive' });
+    }
+  }, [editLectureId, originalCourseId, toast]);
+
+  // Pipeline diagnostics (read-only routing telemetry for the parsed PDF).
+  interface DiagnosticsResponse {
+    pdf_hash: string;
+    pipeline_version: string;
+    run_metrics: { totals?: Record<string, number>; fallbacks?: Record<string, number> } | null;
+    per_slide: { slide_index: number; route: string; route_reason: string; layout_features: Record<string, number | boolean> }[];
+    flags: { slide_index: number; reason: string }[];
+  }
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsResponse | null>(null);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
+  const fetchDiagnostics = useCallback(async () => {
+    if (!editPdfHash) return;
+    setDiagnosticsLoading(true);
+    setDiagnosticsError(null);
+    try {
+      setDiagnostics(await apiClient.get<DiagnosticsResponse>(`/api/upload/diagnostics/${editPdfHash}`));
+    } catch (err) {
+      console.error(err);
+      setDiagnosticsError('Failed to load diagnostics.');
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  }, [editPdfHash]);
+
+  // Cross-slide (deck-level) quiz generation.
+  const [deckQuizLoading, setDeckQuizLoading] = useState(false);
+  const handleGenerateDeckQuiz = useCallback(async () => {
+    if (!editLectureId) return;
+    if (slides.length < 2) {
+      toast({ title: 'Need at least 2 slides', description: 'Cross-slide quizzes require multiple slides.', variant: 'destructive' });
+      return;
+    }
+    setDeckQuizLoading(true);
+    try {
+      await apiClient.post(`/api/ai/decks/${editLectureId}/generate-quiz`, { ai_model: aiModel });
+      toast({ title: 'Cross-slide quiz generated!', description: 'Refreshing slides…' });
+      const data = await loadLectureForEdit(editLectureId);
+      setSlides(data.slides);
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'AI Error', description: 'Failed to generate cross-slide quiz.', variant: 'destructive' });
+    } finally {
+      setDeckQuizLoading(false);
+    }
+  }, [editLectureId, slides.length, aiModel, setSlides, toast]);
+
+  // Skip-AI enhancement — synthesize slides imported with ai_enhanced=false.
+  const [enhancingIds, setEnhancingIds] = useState<Set<string>>(new Set());
+  const [enhancingAll, setEnhancingAll] = useState(false);
+  const unenhancedCount = slides.filter(s => s.id && s.ai_enhanced === false).length;
+
+  const enhanceOneSlide = useCallback(async (index: number): Promise<boolean> => {
+    const slide = slides[index];
+    if (!slide?.id || slide.ai_enhanced) return false;
+    setEnhancingIds(prev => new Set(prev).add(slide.id as string));
+    try {
+      const res = await enhanceSlide(slide.id);
+      setSlides(prev => prev.map((s, i) =>
+        i === index ? { ...s, title: res.title ?? s.title, summary: res.summary ?? s.summary, ai_enhanced: true } : s,
+      ));
+      return true;
+    } catch (err) {
+      console.error('enhance slide failed', err);
+      toast({ title: 'Enhancement failed', description: 'Could not enhance this slide. Try again.', variant: 'destructive' });
+      return false;
+    } finally {
+      setEnhancingIds(prev => { const next = new Set(prev); next.delete(slide.id as string); return next; });
+    }
+  }, [slides, setSlides, toast]);
+
+  const enhanceAllRemaining = useCallback(async () => {
+    setEnhancingAll(true);
+    let ok = 0;
+    try {
+      // Sequential to respect the endpoint rate limit and keep LLM load bounded.
+      for (let i = 0; i < slides.length; i++) {
+        if (slides[i].id && slides[i].ai_enhanced === false) {
+          if (await enhanceOneSlide(i)) ok += 1;
+        }
+      }
+      toast({ title: 'Enhancement complete', description: `Enhanced ${ok} slide${ok === 1 ? '' : 's'} with AI.` });
+    } finally {
+      setEnhancingAll(false);
+    }
+  }, [slides, enhanceOneSlide, toast]);
 
   /* ── Duplicate-PDF dialog state ────────────────────────────────────────── */
   const [duplicateState, setDuplicateState] = useState<{
@@ -601,10 +775,25 @@ export default function LectureUpload() {
     }
   }, [suggestedQuizzes, updateSlide, setSuggestedQuizzes, toast]);
 
-  const { loading, handleSubmit } = useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, serverLectureId });
+  const { loading, handleSubmit } = useLectureSubmit({
+    slides,
+    title,
+    description,
+    pdfFile: isEditMode ? replacementPdf : pdfFile,
+    pdfHash,
+    courseId,
+    deckQuiz,
+    parsingMode,
+    serverLectureId,
+    editLectureId: isEditMode ? editLectureId : null,
+    existingPdfUrl,
+  });
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
   const activeSlide = slides[activeSlideIndex];
+  // The PDF to preview: the just-uploaded File (create) or the loaded lecture's
+  // signed URL (edit). A replacement chosen in edit mode takes precedence.
+  const activePdf = replacementPdf ?? pdfFile ?? signedPdfUrl;
   const totalSlides = slides.length;
   const overallCompletion = useMemo(() => getOverallCompletion(slides), [slides]);
 
@@ -679,8 +868,19 @@ export default function LectureUpload() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [slides]);
 
-  /* ── Render: Empty State ───────────────────────────────────────────────── */
-  if (slides.length === 0) {
+  /* ── Render: Edit-mode loading ─────────────────────────────────────────── */
+  if (isEditMode && editLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  /* ── Render: Empty State (create/upload flow only) ─────────────────────── */
+  // In edit mode we always show the editor chrome — even for a lecture with no
+  // slides yet — rather than the upload-focused empty state.
+  if (!isEditMode && slides.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         {/* Header */}
@@ -831,18 +1031,57 @@ export default function LectureUpload() {
         </div>
 
         {/* Empty State */}
-        <EmptySlideState
-          onAddSlide={() => addSlide()}
-          onUploadPDF={() => fileInputRef.current?.click()}
-        />
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.pptx"
-          onChange={onPickFile}
-          className="hidden"
-        />
+        <div className="max-w-2xl mx-auto px-6">
+          <Tabs defaultValue="single">
+            <TabsList className="mb-2">
+              <TabsTrigger value="single" data-testid="upload-tab-single">Single file</TabsTrigger>
+              <TabsTrigger value="batch" data-testid="upload-tab-batch">Multiple files</TabsTrigger>
+            </TabsList>
+            <TabsContent value="single">
+              <EmptySlideState
+                onAddSlide={() => addSlide()}
+                onUploadPDF={() => fileInputRef.current?.click()}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.pptx"
+                onChange={onPickFile}
+                className="hidden"
+              />
+            </TabsContent>
+            <TabsContent value="batch" className="space-y-4 pb-8">
+              <MultiFileDropzone
+                onFilesSelected={batchUpload.addFiles}
+                maxFiles={batchUpload.maxBatchFiles}
+                currentCount={batchUpload.files.length}
+              />
+              <UploadQueuePanel
+                files={batchUpload.files}
+                onRemove={batchUpload.removeFile}
+                onReorder={batchUpload.reorderFiles}
+                onRetry={batchUpload.retryFile}
+                submitted={!!batchUpload.batchId}
+              />
+              {batchUpload.files.length > 0 && !batchUpload.batchId && (
+                <Button
+                  onClick={() => void batchUpload.submitBatch()}
+                  disabled={batchUpload.isSubmitting}
+                  data-testid="submit-batch"
+                >
+                  {batchUpload.isSubmitting
+                    ? 'Uploading…'
+                    : `Upload ${batchUpload.files.length} file${batchUpload.files.length === 1 ? '' : 's'}`}
+                </Button>
+              )}
+              {batchUpload.batchId && !batchUpload.allSettled && (
+                <p className="text-xs text-muted-foreground">
+                  Parsing in the background — feel free to navigate away; the Uploads indicator in the top bar will notify you when it's done.
+                </p>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
 
         <DuplicatePDFDialog
           open={duplicateState !== null}
@@ -923,16 +1162,18 @@ export default function LectureUpload() {
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="hidden sm:flex gap-2"
-            >
-              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
-              {t('upload:empty.importPdf')}
-            </Button>
+            {!isEditMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="hidden sm:flex gap-2"
+              >
+                {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
+                {t('upload:empty.importPdf')}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -987,15 +1228,17 @@ export default function LectureUpload() {
                     {t('upload:chrome.slides', { count: totalSlides })}
                   </span>
                   <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => fileInputRef.current?.click()}
-                      title={t('upload:empty.importPdf')}
-                    >
-                      <FileUp className="w-3.5 h-3.5" />
-                    </Button>
+                    {!isEditMode && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => fileInputRef.current?.click()}
+                        title={t('upload:empty.importPdf')}
+                      >
+                        <FileUp className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -1074,7 +1317,7 @@ export default function LectureUpload() {
                             {percent}%
                           </span>
                         </div>
-                        {pdfFile && (
+                        {activePdf && (
                           <div className="mt-2" onClick={(e) => { e.stopPropagation(); setLightboxPage(index + 1); }}>
                             <PDFPagePreview pageNumber={index + 1} width={220} />
                           </div>
@@ -1112,7 +1355,7 @@ export default function LectureUpload() {
 
         {/* ─── MAIN CONTENT: Slide Editor & Quiz Suggestions ─── */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Tabs value={currentTab} onValueChange={(v) => setCurrentTab(v as 'editor' | 'quizzes')} className="flex-1 flex flex-col overflow-hidden">
+          <Tabs value={currentTab} onValueChange={(v) => setCurrentTab(v as 'editor' | 'quizzes' | 'lecture')} className="flex-1 flex flex-col overflow-hidden">
             {/* Tabs Navigation Bar */}
             <div className="border-b border-border bg-card/60 backdrop-blur-md sticky top-0 z-10 px-6 py-3 flex items-center justify-between shrink-0">
               <TabsList className="bg-muted p-0.5 rounded-lg border border-border/50">
@@ -1127,6 +1370,16 @@ export default function LectureUpload() {
                     </span>
                   )}
                 </TabsTrigger>
+                {isEditMode && (
+                  <TabsTrigger value="lecture" className="data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 py-1.5 text-xs font-semibold rounded-md flex items-center gap-2 transition-all">
+                    {t('upload:chrome.lectureTab', { defaultValue: 'Lecture' })}
+                    {unenhancedCount > 0 && (
+                      <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-bold">
+                        {unenhancedCount}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                )}
               </TabsList>
               <div className="text-xs text-muted-foreground font-medium hidden sm:block">
                 Total Slides: {slides.length}
@@ -1162,7 +1415,47 @@ export default function LectureUpload() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {pdfFile && (
+                    {isEditMode && (
+                      <div className="flex items-center gap-0.5 mr-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => moveSlide(activeSlideIndex, 'up')}
+                          disabled={activeSlideIndex === 0}
+                          className="h-7 w-7 p-0"
+                          title="Move slide up"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => moveSlide(activeSlideIndex, 'down')}
+                          disabled={activeSlideIndex === slides.length - 1}
+                          className="h-7 w-7 p-0"
+                          title="Move slide down"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
+                        </Button>
+                      </div>
+                    )}
+                    {isEditMode && activeSlide.id && activeSlide.ai_enhanced === false && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => enhanceOneSlide(activeSlideIndex)}
+                        disabled={enhancingIds.has(activeSlide.id) || enhancingAll}
+                        className="gap-1.5"
+                        title="Run AI synthesis on this slide"
+                      >
+                        {enhancingIds.has(activeSlide.id) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        Enhance with AI
+                      </Button>
+                    )}
+                    {activePdf && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1529,6 +1822,218 @@ export default function LectureUpload() {
                 </div>
               </div>
             </TabsContent>
+
+            {/* Lecture Tab — lecture-level settings & tools (edit mode only) */}
+            {isEditMode && (
+            <TabsContent value="lecture" className="flex-1 overflow-y-auto m-0 focus-visible:ring-0">
+              <div className="max-w-3xl mx-auto p-6 lg:p-8 space-y-6">
+                {/* Course assignment */}
+                <div className="bg-card rounded-2xl border border-border p-6">
+                  <h2 className="text-lg font-semibold text-foreground mb-4">{t('upload:lectureTab.detailsTitle', { defaultValue: 'Lecture Details' })}</h2>
+                  <div>
+                    <Label htmlFor="edit-course" className="text-sm font-medium">{t('upload:empty.courseLabel')}</Label>
+                    <select
+                      id="edit-course"
+                      value={courseId ?? ''}
+                      onChange={(e) => void handleChangeCourse(e.target.value || null)}
+                      className="mt-1.5 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">{t('upload:empty.uncategorized')}</option>
+                      {courses.map(c => (
+                        <option key={c.id} value={c.id}>{c.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Skip-AI enhance-all banner */}
+                {unenhancedCount > 0 && (
+                  <div className="flex items-center justify-between gap-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+                    <p className="text-sm text-foreground">
+                      <span className="font-semibold">{unenhancedCount}</span> slide{unenhancedCount === 1 ? ' was' : 's were'} imported without AI. Enhance to generate titles and explanations.
+                    </p>
+                    <Button type="button" onClick={enhanceAllRemaining} disabled={enhancingAll} className="gap-1.5 shrink-0">
+                      {enhancingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      {enhancingAll ? 'Enhancing…' : 'Enhance all remaining'}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Worksheets */}
+                {editLectureId && (
+                  <div className="bg-card rounded-2xl border border-border p-6">
+                    <WorksheetsPanel lectureId={editLectureId} editable />
+                  </div>
+                )}
+
+                {/* Practice sheets */}
+                {editLectureId && (
+                  <div className="bg-card rounded-2xl border border-border p-6">
+                    <h2 className="text-lg font-semibold text-foreground mb-1">Practice Sheets</h2>
+                    <p className="text-xs text-muted-foreground mb-5">
+                      Auto-generate a sheet from quiz questions or author your own. Students see published sheets on this lecture's page.
+                    </p>
+                    <ProfessorPracticeSheetsTab lectureId={editLectureId} />
+                  </div>
+                )}
+
+                {/* PDF replace */}
+                <div className="bg-card rounded-2xl border border-border p-6">
+                  <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    {existingPdfUrl ? 'Replace PDF Slides' : 'Attach PDF Slides'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {existingPdfUrl
+                      ? 'This lecture already has a PDF attached. Choose a new one to replace it on save.'
+                      : 'Upload a PDF to show original slides to your students alongside the content.'}
+                  </p>
+                  <div className="grid w-full max-w-sm items-center gap-1.5">
+                    <Label htmlFor="pdf-edit-upload">Choose PDF file</Label>
+                    <Input
+                      id="pdf-edit-upload"
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && file.type === 'application/pdf') setReplacementPdf(file);
+                        else if (file) toast({ title: 'Invalid file', description: 'Please select a PDF file.', variant: 'destructive' });
+                      }}
+                    />
+                  </div>
+                  {existingPdfUrl && !replacementPdf && (
+                    <div className="mt-4 flex items-center gap-2 text-xs text-success bg-success/10 p-2 rounded-lg w-fit">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Current PDF: {existingPdfUrl.split('/').pop()}</span>
+                    </div>
+                  )}
+                  {replacementPdf && (
+                    <div className="mt-4 flex items-center gap-2 text-xs text-primary bg-primary/10 p-2 rounded-lg w-fit">
+                      <Upload className="w-3 h-3" />
+                      <span>Selected: {replacementPdf.name} (applied on save)</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Cross-slide quiz */}
+                <div className="bg-card rounded-2xl border border-border p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      Cross-slide quiz
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Generate a quiz that ties together concepts from multiple slides.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateDeckQuiz}
+                    disabled={deckQuizLoading || slides.length < 2}
+                    className="gap-1.5 shrink-0"
+                  >
+                    {deckQuizLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-primary" />}
+                    {deckQuizLoading ? 'Generating…' : 'Generate cross-slide quiz'}
+                  </Button>
+                </div>
+
+                {/* Pipeline diagnostics */}
+                <div className="bg-card rounded-2xl border border-border p-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !diagnosticsOpen;
+                      setDiagnosticsOpen(next);
+                      if (next && !diagnostics && !diagnosticsLoading && editPdfHash) void fetchDiagnostics();
+                    }}
+                    className="flex items-center justify-between w-full text-left"
+                    disabled={!editPdfHash}
+                  >
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">Pipeline Diagnostics</h2>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {editPdfHash ? 'Routing telemetry for the most recent parse of this PDF.' : 'No parsed PDF on this lecture yet.'}
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{diagnosticsOpen ? 'Hide' : 'Show'}</span>
+                  </button>
+                  {diagnosticsOpen && editPdfHash && (
+                    <div className="mt-4 space-y-3 text-sm">
+                      {diagnosticsLoading && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Loading diagnostics…
+                        </div>
+                      )}
+                      {diagnosticsError && <p className="text-xs text-destructive">{diagnosticsError}</p>}
+                      {diagnostics && (
+                        <>
+                          {diagnostics.run_metrics && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                              {Object.entries(diagnostics.run_metrics.totals ?? {}).map(([k, v]) => (
+                                <div key={`t-${k}`} className="bg-muted/50 rounded-lg p-2 text-xs">
+                                  <div className="text-muted-foreground">{k}</div>
+                                  <div className="font-semibold">{v}</div>
+                                </div>
+                              ))}
+                              {Object.entries(diagnostics.run_metrics.fallbacks ?? {}).map(([k, v]) => (
+                                <div key={`f-${k}`} className="bg-amber-500/10 rounded-lg p-2 text-xs">
+                                  <div className="text-muted-foreground">fallback: {k}</div>
+                                  <div className="font-semibold">{v}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {diagnostics.flags.length > 0 && (
+                            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                              <p className="text-xs font-semibold text-amber-700 mb-1">
+                                {diagnostics.flags.length} suspected misclassification(s)
+                              </p>
+                              <ul className="text-xs text-amber-700 space-y-0.5">
+                                {diagnostics.flags.map(f => (
+                                  <li key={f.slide_index}>Slide {f.slide_index + 1}: {f.reason}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead className="text-muted-foreground">
+                                <tr className="text-left">
+                                  <th className="py-1 pr-2">#</th>
+                                  <th className="py-1 pr-2">Route</th>
+                                  <th className="py-1 pr-2">Reason</th>
+                                  <th className="py-1 pr-2">Words</th>
+                                  <th className="py-1 pr-2">Img cov</th>
+                                  <th className="py-1 pr-2">Alpha</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {diagnostics.per_slide.map(s => {
+                                  const f = s.layout_features || {};
+                                  return (
+                                    <tr key={s.slide_index} className="border-t border-border">
+                                      <td className="py-1 pr-2">{s.slide_index + 1}</td>
+                                      <td className="py-1 pr-2 font-mono">{s.route || '—'}</td>
+                                      <td className="py-1 pr-2 font-mono text-muted-foreground">{s.route_reason || '—'}</td>
+                                      <td className="py-1 pr-2">{Number(f.word_count ?? 0)}</td>
+                                      <td className="py-1 pr-2">{Number(f.image_coverage ?? 0).toFixed(2)}</td>
+                                      <td className="py-1 pr-2">{Number(f.alpha_ratio ?? 0).toFixed(2)}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+            )}
           </Tabs>
         </div>        {/* ─── RIGHT SIDEBAR: Live Preview ─── */}
         <AnimatePresence>
@@ -1592,7 +2097,7 @@ export default function LectureUpload() {
                       transition={{ delay: 0.1 }}
                       className="mt-6 flex-1 text-sm text-muted-foreground leading-relaxed overflow-y-auto pr-2 custom-scrollbar flex flex-col"
                     >
-                      {pdfFile ? (
+                      {activePdf ? (
                         <div className="flex-1 overflow-auto rounded-lg border border-border shadow-inner" onClick={() => setLightboxPage(activeSlideIndex + 1)}>
                           <PDFPagePreview pageNumber={activeSlideIndex + 1} width={380} />
                         </div>
@@ -1820,16 +2325,16 @@ export default function LectureUpload() {
 
   return (
     <>
-      {pdfFile ? (
-        <Document file={pdfFile}>
+      {activePdf ? (
+        <Document file={activePdf}>
           {editorContent}
         </Document>
       ) : (
         editorContent
       )}
 
-      {pdfFile && lightboxPage && (
-        <Document file={pdfFile}>
+      {activePdf && lightboxPage && (
+        <Document file={activePdf}>
           <PDFLightbox
             isOpen={true}
             pageNumber={lightboxPage}
