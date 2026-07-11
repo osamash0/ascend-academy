@@ -51,14 +51,19 @@ from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
-docs_url = "/docs" if settings.env == "development" else None
-redoc_url = "/redoc" if settings.env == "development" else None
+# In non-dev environments disable the interactive docs AND the raw OpenAPI schema,
+# so the full endpoint surface (incl. /admin/*) isn't published to the public internet.
+_docs_enabled = settings.env == "development"
+docs_url = "/docs" if _docs_enabled else None
+redoc_url = "/redoc" if _docs_enabled else None
+openapi_url = "/openapi.json" if _docs_enabled else None
 
 app = FastAPI(
     title="Learnstation API",
     version="0.1.0",
     docs_url=docs_url,
-    redoc_url=redoc_url
+    redoc_url=redoc_url,
+    openapi_url=openapi_url,
 )
 
 # ── Rate limiting ────────────────────────────────────────────────────────────

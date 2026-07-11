@@ -8,7 +8,7 @@ Usage:
 """
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 
 
 class Settings(BaseSettings):
@@ -20,7 +20,12 @@ class Settings(BaseSettings):
     )
 
     # ─── Environment ───────────────────────────────────────────────────────────
-    env: str = Field(alias="ENV", default="development")
+    # Accept ENVIRONMENT (what .env and admin.py/analytics.py use), plus ENV/APP_ENV
+    # as fallbacks, so a single var reliably drives prod/dev behavior everywhere.
+    env: str = Field(
+        validation_alias=AliasChoices("ENVIRONMENT", "ENV", "APP_ENV"),
+        default="development",
+    )
 
     # ─── Supabase ──────────────────────────────────────────────────────────────
     supabase_url: str = Field(alias="SUPABASE_URL", default="")
