@@ -72,7 +72,7 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
   root.eventMode = 'static';
   const paddingY = 2000;
   const hitAreaHeight = 10000 + (opts.nodes.length * spacingY) + paddingY;
-  root.hitArea = new Rectangle(-10000, -10000, 20000, hitAreaHeight);
+  root.hitArea = new Rectangle(-10000000, -10000000, 20000000, 20000000);
   
   root.on('pointerdown', (e) => {
     if (activePointerId !== null) return;
@@ -88,6 +88,7 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
   };
   root.on('pointerup', onDragEnd);
   root.on('pointerupoutside', onDragEnd);
+  root.on('pointercancel', onDragEnd);
 
   root.on('globalpointermove', (e) => {
     if (activePointerId === e.pointerId) {
@@ -95,8 +96,17 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
       const dy = e.global.y - dragStart.y;
       root.x = containerStart.x + dx;
       root.y = containerStart.y + dy;
+
+      const maxX = app.screen.width;
+      const maxY = app.screen.height;
+      const minX = -app.screen.width;
+      const minY = -Math.max(0, (opts.nodes.length * spacingY) - maxY + 500);
+
+      root.x = Math.max(minX, Math.min(maxX, root.x));
+      root.y = Math.max(minY, Math.min(maxY, root.y));
     }
   });
 
+  app.stage.addChild(root);
   return { root, stops, update: () => {} };
 }
