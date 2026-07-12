@@ -88,6 +88,9 @@
     "success": "Folie neu analysiert",
     "successDescription": "Die KI-Inhalte wurden mittels Bildanalyse aktualisiert.",
     "failure": "Neuanalyse fehlgeschlagen",
-    "failureDescription": "Inhalt konnte nicht neu generiert werden."
+    "failureDescription": "Inhalt konnte nicht neu generiert werden.",
+    "undoSuccess": "Neuanalyse rückgängig gemacht",
+    "undoSuccessDescription": "Der vorherige Inhalt der Folie wurde wiederhergestellt.",
+    "undoFailure": "Rückgängig machen fehlgeschlagen"
   }
 }

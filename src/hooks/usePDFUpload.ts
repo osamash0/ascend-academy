@@ -216,6 +216,8 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
                   summary: data.slide.summary || '',
                   questions,
                   vision_routed: data.slide.vision_routed === true,
+                  needs_review: data.slide.needs_review === true,
+                  review_reason: typeof data.slide.review_reason === 'string' ? data.slide.review_reason : undefined,
                 };
                 return updated;
               });

@@ -173,24 +173,37 @@ async def get_slide_recommendation(
         "cached": cache_hit["hit"],
     }
 
-async def regenerate_slide(slide_id: str, user_id: str, ai_model: str, creds_token: str) -> Dict[str, Any]:
+async def regenerate_slide(
+    slide_id: str, user_id: str, ai_model: str, creds_token: str, instruction: Optional[str] = None
+) -> Dict[str, Any]:
     # Route through the HTTP/2-disabled wrapper to avoid ConnectionTerminated errors.
     from backend.core.database import create_client
     client = create_client(SUPABASE_URL, ANON_KEY)
     client.postgrest.auth(creds_token)
 
-    res = client.table("slides").select("slide_number, lecture_id, lectures(pdf_url, professor_id)").eq("id", slide_id).maybe_single().execute()
+    res = client.table("slides").select(
+        "slide_number, lecture_id, title, content_text, summary, regen_instruction, "
+        "lectures(pdf_url, professor_id)"
+    ).eq("id", slide_id).maybe_single().execute()
     if not res or not res.data:
         raise FileNotFoundError("Slide not found.")
 
     lecture_info = res.data.get("lectures", {}) or {}
     if lecture_info.get("professor_id") != user_id:
         raise PermissionError("Unauthorized.")
-    
+
     pdf_url = lecture_info.get("pdf_url")
     _validate_supabase_storage_url(pdf_url)
 
     slide_num: int = res.data["slide_number"]
+    # Roadmap Phase 5.2 ("regenerate with feedback"): an instruction passed on
+    # this call always overrides; omitting it reuses whatever the professor
+    # set on a previous regenerate, so it doesn't need retyping every time.
+    effective_instruction = (instruction or "").strip() or (res.data.get("regen_instruction") or "").strip()
+    blueprint_context = (
+        f"The professor gave this instruction for regenerating this slide — honor it: {effective_instruction}"
+        if effective_instruction else ""
+    )
 
     def _download():
         class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -213,27 +226,47 @@ async def regenerate_slide(slide_id: str, user_id: str, ai_model: str, creds_tok
 
     pdf_bytes = await asyncio.to_thread(_download)
 
-    from backend.services.file_parse_service import _render_page_to_jpeg
     import fitz
     def _extract():
+        # `_render_page_to_jpeg` (backend.services.file_parse_service) was
+        # removed during the v3/v4 retirement (Roadmap Phase 0) — this was
+        # its only remaining caller, silently broken (every regenerate
+        # request 502'd) since this code path had zero test coverage.
+        # Inlined to match unified_orchestrator._render_page_jpeg's approach.
         with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
             page = doc[slide_num - 1]
-            img = _render_page_to_jpeg(page)
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+            img = pix.tobytes("jpeg")
             text = page.get_text("text")
             return img, text
 
     img_bytes, raw_text = await asyncio.to_thread(_extract)
     import base64
     b64 = base64.b64encode(img_bytes).decode("utf-8")
-    analysis = await analyze_slide_vision(b64, raw_text, ai_model=ai_model)
+    analysis = await analyze_slide_vision(b64, raw_text, ai_model=ai_model, blueprint_context=blueprint_context)
 
     from backend.services.ai.vision import format_slide_content
     content = format_slide_content(analysis.get("content_extraction", {}))
 
+    # Single-level undo (Roadmap Phase 5.2): snapshot what's about to be
+    # overwritten so the professor can revert one regenerate. Deliberately
+    # not a full history — see the roadmap doc's 5.3 deferral for why real
+    # multi-version history is a separate, larger effort.
+    previous_version = {
+        "title": res.data.get("title"),
+        "content_text": res.data.get("content_text"),
+        "summary": res.data.get("summary"),
+    }
+
+    new_title = analysis.get("metadata", {}).get("lecture_title") or f"Slide {slide_num}"
+    new_summary = analysis.get("content_extraction", {}).get("summary", "")
+
     client.table("slides").update({
-        "title": analysis.get("metadata", {}).get("lecture_title") or f"Slide {slide_num}",
+        "title": new_title,
         "content_text": content,
-        "summary": analysis.get("content_extraction", {}).get("summary", ""),
+        "summary": new_summary,
+        "regen_instruction": effective_instruction or None,
+        "previous_version": previous_version,
     }).eq("id", slide_id).execute()
 
     quiz = analysis.get("quiz")
@@ -249,7 +282,51 @@ async def regenerate_slide(slide_id: str, user_id: str, ai_model: str, creds_tok
         }).execute()
 
     analytics_cache.invalidate_course_overview_for_lecture(res.data.get("lecture_id"))
+    analysis["regen_instruction"] = effective_instruction or None
+    # The frontend patches its local slide state from this shape directly
+    # (title/content_text/summary) rather than re-parsing the raw vision
+    # `analysis` payload, which nests these under different keys.
+    analysis["slide"] = {
+        "id": slide_id,
+        "title": new_title,
+        "content_text": content,
+        "summary": new_summary,
+        "regen_instruction": effective_instruction or None,
+    }
     return analysis
+
+
+async def undo_regenerate_slide(slide_id: str, user_id: str, creds_token: str) -> Dict[str, Any]:
+    """Restore the single previous-version snapshot a regenerate took right
+    before overwriting title/content_text/summary (Roadmap Phase 5.2).
+    Clears the snapshot after restoring — this is a one-level undo, not a
+    history stack."""
+    from backend.core.database import create_client
+    client = create_client(SUPABASE_URL, ANON_KEY)
+    client.postgrest.auth(creds_token)
+
+    res = client.table("slides").select(
+        "previous_version, lectures(professor_id)"
+    ).eq("id", slide_id).maybe_single().execute()
+    if not res or not res.data:
+        raise FileNotFoundError("Slide not found.")
+
+    lecture_info = res.data.get("lectures", {}) or {}
+    if lecture_info.get("professor_id") != user_id:
+        raise PermissionError("Unauthorized.")
+
+    prev = res.data.get("previous_version")
+    if not prev:
+        raise ValueError("No previous version to restore.")
+
+    update = {
+        "title": prev.get("title"),
+        "content_text": prev.get("content_text"),
+        "summary": prev.get("summary"),
+        "previous_version": None,
+    }
+    client.table("slides").update(update).eq("id", slide_id).execute()
+    return {"id": slide_id, **update}
 
 async def generate_lecture_description(title: str, course_name: Optional[str], summaries: List[str], ai_model: str) -> str:
     course_line = f"\n[COURSE]\n{course_name}" if course_name else ""

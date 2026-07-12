@@ -134,6 +134,40 @@ async def test_synthesize_slide_vision_failure_still_marks_vision_routed(monkeyp
     assert out["vision_routed"] is True  # the attempt was made, even though it failed
 
 
+# ── _review_flag_for: Roadmap Phase 5.1 "needs review" heuristic ─────────────
+
+def test_review_flag_synthesis_failed_takes_priority():
+    needs_review, reason = uo._review_flag_for(
+        synthesis_failed=True, vision_routed=True, raw_title="Has A Title", raw_summary="Has a summary"
+    )
+    assert needs_review is True
+    assert reason == "synthesis_failed"
+
+
+def test_review_flag_vision_rescue():
+    needs_review, reason = uo._review_flag_for(
+        synthesis_failed=False, vision_routed=True, raw_title="Diagram", raw_summary="Shows a graph"
+    )
+    assert needs_review is True
+    assert reason == "vision_rescue"
+
+
+def test_review_flag_empty_content():
+    needs_review, reason = uo._review_flag_for(
+        synthesis_failed=False, vision_routed=False, raw_title="", raw_summary=""
+    )
+    assert needs_review is True
+    assert reason == "empty_content"
+
+
+def test_review_flag_healthy_slide_not_flagged():
+    needs_review, reason = uo._review_flag_for(
+        synthesis_failed=False, vision_routed=False, raw_title="Real Title", raw_summary="Real summary"
+    )
+    assert needs_review is False
+    assert reason is None
+
+
 # ── orchestrator: end-to-end with mocked synthesis + DB ──────────────────────
 
 def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pages=None):
@@ -172,6 +206,9 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def clear_lecture_content(lid):
         rec["cleared"].append(lid)
 
+    async def fetch_regen_instructions(lid):
+        return rec.get("regen_instructions", {})
+
     async def set_lecture_title(lid, title):
         rec["titled"].append((lid, title))
 
@@ -203,6 +240,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(persist, "create_lecture", create_lecture)
     monkeypatch.setattr(persist, "set_run_lecture", set_run_lecture)
     monkeypatch.setattr(persist, "clear_lecture_content", clear_lecture_content)
+    monkeypatch.setattr(persist, "fetch_regen_instructions", fetch_regen_instructions)
     monkeypatch.setattr(persist, "set_lecture_title", set_lecture_title)
     monkeypatch.setattr(persist, "set_lecture_pdf_url", set_lecture_pdf_url)
     monkeypatch.setattr(persist, "insert_slide", insert_slide)
@@ -312,6 +350,83 @@ async def test_parse_pdf_unified_propagates_vision_routed_on_slide_event(monkeyp
     assert slide_events[0]["vision_routed"] is False
     assert slide_events[1]["vision_routed"] is True
     assert slide_events[2]["vision_routed"] is False
+
+
+async def test_parse_pdf_unified_marks_needs_review_on_synthesis_exception(monkeypatch):
+    """Roadmap Phase 5.1 AC3 (zero silent failures): a slide whose synthesis
+    raised is caught at the call site and re-wrapped into a plain fallback
+    dict that has no `vision_routed` key — previously that meant the failure
+    left literally no trace anywhere. It must now be visibly flagged."""
+    rec, run = _patch_common(monkeypatch, pages=["text 0", "text 1", "text 2"])
+
+    async def synth(idx, text, ctx, model, pdf):
+        if idx == 1:
+            raise RuntimeError("LLM timed out")
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+
+    slide_events = {d["index"]: d["slide"] for t, d in events if t == "slide"}
+    assert slide_events[1]["needs_review"] is True
+    assert slide_events[1]["review_reason"] == "synthesis_failed"
+    assert slide_events[0]["needs_review"] is False
+    assert slide_events[2]["needs_review"] is False
+
+
+async def test_parse_pdf_unified_marks_needs_review_on_vision_rescue(monkeypatch):
+    rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
+
+    async def synth(idx, text, ctx, model, pdf):
+        if idx == 1:
+            return {"title": "Scan", "content": text, "summary": "s", "slide_type": "image-only", "vision_routed": True}
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+    events = await _run("h", OWNER, filename="Deck.pdf")
+
+    slide_events = {d["index"]: d["slide"] for t, d in events if t == "slide"}
+    assert slide_events[1]["needs_review"] is True
+    assert slide_events[1]["review_reason"] == "vision_rescue"
+    assert slide_events[0]["needs_review"] is False
+
+
+async def test_parse_pdf_unified_skip_ai_never_flags_needs_review(monkeypatch):
+    """On-demand (Skip AI) slides never run synthesis at all, so there's
+    nothing to flag — needs_review must stay False regardless of content."""
+    rec, run = _patch_common(monkeypatch, pages=["", "", ""])
+    events = await _run("h", OWNER, filename="Deck.pdf", parsing_mode="on_demand")
+
+    slide_events = {d["index"]: d["slide"] for t, d in events if t == "slide"}
+    assert all(s["needs_review"] is False for s in slide_events.values())
+
+
+async def test_parse_pdf_unified_passes_review_flags_to_persist_insert_slide(monkeypatch):
+    """needs_review/review_reason/vision_routed must reach persist.insert_slide,
+    not just the SSE event — Roadmap 5.1 requires the signal to survive a
+    page reload, not just live in-flight for the current upload session."""
+    rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
+
+    async def synth(idx, text, ctx, model, pdf):
+        if idx == 1:
+            return {"title": "Scan", "content": text, "summary": "s", "slide_type": "image-only", "vision_routed": True}
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+
+    captured: dict = {}
+
+    async def insert_slide(lecture_id, idx, slide, *, ai_enhanced=True, parser_engine="unified"):
+        captured[idx] = dict(slide)
+        return uuid4()
+
+    monkeypatch.setattr(persist, "insert_slide", insert_slide)
+    await _run("h", OWNER, filename="Deck.pdf")
+
+    assert captured[1]["vision_routed"] is True
+    assert captured[1]["needs_review"] is True
+    assert captured[1]["review_reason"] == "vision_rescue"
+    assert captured[0]["needs_review"] is False
 
 
 async def test_parse_pdf_unified_ingests_concepts_when_flag_on(monkeypatch):
@@ -750,6 +865,39 @@ async def test_parse_pdf_unified_completed_replays_without_force(monkeypatch):
     assert replayed["called"] is True
     assert rec["cleared"] == []              # no re-synthesis on replay
     assert rec["slides"] == []
+
+
+async def test_parse_pdf_unified_reuses_persisted_regen_instruction_on_reparse(monkeypatch):
+    """Roadmap Phase 5.2: a professor's persisted per-slide instruction must
+    survive a re-parse's destroy-and-recreate flow — threaded into that
+    slide's synthesis context and carried forward onto the new row."""
+    existing = uuid4()
+    rec, run = _patch_common(monkeypatch, run_status=RunStatus.COMPLETED, lecture_id=existing)
+    rec["regen_instructions"] = {1: "Focus on the proof steps."}
+
+    captured_ctx: dict = {}
+
+    async def synth(idx, text, ctx, model, pdf):
+        captured_ctx[idx] = ctx
+        return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
+
+    monkeypatch.setattr(uo, "_synthesize_slide", synth)
+
+    captured_insert: dict = {}
+
+    async def insert_slide(lecture_id, idx, slide, *, ai_enhanced=True, parser_engine="unified"):
+        captured_insert[idx] = dict(slide)
+        return uuid4()
+
+    monkeypatch.setattr(persist, "insert_slide", insert_slide)
+
+    await _run("h", OWNER, filename="L.pdf", force_reparse=True)
+
+    assert "Focus on the proof steps." in captured_ctx[1]
+    assert "Focus on the proof steps." not in captured_ctx[0]
+    assert "Focus on the proof steps." not in captured_ctx[2]
+    assert captured_insert[1]["regen_instruction"] == "Focus on the proof steps."
+    assert captured_insert[0]["regen_instruction"] is None
 
 
 async def test_parse_pdf_unified_resume_reuses_lecture(monkeypatch):

@@ -93,7 +93,7 @@ export async function fetchLecture(idOrSlug: string): Promise<Lecture | null> {
 export async function fetchSlides(lectureId: string): Promise<Slide[]> {
   const { data, error } = await supabase
     .from('slides')
-    .select('id, slide_number, title, content_text, summary')
+    .select('id, slide_number, title, content_text, summary, regen_instruction')
     .eq('lecture_id', lectureId)
     .order('slide_number', { ascending: true });
   
@@ -320,12 +320,23 @@ export async function loadLectureForEdit(lectureId: string): Promise<LectureForE
         correctAnswer: q.correct_answer ?? 0,
       }));
 
+    const slideRow = slide as {
+      ai_enhanced?: boolean;
+      vision_routed?: boolean;
+      needs_review?: boolean;
+      review_reason?: string | null;
+      regen_instruction?: string | null;
+    };
     return {
       id: slide.id,
       title: slide.title ?? '',
       content: slide.content_text ?? '',
       summary: slide.summary ?? '',
-      ai_enhanced: (slide as { ai_enhanced?: boolean }).ai_enhanced ?? true,
+      ai_enhanced: slideRow.ai_enhanced ?? true,
+      vision_routed: slideRow.vision_routed ?? false,
+      needs_review: slideRow.needs_review ?? false,
+      review_reason: slideRow.review_reason ?? undefined,
+      regen_instruction: slideRow.regen_instruction ?? undefined,
       questions: slideQuestions.length > 0
         ? slideQuestions
         : [{ question: '', options: ['', '', '', ''], correctAnswer: 0 }],

@@ -41,6 +41,18 @@ vi.mock("@/services/coursesService", () => ({
   listCourses: vi.fn(() => Promise.resolve([])),
 }));
 
+// react-pdf's <Document> wraps the entire editor once a PDF is active
+// (LectureUpload.tsx renders `<Document file={activePdf}>{editorContent}</Document>`)
+// and shows only its own loading/error fallback until the file actually
+// parses. Our test PDFs are fake bytes, so real react-pdf would swallow the
+// whole editor behind a "Failed to load PDF file" fallback — stub it so
+// children (and thus the sidebar/badges under test) always render.
+vi.mock("react-pdf", () => ({
+  Document: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  Page: () => <div data-testid="mock-pdf-page" />,
+  pdfjs: { GlobalWorkerOptions: { workerSrc: "" }, version: "0" },
+}));
+
 import LectureUpload from "@/pages/LectureUpload";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
@@ -332,6 +344,83 @@ describe("LectureUpload duplicate-PDF flow (integration)", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(screen.queryByText(/parsed this PDF before/i)).toBeNull();
     expect(screen.queryByText(/uploaded this PDF before/i)).toBeNull();
+  });
+
+  it("shows the needs-review filter toggle and per-slide badge for flagged slides (Roadmap 5.1)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ duplicates: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ cached: false, parsed_at: null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const sseEvents = [
+      { type: "info", parser: "pymupdf" },
+      { type: "phase", phase: "extract" },
+      {
+        type: "slide",
+        index: 0,
+        slide: { title: "Healthy Slide", content: "body 0", summary: "sum 0", vision_routed: false, needs_review: false },
+      },
+      {
+        type: "slide",
+        index: 1,
+        slide: {
+          title: "Scanned Slide",
+          content: "body 1",
+          summary: "sum 1",
+          vision_routed: true,
+          needs_review: true,
+          review_reason: "vision_rescue",
+        },
+      },
+      { type: "phase", phase: "finalize" },
+      { type: "complete" },
+    ];
+    const sseBody = sseEvents.map((e) => `data: ${JSON.stringify(e)}\n\n`).join("");
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(sseBody));
+        controller.close();
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
+    );
+
+    renderWithProviders(<LectureUpload />, {
+      initialEntries: ["/professor/upload"],
+    });
+
+    pickPdf();
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("parse-pdf-stream"))).toBe(true),
+    );
+
+    const badge = await screen.findByTestId("needs-review-badge-1");
+    expect(badge).toBeInTheDocument();
+    expect(screen.queryByTestId("needs-review-badge-0")).not.toBeInTheDocument();
+
+    const toggle = screen.getByTestId("needs-review-filter-toggle");
+    expect(toggle.textContent).toContain("1");
+
+    const sidebarSlideIndices = () =>
+      Array.from(document.querySelectorAll("[data-slide-index]")).map((el) =>
+        el.getAttribute("data-slide-index"),
+      );
+
+    const user = userEvent.setup();
+    await user.click(toggle);
+    expect(sidebarSlideIndices()).toEqual(["1"]);
+
+    await user.click(toggle);
+    expect(sidebarSlideIndices().sort()).toEqual(["0", "1"]);
   });
 
   it("dismisses the dialog and does not upload when 'Cancel' is clicked", async () => {

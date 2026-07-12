@@ -71,6 +71,8 @@ export interface Slide {
   title: string | null;
   content_text: string | null;
   summary: string | null;
+  /** Roadmap Phase 5.2: persisted professor instruction for regenerating this slide. */
+  regen_instruction?: string | null;
 }
 
 // ─── Quiz ────────────────────────────────────────────────────────────────────

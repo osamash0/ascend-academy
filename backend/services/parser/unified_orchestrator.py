@@ -136,6 +136,26 @@ async def _synthesize_slide(
         return {"title": "", "content": text, "summary": "", "slide_type": "image-only", "vision_routed": True}
 
 
+def _review_flag_for(
+    *, synthesis_failed: bool, vision_routed: bool, raw_title: str, raw_summary: str
+) -> tuple[bool, Optional[str]]:
+    """Cheap, deterministic (no extra LLM call) "needs review" heuristic —
+    Roadmap Phase 5.1. Priority order matches severity: a synthesis exception
+    is worse than a vision rescue, which is worse than merely-empty output.
+    Zero silent failures: every one of these previously either vanished
+    entirely (the exception branch at the call site discards `vision_routed`
+    when re-wrapping into a fallback dict) or was only ever visible in the
+    SSE stream, never persisted (see Roadmap Phase 2.2's `vision_routed`).
+    """
+    if synthesis_failed:
+        return True, "synthesis_failed"
+    if vision_routed:
+        return True, "vision_rescue"
+    if not raw_title and not raw_summary:
+        return True, "empty_content"
+    return False, None
+
+
 async def _store_lecture_pdf(lecture_id: UUID, filename: str, pdf_bytes: bytes) -> Optional[str]:
     """Upload the source PDF to the lecture-pdfs bucket at the path the lecture
     viewer resolves (``lectures/{id}/{name}``). Non-fatal."""
@@ -305,7 +325,12 @@ async def parse_pdf_unified(
             lecture_context += f"\n\n{course_context_hint}"
 
         # ── 3. Create / reuse the lecture row (server-authoritative) ─────────
+        # Roadmap Phase 5.2: read any per-slide regenerate instructions BEFORE
+        # clear_lecture_content wipes the rows, so a re-parse still honors
+        # them instead of silently losing them in the destroy-and-recreate flow.
+        carried_instructions: Dict[int, str] = {}
         if existing_lecture_id:
+            carried_instructions = await persist.fetch_regen_instructions(existing_lecture_id)
             created_lecture_id = existing_lecture_id
             await persist.clear_lecture_content(created_lecture_id)
             await persist.set_lecture_title(created_lecture_id, lecture_title)
@@ -354,8 +379,14 @@ async def parse_pdf_unified(
                             if ai_mode else f"Importing slides {chunk_start + 1}–{chunk_end}/{total}…"),
             })
             if ai_mode:
+                def _ctx_with_instruction(i: int) -> str:
+                    instr = carried_instructions.get(i)
+                    if not instr:
+                        return ctx_for_chunk
+                    return f"{ctx_for_chunk}\n\nThe professor gave this instruction for this slide — honor it: {instr}"
+
                 results = await asyncio.gather(*[
-                    _synthesize_slide(i, raw_slides[i], ctx_for_chunk, ai_model, pdf_bytes)
+                    _synthesize_slide(i, raw_slides[i], _ctx_with_instruction(i), ai_model, pdf_bytes)
                     for i in range(chunk_start, chunk_end)
                 ], return_exceptions=True)
             else:
@@ -368,10 +399,24 @@ async def parse_pdf_unified(
 
             for rel, res in enumerate(results):
                 i = chunk_start + rel
-                if isinstance(res, Exception) or not isinstance(res, dict):
+                synthesis_failed = isinstance(res, Exception) or not isinstance(res, dict)
+                if synthesis_failed:
                     logger.error("slide %d synthesis failed: %s", i, res)
                     res = {"content": raw_slides[i], "summary": "", "slide_type": "text"}
-                title = (res.get("title") or "").strip() or _first_line(raw_slides[i]) or f"Slide {i + 1}"
+                raw_title = (res.get("title") or "").strip()
+                title = raw_title or _first_line(raw_slides[i]) or f"Slide {i + 1}"
+                vision_routed = bool(res.get("vision_routed", False))
+                raw_summary = (res.get("summary") or "").strip()
+                needs_review, review_reason = (
+                    _review_flag_for(
+                        synthesis_failed=synthesis_failed,
+                        vision_routed=vision_routed,
+                        raw_title=raw_title,
+                        raw_summary=raw_summary,
+                    )
+                    if ai_mode
+                    else (False, None)
+                )
                 ui_slide = {
                     "title": title,
                     "content": res.get("content", raw_slides[i]) or "",
@@ -379,7 +424,13 @@ async def parse_pdf_unified(
                     "slide_type": res.get("slide_type", "text"),
                     "questions": [],
                     "ai_enhanced": ai_mode,
-                    "vision_routed": bool(res.get("vision_routed", False)),
+                    "vision_routed": vision_routed,
+                    "needs_review": needs_review,
+                    "review_reason": review_reason,
+                    # Roadmap Phase 5.2: carry a persisted regenerate
+                    # instruction forward across a re-parse so it isn't lost
+                    # in the destroy-and-recreate flow.
+                    "regen_instruction": carried_instructions.get(i),
                 }
                 if created_lecture_id is not None:
                     try:

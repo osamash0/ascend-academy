@@ -28,7 +28,8 @@ import {
   Eye,
   PartyPopper,
   Lightbulb,
-  Info
+  Info,
+  Flag
 } from 'lucide-react';
 import { PDFUploadOverlay } from '@/components/PDFUploadOverlay';
 import { DuplicatePDFDialog, type DuplicateMatch } from '@/components/DuplicatePDFDialog';
@@ -500,6 +501,13 @@ export default function LectureUpload() {
   const [enhancingIds, setEnhancingIds] = useState<Set<string>>(new Set());
   const [enhancingAll, setEnhancingAll] = useState(false);
   const unenhancedCount = slides.filter(s => s.id && s.ai_enhanced === false).length;
+
+  // Roadmap Phase 5.1 — "needs review" filter (synthesis failed / vision
+  // rescue / empty output). A filter toggle rather than a physical reorder:
+  // renumbering the deck away from the professor's real slide positions
+  // would be more confusing than useful here.
+  const needsReviewCount = slides.filter(s => s.needs_review).length;
+  const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
 
   const enhanceOneSlide = useCallback(async (index: number): Promise<boolean> => {
     const slide = slides[index];
@@ -1242,6 +1250,24 @@ export default function LectureUpload() {
                     {t('upload:chrome.slides', { count: totalSlides })}
                   </span>
                   <div className="flex gap-1">
+                    {needsReviewCount > 0 && (
+                      <Button
+                        variant={showOnlyFlagged ? 'default' : 'ghost'}
+                        size="icon"
+                        className={cn('h-7 w-7 relative', showOnlyFlagged && 'bg-amber-500 hover:bg-amber-600 text-white')}
+                        onClick={() => setShowOnlyFlagged(v => !v)}
+                        data-testid="needs-review-filter-toggle"
+                        title={t('upload:chrome.needsReviewFilter', {
+                          count: needsReviewCount,
+                          defaultValue: `${needsReviewCount} slide${needsReviewCount === 1 ? '' : 's'} may need review`,
+                        })}
+                      >
+                        <Flag className="w-3.5 h-3.5" />
+                        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                          {needsReviewCount}
+                        </span>
+                      </Button>
+                    )}
                     {!isEditMode && (
                       <Button
                         variant="ghost"
@@ -1278,7 +1304,15 @@ export default function LectureUpload() {
 
               {/* Slide List */}
               <div ref={sidebarRef} className="flex-1 overflow-y-auto p-2 space-y-1">
-                {slides.map((slide, index) => {
+                {showOnlyFlagged && needsReviewCount === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    {t('upload:chrome.needsReviewNoneLeft', { defaultValue: 'No slides need review anymore.' })}
+                  </p>
+                )}
+                {slides
+                  .map((slide, index) => ({ slide, index }))
+                  .filter(({ slide }) => !showOnlyFlagged || slide.needs_review)
+                  .map(({ slide, index }) => {
                   const status = getSlideStatus(slide);
                   const percent = getCompletionPercent(status);
                   const isActive = index === activeSlideIndex;
@@ -1309,12 +1343,19 @@ export default function LectureUpload() {
                     >
                       {/* Slide Number */}
                       <div className={cn(
-                        "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5",
+                        "relative w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5",
                         isActive
                           ? "bg-violet-500 text-white shadow-md shadow-violet-500/30"
                           : "bg-muted text-muted-foreground"
                       )}>
                         {index + 1}
+                        {slide.needs_review && (
+                          <Flag
+                            className="w-3 h-3 text-amber-500 absolute -top-1.5 -right-1.5 bg-background rounded-full p-0.5"
+                            data-testid={`needs-review-badge-${index}`}
+                            aria-label={t('upload:chrome.needsReviewBadge', { defaultValue: 'This slide may need review' })}
+                          />
+                        )}
                       </div>
 
                       {/* Slide Info */}

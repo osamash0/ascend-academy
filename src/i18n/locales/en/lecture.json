@@ -88,6 +88,9 @@
     "success": "Slide re-analyzed",
     "successDescription": "AI content has been updated using vision analysis.",
     "failure": "Re-analysis failed",
-    "failureDescription": "Could not regenerate content."
+    "failureDescription": "Could not regenerate content.",
+    "undoSuccess": "Regenerate undone",
+    "undoSuccessDescription": "The slide's previous content has been restored.",
+    "undoFailure": "Undo failed"
   }
 }

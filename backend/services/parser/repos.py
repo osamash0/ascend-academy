@@ -150,9 +150,12 @@ async def list_runs_by_user(
 async def get_batch_summary(batch_id: UUID, user_id: UUID) -> list[dict]:
     """Per-lecture rollup for the Phase-1 batch review screen: one row per
     parse_runs entry in the batch, with slide/quiz/flagged counts joined from
-    the lecture it produced (if any yet). "Flagged" is a v1 heuristic on
-    existing columns (unsynthesized or empty-summary slides), not a stored
-    concept — no schema column backs it."""
+    the lecture it produced (if any yet). "Flagged" combines two distinct
+    signals: a slide still awaiting AI enhancement (Skip-AI import), and the
+    Roadmap Phase 5.1 persisted `needs_review` flag (synthesis failure, vision
+    rescue, or empty output) — replacing the old query-time
+    empty-summary heuristic now that a real signal is computed and stored at
+    synthesis time."""
     pool = await _pool()
     async with pool.acquire() as conn:
         run_rows = await conn.fetch(
@@ -172,7 +175,7 @@ async def get_batch_summary(batch_id: UUID, user_id: UUID) -> list[dict]:
                 SELECT s.lecture_id,
                        COUNT(*) AS slide_count,
                        COUNT(*) FILTER (
-                           WHERE s.ai_enhanced = false OR trim(coalesce(s.summary, '')) = ''
+                           WHERE s.ai_enhanced = false OR s.needs_review = true
                        ) AS flagged_count,
                        (SELECT COUNT(*) FROM quiz_questions q
                           JOIN slides s2 ON s2.id = q.slide_id

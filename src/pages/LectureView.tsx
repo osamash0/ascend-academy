@@ -24,6 +24,7 @@ import { WorksheetsPanel } from '@/components/WorksheetsPanel';
 import { StudentPracticeSheetsPanel } from '@/features/practice_sheets/StudentPracticeSheetsPanel';
 import { LectureRecap, type RecapItem } from '@/components/LectureRecap';
 import { RelatedAcrossCoursesPanel } from '@/components/RelatedAcrossCoursesPanel';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { useToast } from '@/hooks/use-toast';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
@@ -138,8 +139,11 @@ export default function LectureView() {
   const { map: mindMap, generate: generateMindMap } = useMindMap(lectureId ?? null);
   const { aiModel } = useAiModel();
 
-  // Slide content regeneration (professor only)
+  // Slide content regeneration (professor only) — Roadmap Phase 5.2
   const [isRegeneratingContent, setIsRegeneratingContent] = useState(false);
+  // Slide id whose last action was a regenerate, so "Undo" only shows for
+  // that same slide and clears the moment the professor navigates away.
+  const [regeneratedSlideId, setRegeneratedSlideId] = useState<string | null>(null);
 
   useEffect(() => {
     if (lectureId && user) {
@@ -318,21 +322,47 @@ export default function LectureView() {
 
   const currentSlide = slides[currentSlideIndex];
 
-  const handleRegenerateContent = async () => {
+  const handleRegenerateContent = async (instruction?: string) => {
     if (!currentSlide || !user) return;
     setIsRegeneratingContent(true);
     try {
-      const json = await apiClient.post<{ slide: Slide }>(`/api/ai/slides/${currentSlide.id}/regenerate-content`, { ai_model: aiModel });
+      const json = await apiClient.post<{ slide: Slide }>(`/api/ai/slides/${currentSlide.id}/regenerate-content`, {
+        ai_model: aiModel,
+        instruction,
+      });
       const updated = json.slide;
       // Patch the slide in local state so the UI updates immediately
       setSlides(prev => prev.map(s =>
         s.id === currentSlide.id
-          ? { ...s, title: updated.title, content_text: updated.content_text, summary: updated.summary }
+          ? { ...s, title: updated.title, content_text: updated.content_text, summary: updated.summary, regen_instruction: updated.regen_instruction }
           : s
       ));
+      // Roadmap Phase 5.2: a fresh regenerate always replaces whatever undo
+      // state existed for this slide — only the most recent snapshot is kept.
+      setRegeneratedSlideId(currentSlide.id);
       toast({ title: t('lecture:regenerate.success'), description: t('lecture:regenerate.successDescription') });
     } catch (err: unknown) {
       toast({ title: t('lecture:regenerate.failure'), description: (err instanceof Error ? err.message : '') || t('lecture:regenerate.failureDescription'), variant: 'destructive' });
+    } finally {
+      setIsRegeneratingContent(false);
+    }
+  };
+
+  const handleUndoRegenerateContent = async () => {
+    if (!currentSlide || !user) return;
+    setIsRegeneratingContent(true);
+    try {
+      const json = await apiClient.post<{ slide: Slide }>(`/api/ai/slides/${currentSlide.id}/undo-regenerate`, {});
+      const restored = json.slide;
+      setSlides(prev => prev.map(s =>
+        s.id === currentSlide.id
+          ? { ...s, title: restored.title, content_text: restored.content_text, summary: restored.summary }
+          : s
+      ));
+      setRegeneratedSlideId(null);
+      toast({ title: t('lecture:regenerate.undoSuccess'), description: t('lecture:regenerate.undoSuccessDescription') });
+    } catch (err: unknown) {
+      toast({ title: t('lecture:regenerate.undoFailure'), description: (err instanceof Error ? err.message : '') || '', variant: 'destructive' });
     } finally {
       setIsRegeneratingContent(false);
     }
@@ -778,8 +808,9 @@ export default function LectureView() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 flex flex-row overflow-hidden">
-          <div ref={scrollableContainerRef} className="flex-1 overflow-y-auto custom-scrollbar relative">
+        <ResizablePanelGroup direction="horizontal" className="flex-1 w-full h-full">
+          <ResizablePanel defaultSize={isChatOpen ? 70 : 100} minSize={40} className="relative">
+            <div ref={scrollableContainerRef} className="h-full overflow-y-auto custom-scrollbar relative">
           <div className="max-w-6xl mx-auto px-6 py-8">
             <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
               {/* Main content - Slide viewer */}
@@ -882,6 +913,9 @@ export default function LectureView() {
                       isProfessor={role === 'professor'}
                       onRegenerateContent={role === 'professor' ? handleRegenerateContent : undefined}
                       isRegeneratingContent={isRegeneratingContent}
+                      regenInstruction={currentSlide?.regen_instruction ?? ''}
+                      canUndoRegenerate={regeneratedSlideId === currentSlide?.id}
+                      onUndoRegenerate={role === 'professor' ? handleUndoRegenerateContent : undefined}
                     />
                     </motion.div>
                   ) : null}
@@ -1035,27 +1069,31 @@ export default function LectureView() {
           {/* Level-up / badge popups are rendered globally by GamificationProvider. */}
 
           </div> {/* End of scrollable center column */}
+          </ResizablePanel>
 
           {/* Right Column - Chatbot */}
           {isChatOpen && (
-            <div className="hidden md:block w-80 border-l border-white/5 bg-surface-1/30">
-              <LectureChat
-                isOpen={isChatOpen}
-                onClose={() => setIsChatOpen(false)}
-                slideText={currentSlide?.content_text || ''}
-                slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
-                slideId={currentSlide?.id}
-                sessionId={sessionIdRef.current}
-                lectureId={lectureId}
-                currentSlideIndex={currentSlideIndex}
-                onSlideJump={(idx) => {
-                  if (idx >= 0 && idx < slides.length) {
-                    goToSlide(idx);
-                  }
-                }}
-                isInline={true}
-              />
-            </div>
+            <>
+              <ResizableHandle withHandle className="hidden md:flex bg-white/10" />
+              <ResizablePanel defaultSize={30} minSize={20} maxSize={50} className="hidden md:block bg-surface-1/30">
+                <LectureChat
+                  isOpen={isChatOpen}
+                  onClose={() => setIsChatOpen(false)}
+                  slideText={currentSlide?.content_text || ''}
+                  slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
+                  slideId={currentSlide?.id}
+                  sessionId={sessionIdRef.current}
+                  lectureId={lectureId}
+                  currentSlideIndex={currentSlideIndex}
+                  onSlideJump={(idx) => {
+                    if (idx >= 0 && idx < slides.length) {
+                      goToSlide(idx);
+                    }
+                  }}
+                  isInline={true}
+                />
+              </ResizablePanel>
+            </>
           )}
           
           {/* Mobile Chat Drawer (Fallback) */}
@@ -1077,7 +1115,7 @@ export default function LectureView() {
               isInline={false}
             />
           </div>
-        </div> {/* End of flex-row container */}
+        </ResizablePanelGroup> {/* End of Resizable container */}
       </div>
     </div>
   );

@@ -300,6 +300,10 @@ async def delete_chat_session_endpoint(request: Request, session_id: str, user: 
 
 class RegenerateSlideRequest(BaseModel):
     ai_model: _AiModel = "cerebras"
+    # Roadmap Phase 5.2 ("regenerate with feedback"): a short professor
+    # instruction ("this is a proof sketch, focus on the steps"). Omitting it
+    # reuses whatever was set on a previous regenerate for this slide.
+    instruction: Optional[str] = Field(None, max_length=500)
 
 @router.post("/slides/{slide_id}/regenerate-content")
 @limiter.limit("10/minute")
@@ -309,8 +313,13 @@ async def regenerate_slide_content(
 ):
     user_id = user.id if hasattr(user, "id") else user.get("id")
     try:
-        analysis = await tutor_service.regenerate_slide(slide_id, user_id, body.ai_model, creds.credentials)
-        return {"success": True, "analysis": analysis}
+        analysis = await tutor_service.regenerate_slide(
+            slide_id, user_id, body.ai_model, creds.credentials, instruction=body.instruction
+        )
+        # `slide` (title/content_text/summary/regen_instruction) is the
+        # normalized shape the frontend patches its local state from; `analysis`
+        # is kept for callers that want the raw vision payload.
+        return {"success": True, "analysis": analysis, "slide": analysis.get("slide")}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
@@ -319,6 +328,27 @@ async def regenerate_slide_content(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
         raise HTTPException(status_code=502, detail="Failed to regenerate slide content.")
+
+@router.post("/slides/{slide_id}/undo-regenerate")
+@limiter.limit("10/minute")
+async def undo_regenerate_slide_content(
+    request: Request, slide_id: str,
+    user: Any = Depends(require_professor), creds: HTTPAuthorizationCredentials = Depends(_security)
+):
+    """Roadmap Phase 5.2: restore the single previous-version snapshot taken
+    right before the last regenerate overwrote this slide."""
+    user_id = user.id if hasattr(user, "id") else user.get("id")
+    try:
+        slide = await tutor_service.undo_regenerate_slide(slide_id, user_id, creds.credentials)
+        return {"success": True, "slide": slide}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Failed to undo slide regeneration.")
 
 class LectureDescriptionRequest(BaseModel):
     lecture_title: str = Field(..., min_length=1)

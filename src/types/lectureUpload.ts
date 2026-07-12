@@ -18,6 +18,19 @@ export interface SlideData {
    * (a vision-routed slide can still come back typed math-diagram/graph).
    */
   vision_routed?: boolean;
+  /**
+   * Roadmap Phase 5.1: cheap, deterministic "this slide might need a
+   * professor's eyes" signal — true on a synthesis exception, a vision
+   * rescue, or empty title+summary. See `review_reason` for which.
+   */
+  needs_review?: boolean;
+  /** Why `needs_review` is true: 'synthesis_failed' | 'vision_rescue' | 'empty_content'. */
+  review_reason?: string;
+  /**
+   * Roadmap Phase 5.2: professor's free-text regenerate instruction,
+   * persisted so a later regenerate (or re-parse) can honor it again.
+   */
+  regen_instruction?: string;
 }
 
 export interface QuestionData {

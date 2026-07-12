@@ -49,8 +49,15 @@ interface SlideViewerProps {
   onGenerateMindMap?: () => void;
   isMindMapLoading?: boolean;
   isProfessor?: boolean;
-  onRegenerateContent?: () => void;
+  /** Roadmap Phase 5.2: an optional free-text instruction ("this is a proof
+   * sketch, focus on the steps") honored by the regenerate call. */
+  onRegenerateContent?: (instruction?: string) => void;
   isRegeneratingContent?: boolean;
+  /** Persisted instruction from a previous regenerate, prefilled into the input. */
+  regenInstruction?: string;
+  /** True right after a regenerate succeeds; shows the one-level "Undo" affordance. */
+  canUndoRegenerate?: boolean;
+  onUndoRegenerate?: () => void;
 }
 
 /** Returns true when extracted text looks like garbage */
@@ -103,6 +110,9 @@ export function SlideViewer({
   isProfessor = false,
   onRegenerateContent,
   isRegeneratingContent = false,
+  regenInstruction = '',
+  canUndoRegenerate = false,
+  onUndoRegenerate,
 }: SlideViewerProps) {
   const showMindMap = false;
   // PDF state
@@ -116,6 +126,13 @@ export function SlideViewer({
 
   // Mind map panel
   const [mindMapOpen, setMindMapOpen] = useState(false);
+
+  // Roadmap Phase 5.2 — regenerate-with-feedback panel
+  const [regeneratePanelOpen, setRegeneratePanelOpen] = useState(false);
+  const [instructionDraft, setInstructionDraft] = useState(regenInstruction);
+  useEffect(() => {
+    setInstructionDraft(regenInstruction);
+  }, [regenInstruction, slideNumber]);
 
   // TTS hook
   const { speak, stop, isSpeaking, isPaused, isLoading: isTTSLoading } = useTTS();
@@ -315,6 +332,63 @@ export function SlideViewer({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Roadmap Phase 5.2: professor-only "regenerate with feedback" */}
+          {isProfessor && onRegenerateContent && (
+            <div className="px-6 py-4 border-b border-white/5">
+              <button
+                onClick={() => setRegeneratePanelOpen(v => !v)}
+                data-testid="regenerate-content-toggle"
+                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Regenerate content
+              </button>
+              {regeneratePanelOpen && (
+                <div className="mt-3 glass-panel border-white/5 rounded-2xl p-4 space-y-3">
+                  <textarea
+                    value={instructionDraft}
+                    onChange={(e) => setInstructionDraft(e.target.value)}
+                    placeholder="Optional instruction, e.g. &quot;this is a proof sketch, focus on the steps&quot;"
+                    maxLength={500}
+                    rows={2}
+                    data-testid="regenerate-instruction-input"
+                    className="w-full text-xs bg-surface-2 border border-white/5 rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    {canUndoRegenerate && onUndoRegenerate && (
+                      <button
+                        onClick={onUndoRegenerate}
+                        disabled={isRegeneratingContent}
+                        data-testid="regenerate-undo"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-1 border border-white/5 text-muted-foreground text-[11px] font-bold transition-colors disabled:opacity-50"
+                      >
+                        Undo last regenerate
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onRegenerateContent(instructionDraft.trim() || undefined)}
+                      disabled={isRegeneratingContent}
+                      data-testid="regenerate-content-submit"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-primary text-[11px] font-bold transition-colors disabled:opacity-50"
+                    >
+                      {isRegeneratingContent ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Regenerating…
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3 h-3" />
+                          Regenerate
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

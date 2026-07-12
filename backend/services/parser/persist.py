@@ -133,6 +133,19 @@ async def clear_lecture_content(lecture_id: UUID) -> None:
     await _execute("DELETE FROM slides WHERE lecture_id = $1", lecture_id)
 
 
+async def fetch_regen_instructions(lecture_id: UUID) -> Dict[int, str]:
+    """0-based slide index -> persisted professor instruction, for slides
+    that have one. Must be called BEFORE `clear_lecture_content` deletes the
+    rows — this is what makes a Roadmap Phase 5.2 instruction survive a
+    re-parse's destroy-and-recreate flow instead of being silently lost."""
+    rows = await _fetch(
+        "SELECT slide_number, regen_instruction FROM slides "
+        "WHERE lecture_id = $1 AND regen_instruction IS NOT NULL",
+        lecture_id,
+    )
+    return {r["slide_number"] - 1: r["regen_instruction"] for r in rows}
+
+
 # ── slides ─────────────────────────────────────────────────────────────────
 
 async def insert_slide(
@@ -154,20 +167,25 @@ async def insert_slide(
         """
         INSERT INTO slides
           (id, lecture_id, slide_number, title, content_text, summary,
-           slide_type, context_note, image_url, ai_enhanced, parser_engine)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           slide_type, context_note, image_url, ai_enhanced, parser_engine,
+           vision_routed, needs_review, review_reason, regen_instruction)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         """,
         slide_id,
         lecture_id,
         slide_index + 1,  # slide_number is 1-based; SSE index is 0-based
         slide.get("title") or f"Slide {slide_index + 1}",
-        slide.get("content", "") or "",
+        slide.get("content", slide.get("content_text", "")) or "",
         slide.get("summary", "") or "",
         slide.get("slide_type"),
         slide.get("context_note"),
         slide.get("image_url"),
         ai_enhanced,
         parser_engine,
+        bool(slide.get("vision_routed", False)),
+        bool(slide.get("needs_review", False)),
+        slide.get("review_reason"),
+        slide.get("regen_instruction"),
     )
     return slide_id
 

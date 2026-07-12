@@ -371,20 +371,122 @@ unlike 4.1–4.3's hidden prior work.
 
 ### Phase 5 — Trust & lifecycle (≈2–3 weeks)
 
+> **Execution status (2026-07-12):** a reality-check survey (same method as
+> every prior phase) found 5.1 and 5.2 wildly different in readiness from
+> what the roadmap text implied — 5.1 had **zero** existing scaffolding (no
+> schema column, no computation logic; even the just-shipped Phase 2.2
+> `vision_routed` signal was proof that per-slide signals weren't persisted
+> anywhere), while 5.2 had three *existing but completely unreachable*
+> regenerate endpoints. Along the way the survey surfaced **two real, already-
+> shipped production bugs** in the regenerate-slide feature (see 5.2 below) —
+> it has been silently broken since before this pass, in two independent
+> ways, with zero test coverage to catch either. 5.1 and 5.2 shipped this
+> pass; 5.3 (lecture versioning) is **deliberately deferred** — full
+> rationale below; the existing re-upload path is actively destructive
+> (deletes the very rows a versioning feature must preserve), and building
+> real slide-identity + diffing on top of that without a dedicated design
+> pass would be a rushed, risky schema change to a live student-progress path.
+> Gates: backend 841 pass (unit+integration, same 3 pre-existing/unrelated
+> failures — `test_v1_docs_redirect` from a concurrent session's prod-docs
+> hardening, 2 `httpx.AsyncClient(app=...)` signature failures from an httpx
+> version bump, neither touched here) + 142 pass (`-m db`, up from 136 at the
+> start of this phase); vitest passes for every new/touched test file
+> (`test_unified_orchestrator.py` 41, `test_tutor_service_regenerate.py` 10,
+> `PDFUploadOverlay`/`LectureUpload`/`SlideViewer` all green); tsc 0.
+
 #### 5.1 Confidence + content-error detection
+
+> **Shipped this pass, scoped down:** a cheap, deterministic "needs review"
+> heuristic (no new LLM call) — `synthesis_failed` / `vision_rescue` /
+> `empty_content` — computed once at synthesis time and persisted, rather
+> than the full LLM-based second-pass content-error checker (garbled OCR/
+> formula mangling/contradiction detection) the original AC describes. That
+> checker needs its own prompt design + calibration against real decks to hit
+> the "≤15% of slides in a healthy deck" target — guessing at it blind risks
+> either useless noise (everything flagged) or false confidence (nothing
+> flagged); deliberately left for a follow-up pass with real usage data.
+
 **Acceptance criteria**
-- [ ] Every synthesized slide stores a confidence signal (extraction quality + LLM self-check) in slide metadata; the editor sorts/filters by "needs review" and the batch-review screen (1.3) surfaces the count.
-- [ ] A second-pass checker flags likely content errors (garbled OCR, formula mangling, summary contradicting slide text) on ≤ 15% of slides in a healthy deck; flagged slides show the reason in the editor.
-- [ ] Zero silent failures: any slide that skipped synthesis (vision failure, timeout) is visibly marked, never blank-but-published.
+- [x] Every synthesized slide stores a confidence signal in slide metadata; the editor sorts/filters by "needs review" and the batch-review screen (1.3) surfaces the count. *(Additive migration `20260711040000_slide_trust_signals.sql`: `slides.vision_routed`/`needs_review`/`review_reason` + a partial index on `needs_review = TRUE`. `unified_orchestrator._review_flag_for` computes the signal per slide — priority order `synthesis_failed` > `vision_rescue` > `empty_content` — closing a real gap found mid-implementation: the per-slide loop's exception handler already re-wrapped a failed `_synthesize_slide` call into a bare fallback dict that silently discarded even the `vision_routed` flag, meaning a synthesis crash left **zero trace** anywhere before this. `BatchReviewPage`'s existing `flagged_count` (previously an ad-hoc "empty summary OR unenhanced" query-time heuristic, explicitly documented in `repos.py` as "not a stored concept — no schema column backs it") now reads the real persisted `needs_review` column instead. The editor (`LectureUpload.tsx`) gained a "needs review" filter toggle in the sidebar — implemented as a show/hide filter rather than a physical slide reorder, since visually reordering a professor's deck away from its real numbered positions would be more confusing than useful — plus a small per-slide flag badge. 8 new backend unit tests + 4 new db tests + 3 new frontend tests.)*
+- [ ] A second-pass checker flags likely content errors (garbled OCR, formula mangling, summary contradicting slide text) on ≤ 15% of slides in a healthy deck; flagged slides show the reason in the editor. **Deferred — see rationale above.**
+- [x] Zero silent failures: any slide that skipped synthesis (vision failure, timeout) is visibly marked, never blank-but-published. *(This is what `_review_flag_for`'s `synthesis_failed` branch closes — regression-guarded by `test_parse_pdf_unified_marks_needs_review_on_synthesis_exception`, which asserts the previously-silent exception path now surfaces `needs_review=True, review_reason="synthesis_failed"` on both the SSE event and the persisted row.)*
 
 #### 5.2 Regenerate with feedback
-**Acceptance criteria**
-- [ ] Per slide, the professor can type a short instruction ("this is a proof sketch, focus on the steps") and regenerate title/summary/quiz honoring it; the instruction persists so later re-parses reuse it.
-- [ ] Regeneration replaces only the targeted artifact (summary vs quiz) and is undoable (previous version retained until save).
 
-#### 5.3 Lecture versioning (re-upload without losing history)
+> **Finding — two real, pre-existing production bugs in "Regenerate slide
+> content" (not caused by this pass, surfaced by writing its first-ever test
+> coverage):**
+> 1. `tutor_service.regenerate_slide`'s image-extraction closure imported
+>    `_render_page_to_jpeg` from `backend.services.file_parse_service` — a
+>    function that no longer exists there (removed during Phase 0's v3/v4
+>    retirement; this was its only remaining caller). Every single call to
+>    this endpoint has been throwing `ImportError` → a 502, silently, since
+>    that cleanup. **Fixed**: inlined the same PyMuPDF `get_pixmap`/`tobytes`
+>    approach `unified_orchestrator._render_page_jpeg` already uses.
+> 2. The frontend's `handleRegenerateContent` (`LectureView.tsx`) expected a
+>    `{slide: {title, content_text, summary}}` response shape, but the
+>    backend returned `{success, analysis: {metadata: {...}, content_extraction: {...}}}`
+>    — a completely different shape with no `slide` key at all, meaning even a
+>    successful call would have patched the UI with `undefined`s. **Fixed**:
+>    the service now also returns a normalized `slide` object matching what
+>    the frontend actually reads.
+> 3. Deeper still: `SlideViewer`'s `onRegenerateContent` prop was declared in
+>    its type and threaded in from `LectureView.tsx`, but **no button in the
+>    component ever called it** — the entire feature had no UI entry point.
+>    Between bugs #1–#3, "Regenerate slide content" has been completely dead
+>    end-to-end, in three independent ways, since before this pass.
+
 **Acceptance criteria**
-- [ ] Uploading a file to an *existing* lecture (professors update decks mid-semester) creates a new version: slides re-parsed, but student progress, quiz attempts, and chat history remain attached to the lecture.
+- [x] Per slide, the professor can type a short instruction ("this is a proof sketch, focus on the steps") and regenerate title/summary honoring it; the instruction persists so later re-parses reuse it. *(New `slides.regen_instruction` column; `POST /api/ai/slides/{id}/regenerate-content` accepts an optional `instruction` (omitting it reuses whatever was persisted from a prior call, so it doesn't need retyping); threaded into the vision prompt via `blueprint_context`. Re-parse survival: `persist.fetch_regen_instructions` reads every slide's instruction **before** `clear_lecture_content` deletes the rows on re-parse, and the orchestrator's per-slide loop re-injects each instruction into that slide's synthesis context and carries it forward onto the new row — regression-guarded by `test_parse_pdf_unified_reuses_persisted_regen_instruction_on_reparse`. New professor-facing UI: a collapsible "Regenerate content" panel on `SlideViewer` with an instruction textarea, closing bug #3 above. Quiz regeneration was intentionally NOT included — `regenerate_slide` only ever touched title/content/summary, not quizzes, even before this pass; extending it to also regenerate the quiz is a separate, un-scoped change to existing behavior this pass didn't make.)*
+- [x] Regeneration is undoable (previous version retained until save). *(Single-level undo, not full version history — deliberately, to avoid overlapping with 5.3's larger versioning question. New `slides.previous_version` JSONB snapshot taken immediately before each overwrite; `POST /api/ai/slides/{id}/undo-regenerate` restores it and clears the snapshot. `SlideViewer` shows an "Undo last regenerate" button only right after a regenerate on that same slide. 10 new backend unit tests (`test_tutor_service_regenerate.py`, using a fake fluent-postgrest client since this code path — talking to Supabase directly rather than through the asyncpg pool — had no existing test-mocking pattern to reuse) + 3 new db tests + 8 new frontend tests (`SlideViewer.test.tsx`).)*
+- [~] "Replaces only the targeted artifact (summary vs quiz)" — **not applicable as written**: `regenerate_slide` has never targeted title/summary vs quiz independently: one call regenerates title+content+summary together (and the quiz, if the vision call happens to return one) as a single atomic vision re-analysis. Splitting that into independently-targetable artifacts would be a real behavior change to how regeneration works, not a bug fix — left alone this pass.
+
+#### 5.3 Lecture versioning (re-upload without losing history) — **DEFERRED**
+
+> Decision 2026-07-12: this is the highest-risk item in Phase 5 and was
+> deliberately not attempted — it needs its own design session, not a
+> same-pass extension of 5.1/5.2. Survey findings:
+> - **Re-upload is currently destructive, not additive.** `unified_orchestrator.py`'s
+>   re-parse path (`if existing_lecture_id: ... clear_lecture_content(...)`)
+>   runs `DELETE FROM slides WHERE lecture_id = $1`, cascading via
+>   `ON DELETE CASCADE` to `quiz_questions` — exactly the rows a versioning
+>   feature must preserve for diffing and for "unchanged slides keep their
+>   ids." Building versioning on top of this means first replacing the
+>   delete-and-recreate flow with something additive, which is a bigger
+>   architectural change than the AC text implies.
+> - **No content-hash slide identity exists anywhere.** The codebase's only
+>   hashing today is whole-file (`lectures.pdf_hash`) and `review_cards`'
+>   own unrelated hash; there is no per-slide `content_hash` to match
+>   "unchanged" slides across a re-parse. This would need to be designed and
+>   built from scratch, and the matching heuristic (exact text match? fuzzy?
+>   position-aware?) is a real product decision, not an obvious default.
+> - **Wide FK blast radius.** At least 10 tables FK to `lectures.id`
+>   (`slides`, `student_progress`, `assignment_lectures`, `slide_chunks`,
+>   `tutor_messages`, `worksheets`, `concept_lectures`, `schedule_item_completions`,
+>   `practice_sheets`, `review_cards`, `lecture_visits`/recency tables), and
+>   `quiz_questions` FKs directly to `slides.id`. `concept_lectures.slide_indices`
+>   is a **positional `INT[]`, not an FK** — already silently stale after any
+>   re-parse that changes slide count/order, a pre-existing gap a versioning
+>   feature would need to reckon with. `slide_embeddings` is keyed by
+>   `pdf_hash` + index (decoupled from `slides.id`), so a new version — which
+>   necessarily changes `pdf_hash` — orphans old embeddings unless a
+>   migration path is deliberately designed.
+> - **Two architecturally distinct paths for whoever picks this up:** (a)
+>   replace `clear_lecture_content` with a real "new version" row (a
+>   `lecture_versions` table or a version column + soft-hide old slides,
+>   mirroring the `review_cards` soft-hide pattern from Phase 4.1) and build
+>   content-hash matching so unchanged slides keep their id/embeddings/
+>   quizzes; or (b) keep re-parse fully destructive but snapshot the
+>   *previous* lecture's full slide/quiz state into a JSONB archive before
+>   deleting, trading real diffing/restore fidelity for a much smaller,
+>   lower-risk implementation. Neither is a default to guess at solo — this
+>   is exactly the kind of judgment call that deserves its own scoping
+>   conversation, mirroring how Phase 2.2's DOCX/MD/TXT support and Phase
+>   4.2/4.3's real AI-generated worksheets/exam-bank were deferred rather
+>   than rushed.
+
+**Acceptance criteria** (unchanged from original, not attempted this pass)
+- [ ] Uploading a file to an *existing* lecture creates a new version: slides re-parsed, but student progress, quiz attempts, and chat history remain attached to the lecture.
 - [ ] A diff view shows added/removed/changed slides between versions; unchanged slides keep their ids (content-hash matching) so quizzes and embeddings on them survive untouched.
 - [ ] Embeddings and the concept graph are refreshed for changed slides only; the old version is retained (flag-not-delete) and restorable.
 
