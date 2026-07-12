@@ -47,20 +47,54 @@ Status: **DONE** (applied changes verified by full test suites)
 
 ## Phase 2 — Docker Optimization
 
-Status: recon done.
+Status: **DONE** — built and runtime-verified.
 
-Current state:
-- `Dockerfile` (backend): single-stage `python:3.11-slim`, non-root user, pip cache mount. Image: **1.10 GB** (`ascend-academy-api`).
-- `Dockerfile.frontend`: already multi-stage (`node:20-alpine` → `nginx:1.27-alpine`). Image: **86.3 MB** — already near-optimal.
-- `.dockerignore`: present and thorough.
-- Prod compose pins `platform: linux/amd64`; healthcheck uses `curl` inside the api container (must keep curl).
-
-Plan: multi-stage backend build (builder venv → slim runtime), drop `libpoppler-cpp-dev`
-(-dev header package not needed at runtime), verify with `docker build`.
-Note: Alpine is intentionally avoided for the Python image — musl breaks/bloats
-manylinux wheels (PyMuPDF, Pillow, asyncpg, tiktoken); distroless can't ship
-poppler-utils/curl. Slim multi-stage is the right slimming lever here.
+- **Backend image: 1.10 GB → 737 MB (−33%, ≈363 MB saved)**, tagged `fable5-optimized`.
+- New multi-stage `Dockerfile`: stage 1 installs deps into `/opt/venv`; stage 2 copies
+  only that venv onto a clean `python:3.11-slim`. Non-root `appuser` retained; redundant
+  `chown -R` layer removed.
+- Dropped apt packages `poppler-utils`, `libpoppler-cpp-dev`, `libgl1` — grep-verified
+  that no code path in the Docker requirement set uses them (leftovers from the retired
+  PaddleOCR/Docling-in-image era). `curl` kept — the prod compose healthcheck needs it.
+- **Why not Alpine/distroless** (evaluated per plan): musl breaks/bloats manylinux wheels
+  (PyMuPDF, Pillow, asyncpg, tiktoken would build from source); distroless can't ship
+  curl for healthchecks. Slim multi-stage is the correct slimming lever for this stack.
+- `.dockerignore` bug fixed: patterns like `venv`/`__pycache__` are root-relative in
+  Docker, so `backend/venv` and nested caches were being sent in the build context —
+  now `**/`-prefixed. Also added `coverage/`, `test-results/`, `e2e/`.
+- `Dockerfile.frontend` (86 MB, already multi-stage alpine→nginx) left as-is: near-optimal.
+- **Runtime verification**: container boots with a linked Redis; uvicorn workers start,
+  "Redis connection established", `GET /docs → 200` via in-container curl (the exact
+  prod healthcheck probe). Same default platform as before (prod compose still pins
+  `linux/amd64`; local builds native).
 
 ## Phase 3 — Documentation Refresh
 
-Status: not started.
+Status: **DONE**.
+
+- `README.md`: Python requirement corrected 3.13→3.11 (matches pyproject + image);
+  parser description fixed (PyMuPDF v5 default, Docling optional and not in Docker);
+  "Run with Docker" section expanded (multi-stage notes, REDIS_PASSWORD requirement,
+  prod compose usage, localhost-only port binding); env-var table extended with
+  `REDIS_PASSWORD`, `DATABASE_URL`, `LITELLM_MASTER_KEY`, `PARSER_VERSION`, CORS vars,
+  `NUDGE_RUN_SECRET`, Sentry DSNs + a warning never to put the service-role key on a
+  `VITE_` var; phantom `alembic` command replaced with the real Supabase-migrations flow.
+- `backend/README.md`: Python 3.13→3.11; requirements-dev/-docker guidance added;
+  `PARSER_VERSION` default corrected 3→5 (matches `backend/core/config.py:49`);
+  Alembic migration step removed (no Alembic exists); stale endpoint table
+  (`/api/upload-pdf`…) replaced with real `/api/v1/...` routes; monitoring SQL against
+  the dead `slide_chunks` table removed.
+- `SETUP_GUIDE.md`: fully rewritten — was a January snapshot referencing the *old*
+  Supabase project, a nonexistent `.venv/`, and "1 migration file" (there are 78).
+- `backend/requirements-docker.txt`: stale "PARSER_VERSION=2 (the default)" comment fixed.
+
+## Final numbers
+
+| Metric | Value |
+|---|---|
+| Dead code removed | ~880 lines (724 in 9 deleted files + ~100 unused imports/vars + ~55 dead constants) |
+| Security fixes | 3 applied (prod LiteLLM `--detailed_debug` off; `ws` high-sev DoS + 2 moderate via npm audit fix; coverage artifacts untracked) + 3 flagged (.env key hygiene / `VITE_GROQ_API_KEY` / happy-dom major bump) |
+| Docker image | 1.10 GB → **737 MB** (−33%) |
+| Backend tests | 586 passed / 0 failed (was 578/8 — 8 stale tests repaired) |
+| Frontend tests | 386 passed / 3 failed (3 are pre-existing breakage in WIP-rewritten pages, documented above) |
+| Docs updated | README.md, backend/README.md, SETUP_GUIDE.md, requirements-docker.txt, .dockerignore |

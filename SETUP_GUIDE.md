@@ -1,232 +1,98 @@
-# Learnstation - Setup Guide
+# Learnstation — Setup Guide
+
+> The canonical quickstart lives in [README.md](README.md) (“Run with Docker”).
+> This guide covers the manual/local path and project-specific details.
+> Last refreshed: 2026-07-11.
 
 ## Prerequisites
 
-### 1. Node.js Version (⚠️ ACTION REQUIRED)
-**Current:** v18.20.5  
-**Required:** v20.0.0 or higher
+| Tool | Version | Check |
+|------|---------|-------|
+| Node.js | ≥ 20.19 | `node --version` |
+| Python | ≥ 3.11 | `python3 --version` |
+| Docker + Compose | current | `docker compose version` |
 
-**Upgrade Node.js:**
+## Environment
+
 ```bash
-# Using Homebrew (macOS)
-brew install node@20
-
-# Or download from: https://nodejs.org/
-
-# Verify installation
-node --version  # Should be v20+
+cp .env.example .env
 ```
 
-### 2. Python 3.10+
-✅ Already configured: Python 3.13.1 with venv
+Fill in at minimum: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`,
+`SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`,
+and `REDIS_PASSWORD` (required by docker-compose). The full variable reference
+is in the README env table and in `.env.example` comments.
 
-### 3. Git
-```bash
-git --version
-```
+**Never commit `.env`** (it is gitignored) and never put server secrets in a
+`VITE_`-prefixed variable — anything `VITE_*` that gets imported is baked into
+the public JS bundle.
 
----
-
-## Installation Steps
-
-### Frontend Setup ✅ COMPLETE
-```bash
-cd /Users/abdullahabobaker/Desktop/ascend-academy
-
-# Install dependencies
-npm install
-
-# Verify all packages installed
-npm list --depth=0
-```
-
-**Status:** 506 packages installed
-
-### Backend Setup ✅ COMPLETE
-```bash
-cd /Users/abdullahabobaker/Desktop/ascend-academy
-
-# Python virtual environment already created at: .venv/
-# Verify Python packages installed
-.venv/bin/pip list
-```
-
-**Status:** 47 packages installed (FastAPI, Uvicorn, Supabase, SQLModel, etc.)
-
-### Environment Variables Setup ✅ COMPLETE
-
-**Frontend (.env):**
-```
-VITE_SUPABASE_PROJECT_ID="obwkbypcsczangyqehvb"
-VITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-VITE_SUPABASE_URL="https://obwkbypcsczangyqehvb.supabase.co"
-```
-
-**Backend (.env):** Create if needed in `backend/` folder with:
-```
-SUPABASE_URL=https://obwkbypcsczangyqehvb.supabase.co
-SUPABASE_KEY=your_supabase_anon_key
-DATABASE_URL=postgresql://user:password@host/database
-```
-
----
-
-## Database Setup
-
-### Supabase Migrations
-Database schema is defined in: `supabase/migrations/20260122202809_96f90a74-9fe4-4443-9d9b-5e3fa7db68d0.sql`
-
-Tables created:
-- `user_roles` - Store user roles (student/professor)
-- `profiles` - User profile data and XP
-- `lectures` - Course lectures
-- `slides` - Lecture slides
-- `quiz_questions` - Auto-generated quiz questions
-- `learning_events` - Analytics tracking
-- `student_progress` - Student progress tracking
-- `achievements` - Achievement system
-- And more...
-
-**To apply migrations:**
-1. Go to Supabase dashboard: https://app.supabase.com
-2. Select your project
-3. Go to SQL Editor → New Query
-4. Copy & paste contents of migration file
-5. Click "Run"
-
----
-
-## Running the Project
-
-### Option 1: Frontend Only (React Dev Server)
-```bash
-cd /Users/abdullahabobaker/Desktop/ascend-academy
-npm run dev
-```
-- Frontend: http://localhost:8080
-- Network: http://192.168.0.79:8080
-
-### Option 2: Backend Only (FastAPI Server)
-```bash
-cd /Users/abdullahabobaker/Desktop/ascend-academy
-.venv/bin/uvicorn backend.main:app --reload
-```
-- API: http://localhost:8000
-- Interactive Docs: http://localhost:8000/docs
-
-### Option 3: Full Stack (Frontend + Backend)
-
-**Terminal 1 - Frontend:**
-```bash
-cd /Users/abdullahabobaker/Desktop/ascend-academy
-npm run dev
-```
-
-**Terminal 2 - Backend:**
-```bash
-cd /Users/abdullahabobaker/Desktop/ascend-academy
-.venv/bin/uvicorn backend.main:app --reload
-```
-
----
-
-## Troubleshooting
-
-### Issue: `net::ERR_NAME_NOT_RESOLVED` when signing up
-**Cause:** Cannot reach Supabase servers (network/internet issue)
-**Solution:**
-1. Check internet connection
-2. Try accessing https://obwkbypcsczangyqehvb.supabase.co in browser
-3. Check if firewall/VPN is blocking
-4. If offline, use mock authentication (see below)
-
-### Issue: Module not found errors
-```bash
-# Clear cache and reinstall
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### Issue: Python module not found
-```bash
-# Ensure using correct Python path
-.venv/bin/pip install -r backend/requirements.txt
-```
-
----
-
-## Project Structure
-
-```
-ascend-academy/
-├── src/                    # React frontend
-│   ├── pages/             # Page components
-│   ├── components/        # Reusable components
-│   ├── lib/               # Utilities (auth, etc)
-│   └── integrations/      # Supabase client
-├── backend/               # FastAPI backend
-│   ├── main.py           # Main app
-│   └── requirements.txt   # Python dependencies
-├── supabase/             # Database migrations
-├── public/               # Static assets
-├── package.json          # npm dependencies
-└── .env                  # Environment variables
-```
-
----
-
-## Available Scripts
+## Install
 
 ```bash
 # Frontend
-npm run dev          # Start dev server
-npm run build        # Build for production
-npm run preview      # Preview production build
-npm run lint         # Run ESLint
-npm test             # Run tests
-npm test:watch       # Run tests in watch mode
+npm install
 
-# Backend
-.venv/bin/uvicorn backend.main:app --reload
+# Backend (full local set, includes optional parser extras)
+python3 -m venv venv
+source venv/bin/activate
+pip install -r backend/requirements.txt
+# For running tests:
+pip install -r backend/requirements-dev.txt
 ```
 
----
+## Database
 
-## Tech Stack
+Schema is managed as plain SQL migrations in `supabase/migrations/` (70+
+files). Apply them with the Supabase CLI (`supabase db push`) or by running
+them in the dashboard SQL editor in filename order. There is no Alembic.
 
-**Frontend:**
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
-- Shadcn/ui
-- Supabase Auth
-- Framer Motion (animations)
-- Recharts (charts)
-- React Router
+## Run
 
-**Backend:**
-- Python 3.13
-- FastAPI
-- SQLModel
-- Supabase
-- Uvicorn
+**Everything in Docker** (frontend + api + worker + redis + litellm):
 
-**Database:**
-- PostgreSQL (via Supabase)
+```bash
+docker compose up --build
+# Frontend http://localhost:3000 · API http://localhost:8000
+```
 
----
+**Hybrid (recommended for development)** — infrastructure in Docker, app local:
 
-## Next Steps
+```bash
+docker compose up redis litellm -d
 
-1. ✅ Upgrade Node.js to v20+
-2. ✅ Verify all dependencies are installed
-3. Apply database migrations to Supabase
-4. Start the development servers
-5. Test authentication (once internet is available)
+# Terminal 1 — API
+uvicorn backend.main:app --reload            # http://localhost:8000 (docs at /docs)
 
----
+# Terminal 2 — Arq worker (async PDF processing)
+python -m arq backend.workers.arq_worker.WorkerSettings
 
-For issues or questions, check the respective README files:
-- Frontend: See `src/` comments
-- Backend: See `backend/README.md`
+# Terminal 3 — Frontend
+npm run dev                                   # http://localhost:5173
+```
+
+There is also `./dev.sh`, which starts the hybrid stack in one command.
+
+## Tests
+
+```bash
+npm run test                 # frontend (vitest)
+pytest backend/tests/unit    # backend unit tests
+pytest -m db backend/tests   # DB/RLS tests (needs Docker for testcontainers)
+```
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Compose exits: `set REDIS_PASSWORD in .env` | Add `REDIS_PASSWORD=<anything strong>` to `.env` |
+| Port 8000 in use | `lsof -i :8000`, kill it, or `--port 8001` |
+| Redis connection refused | `docker compose up redis -d` |
+| LiteLLM 404 errors | `docker compose up litellm -d` (first boot takes ~1–2 min) |
+| Supabase auth errors | Verify `SUPABASE_SERVICE_ROLE_KEY` is the service_role key |
+| ESLint crashes with `structuredClone is not defined` | Your shell is on Node < 17 — switch to Node 20+ (`nvm use 20`) |
+| Parser v3/v4 fails inside Docker | Expected — the image ships the lean requirement set; use `PARSER_VERSION=5` (default) or `2` |
+
+More detail: [backend/README.md](backend/README.md) ·
+[PRODUCTION_INFRA_GUIDE.md](PRODUCTION_INFRA_GUIDE.md) ·
+[project_docs/](project_docs/)
