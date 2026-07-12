@@ -63,6 +63,7 @@ import { MultiFileDropzone } from '@/components/upload/MultiFileDropzone';
 import { UploadQueuePanel } from '@/components/upload/UploadQueuePanel';
 import { ProfessorRoutes } from '@/lib/routes';
 import { apiClient } from '@/lib/apiClient';
+import { FEATURES } from '@/lib/featureFlags';
 import {
   getSlideStatus,
   getCompletionPercent,
@@ -1939,7 +1940,7 @@ export default function LectureUpload() {
                 )}
 
                 {/* Review cards (spaced-repetition "Daily Ascent") */}
-                {editLectureId && (
+                {editLectureId && FEATURES.reviewEngine && (
                   <div className="bg-card rounded-2xl border border-border p-6">
                     <h2 className="text-lg font-semibold text-foreground mb-1">Review Cards</h2>
                     <p className="text-xs text-muted-foreground mb-5">

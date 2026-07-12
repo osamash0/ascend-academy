@@ -235,7 +235,13 @@ async def get_stats(request: Request, user: Any = Depends(require_student)):
 
     async with await get_db_connection() as conn:
         due_today = await conn.fetchval(
-            "SELECT COUNT(*) FROM review_schedule WHERE user_id = $1 AND NOT suspended AND due_at <= $2",
+            """
+            SELECT COUNT(*)
+            FROM review_schedule rs
+            JOIN review_cards rc ON rc.id = rs.card_id
+            WHERE rs.user_id = $1 AND NOT rs.suspended AND rs.due_at <= $2
+              AND rc.hidden_at IS NULL
+            """,
             user_id, end_of_today,
         )
         window_rows = await conn.fetch(

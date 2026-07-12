@@ -10,6 +10,7 @@ ships without definitions, not that generation fails outright.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -43,7 +44,7 @@ async def _fetch_merged_concepts(conn, course_id: UUID) -> List[str]:
         FROM concept_lectures cl
         JOIN concepts c ON c.id = cl.concept_id
         JOIN lectures l ON l.id = cl.lecture_id
-        WHERE l.course_id = $1
+        WHERE l.course_id = $1 AND l.is_archived = false
         ORDER BY c.canonical_name
         LIMIT $2
         """,
@@ -82,6 +83,10 @@ async def get_or_generate_study_guide(
     generated. Idempotent: an unchanged lecture set returns the cached
     content — no re-running the LLM call, no duplicated sections.
     """
+    # Only the fetches below need the connection; the LLM call and
+    # get_course_context (which opens its own connection) run after it's
+    # released so a single request never pins two pooled connections at once
+    # or holds one idle across a network round-trip.
     async with await get_db_connection() as conn:
         synopses = await _fetch_lecture_synopses(conn, course_id)
         lecture_count = len(synopses)
@@ -96,19 +101,22 @@ async def get_or_generate_study_guide(
                 return json.loads(content) if isinstance(content, str) else content
 
         concepts = await _fetch_merged_concepts(conn, course_id)
-        definitions = await _define_concepts(concepts, ai_model)
-        course_context = await get_course_context(course_id)
 
-        content: Dict[str, Any] = {
-            "lectures": synopses,
-            "concepts": [{"name": c, "definition": definitions.get(c, "")} for c in concepts],
-            "course_facts": {
-                "instructor": course_context.get("instructor") if course_context else None,
-                "exam_dates": course_context.get("exam_dates") if course_context else [],
-                "grading_scheme": course_context.get("grading_scheme") if course_context else None,
-            },
-        }
+    definitions, course_context = await asyncio.gather(
+        _define_concepts(concepts, ai_model), get_course_context(course_id)
+    )
 
+    content: Dict[str, Any] = {
+        "lectures": synopses,
+        "concepts": [{"name": c, "definition": definitions.get(c, "")} for c in concepts],
+        "course_facts": {
+            "instructor": course_context.get("instructor") if course_context else None,
+            "exam_dates": course_context.get("exam_dates") if course_context else [],
+            "grading_scheme": course_context.get("grading_scheme") if course_context else None,
+        },
+    }
+
+    async with await get_db_connection() as conn:
         await conn.execute(
             """
             INSERT INTO study_guides (course_id, content, source_lecture_count, generated_at)
@@ -120,4 +128,4 @@ async def get_or_generate_study_guide(
             """,
             course_id, json.dumps(content), lecture_count,
         )
-        return content
+    return content
