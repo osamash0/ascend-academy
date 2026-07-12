@@ -11,14 +11,16 @@ import { useNavigate } from "react-router-dom";
 import { StudentRoutes } from "@/lib/routes";
 import { Avatar } from "./atoms";
 import { useFriendRequests, useFriends, useFriendSuggestions } from "../hooks";
+import { useSocial } from "../store";
 
 export function DashboardFriendsWidget() {
   const navigate = useNavigate();
   const { data: friends = [] } = useFriends();
   const { data: requests = [] } = useFriendRequests();
+  const { onlineUserIds } = useSocial();
 
   const incoming = requests.filter((r) => r.direction === "incoming").length;
-  const online = friends.filter((f) => f.online);
+  const online = friends.filter((f) => onlineUserIds.has(f.id) || f.online);
   const show = online.length ? online : friends;
   const stack = show.slice(0, 3);
   const hasAny = friends.length > 0 || incoming > 0;

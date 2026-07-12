@@ -1,9 +1,10 @@
 /** Reusable profile sections (dark theme), backed by live data. */
-import { BookOpen, Lock, Users } from "lucide-react";
+import { BookOpen, Lock, Users, HandMetal } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { StudentRoutes } from "@/lib/routes";
 import type { CourseChip, SocialUser } from "../data";
+import { useSocial } from "../store";
 import { Avatar, OnlineDot, Panel, SectionHeading, StatTile, StreakValue } from "./atoms";
 
 export function StatCards({ user, friendsCount }: { user: SocialUser; friendsCount: number }) {
@@ -18,15 +19,26 @@ export function StatCards({ user, friendsCount }: { user: SocialUser; friendsCou
 }
 
 export function PresenceCard({ user }: { user: SocialUser }) {
+  const { onlineUserIds, sendNudge } = useSocial();
+  const isOnline = onlineUserIds.has(user.id) || user.online;
+
   return (
-    <Panel className="flex items-center gap-3">
-      <OnlineDot online={user.online} pulse={user.online} />
-      <div>
-        <div className="text-sm font-bold text-foreground">{user.online ? "Active today" : "Offline"}</div>
+    <Panel className="flex items-center gap-4">
+      <OnlineDot online={isOnline} pulse={isOnline} />
+      <div className="flex-1">
+        <div className="text-sm font-bold text-foreground">{isOnline ? "Active today" : "Offline"}</div>
         <div className="text-xs text-muted-foreground">
-          {user.online ? `Earned +${user.weeklyXp} XP this week` : "No activity in the last 24h"}
+          {isOnline ? `Earned +${user.weeklyXp} XP this week` : "No activity in the last 24h"}
         </div>
       </div>
+      {isOnline && (
+        <button
+          onClick={() => sendNudge(user.id, user.name)}
+          className="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-primary/10 px-3 text-sm font-bold text-primary transition-colors hover:bg-primary/20"
+        >
+          <HandMetal className="h-4 w-4" /> Nudge
+        </button>
+      )}
     </Panel>
   );
 }

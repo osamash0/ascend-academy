@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { StudentRoutes } from "@/lib/routes";
 import { useFriendRequests, useFriends } from "../hooks";
 import { Avatar, OnlineDot, Panel, SectionHeading } from "../components/atoms";
+import { LiveActivityFeed } from "../components/LiveActivityFeed";
 
 export default function FriendsHub() {
   const { data: friends = [], isLoading } = useFriends();
@@ -96,13 +97,16 @@ export default function FriendsHub() {
             </div>
 
             <div>
-              <SectionHeading
-                right={
-                  <Link to={StudentRoutes.FRIENDS_REQUESTS} className="flex items-center gap-1 text-sm text-primary">
-                    View all <ChevronRight className="h-3.5 w-3.5" />
-                  </Link>
-                }
-              >
+              <LiveActivityFeed />
+              
+              <div className="mt-5">
+                <SectionHeading
+                  right={
+                    <Link to={StudentRoutes.FRIENDS_REQUESTS} className="flex items-center gap-1 text-sm text-primary">
+                      View all <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                  }
+                >
                 Requests
               </SectionHeading>
               <Panel className="!p-2">
@@ -120,6 +124,7 @@ export default function FriendsHub() {
                   ))
                 )}
               </Panel>
+              </div>
             </div>
           </div>
         </>
