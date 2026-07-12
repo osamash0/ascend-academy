@@ -26,6 +26,8 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
   const root = new Container();
   const stops: { x: number; y: number; data: JourneyNode }[] = [];
   
+  let hasPanned = false;
+
   // Basic winding path logic (scaled up version of onboarding)
   const spacingY = 150;
   let currentY = 50;
@@ -50,7 +52,9 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
     nodeContainer.eventMode = 'static';
     nodeContainer.cursor = 'pointer';
     nodeContainer.on('pointertap', () => {
-      opts.onNodeSelect?.(node);
+      if (!hasPanned) {
+        opts.onNodeSelect?.(node);
+      }
     });
 
     const label = new Text({ text: node.label, style: { fill: opts.theme.text, fontSize: 14 } });
@@ -70,8 +74,6 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
   let containerStart = { x: 0, y: 0 };
 
   root.eventMode = 'static';
-  const paddingY = 2000;
-  const hitAreaHeight = 10000 + (opts.nodes.length * spacingY) + paddingY;
   root.hitArea = new Rectangle(-10000000, -10000000, 20000000, 20000000);
   
   root.on('pointerdown', (e) => {
@@ -79,6 +81,7 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
     activePointerId = e.pointerId;
     dragStart = { x: e.global.x, y: e.global.y };
     containerStart = { x: root.x, y: root.y };
+    hasPanned = false;
   });
 
   const onDragEnd = (e: any) => { 
@@ -94,13 +97,18 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
     if (activePointerId === e.pointerId) {
       const dx = e.global.x - dragStart.x;
       const dy = e.global.y - dragStart.y;
+      
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasPanned = true;
+      }
+
       root.x = containerStart.x + dx;
       root.y = containerStart.y + dy;
 
-      const maxX = app.screen.width;
-      const maxY = app.screen.height;
-      const minX = -app.screen.width;
-      const minY = -Math.max(0, (opts.nodes.length * spacingY) - maxY + 500);
+      const maxX = 100;
+      const maxY = 50;
+      const minX = -100;
+      const minY = -Math.max(0, (opts.nodes.length * spacingY) - app.screen.height + 500);
 
       root.x = Math.max(minX, Math.min(maxX, root.x));
       root.y = Math.max(minY, Math.min(maxY, root.y));
