@@ -115,12 +115,10 @@ export function MockExamTake() {
     
     // Calculate elapsed based on started_at to be resilient to reloads
     const started = new Date(exam.started_at).getTime();
-    
-    const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const diffS = Math.floor((now - started) / 1000);
-      setElapsedSeconds(diffS);
-    }, 1000);
+    const tick = () => setElapsedSeconds(Math.floor((Date.now() - started) / 1000));
+
+    tick();
+    const interval = setInterval(tick, 1000);
     
     return () => clearInterval(interval);
   }, [exam]);
