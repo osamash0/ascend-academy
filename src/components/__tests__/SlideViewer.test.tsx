@@ -51,7 +51,7 @@ describe("SlideViewer — regenerate with feedback (Roadmap 5.2)", () => {
     expect(onRegenerateContent).toHaveBeenCalledWith("Focus on the proof steps.");
   });
 
-  it("submits undefined when the instruction is left blank", async () => {
+  it("submits an empty string when the instruction is left blank, so the backend can tell 'clear it' apart from 'reuse the last one'", async () => {
     const onRegenerateContent = vi.fn();
     renderViewer({ isProfessor: true, onRegenerateContent });
 
@@ -59,7 +59,20 @@ describe("SlideViewer — regenerate with feedback (Roadmap 5.2)", () => {
     await user.click(screen.getByTestId("regenerate-content-toggle"));
     await user.click(screen.getByTestId("regenerate-content-submit"));
 
-    expect(onRegenerateContent).toHaveBeenCalledWith(undefined);
+    expect(onRegenerateContent).toHaveBeenCalledWith("");
+  });
+
+  it("submits an empty string when a previously-set instruction is cleared, so it doesn't silently keep reapplying", async () => {
+    const onRegenerateContent = vi.fn();
+    renderViewer({ isProfessor: true, onRegenerateContent, regenInstruction: "Old instruction." });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("regenerate-content-toggle"));
+    const input = screen.getByTestId("regenerate-instruction-input");
+    await user.clear(input);
+    await user.click(screen.getByTestId("regenerate-content-submit"));
+
+    expect(onRegenerateContent).toHaveBeenCalledWith("");
   });
 
   it("prefills the instruction input from a persisted regenInstruction", async () => {

@@ -183,7 +183,7 @@ async def regenerate_slide(
 
     res = client.table("slides").select(
         "slide_number, lecture_id, title, content_text, summary, regen_instruction, "
-        "lectures(pdf_url, professor_id)"
+        "needs_review, review_reason, lectures(pdf_url, professor_id)"
     ).eq("id", slide_id).maybe_single().execute()
     if not res or not res.data:
         raise FileNotFoundError("Slide not found.")
@@ -196,10 +196,15 @@ async def regenerate_slide(
     _validate_supabase_storage_url(pdf_url)
 
     slide_num: int = res.data["slide_number"]
-    # Roadmap Phase 5.2 ("regenerate with feedback"): an instruction passed on
-    # this call always overrides; omitting it reuses whatever the professor
-    # set on a previous regenerate, so it doesn't need retyping every time.
-    effective_instruction = (instruction or "").strip() or (res.data.get("regen_instruction") or "").strip()
+    # Roadmap Phase 5.2 ("regenerate with feedback"): omitting `instruction`
+    # (None) reuses whatever the professor set on a previous regenerate, so it
+    # doesn't need retyping every time. Passing "" explicitly clears it — the
+    # two must stay distinguishable, so this can't collapse to a single
+    # `or` chain (both are falsy).
+    if instruction is None:
+        effective_instruction = (res.data.get("regen_instruction") or "").strip()
+    else:
+        effective_instruction = instruction.strip()
     blueprint_context = (
         f"The professor gave this instruction for regenerating this slide — honor it: {effective_instruction}"
         if effective_instruction else ""
@@ -263,11 +268,22 @@ async def regenerate_slide(
         "content_text": res.data.get("content_text"),
         "summary": res.data.get("summary"),
         "regen_instruction": res.data.get("regen_instruction"),
+        "needs_review": res.data.get("needs_review"),
+        "review_reason": res.data.get("review_reason"),
         "quiz": existing_quiz_rows,
     }
 
     new_title = analysis.get("metadata", {}).get("lecture_title") or f"Slide {slide_num}"
     new_summary = analysis.get("content_extraction", {}).get("summary", "")
+
+    # Phase 5.1's needs_review/review_reason were only ever written at parse
+    # time — a professor fixing a flagged slide here had no way to clear it.
+    # Recompute with the same heuristic against the fresh content so a
+    # successful regenerate can actually resolve the flag.
+    from backend.services.parser.unified_orchestrator import _review_flag_for
+    needs_review, review_reason = _review_flag_for(
+        synthesis_failed=False, vision_routed=False, raw_title=new_title, raw_summary=new_summary
+    )
 
     client.table("slides").update({
         "title": new_title,
@@ -275,6 +291,8 @@ async def regenerate_slide(
         "summary": new_summary,
         "regen_instruction": effective_instruction or None,
         "previous_version": previous_version,
+        "needs_review": needs_review,
+        "review_reason": review_reason,
     }).eq("id", slide_id).execute()
 
     quiz = analysis.get("quiz")
@@ -300,6 +318,8 @@ async def regenerate_slide(
         "content_text": content,
         "summary": new_summary,
         "regen_instruction": effective_instruction or None,
+        "needs_review": needs_review,
+        "review_reason": review_reason,
     }
     return analysis
 
@@ -332,6 +352,8 @@ async def undo_regenerate_slide(slide_id: str, user_id: str, creds_token: str) -
         "content_text": prev.get("content_text"),
         "summary": prev.get("summary"),
         "regen_instruction": prev.get("regen_instruction"),
+        "needs_review": prev.get("needs_review", False),
+        "review_reason": prev.get("review_reason"),
         "previous_version": None,
     }
     client.table("slides").update(update).eq("id", slide_id).execute()

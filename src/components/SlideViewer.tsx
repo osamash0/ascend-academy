@@ -369,7 +369,7 @@ export function SlideViewer({
                       </button>
                     )}
                     <button
-                      onClick={() => onRegenerateContent(instructionDraft.trim() || undefined)}
+                      onClick={() => onRegenerateContent(instructionDraft.trim())}
                       disabled={isRegeneratingContent}
                       data-testid="regenerate-content-submit"
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-primary text-[11px] font-bold transition-colors disabled:opacity-50"

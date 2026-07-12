@@ -122,6 +122,8 @@ def _slide_row(**overrides):
         "summary": "Old summary",
         "regen_instruction": None,
         "previous_version": None,
+        "needs_review": False,
+        "review_reason": None,
         "lectures": {"pdf_url": "https://x.supabase.co/storage/v1/object/lecture-pdfs/x.pdf", "professor_id": PROF_ID},
     }
     row.update(overrides)
@@ -177,6 +179,8 @@ async def test_regenerate_persists_new_instruction(monkeypatch):
         "content_text": "## New Topic",
         "summary": "New summary",
         "regen_instruction": "Focus on the proof steps.",
+        "needs_review": False,
+        "review_reason": None,
     }
 
 
@@ -190,6 +194,22 @@ async def test_regenerate_reuses_persisted_instruction_when_omitted(monkeypatch)
 
     assert result["regen_instruction"] == "Keep it brief."
     assert "Keep it brief." in ctx["blueprint_context"]
+
+
+async def test_regenerate_explicit_empty_instruction_clears_persisted_one(monkeypatch):
+    """instruction=None means "reuse whatever's persisted"; instruction=""
+    (explicitly passed, not omitted) means "clear it" — the two must stay
+    distinguishable since both are falsy strings."""
+    rows = {"slide-1": _slide_row(regen_instruction="Old instruction.")}
+    client = _FakeClient(rows)
+    monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
+    ctx = _patch_regenerate_internals(monkeypatch)
+
+    result = await tutor_service.regenerate_slide("slide-1", PROF_ID, "openai", "tok", instruction="")
+
+    assert result["regen_instruction"] is None
+    assert rows["slide-1"]["regen_instruction"] is None
+    assert ctx["blueprint_context"] == ""
 
 
 async def test_regenerate_new_instruction_overrides_persisted_one(monkeypatch):
@@ -218,6 +238,8 @@ async def test_regenerate_snapshots_previous_version_before_overwriting(monkeypa
         "content_text": "Old body",
         "summary": "Old summary",
         "regen_instruction": "Old instruction.",
+        "needs_review": False,
+        "review_reason": None,
         "quiz": [],
     }
     # And the row was actually overwritten with the new content.
@@ -243,6 +265,50 @@ async def test_regenerate_snapshots_existing_quiz_before_replacing_it(monkeypatc
     ]
     # The new quiz replaced the old one in the live table.
     assert quiz_by_slide["slide-1"][0]["question_text"] == "New Q?"
+
+
+async def test_regenerate_clears_needs_review_when_fresh_content_is_healthy(monkeypatch):
+    """A manual regenerate is the professor's way of fixing a flagged slide —
+    needs_review must be recomputed against the fresh content, not left
+    stuck at whatever the original parse-time value was."""
+    rows = {"slide-1": _slide_row(needs_review=True, review_reason="empty_content")}
+    client = _FakeClient(rows)
+    monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
+    _patch_regenerate_internals(monkeypatch)  # fake vision returns a real title + summary
+
+    await tutor_service.regenerate_slide("slide-1", PROF_ID, "openai", "tok")
+
+    assert rows["slide-1"]["needs_review"] is False
+    assert rows["slide-1"]["review_reason"] is None
+
+
+async def test_regenerate_flags_needs_review_when_fresh_content_is_still_empty(monkeypatch):
+    rows = {"slide-1": _slide_row(needs_review=False, review_reason=None)}
+    client = _FakeClient(rows)
+    monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
+
+    monkeypatch.setattr(tutor_service, "_validate_supabase_storage_url", lambda *_a, **_k: None)
+
+    async def fake_to_thread(fn, *args, **kwargs):
+        name = getattr(fn, "__name__", "")
+        if name == "_download":
+            return b"%PDF-fake"
+        if name == "_extract":
+            return b"jpegbytes", "raw text from page"
+        return fn(*args, **kwargs)
+
+    monkeypatch.setattr(tutor_service.asyncio, "to_thread", fake_to_thread)
+
+    async def fake_vision_empty(b64, raw_text, ai_model="groq", blueprint_context=""):
+        return {"metadata": {}, "content_extraction": {}, "quiz": None}
+
+    monkeypatch.setattr(tutor_service, "analyze_slide_vision", fake_vision_empty)
+    monkeypatch.setattr(tutor_service.analytics_cache, "invalidate_course_overview_for_lecture", lambda *_a, **_k: None)
+
+    await tutor_service.regenerate_slide("slide-1", PROF_ID, "openai", "tok")
+
+    assert rows["slide-1"]["needs_review"] is True
+    assert rows["slide-1"]["review_reason"] == "empty_content"
 
 
 async def test_regenerate_rejects_non_owner(monkeypatch):
@@ -308,6 +374,28 @@ async def test_undo_restores_the_instruction_that_was_active_before_the_regenera
 
     assert result["regen_instruction"] is None
     assert rows["slide-1"]["regen_instruction"] is None
+
+
+async def test_undo_restores_needs_review_from_before_the_regenerate(monkeypatch):
+    """A slide was flagged needs_review before an unrelated regenerate; undo
+    must bring that flag back, not leave it at whatever the regenerate
+    (correctly) recomputed it to."""
+    rows = {
+        "slide-1": _regenerated_slide_row(
+            needs_review=False, review_reason=None,
+            previous_version={
+                "title": "Old Title", "content_text": "Old body", "summary": "Old summary",
+                "regen_instruction": None, "needs_review": True, "review_reason": "empty_content", "quiz": [],
+            },
+        )
+    }
+    client = _FakeClient(rows)
+    monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
+
+    await tutor_service.undo_regenerate_slide("slide-1", PROF_ID, "tok")
+
+    assert rows["slide-1"]["needs_review"] is True
+    assert rows["slide-1"]["review_reason"] == "empty_content"
 
 
 async def test_undo_restores_the_quiz_that_existed_before_the_regenerate(monkeypatch):
