@@ -115,6 +115,5 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
     }
   });
 
-  app.stage.addChild(root);
   return { root, stops, update: () => {} };
 }
