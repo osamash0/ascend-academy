@@ -508,6 +508,15 @@ export default function LectureUpload() {
   // would be more confusing than useful here.
   const needsReviewCount = slides.filter(s => s.needs_review).length;
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
+  // The toggle button (the only way to turn the filter off) only renders
+  // when needsReviewCount > 0 — if the last flagged slide is resolved/removed
+  // while the filter is active, auto-clear it so the professor isn't stuck
+  // looking at an empty list with no visible control to escape it.
+  useEffect(() => {
+    if (needsReviewCount === 0 && showOnlyFlagged) {
+      setShowOnlyFlagged(false);
+    }
+  }, [needsReviewCount, showOnlyFlagged]);
 
   const enhanceOneSlide = useCallback(async (index: number): Promise<boolean> => {
     const slide = slides[index];

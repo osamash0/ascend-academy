@@ -1,6 +1,7 @@
 """Unit tests for Roadmap Phase 5.2 ("regenerate with feedback"):
 tutor_service.regenerate_slide's instruction persistence/reuse and the new
-undo_regenerate_slide single-level undo.
+undo_regenerate_slide single-level undo (including quiz + instruction
+restoration, not just title/content/summary).
 
 regenerate_slide talks to Supabase via a fluent postgrest-style client
 (client.table(...).select(...).eq(...).maybe_single().execute()), plus a real
@@ -22,9 +23,10 @@ class _FakeResult:
         self.data = data
 
 
-class _FakeQuery:
-    def __init__(self, table_name, rows_by_id, updates):
-        self._table = table_name
+class _FakeSlidesQuery:
+    """Fakes client.table("slides") — keyed by the `id` column."""
+
+    def __init__(self, rows_by_id, updates):
         self._rows_by_id = rows_by_id
         self._updates = updates
         self._filter_id = None
@@ -45,15 +47,9 @@ class _FakeQuery:
         self._update_payload = payload
         return self
 
-    def delete(self):
-        return self
-
-    def insert(self, _payload):
-        return self
-
     def execute(self):
         if self._update_payload is not None:
-            self._updates.append((self._table, self._filter_id, dict(self._update_payload)))
+            self._updates.append(("slides", self._filter_id, dict(self._update_payload)))
             row = self._rows_by_id.get(self._filter_id)
             if row is not None:
                 row.update(self._update_payload)
@@ -61,14 +57,56 @@ class _FakeQuery:
         return _FakeResult(self._rows_by_id.get(self._filter_id))
 
 
+class _FakeQuizQuery:
+    """Fakes client.table("quiz_questions") — keyed by the `slide_id` column,
+    since regenerate_slide/undo_regenerate_slide never filter by `id` here."""
+
+    def __init__(self, quiz_by_slide):
+        self._quiz_by_slide = quiz_by_slide
+        self._slide_id = None
+        self._mode = None
+        self._insert_payload = None
+
+    def select(self, *_a, **_k):
+        self._mode = "select"
+        return self
+
+    def eq(self, col, val):
+        if col == "slide_id":
+            self._slide_id = val
+        return self
+
+    def delete(self):
+        self._mode = "delete"
+        return self
+
+    def insert(self, payload):
+        self._mode = "insert"
+        self._insert_payload = payload
+        self._slide_id = payload.get("slide_id")
+        return self
+
+    def execute(self):
+        if self._mode == "delete":
+            self._quiz_by_slide[self._slide_id] = []
+            return _FakeResult(None)
+        if self._mode == "insert":
+            self._quiz_by_slide.setdefault(self._slide_id, []).append(dict(self._insert_payload))
+            return _FakeResult(None)
+        return _FakeResult(list(self._quiz_by_slide.get(self._slide_id, [])))
+
+
 class _FakeClient:
-    def __init__(self, rows_by_id):
+    def __init__(self, rows_by_id, quiz_by_slide=None):
         self._rows_by_id = rows_by_id
+        self._quiz_by_slide = quiz_by_slide if quiz_by_slide is not None else {}
         self.updates = []
         self.postgrest = types.SimpleNamespace(auth=lambda _token: None)
 
     def table(self, name):
-        return _FakeQuery(name, self._rows_by_id, self.updates)
+        if name == "quiz_questions":
+            return _FakeQuizQuery(self._quiz_by_slide)
+        return _FakeSlidesQuery(self._rows_by_id, self.updates)
 
 
 PROF_ID = "prof-1"
@@ -168,20 +206,43 @@ async def test_regenerate_new_instruction_overrides_persisted_one(monkeypatch):
 
 
 async def test_regenerate_snapshots_previous_version_before_overwriting(monkeypatch):
-    rows = {"slide-1": _slide_row(title="Old Title", content_text="Old body", summary="Old summary")}
+    rows = {"slide-1": _slide_row(title="Old Title", content_text="Old body", summary="Old summary", regen_instruction="Old instruction.")}
     client = _FakeClient(rows)
     monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
     _patch_regenerate_internals(monkeypatch)
 
-    await tutor_service.regenerate_slide("slide-1", PROF_ID, "openai", "tok")
+    await tutor_service.regenerate_slide("slide-1", PROF_ID, "openai", "tok", instruction="New instruction.")
 
     assert rows["slide-1"]["previous_version"] == {
         "title": "Old Title",
         "content_text": "Old body",
         "summary": "Old summary",
+        "regen_instruction": "Old instruction.",
+        "quiz": [],
     }
     # And the row was actually overwritten with the new content.
     assert rows["slide-1"]["title"] == "New Title"
+
+
+async def test_regenerate_snapshots_existing_quiz_before_replacing_it(monkeypatch):
+    """A slide already has a quiz question when it's regenerated; the OLD
+    quiz must be captured in previous_version before it's deleted, so undo
+    can bring it back — not just the title/content/summary."""
+    rows = {"slide-1": _slide_row()}
+    quiz_by_slide = {
+        "slide-1": [{"question_text": "Old Q?", "options": ["a", "b"], "correct_answer": 0, "metadata": {"concept": "X"}}]
+    }
+    client = _FakeClient(rows, quiz_by_slide)
+    monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
+    _patch_regenerate_internals(monkeypatch, quiz={"question": "New Q?", "options": ["c", "d"], "correctAnswer": 1})
+
+    await tutor_service.regenerate_slide("slide-1", PROF_ID, "openai", "tok")
+
+    assert rows["slide-1"]["previous_version"]["quiz"] == [
+        {"question_text": "Old Q?", "options": ["a", "b"], "correct_answer": 0, "metadata": {"concept": "X"}}
+    ]
+    # The new quiz replaced the old one in the live table.
+    assert quiz_by_slide["slide-1"][0]["question_text"] == "New Q?"
 
 
 async def test_regenerate_rejects_non_owner(monkeypatch):
@@ -205,16 +266,24 @@ async def test_regenerate_missing_slide_raises_not_found(monkeypatch):
 
 # ── undo_regenerate_slide ──────────────────────────────────────────────────
 
-async def test_undo_restores_previous_version_and_clears_snapshot(monkeypatch):
-    rows = {
-        "slide-1": {
-            "title": "New Title",
-            "content_text": "New body",
-            "summary": "New summary",
-            "previous_version": {"title": "Old Title", "content_text": "Old body", "summary": "Old summary"},
-            "lectures": {"professor_id": PROF_ID},
-        }
+def _regenerated_slide_row(**overrides):
+    row = {
+        "title": "New Title",
+        "content_text": "New body",
+        "summary": "New summary",
+        "regen_instruction": "Focus on the proof steps.",
+        "previous_version": {
+            "title": "Old Title", "content_text": "Old body", "summary": "Old summary",
+            "regen_instruction": None, "quiz": [],
+        },
+        "lectures": {"professor_id": PROF_ID},
     }
+    row.update(overrides)
+    return row
+
+
+async def test_undo_restores_previous_version_and_clears_snapshot(monkeypatch):
+    rows = {"slide-1": _regenerated_slide_row()}
     client = _FakeClient(rows)
     monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
 
@@ -225,6 +294,61 @@ async def test_undo_restores_previous_version_and_clears_snapshot(monkeypatch):
     assert result["summary"] == "Old summary"
     assert rows["slide-1"]["title"] == "Old Title"
     assert rows["slide-1"]["previous_version"] is None
+
+
+async def test_undo_restores_the_instruction_that_was_active_before_the_regenerate(monkeypatch):
+    """Regression guard: undo must not leave the just-reverted instruction
+    sitting in regen_instruction, or the next parameterless regenerate would
+    silently re-apply the exact instruction the professor just undid."""
+    rows = {"slide-1": _regenerated_slide_row(regen_instruction="Focus on the proof steps.")}
+    client = _FakeClient(rows)
+    monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
+
+    result = await tutor_service.undo_regenerate_slide("slide-1", PROF_ID, "tok")
+
+    assert result["regen_instruction"] is None
+    assert rows["slide-1"]["regen_instruction"] is None
+
+
+async def test_undo_restores_the_quiz_that_existed_before_the_regenerate(monkeypatch):
+    rows = {
+        "slide-1": _regenerated_slide_row(
+            previous_version={
+                "title": "Old Title", "content_text": "Old body", "summary": "Old summary",
+                "regen_instruction": None,
+                "quiz": [{"question_text": "Old Q?", "options": ["a", "b"], "correct_answer": 0, "metadata": {}}],
+            },
+        )
+    }
+    quiz_by_slide = {"slide-1": [{"question_text": "New Q?", "options": ["c", "d"], "correct_answer": 1, "metadata": {}}]}
+    client = _FakeClient(rows, quiz_by_slide)
+    monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
+
+    await tutor_service.undo_regenerate_slide("slide-1", PROF_ID, "tok")
+
+    assert quiz_by_slide["slide-1"] == [
+        {"slide_id": "slide-1", "question_text": "Old Q?", "options": ["a", "b"], "correct_answer": 0, "metadata": {}}
+    ]
+
+
+async def test_undo_clears_quiz_when_there_was_none_before_the_regenerate(monkeypatch):
+    """If the slide had NO quiz before the regenerate that's being undone,
+    undo must leave it with no quiz too — not the regenerated one."""
+    rows = {
+        "slide-1": _regenerated_slide_row(
+            previous_version={
+                "title": "Old Title", "content_text": "Old body", "summary": "Old summary",
+                "regen_instruction": None, "quiz": [],
+            },
+        )
+    }
+    quiz_by_slide = {"slide-1": [{"question_text": "New Q?", "options": ["c", "d"], "correct_answer": 1, "metadata": {}}]}
+    client = _FakeClient(rows, quiz_by_slide)
+    monkeypatch.setattr("backend.core.database.create_client", lambda *_a, **_k: client)
+
+    await tutor_service.undo_regenerate_slide("slide-1", PROF_ID, "tok")
+
+    assert quiz_by_slide["slide-1"] == []
 
 
 async def test_undo_raises_when_no_previous_version(monkeypatch):

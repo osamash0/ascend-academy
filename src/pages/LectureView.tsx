@@ -141,9 +141,10 @@ export default function LectureView() {
 
   // Slide content regeneration (professor only) — Roadmap Phase 5.2
   const [isRegeneratingContent, setIsRegeneratingContent] = useState(false);
-  // Slide id whose last action was a regenerate, so "Undo" only shows for
-  // that same slide and clears the moment the professor navigates away.
-  const [regeneratedSlideId, setRegeneratedSlideId] = useState<string | null>(null);
+  // Ids of slides with an as-yet-unactioned regenerate, so "Undo" shows for
+  // EVERY such slide (not just the most recently regenerated one) — a
+  // professor regenerating slide 2 must not hide slide 1's still-valid undo.
+  const [regeneratedSlideIds, setRegeneratedSlideIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (lectureId && user) {
@@ -337,9 +338,10 @@ export default function LectureView() {
           ? { ...s, title: updated.title, content_text: updated.content_text, summary: updated.summary, regen_instruction: updated.regen_instruction }
           : s
       ));
-      // Roadmap Phase 5.2: a fresh regenerate always replaces whatever undo
-      // state existed for this slide — only the most recent snapshot is kept.
-      setRegeneratedSlideId(currentSlide.id);
+      // Roadmap Phase 5.2: mark THIS slide as undoable, without disturbing
+      // any other slide's still-valid undo state (the backend keeps one
+      // previous_version snapshot per slide, independently).
+      setRegeneratedSlideIds(prev => new Set(prev).add(currentSlide.id));
       toast({ title: t('lecture:regenerate.success'), description: t('lecture:regenerate.successDescription') });
     } catch (err: unknown) {
       toast({ title: t('lecture:regenerate.failure'), description: (err instanceof Error ? err.message : '') || t('lecture:regenerate.failureDescription'), variant: 'destructive' });
@@ -356,10 +358,14 @@ export default function LectureView() {
       const restored = json.slide;
       setSlides(prev => prev.map(s =>
         s.id === currentSlide.id
-          ? { ...s, title: restored.title, content_text: restored.content_text, summary: restored.summary }
+          ? { ...s, title: restored.title, content_text: restored.content_text, summary: restored.summary, regen_instruction: restored.regen_instruction }
           : s
       ));
-      setRegeneratedSlideId(null);
+      setRegeneratedSlideIds(prev => {
+        const next = new Set(prev);
+        next.delete(currentSlide.id);
+        return next;
+      });
       toast({ title: t('lecture:regenerate.undoSuccess'), description: t('lecture:regenerate.undoSuccessDescription') });
     } catch (err: unknown) {
       toast({ title: t('lecture:regenerate.undoFailure'), description: (err instanceof Error ? err.message : '') || '', variant: 'destructive' });
@@ -914,7 +920,7 @@ export default function LectureView() {
                       onRegenerateContent={role === 'professor' ? handleRegenerateContent : undefined}
                       isRegeneratingContent={isRegeneratingContent}
                       regenInstruction={currentSlide?.regen_instruction ?? ''}
-                      canUndoRegenerate={regeneratedSlideId === currentSlide?.id}
+                      canUndoRegenerate={Boolean(currentSlide?.id) && regeneratedSlideIds.has(currentSlide!.id)}
                       onUndoRegenerate={role === 'professor' ? handleUndoRegenerateContent : undefined}
                     />
                     </motion.div>

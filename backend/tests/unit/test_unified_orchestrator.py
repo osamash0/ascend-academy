@@ -160,6 +160,26 @@ def test_review_flag_empty_content():
     assert reason == "empty_content"
 
 
+def test_review_flag_title_present_but_summary_empty_still_flagged():
+    """Regression guard: the batch-review flagged_count heuristic this
+    replaced (repos.py) flagged on an empty summary ALONE, regardless of
+    title — an AND-only check here would silently under-flag slides like an
+    agenda/divider where the LLM produces a title but no real explanation."""
+    needs_review, reason = uo._review_flag_for(
+        synthesis_failed=False, vision_routed=False, raw_title="Course Roadmap", raw_summary=""
+    )
+    assert needs_review is True
+    assert reason == "empty_content"
+
+
+def test_review_flag_summary_present_but_title_empty_still_flagged():
+    needs_review, reason = uo._review_flag_for(
+        synthesis_failed=False, vision_routed=False, raw_title="", raw_summary="Some real explanation."
+    )
+    assert needs_review is True
+    assert reason == "empty_content"
+
+
 def test_review_flag_healthy_slide_not_flagged():
     needs_review, reason = uo._review_flag_for(
         synthesis_failed=False, vision_routed=False, raw_title="Real Title", raw_summary="Real summary"

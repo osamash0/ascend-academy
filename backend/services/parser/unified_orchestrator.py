@@ -151,7 +151,11 @@ def _review_flag_for(
         return True, "synthesis_failed"
     if vision_routed:
         return True, "vision_rescue"
-    if not raw_title and not raw_summary:
+    # Either half missing is enough — matches the pre-existing batch-review
+    # heuristic this replaces (which flagged on an empty summary alone); a
+    # slide with a title but no real explanation is just as much "needs a
+    # professor's eyes" as one with neither.
+    if not raw_title or not raw_summary:
         return True, "empty_content"
     return False, None
 

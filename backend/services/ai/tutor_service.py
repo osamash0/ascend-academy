@@ -249,13 +249,21 @@ async def regenerate_slide(
     content = format_slide_content(analysis.get("content_extraction", {}))
 
     # Single-level undo (Roadmap Phase 5.2): snapshot what's about to be
-    # overwritten so the professor can revert one regenerate. Deliberately
-    # not a full history — see the roadmap doc's 5.3 deferral for why real
-    # multi-version history is a separate, larger effort.
+    # overwritten — including the current instruction and quiz — so the
+    # professor can revert one regenerate back to exactly where they started.
+    # Deliberately not a full history — see the roadmap doc's 5.3 deferral
+    # for why real multi-version history is a separate, larger effort.
+    existing_quiz_res = client.table("quiz_questions").select(
+        "question_text, options, correct_answer, metadata"
+    ).eq("slide_id", slide_id).execute()
+    existing_quiz_rows = (existing_quiz_res.data if existing_quiz_res and existing_quiz_res.data else [])
+
     previous_version = {
         "title": res.data.get("title"),
         "content_text": res.data.get("content_text"),
         "summary": res.data.get("summary"),
+        "regen_instruction": res.data.get("regen_instruction"),
+        "quiz": existing_quiz_rows,
     }
 
     new_title = analysis.get("metadata", {}).get("lecture_title") or f"Slide {slide_num}"
@@ -323,9 +331,23 @@ async def undo_regenerate_slide(slide_id: str, user_id: str, creds_token: str) -
         "title": prev.get("title"),
         "content_text": prev.get("content_text"),
         "summary": prev.get("summary"),
+        "regen_instruction": prev.get("regen_instruction"),
         "previous_version": None,
     }
     client.table("slides").update(update).eq("id", slide_id).execute()
+
+    # Restore whatever quiz existed before the regenerate this undoes —
+    # including "no quiz at all" if that was the pre-regenerate state.
+    client.table("quiz_questions").delete().eq("slide_id", slide_id).execute()
+    for q in prev.get("quiz") or []:
+        client.table("quiz_questions").insert({
+            "slide_id": slide_id,
+            "question_text": q.get("question_text", ""),
+            "options": q.get("options", []),
+            "correct_answer": q.get("correct_answer"),
+            "metadata": q.get("metadata") or {},
+        }).execute()
+
     return {"id": slide_id, **update}
 
 async def generate_lecture_description(title: str, course_name: Optional[str], summaries: List[str], ai_model: str) -> str:
