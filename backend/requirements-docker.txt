@@ -8,7 +8,8 @@
 #   fastembed                 — lazy import, parser v3/v4 only
 #   llama-cloud-services      — lazy import, parser v3/v4 only
 #
-# Set PARSER_VERSION=2 (the default) when running this image.
+# Use PARSER_VERSION=5 (the default) or 2 when running this image —
+# versions 3/4 need the Docling extras from the full requirements.txt.
 # The main requirements.txt is left untouched for local dev / venv installs.
 
 # NOTE: the version ranges below are a safety net, NOT a reproducible lockfile.

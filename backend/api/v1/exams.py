@@ -81,7 +81,7 @@ class GenerateRequest(BaseModel):
 
 
 @router.post("/course/{course_id}/generate")
-@limiter.limit("3/hour")
+@limiter.limit("30/minute")
 async def generate_exam(
     request: Request,
     course_id: str,

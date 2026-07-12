@@ -67,41 +67,41 @@ CREATE POLICY "Badge catalog is readable by authenticated"
 INSERT INTO public.badge_definitions
   (key, name, description, icon, category, xp_reward, metric, threshold, sort_order)
 VALUES
-  ('Welcome Aboard',      'Welcome Aboard',      'Opened your very first slide.',                 '🚀', 'onboarding',    10,  'first_slide',          1,   10),
-  ('Identity Set',        'Identity Set',        'Chose a display name and a profile photo.',     '🪪', 'onboarding',    25,  'profile_complete',     1,   11),
-  ('Verified Scholar',    'Verified Scholar',    'Verified your university email.',               '🎓', 'onboarding',    100, 'email_verified',       1,   12),
+  ('Welcome Aboard',      'Welcome Aboard',      'Opened your very first slide.',                 '/gamification/welcome.jpg', 'onboarding',    10,  'first_slide',          1,   10),
+  ('Identity Set',        'Identity Set',        'Chose a display name and a profile photo.',     '/gamification/identity.jpg', 'onboarding',    25,  'profile_complete',     1,   11),
+  ('Verified Scholar',    'Verified Scholar',    'Verified your university email.',               '/gamification/verified.jpg', 'onboarding',    100, 'email_verified',       1,   12),
 
-  ('First Quiz Completed','First Quiz Completed','Completed your first lecture quiz.',            '🎯', 'quiz',          10,  NULL,                   NULL, 20),
-  ('Perfect Score',       'Perfect Score',       'Scored 100% on a lecture quiz.',                '💯', 'quiz',          50,  'perfect_scores',       1,   21),
-  ('Flawless Five',       'Flawless Five',       'Scored 100% on five lectures.',                 '✨', 'quiz',          150, 'perfect_scores',       5,   22),
-  ('Quiz Master',         'Quiz Master',         'Answered 50 questions correctly.',              '🏆', 'quiz',          100, 'correct_answers',      50,  23),
-  ('Sharpshooter',        'Sharpshooter',        'Answered 250 questions correctly.',             '🏹', 'quiz',          300, 'correct_answers',      250, 24),
+  ('First Quiz Completed','First Quiz Completed','Completed your first lecture quiz.',            '/gamification/first_quiz.jpg', 'quiz',          10,  NULL,                   NULL, 20),
+  ('Perfect Score',       'Perfect Score',       'Scored 100% on a lecture quiz.',                '/gamification/first_quiz.jpg', 'quiz',          50,  'perfect_scores',       1,   21),
+  ('Flawless Five',       'Flawless Five',       'Scored 100% on five lectures.',                 '/gamification/first_quiz.jpg', 'quiz',          150, 'perfect_scores',       5,   22),
+  ('Quiz Master',         'Quiz Master',         'Answered 50 questions correctly.',              '/gamification/first_quiz.jpg', 'quiz',          100, 'correct_answers',      50,  23),
+  ('Sharpshooter',        'Sharpshooter',        'Answered 250 questions correctly.',             '/gamification/first_quiz.jpg', 'quiz',          300, 'correct_answers',      250, 24),
 
-  ('On Fire',             'On Fire',             'Five correct answers in a row.',                '🔥', 'streak',        25,  NULL,                   NULL, 30),
-  ('Unstoppable',         'Unstoppable',         'Ten correct answers in a row.',                 '⚡', 'streak',        50,  NULL,                   NULL, 31),
+  ('On Fire',             'On Fire',             'Five correct answers in a row.',                '/gamification/on_fire.jpg', 'streak',        25,  NULL,                   NULL, 30),
+  ('Unstoppable',         'Unstoppable',         'Ten correct answers in a row.',                 '/gamification/unstoppable.jpg', 'streak',        50,  NULL,                   NULL, 31),
 
-  ('First Steps',         'First Steps',         'Completed your first lecture.',                 '👣', 'learning',      25,  'lectures_completed',   1,   40),
-  ('Bookworm',            'Bookworm',            'Completed five lectures.',                      '📚', 'learning',      50,  'lectures_completed',   5,   41),
-  ('Graduate',            'Graduate',            'Completed ten lectures.',                       '🎓', 'learning',      100, 'lectures_completed',   10,  42),
-  ('Scholar',             'Scholar',             'Completed twenty-five lectures.',               '🧠', 'learning',      250, 'lectures_completed',   25,  43),
-  ('Course Conqueror',    'Course Conqueror',    'Finished an entire course.',                    '🏔️', 'learning',      200, 'courses_completed',    1,   44),
-  ('Polymath',            'Polymath',            'Finished three full courses.',                  '🌐', 'learning',      500, 'courses_completed',    3,   45),
+  ('First Steps',         'First Steps',         'Completed your first lecture.',                 '/gamification/first_quiz.jpg', 'learning',      25,  'lectures_completed',   1,   40),
+  ('Bookworm',            'Bookworm',            'Completed five lectures.',                      '/gamification/first_quiz.jpg', 'learning',      50,  'lectures_completed',   5,   41),
+  ('Graduate',            'Graduate',            'Completed ten lectures.',                       '/gamification/first_quiz.jpg', 'learning',      100, 'lectures_completed',   10,  42),
+  ('Scholar',             'Scholar',             'Completed twenty-five lectures.',               '/gamification/first_quiz.jpg', 'learning',      250, 'lectures_completed',   25,  43),
+  ('Course Conqueror',    'Course Conqueror',    'Finished an entire course.',                    '/gamification/first_quiz.jpg', 'learning',      200, 'courses_completed',    1,   44),
+  ('Polymath',            'Polymath',            'Finished three full courses.',                  '/gamification/first_quiz.jpg', 'learning',      500, 'courses_completed',    3,   45),
 
-  ('Getting Started',     'Getting Started',     'Kept a three-day study streak.',                '🌱', 'consistency',   25,  'best_streak',          3,   50),
-  ('Consistent',          'Consistent',          'Kept a seven-day study streak.',                '🗓️', 'consistency',   75,  'best_streak',          7,   51),
-  ('Dedicated',           'Dedicated',           'Kept a thirty-day study streak.',               '💎', 'consistency',   300, 'best_streak',          30,  52),
+  ('Getting Started',     'Getting Started',     'Kept a three-day study streak.',                '/gamification/on_fire.jpg', 'consistency',   25,  'best_streak',          3,   50),
+  ('Consistent',          'Consistent',          'Kept a seven-day study streak.',                '/gamification/on_fire.jpg', 'consistency',   75,  'best_streak',          7,   51),
+  ('Dedicated',           'Dedicated',           'Kept a thirty-day study streak.',               '/gamification/on_fire.jpg', 'consistency',   300, 'best_streak',          30,  52),
 
-  ('Curious Mind',        'Curious Mind',        'Asked the AI tutor your first question.',       '💡', 'tutor',         15,  'ai_tutor_queries',     1,   60),
-  ('Inquisitive',         'Inquisitive',         'Asked the AI tutor twenty questions.',          '🤖', 'tutor',         100, 'ai_tutor_queries',     20,  61),
+  ('Curious Mind',        'Curious Mind',        'Asked the AI tutor your first question.',       '/gamification/identity.jpg', 'tutor',         15,  'ai_tutor_queries',     1,   60),
+  ('Inquisitive',         'Inquisitive',         'Asked the AI tutor twenty questions.',          '/gamification/identity.jpg', 'tutor',         100, 'ai_tutor_queries',     20,  61),
 
-  ('Quick Thinker',       'Quick Thinker',       'Did your first comprehension check.',           '⚡', 'comprehension', 10,  'comprehension_checks', 1,   70),
-  ('Checkpoint Champion', 'Checkpoint Champion', 'Did twenty-five comprehension checks.',         '✅', 'comprehension', 100, 'comprehension_checks', 25,  71),
+  ('Quick Thinker',       'Quick Thinker',       'Did your first comprehension check.',           '/gamification/unstoppable.jpg', 'comprehension', 10,  'comprehension_checks', 1,   70),
+  ('Checkpoint Champion', 'Checkpoint Champion', 'Did twenty-five comprehension checks.',         '/gamification/verified.jpg', 'comprehension', 100, 'comprehension_checks', 25,  71),
 
-  ('Voice Heard',         'Voice Heard',         'Shared feedback to help us improve.',           '🗣️', 'community',     30,  NULL,                   NULL, 80),
+  ('Voice Heard',         'Voice Heard',         'Shared feedback to help us improve.',           '/gamification/identity.jpg', 'community',     30,  NULL,                   NULL, 80),
 
-  ('Level 5 Scholar',     'Level 5 Scholar',     'Reached level 5.',                              '⭐', 'milestone',     0,   'level',                5,   90),
-  ('Level 10 Expert',     'Level 10 Expert',     'Reached level 10.',                             '🌟', 'milestone',     0,   'level',                10,  91),
-  ('Level 25 Legend',     'Level 25 Legend',     'Reached level 25.',                             '👑', 'milestone',     0,   'level',                25,  92)
+  ('Level 5 Scholar',     'Level 5 Scholar',     'Reached level 5.',                              '/gamification/welcome.jpg', 'milestone',     0,   'level',                5,   90),
+  ('Level 10 Expert',     'Level 10 Expert',     'Reached level 10.',                             '/gamification/verified.jpg', 'milestone',     0,   'level',                10,  91),
+  ('Level 25 Legend',     'Level 25 Legend',     'Reached level 25.',                             '/gamification/unstoppable.jpg', 'milestone',     0,   'level',                25,  92)
 ON CONFLICT (key) DO UPDATE SET
   name        = EXCLUDED.name,
   description = EXCLUDED.description,

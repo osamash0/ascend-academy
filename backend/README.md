@@ -20,7 +20,7 @@ PDF Upload → Validation → Registration → Page Indexing → Extract & Class
 
 ## Prerequisites
 
-- **Python** ≥ 3.13
+- **Python** ≥ 3.11
 - **PostgreSQL** 15+ (with pgvector extension)
 - **Redis** (for Arq job queue)
 - **API Keys**: Gemini, Groq (optional), OpenAI (optional)
@@ -30,7 +30,7 @@ PDF Upload → Validation → Registration → Page Indexing → Extract & Class
 ### 1. Create Virtual Environment
 
 ```bash
-python3.13 -m venv venv
+python3 -m venv venv   # Python 3.11+
 source venv/bin/activate  # macOS/Linux
 # or: .\venv\Scripts\activate  # Windows
 ```
@@ -38,8 +38,15 @@ source venv/bin/activate  # macOS/Linux
 ### 2. Install Dependencies
 
 ```bash
+# Full set (includes optional Docling/paddle parser extras — large download)
 pip install -r backend/requirements.txt
+
+# For the test suite, add:
+pip install -r backend/requirements-dev.txt
 ```
+
+The Docker image installs the lean `backend/requirements-docker.txt` subset
+instead (no Docling/paddle) — parser versions 3/4 are unavailable in containers.
 
 ### 3. Configure Environment
 
@@ -56,7 +63,7 @@ GEMINI_API_KEY=your_gemini_api_key
 GROQ_API_KEY=your_groq_key (optional)
 REDIS_URL=redis://localhost:6379
 LITELLM_BASE_URL=http://localhost:4000
-PARSER_VERSION=3
+PARSER_VERSION=5   # default; see "Parser Version" below
 ```
 
 ### 4. Run Infrastructure
@@ -69,12 +76,11 @@ docker compose up redis litellm -d
 ### 5. Run the Server
 
 ```bash
-# Run migrations (if needed)
-cd backend && python -m alembic upgrade head
-
-# Start the API server
 uvicorn backend.main:app --reload
 ```
+
+Database schema lives in `supabase/migrations/` (plain SQL, applied with the
+Supabase CLI or dashboard SQL editor) — there is no Alembic in this project.
 
 The API will be available at `http://localhost:8000`.
 Interactive API docs: `http://localhost:8000/docs`
@@ -90,19 +96,27 @@ This enables async PDF processing. Without it, uploads process synchronously (sl
 
 ## Key Endpoints
 
+All routes are versioned under the `/api/v1` prefix (see `backend/main.py`),
+grouped by router: `upload`, `ai`, `analytics`, `mind-map`, `assignments`,
+`auth`, `admin`, and more. Examples:
+
 | Method | Path | Description |
 |--------|------|---|
-| `POST` | `/api/upload-pdf` | Upload lecture PDF (starts async parse) |
-| `GET` | `/api/parse-pdf-stream/{run_id}` | Stream parsing progress (SSE) |
-| `POST` | `/api/tutor/{lecture_id}/ask` | Ask tutor about lecture content |
-| `GET` | `/api/lectures/{lecture_id}/analytics` | Professor analytics |
-| `GET` | `/api/skill-tree/{course_id}` | Student skill progression |
+| `POST` | `/api/v1/upload/parse-pdf-stream` | Upload lecture PDF, stream parse progress (SSE) |
+| `POST` | `/api/v1/upload/check-duplicate` | Content-hash duplicate check before upload |
+| `POST` | `/api/v1/ai/...` | Slide/deck AI generation endpoints |
+| `GET`  | `/api/v1/analytics/...` | Professor analytics |
+
+The authoritative, always-current list is the interactive OpenAPI docs at
+`http://localhost:8000/docs`.
 
 ## Configuration
 
 ### Parser Version
 
-Set `PARSER_VERSION=3` to use the new intelligent parser. v2 is still available as a fallback.
+`PARSER_VERSION` selects the PDF pipeline; the default is `5`. `2` remains as a
+fallback. Versions `3`/`4` require the Docling extras from the full
+`requirements.txt` and therefore only work outside the Docker image.
 
 ### LLM Routing
 
@@ -158,11 +172,6 @@ FROM parse_runs
 ORDER BY started_at DESC 
 LIMIT 10;
 
--- Check slide chunks (tutor context store)
-SELECT lecture_id, COUNT(*) as chunks, 
-       MAX(embedding::text) is not null as has_embeddings
-FROM slide_chunks 
-GROUP BY lecture_id;
 ```
 
 ### LLM Quota

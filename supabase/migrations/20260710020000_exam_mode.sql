@@ -30,6 +30,7 @@ ALTER TABLE public.exam_attempts ENABLE ROW LEVEL SECURITY;
 -- professors read exam_attempts only via a service-role connection in the
 -- exam-aggregate analytics endpoint, never through the anon/authenticated
 -- client roles this policy governs.
+DROP POLICY IF EXISTS "exam_attempts_own" ON public.exam_attempts;
 CREATE POLICY "exam_attempts_own" ON public.exam_attempts
     FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
@@ -44,7 +45,7 @@ CREATE POLICY "exam_attempts_own" ON public.exam_attempts
 INSERT INTO public.badge_definitions
   (key, name, description, icon, category, xp_reward, metric, threshold, sort_order)
 VALUES
-  ('Exam Ready', 'Exam Ready', 'Scored 80% or higher on a mock exam.', '🎓', 'exam', 50, NULL, NULL, 100)
+  ('Exam Ready', 'Exam Ready', 'Scored 80% or higher on a mock exam.', '/gamification/first_quiz.jpg', 'exam', 50, NULL, NULL, 100)
 ON CONFLICT (key) DO UPDATE SET
   name        = EXCLUDED.name,
   description = EXCLUDED.description,
