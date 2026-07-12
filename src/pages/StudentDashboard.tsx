@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useDeferredValue } from 'rea
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, X, TrendingUp, ChevronRight, Sparkles } from 'lucide-react';
+import { Flame, X, TrendingUp, ChevronRight, Sparkles, Map } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
@@ -44,6 +44,21 @@ import { getStats as getReviewStats } from '@/services/reviewService';
 import { listMaterials } from '@/services/myMaterialsService';
 import { FEATURES } from '@/lib/featureFlags';
 import { LunaAstronaut } from '../../learnstation-luna';
+import { FullJourneyPath } from '@/features/student/components/FullJourneyPath';
+import { type JourneyNode } from '@/features/student/pixi/fullJourneyScene';
+
+const MOCK_JOURNEY_NODES: JourneyNode[] = [
+  { id: '1', label: 'Introduction to Learnstation', status: 'completed' },
+  { id: '2', label: 'Fundamentals of UI Design', status: 'completed' },
+  { id: '3', label: 'Advanced Color Theory', status: 'completed' },
+  { id: '4', label: 'Typography Mastery', status: 'active' },
+  { id: '5', label: 'Interaction Design', status: 'locked' },
+  { id: '6', label: 'Prototyping with Framer', status: 'locked' },
+  { id: '7', label: 'User Testing Methods', status: 'locked' },
+  { id: '8', label: 'Design Systems', status: 'locked' },
+  { id: '9', label: 'Portfolio Preparation', status: 'locked' },
+  { id: '10', label: 'Final Assessment', status: 'locked' },
+];
 
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
@@ -370,6 +385,7 @@ export default function StudentDashboard() {
             onViewTrophies={() => navigate(StudentRoutes.ACHIEVEMENTS)}
             onOpenReview={() => navigate(StudentRoutes.REVIEW)}
             onOpenMyMaterials={() => navigate(StudentRoutes.MY_MATERIALS)}
+            onOpenStudyGuide={(courseId) => navigate(StudentRoutes.STUDY_GUIDE(courseId))}
           />
 
           {/* Recently Viewed: lectures + courses, MRF ordered, deduplicated */}
@@ -399,6 +415,16 @@ export default function StudentDashboard() {
           )}
 
           {user?.id && <AssignmentsPanel userId={user.id} />}
+
+          {/* Your Learning Journey */}
+          <section className="space-y-6">
+            <SectionHeader
+              icon={Map}
+              eyebrow={t('dashboard:journey.eyebrow', { defaultValue: 'Curriculum' })}
+              title={t('dashboard:journey.title', { defaultValue: 'Your Learning Journey' })}
+            />
+            <FullJourneyPath nodes={MOCK_JOURNEY_NODES} />
+          </section>
 
           {/* Netflix browse rows: Continue + one per course (LIFS ordered) */}
           {rows.map((row) => (

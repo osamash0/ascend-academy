@@ -77,7 +77,7 @@ describe("Auth page (smoke)", () => {
       screen.getByRole("button", { name: /create one/i }),
     );
 
-    expect(screen.getAllByText(/create account/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/get started/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/role/i)).toBeInTheDocument();
     expect(screen.getByRole("checkbox")).toBeInTheDocument();
   });

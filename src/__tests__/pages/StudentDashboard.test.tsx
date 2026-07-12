@@ -60,6 +60,14 @@ vi.mock("@/features/student/hooks/useStudentDashboard", () => ({
   useStudentDashboard: () => useStudentDashboardMock(),
 }));
 
+vi.mock("@/features/social/components/DashboardFriendsWidget", () => ({
+  DashboardFriendsWidget: () => <div data-testid="mock-friends-widget" />
+}));
+
+vi.mock("@/features/student/components/FullJourneyPath", () => ({
+  FullJourneyPath: () => <div data-testid="mock-full-journey-path" />
+}));
+
 import StudentDashboard from "@/pages/StudentDashboard";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
@@ -135,7 +143,7 @@ describe("StudentDashboard page (smoke)", () => {
     });
     renderWithProviders(<StudentDashboard />, { initialEntries: ["/dashboard"] });
     // The deferred below-the-fold shows the "start here" panel…
-    await waitFor(() => expect(screen.getByText(/welcome to ascend/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/welcome to learnstation/i)).toBeInTheDocument());
     // …and NOT the full browse-row firehose (the per-course rail).
     expect(screen.queryByText("Database Systems")).not.toBeInTheDocument();
   });
@@ -171,5 +179,36 @@ describe("StudentDashboard page (smoke)", () => {
     await waitFor(() =>
       expect(screen.getByText(/completed every lecture/i)).toBeInTheDocument(),
     );
+  });
+
+  it("renders the FullJourneyPath component when not in onboard mode", async () => {
+    useStudentDashboardMock.mockReturnValue({
+      data: {
+        lectures: [
+          {
+            id: "lec1",
+            title: "Astrophysics 101",
+            description: "Stars and galaxies",
+            total_slides: 10,
+            created_at: "2026-01-01T00:00:00Z",
+            course_id: "c1",
+            course: { id: "c1", title: "Database Systems" },
+          },
+        ],
+        progress: [
+          {
+            lecture_id: "lec1",
+            completed_slides: [1],
+            total_questions_answered: 0,
+            correct_answers: 0,
+          }
+        ],
+        achievements: [],
+      },
+      isLoading: false,
+    });
+    renderWithProviders(<StudentDashboard />, { initialEntries: ["/dashboard"] });
+    
+    await waitFor(() => expect(screen.getByTestId("mock-full-journey-path")).toBeInTheDocument());
   });
 });
