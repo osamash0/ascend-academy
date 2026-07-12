@@ -20,8 +20,8 @@
     "bestStreak": "Best Streak",
     "achievements": "Achievements",
     "learningInsights": "Learning Insights",
-    "aiIntelligence": "AI Intelligence",
-    "insightsDescription": "Analyze your circadian rhythm, focus intensity, and performance patterns.",
+    "aiIntelligence": "Insights",
+    "insightsDescription": "See when you learn best and track your focus over time.",
     "explore": "Explore"
   },
   "filters": {
@@ -46,7 +46,7 @@
   "viewAll": "View all",
   "onboard": {
     "eyebrow": "Start here",
-    "title": "Welcome to Ascend",
+    "title": "Welcome to Learnstation",
     "subtitle": "Here's how you'll learn. Press Begin above to open your first lecture.",
     "steps": {
       "learn": {

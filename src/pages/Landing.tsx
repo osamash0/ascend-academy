@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { motion, useScroll, useTransform, useSpring, useMotionValue, AnimatePresence } from 'framer-motion';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { 
-  Rocket, BookOpen, Brain, Zap, Shield, ChevronRight, Star, 
+  BookOpen, Brain, Zap, Shield, ChevronRight, Star, 
   Users, BarChart3, Sparkles, ArrowRight, Play, X, Menu,
-  Globe, Cpu, Target, Flame, Trophy, ChevronDown
+  Globe, Cpu, Target, Flame, Trophy, ChevronDown, Layers
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -42,196 +42,47 @@ const FEATURES: { icon: React.ElementType; key: string; color: string; glowColor
    SUB-COMPONENTS
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Starfield Background ── */
-function StarfieldBackground() {
-  const [stars, setStars] = useState<StarField[]>([]);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const generateStars = () => {
-      const newStars: StarField[] = [];
-      for (let i = 0; i < 200; i++) {
-        newStars.push({
-          id: i,
-          x: Math.random() * 100,
-          y: Math.random() * 100,
-          size: Math.random() * 2 + 0.5,
-          opacity: Math.random() * 0.8 + 0.2,
-          speed: Math.random() * 0.02 + 0.005,
-          twinkle: Math.random() > 0.7,
-        });
-      }
-      setStars(newStars);
-    };
-    generateStars();
-  }, []);
-
-  // Canvas-based warp speed effect on scroll
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationId: number;
-    let scrollSpeed = 0;
-    
-    const handleScroll = () => {
-      scrollSpeed = Math.min(window.scrollY * 0.001, 2);
-    };
-    
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    const particles: { x: number; y: number; z: number; px: number; py: number }[] = [];
-    for (let i = 0; i < 400; i++) {
-      particles.push({
-        x: (Math.random() - 0.5) * 2000,
-        y: (Math.random() - 0.5) * 2000,
-        z: Math.random() * 2000,
-        px: 0,
-        py: 0,
-      });
-    }
-
-    const animate = () => {
-      ctx.fillStyle = 'rgba(8, 12, 24, 0.3)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
-
-      particles.forEach((p) => {
-        p.z -= 2 + scrollSpeed * 5;
-        if (p.z <= 0) {
-          p.x = (Math.random() - 0.5) * 2000;
-          p.y = (Math.random() - 0.5) * 2000;
-          p.z = 2000;
-        }
-
-        const scale = 500 / p.z;
-        const x = p.x * scale + cx;
-        const y = p.y * scale + cy;
-
-        const size = (1 - p.z / 2000) * 3;
-        const opacity = (1 - p.z / 2000) * 0.8;
-
-        // Draw trail
-        if (p.px !== 0 && scrollSpeed > 0.1) {
-          ctx.beginPath();
-          ctx.moveTo(p.px, p.py);
-          ctx.lineTo(x, y);
-          ctx.strokeStyle = `rgba(100, 150, 255, ${opacity * 0.3})`;
-          ctx.lineWidth = size * 0.5;
-          ctx.stroke();
-        }
-
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(150, 180, 255, ${opacity})`;
-        ctx.fill();
-
-        p.px = x;
-        p.py = y;
-      });
-
-      animationId = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    return () => {
-      cancelAnimationFrame(animationId);
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', resize);
-    };
-  }, []);
-
+/* ── Ambient Premium Background ── */
+function AmbientBackground() {
   return (
     <>
-      <canvas
-        ref={canvasRef}
+      <div 
         className="fixed inset-0 z-0"
-        style={{ background: 'linear-gradient(180deg, #060a14 0%, #0a0f1e 50%, #0d1326 100%)' }}
+        style={{ background: 'linear-gradient(180deg, #02040a 0%, #060a14 50%, #080c1a 100%)' }}
       />
-      {/* Static twinkling stars overlay */}
-      <div className="fixed inset-0 z-[1] pointer-events-none">
-        {stars.map((star) => (
-          <motion.div
-            key={star.id}
-            className="absolute rounded-full bg-white"
-            style={{
-              left: `${star.x}%`,
-              top: `${star.y}%`,
-              width: star.size,
-              height: star.size,
-            }}
-            animate={star.twinkle ? {
-              opacity: [star.opacity, star.opacity * 0.3, star.opacity],
-              scale: [1, 1.2, 1],
-            } : {}}
-            transition={{
-              duration: 2 + Math.random() * 3,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-          />
-        ))}
-      </div>
       
-      {/* Nebula clouds */}
+      {/* Elegant Ambient Glowing Orbs */}
       <div className="fixed inset-0 z-[1] pointer-events-none overflow-hidden">
-        <motion.div
-          className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] rounded-full"
+        <div
+          className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full"
           style={{
             background: 'radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%)',
-            filter: 'blur(100px)',
+            filter: 'blur(120px)',
+            transform: 'translateZ(0)' /* Hardware acceleration hint */
           }}
-          animate={{ scale: [1, 1.1, 1], x: [0, 30, 0], y: [0, 20, 0] }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
         />
-        <motion.div
-          className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full"
+        <div
+          className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full"
           style={{
             background: 'radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, transparent 70%)',
-            filter: 'blur(120px)',
+            filter: 'blur(140px)',
+            transform: 'translateZ(0)'
           }}
-          animate={{ scale: [1, 1.15, 1], x: [0, -20, 0], y: [0, -30, 0] }}
-          transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut', delay: 5 }}
-        />
-        <motion.div
-          className="absolute top-[40%] right-[20%] w-[40%] h-[40%] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, rgba(6, 182, 212, 0.05) 0%, transparent 70%)',
-            filter: 'blur(80px)',
-          }}
-          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
-          transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut', delay: 10 }}
         />
       </div>
     </>
   );
 }
 
-/* ── HUD Grid Overlay ── */
-function HUDGrid() {
+/* ── Subtle Dot Grid ── */
+function PremiumGrid() {
   return (
-    <div className="fixed inset-0 z-[2] pointer-events-none opacity-[0.03]">
+    <div className="fixed inset-0 z-[2] pointer-events-none opacity-[0.15]">
       <div 
         className="w-full h-full"
         style={{
-          backgroundImage: `
-            linear-gradient(rgba(100, 150, 255, 0.5) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(100, 150, 255, 0.5) 1px, transparent 1px)
-          `,
-          backgroundSize: '80px 80px',
+          backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
         }}
       />
     </div>
@@ -282,7 +133,7 @@ function Navigation() {
                 transition={{ duration: 3, repeat: Infinity }}
               />
               <div className="relative w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                <Rocket className="w-5 h-5 text-white" />
+                <Layers className="w-5 h-5 text-white" />
               </div>
             </div>
             <span className="text-xl font-bold text-white tracking-tight">
@@ -296,7 +147,7 @@ function Navigation() {
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm text-slate-400 hover:text-white transition-colors relative group"
+                className="text-sm text-slate-400 hover:text-white transition-colors relative group focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none rounded-md px-1"
               >
                 {link.label}
                 <span className="absolute -bottom-1 left-0 w-0 h-px bg-cyan-400 group-hover:w-full transition-all duration-300" />
@@ -309,7 +160,7 @@ function Navigation() {
             <LanguageToggle variant="icon-light" />
             <button
               onClick={() => navigate('/auth')}
-              className="text-sm text-slate-300 hover:text-white transition-colors"
+              className="text-sm text-slate-300 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none rounded-md px-2 py-1"
             >
               {t('landing:nav.signIn')}
             </button>
@@ -317,7 +168,7 @@ function Navigation() {
               onClick={() => navigate('/auth')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-shadow"
+              className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-shadow focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
             >
               {t('landing:nav.launchMission')}
             </motion.button>
@@ -326,7 +177,8 @@ function Navigation() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden text-white p-2"
+            aria-label="Toggle Menu"
+            className="md:hidden text-white p-3 rounded-lg focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
           >
             {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -426,7 +278,7 @@ function HeroSection() {
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="text-5xl sm:text-6xl lg:text-8xl font-bold text-white tracking-tight leading-[1.1] mb-6"
         >
           {t('landing:hero.headlineLine1')}
@@ -447,7 +299,7 @@ function HeroSection() {
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.6 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
           className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed"
         >
           {t('landing:hero.subtitle')}
@@ -457,18 +309,18 @@ function HeroSection() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8, duration: 0.6 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
         >
           <motion.button
             onClick={() => navigate('/auth')}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-2xl shadow-xl shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-shadow overflow-hidden"
+            className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-2xl shadow-xl shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-shadow overflow-hidden focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
           >
             <span className="relative z-10 flex items-center gap-2">
               {t('landing:hero.ctaPrimary')}
-              <Rocket className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </span>
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity" />
           </motion.button>
@@ -479,7 +331,7 @@ function HeroSection() {
         <motion.div
           initial={{ opacity: 0, y: 60 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ delay: 0.5, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           style={{ x: springX, y: springY }}
           className="relative max-w-5xl mx-auto"
         >
@@ -528,7 +380,7 @@ function HeroSection() {
                       className={`h-full rounded-full bg-gradient-to-r ${stat.color}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${70 + i * 15}%` }}
-                      transition={{ delay: 1.5 + i * 0.2, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+                      transition={{ delay: 0.8 + i * 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                     />
                   </div>
                 </motion.div>
@@ -557,7 +409,7 @@ function HeroSection() {
                         className="h-full bg-gradient-to-r from-violet-400 to-purple-500 rounded-full"
                         initial={{ width: 0 }}
                         animate={{ width: '35%' }}
-                        transition={{ delay: 1.8, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ delay: 1.0, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                       />
                     </div>
                   </div>
@@ -589,15 +441,13 @@ function HeroSection() {
           </div>
 
           {/* Floating Orbs around dashboard */}
-          <motion.div
-            className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-cyan-500/20 blur-3xl"
-            animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 5, repeat: Infinity }}
+          <div
+            className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-cyan-500/20 blur-3xl opacity-50"
+            style={{ transform: 'translateZ(0)' }}
           />
-          <motion.div
-            className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-violet-500/20 blur-3xl"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
-            transition={{ duration: 7, repeat: Infinity, delay: 2 }}
+          <div
+            className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-violet-500/20 blur-3xl opacity-40"
+            style={{ transform: 'translateZ(0)' }}
           />
         </motion.div>
       </motion.div>
@@ -696,8 +546,8 @@ function FeaturesSection() {
 function HowItWorksSection() {
   const { t } = useTranslation(['landing']);
   const steps = [
-    { number: '01', key: 'step1', icon: Rocket },
-    { number: '02', key: 'step2', icon: BookOpen },
+    { number: '01', key: 'step1', icon: BookOpen },
+    { number: '02', key: 'step2', icon: Play },
     { number: '03', key: 'step3', icon: Brain },
     { number: '04', key: 'step4', icon: Trophy },
   ];
@@ -817,10 +667,10 @@ function ProfessorSection() {
               onClick={() => navigate('/auth')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-2xl shadow-lg shadow-amber-500/25"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-2xl shadow-lg shadow-amber-500/25 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
             >
-              <Rocket className="w-5 h-5" />
               {t('landing:professors.cta')}
+              <ArrowRight className="w-5 h-5 ml-1" />
             </motion.button>
           </motion.div>
 
@@ -916,7 +766,7 @@ function CTASection() {
               transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
               className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-400 to-blue-600 mb-8 shadow-xl shadow-cyan-500/30"
             >
-              <Rocket className="w-10 h-10 text-white" />
+              <Sparkles className="w-10 h-10 text-white" />
             </motion.div>
 
             <h2 className="text-4xl lg:text-6xl font-bold text-white mb-6">
@@ -935,7 +785,7 @@ function CTASection() {
                 onClick={() => navigate('/auth')}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-10 py-5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-shadow"
+                className="px-10 py-5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-shadow focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
               >
                 {t('landing:cta.primary')}
               </motion.button>
@@ -943,7 +793,7 @@ function CTASection() {
                 onClick={() => navigate('/auth')}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-10 py-5 border border-white/20 text-white font-semibold rounded-2xl hover:bg-white/5 transition-colors"
+                className="px-10 py-5 border border-white/20 text-white font-semibold rounded-2xl hover:bg-white/5 transition-colors focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
               >
                 {t('landing:cta.secondary')}
               </motion.button>
@@ -965,7 +815,7 @@ function Footer() {
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-lg flex items-center justify-center">
-                <Rocket className="w-4 h-4 text-white" />
+                <Layers className="w-4 h-4 text-white" />
               </div>
               <span className="text-lg font-bold text-white">
                 Learn<span className="text-cyan-400">station</span>
@@ -1037,8 +887,8 @@ function Footer() {
 export default function Landing() {
   return (
     <div className="relative min-h-screen console-bg text-white overflow-x-hidden">
-      <StarfieldBackground />
-      <HUDGrid />
+      <AmbientBackground />
+      <PremiumGrid />
       <Navigation />
       
       <main>

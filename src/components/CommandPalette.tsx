@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Search, Sparkles, BookOpen, Layers, FileText, Lightbulb, Loader2, ArrowLeft, Send, X } from 'lucide-react';
 import { Dialog, DialogPortal, DialogOverlay } from '@/components/ui/dialog';
+import { OrbitExplorer, LunaLoader } from '../../learnstation-luna';
 import { cn } from '@/lib/utils';
 import {
   globalSearch,
@@ -259,7 +260,7 @@ export function CommandPalette({ open, onOpenChange, initialCourseId, initialCou
                   placeholder={t('palette.placeholder')}
                   className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
                 />
-                {loading && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
+                {loading && <LunaLoader type="orbit-scanning" size={18} />}
                 <DialogPrimitive.Close aria-label={t('palette.closeHint')} className="text-muted-foreground hover:text-foreground">
                   <X className="h-4 w-4" />
                 </DialogPrimitive.Close>
@@ -322,7 +323,12 @@ export function CommandPalette({ open, onOpenChange, initialCourseId, initialCou
 
 function RecentSearches({ recent, onPick, label, empty }: { recent: string[]; onPick: (q: string) => void; label: string; empty: string }) {
   if (recent.length === 0) {
-    return <div className="px-3 py-6 text-center text-sm text-muted-foreground">{empty}</div>;
+    return (
+      <div className="flex flex-col items-center gap-2 px-3 py-6 text-center text-sm text-muted-foreground">
+        <OrbitExplorer size="sm" />
+        {empty}
+      </div>
+    );
   }
   return (
     <div>

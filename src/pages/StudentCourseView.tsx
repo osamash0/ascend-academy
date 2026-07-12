@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, FolderOpen, BookOpen, GraduationCap, Sparkles } from 'lucide-react';
+import { ChevronLeft, FolderOpen, BookOpen, GraduationCap, Sparkles, NotebookText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/auth';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
@@ -99,6 +99,16 @@ export default function StudentCourseView() {
                 >
                   <GraduationCap className="w-3.5 h-3.5" />
                   {t('exam:generate.title')}
+                </button>
+              )}
+              {courseId && courseId !== '__uncat__' && (
+                <button
+                  onClick={() => navigate(StudentRoutes.STUDY_GUIDE(courseId))}
+                  className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
+                  id="course-study-guide-btn"
+                >
+                  <NotebookText className="w-3.5 h-3.5" />
+                  Study Guide
                 </button>
               )}
               {/* Temporary toggle to preview the experimental PS5-style library */}

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Flame, Trophy, Layers, Play, ChevronRight, Zap, Sparkles, UploadCloud } from 'lucide-react';
+import { Flame, Trophy, Layers, Play, ChevronRight, Zap, Sparkles, UploadCloud, NotebookText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConsoleTile } from '@/components/console';
 import type {
@@ -10,6 +10,7 @@ import type {
   CourseProgressWidget,
   ReviewWidget,
   MyMaterialsWidget,
+  StudyGuideWidget,
 } from '@/features/student/homeFeed';
 
 /** XP needed per level (matches the dashboard "/ 100 XP" copy). */
@@ -21,6 +22,7 @@ interface BentoGridProps {
   onViewTrophies: () => void;
   onOpenReview: () => void;
   onOpenMyMaterials: () => void;
+  onOpenStudyGuide: (courseId: string) => void;
 }
 
 /** Floating glass cell — the depth "panel" every widget sits in. */
@@ -36,17 +38,40 @@ function Cell({
   label?: string;
 }) {
   const interactive = !!onClick;
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.98 },
+    show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 400, damping: 30 } }
+  };
+
+  const handleHover = () => {
+    if (interactive && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('play-sound', { detail: 'hover' }));
+    }
+  };
+
+  const handleClick = () => {
+    if (interactive && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('play-sound', { detail: 'click' }));
+      onClick?.();
+    }
+  };
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className={cn('depth-card p-5 lg:p-6', interactive && 'cursor-pointer', className)}
-      onClick={onClick}
+      variants={itemVariants}
+      whileHover={interactive ? { scale: 1.02, y: -2 } : undefined}
+      whileTap={interactive ? { scale: 0.98 } : undefined}
+      onMouseEnter={handleHover}
+      className={cn(
+        'depth-card p-5 lg:p-6 transition-colors',
+        interactive && 'cursor-pointer hover:border-primary/30 hover:shadow-glow-primary',
+        className
+      )}
+      onClick={handleClick}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       aria-label={label}
-      onKeyDown={interactive ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick?.() : undefined}
+      onKeyDown={interactive ? (e) => (e.key === 'Enter' || e.key === ' ') && handleClick() : undefined}
     >
       {children}
     </motion.div>
@@ -128,10 +153,14 @@ function TrophiesCell({ w, onView }: { w: TrophiesWidget; onView: () => void }) 
           {w.recent.map((a) => (
             <div
               key={a.id}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/30 to-secondary/30 text-lg"
+              className="flex h-9 w-9 shrink-0 overflow-hidden items-center justify-center rounded-xl bg-gradient-to-br from-primary/30 to-secondary/30 text-lg"
               title={a.badge_name}
             >
-              {a.badge_icon || '🏆'}
+              {a.badge_icon?.startsWith('/') || a.badge_icon?.startsWith('http') ? (
+                <img src={a.badge_icon} alt={a.badge_name} className="w-full h-full object-cover" />
+              ) : (
+                <span>{a.badge_icon || '🏆'}</span>
+              )}
             </div>
           ))}
           <span className="ml-auto inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-primary">
@@ -248,14 +277,52 @@ function MyMaterialsCell({ w, onOpen }: { w: MyMaterialsWidget; onOpen: () => vo
   );
 }
 
+function StudyGuideCell({ w, onOpen }: { w: StudyGuideWidget; onOpen: (courseId: string) => void }) {
+  return (
+    <Cell
+      className="flex flex-col justify-between"
+      onClick={() => onOpen(w.courseId)}
+      label={`Study guide for ${w.courseTitle}`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/50">Study Guide</span>
+        <NotebookText className="h-4 w-4 text-primary" />
+      </div>
+      <div>
+        <p className="text-sm font-bold text-white/80 truncate mt-2 mb-0.5">{w.courseTitle}</p>
+        <p className="text-xs text-white/40">AI-generated course summary</p>
+      </div>
+      <span className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-primary">
+        Open guide <ChevronRight className="h-3.5 w-3.5" />
+      </span>
+    </Cell>
+  );
+}
+
 /**
  * The PS5-style bento: a grid of floating glass widgets (streak, trophies, up
  * next, course progress). Renders whatever buildWidgets() returns, in order.
  */
-export function BentoGrid({ widgets, onOpenLecture, onViewTrophies, onOpenReview, onOpenMyMaterials }: BentoGridProps) {
+export function BentoGrid({ widgets, onOpenLecture, onViewTrophies, onOpenReview, onOpenMyMaterials, onOpenStudyGuide }: BentoGridProps) {
   if (widgets.length === 0) return null;
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08
+      }
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4"
+    >
       {widgets.map((w) => {
         switch (w.kind) {
           case 'streak':
@@ -270,10 +337,12 @@ export function BentoGrid({ widgets, onOpenLecture, onViewTrophies, onOpenReview
             return <ReviewCell key="review" w={w} onOpen={onOpenReview} />;
           case 'myMaterials':
             return <MyMaterialsCell key="myMaterials" w={w} onOpen={onOpenMyMaterials} />;
+          case 'studyGuide':
+            return <StudyGuideCell key="studyGuide" w={w} onOpen={onOpenStudyGuide} />;
           default:
             return null;
         }
       })}
-    </div>
+    </motion.div>
   );
 }

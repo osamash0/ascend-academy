@@ -18,6 +18,7 @@ import { UniversityEmailLink } from '@/components/UniversityEmailLink';
 import { AcademicProfileEditor } from '@/components/AcademicProfileEditor';
 import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { useToast } from '@/hooks/use-toast';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -828,30 +829,28 @@ function AiPreferencesSection() {
                 {t('settings:ai.preferencesDescription')}
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <RadioGroup value={pendingModel} onValueChange={(v) => setPendingModel(v as AiModelOption)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {AI_MODEL_IDS.map((modelId) => (
-                    <div
-                        key={modelId}
-                        onClick={() => setPendingModel(modelId)}
-                        role="radio"
-                        aria-checked={pendingModel === modelId}
-                        tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setPendingModel(modelId); }}
-                        className={`cursor-pointer rounded-xl border-2 p-4 transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
-                            ${pendingModel === modelId
-                                ? 'border-primary bg-primary/10 shadow-sm'
-                                : 'border-border bg-card hover:border-primary/50'}`}
-                    >
-                        <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-semibold text-foreground">{t(`settings:ai.models.${modelId}.name`)}</h3>
-                            {pendingModel === modelId && (
-                                <CheckCircle2 className="w-5 h-5 text-primary" aria-hidden="true" />
-                            )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{t(`settings:ai.models.${modelId}.description`)}</p>
+                    <div key={modelId} className="relative">
+                        <RadioGroupItem value={modelId} id={`ai-${modelId}`} className="sr-only" />
+                        <label
+                            htmlFor={`ai-${modelId}`}
+                            className={`cursor-pointer block rounded-xl border-2 p-4 transition-all outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2
+                                ${pendingModel === modelId
+                                    ? 'border-primary bg-primary/10 shadow-sm'
+                                    : 'border-border bg-card hover:border-primary/50'}`}
+                        >
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-semibold text-foreground">{t(`settings:ai.models.${modelId}.name`)}</h3>
+                                {pendingModel === modelId && (
+                                    <CheckCircle2 className="w-5 h-5 text-primary" aria-hidden="true" />
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{t(`settings:ai.models.${modelId}.description`)}</p>
+                        </label>
                     </div>
                 ))}
-            </div>
+            </RadioGroup>
 
             <AnimatePresence>
                 {hasChanges && (

@@ -1,11 +1,22 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { CommandPalette } from '@/components/CommandPalette';
 import { FEATURES } from '@/lib/featureFlags';
 import { ConsoleTopBar } from './ConsoleTopBar';
 import { ConsoleBoot } from './ConsoleBoot';
+import { useAuth } from '@/lib/auth';
+import { StudentRoutes, ProfessorRoutes, AdminRoutes } from '@/lib/routes';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import React from 'react';
 
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -28,34 +39,6 @@ const TAB_ORDER = [
   '/professor/dashboard', '/professor/courses', '/professor/archive', '/professor/analytics', '/professor/upload'
 ];
 
-const tabIndex = (pathname: string) => {
-  const i = TAB_ORDER.findIndex((p) => pathname.startsWith(p));
-  return i === -1 ? 0 : i;
-};
-
-// `dir` is +1 when navigating rightward across tabs, -1 leftward, 0 within.
-// Exit is a short, deterministic tween (mode="wait" blocks the entrance until
-// it settles); the entrance springs in for the snappy PS5 feel.
-const variants = {
-  enter: (dir: number) => ({ opacity: 0, x: dir * 72, scale: 0.985 }),
-  center: {
-    opacity: 1,
-    x: 0,
-    scale: 1,
-    transition: {
-      x: { type: 'spring' as const, stiffness: 320, damping: 34 },
-      opacity: { duration: 0.28, ease: 'easeOut' as any },
-      scale: { duration: 0.32, ease: [0.16, 1, 0.3, 1] as any },
-    },
-  },
-  exit: (dir: number) => ({
-    opacity: 0,
-    x: dir * -72,
-    scale: 0.985,
-    transition: { duration: 0.18, ease: 'easeIn' as any },
-  }),
-};
-
 /**
  * Full-bleed console "OS" shell: a persistent top-bar nav over a deep base,
  * with PS5-style directional screen transitions between tabs.
@@ -63,19 +46,13 @@ const variants = {
 export function ConsoleLayout({ children }: ConsoleLayoutProps) {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
+  const { role } = useAuth();
+  const homeRoute = role === 'admin' ? AdminRoutes.DASHBOARD : (role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME);
 
-  // Direction of travel, derived from the tab order vs. the previous screen.
-  const prevIndex = useRef(tabIndex(location.pathname));
-  const current = tabIndex(location.pathname);
-  const dir = reduceMotion ? 0 : Math.sign(current - prevIndex.current);
-  prevIndex.current = current;
-
-  // Key the screen transition by TAB, not the full pathname. The PS5-style
-  // slide is meant to play between tabs; keying on the raw pathname made every
-  // intra-tab navigation (e.g. /professor/analytics → /professor/analytics/:id)
-  // remount the whole screen — re-fetching data, resetting scroll, and
-  // replaying the fade/scale. Sub-routes of one tab now update in place, so a
-  // page can run its own smooth in-screen drill-down.
+  // Key the screen by TAB, not the full pathname, so intra-tab navigation
+  // (e.g. /professor/analytics → /professor/analytics/:id) updates in place
+  // instead of remounting/refetching the whole screen. Switching tabs changes
+  // the key, which remounts the new screen and plays its fade-in.
   const tabKey = TAB_ORDER.find((p) => location.pathname.startsWith(p)) ?? location.pathname;
 
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -101,19 +78,66 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
     <div className="console-bg relative min-h-screen flex flex-col text-foreground selection:bg-primary/20">
       <ConsoleBoot />
       <ConsoleTopBar onOpenSearch={FEATURES.globalSearch ? openPalette : undefined} />
-      <AnimatePresence mode="wait" custom={dir} initial={false}>
-        <motion.main
-          key={tabKey}
-          custom={dir}
-          variants={variants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          className="flex-1 relative"
+      {location.pathname !== homeRoute && (
+        <div className="px-5 lg:px-10 py-3 bg-gradient-to-b from-[#070b14]/30 to-transparent border-b border-white/5 z-30 relative backdrop-blur-sm">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href={homeRoute}>Home</BreadcrumbLink>
+              </BreadcrumbItem>
+              {location.pathname.split('/').filter(Boolean).map((path, index, arr) => {
+                const href = `/${arr.slice(0, index + 1).join('/')}`;
+                const isLast = index === arr.length - 1;
+                // Format path text: capitalize and replace hyphens with spaces
+                const formattedPath = path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
+                
+                // Skip redundant "Home" or "Dashboard" if it's already the root
+                if (index === 0 && (path === 'dashboard' || path === 'professor')) return null;
+                if (index === 1 && path === 'dashboard' && arr[0] === 'professor') return null;
+
+                return (
+                  <React.Fragment key={href}>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      {isLast ? (
+                        <BreadcrumbPage>{formattedPath}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink href={href}>{formattedPath}</BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </React.Fragment>
+                );
+              })}
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      )}
+      {/* Keyed fade, NOT AnimatePresence mode="wait": each tab remounts on key
+          change and fades in on its own. The previous mode="wait" transition
+          could deadlock (the exiting screen's exit-complete never firing when
+          the per-route layout reconciled), leaving the new screen's content
+          permanently unmounted — a blank content area under an intact shell. */}
+      <motion.main
+        key={tabKey}
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+        className="flex-1 relative"
+      >
+        {/* Suspense INSIDE the shell: a lazy page load shows a contained loader
+            in the content area instead of letting the outer (whole-app)
+            Suspense swap the entire shell for a full-screen loader (the black
+            flash). */}
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center py-32">
+              <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin shadow-glow-primary" />
+            </div>
+          }
         >
           {children}
-        </motion.main>
-      </AnimatePresence>
+        </Suspense>
+      </motion.main>
       <FeedbackWidget />
       {FEATURES.globalSearch && <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />}
     </div>

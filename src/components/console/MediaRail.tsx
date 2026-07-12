@@ -1,8 +1,8 @@
 import { motion, type Transition } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useCallback, useEffect, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { CARD_H, CARD_W, STEP } from './constants';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 
 // Default cover-flow motion (snappy). Callers can override via `transition`.
 const DEFAULT_TRANSITION: Transition = { type: 'spring', stiffness: 260, damping: 30 };
@@ -55,6 +55,27 @@ export function MediaRail<T>({
   className,
 }: MediaRailProps<T>) {
   const count = items.length;
+  const [api, setApi] = useState<CarouselApi>();
+
+  // Sync parent's focused index -> carousel
+  useEffect(() => {
+    if (!api) return;
+    if (api.selectedScrollSnap() !== focused) {
+      api.scrollTo(focused);
+    }
+  }, [api, focused]);
+
+  // Sync carousel -> parent's focused index
+  useEffect(() => {
+    if (!api) return;
+    const onSelect = () => {
+      onFocus(api.selectedScrollSnap());
+    };
+    api.on("select", onSelect);
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api, onFocus]);
 
   const move = useCallback(
     (dir: number) => onFocus(Math.min(Math.max(focused + dir, 0), count - 1)),
@@ -64,7 +85,6 @@ export function MediaRail<T>({
   useEffect(() => {
     if (!enableKeyboard) return;
     const onKey = (e: KeyboardEvent) => {
-      // Don't hijack arrows/Enter while the user is typing in a field.
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (e.key === 'ArrowRight') {
@@ -85,57 +105,48 @@ export function MediaRail<T>({
   if (count === 0) return null;
 
   return (
-    <div
-      className={cn('relative', className)}
-      style={{ height: cardHeight + 40 }}
-      onWheel={(e) => {
-        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) move(e.deltaX > 0 ? 1 : -1);
+    <Carousel
+      setApi={setApi}
+      className={cn('relative w-full max-w-[100vw]', className)}
+      opts={{
+        align: "center",
+        containScroll: false,
+        dragFree: false,
       }}
     >
-      {items.map((item, i) => {
-        const offset = i - focused;
-        const dist = Math.abs(offset);
-        const isActive = offset === 0;
+      <CarouselContent className="h-[280px] items-center">
+        {items.map((item, i) => {
+          const offset = i - focused;
+          const dist = Math.abs(offset);
+          const isActive = offset === 0;
 
-        return (
-          <motion.button
-            key={getKey(item, i)}
-            className="console-focusable absolute left-1/2 top-0 origin-center rounded-2xl outline-none"
-            style={{ width: cardWidth, height: cardHeight, zIndex: 100 - dist }}
-            animate={{
-              x: offset * step - cardWidth / 2,
-              scale: isActive ? 1 : 0.74,
-              opacity: dist > 2 ? 0 : isActive ? 1 : 0.45,
-              filter: isActive ? 'blur(0px)' : 'blur(1.5px)',
-            }}
-            transition={transition}
-            onClick={() => (isActive ? onActivate?.(item, i) : onFocus(i))}
-            tabIndex={dist > 2 ? -1 : 0}
-            aria-label={getAriaLabel?.(item, i)}
-          >
-            {renderTile(item, { isActive, offset, dist, index: i })}
-          </motion.button>
-        );
-      })}
-
-      {focused > 0 && (
-        <button
-          onClick={() => move(-1)}
-          className="absolute left-4 lg:left-12 top-1/2 z-[120] -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-white/70 backdrop-blur hover:bg-white/15 hover:text-white transition"
-          aria-label="Previous"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-      )}
-      {focused < count - 1 && (
-        <button
-          onClick={() => move(1)}
-          className="absolute right-4 lg:right-12 top-1/2 z-[120] -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-white/70 backdrop-blur hover:bg-white/15 hover:text-white transition"
-          aria-label="Next"
-        >
-          <ChevronRight className="w-6 h-6" />
-        </button>
-      )}
-    </div>
+          return (
+            <CarouselItem key={getKey(item, i)} className="basis-auto pl-4 md:pl-8">
+              <motion.button
+                className="console-focusable origin-center rounded-2xl outline-none"
+                style={{ width: cardWidth, height: cardHeight, zIndex: 100 - dist }}
+                animate={{
+                  scale: isActive ? 1 : 0.74,
+                  opacity: dist > 2 ? 0.3 : isActive ? 1 : 0.45,
+                  filter: isActive ? 'blur(0px)' : 'blur(1.5px)',
+                }}
+                transition={transition}
+                onClick={() => (isActive ? onActivate?.(item, i) : onFocus(i))}
+                tabIndex={isActive ? 0 : -1}
+                aria-label={getAriaLabel?.(item, i)}
+              >
+                {renderTile(item, { isActive, offset, dist, index: i })}
+              </motion.button>
+            </CarouselItem>
+          );
+        })}
+      </CarouselContent>
+      <div className="absolute top-1/2 -translate-y-1/2 left-4 lg:left-12 z-[120]">
+        <CarouselPrevious className="relative static translate-x-0 translate-y-0 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-white/70 backdrop-blur hover:bg-white/15 hover:text-white transition border-none" />
+      </div>
+      <div className="absolute top-1/2 -translate-y-1/2 right-4 lg:right-12 z-[120]">
+        <CarouselNext className="relative static translate-x-0 translate-y-0 flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-white/70 backdrop-blur hover:bg-white/15 hover:text-white transition border-none" />
+      </div>
+    </Carousel>
   );
 }

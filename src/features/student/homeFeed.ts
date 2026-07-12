@@ -234,13 +234,22 @@ export interface MyMaterialsWidget {
   count: number;
 }
 
+export interface StudyGuideWidget {
+  /** Course IDs that have at least one lecture (so a guide can be generated). */
+  kind: 'studyGuide';
+  /** The first (or most-recently-visited) course id the student is enrolled in. */
+  courseId: string;
+  courseTitle: string;
+}
+
 export type Widget =
   | TrophiesWidget
   | CourseProgressWidget
   | UpNextWidget
   | StreakWidget
   | ReviewWidget
-  | MyMaterialsWidget;
+  | MyMaterialsWidget
+  | StudyGuideWidget;
 
 const UNCATEGORIZED = '__uncat__';
 const UNCATEGORIZED_TITLE = 'Other';
@@ -295,6 +304,13 @@ export function buildWidgets(
   // My Materials (Roadmap Phase 3.1) — student self-serve uploads.
   if (myMaterialsCount !== undefined) {
     widgets.push({ kind: 'myMaterials', count: myMaterialsCount });
+  }
+
+  // Study Guide widget — appears when the student has at least one course with lectures.
+  const coursesWithLectures = buildCourseProgress(views).filter(c => c.total > 0 && c.courseId !== UNCATEGORIZED);
+  if (coursesWithLectures.length > 0) {
+    const top = coursesWithLectures[0];
+    widgets.push({ kind: 'studyGuide', courseId: top.courseId, courseTitle: top.title });
   }
 
   // Daily review (Roadmap Phase 1.1) — surfaced in the TOP slot when there's

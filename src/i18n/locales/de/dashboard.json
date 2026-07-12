@@ -20,8 +20,8 @@
     "bestStreak": "Beste Serie",
     "achievements": "Erfolge",
     "learningInsights": "Lern-Einblicke",
-    "aiIntelligence": "KI-Intelligenz",
-    "insightsDescription": "Analysiere deinen Tagesrhythmus, deine Konzentrationsintensität und deine Leistungsmuster.",
+    "aiIntelligence": "Einblicke",
+    "insightsDescription": "Sieh, wann du am besten lernst, und verfolge deinen Fokus über die Zeit.",
     "explore": "Erkunden"
   },
   "filters": {
@@ -46,7 +46,7 @@
   "viewAll": "Alle anzeigen",
   "onboard": {
     "eyebrow": "Hier starten",
-    "title": "Willkommen bei Ascend",
+    "title": "Willkommen bei Learnstation",
     "subtitle": "So lernst du. Drücke oben auf Beginnen, um deine erste Vorlesung zu öffnen.",
     "steps": {
       "learn": {

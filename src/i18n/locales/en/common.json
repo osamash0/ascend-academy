@@ -14,7 +14,7 @@
     "back": "Back",
     "next": "Next",
     "finish": "Finish",
-    "submit": "Submit",
+    "submit": "Confirm",
     "close": "Close",
     "retry": "Retry",
     "loading": "Loading...",
@@ -27,9 +27,9 @@
   },
   "states": {
     "loading": "Loading...",
-    "empty": "Nothing here yet.",
-    "error": "Something went wrong.",
-    "errorRetry": "Please refresh the page. If the problem persists, contact support.",
+    "empty": "It's quiet here. Let's add something.",
+    "error": "We hit a snag.",
+    "errorRetry": "Let's try refreshing the page. If this keeps happening, please reach out to support.",
     "refresh": "Refresh",
     "noResults": "No results found.",
     "saved": "Saved",
@@ -38,9 +38,9 @@
     "comingSoon": "Coming soon"
   },
   "toasts": {
-    "errorTitle": "Error",
+    "errorTitle": "Oops",
     "successTitle": "Success",
-    "tryAgain": "Please try again."
+    "tryAgain": "Let's try that again."
   },
   "status": {
     "deleted": "Deleted",
@@ -70,12 +70,12 @@
     "daysAgo": "{{count}}d ago"
   },
   "errorBoundary": {
-    "title": "Something went wrong.",
-    "description": "Please refresh the page. If the problem persists, contact support.",
+    "title": "Well, this is unexpected.",
+    "description": "Let's try refreshing the page. If this keeps happening, please reach out to support.",
     "refresh": "Refresh"
   },
   "loader": {
-    "syncing": "Neural Edge Syncing..."
+    "syncing": "Syncing your progress..."
   },
   "achievements": {
     "level5": {

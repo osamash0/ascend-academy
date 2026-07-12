@@ -21,8 +21,8 @@
     "upToDate": "Aktuell",
     "updated": "Profil aktualisiert",
     "updatedDescription": "Deine Einstellungen wurden erfolgreich gespeichert.",
-    "saveError": "Fehler beim Speichern",
-    "saveErrorDescription": "Ein unerwarteter Fehler ist aufgetreten."
+    "saveError": "Dein Profil konnte nicht gespeichert werden",
+    "saveErrorDescription": "Versuchen wir das noch einmal."
   },
   "aria": {
     "uploadAvatar": "Avatarbild hochladen",
@@ -37,10 +37,10 @@
     "presetsTitle": "Oder wähle eine lustige Vorlage:",
     "updated": "Avatar aktualisiert",
     "updatedDescription": "Dein neues Profilbild sieht super aus!",
-    "uploadError": "Fehler beim Hochladen des Avatars",
+    "uploadError": "Dein Foto konnte nicht hochgeladen werden",
     "uploadErrorDescription": "Bitte stelle sicher, dass der Storage-Bucket 'avatars' existiert und öffentlich ist.",
     "presetUpdated": "Dein neuer Avatar wurde gesetzt!",
-    "presetError": "Fehler beim Aktualisieren des Avatars",
+    "presetError": "Dein Avatar konnte nicht aktualisiert werden",
     "presetErrorDescription": "Avatar konnte nicht aktualisiert werden."
   },
   "language": {
@@ -111,9 +111,9 @@
     "passwordTooShort": "Das Passwort muss mindestens 6 Zeichen lang sein",
     "changePassword": "Passwort ändern",
     "changing": "Wird aktualisiert...",
-    "currentIncorrect": "Aktuelles Passwort falsch",
+    "currentIncorrect": "Das ist nicht das richtige Passwort",
     "currentIncorrectDescription": "Bitte überprüfe dein aktuelles Passwort und versuche es erneut.",
-    "passwordChangeFailed": "Passwortänderung fehlgeschlagen",
+    "passwordChangeFailed": "Dein Passwort konnte nicht aktualisiert werden",
     "passwordChangeFailedDescription": "Ein unerwarteter Fehler ist aufgetreten.",
     "passwordUpdated": "Passwort aktualisiert!",
     "passwordUpdatedDescription": "Dein Passwort wurde erfolgreich geändert."
@@ -126,7 +126,7 @@
     "exporting": "Wird exportiert...",
     "exportSuccess": "Daten exportiert!",
     "exportSuccessDescription": "Deine Daten wurden heruntergeladen.",
-    "exportError": "Export fehlgeschlagen",
+    "exportError": "Deine Daten konnten nicht exportiert werden",
     "exportErrorDescription": "Bitte versuche es erneut.",
     "dangerZone": "Gefahrenzone",
     "deleteTitle": "Konto löschen",
@@ -139,12 +139,12 @@
     "deleteConfirm": "Bist du absolut sicher? Dies löscht dein Konto und alle deine Daten dauerhaft. Tippe DELETE zur Bestätigung.",
     "deleteSuccess": "Konto gelöscht",
     "deleteSuccessDescription": "Dein Konto und alle Daten wurden entfernt.",
-    "deleteError": "Löschung fehlgeschlagen",
+    "deleteError": "Dein Konto konnte nicht gelöscht werden",
     "deleteErrorDescription": "Bitte kontaktiere den Support."
   },
   "save": "Änderungen speichern",
   "saving": "Wird gespeichert...",
   "saved": "Profil aktualisiert",
   "savedDescription": "Deine Einstellungen wurden erfolgreich gespeichert.",
-  "saveError": "Fehler beim Speichern des Profils"
+  "saveError": "Dein Profil konnte nicht gespeichert werden"
 }

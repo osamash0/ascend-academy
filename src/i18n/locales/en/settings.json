@@ -21,8 +21,8 @@
     "upToDate": "Up to date",
     "updated": "Profile updated",
     "updatedDescription": "Your settings have been saved successfully.",
-    "saveError": "Error saving profile",
-    "saveErrorDescription": "An unexpected error occurred."
+    "saveError": "We couldn't save your profile",
+    "saveErrorDescription": "Let's try that again."
   },
   "aria": {
     "uploadAvatar": "Upload avatar image",
@@ -37,10 +37,10 @@
     "presetsTitle": "Or choose a fun preset:",
     "updated": "Avatar updated",
     "updatedDescription": "Your new profile picture looks great!",
-    "uploadError": "Error uploading avatar",
+    "uploadError": "We couldn't upload your photo",
     "uploadErrorDescription": "Please make sure the 'avatars' storage bucket exists and is public.",
     "presetUpdated": "Your fun new avatar is set!",
-    "presetError": "Error updating avatar",
+    "presetError": "We couldn't update your avatar",
     "presetErrorDescription": "Failed to update your avatar."
   },
   "language": {
@@ -111,9 +111,9 @@
     "passwordTooShort": "Password must be at least 6 characters",
     "changePassword": "Change Password",
     "changing": "Updating...",
-    "currentIncorrect": "Current password incorrect",
+    "currentIncorrect": "That's not the right password",
     "currentIncorrectDescription": "Please check your current password and try again.",
-    "passwordChangeFailed": "Password change failed",
+    "passwordChangeFailed": "We couldn't update your password",
     "passwordChangeFailedDescription": "An unexpected error occurred.",
     "passwordUpdated": "Password updated!",
     "passwordUpdatedDescription": "Your password has been changed successfully."
@@ -126,7 +126,7 @@
     "exporting": "Exporting...",
     "exportSuccess": "Data exported!",
     "exportSuccessDescription": "Your data has been downloaded.",
-    "exportError": "Export failed",
+    "exportError": "We couldn't export your data",
     "exportErrorDescription": "Please try again.",
     "dangerZone": "Danger Zone",
     "deleteTitle": "Delete your account",
@@ -139,12 +139,12 @@
     "deleteConfirm": "Are you absolutely sure? This will permanently delete your account and all your data. Type DELETE to confirm.",
     "deleteSuccess": "Account deleted",
     "deleteSuccessDescription": "Your account and all data have been removed.",
-    "deleteError": "Deletion failed",
+    "deleteError": "We couldn't delete your account",
     "deleteErrorDescription": "Please contact support."
   },
   "save": "Save Changes",
   "saving": "Saving...",
   "saved": "Profile updated",
   "savedDescription": "Your settings have been saved successfully.",
-  "saveError": "Error saving profile"
+  "saveError": "We couldn't save your profile"
 }

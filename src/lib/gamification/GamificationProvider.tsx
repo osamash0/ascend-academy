@@ -137,6 +137,19 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
   const current = queue[0];
   const closeCurrent = useCallback(() => setQueue(q => q.slice(1)), []);
 
+  useEffect(() => {
+    if (!current) return;
+    if (typeof window !== 'undefined') {
+      if (current.kind === 'level') {
+        window.dispatchEvent(new CustomEvent('fire-confetti'));
+        window.dispatchEvent(new CustomEvent('play-sound', { detail: 'levelUp' }));
+      } else if (current.kind === 'badge') {
+        window.dispatchEvent(new CustomEvent('fire-confetti'));
+        window.dispatchEvent(new CustomEvent('play-sound', { detail: 'success' }));
+      }
+    }
+  }, [current]);
+
   const value = useMemo(
     () => ({ evaluate, awardBadge, grantXp }),
     [evaluate, awardBadge, grantXp],

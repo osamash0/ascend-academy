@@ -17,6 +17,8 @@ import {
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { LunaAstronaut } from '../../learnstation-luna/components/LunaAstronaut';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Sidebar,
   SidebarContent,
@@ -186,18 +188,12 @@ export function AppSidebar() {
               onClick={() => navigate('/settings')}
               className="flex items-center gap-4 p-4 cursor-pointer glass-panel border-white/5 rounded-[20px] transition-all group hover:border-primary/50 hover:bg-primary/5"
             >
-              <div className="relative w-11 h-11 rounded-[14px] border border-white/10 overflow-hidden flex-shrink-0 bg-surface-2 shadow-xl group-hover:border-primary/50 transition-all duration-500 group-hover:scale-105">
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="User avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-secondary/20 to-xp/20">
-                    <span className="text-primary font-bold text-base">
-                      {profile?.full_name?.charAt(0)?.toUpperCase() || profile?.email?.charAt(0)?.toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors" />
-              </div>
+              <Avatar className="w-11 h-11 rounded-[14px] border border-white/10 flex-shrink-0 shadow-xl group-hover:border-primary/50 transition-all duration-500 group-hover:scale-105">
+                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="User avatar" className="object-cover" />}
+                <AvatarFallback className="bg-gradient-to-br from-primary/20 via-secondary/20 to-xp/20 rounded-[14px]">
+                  <LunaAstronaut variant="head" size="xs" phase="full" showShadow={false} animated={false} />
+                </AvatarFallback>
+              </Avatar>
               <div className="flex flex-col min-w-0">
                 <p className="text-sm font-bold text-foreground truncate tracking-tight group-hover:text-primary transition-colors">
                   {profile?.full_name || profile?.email?.split('@')[0]}

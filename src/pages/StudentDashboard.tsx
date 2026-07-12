@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useDeferredValue } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -86,14 +86,17 @@ export default function StudentDashboard() {
   });
   const myMaterialsCount = FEATURES.studentUploads ? myMaterialsQuery.data?.materials.length ?? 0 : undefined;
 
+  const deferredLectures = useDeferredValue(lectures);
+  const deferredCourseVisits = useDeferredValue(courseVisits);
+
   // The "brains": hero / bento widgets / browse rows.
-  const hero = useMemo(() => selectHero(lectures, byId), [lectures, byId]);
+  const hero = useMemo(() => selectHero(deferredLectures, byId), [deferredLectures, byId]);
   const widgets = useMemo(
-    () => buildWidgets(lectures, byId, achievements, profile, reviewDueCount, myMaterialsCount),
-    [lectures, byId, achievements, profile, reviewDueCount, myMaterialsCount],
+    () => buildWidgets(deferredLectures, byId, achievements, profile, reviewDueCount, myMaterialsCount),
+    [deferredLectures, byId, achievements, profile, reviewDueCount, myMaterialsCount],
   );
   // Pass courseVisits so buildRows can apply LIFS ordering.
-  const rows = useMemo(() => buildRows(lectures, byId, courseVisits), [lectures, byId, courseVisits]);
+  const rows = useMemo(() => buildRows(deferredLectures, byId, deferredCourseVisits), [deferredLectures, byId, deferredCourseVisits]);
 
   // IDs already shown in the Continue Learning rail — used by buildRecentlyViewed.
   const continueIds = useMemo(() => {
@@ -103,8 +106,8 @@ export default function StudentDashboard() {
 
   // Recently Viewed: deduplicated mix of lectures + courses, MRF ordered.
   const recentItems = useMemo(
-    () => buildRecentlyViewed(lectures, byId, courseVisits, hero?.view.lecture.id ?? null, continueIds),
-    [lectures, byId, courseVisits, hero, continueIds],
+    () => buildRecentlyViewed(deferredLectures, byId, deferredCourseVisits, hero?.view.lecture.id ?? null, continueIds),
+    [deferredLectures, byId, deferredCourseVisits, hero, continueIds],
   );
 
   // The hero kind drives how much of the dashboard we surface: brand-new

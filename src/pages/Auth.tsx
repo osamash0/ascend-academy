@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { LunaAstronaut } from '../../learnstation-luna';
-import { GraduationCap, BookOpen, User, Mail, Lock, ArrowRight, ArrowLeft, Sparkles, Eye, EyeOff } from 'lucide-react';
+const LunaAstronaut = lazy(() => import('../../learnstation-luna').then(m => ({ default: m.LunaAstronaut })));
+import { GraduationCap, BookOpen, User, Mail, Lock, ArrowRight, ArrowLeft, Sparkles, Eye, EyeOff, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { logLearningEvent } from '@/services/studentService';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 type UserRole = 'student' | 'professor';
 
@@ -22,6 +23,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [loading, setLoading] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -36,6 +38,19 @@ export default function Auth() {
     email: z.string().email(t('auth:validation.invalidEmail')),
     password: z.string().min(6, t('auth:validation.passwordMin')),
   });
+
+  const getLunaMessage = () => {
+    if (focusedField === 'email') {
+      return "Use your university email for a special student badge!";
+    }
+    if (focusedField === 'password') {
+      return "Make it strong! 8+ characters to keep your notes safe.";
+    }
+    if (email.length > 0 && password.length >= 6) {
+      return `All set! Let's start, click ${isLogin ? 'Sign In' : 'Get Started'}.`;
+    }
+    return isLogin ? t('auth:branding.lunaIntro') : t('auth:branding.lunaSignupIntro');
+  };
 
   const validateForm = () => {
     try {
@@ -184,29 +199,71 @@ export default function Auth() {
         </Button>
       </div>
 
-      {/* Top-right language toggle and Luna */}
+      {/* Top-right language toggle */}
       <div className="absolute top-6 right-6 z-20 flex items-center gap-4">
-        <LunaAstronaut phase="gibbous" size="sm" animated={false} />
         <LanguageToggle variant="icon-dark" />
       </div>
 
       {/* Animated Background for Auth */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/5 blur-[120px] animate-pulse delay-700" />
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[100px] opacity-40" style={{ transform: 'translateZ(0)' }} />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/10 blur-[100px] opacity-30" style={{ transform: 'translateZ(0)' }} />
       </div>
 
-      {/* Center Auth form */}
-      <div className="w-full flex items-center justify-center p-6 lg:p-24 relative z-10">
+      {/* Left side: Luna branding (hidden on mobile, visible on lg screens) */}
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center border-r border-white/5 bg-[#060a14] overflow-hidden z-10">
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 blur-[100px]" />
+        
+        <div className="relative z-10 flex flex-col items-center">
+          <Suspense fallback={<div className="w-64 h-64 animate-pulse rounded-full bg-white/5" />}>
+            <LunaAstronaut phase="full" size="xl" animated={true} />
+          </Suspense>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="mt-8 text-center max-w-md px-6 w-full flex flex-col items-center"
+          >
+            {/* Luna's Interactive Chat */}
+            <div className="min-h-[120px] w-full flex items-start justify-center">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={getLunaMessage()}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <p className="text-2xl font-bold text-white leading-relaxed">
+                    {getLunaMessage().split('').map((char, i) => (
+                      <motion.span
+                        key={`${char}-${i}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.05, delay: i * 0.02 }}
+                      >
+                        {char}
+                      </motion.span>
+                    ))}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Right side: Center Auth form on mobile, Right side on lg */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-24 relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
           className="w-full max-w-md"
         >
           {/* Brand Logo */}
           <div className="flex items-center gap-4 mb-12 justify-center cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center shadow-glow-primary">
-              <GraduationCap className="w-7 h-7 text-white" />
+              <Layers className="w-7 h-7 text-white" />
             </div>
             <div className="flex flex-col text-left">
               <span className="text-xl font-bold text-foreground">Learnstation</span>
@@ -226,30 +283,30 @@ export default function Auth() {
           {!isLogin && (
             <div className="mb-8">
               <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 block">{t('auth:designation')}</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <RadioGroup value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)} className="grid grid-cols-2 gap-4">
                 {[
                   { role: 'student' as UserRole, icon: BookOpen, label: t('auth:roles.student') },
                   { role: 'professor' as UserRole, icon: User, label: t('auth:roles.professor') },
                 ].map(({ role, icon: Icon, label }) => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => setSelectedRole(role)}
-                    aria-pressed={selectedRole === role}
-                    className={`p-6 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-3 ${selectedRole === role
-                      ? 'border-primary bg-primary/5 shadow-glow-primary/10'
-                      : 'border-white/5 bg-white/2 hover:border-white/10'
-                      }`}
-                  >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedRole === role ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground'}`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <span className={`text-xs font-bold uppercase tracking-widest ${selectedRole === role ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {label}
-                    </span>
-                  </button>
+                  <div key={role} className="relative">
+                    <RadioGroupItem value={role} id={`role-${role}`} className="sr-only" />
+                    <Label
+                      htmlFor={`role-${role}`}
+                      className={`cursor-pointer p-6 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-3 focus-within:ring-2 focus-within:ring-primary focus-within:outline-none ${selectedRole === role
+                        ? 'border-primary bg-primary/5 shadow-glow-primary/10'
+                        : 'border-white/5 bg-white/2 hover:border-white/10'
+                        }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedRole === role ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground'}`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <span className={`text-xs font-bold uppercase tracking-widest ${selectedRole === role ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {label}
+                      </span>
+                    </Label>
+                  </div>
                 ))}
-              </div>
+              </RadioGroup>
             </div>
           )}
 
@@ -265,8 +322,10 @@ export default function Auth() {
                   placeholder={t('auth:fields.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
                   autoComplete="username"
-                  className={`h-14 pl-12 text-black bg-white border-white/5 focus:border-primary/50 rounded-2xl transition-all ${errors.email ? 'border-destructive' : ''}`}
+                  className={`h-14 pl-12 text-white bg-white/5 placeholder:text-muted-foreground border-white/10 focus:border-primary/50 rounded-2xl transition-all ${errors.email ? 'border-destructive' : ''}`}
                 />
               </div>
               {errors.email && (
@@ -297,8 +356,10 @@ export default function Auth() {
                   placeholder={t('auth:fields.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
                   autoComplete={isLogin ? 'current-password' : 'new-password'}
-                  className={`h-14 pl-12 pr-12 text-black bg-white border-white/5 focus:border-primary/50 rounded-2xl transition-all ${errors.password ? 'border-destructive' : ''}`}
+                  className={`h-14 pl-12 pr-12 text-white bg-white/5 placeholder:text-muted-foreground border-white/10 focus:border-primary/50 rounded-2xl transition-all ${errors.password ? 'border-destructive' : ''}`}
                 />
                 <button
                   type="button"

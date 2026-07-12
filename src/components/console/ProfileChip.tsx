@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { StudentRoutes } from '@/lib/routes';
 import { RankRing } from '@/components/RankRing';
 import { rankForXp } from '@/lib/rank';
+import { LunaAstronaut } from '../../../learnstation-luna/components/LunaAstronaut';
 
 import {
   DropdownMenu,
@@ -46,7 +47,7 @@ export function ProfileChip({ className }: ProfileChipProps) {
           {profile.avatar_url ? (
             <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="text-lg font-black text-white">{initial}</span>
+            <LunaAstronaut variant="head" size="xs" phase="full" showShadow={false} animated={false} />
           )}
         </div>
       </RankRing>
