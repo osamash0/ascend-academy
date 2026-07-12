@@ -1,16 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
 import {
   Users,
   Activity,
   Database,
-  AlertCircle,
   RefreshCw,
   Eye,
   EyeOff,
   Terminal,
-  CheckCircle2,
   ShieldAlert,
   Cpu,
   Trash2,
@@ -38,7 +35,6 @@ import {
 type ActiveTab = 'activity' | 'visibility' | 'errors' | 'reset' | 'deployment';
 
 export default function AdminDashboard() {
-  const { t } = useTranslation(['common']);
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<ActiveTab>('activity');
   const [loading, setLoading] = useState(true);

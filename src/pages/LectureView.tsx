@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
+import { BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { fetchLecture, fetchSlides, fetchQuizQuestions, resolvePdfUrl } from '@/services/lectureService';
 import {
@@ -48,7 +48,6 @@ export default function LectureView() {
   const [resolvedPdfUrl, setResolvedPdfUrl] = useState<string | null>(null);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
@@ -59,7 +58,7 @@ export default function LectureView() {
 
   // ── Slide progress hook (replaces broken saveProgress / useState(currentSlideIndex)) ──
   const slideProgress = useSlideProgress({
-    lectureId: lectureId ?? '',
+    lectureId: lecture?.id ?? '',
     slides,
     userId: user?.id,
   });
@@ -205,7 +204,6 @@ export default function LectureView() {
     
     // Reset session state for new lecture
     setPendingInit(null); // clear any stale pending-init from previous lecture
-    setCurrentQuestionIndex(0);
     setShowQuiz(false);
     setQuizAnswers({});
     setXpEarned(0);
@@ -241,7 +239,7 @@ export default function LectureView() {
     resolvePdfUrl(lectureData.pdf_url).then(setResolvedPdfUrl).catch(() => setResolvedPdfUrl(null));
 
     // Fetch slides
-    const slidesFromService = await fetchSlides(currentLectureId);
+    const slidesFromService = await fetchSlides(lectureData.id);
     const slidesData = slidesFromService.length > 0 ? slidesFromService : null;
 
     if (slidesData && slidesData.length > 0) {
@@ -251,7 +249,7 @@ export default function LectureView() {
     }
 
     // Fetch questions
-    const questionsFromService = await fetchQuizQuestions(currentLectureId);
+    const questionsFromService = await fetchQuizQuestions(lectureData.id);
     const questionsData = questionsFromService.length > 0 ? questionsFromService : null;
 
     if (questionsData && questionsData.length > 0) {
@@ -265,7 +263,7 @@ export default function LectureView() {
 
     // Fetch user progress and schedule restoration
     if (user?.id) {
-      const progressData = await fetchLectureProgress(user.id, currentLectureId);
+      const progressData = await fetchLectureProgress(user.id, lectureData.id);
 
       if (progressData) {
         const maxSlides = slidesData && slidesData.length > 0 ? slidesData.length : 4;
@@ -309,7 +307,7 @@ export default function LectureView() {
 
     // Log lecture start event (fire-and-forget; never block lecture load)
     if (user?.id) {
-      logLearningEvent(user.id, 'lecture_start', { lectureId: currentLectureId, sessionId: sessionIdRef.current })
+      logLearningEvent(user.id, 'lecture_start', { lectureId: lectureData.id, sessionId: sessionIdRef.current })
         .catch((err) => console.warn('lecture_start telemetry failed', err));
     }
 
@@ -404,7 +402,6 @@ export default function LectureView() {
       const nextIndex = currentSlideIndex + 1;
       goToSlide(nextIndex);                              // ← transition + debounced save
       setShowQuiz(quizAnswers[nextIndex] !== undefined);
-      setCurrentQuestionIndex(0);
     } else {
       handleLectureComplete(xpEarned, correctAnswers);
     }

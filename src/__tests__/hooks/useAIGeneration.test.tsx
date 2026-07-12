@@ -152,7 +152,7 @@ describe('handleGenerateSummary', () => {
       ),
     );
     const slides = [makeSlide()];
-    const { result, updateSlide } = makeHook(slides);
+    const { result } = makeHook(slides);
 
     // Start without awaiting
     act(() => { void result.current.handleGenerateSummary(0); });

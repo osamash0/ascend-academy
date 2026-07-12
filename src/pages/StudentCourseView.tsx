@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, FolderOpen, BookOpen, GraduationCap, Sparkles, NotebookText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/lib/auth';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
 import { LectureCard } from '@/components/LectureCard';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -15,7 +14,6 @@ export default function StudentCourseView() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { user } = useAuth();
   const [askOpen, setAskOpen] = useState(false);
 
   const { data, isLoading } = useStudentDashboard();

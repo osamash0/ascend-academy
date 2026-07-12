@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef, useCallback, memo, Suspense, lazy } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useRef, memo, Suspense, lazy } from 'react';
+import { Loader2 } from 'lucide-react';
 
 // Lazy load Three.js components to reduce initial bundle size
 const ThreeCanvas = lazy(() => import('./ThreeCanvas'));

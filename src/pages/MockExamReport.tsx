@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Award, BrainCircuit, CheckCircle2, ChevronRight, Share2, Target, XCircle } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, Share2, Target, XCircle } from 'lucide-react';
 import { useExamAttempt, useSendMissesToReview } from '@/features/student/hooks/useExamMode';
 import { DepthScene } from '@/components/console';
 

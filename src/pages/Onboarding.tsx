@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-motion';
 import {
-  ArrowRight, User, Sparkles, BookOpen, Check, Loader2, Camera,
-  GraduationCap, Building2, ShieldCheck, Rocket, Volume2, VolumeX,
+  ArrowRight, Sparkles, BookOpen, Check, Loader2,
+  Building2, Volume2, VolumeX,
   Users, Trophy, MapPin,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -16,15 +15,12 @@ import {
   getRecommendedCourses,
 } from '@/services/academicService';
 import { setMySocialProfile, fetchFriendSuggestions } from '@/features/social/api';
-import { useGamification } from '@/lib/gamification/GamificationProvider';
-import { RankRing } from '@/components/RankRing';
 import { rankForXp, rankProgress } from '@/lib/rank';
 import { useSound } from '@/lib/useSound';
 import { OnboardingJourneyMap } from '@/features/onboarding/pixi/OnboardingJourneyMap';
 import type {
   University, Faculty, DegreeProgram, SuggestedCourse, StudentCatalogStatus,
 } from '@/types/academic';
-import { LanguageToggle } from '@/components/LanguageToggle';
 import { LunaAstronaut } from '../../learnstation-luna';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,8 +90,6 @@ function SoundToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => 
 function OnboardingInner() {
   const { t } = useTranslation('onboarding');
   const { user, profile } = useAuth();
-  const gamification = useGamification();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const { play, enabled: soundOn, toggle: toggleSound } = useSound();
   const reduceMotion = useReducedMotion() ?? false;

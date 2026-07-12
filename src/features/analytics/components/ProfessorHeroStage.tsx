@@ -3,7 +3,7 @@ import { LaunchButton } from '@/components/console';
 import { splitLectureTitle } from '@/lib/utils';
 import type { Lecture } from '@/types/domain';
 import type { Course } from '@/services/coursesService';
-import { BarChart3, Settings, Eye, Trash2 } from 'lucide-react';
+import { Settings, Eye, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ProfessorHeroStageProps {

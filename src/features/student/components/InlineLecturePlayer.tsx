@@ -40,7 +40,6 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
 import { apiClient } from '@/lib/apiClient';
 import {
   fetchLecture,
@@ -129,7 +128,7 @@ export function InlineLecturePlayer({
   onExpand,
   onSlideChange,
 }: InlineLecturePlayerProps) {
-  const { user, profile, session, refreshProfile } = useAuth();
+  const { user, session, refreshProfile } = useAuth();
   const queryClient = useQueryClient();
   const { t } = useTranslation(['lecture', 'common']);
   const translateCurriculum = useCurriculumTranslation();
@@ -239,7 +238,7 @@ export function InlineLecturePlayer({
     initialize: initSlideProgress,
     markLectureComplete,
     flushSave: flushSlideProgress,
-  } = useSlideProgress({ lectureId, slides, userId: user?.id });
+  } = useSlideProgress({ lectureId: lecture?.id ?? '', slides, userId: user?.id });
 
   // Apply restored progress once BOTH the slides and the restore payload are
   // ready — order-independent, so the resume position is never dropped.
@@ -281,8 +280,8 @@ export function InlineLecturePlayer({
         resolvePdfUrl(lec.pdf_url).then((u) => !cancelled && setPdfUrl(u)).catch(() => setPdfUrl(null));
 
         const [slidesData, questionsData] = await Promise.all([
-          fetchSlides(lectureId),
-          fetchQuizQuestions(lectureId),
+          fetchSlides(lec.id),
+          fetchQuizQuestions(lec.id),
         ]);
         if (cancelled) return;
 
@@ -295,7 +294,7 @@ export function InlineLecturePlayer({
         );
 
         if (user?.id) {
-          const progress = await fetchLectureProgress(user.id, lectureId);
+          const progress = await fetchLectureProgress(user.id, lec.id);
           if (cancelled) return;
           if (progress) {
             const maxSlides = slidesData.length || 1;
@@ -334,7 +333,7 @@ export function InlineLecturePlayer({
           }
 
           logLearningEvent(user.id, 'lecture_start', {
-            lectureId,
+            lectureId: lec.id,
             sessionId: sessionIdRef.current,
           }).catch(() => {});
         }
@@ -391,7 +390,7 @@ export function InlineLecturePlayer({
 
       if (user) {
         logLearningEvent(user.id, 'quiz_attempt', {
-          lectureId,
+          lectureId: lecture?.id ?? '',
           slideId: currentSlide?.id,
           slideTitle: currentSlide?.title,
           questionId: currentQuestion.id,
@@ -414,7 +413,7 @@ export function InlineLecturePlayer({
           queryClient.setQueryData(['student-progress', user.id], (old: any) => {
             if (!old) return old;
             return old.map((p: any) => {
-              if (p.lecture_id === lectureId) {
+              if (p.lecture_id === (lecture?.id ?? '')) {
                 return {
                   ...p,
                   xp_earned: Math.min(newXp, totalForScore * 10),
@@ -722,7 +721,7 @@ export function InlineLecturePlayer({
         user_message: q,
         chat_history: history,
         ai_model: aiModel,
-        lecture_id: lectureId,
+        lecture_id: lecture?.id ?? '',
         current_slide_index: currentIndex,
       }, ctrl.signal);
 

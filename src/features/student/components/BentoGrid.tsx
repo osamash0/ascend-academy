@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Flame, Trophy, Layers, Play, ChevronRight, Zap, Sparkles, UploadCloud, NotebookText } from 'lucide-react';
+import { Flame, Trophy, Layers, Play, ChevronRight, Sparkles, UploadCloud, NotebookText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConsoleTile } from '@/components/console';
 import type {

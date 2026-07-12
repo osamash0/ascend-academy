@@ -3,10 +3,10 @@ import { useAiModel } from '@/hooks/use-ai-model';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  BarChart3, Users, TrendingUp, Clock, Target, Award,
+  BarChart3, Users, TrendingUp, Target, Award,
   Sparkles, Lightbulb, RefreshCw, CheckCircle2, BookOpen,
-  ChevronRight, ArrowLeft, MessageSquare, AlertTriangle, Zap,
-  Brain, TrendingDown, Filter, Activity, BrainCircuit
+  ChevronRight, ArrowLeft, MessageSquare, AlertTriangle,
+  Brain, TrendingDown, Activity, BrainCircuit
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/table';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  ResponsiveContainer, Cell, AreaChart, Area, PieChart, Pie,
+  ResponsiveContainer, Cell, AreaChart, Area,
   ScatterChart, Scatter, ZAxis, ReferenceArea
 } from 'recharts';
 import { CustomTooltip } from '@/components/charts/CustomTooltip';

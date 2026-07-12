@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, CheckCircle2, Circle, Clock, Sparkles,
@@ -187,7 +187,6 @@ export function OptimalScheduleCard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const today = useMemo(() => todayISO(), []);
 
   const loadPlan = useCallback(async () => {
     try {

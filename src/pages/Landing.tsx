@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, useScroll, useTransform, useSpring, useMotionValue, AnimatePresence } from 'framer-motion';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { 
-  BookOpen, Brain, Zap, Shield, ChevronRight, Star, 
+  BookOpen, Brain, Zap, Shield, ChevronRight,
   Users, BarChart3, Sparkles, ArrowRight, Play, X, Menu,
   Globe, Cpu, Target, Flame, Trophy, ChevronDown, Layers
 } from 'lucide-react';

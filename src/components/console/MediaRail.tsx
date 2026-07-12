@@ -1,7 +1,7 @@
 import { motion, type Transition } from 'framer-motion';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { CARD_H, CARD_W, STEP } from './constants';
+import { CARD_H, CARD_W } from './constants';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 
 // Default cover-flow motion (snappy). Callers can override via `transition`.
@@ -49,7 +49,6 @@ export function MediaRail<T>({
   getAriaLabel,
   cardWidth = CARD_W,
   cardHeight = CARD_H,
-  step = STEP,
   enableKeyboard = false,
   transition = DEFAULT_TRANSITION,
   className,

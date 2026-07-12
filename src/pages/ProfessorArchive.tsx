@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   BookOpen, Trash2, ArchiveRestore, Loader2, Search, ArrowLeft,
-  ChevronRight, Calendar, AlertCircle
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +22,6 @@ import {
 } from '@/services/lectureService';
 import type { Lecture } from '@/types/domain';
 import { splitLectureTitle } from '@/lib/utils';
-import { topicIcon } from '@/lib/topicIcon';
-import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
 
 /* ── Swatches matching ProfessorCourses ── */
 const COLOR_SWATCHES = [

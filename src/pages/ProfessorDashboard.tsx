@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Users, BookOpen, TrendingUp, BarChart3, Plus, Eye, Settings, 
-  Trash2, Sparkles, Activity, GraduationCap, ChevronRight, 
-  MoreHorizontal, Filter, ArrowRight, Archive, X
+import { motion } from 'framer-motion';
+import {
+  Users, BookOpen, TrendingUp, BarChart3, Plus,
+  Activity, ChevronRight,
+  MoreHorizontal, Archive, X
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,7 +30,7 @@ interface StudentStats {
 }
 
 export default function ProfessorDashboard() {
-  const { t, i18n } = useTranslation(['professor', 'common']);
+  const { t } = useTranslation(['professor', 'common']);
   const translateCurriculum = useCurriculumTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();

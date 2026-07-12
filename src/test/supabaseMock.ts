@@ -243,7 +243,7 @@ export function createSupabaseMock(): SupabaseMock {
     seed(table, rows) {
       data[table] = { rows: rows.map((r) => ({ ...r })) };
     },
-    rpc: vi.fn().mockImplementation((name: string, args?: Record<string, unknown>) => {
+    rpc: vi.fn().mockImplementation((name: string) => {
       if (name === "evaluate_badges") {
         return Promise.resolve({ data: [], error: null });
       }

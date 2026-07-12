@@ -91,12 +91,26 @@ export async function fetchLecture(idOrSlug: string): Promise<Lecture | null> {
 }
 
 export async function fetchSlides(lectureId: string): Promise<Slide[]> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('slides')
     .select('id, slide_number, title, content_text, summary, regen_instruction')
     .eq('lecture_id', lectureId)
     .order('slide_number', { ascending: true });
   
+  if (error && /column .*regen_instruction.* does not exist/i.test(error.message ?? '')) {
+    console.warn(
+      `slides.regen_instruction column missing — falling back to legacy schema. ` +
+      `Apply migration 20260711040000_slide_trust_signals.sql to enable it.`
+    );
+    const fallback = await supabase
+      .from('slides')
+      .select('id, slide_number, title, content_text, summary')
+      .eq('lecture_id', lectureId)
+      .order('slide_number', { ascending: true });
+    data = fallback.data as any;
+    error = fallback.error;
+  }
+
   if (error) {
     console.error(`Error fetching slides for lecture ${lectureId}:`, error);
     return [];

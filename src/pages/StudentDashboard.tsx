@@ -375,7 +375,7 @@ export default function StudentDashboard() {
           {/* Recently Viewed: lectures + courses, MRF ordered, deduplicated */}
           <RecentlyViewed
             items={recentItems}
-            onOpenLecture={(id, lastSlide) => {
+            onOpenLecture={(id) => {
               // lastSlide is informational — the lecture page handles resuming
               openLecture(id);
             }}

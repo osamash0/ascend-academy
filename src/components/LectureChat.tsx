@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAiModel, type AiModelChoice } from '@/hooks/use-ai-model';
 import { useAuth } from '@/lib/auth';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Bot, User, Loader2, Sparkles, BookOpen, StopCircle } from 'lucide-react';
+import { X, Send, User, Sparkles, BookOpen, StopCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/apiClient';
 import { logLearningEvent } from '@/services/studentService';
@@ -131,10 +131,6 @@ export function LectureChat({
                 abortControllerRef.current.abort();
             }
         };
-    }, []);
-
-    const scrollToBottom = useCallback(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, []);
 
     const handleSend = useCallback(async () => {

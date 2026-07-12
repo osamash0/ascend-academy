@@ -8,13 +8,11 @@
  *   - react-router useNavigate
  *   - useToast
  */
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { sharedSupabaseMock as supabaseMock } from '@/test/sharedSupabaseMock';
-import { I18nextProvider } from 'react-i18next';
-import i18n from '@/i18n';
 
 vi.mock('@/integrations/supabase/client', async () => {
   const m = await import('@/test/sharedSupabaseMock');

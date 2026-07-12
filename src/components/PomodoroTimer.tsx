@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Timer, Play, Pause, RotateCcw, Coffee, Sparkles, Volume2, VolumeX } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 
 type TimerMode = 'focus' | 'shortBreak' | 'longBreak';
@@ -99,8 +98,6 @@ function TomatoIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
 }
 
 export function PomodoroTimer() {
-  const { t } = useTranslation(['common']);
-  
   // Custom durations (in minutes)
   const [durations, setDurations] = useState<Record<TimerMode, number>>({
     focus: 25,

@@ -12,21 +12,17 @@ import {
   FileText,
   ChevronRight,
   ChevronLeft,
-  GripVertical,
-  BrainCircuit,
   Wand2,
   Save,
   AlertCircle,
   BookOpen,
   X,
-  MoreHorizontal,
   Zap,
   FileUp,
   ListChecks,
   Type,
   ArrowRight,
   Eye,
-  PartyPopper,
   Lightbulb,
   Info,
   Flag
@@ -403,7 +399,7 @@ export default function LectureUpload() {
   });
 
   const {
-    isUploading, setIsUploading,
+    isUploading,
     uploadProgress, uploadTotal, uploadStatus,
     processedSlides, pdfFile, pdfHash, serverLectureId, parserUsed, parsePhase, parseCompleted,
     deckQuiz,

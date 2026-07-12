@@ -1,12 +1,9 @@
-import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   Star,
   User,
-  X,
   CheckCircle2,
-  ChevronRight,
   Play,
   CalendarDays,
   MapPin,
@@ -19,7 +16,6 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetClose,
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';

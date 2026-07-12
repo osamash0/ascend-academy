@@ -206,7 +206,7 @@ function getSemesterFromDescription(desc: string | undefined | null, title?: str
    Main component
    ═══════════════════════════════════════════════ */
 export function SkillTreeView({
-  tree, counts, conceptsAvailable, hasContent,
+  tree, hasContent,
   view, onViewChange, onOpenLecture, onBack,
 }: Props) {
   const rootRef         = useRef<HTMLDivElement>(null);

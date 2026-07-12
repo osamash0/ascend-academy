@@ -32,7 +32,6 @@ export function ProfileChip({ className }: ProfileChipProps) {
   if (!profile) return null;
 
   const name = profile.display_name || profile.full_name || 'Player';
-  const initial = name.charAt(0).toUpperCase();
 
   const handleSignOut = async () => {
     await signOut();

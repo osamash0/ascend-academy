@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Clock, CheckCircle2, AlertCircle, Send, BrainCircuit, Rocket } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Send, BrainCircuit, Rocket } from 'lucide-react';
 import { useGenerateExam, useExamAttempt, useSaveExamAnswer, useSubmitExam } from '@/features/student/hooks/useExamMode';
 import { DepthScene } from '@/components/console';
 import { toast } from 'sonner';

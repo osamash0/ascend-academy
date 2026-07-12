@@ -14,7 +14,7 @@ import { useLunaPhase } from "../learnstation-luna";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 
-import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes, AdminRoutes } from "@/lib/routes";
+import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes } from "@/lib/routes";
 import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";

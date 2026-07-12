@@ -236,7 +236,7 @@ function AvatarSection({
                 <div className="w-full mt-6 pt-6 border-t border-border">
                     <p className="text-sm font-medium text-foreground mb-3 text-left">{t('settings:avatar.presetsTitle')}</p>
                     <div className="grid grid-cols-3 gap-3">
-                        {PRESET_AVATARS.map((preset, i) => (
+                        {PRESET_AVATARS.map((preset) => (
                             <button
                                 key={preset.url}
                                 onClick={() => handleSelectPreset(preset.url)}

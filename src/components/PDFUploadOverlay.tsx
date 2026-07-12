@@ -1,11 +1,10 @@
-import React, { useRef, useEffect, memo } from 'react';
+import { useRef, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BrainCircuit,
   CheckCircle2,
   Loader2,
   Sparkles,
-  FileText,
   PartyPopper,
   Cpu,
   ScanEye

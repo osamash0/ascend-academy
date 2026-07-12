@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ChevronLeft, ChevronRight, BookOpen, Lightbulb, Volume2, VolumeX, 
-  Square, Play, Pause, Star, HelpCircle, Loader2, Sparkles 
+import {
+  ChevronLeft, ChevronRight, BookOpen, Volume2,
+  Square, Play, Pause, Star, HelpCircle, Loader2, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Document, Page, pdfjs } from 'react-pdf';

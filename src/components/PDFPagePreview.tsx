@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Page } from 'react-pdf';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
