@@ -32,6 +32,9 @@ describe('FullJourneyScene', () => {
     // Check if nodes are drawn (should be 3 node containers, each containing a Graphics and Text)
     const nodeContainers = scene.root.children;
     expect(nodeContainers.length).toBe(3);
+    nodeContainers.forEach((nodeContainer) => {
+      expect((nodeContainer as any).children.length).toBe(2);
+    });
     
     // Test interactivity
     const firstNode = nodeContainers[0];
@@ -45,16 +48,16 @@ describe('FullJourneyScene', () => {
     expect(scene.root.eventMode).toBe('static');
     
     // Simulate panning drag
-    scene.root.emit('pointerdown', { global: { x: 100, y: 100 } });
-    scene.root.emit('globalpointermove', { global: { x: 150, y: 120 } });
+    scene.root.emit('pointerdown', { pointerId: 1, global: { x: 100, y: 100 } });
+    scene.root.emit('globalpointermove', { pointerId: 1, global: { x: 150, y: 120 } });
     
     expect(scene.root.x).toBe(50);
     expect(scene.root.y).toBe(20);
     
-    scene.root.emit('pointerup');
+    scene.root.emit('pointerup', { pointerId: 1 });
     
     // Simulate globalpointermove after pointerup (should not pan)
-    scene.root.emit('globalpointermove', { global: { x: 200, y: 200 } });
+    scene.root.emit('globalpointermove', { pointerId: 1, global: { x: 200, y: 200 } });
     expect(scene.root.x).toBe(50);
     expect(scene.root.y).toBe(20);
 

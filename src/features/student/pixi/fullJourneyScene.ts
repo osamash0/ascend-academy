@@ -65,24 +65,32 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
   });
 
   // Panning logic
-  let dragging = false;
+  let activePointerId: number | null = null;
   let dragStart = { x: 0, y: 0 };
   let containerStart = { x: 0, y: 0 };
 
   root.eventMode = 'static';
-  root.hitArea = new Rectangle(-10000, -10000, 20000, 20000);
+  const paddingY = 2000;
+  const hitAreaHeight = 10000 + (opts.nodes.length * spacingY) + paddingY;
+  root.hitArea = new Rectangle(-10000, -10000, 20000, hitAreaHeight);
+  
   root.on('pointerdown', (e) => {
-    dragging = true;
+    if (activePointerId !== null) return;
+    activePointerId = e.pointerId;
     dragStart = { x: e.global.x, y: e.global.y };
     containerStart = { x: root.x, y: root.y };
   });
 
-  const onDragEnd = () => { dragging = false; };
+  const onDragEnd = (e: any) => { 
+    if (e.pointerId === activePointerId) {
+      activePointerId = null; 
+    }
+  };
   root.on('pointerup', onDragEnd);
   root.on('pointerupoutside', onDragEnd);
 
   root.on('globalpointermove', (e) => {
-    if (dragging) {
+    if (activePointerId === e.pointerId) {
       const dx = e.global.x - dragStart.x;
       const dy = e.global.y - dragStart.y;
       root.x = containerStart.x + dx;
