@@ -1,5 +1,5 @@
 // src/features/student/pixi/fullJourneyScene.ts
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Container, Graphics, Text, Rectangle } from 'pixi.js';
 
 export interface JourneyNode {
   id: string;
@@ -71,6 +71,7 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
   let containerStart = { x: 0, y: 0 };
 
   root.eventMode = 'static';
+  root.hitArea = new Rectangle(-10000, -10000, 20000, 20000);
   root.on('pointerdown', (e) => {
     dragging = true;
     dragStart = { x: e.global.x, y: e.global.y };
@@ -81,7 +82,7 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
   root.on('pointerup', onDragEnd);
   root.on('pointerupoutside', onDragEnd);
 
-  root.on('pointermove', (e) => {
+  root.on('globalpointermove', (e) => {
     if (dragging) {
       const dx = e.global.x - dragStart.x;
       const dy = e.global.y - dragStart.y;
