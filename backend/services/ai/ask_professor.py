@@ -20,6 +20,7 @@ from typing import Any, Dict, List
 from backend.services import analytics_service
 from backend.services.ai.ask_data import _clamp_int
 from backend.services.ai.orchestrator import generate_text, parse_json_response
+from backend.services.ai.voice import VOICE_PROSE, LANG_MATCH
 
 logger = logging.getLogger(__name__)
 
@@ -588,7 +589,7 @@ def _build_professor_context(token: str, professor_id: str) -> str:
 
 
 def _build_chat_prompt(context: str, messages: List[Dict[str, str]]) -> str:
-    system = f"""You are the analytics assistant for a professor on the Ascend learning platform.
+    system = f"""You are the analytics assistant for a professor on the Learnstation learning platform.
 You help them understand their own teaching: their courses, lectures, students,
 engagement, completion, quiz performance, and where students struggle.
 
@@ -601,6 +602,10 @@ Rules:
   (e.g. drop-off, completion, quiz scores, struggling students, confusing slides).
 - Never invent lectures, courses, students, or numbers that aren't in the data.
 - Be concise, warm, and direct. Refer to lectures/courses by name. Plain language, no markdown headers.
+
+{VOICE_PROSE}
+
+{LANG_MATCH}
 """
     convo = "\n".join(
         f"{'User' if m.get('role') == 'user' else 'Assistant'}: {m.get('content', '').strip()}"

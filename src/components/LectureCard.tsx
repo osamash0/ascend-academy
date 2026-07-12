@@ -43,10 +43,10 @@ export const LectureCard = memo(function LectureCard({
   }, [isNew, isCompleted, progress, isNextUp]);
 
   const actionText = useMemo(() => {
-    if (isCompleted) return 'Enter Review';
-    if (isNextUp) return 'Start Next Sequence';
-    if (isNew) return 'Initiate Mission';
-    return 'Resume Sync';
+    if (isCompleted) return 'Review';
+    if (isNextUp) return 'Start next';
+    if (isNew) return 'Start lecture';
+    return 'Resume';
   }, [isNew, isCompleted, isNextUp]);
 
   return (

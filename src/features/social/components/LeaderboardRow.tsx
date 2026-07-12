@@ -1,6 +1,7 @@
 /** One leaderboard row — matching the new 5-column table design. */
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Gem, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StudentRoutes } from "@/lib/routes";
@@ -21,6 +22,7 @@ export function LeaderboardRow({
   index?: number;
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation('gamification');
   const metric = value ?? user.totalXp;
   // Calculate reward dynamically (e.g. 10% of points, capped or scaled as needed)
   // The design shows points like 2,114,424 and reward 1000.
@@ -52,7 +54,7 @@ export function LeaderboardRow({
         <Avatar user={user} size="sm" />
         <div className="min-w-0">
           <div className="flex items-center gap-1 truncate text-sm font-bold text-white">
-            <span className="truncate">{isMe ? "You" : user.name}</span>
+            <span className="truncate">{isMe ? t('leaderboard.you') : user.name}</span>
             {user.institutionVerified && (
               <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-blue-400" aria-label="Verified institution" />
             )}
@@ -63,7 +65,7 @@ export function LeaderboardRow({
 
       {/* Followers / Level */}
       <div className="text-sm font-medium text-white">
-        Level {user.level}
+        {t('leaderboard.levelValue', { level: user.level })}
       </div>
 
       {/* Point */}

@@ -22,6 +22,7 @@ from backend.services.ai.orchestrator import (
     parse_json_response,
 )
 from backend.services.ai.quiz_validator import _normalize_answer_index
+from backend.services.ai.voice import with_voice
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ Slide {slide_number} raw text:
 {text[:1500]}
 
 If the text is nearly empty or only has symbols/numbers, classify as "image-only" or "math-diagram"."""
-    raw = await generate_text_bulk(prompt, ai_model=ai_model)
+    raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     res = parse_json_response(raw)
     if not isinstance(res, dict):
         res = {}
@@ -123,7 +124,7 @@ Slides:
 {slide_summary}
 
 Generate 5-8 diverse, well-formed multiple choice questions covering key concepts. Mix difficulties."""
-    raw = await generate_text_bulk(prompt, ai_model=ai_model)
+    raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     res = parse_json_response(raw)
     return res if isinstance(res, list) else []
 
@@ -164,7 +165,7 @@ Concepts from earlier lectures in this course:
 
 If you cannot form a genuine connection for a concept, omit it rather than forcing a generic question."""
     try:
-        raw = await generate_text_bulk(prompt, ai_model=ai_model)
+        raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
         res = parse_json_response(raw)
     except Exception as exc:
         logger.warning("cross-lecture quiz generation failed (non-fatal): %s", exc)

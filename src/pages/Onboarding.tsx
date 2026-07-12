@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight, User, Sparkles, BookOpen, Check, Loader2, Camera,
@@ -51,11 +52,6 @@ interface RevealData {
   courses: number;
 }
 
-const STATUS_LABELS: Record<StudentCatalogStatus, string> = {
-  completed: 'Completed',
-  in_progress: 'Taking now',
-  planned: 'Planned',
-};
 const STATUS_ORDER: StudentCatalogStatus[] = ['completed', 'in_progress', 'planned'];
 
 const containerVariants = {
@@ -81,12 +77,13 @@ function stepVariants(dir: number) {
 }
 
 function SoundToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  const { t } = useTranslation('onboarding');
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-label={enabled ? 'Mute sound' : 'Unmute sound'}
-      title={enabled ? 'Sound on' : 'Sound off'}
+      aria-label={enabled ? t('sound.muteAria') : t('sound.unmuteAria')}
+      title={enabled ? t('sound.onTitle') : t('sound.offTitle')}
       className="fixed top-5 right-5 z-30 w-10 h-10 rounded-full bg-white/5 border border-white/10 backdrop-blur flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all"
     >
       {enabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
@@ -95,6 +92,7 @@ function SoundToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => 
 }
 
 function OnboardingInner() {
+  const { t } = useTranslation('onboarding');
   const { user, profile } = useAuth();
   const gamification = useGamification();
   const navigate = useNavigate();
@@ -149,13 +147,7 @@ function OnboardingInner() {
   const tier = rankForXp(profile?.total_xp);
   const rankProg = rankProgress(profile?.total_xp);
 
-  // Cold-open auto-advances after a beat (a safety net if the user doesn't click).
-  useEffect(() => {
-    if (stage !== 'intro') return;
-    const t = setTimeout(() => beginJourney(), 6000);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage]);
+  // Waiting for explicit user interaction instead of auto-advance
 
   const beginJourney = () => {
     if (stage !== 'intro') return;
@@ -274,6 +266,11 @@ function OnboardingInner() {
   const handleBack = () => {
     play('back');
     setDir(-1);
+    if (step === 1) {
+      setStage('intro');
+      setStep(0);
+      return;
+    }
     if (step === 5 && (noCatalog || !progId)) {
       setStep(3);
       return;
@@ -308,11 +305,11 @@ function OnboardingInner() {
     if (!event.target.files?.length || !user) return;
     const file = event.target.files[0];
     if (!file.type.startsWith('image/')) {
-      toast({ title: 'Invalid file', description: 'Please upload an image.', variant: 'destructive' });
+      toast({ title: t('toasts.invalidFileTitle'), description: t('toasts.invalidFileDescription'), variant: 'destructive' });
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      toast({ title: 'File too large', description: 'Image must be under 2MB.', variant: 'destructive' });
+      toast({ title: t('toasts.fileTooLargeTitle'), description: t('toasts.fileTooLargeDescription'), variant: 'destructive' });
       return;
     }
     setIsUploading(true);
@@ -324,11 +321,11 @@ function OnboardingInner() {
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
       setAvatarUrl(publicUrl);
       play('avatar');
-      toast({ title: 'Avatar Uploaded', description: 'Your custom avatar is looking good!' });
+      toast({ title: t('toasts.avatarUploadedTitle'), description: t('toasts.avatarUploadedDescription') });
     } catch (error: unknown) {
       toast({
-        title: 'Upload Error',
-        description: error instanceof Error ? error.message : 'Failed to upload avatar',
+        title: t('toasts.uploadErrorTitle'),
+        description: error instanceof Error ? error.message : t('toasts.uploadErrorFallback'),
         variant: 'destructive',
       });
     } finally {
@@ -419,8 +416,8 @@ function OnboardingInner() {
       }, 5400);
     } catch (error: unknown) {
       toast({
-        title: 'Something went wrong',
-        description: error instanceof Error ? error.message : 'Could not complete onboarding.',
+        title: t('toasts.finishErrorTitle'),
+        description: error instanceof Error ? error.message : t('toasts.finishErrorFallback'),
         variant: 'destructive',
       });
       setLoading(false);
@@ -432,10 +429,7 @@ function OnboardingInner() {
   /* ----------------------------- Cold open ------------------------------- */
   if (stage === 'intro') {
     return (
-      <div
-        className="min-h-screen console-bg flex relative overflow-hidden items-center justify-center cursor-pointer"
-        onClick={beginJourney}
-      >
+      <div className="min-h-screen console-bg flex relative overflow-hidden items-center justify-center">
         <SoundToggle enabled={soundOn} onToggle={toggleSound} />
         <div className="fixed inset-0 pointer-events-none z-0">
           <div className="absolute top-[-10%] right-[-10%] w-[55%] h-[55%] rounded-full bg-primary/15 blur-[130px] animate-pulse" />
@@ -443,51 +437,53 @@ function OnboardingInner() {
         </div>
 
         <motion.div
-          className="relative z-10 text-center px-6"
+          className="relative z-10 px-6 max-w-6xl w-full flex flex-col md:flex-row items-center justify-center gap-12 lg:gap-24"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6 }}
         >
+          {/* Left Side: Big Luna Head */}
           <motion.div
             initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
             animate={{ scale: 1, opacity: 1, rotate: 0 }}
             transition={{ type: 'spring', stiffness: 200, damping: 16, delay: 0.2 }}
-            className="w-40 h-40 mx-auto mb-8 flex items-center justify-center"
+            className="w-64 h-64 md:w-80 md:h-80 lg:w-[400px] lg:h-[400px] flex items-center justify-center shrink-0"
           >
-            <LunaAstronaut phase="full" size="xl" animated />
+            <LunaAstronaut variant="head" phase="full" size="xxl" animated showShadow={false} />
           </motion.div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="text-5xl md:text-6xl font-bold text-foreground mb-4"
-          >
-            Welcome to Learnstation
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-            className="text-muted-foreground text-xl mb-12"
-          >
-            Hey {firstName}, let's set up your journey.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.6 }}
-          >
-            <Button
-              size="xl"
-              onClick={(e) => { e.stopPropagation(); beginJourney(); }}
-              className="h-16 px-12 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-glow-primary"
+          {/* Right Side: Text & Button */}
+          <div className="text-center md:text-left flex flex-col items-center md:items-start max-w-xl">
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6"
             >
-              Press to begin <ArrowRight className="w-6 h-6 ml-2" />
-            </Button>
-            <p className="text-xs text-muted-foreground/60 mt-6 tracking-widest uppercase">Tap anywhere to continue</p>
-          </motion.div>
+              {t('intro.title')}
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="text-muted-foreground text-xl md:text-2xl mb-12 leading-relaxed"
+            >
+              {t('intro.subtitle')}
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.6 }}
+            >
+              <Button
+                size="xl"
+                onClick={(e) => { e.stopPropagation(); beginJourney(); }}
+                className="h-16 px-12 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-glow-primary transition-all active:scale-95"
+              >
+                {t('actions.clickToContinue')} <ArrowRight className="w-6 h-6 ml-2" />
+              </Button>
+            </motion.div>
+          </div>
         </motion.div>
       </div>
     );
@@ -496,10 +492,10 @@ function OnboardingInner() {
   /* ------------------------------ Reveal --------------------------------- */
   if (stage === 'reveal') {
     const teases = [
-      { show: revealData.courses > 0, icon: BookOpen, label: `Semester ${semester} set up`, value: `${revealData.courses} course${revealData.courses === 1 ? '' : 's'}` },
-      { show: revealData.classmates > 0, icon: Users, label: 'Classmates to meet', value: `${revealData.classmates} waiting` },
-      { show: revealData.recommendations > 0, icon: Sparkles, label: 'Picked for you', value: `${revealData.recommendations} course${revealData.recommendations === 1 ? '' : 's'}` },
-    ].filter((t) => t.show);
+      { show: revealData.courses > 0, icon: BookOpen, label: t('reveal.semesterSetUp', { semester }), value: t('reveal.courseCount', { count: revealData.courses }) },
+      { show: revealData.classmates > 0, icon: Users, label: t('reveal.classmatesToMeet'), value: t('reveal.classmatesWaiting', { count: revealData.classmates }) },
+      { show: revealData.recommendations > 0, icon: Sparkles, label: t('reveal.pickedForYou'), value: t('reveal.courseCount', { count: revealData.recommendations }) },
+    ].filter((tease) => tease.show);
 
     return (
       <div className="min-h-screen console-bg flex relative overflow-hidden items-center justify-center">
@@ -526,7 +522,7 @@ function OnboardingInner() {
             transition={{ delay: 0.5 }}
             className="text-3xl font-bold text-foreground"
           >
-            You're all set, {firstName}
+            {t('reveal.allSet', { name: firstName })}
           </motion.h2>
 
           <motion.div
@@ -536,9 +532,9 @@ function OnboardingInner() {
             className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground"
           >
             <Trophy className="w-4 h-4 text-xp" />
-            <span>Rank: <span className="text-foreground font-semibold">{tier.name}</span></span>
+            <span>{t('reveal.rank', { rank: tier.name })}</span>
             {rankProg.next && (
-              <span className="opacity-70">· {rankProg.toNext} XP to {rankProg.next.name}</span>
+              <span className="opacity-70">· {t('reveal.xpToNext', { xp: rankProg.toNext, rank: rankProg.next.name })}</span>
             )}
           </motion.div>
 
@@ -549,7 +545,7 @@ function OnboardingInner() {
             transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 1.6 }}
             className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-xp/15 border border-xp/30 text-xp font-semibold text-sm"
           >
-            <Sparkles className="w-4 h-4" /> Badge unlocked · Identity Set
+            <Sparkles className="w-4 h-4" /> {t('reveal.badgeUnlocked')}
           </motion.div>
 
           {/* Personalization teases */}
@@ -562,15 +558,15 @@ function OnboardingInner() {
               className="mt-8 grid gap-3"
               style={{ gridTemplateColumns: `repeat(${Math.min(teases.length, 3)}, minmax(0, 1fr))` }}
             >
-              {teases.map((t) => (
+              {teases.map((tease) => (
                 <motion.div
-                  key={t.label}
+                  key={tease.label}
                   variants={itemVariants}
                   className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center"
                 >
-                  <t.icon className="w-5 h-5 text-primary mx-auto mb-2" />
-                  <div className="text-foreground font-bold text-sm">{t.value}</div>
-                  <div className="text-muted-foreground text-xs mt-0.5">{t.label}</div>
+                  <tease.icon className="w-5 h-5 text-primary mx-auto mb-2" />
+                  <div className="text-foreground font-bold text-sm">{tease.value}</div>
+                  <div className="text-muted-foreground text-xs mt-0.5">{tease.label}</div>
                 </motion.div>
               ))}
             </motion.div>
@@ -583,7 +579,7 @@ function OnboardingInner() {
             transition={{ delay: 3.4 }}
             className="mt-10"
           >
-            <p className="text-sm text-muted-foreground font-mono mb-3">&gt; Booting Learnstation OS…</p>
+            <p className="text-sm text-muted-foreground font-mono mb-3">{t('reveal.booting')}</p>
             <div className="h-2 w-full max-w-xs mx-auto rounded-full bg-white/5 overflow-hidden">
               <motion.div
                 className="h-full bg-gradient-to-r from-primary to-secondary"
@@ -609,36 +605,60 @@ function OnboardingInner() {
         <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-secondary/10 blur-[120px] animate-pulse delay-700" />
       </div>
 
-      <div className="relative z-10 w-full max-w-2xl p-6">
-        {/* Animated journey map (replaces plain progress dots) */}
-        <div className="mb-6">
-          <OnboardingJourneyMap current={step} total={TOTAL_STEPS} labels={JOURNEY_LABELS} height={120} reduceMotion={reduceMotion} />
-        </div>
+      <div className="relative z-10 px-6 max-w-7xl w-full flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-24">
+        
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="hidden lg:flex w-[400px] h-[400px] shrink-0 items-center justify-center"
+        >
+          <LunaAstronaut 
+            variant={step >= 2 ? "full" : "head"} 
+            costume={step >= 3 ? "university" : "default"}
+            phase="full" 
+            size="xxl" 
+            animated 
+            showShadow={step >= 2} 
+            suitColor={lunaSuit}
+            visorTint={lunaVisor}
+            patchImage={lunaPatch || undefined}
+          />
+        </motion.div>
 
-        <div className="glass-panel rounded-[32px] border-white/10 p-8 md:p-12 shadow-2xl ring-1 ring-inset ring-white/5 relative overflow-hidden min-h-[500px] flex flex-col">
+        {/* Right Side: Onboarding Form */}
+        <div className="w-full max-w-2xl">
+          {/* Animated journey map (replaces plain progress dots) */}
+          <div className="mb-6">
+            <OnboardingJourneyMap current={step} total={TOTAL_STEPS} labels={JOURNEY_LABELS} height={120} reduceMotion={reduceMotion} />
+          </div>
+
+          <div className="relative w-full min-h-[500px] flex flex-col py-4 md:py-8">
           <AnimatePresence mode="wait" custom={dir}>
             {step === 1 && (
               <motion.div key="step1" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col">
-                <div className="mb-10 text-center">
-                  <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow-primary">
-                    <User className="w-8 h-8 text-primary" />
+                <div className="mb-10 max-w-lg mx-auto w-full">
+                  <div className="mx-auto mb-6 flex justify-center lg:hidden">
+                    <LunaAstronaut variant="head" phase="full" size="sm" animated showShadow={false} />
                   </div>
-                  <h1 className="text-4xl font-bold text-foreground mb-3">Welcome!</h1>
-                  <p className="text-muted-foreground text-lg">What should we call you on your journey?</p>
+                  <div className="glass-panel p-6 md:p-8 rounded-[2rem] rounded-tl-sm border-white/10 shadow-xl relative text-left">
+                    <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('steps.name.title')}</h1>
+                    <p className="text-muted-foreground text-lg">{t('steps.name.subtitle')}</p>
+                  </div>
                 </div>
                 <div className="flex-1 flex items-center justify-center max-w-sm mx-auto w-full">
                   <Input
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && fullName.trim()) handleNext(); }}
-                    placeholder="Enter your name..."
+                    placeholder={t('steps.name.placeholder')}
                     className="h-16 text-center text-xl bg-white/5 border-white/10 focus:border-primary/50 rounded-2xl transition-all"
                     autoFocus
                   />
                 </div>
-                <div className="mt-10 flex justify-end">
+                <div className="mt-10 flex justify-between max-w-md mx-auto w-full">
+                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
                   <Button size="xl" onClick={handleNext} disabled={!fullName.trim()} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">
-                    Next <ArrowRight className="w-5 h-5 ml-2" />
+                    {t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </div>
               </motion.div>
@@ -647,12 +667,12 @@ function OnboardingInner() {
             {step === 2 && (
               <motion.div key="step2" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col items-center justify-center gap-6">
 
-                {/* ── Luna character card ── */}
+                {/* ── Luna character card (Hidden on desktop since she is huge on the left) ── */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                  className="relative w-full max-w-[280px] mx-auto rounded-3xl overflow-hidden"
+                  className="relative w-full max-w-[280px] mx-auto rounded-3xl overflow-hidden lg:hidden"
                   style={{
                     background: 'linear-gradient(160deg, hsl(235 40% 18%) 0%, hsl(250 35% 14%) 100%)',
                     boxShadow: '0 0 0 1px hsl(235 40% 25% / 0.6), 0 24px 48px -8px hsl(235 85% 65% / 0.15)',
@@ -671,13 +691,13 @@ function OnboardingInner() {
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                     >
-                      <LunaAstronaut size="lg" phase="full" animated suitColor={lunaSuit} visorTint={lunaVisor} patchEmoji={lunaPatch || undefined} />
+                      <LunaAstronaut size="lg" phase="full" animated suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
                     </motion.div>
 
                     {/* Name & description */}
                     <div className="text-center space-y-1">
-                      <p className="text-2xl font-black text-foreground tracking-tight">luna</p>
-                      <p className="text-sm text-muted-foreground leading-snug">your study companion &middot; night mode guardian</p>
+                      <p className="text-2xl font-black text-foreground tracking-tight">{t('steps.avatar.companionName')}</p>
+                      <p className="text-sm text-muted-foreground leading-snug">{t('steps.avatar.companionTagline')}</p>
                     </div>
 
                     {/* Personality tags */}
@@ -691,102 +711,119 @@ function OnboardingInner() {
                   </div>
                 </motion.div>
 
-                {/* ── Customizer ── */}
+                {/* ── Premium Customizer ── */}
                 <motion.div
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.18, duration: 0.4 }}
-                  className="w-full max-w-[280px] mx-auto space-y-4"
+                  className="w-full max-w-md mx-auto space-y-8 mt-4"
                 >
-                  {/* Suit colour */}
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground">Suit</p>
-                    <div className="flex gap-2.5">
+                  {/* Suit Finish */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">{t('steps.avatar.suitFinish')}</p>
+                    <div className="grid grid-cols-5 gap-3">
                       {[
+                        { hex: '#111111', label: 'Obsidian' },
+                        { hex: '#FAFAFA', label: 'Titanium' },
+                        { hex: '#1C2A3A', label: 'Deep Space' },
+                        { hex: '#3B1C1C', label: 'Crimson' },
                         { hex: '#FFF8E7', label: 'Classic' },
-                        { hex: '#C8E6FA', label: 'Arctic' },
-                        { hex: '#F9D5E5', label: 'Rose' },
-                        { hex: '#D5F5E3', label: 'Sage' },
-                        { hex: '#EAD9FF', label: 'Nebula' },
                       ].map(({ hex, label }) => (
                         <button
                           key={hex}
                           onClick={() => setLunaSuit(hex)}
                           title={label}
-                          className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-                            lunaSuit === hex ? 'border-primary scale-110 ring-2 ring-primary/30' : 'border-white/20'
-                          }`}
-                          style={{ backgroundColor: hex }}
-                        />
+                          className={`group flex flex-col items-center gap-2 focus-visible:outline-none`}
+                        >
+                          <div 
+                            className={`w-full aspect-square rounded-2xl border-2 transition-all duration-300 ${lunaSuit === hex ? 'border-primary ring-4 ring-primary/20 scale-105' : 'border-white/10 hover:border-white/30 hover:scale-105'}`}
+                            style={{ backgroundColor: hex }}
+                          />
+                          <span className={`text-[10px] font-medium transition-colors ${lunaSuit === hex ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>{label}</span>
+                        </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Visor tint */}
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground">Visor</p>
-                    <div className="flex gap-2.5">
+                  {/* Visor Tint */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">{t('steps.avatar.visorTint')}</p>
+                    <div className="grid grid-cols-5 gap-3">
                       {[
-                        { hex: '#88B0B5', label: 'Teal' },
-                        { hex: '#8B5CF6', label: 'Violet' },
-                        { hex: '#F59E0B', label: 'Amber' },
-                        { hex: '#EC4899', label: 'Pink' },
-                        { hex: '#34D399', label: 'Emerald' },
+                        { hex: '#00F0FF', label: 'Cyan' },
+                        { hex: '#FF003C', label: 'Cyber' },
+                        { hex: '#FFD700', label: 'Solar' },
+                        { hex: '#8B5CF6', label: 'Void' },
+                        { hex: '#88B0B5', label: 'Classic' },
                       ].map(({ hex, label }) => (
                         <button
                           key={hex}
                           onClick={() => setLunaVisor(hex)}
                           title={label}
-                          className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-                            lunaVisor === hex ? 'border-primary scale-110 ring-2 ring-primary/30' : 'border-white/20'
-                          }`}
-                          style={{ backgroundColor: hex }}
-                        />
+                          className={`group flex flex-col items-center gap-2 focus-visible:outline-none`}
+                        >
+                          <div 
+                            className={`w-full aspect-square rounded-2xl border-2 transition-all duration-300 ${lunaVisor === hex ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-glow-primary' : 'border-white/10 hover:border-white/30 hover:scale-105'}`}
+                            style={{ backgroundColor: hex }}
+                          />
+                          <span className={`text-[10px] font-medium transition-colors ${lunaVisor === hex ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>{label}</span>
+                        </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Patch emoji */}
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground">Patch</p>
-                    <div className="flex gap-2">
-                      {['', '🚀', '⭐', '🌙', '🔥', '💎'].map((emoji) => (
+                  {/* Insignia */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">{t('steps.avatar.insignia')}</p>
+                    <div className="grid grid-cols-5 gap-3">
+                      {[
+                        { image: '', label: 'Default' },
+                        { image: '/badges/rocket.jpg', label: 'Explorer' },
+                        { image: '/badges/shield.jpg', label: 'Guardian' },
+                        { image: '/badges/star.jpg', label: 'Dreamer' },
+                        { image: '/badges/target.jpg', label: 'Achiever' },
+                      ].map(({ image, label }) => (
                         <button
-                          key={emoji || 'default'}
-                          onClick={() => setLunaPatch(emoji)}
-                          className={`w-8 h-8 rounded-xl text-sm flex items-center justify-center border-2 transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-                            lunaPatch === emoji ? 'border-primary bg-primary/20 scale-110' : 'border-white/10 bg-white/5'
-                          }`}
+                          key={image || 'default'}
+                          onClick={() => setLunaPatch(image)}
+                          className={`group flex flex-col items-center gap-2 focus-visible:outline-none`}
                         >
-                          {emoji || '★'}
+                          <div 
+                            className={`w-full aspect-square rounded-full border-2 flex items-center justify-center transition-all duration-300 overflow-hidden ${lunaPatch === image ? 'border-primary ring-4 ring-primary/20 scale-105' : 'border-white/10 hover:border-white/30 hover:scale-105 bg-white/5'}`}
+                          >
+                            {image ? <img src={image} className="w-full h-full object-cover" alt={label} /> : <span className="text-xl">★</span>}
+                          </div>
+                          <span className={`text-[10px] font-medium transition-colors ${lunaPatch === image ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>{label}</span>
                         </button>
                       ))}
                     </div>
                   </div>
                 </motion.div>
 
-                <div className="w-full max-w-[280px] mx-auto flex justify-between mt-2">
-                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">Back</Button>
-                  <Button size="xl" onClick={handleNext} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">Next <ArrowRight className="w-5 h-5 ml-2" /></Button>
+                <div className="w-full max-w-md mx-auto flex justify-between mt-8">
+                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
+                  <Button size="xl" onClick={handleNext} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">{t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" /></Button>
                 </div>
               </motion.div>
             )}
 
             {step === 3 && (
               <motion.div key="step3" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col">
-                <div className="mb-8 text-center">
-                  <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow-primary">
-                    <GraduationCap className="w-8 h-8 text-primary" />
+                <div className="mb-8 max-w-lg mx-auto w-full">
+                  <div className="mx-auto mb-6 flex justify-center lg:hidden">
+                    <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
                   </div>
-                  <h1 className="text-4xl font-bold text-foreground mb-3">Your studies</h1>
-                  <p className="text-muted-foreground text-lg">Tell us where you study so we can set things up for you.</p>
+                  <div className="glass-panel p-6 md:p-8 rounded-[2rem] rounded-tl-sm border-white/10 shadow-xl relative text-left">
+                    <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('steps.university.title')}</h1>
+                    <p className="text-muted-foreground text-lg">{t('steps.university.subtitle')}</p>
+                  </div>
                 </div>
 
                 <div className="flex-1 space-y-4 max-w-md mx-auto w-full">
                   <div>
                     <Select value={uniId} onValueChange={(val) => { play('select'); setAutoMatched(false); setUniId(val); }}>
                       <SelectTrigger className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground focus:border-primary/50 transition-all text-base">
-                        <SelectValue placeholder="Select your university…" />
+                        <SelectValue placeholder={t('steps.university.universityPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-white/10">
                         {universities.map((u) => (
@@ -805,7 +842,7 @@ function OnboardingInner() {
                           className="flex items-center gap-2 mt-2 ml-1 text-sm text-primary"
                         >
                           <MapPin className="w-4 h-4" />
-                          <span>Looks like you're at {selectedUni.name}. Pre-filled from your email.</span>
+                          <span>{t('steps.university.autoMatched', { university: selectedUni.name })}</span>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -815,12 +852,12 @@ function OnboardingInner() {
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                       <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 text-sm text-muted-foreground">
                         <Building2 className="w-5 h-5 shrink-0 text-secondary mt-0.5" />
-                        <span>We don't have {selectedUni?.name}'s course catalog yet. You can still tell us your institution, and we'll personalize once it's available.</span>
+                        <span>{t('steps.university.noCatalog', { university: selectedUni?.name })}</span>
                       </div>
                       <Input
                         value={freeInstitution || selectedUni?.name || ''}
                         onChange={(e) => setFreeInstitution(e.target.value)}
-                        placeholder="Your institution"
+                        placeholder={t('steps.university.institutionPlaceholder')}
                         className="h-14 bg-white/5 border-white/10 focus:border-primary/50 rounded-2xl"
                       />
                     </motion.div>
@@ -831,7 +868,7 @@ function OnboardingInner() {
                           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                             <Select value={facId} onValueChange={(val) => { play('select'); setFacId(val); }} disabled={!uniId || faculties.length === 0}>
                               <SelectTrigger className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground focus:border-primary/50 transition-all text-base">
-                                <SelectValue placeholder={uniId ? 'Select your faculty…' : 'Pick a university first'} />
+                                <SelectValue placeholder={uniId ? t('steps.university.facultyPlaceholder') : t('steps.university.facultyPlaceholderLocked')} />
                               </SelectTrigger>
                               <SelectContent className="rounded-xl border-white/10">
                                 {faculties.map((f) => (
@@ -850,7 +887,7 @@ function OnboardingInner() {
                           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                             <Select value={progId} onValueChange={(val) => { play('select'); setProgId(val); }} disabled={!facId || programs.length === 0}>
                               <SelectTrigger className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground focus:border-primary/50 transition-all text-base">
-                                <SelectValue placeholder={facId ? 'Select your degree program…' : 'Pick a faculty first'} />
+                                <SelectValue placeholder={facId ? t('steps.university.programPlaceholder') : t('steps.university.programPlaceholderLocked')} />
                               </SelectTrigger>
                               <SelectContent className="rounded-xl border-white/10">
                                 {programs.map((p) => (
@@ -867,10 +904,10 @@ function OnboardingInner() {
                       <AnimatePresence>
                         {progId && (
                           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                            <label className="block text-sm text-muted-foreground mb-2 ml-1">Current semester</label>
+                            <label className="block text-sm text-muted-foreground mb-2 ml-1">{t('steps.university.semesterLabel')}</label>
                             <Select value={semester.toString()} onValueChange={(val) => { play('select'); setSemester(Number(val)); }} disabled={!progId}>
                               <SelectTrigger className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground focus:border-primary/50 transition-all text-base">
-                                <SelectValue placeholder="Semester" />
+                                <SelectValue placeholder={t('steps.university.semesterPlaceholder')} />
                               </SelectTrigger>
                               <SelectContent className="rounded-xl border-white/10 max-h-[300px]">
                                 {Array.from(
@@ -878,7 +915,7 @@ function OnboardingInner() {
                                   (_, i) => i + 1,
                                 ).map((n) => (
                                   <SelectItem key={n} value={n.toString()} className="rounded-lg cursor-pointer">
-                                    Semester {n}
+                                    {t('steps.university.semesterOption', { n })}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -897,9 +934,9 @@ function OnboardingInner() {
                 </div>
 
                 <div className="mt-10 flex justify-between">
-                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">Back</Button>
+                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
                   <Button size="xl" onClick={handleNext} disabled={!uniId} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">
-                    Next <ArrowRight className="w-5 h-5 ml-2" />
+                    {t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </div>
               </motion.div>
@@ -907,14 +944,16 @@ function OnboardingInner() {
 
             {step === 4 && (
               <motion.div key="step4" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col max-h-[70vh]">
-                <div className="mb-6 text-center">
-                  <div className="w-16 h-16 bg-secondary/20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow-secondary">
-                    <ShieldCheck className="w-8 h-8 text-secondary" />
+                <div className="mb-6 max-w-lg mx-auto w-full">
+                  <div className="mx-auto mb-4 flex justify-center lg:hidden">
+                    <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
                   </div>
-                  <h1 className="text-4xl font-bold text-foreground mb-2">We set up your Semester {semester}</h1>
-                  <p className="text-muted-foreground text-base">
-                    Here's what you've likely done and what you're taking now. Adjust anything that's off.
-                  </p>
+                  <div className="glass-panel p-6 md:p-8 rounded-[2rem] rounded-tl-sm border-white/10 shadow-xl relative text-left">
+                    <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('steps.confirmCourses.title', { semester })}</h1>
+                    <p className="text-muted-foreground text-lg">
+                      {t('steps.confirmCourses.subtitle')}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-2">
@@ -922,7 +961,7 @@ function OnboardingInner() {
                     <div className="flex items-center justify-center h-40"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
                   ) : suggested.length === 0 ? (
                     <div className="text-center p-8 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-muted-foreground">No catalog courses found for this program.</p>
+                      <p className="text-muted-foreground">{t('steps.confirmCourses.empty')}</p>
                     </div>
                   ) : (
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-2">
@@ -941,7 +980,7 @@ function OnboardingInner() {
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-foreground leading-tight truncate">{c.title}</h3>
                               <p className="text-xs text-muted-foreground">
-                                {c.courseCode ? `${c.courseCode} · ` : ''}{c.typicalSemester ? `Semester ${c.typicalSemester}` : 'Elective'}
+                                {c.courseCode ? `${c.courseCode} · ` : ''}{c.typicalSemester ? t('steps.confirmCourses.semesterTag', { n: c.typicalSemester }) : t('steps.confirmCourses.elective')}
                               </p>
                             </div>
                             {included && (
@@ -952,7 +991,7 @@ function OnboardingInner() {
                                     onClick={() => setSuggestedStatus(c.id, s)}
                                     className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${status === s ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground hover:bg-white/10'}`}
                                   >
-                                    {STATUS_LABELS[s]}
+                                    {t(`steps.confirmCourses.status.${s}`)}
                                   </button>
                                 ))}
                               </div>
@@ -966,9 +1005,9 @@ function OnboardingInner() {
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-white/10 flex justify-between items-center shrink-0">
-                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">Back</Button>
+                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
                   <Button size="xl" onClick={handleNext} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">
-                    {includedCount} selected · Next <ArrowRight className="w-5 h-5 ml-2" />
+                    {t('steps.confirmCourses.selectedCount', { count: includedCount })} · {t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </div>
               </motion.div>
@@ -976,12 +1015,14 @@ function OnboardingInner() {
 
             {step === 5 && (
               <motion.div key="step5" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col max-h-[70vh]">
-                <div className="mb-6 text-center">
-                  <div className="w-16 h-16 bg-xp/20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow-primary">
-                    <BookOpen className="w-8 h-8 text-xp" />
+                <div className="mb-6 max-w-lg mx-auto w-full">
+                  <div className="mx-auto mb-6 flex justify-center lg:hidden">
+                    <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
                   </div>
-                  <h1 className="text-4xl font-bold text-foreground mb-3">Add extra topics</h1>
-                  <p className="text-muted-foreground text-lg">Optionally explore courses on Learnstation beyond your curriculum.</p>
+                  <div className="glass-panel p-6 md:p-8 rounded-[2rem] rounded-tl-sm border-white/10 shadow-xl relative text-left">
+                    <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('steps.extraTopics.title')}</h1>
+                    <p className="text-muted-foreground text-lg">{t('steps.extraTopics.subtitle')}</p>
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
@@ -989,7 +1030,7 @@ function OnboardingInner() {
                     <div className="flex items-center justify-center h-40"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
                   ) : courses.length === 0 ? (
                     <div className="text-center p-8 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-muted-foreground">No public courses available right now.</p>
+                      <p className="text-muted-foreground">{t('steps.extraTopics.empty')}</p>
                     </div>
                   ) : (
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
@@ -1017,14 +1058,15 @@ function OnboardingInner() {
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-white/10 flex justify-between items-center shrink-0">
-                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5" disabled={loading}>Back</Button>
+                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5" disabled={loading}>{t('actions.back')}</Button>
                   <Button size="xl" onClick={handleFinish} disabled={loading} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold min-w-[140px]">
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <>Start Learning <Sparkles className="w-5 h-5 ml-2" /></>}
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <>{t('actions.startLearning')} <Sparkles className="w-5 h-5 ml-2" /></>}
                   </Button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>

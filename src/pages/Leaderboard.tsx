@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Loader2, Gem, BadgeCheck } from "lucide-react";
+import { Gem, BadgeCheck } from "lucide-react";
+import { LunaLoader } from "../../learnstation-luna";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type SocialUser } from "@/features/social/data";
@@ -12,6 +14,7 @@ import { PodiumCard } from "@/features/social/components/PodiumCard";
 type Period = "week" | "all";
 
 export default function Leaderboard() {
+  const { t } = useTranslation('gamification');
   const me = useSocialUser();
   const { data: globalRows = [], isLoading: globalLoading } = useGlobalLeaderboard();
 
@@ -90,7 +93,7 @@ export default function Leaderboard() {
                 period === "week" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"
               )}
             >
-              This Week
+              {t('leaderboard.thisWeek')}
             </button>
             <button
               onClick={() => setPeriod("all")}
@@ -99,7 +102,7 @@ export default function Leaderboard() {
                 period === "all" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"
               )}
             >
-              All Time
+              {t('leaderboard.allTime')}
             </button>
           </div>
         </div>
@@ -110,22 +113,22 @@ export default function Leaderboard() {
             <Select value={university} onValueChange={(v) => { setUniversity(v); setFaculty("all"); }}>
               <SelectTrigger className="h-9 w-[190px] rounded-full border-white/10 bg-white/5 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All universities</SelectItem>
+                <SelectItem value="all">{t('leaderboard.allUniversities')}</SelectItem>
                 {universities.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={faculty} onValueChange={setFaculty} disabled={faculties.length === 0}>
               <SelectTrigger className="h-9 w-[170px] rounded-full border-white/10 bg-white/5 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All faculties</SelectItem>
+                <SelectItem value="all">{t('leaderboard.allFaculties')}</SelectItem>
                 {faculties.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={semester} onValueChange={setSemester} disabled={semesters.length === 0}>
               <SelectTrigger className="h-9 w-[140px] rounded-full border-white/10 bg-white/5 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any semester</SelectItem>
-                {semesters.map((s) => <SelectItem key={s} value={String(s)}>Semester {s}</SelectItem>)}
+                <SelectItem value="all">{t('leaderboard.anySemester')}</SelectItem>
+                {semesters.map((s) => <SelectItem key={s} value={String(s)}>{t('leaderboard.semester', { n: s })}</SelectItem>)}
               </SelectContent>
             </Select>
             <button
@@ -135,15 +138,15 @@ export default function Leaderboard() {
                 verifiedOnly ? "border-blue-400/40 bg-blue-400/15 text-blue-300" : "border-white/10 bg-white/5 text-muted-foreground hover:text-white",
               )}
             >
-              <BadgeCheck className="h-4 w-4" /> Verified only
+              <BadgeCheck className="h-4 w-4" /> {t('leaderboard.verifiedOnly')}
             </button>
           </div>
         )}
 
         {globalLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          <div className="flex justify-center py-20"><LunaLoader type="orbit-ring" size={64} /></div>
         ) : ranked.length === 0 ? (
-          <p className="py-20 text-center text-muted-foreground">No learners yet.</p>
+          <p className="py-20 text-center text-muted-foreground">{t('leaderboard.noLearners')}</p>
         ) : (
           <>
             {/* Podium */}
@@ -182,18 +185,19 @@ export default function Leaderboard() {
               animate={{ opacity: 1, y: 0 }}
               className="mx-auto mb-10 flex max-w-2xl items-center justify-center gap-2 rounded-2xl bg-white/[0.03] px-6 py-4 border border-white/5 backdrop-blur-md text-sm text-muted-foreground shadow-lg"
             >
-              You earned <Gem className="h-4 w-4 text-blue-400 mx-1" fill="currentColor" /> <strong className="text-white">{myReward}</strong> today and we ranked {myRank} out of <strong className="text-white">{ranked.length}</strong> users
+              <Gem className="h-4 w-4 text-blue-400 mx-1" fill="currentColor" />
+              {t('leaderboard.rankSummary', { reward: myReward, rank: myRank, total: ranked.length })}
             </motion.div>
 
             {/* Table */}
             {rest.length > 0 && (
               <div className="mx-auto max-w-4xl rounded-[24px] border border-white/5 bg-[#0c0f1a]/80 p-2 shadow-2xl backdrop-blur-xl sm:p-4">
                 <div className="grid grid-cols-[32px_minmax(0,1.5fr)_minmax(0,1fr)_100px_100px] items-center gap-3 px-4 pb-3 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <span>Rank</span>
-                  <span>User name</span>
-                  <span>Level</span>
-                  <span>Point</span>
-                  <span className="text-right">Reward</span>
+                  <span>{t('leaderboard.columns.rank')}</span>
+                  <span>{t('leaderboard.columns.user')}</span>
+                  <span>{t('leaderboard.columns.level')}</span>
+                  <span>{t('leaderboard.columns.points')}</span>
+                  <span className="text-right">{t('leaderboard.columns.reward')}</span>
                 </div>
                 
                 <div className="flex flex-col gap-1">

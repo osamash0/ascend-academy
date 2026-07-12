@@ -1,8 +1,8 @@
 {
   "defaultName": "Professor",
-  "commandCenter": "Command Center Dashboard",
+  "commandCenter": "Dashboard",
   "greeting": "{{greeting}}, {{name}}.",
-  "summary": "System analysis confirms <bold>{{students}} students</bold> are actively engaged. Global accuracy is holding at <bold>{{accuracy}}%</bold> across your <bold>{{lectures}} academic streams</bold>.",
+  "summary": "<bold>{{students}} students</bold> are actively engaged. Average accuracy is <bold>{{accuracy}}%</bold> across your <bold>{{lectures}} courses</bold>.",
   "createLecture": "Create Lecture",
   "stats": {
     "totalStudents": "Total Students",
@@ -11,22 +11,22 @@
     "quizAttempts": "Quiz Attempts"
   },
   "lectures_status": {
-    "activeProtocol": "Active Protocol",
+    "activeProtocol": "Live",
     "noSourcePdf": "No Source PDF"
   },
   "lectures": {
-    "sectionTitle": "Active Academic Streams",
+    "sectionTitle": "Your Lectures",
     "sectionSubtitle": "Manage your interactive learning materials",
     "globalAnalytics": "Global Analytics",
     "table": {
       "details": "Lecture Details",
       "slideCount": "Slide Count",
       "launchDate": "Launch Date",
-      "status": "Protocol Status",
-      "actions": "Executive Actions"
+      "status": "Status",
+      "actions": "Actions"
     },
     "status": {
-      "active": "Active Protocol",
+      "active": "Live",
       "noPdf": "No Source PDF"
     },
     "uncategorized": "Uncategorized",
@@ -34,12 +34,12 @@
     "actions": {
       "analytics": "Lecture Analytics",
       "preview": "Preview Lecture",
-      "edit": "Edit Parameters",
-      "delete": "Delete Stream"
+      "edit": "Edit",
+      "delete": "Delete"
     },
     "empty": {
-      "title": "No lectures detected",
-      "description": "Upload your first lecture to initiate automated quiz generation and real-time student neural tracking.",
+      "title": "No lectures yet",
+      "description": "Upload your first lecture to get quizzes and student engagement tracking automatically.",
       "cta": "Upload Your First Lecture"
     },
     "deleteConfirm": "Are you sure you want to delete this lecture? This cannot be undone.",

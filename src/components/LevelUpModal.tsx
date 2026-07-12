@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback, memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, Sparkles, Trophy } from 'lucide-react';
+import { Star, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ByteCompanion } from '../../learnstation-luna';
 
 interface LevelUpModalProps {
   isOpen: boolean;
@@ -57,6 +59,7 @@ function Confetti() {
 }
 
 export const LevelUpModal = memo(function LevelUpModal({ isOpen, onClose, newLevel }: LevelUpModalProps) {
+  const { t } = useTranslation('gamification');
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
@@ -108,7 +111,7 @@ export const LevelUpModal = memo(function LevelUpModal({ isOpen, onClose, newLev
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ delay: 0.2, type: 'spring', damping: 12 }}
                 >
-                  <Trophy className="w-16 h-16 text-white drop-shadow-glow-white/50" aria-hidden="true" />
+                  <ByteCompanion size="sm" showShadow={false} />
                   <motion.div 
                     className="absolute -top-4 -right-4 bg-xp rounded-full p-2 border-4 border-background shadow-lg"
                     initial={{ scale: 0 }}
@@ -125,14 +128,14 @@ export const LevelUpModal = memo(function LevelUpModal({ isOpen, onClose, newLev
                   transition={{ delay: 0.4 }}
                 >
                   <div className="flex flex-col gap-2 mb-8">
-                    <span className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">Synapse Evolution Confirmed</span>
+                    <span className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">{t('levelUp.eyebrow')}</span>
                     <h2 id="levelup-title" className="text-5xl lg:text-6xl font-bold text-foreground tracking-tighter">
                       Level <span className="text-primary">{newLevel}</span>
                     </h2>
                   </div>
 
                   <p id="levelup-desc" className="text-muted-foreground font-medium mb-10 leading-relaxed text-sm">
-                    Cognitive architecture upgraded. Your integration with the Orbital protocol has reached the next phase.
+                    {t('levelUp.description')}
                   </p>
 
                   <div className="flex justify-center gap-3 mb-10" role="img" aria-label={`${filledStars} out of 5 stars`}>
@@ -160,7 +163,7 @@ export const LevelUpModal = memo(function LevelUpModal({ isOpen, onClose, newLev
                     className="w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl shadow-glow-primary text-lg border-none transition-all active:scale-95 h-16" 
                     onClick={handleClose}
                   >
-                    Continue Mission
+                    {t('levelUp.cta')}
                   </Button>
                 </motion.div>
               </div>

@@ -24,6 +24,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { adminService, type AdminUser, type ActivityEvent, type SentryError, type BackupSession, type DeploymentTelemetry } from '@/services/adminService';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type ActiveTab = 'activity' | 'visibility' | 'errors' | 'reset' | 'deployment';
 
@@ -47,6 +57,7 @@ export default function AdminDashboard() {
   const [resetConfirmStage, setResetConfirmStage] = useState(0); // 0, 1, 2, 3
   const [actionLoading, setActionLoading] = useState(false);
   const [errorLogsFilter, setErrorLogsFilter] = useState<'all' | 'unresolved' | 'resolved'>('all');
+  const [dialogState, setDialogState] = useState<{ isOpen: boolean; actionType: 'restore' | 'delete' | null; backupId: string | null }>({ isOpen: false, actionType: null, backupId: null });
 
   // Load Tab-specific data
   useEffect(() => {
@@ -152,7 +163,10 @@ export default function AdminDashboard() {
 
   // Restore Backup Action
   const handleRestoreBackup = async (backupId: string) => {
-    if (!confirm('Are you sure you want to restore this snapshot? This will replace all current analytics.')) return;
+    setDialogState({ isOpen: true, actionType: 'restore', backupId });
+  };
+
+  const executeRestoreBackup = async (backupId: string) => {
     setActionLoading(true);
     try {
       await adminService.restoreBackup(backupId);
@@ -169,12 +183,16 @@ export default function AdminDashboard() {
       });
     } finally {
       setActionLoading(false);
+      setDialogState({ isOpen: false, actionType: null, backupId: null });
     }
   };
 
   // Delete Backup Action
   const handleDeleteBackup = async (backupId: string) => {
-    if (!confirm('Permanently delete this backup snapshot?')) return;
+    setDialogState({ isOpen: true, actionType: 'delete', backupId });
+  };
+
+  const executeDeleteBackup = async (backupId: string) => {
     setActionLoading(true);
     try {
       await adminService.deleteBackup(backupId);
@@ -191,6 +209,7 @@ export default function AdminDashboard() {
       });
     } finally {
       setActionLoading(false);
+      setDialogState({ isOpen: false, actionType: null, backupId: null });
     }
   };
 
@@ -207,8 +226,8 @@ export default function AdminDashboard() {
     <div className="container mx-auto p-4 lg:p-10 max-w-7xl space-y-8 min-h-screen text-foreground select-none">
       
       {/* Glow effects */}
-      <div className="absolute top-[10%] left-[20%] w-[300px] h-[300px] bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[20%] right-[10%] w-[400px] h-[400px] bg-secondary/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-[10%] left-[20%] w-[300px] h-[300px] bg-primary/5 rounded-full blur-[100px] pointer-events-none opacity-40" style={{ transform: 'translateZ(0)' }} />
+      <div className="absolute bottom-[20%] right-[10%] w-[400px] h-[400px] bg-secondary/5 rounded-full blur-[100px] pointer-events-none opacity-40" style={{ transform: 'translateZ(0)' }} />
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
@@ -239,7 +258,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-black/30 border border-white/5 backdrop-blur-xl rounded-[20px] relative z-10">
+      <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-black/30 border border-white/5 backdrop-blur-xl rounded-[20px] relative z-10" role="tablist" aria-label="Admin Dashboard Navigation">
         {[
           { id: 'activity', label: 'Activity Tracker', icon: Users },
           { id: 'visibility', label: 'Student Visibility', icon: Eye },
@@ -251,8 +270,12 @@ export default function AdminDashboard() {
           return (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={`tabpanel-${tab.id}`}
+              id={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id as ActiveTab)}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-bold rounded-[14px] transition-all relative ${
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-bold rounded-[14px] transition-all relative focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
                 isActive ? 'text-white' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
               }`}
             >
@@ -281,6 +304,9 @@ export default function AdminDashboard() {
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
+              role="tabpanel"
+              id={`tabpanel-${activeTab}`}
+              aria-labelledby={`tab-${activeTab}`}
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
@@ -644,7 +670,7 @@ export default function AdminDashboard() {
                           <div className="p-4 rounded-xl bg-white/2 border border-white/5 text-xs text-muted-foreground leading-relaxed space-y-2">
                             <div className="flex items-center gap-1.5 text-foreground font-bold">
                               <Info className="h-4 w-4 text-primary" />
-                              <span>Safe Clean-Slate Protocol</span>
+                              <span>Backed up before wiping</span>
                             </div>
                             <p>Before purging, a full database snapshot backup is written to the backup table. You can restore your data back to this exact state in one click at any time.</p>
                           </div>
@@ -653,7 +679,7 @@ export default function AdminDashboard() {
                             className="w-full h-12 rounded-xl font-bold bg-destructive hover:bg-destructive/90 text-white shadow-glow-destructive"
                             onClick={() => setResetConfirmStage(1)}
                           >
-                            Trigger Reset Protocol
+                            Reset analytics data
                           </Button>
                         </div>
                       ) : (
@@ -883,6 +909,35 @@ export default function AdminDashboard() {
         )}
       </div>
 
+      <AlertDialog open={dialogState.isOpen} onOpenChange={(isOpen) => !isOpen && setDialogState({ isOpen: false, actionType: null, backupId: null })}>
+        <AlertDialogContent className="glass-panel border-white/10 text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {dialogState.actionType === 'restore' ? 'Restore Snapshot?' : 'Delete Snapshot?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              {dialogState.actionType === 'restore' 
+                ? 'Are you sure you want to restore this snapshot? This will replace all current analytics.'
+                : 'Permanently delete this backup snapshot? This cannot be undone.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (dialogState.backupId) {
+                  dialogState.actionType === 'restore' 
+                    ? executeRestoreBackup(dialogState.backupId)
+                    : executeDeleteBackup(dialogState.backupId);
+                }
+              }}
+              className={dialogState.actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90 text-white' : 'bg-primary hover:bg-primary/90 text-white'}
+            >
+              {dialogState.actionType === 'restore' ? 'Restore' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

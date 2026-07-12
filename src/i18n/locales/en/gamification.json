@@ -1,0 +1,75 @@
+{
+  "levelUp": {
+    "eyebrow": "Level up",
+    "description": "You're getting sharper every session. Keep it rolling.",
+    "cta": "Keep going"
+  },
+  "xp": {
+    "levelEyebrow": "Current level",
+    "totalXp": "Total XP",
+    "streak": "Day streak",
+    "nextLevel": "Next level",
+    "nextLevelValue": "Level {{level}}",
+    "footer": "Progress saves automatically"
+  },
+  "achievementCard": {
+    "earned": "Earned",
+    "lockedTitle": "Locked achievement",
+    "lockedDescription": "Keep going to unlock this one.",
+    "earnedOn": "Earned {{date}}",
+    "locked": "Locked"
+  },
+  "badgeModal": {
+    "eyebrow": "New badge",
+    "cta": "Nice"
+  },
+  "ascent": {
+    "backToDashboard": "Dashboard",
+    "tabs": {
+      "overview": "Overview",
+      "trophies": "Trophies",
+      "mindMap": "Mind Map",
+      "skillTree": "Skill Tree"
+    },
+    "overviewEyebrow": "Insights",
+    "trophiesEyebrow": "Your Badges",
+    "overviewSubtitle": "Clear, actionable takeaways from your learning — no noise, just what matters.",
+    "trophiesSubtitle": "Every badge here marks something you actually did.",
+    "insightsLabel": "Your Insights",
+    "stats": {
+      "earned": "Earned",
+      "level": "Level",
+      "bestStreak": "Best Streak",
+      "totalXp": "Total XP"
+    },
+    "badgesEarnedHeading": "Badges Earned",
+    "badgeCount": "{{count}} badges",
+    "emptyTitle": "No badges yet",
+    "emptyBody": "Complete your first quiz to earn your first badge.",
+    "potentialMilestones": "Potential Milestones",
+    "unlockableCount": "{{count}} to unlock"
+  },
+  "leaderboard": {
+    "thisWeek": "This Week",
+    "allTime": "All Time",
+    "allUniversities": "All universities",
+    "allFaculties": "All faculties",
+    "anySemester": "Any semester",
+    "semester": "Semester {{n}}",
+    "verifiedOnly": "Verified only",
+    "noLearners": "No learners yet.",
+    "rankSummary": "You earned {{reward}} today — rank {{rank}} of {{total}}",
+    "columns": {
+      "rank": "Rank",
+      "user": "User",
+      "level": "Level",
+      "points": "Points",
+      "reward": "Reward"
+    },
+    "you": "You",
+    "levelValue": "Level {{level}}",
+    "earnPoints": "Earn {{points}} points",
+    "prize": "Prize",
+    "endsIn": "Ends in"
+  }
+}

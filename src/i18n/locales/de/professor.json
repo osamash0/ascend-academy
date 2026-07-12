@@ -1,8 +1,8 @@
 {
   "defaultName": "Professor:in",
-  "commandCenter": "Kommandozentrum",
+  "commandCenter": "Dashboard",
   "greeting": "{{greeting}}, {{name}}.",
-  "summary": "Die Systemanalyse bestätigt: <bold>{{students}} Studierende</bold> sind aktiv engagiert. Die globale Genauigkeit liegt bei <bold>{{accuracy}}%</bold> in deinen <bold>{{lectures}} akademischen Strömen</bold>.",
+  "summary": "<bold>{{students}} Studierende</bold> sind aktiv dabei. Die durchschnittliche Genauigkeit liegt bei <bold>{{accuracy}}%</bold> in deinen <bold>{{lectures}} Kursen</bold>.",
   "createLecture": "Vorlesung erstellen",
   "stats": {
     "totalStudents": "Gesamtzahl Studierender",
@@ -11,22 +11,22 @@
     "quizAttempts": "Quiz-Versuche"
   },
   "lectures_status": {
-    "activeProtocol": "Aktives Protokoll",
+    "activeProtocol": "Live",
     "noSourcePdf": "Kein Quell-PDF"
   },
   "lectures": {
-    "sectionTitle": "Aktive akademische Ströme",
+    "sectionTitle": "Deine Vorlesungen",
     "sectionSubtitle": "Verwalte deine interaktiven Lernmaterialien",
     "globalAnalytics": "Globale Analytik",
     "table": {
       "details": "Vorlesungsdetails",
       "slideCount": "Folienanzahl",
       "launchDate": "Veröffentlicht am",
-      "status": "Protokollstatus",
+      "status": "Status",
       "actions": "Aktionen"
     },
     "status": {
-      "active": "Aktives Protokoll",
+      "active": "Live",
       "noPdf": "Keine Quell-PDF"
     },
     "uncategorized": "Ohne Kategorie",
@@ -34,12 +34,12 @@
     "actions": {
       "analytics": "Vorlesungs-Analytik",
       "preview": "Vorlesung ansehen",
-      "edit": "Parameter bearbeiten",
-      "delete": "Strom löschen"
+      "edit": "Bearbeiten",
+      "delete": "Löschen"
     },
     "empty": {
-      "title": "Keine Vorlesungen erkannt",
-      "description": "Lade deine erste Vorlesung hoch, um automatische Quiz-Erstellung und Echtzeit-Tracking zu starten.",
+      "title": "Noch keine Vorlesungen",
+      "description": "Lade deine erste Vorlesung hoch — Quizze und Engagement-Tracking laufen automatisch.",
       "cta": "Erste Vorlesung hochladen"
     },
     "deleteConfirm": "Möchtest du diese Vorlesung wirklich löschen? Dies kann nicht rückgängig gemacht werden.",

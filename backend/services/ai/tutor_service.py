@@ -20,6 +20,7 @@ from backend.services.ai.analytics import generate_slide_recommendation
 from backend.services import analytics_service, analytics_cache
 from backend.services.ai.orchestrator import generate_text
 from backend.services.ai.prompts import LECTURE_DESCRIPTION_PROMPT, COURSE_DESCRIPTION_PROMPT, LECTURE_TAGLINE_PROMPT
+from backend.services.ai.voice import with_voice
 
 logger = logging.getLogger(__name__)
 
@@ -375,7 +376,7 @@ async def undo_regenerate_slide(slide_id: str, user_id: str, creds_token: str) -
 async def generate_lecture_description(title: str, course_name: Optional[str], summaries: List[str], ai_model: str) -> str:
     course_line = f"\n[COURSE]\n{course_name}" if course_name else ""
     summaries_text = "\n".join(summaries)[:4000]
-    prompt = LECTURE_DESCRIPTION_PROMPT.format(title=title, course_line=course_line, summaries=summaries_text)
+    prompt = with_voice(LECTURE_DESCRIPTION_PROMPT.format(title=title, course_line=course_line, summaries=summaries_text))
     raw = await generate_text(prompt, ai_model=ai_model)
     description = (raw or "").strip().strip('"') if raw else ""
     return description
@@ -414,7 +415,7 @@ async def generate_course_description(course_id: str, creds_token: str, ai_model
     outline = "\n".join(outline_lines)[:4000]
     if not outline.strip(): raise ValueError("Course content is empty.")
 
-    prompt = COURSE_DESCRIPTION_PROMPT.format(title=course_title, outline=outline)
+    prompt = with_voice(COURSE_DESCRIPTION_PROMPT.format(title=course_title, outline=outline))
     raw = await generate_text(prompt, ai_model=ai_model)
     description = (raw or "").strip().strip('"') if raw else ""
     return description
@@ -443,7 +444,7 @@ async def generate_lecture_tagline(lecture_id: str, creds_token: str, ai_model: 
     content = "\n".join(parts)[:_TAGLINE_MAX_CHARS]
     if not content.strip(): raise ValueError("Lecture content is empty.")
 
-    prompt = LECTURE_TAGLINE_PROMPT.format(title=title, content=content)
+    prompt = with_voice(LECTURE_TAGLINE_PROMPT.format(title=title, content=content))
     raw = await generate_text(prompt, ai_model=ai_model)
     tagline = (raw or "").strip().strip('"').splitlines()[0].strip() if raw else ""
     if not tagline: raise ValueError("Empty tagline returned.")

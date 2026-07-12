@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Trophy, Gem, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SocialUser } from "../data";
@@ -36,6 +37,7 @@ const rankStyles = {
 };
 
 export function PodiumCard({ user, rank, points, prize }: PodiumCardProps) {
+  const { t } = useTranslation('gamification');
   const styles = rankStyles[rank];
 
   return (
@@ -73,7 +75,7 @@ export function PodiumCard({ user, rank, points, prize }: PodiumCardProps) {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5">
             <Trophy className={cn("h-5 w-5", styles.trophyColor)} fill="currentColor" />
           </div>
-          <span className="text-xs text-muted-foreground">Earn {points.toLocaleString()} points</span>
+          <span className="text-xs text-muted-foreground">{t('leaderboard.earnPoints', { points: points.toLocaleString() })}</span>
         </div>
 
         {/* Diamond Prize */}
@@ -84,14 +86,14 @@ export function PodiumCard({ user, rank, points, prize }: PodiumCardProps) {
               {prize.toLocaleString()}
             </span>
           </div>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Prize</span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('leaderboard.prize')}</span>
         </div>
 
         {/* Center rank timer */}
         {rank === 1 && (
           <div className="mt-6 flex flex-col items-center gap-1">
             <Clock className="h-4 w-4 text-[#3B82F6]" />
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Ends in</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('leaderboard.endsIn')}</span>
             <span className="text-xs font-bold text-white tabular-nums">10d 23h 59m 29s</span>
           </div>
         )}

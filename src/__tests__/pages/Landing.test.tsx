@@ -4,7 +4,7 @@
  * equivalents:
  *   - mount                => brand wordmark + primary CTA render
  *   - loading-equivalent   => no spinner; an h1/h2 is present synchronously
- *   - empty-equivalent     => the "Mission Control" framing copy is present
+ *   - empty-equivalent     => the "Master Your Studies" hero headline is present
  *   - first-row-equivalent => Sign In affordance routing to /auth is present
  */
 import { describe, expect, it } from "vitest";
@@ -15,9 +15,9 @@ import { renderWithProviders } from "@/test/renderWithProviders";
 describe("Landing page (smoke)", () => {
   it("mount: renders the brand wordmark and primary CTA", () => {
     renderWithProviders(<Landing />, { initialEntries: ["/"] });
-    expect(screen.getAllByText(/Learnstation|Ascend/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Learnstation/i).length).toBeGreaterThan(0);
     expect(
-      screen.getAllByRole("button", { name: /launch mission|launch your mission/i }).length,
+      screen.getAllByRole("button", { name: /get started/i }).length,
     ).toBeGreaterThan(0);
   });
 
@@ -27,9 +27,9 @@ describe("Landing page (smoke)", () => {
     expect(container.querySelector("h1, h2")).not.toBeNull();
   });
 
-  it("empty equivalent: shows the 'Mission Control' framing copy", () => {
+  it("empty equivalent: shows the 'Master Your Studies' hero headline", () => {
     renderWithProviders(<Landing />, { initialEntries: ["/"] });
-    expect(screen.getAllByText(/mission control/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/master your/i).length).toBeGreaterThan(0);
   });
 
   it("first-row equivalent: exposes the Sign In affordance routing to /auth", () => {

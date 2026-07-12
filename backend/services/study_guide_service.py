@@ -18,6 +18,7 @@ from uuid import UUID
 
 from backend.core.database import get_db_connection
 from backend.services.ai.orchestrator import generate_text, parse_json_response
+from backend.services.ai.voice import with_voice
 from backend.services.course_context_service import get_course_context
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ async def _define_concepts(concepts: List[str], ai_model: str) -> Dict[str, str]
 Concepts:
 {chr(10).join(f"- {c}" for c in concepts)}"""
     try:
-        raw = await generate_text(prompt, ai_model=ai_model)
+        raw = await generate_text(with_voice(prompt, structured=True), ai_model=ai_model)
         res = parse_json_response(raw)
         if isinstance(res, dict):
             return {k: v for k, v in res.items() if isinstance(k, str) and isinstance(v, str)}

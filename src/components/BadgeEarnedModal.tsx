@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Award, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { memo, useCallback } from 'react';
+import { LunaAstronaut } from '../../learnstation-luna';
 
 interface BadgeEarnedModalProps {
   isOpen: boolean;
@@ -18,6 +20,7 @@ export const BadgeEarnedModal = memo(function BadgeEarnedModal({
   badgeDescription,
   badgeIcon = '🏆',
 }: BadgeEarnedModalProps) {
+  const { t } = useTranslation('gamification');
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
@@ -36,68 +39,69 @@ export const BadgeEarnedModal = memo(function BadgeEarnedModal({
           />
           <motion.div
             className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 400 }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="badge-title"
             aria-describedby="badge-desc"
           >
-            <div className="glass-card p-12 shadow-glow-primary/20 max-w-md w-full mx-4 pointer-events-auto border-white/10 rounded-[48px] relative overflow-hidden text-center group">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,var(--primary)_0%,transparent_70%)] opacity-20" />
+            <div className="glass-card p-8 md:p-12 shadow-glow-primary/20 max-w-md w-full mx-4 pointer-events-auto border-white/10 rounded-[40px] relative overflow-hidden text-center group flex flex-col items-center">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,var(--primary)_0%,transparent_70%)] opacity-10" />
 
-              <div className="relative z-10">
+              <div className="relative z-10 flex flex-col items-center w-full">
+                
+                {/* Luna Pops Up */}
                 <motion.div
-                  className="w-36 h-36 bg-gradient-to-br from-primary via-secondary to-xp rounded-full mx-auto mb-10 flex items-center justify-center shadow-glow-primary relative overflow-hidden"
-                  initial={{ scale: 0, rotate: -90 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.2, type: 'spring', damping: 15 }}
+                  className="mb-8 relative"
+                  initial={{ y: 50, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.1, type: 'spring', damping: 15 }}
                 >
-                  <span className="text-6xl drop-shadow-glow-white/50 relative z-10" role="img" aria-label={badgeName}>
-                    {badgeIcon}
-                  </span>
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
-                    animate={{ x: ['-200%', '200%'] }}
-                    transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
-                  />
+                  <LunaAstronaut variant="head" phase="full" size="xl" animated showShadow={false} />
+                  
+                  {/* Floating Badge */}
+                  <motion.div 
+                    className="absolute -right-2 -bottom-2 w-14 h-14 bg-white/10 border border-white/20 backdrop-blur-xl rounded-full flex items-center justify-center shadow-lg overflow-hidden"
+                    initial={{ scale: 0, rotate: -45 }}
+                    animate={{ scale: 1, rotate: 10 }}
+                    transition={{ delay: 0.5, type: 'spring', damping: 12 }}
+                  >
+                    {badgeIcon?.startsWith('/') || badgeIcon?.startsWith('http') ? (
+                      <img src={badgeIcon} alt={badgeName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl drop-shadow-md">{badgeIcon}</span>
+                    )}
+                  </motion.div>
                 </motion.div>
 
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
+                  transition={{ delay: 0.3 }}
+                  className="w-full flex flex-col items-center"
                 >
-                  <div className="flex flex-col gap-2 mb-8">
-                    <div className="flex items-center justify-center gap-2">
-                      <Sparkles className="w-5 h-5 text-xp animate-pulse" aria-hidden="true" />
-                      <span className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">New Protocol Unlocked</span>
-                      <Sparkles className="w-5 h-5 text-xp animate-pulse" aria-hidden="true" />
-                    </div>
-                    <h2 id="badge-title" className="text-4xl font-bold text-foreground tracking-tighter">
-                      {badgeName}
-                    </h2>
+                  <div className="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 mb-5">
+                    <Sparkles className="w-4 h-4 animate-pulse" />
+                    <span className="text-[11px] font-bold uppercase tracking-widest">{t('badgeModal.eyebrow')}</span>
                   </div>
+                  
+                  <h2 id="badge-title" className="text-3xl font-bold text-foreground tracking-tight mb-3">
+                    {badgeName}
+                  </h2>
 
-                  <p id="badge-desc" className="text-muted-foreground font-medium mb-10 leading-relaxed text-sm">
+                  <p id="badge-desc" className="text-muted-foreground font-medium mb-8 leading-relaxed text-sm px-2">
                     {badgeDescription}
                   </p>
 
-                  <div className="flex items-center justify-center gap-3 p-4 bg-white/2 border border-white/5 rounded-2xl mb-10 group-hover:border-primary/30 transition-colors">
-                    <Award className="w-5 h-5 text-primary" aria-hidden="true" />
-                    <span className="text-xs font-bold text-foreground/80 uppercase tracking-widest">
-                      Added to Orbital Profile
-                    </span>
-                  </div>
-
                   <Button 
                     size="lg" 
-                    className="w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl shadow-glow-primary text-lg border-none transition-all active:scale-95 h-16" 
+                    className="w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl shadow-glow-primary text-lg border-none transition-all active:scale-95 h-14" 
                     onClick={handleClose}
                   >
-                    Confirm Access
+                    {t('badgeModal.cta')}
                   </Button>
                 </motion.div>
               </div>

@@ -23,7 +23,9 @@
     "submitConfirmCancel": "Weitermachen",
     "submitConfirmOk": "Abgeben",
     "autosaving": "Wird gespeichert…",
-    "expiredWarning": "Die Zeit ist um — gib jetzt ab, bevor die Kulanzzeit endet."
+    "expiredWarning": "Die Zeit ist um — gib jetzt ab, bevor die Kulanzzeit endet.",
+    "submitting": "Wird abgegeben…",
+    "goToQuestion": "Zu Frage {{n}} springen"
   },
   "report": {
     "title": "Prüfungsergebnis",
@@ -36,7 +38,19 @@
     "sentToReview": "{{count}} Karten zur Täglichen Wiederholung hinzugefügt",
     "alreadySent": "Bereits zur Wiederholung gesendet",
     "backToDashboard": "Zurück zum Dashboard",
-    "history": "Frühere Versuche"
+    "history": "Frühere Versuche",
+    "backToCourse": "Zurück zum Kurs",
+    "passedHeading": "Du bist bereit für die Prüfung",
+    "completedHeading": "Prüfung abgeschlossen",
+    "scoreSummary": "Du hast {{correct}} von {{total}} richtig beantwortet.",
+    "passedNote": "Gut gemacht — du hast das Abzeichen „Bereit für die Prüfung“ verdient.",
+    "notPassedNote": "Arbeite weiter an deinen Schwächen — ab 80 % gibt's das Abzeichen „Bereit für die Prüfung“.",
+    "missRate": "{{rate}} % Fehlerquote",
+    "missedOf": "{{missed}} falsch",
+    "totalOf": "{{total}} gesamt",
+    "questionReview": "Fragenübersicht",
+    "questionNumber": "Frage {{n}}",
+    "notAvailable": "Prüfungsbericht nicht verfügbar."
   },
   "widget": {
     "title": "Probeprüfung",

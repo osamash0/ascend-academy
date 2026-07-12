@@ -133,7 +133,7 @@ export const QuizCard = memo(function QuizCard({
 
       <div className="flex items-center justify-between mb-8">
         <div className="flex flex-col gap-1">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">{t('lecture:quiz.evaluation', { defaultValue: 'Neural Evaluation' })}</p>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">{t('lecture:quiz.evaluation', { defaultValue: 'Quiz' })}</p>
           <span className="text-sm font-bold text-foreground">
             {t('lecture:quiz.module', { number: questionNumber, defaultValue: `Module ${questionNumber}` })} <span className="text-muted-foreground">/ {totalQuestions}</span>
           </span>
@@ -359,7 +359,7 @@ export const QuizCard = memo(function QuizCard({
               </div>
               <div className="flex flex-col">
                 <span className={`text-xl font-bold ${isCorrect ? 'text-success' : 'text-destructive'}`}>
-                  {isCorrect ? t('lecture:quiz.correctTitle', { defaultValue: 'Neural Match Confirmed' }) : t('lecture:quiz.wrongTitle', { defaultValue: 'Synapse Misalignment' })}
+                  {isCorrect ? t('lecture:quiz.correct', { defaultValue: 'Correct!' }) : t('lecture:quiz.incorrect', { defaultValue: 'Not quite' })}
                 </span>
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
                   {isCorrect ? t('lecture:quiz.correctSubtitle', { defaultValue: 'Telemetric Data Integrated' }) : t('lecture:quiz.wrongSubtitle', { defaultValue: 'Resynchronization Required' })}

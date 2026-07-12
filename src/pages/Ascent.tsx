@@ -204,11 +204,12 @@ function MilestoneBadge({ name, description, icon, category, xpReward, index }: 
 }
 
 function AscentTabs({ view, onChange }: { view: AscentView; onChange: (v: AscentView) => void }) {
+  const { t } = useTranslation('gamification');
   const TABS: { id: AscentView; label: string; icon: React.ComponentType<any> }[] = [
-    { id: 'overview', label: 'Overview', icon: Brain },
-    { id: 'trophies', label: 'Trophies', icon: Trophy },
-    { id: 'mindmap', label: 'Mind Map', icon: Network },
-    { id: 'skills', label: 'Skill Tree', icon: GitBranch },
+    { id: 'overview', label: t('ascent.tabs.overview'), icon: Brain },
+    { id: 'trophies', label: t('ascent.tabs.trophies'), icon: Trophy },
+    { id: 'mindmap', label: t('ascent.tabs.mindMap'), icon: Network },
+    { id: 'skills', label: t('ascent.tabs.skillTree'), icon: GitBranch },
   ];
 
   return (
@@ -478,7 +479,7 @@ export default function Ascent() {
             className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors group shrink-0"
           >
             <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            Dashboard
+            {t('gamification:ascent.backToDashboard')}
           </motion.button>
           <AscentTabs view={view} onChange={setView} />
         </div>
@@ -500,7 +501,7 @@ export default function Ascent() {
                   : <Brain className="w-5 h-5 text-primary" />}
               </div>
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">
-                {view === 'trophies' ? 'Hall of Valor' : 'Intelligence Center'}
+                {view === 'trophies' ? t('gamification:ascent.trophiesEyebrow') : t('gamification:ascent.overviewEyebrow')}
               </span>
             </div>
             <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-foreground">
@@ -508,8 +509,8 @@ export default function Ascent() {
             </h1>
             <p className="text-muted-foreground text-base max-w-lg leading-relaxed">
               {view === 'trophies'
-                ? 'Every badge represents a mission completed and a milestone earned in your learning journey.'
-                : 'Clear, actionable takeaways from your learning journey — no noise, just what matters.'}
+                ? t('gamification:ascent.trophiesSubtitle')
+                : t('gamification:ascent.overviewSubtitle')}
             </p>
           </motion.div>
 
@@ -563,7 +564,7 @@ export default function Ascent() {
                   <div className="flex-1 h-px bg-white/5" />
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Sparkles className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.25em]">Your Insights</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em]">{t('gamification:ascent.insightsLabel')}</span>
                   </div>
                   <div className="flex-1 h-px bg-white/5" />
                 </div>
@@ -591,10 +592,10 @@ export default function Ascent() {
                 {/* Quick stats grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    { icon: <Award className="w-5 h-5 text-primary" />, bg: 'bg-primary/10', hover: 'hover:border-primary/30', value: achievements.length, label: 'Earned' },
-                    { icon: <Star className="w-5 h-5 text-xp" />, bg: 'bg-xp/10', hover: 'hover:border-xp/30', value: profile?.current_level || 1, label: 'Level' },
-                    { icon: <Flame className="w-5 h-5 text-warning" />, bg: 'bg-warning/10', hover: 'hover:border-warning/30', value: profile?.best_streak || 0, label: 'Best Streak' },
-                    { icon: <Zap className="w-5 h-5 text-success" />, bg: 'bg-success/10', hover: 'hover:border-success/30', value: (profile?.total_xp || 0).toLocaleString(), label: 'Total XP' },
+                    { icon: <Award className="w-5 h-5 text-primary" />, bg: 'bg-primary/10', hover: 'hover:border-primary/30', value: achievements.length, label: t('gamification:ascent.stats.earned') },
+                    { icon: <Star className="w-5 h-5 text-xp" />, bg: 'bg-xp/10', hover: 'hover:border-xp/30', value: profile?.current_level || 1, label: t('gamification:ascent.stats.level') },
+                    { icon: <Flame className="w-5 h-5 text-warning" />, bg: 'bg-warning/10', hover: 'hover:border-warning/30', value: profile?.best_streak || 0, label: t('gamification:ascent.stats.bestStreak') },
+                    { icon: <Zap className="w-5 h-5 text-success" />, bg: 'bg-success/10', hover: 'hover:border-success/30', value: (profile?.total_xp || 0).toLocaleString(), label: t('gamification:ascent.stats.totalXp') },
                   ].map(({ icon, bg, hover, value, label }, i) => (
                     <motion.div
                       key={label}
@@ -619,10 +620,10 @@ export default function Ascent() {
                       <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                         <Trophy className="w-4 h-4 text-primary" />
                       </div>
-                      Neural Badges Earned
+                      {t('gamification:ascent.badgesEarnedHeading')}
                     </h2>
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full">
-                      {achievements.length} Badges
+                      {t('gamification:ascent.badgeCount', { count: achievements.length })}
                     </span>
                   </div>
 
@@ -635,9 +636,9 @@ export default function Ascent() {
                       <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
                         <span className="text-4xl">🌱</span>
                       </div>
-                      <h3 className="text-xl font-bold text-foreground mb-3">No neural signatures detected yet</h3>
+                      <h3 className="text-xl font-bold text-foreground mb-3">{t('gamification:ascent.emptyTitle')}</h3>
                       <p className="text-muted-foreground max-w-md mx-auto text-sm leading-relaxed">
-                        Your orbital journey has just begun. Complete your first cognitive mission to synchronize your first badge with the Hall of Valor.
+                        {t('gamification:ascent.emptyBody')}
                       </p>
                     </div>
                   ) : (
@@ -675,10 +676,10 @@ export default function Ascent() {
                       <div className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center">
                         <Zap className="w-4 h-4 text-muted-foreground" />
                       </div>
-                      Potential Milestones
+                      {t('gamification:ascent.potentialMilestones')}
                     </h2>
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full">
-                      {lockedByCategory.reduce((acc, [, b]) => acc + b.length, 0)} unlockable
+                      {t('gamification:ascent.unlockableCount', { count: lockedByCategory.reduce((acc, [, b]) => acc + b.length, 0) })}
                     </span>
                   </div>
                   {lockedByCategory.map(([category, badges]) => (

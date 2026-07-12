@@ -215,7 +215,7 @@ export function SlideViewer({
             <div>
               <h2 className="font-bold text-lg text-foreground tracking-tight leading-tight">{title}</h2>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Orbital Lecture</span>
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Lecture</span>
                 <span className="text-[10px] text-muted-foreground">•</span>
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                   Slide {slideNumber} / {totalSlides}

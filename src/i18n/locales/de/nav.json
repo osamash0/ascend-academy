@@ -18,11 +18,11 @@
   "sidebar": {
     "navigationHub": "Navigation",
     "currentTier": "Aktuelle Stufe",
-    "telemetry": "Telemetrie",
+    "telemetry": "Fortschritt",
     "level": "Level {{level}}",
-    "protocolProgress": "Protokoll-Fortschritt",
+    "protocolProgress": "XP-Fortschritt",
     "signOut": "Abmelden",
-    "version": "v2.0 Orbital",
+    "version": "v2.0",
     "brand": "Learnstation"
   }
 }

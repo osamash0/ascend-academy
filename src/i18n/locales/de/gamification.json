@@ -1,0 +1,75 @@
+{
+  "levelUp": {
+    "eyebrow": "Level-Aufstieg",
+    "description": "Du wirst mit jeder Runde besser. Weiter so.",
+    "cta": "Weitermachen"
+  },
+  "xp": {
+    "levelEyebrow": "Aktuelles Level",
+    "totalXp": "Gesamt-XP",
+    "streak": "Tage-Streak",
+    "nextLevel": "Nächstes Level",
+    "nextLevelValue": "Level {{level}}",
+    "footer": "Fortschritt wird automatisch gespeichert"
+  },
+  "achievementCard": {
+    "earned": "Erhalten",
+    "lockedTitle": "Gesperrte Auszeichnung",
+    "lockedDescription": "Mach weiter, um das freizuschalten.",
+    "earnedOn": "Erhalten am {{date}}",
+    "locked": "Gesperrt"
+  },
+  "badgeModal": {
+    "eyebrow": "Neues Abzeichen",
+    "cta": "Super"
+  },
+  "ascent": {
+    "backToDashboard": "Dashboard",
+    "tabs": {
+      "overview": "Überblick",
+      "trophies": "Abzeichen",
+      "mindMap": "Mindmap",
+      "skillTree": "Skill-Baum"
+    },
+    "overviewEyebrow": "Einblicke",
+    "trophiesEyebrow": "Deine Abzeichen",
+    "overviewSubtitle": "Klare, nutzbare Erkenntnisse aus deinem Lernen — kein Rauschen, nur was zählt.",
+    "trophiesSubtitle": "Jedes Abzeichen hier steht für etwas, das du wirklich getan hast.",
+    "insightsLabel": "Deine Einblicke",
+    "stats": {
+      "earned": "Erhalten",
+      "level": "Level",
+      "bestStreak": "Bester Streak",
+      "totalXp": "Gesamt-XP"
+    },
+    "badgesEarnedHeading": "Erhaltene Abzeichen",
+    "badgeCount": "{{count}} Abzeichen",
+    "emptyTitle": "Noch keine Abzeichen",
+    "emptyBody": "Schließe dein erstes Quiz ab, um dein erstes Abzeichen zu erhalten.",
+    "potentialMilestones": "Mögliche Meilensteine",
+    "unlockableCount": "{{count}} freischaltbar"
+  },
+  "leaderboard": {
+    "thisWeek": "Diese Woche",
+    "allTime": "Gesamt",
+    "allUniversities": "Alle Universitäten",
+    "allFaculties": "Alle Fakultäten",
+    "anySemester": "Alle Semester",
+    "semester": "Semester {{n}}",
+    "verifiedOnly": "Nur verifiziert",
+    "noLearners": "Noch keine Lernenden.",
+    "rankSummary": "Du hast heute {{reward}} verdient — Rang {{rank}} von {{total}}",
+    "columns": {
+      "rank": "Rang",
+      "user": "Nutzer:in",
+      "level": "Level",
+      "points": "Punkte",
+      "reward": "Belohnung"
+    },
+    "you": "Du",
+    "levelValue": "Level {{level}}",
+    "earnPoints": "{{points}} Punkte verdienen",
+    "prize": "Preis",
+    "endsIn": "Endet in"
+  }
+}

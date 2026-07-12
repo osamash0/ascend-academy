@@ -1,4 +1,5 @@
 import { motion, useInView } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Zap, Flame, Star } from 'lucide-react';
 import { useRef, memo } from 'react';
 
@@ -9,6 +10,7 @@ interface XPProgressProps {
 }
 
 export const XPProgress = memo(function XPProgress({ currentXP, currentLevel, streak }: XPProgressProps) {
+  const { t } = useTranslation('gamification');
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
 
@@ -31,7 +33,7 @@ export const XPProgress = memo(function XPProgress({ currentXP, currentLevel, st
             </div>
           </div>
           <div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Current Protocol</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">{t('xp.levelEyebrow')}</p>
             <p className="text-3xl font-bold text-foreground tracking-tight">Level {currentLevel}</p>
           </div>
         </div>
@@ -42,7 +44,7 @@ export const XPProgress = memo(function XPProgress({ currentXP, currentLevel, st
               <Zap className="w-6 h-6 fill-current" aria-hidden="true" />
               <span className="text-3xl font-bold tracking-tighter">{currentXP.toLocaleString()}</span>
             </div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Experience</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('xp.totalXp')}</p>
           </div>
 
           {streak > 0 && (
@@ -53,7 +55,7 @@ export const XPProgress = memo(function XPProgress({ currentXP, currentLevel, st
                   <Flame className="w-6 h-6 animate-streak-fire fill-current" aria-hidden="true" />
                   <span className="text-3xl font-bold tracking-tighter">{streak}</span>
                 </div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Cognitive Streak</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('xp.streak')}</p>
               </div>
             </>
           )}
@@ -63,8 +65,8 @@ export const XPProgress = memo(function XPProgress({ currentXP, currentLevel, st
       <div className="space-y-4 relative z-10">
         <div className="flex justify-between items-end">
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Next Evolution</p>
-            <p className="text-xs font-bold text-foreground">Phase {currentLevel + 1}</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('xp.nextLevel')}</p>
+            <p className="text-xs font-bold text-foreground">{t('xp.nextLevelValue', { level: currentLevel + 1 })}</p>
           </div>
           <p className="text-sm font-bold text-foreground tracking-tight">
             <span className="text-primary">{xpInCurrentLevel}</span> <span className="text-muted-foreground">/ {xpToNextLevel} XP</span>
@@ -83,7 +85,7 @@ export const XPProgress = memo(function XPProgress({ currentXP, currentLevel, st
         </div>
 
         <p className="text-[9px] text-center text-muted-foreground/50 font-bold uppercase tracking-[0.2em]">
-          Cognitive synchronization active • Telemetry synchronized
+          {t('xp.footer')}
         </p>
       </div>
     </div>

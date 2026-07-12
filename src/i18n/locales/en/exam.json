@@ -23,7 +23,9 @@
     "submitConfirmCancel": "Keep going",
     "submitConfirmOk": "Submit",
     "autosaving": "Saving…",
-    "expiredWarning": "Time's up — submit now before the grace period ends."
+    "expiredWarning": "Time's up — submit now before the grace period ends.",
+    "submitting": "Submitting…",
+    "goToQuestion": "Go to question {{n}}"
   },
   "report": {
     "title": "Exam results",
@@ -36,7 +38,19 @@
     "sentToReview": "{{count}} cards added to your Daily Review",
     "alreadySent": "Already sent to review",
     "backToDashboard": "Back to dashboard",
-    "history": "Past attempts"
+    "history": "Past attempts",
+    "backToCourse": "Back to course",
+    "passedHeading": "You're exam-ready",
+    "completedHeading": "Exam complete",
+    "scoreSummary": "You answered {{correct}} of {{total}} correctly.",
+    "passedNote": "Nice work — you've earned the Exam Ready badge.",
+    "notPassedNote": "Keep reviewing your weak spots — 80% unlocks the Exam Ready badge.",
+    "missRate": "{{rate}}% miss rate",
+    "missedOf": "{{missed}} missed",
+    "totalOf": "{{total}} total",
+    "questionReview": "Question review",
+    "questionNumber": "Question {{n}}",
+    "notAvailable": "Exam report not available."
   },
   "widget": {
     "title": "Mock Exam",

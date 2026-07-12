@@ -14,7 +14,7 @@
     "back": "Zurück",
     "next": "Weiter",
     "finish": "Fertig",
-    "submit": "Absenden",
+    "submit": "Bestätigen",
     "close": "Schließen",
     "retry": "Erneut versuchen",
     "loading": "Wird geladen...",
@@ -27,9 +27,9 @@
   },
   "states": {
     "loading": "Wird geladen...",
-    "empty": "Hier ist noch nichts.",
-    "error": "Etwas ist schiefgelaufen.",
-    "errorRetry": "Bitte aktualisieren Sie die Seite. Falls das Problem weiterhin besteht, wenden Sie sich an den Support.",
+    "empty": "Hier ist es noch ruhig. Lass uns etwas hinzufügen.",
+    "error": "Da ist etwas schiefgelaufen.",
+    "errorRetry": "Versuchen wir, die Seite neu zu laden. Falls das Problem weiterhin besteht, wende dich bitte an den Support.",
     "refresh": "Aktualisieren",
     "noResults": "Keine Ergebnisse gefunden.",
     "saved": "Gespeichert",
@@ -43,9 +43,9 @@
     "success": "Erfolg"
   },
   "toasts": {
-    "errorTitle": "Fehler",
+    "errorTitle": "Hoppla",
     "successTitle": "Erfolg",
-    "tryAgain": "Bitte versuchen Sie es erneut."
+    "tryAgain": "Versuchen wir das noch einmal."
   },
   "greetings": {
     "morning": "Guten Morgen",
@@ -70,12 +70,12 @@
     "daysAgo": "vor {{count}} T."
   },
   "errorBoundary": {
-    "title": "Etwas ist schiefgelaufen.",
-    "description": "Bitte lade die Seite neu. Falls das Problem weiterhin besteht, kontaktiere den Support.",
+    "title": "Nun, das ist unerwartet.",
+    "description": "Versuchen wir, die Seite neu zu laden. Falls das Problem weiterhin besteht, wende dich bitte an den Support.",
     "refresh": "Neu laden"
   },
   "loader": {
-    "syncing": "Neural Edge wird synchronisiert..."
+    "syncing": "Fortschritt wird synchronisiert..."
   },
   "achievements": {
     "level5": {

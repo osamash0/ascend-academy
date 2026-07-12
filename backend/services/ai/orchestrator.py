@@ -786,7 +786,8 @@ def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]
 
 async def enhance_slide_content(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
     from backend.services.ai.prompts import ENHANCE_PROMPT
-    raw = await generate_text(ENHANCE_PROMPT.format(text=text), ai_model=ai_model)
+    from backend.services.ai.voice import with_voice
+    raw = await generate_text(with_voice(ENHANCE_PROMPT.format(text=text), structured=True), ai_model=ai_model)
     return parse_json_response(raw)
 
 
@@ -898,6 +899,7 @@ async def generate_deck_quiz(
         validate_cross_slide_question,
         validate_mcq,
     )
+    from backend.services.ai.voice import with_voice
 
     use_cross = _has_cross_slide_signal(blueprint)
     if use_cross:
@@ -905,7 +907,7 @@ async def generate_deck_quiz(
     else:
         prompt = DECK_QUIZ_PROMPT + (summary or "")
 
-    raw = await generate_text(prompt, ai_model=ai_model)
+    raw = await generate_text(with_voice(prompt, structured=True), ai_model=ai_model)
     parsed = parse_json_response(raw)
     if not isinstance(parsed, list):
         return []
@@ -1056,6 +1058,7 @@ async def batch_analyze_text_slides(
     ``QUIZ_BATCH_OVERLAP``).
     """
     from backend.services.ai.prompts import BATCH_SLIDE_PROMPT
+    from backend.services.ai.voice import with_voice
 
     if not slides:
         return []
@@ -1130,9 +1133,10 @@ async def batch_analyze_text_slides(
             "<context_only> block; omit them from your JSON array entirely.\n"
         )
 
-    full_prompt = (
+    full_prompt = with_voice(
         BATCH_SLIDE_PROMPT + bp_header + context_header + "\n\n"
-        + "\n\n".join(slide_sections)
+        + "\n\n".join(slide_sections),
+        structured=True,
     )
 
     # Single LLM call via BULK chain
@@ -1261,6 +1265,7 @@ async def _regenerate_failing_slide_quizzes(
     """
     from backend.services.ai.prompts import BATCH_SLIDE_QUIZ_REGEN_PROMPT
     from backend.services.ai.quiz_validator import validate_mcq
+    from backend.services.ai.voice import with_voice
 
     pn_to_slide = {s["page_number"]: s for s in slides}
 
@@ -1290,7 +1295,10 @@ async def _regenerate_failing_slide_quizzes(
     if not sections:
         return
 
-    full_prompt = BATCH_SLIDE_QUIZ_REGEN_PROMPT + "\n\n" + "\n\n".join(sections)
+    full_prompt = with_voice(
+        BATCH_SLIDE_QUIZ_REGEN_PROMPT + "\n\n" + "\n\n".join(sections),
+        structured=True,
+    )
 
     try:
         from backend.services.llm_client import call_llm
@@ -1363,8 +1371,9 @@ async def generate_slide_quiz(text: str, ai_model: str = "cerebras") -> Dict[str
     """Generate a single-slide quiz using the specialized single-slide prompt."""
     from backend.services.ai.prompts import SINGLE_SLIDE_QUIZ_PROMPT
     from backend.services.ai.quiz_validator import validate_mcq, validate_and_regenerate
-    
-    prompt = SINGLE_SLIDE_QUIZ_PROMPT + text
+    from backend.services.ai.voice import with_voice
+
+    prompt = with_voice(SINGLE_SLIDE_QUIZ_PROMPT + text, structured=True)
     
     # Lazy regenerator for the single slide quiz
     regen_cache: Dict[str, Any] = {"item": None, "called": False}

@@ -5,16 +5,16 @@
     "forProfessors": "For Professors",
     "pricing": "Pricing",
     "signIn": "Sign In",
-    "launchMission": "Launch Mission"
+    "launchMission": "Get Started"
   },
   "hero": {
-    "badge": "v3.0 Now Orbiting",
-    "headlineLine1": "Your Learning",
-    "headlineLine2": "Mission Control",
-    "subtitle": "Upload a lecture. Get smart notes, quizzes, and an AI tutor — instantly.",
-    "ctaPrimary": "Launch Your Mission",
+    "badge": "Welcome to Learnstation",
+    "headlineLine1": "Master Your",
+    "headlineLine2": "Studies",
+    "subtitle": "Upload a lecture. Get smart notes, quizzes, and a personal AI tutor — instantly.",
+    "ctaPrimary": "Start Learning",
     "ctaSecondary": "",
-    "systemOnline": "SYSTEM ONLINE",
+    "systemOnline": "READY",
     "scrollToExplore": "Scroll to Explore",
     "stats": {
       "xpEarned": "XP Earned",
@@ -39,10 +39,10 @@
     "userRating": "User Rating"
   },
   "features": {
-    "eyebrow": "Ship Systems",
+    "eyebrow": "Your Toolkit",
     "headlineLeft": "Everything You Need to",
-    "headlineHighlight": "Reach Orbit",
-    "subtitle": "Six powerful systems working in harmony to deliver the most advanced learning experience in the galaxy.",
+    "headlineHighlight": "Succeed",
+    "subtitle": "Six powerful tools working together to deliver a premium, distraction-free learning experience.",
     "learnMore": "Learn more",
     "aiTutor": {
       "title": "AI Tutor",
@@ -50,55 +50,55 @@
     },
     "liveAnalytics": {
       "title": "Live Analytics",
-      "description": "Mission-control dashboards track your progress with precision. See your XP, streaks, and skill mastery in real-time."
+      "description": "Track your progress with precision. See your points, streaks, and skill mastery in real-time."
     },
     "adaptiveQuizzes": {
       "title": "Adaptive Quizzes",
       "description": "Smart assessments that evolve with your knowledge. Wrong answers become learning opportunities, not setbacks."
     },
     "professorCommand": {
-      "title": "Professor Command",
-      "description": "Instructors get a full mission control suite: upload lectures, track class performance, and deploy AI-powered insights."
+      "title": "For Instructors",
+      "description": "Get a complete overview: upload lectures, track class performance, and deploy AI-powered insights."
     },
     "secureVault": {
       "title": "Secure Vault",
-      "description": "Your learning data is encrypted and protected. Enterprise-grade security with privacy-first architecture."
+      "description": "Your learning data is encrypted and protected. Enterprise-grade security with a privacy-first architecture."
     },
     "universalAccess": {
       "title": "Universal Access",
-      "description": "Learn anywhere, on any device. Sync progress across platforms with offline capability for deep-space learning."
+      "description": "Learn anywhere, on any device. Sync your progress seamlessly across platforms."
     }
   },
   "howItWorks": {
-    "eyebrow": "Flight Path",
-    "headlineLeft": "Four Stages to",
-    "headlineHighlight": "Liftoff",
+    "eyebrow": "How It Works",
+    "headlineLeft": "Four Steps to",
+    "headlineHighlight": "Mastery",
     "step1": {
-      "title": "Launch Your Profile",
-      "description": "Create your astronaut profile. Set your learning goals, choose your mission path, and calibrate your AI tutor."
+      "title": "Create Your Profile",
+      "description": "Set your learning goals, choose your path, and personalize your experience."
     },
     "step2": {
-      "title": "Engage Courses",
-      "description": "Enter immersive lecture environments. Navigate slides, interact with content, and let the AI guide your journey."
+      "title": "Dive In",
+      "description": "Enter immersive lecture environments. Navigate slides, interact with content, and let AI guide you."
     },
     "step3": {
-      "title": "AI-Powered Mastery",
-      "description": "Ask questions in real-time. Get personalized explanations, practice with adaptive quizzes, and level up your skills."
+      "title": "Level Up",
+      "description": "Ask questions in real-time. Get personalized explanations, practice with adaptive quizzes, and build your skills."
     },
     "step4": {
-      "title": "Track & Celebrate",
-      "description": "Watch your progress in the command center. Earn XP, maintain streaks, unlock achievements, and reach new levels."
+      "title": "Track Progress",
+      "description": "Watch your progress grow. Earn points, maintain streaks, unlock achievements, and reach new levels."
     }
   },
   "professors": {
-    "eyebrow": "For Commanders",
-    "headlineLeft": "Professor",
-    "headlineHighlight": "Mission Control",
-    "subtitle": "Deploy courses, monitor student progress in real-time, and leverage AI analytics to optimize learning outcomes. Your classroom, reimagined as a command center.",
-    "bullet1": "Upload lectures with v3 intelligent PDF parsing (generator-aware routing)",
+    "eyebrow": "For Instructors",
+    "headlineLeft": "Your Teaching",
+    "headlineHighlight": "Command Center",
+    "subtitle": "Deploy courses, monitor student progress in real-time, and leverage AI to optimize learning outcomes. Your classroom, reimagined.",
+    "bullet1": "Upload lectures with intelligent PDF parsing",
     "bullet2": "Real-time student engagement analytics with concept tracking",
-    "bullet3": "AI-generated multi-level quizzes (recall → evaluate)",
-    "bullet4": "Grounded AI tutor restricted to lecture content (zero hallucination)",
+    "bullet3": "AI-generated multi-level quizzes",
+    "bullet4": "Grounded AI tutor restricted to lecture content",
     "cta": "Start Teaching",
     "preview": {
       "title": "Class Analytics",
@@ -110,14 +110,14 @@
     }
   },
   "cta": {
-    "headlineLeft": "Ready for",
-    "headlineHighlight": "Liftoff?",
-    "subtitle": "Join learners already on their mission. Your AI tutor is standing by, your dashboard is calibrated, and the stars are waiting.",
-    "primary": "Begin Your Mission",
+    "headlineLeft": "Ready to",
+    "headlineHighlight": "Begin?",
+    "subtitle": "Join learners already transforming their study habits. Your AI tutor is standing by.",
+    "primary": "Get Started",
     "secondary": "Contact Sales"
   },
   "footer": {
-    "tagline": "The next-generation learning platform. AI-powered, data-driven, and built for the future of education.",
+    "tagline": "Built for one thing: turning your lectures into knowledge that sticks. The tutor only answers from your course — nothing made up.",
     "platform": "Platform",
     "resources": "Resources",
     "company": "Company",
@@ -137,6 +137,6 @@
     },
     "imprint": "Imprint",
     "privacyPolicy": "Privacy Policy",
-    "copyright": "© {{year}} Learnstation. All systems nominal."
+    "copyright": "© {{year}} Learnstation. All rights reserved."
   }
 }

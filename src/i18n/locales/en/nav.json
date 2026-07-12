@@ -16,13 +16,13 @@
     "settings": "Settings"
   },
   "sidebar": {
-    "navigationHub": "Navigation Hub",
+    "navigationHub": "Navigation",
     "currentTier": "Current Tier",
-    "telemetry": "Telemetry",
+    "telemetry": "Progress",
     "level": "Level {{level}}",
-    "protocolProgress": "Protocol Progress",
+    "protocolProgress": "XP Progress",
     "signOut": "Sign out",
-    "version": "v2.0 Orbital",
+    "version": "v2.0",
     "brand": "Learnstation"
   }
 }

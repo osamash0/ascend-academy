@@ -16,6 +16,8 @@ import enReview from './locales/en/review.json';
 import enExam from './locales/en/exam.json';
 import enSearch from './locales/en/search.json';
 import enMyMaterials from './locales/en/myMaterials.json';
+import enGamification from './locales/en/gamification.json';
+import enOnboarding from './locales/en/onboarding.json';
 
 import deCommon from './locales/de/common.json';
 import deNav from './locales/de/nav.json';
@@ -31,6 +33,8 @@ import deReview from './locales/de/review.json';
 import deExam from './locales/de/exam.json';
 import deSearch from './locales/de/search.json';
 import deMyMaterials from './locales/de/myMaterials.json';
+import deGamification from './locales/de/gamification.json';
+import deOnboarding from './locales/de/onboarding.json';
 
 export const SUPPORTED_LANGUAGES = ['en', 'de'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -53,6 +57,8 @@ const resources = {
     exam: enExam,
     search: enSearch,
     myMaterials: enMyMaterials,
+    gamification: enGamification,
+    onboarding: enOnboarding,
   },
   de: {
     common: deCommon,
@@ -69,6 +75,8 @@ const resources = {
     exam: deExam,
     search: deSearch,
     myMaterials: deMyMaterials,
+    gamification: deGamification,
+    onboarding: deOnboarding,
   },
 };
 
@@ -81,7 +89,7 @@ i18n
     supportedLngs: SUPPORTED_LANGUAGES as unknown as string[],
     nonExplicitSupportedLngs: true,
     load: 'languageOnly',
-    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal', 'review', 'exam', 'search', 'myMaterials'],
+    ns: ['common', 'nav', 'landing', 'auth', 'settings', 'dashboard', 'professor', 'upload', 'lecture', 'legal', 'review', 'exam', 'search', 'myMaterials', 'gamification', 'onboarding'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage', 'navigator'],

@@ -1,0 +1,90 @@
+{
+  "actions": {
+    "back": "Back",
+    "next": "Next",
+    "startLearning": "Start Learning",
+    "clickToContinue": "Click to continue"
+  },
+  "sound": {
+    "muteAria": "Mute sound",
+    "unmuteAria": "Unmute sound",
+    "onTitle": "Sound on",
+    "offTitle": "Sound off"
+  },
+  "intro": {
+    "title": "Welcome to Learnstation",
+    "subtitle": "Hey, I'm Luna! I'll be your guide as we set up your learning space."
+  },
+  "steps": {
+    "name": {
+      "title": "Welcome!",
+      "subtitle": "What should we call you?",
+      "placeholder": "Enter your name..."
+    },
+    "avatar": {
+      "companionName": "luna",
+      "companionTagline": "your study companion · night mode guardian",
+      "suitFinish": "Suit Finish",
+      "visorTint": "Visor Tint",
+      "insignia": "Insignia"
+    },
+    "university": {
+      "title": "Your studies",
+      "subtitle": "Tell us where you study so we can set things up for you.",
+      "universityPlaceholder": "Select your university…",
+      "autoMatched": "Looks like you're at {{university}}. Pre-filled from your email.",
+      "noCatalog": "We don't have {{university}}'s course catalog yet. You can still tell us your institution, and we'll personalize once it's available.",
+      "institutionPlaceholder": "Your institution",
+      "facultyPlaceholder": "Select your faculty…",
+      "facultyPlaceholderLocked": "Pick a university first",
+      "programPlaceholder": "Select your degree program…",
+      "programPlaceholderLocked": "Pick a faculty first",
+      "semesterLabel": "Current semester",
+      "semesterPlaceholder": "Semester",
+      "semesterOption": "Semester {{n}}"
+    },
+    "confirmCourses": {
+      "title": "We set up your Semester {{semester}}",
+      "subtitle": "Here's what you've likely done and what you're taking now. Adjust anything that's off.",
+      "empty": "No catalog courses found for this program.",
+      "elective": "Elective",
+      "semesterTag": "Semester {{n}}",
+      "selectedCount": "{{count}} selected",
+      "status": {
+        "completed": "Completed",
+        "in_progress": "Taking now",
+        "planned": "Planned"
+      }
+    },
+    "extraTopics": {
+      "title": "Add extra topics",
+      "subtitle": "Optionally explore courses on Learnstation beyond your curriculum.",
+      "empty": "No public courses available right now."
+    }
+  },
+  "reveal": {
+    "allSet": "You're all set, {{name}}",
+    "rank": "Rank: {{rank}}",
+    "xpToNext": "{{xp}} XP to {{rank}}",
+    "badgeUnlocked": "Badge unlocked · Identity Set",
+    "semesterSetUp": "Semester {{semester}} set up",
+    "courseCount_one": "{{count}} course",
+    "courseCount_other": "{{count}} courses",
+    "classmatesToMeet": "Classmates to meet",
+    "classmatesWaiting": "{{count}} waiting",
+    "pickedForYou": "Picked for you",
+    "booting": "> Booting Learnstation…"
+  },
+  "toasts": {
+    "invalidFileTitle": "Invalid file",
+    "invalidFileDescription": "Please upload an image.",
+    "fileTooLargeTitle": "File too large",
+    "fileTooLargeDescription": "Image must be under 2MB.",
+    "avatarUploadedTitle": "Avatar uploaded",
+    "avatarUploadedDescription": "Looking good.",
+    "uploadErrorTitle": "We couldn't upload that",
+    "uploadErrorFallback": "Try a different image.",
+    "finishErrorTitle": "We couldn't finish setup",
+    "finishErrorFallback": "Try again in a moment."
+  }
+}

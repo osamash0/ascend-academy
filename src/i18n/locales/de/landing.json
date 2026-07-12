@@ -2,19 +2,19 @@
   "nav": {
     "features": "Funktionen",
     "howItWorks": "So funktioniert's",
-    "forProfessors": "Für Professoren",
+    "forProfessors": "Für Lehrende",
     "pricing": "Preise",
     "signIn": "Anmelden",
-    "launchMission": "Mission starten"
+    "launchMission": "Loslegen"
   },
   "hero": {
-    "badge": "v3.0 jetzt im Orbit",
-    "headlineLine1": "Deine Lern-",
-    "headlineLine2": "Kommandozentrale",
-    "subtitle": "Learnstation v3.0: Intelligentes PDF-Parsing, verankerter KI-Tutor, speichersicheres Processing. KI-gestütztes Tutoring, Echtzeit-Analysen und immersive Kurserlebnisse – alles aus deiner Kommandozentrale.",
-    "ctaPrimary": "Mission starten",
-    "ctaSecondary": "Demo ansehen",
-    "systemOnline": "SYSTEM ONLINE",
+    "badge": "Willkommen bei Learnstation",
+    "headlineLine1": "Meistere dein",
+    "headlineLine2": "Studium",
+    "subtitle": "Lade eine Vorlesung hoch. Erhalte sofort smarte Notizen, Quizze und einen persönlichen KI-Tutor.",
+    "ctaPrimary": "Jetzt lernen",
+    "ctaSecondary": "",
+    "systemOnline": "BEREIT",
     "scrollToExplore": "Scrolle, um zu entdecken",
     "stats": {
       "xpEarned": "XP gesammelt",
@@ -39,10 +39,10 @@
     "userRating": "Nutzerbewertung"
   },
   "features": {
-    "eyebrow": "Bordsysteme",
+    "eyebrow": "Deine Werkzeuge",
     "headlineLeft": "Alles, was du brauchst, um",
-    "headlineHighlight": "den Orbit zu erreichen",
-    "subtitle": "Sechs leistungsstarke Systeme, die im Einklang arbeiten, um das fortschrittlichste Lernerlebnis der Galaxie zu bieten.",
+    "headlineHighlight": "Erfolgreich zu sein",
+    "subtitle": "Sechs leistungsstarke Tools, die zusammenarbeiten, um ein erstklassiges, ablenkungsfreies Lernerlebnis zu bieten.",
     "learnMore": "Mehr erfahren",
     "aiTutor": {
       "title": "KI-Tutor",
@@ -50,55 +50,55 @@
     },
     "liveAnalytics": {
       "title": "Live-Analysen",
-      "description": "Kommandozentralen-Dashboards verfolgen deinen Fortschritt präzise. Sieh deine XP, Serien und Fähigkeitsbeherrschung in Echtzeit."
+      "description": "Verfolge deinen Fortschritt präzise. Sieh deine Punkte, Serien und deine Fähigkeiten in Echtzeit."
     },
     "adaptiveQuizzes": {
       "title": "Adaptive Quizze",
       "description": "Intelligente Tests, die sich an dein Wissen anpassen. Falsche Antworten werden zu Lernchancen, nicht zu Rückschlägen."
     },
     "professorCommand": {
-      "title": "Professor-Kommando",
-      "description": "Lehrende erhalten eine komplette Kommandozentrale: Vorlesungen hochladen, Klassenleistung verfolgen und KI-Erkenntnisse nutzen."
+      "title": "Für Lehrende",
+      "description": "Erhalte einen kompletten Überblick: Vorlesungen hochladen, Klassenleistung verfolgen und KI-Erkenntnisse nutzen."
     },
     "secureVault": {
       "title": "Sicherer Tresor",
-      "description": "Deine Lerndaten sind verschlüsselt und geschützt. Sicherheit auf Unternehmensebene mit Privacy-First-Architektur."
+      "description": "Deine Lerndaten sind verschlüsselt und geschützt. Sicherheit auf Unternehmensebene mit einer Privacy-First-Architektur."
     },
     "universalAccess": {
       "title": "Universeller Zugang",
-      "description": "Lerne überall, auf jedem Gerät. Synchronisiere den Fortschritt plattformübergreifend mit Offline-Funktion für tiefes Lernen."
+      "description": "Lerne überall, auf jedem Gerät. Synchronisiere deinen Fortschritt nahtlos plattformübergreifend."
     }
   },
   "howItWorks": {
-    "eyebrow": "Flugbahn",
-    "headlineLeft": "Vier Stufen bis zum",
-    "headlineHighlight": "Abheben",
+    "eyebrow": "So funktioniert's",
+    "headlineLeft": "Vier Schritte zur",
+    "headlineHighlight": "Meisterschaft",
     "step1": {
-      "title": "Profil starten",
-      "description": "Erstelle dein Astronauten-Profil. Setze Lernziele, wähle deinen Missionspfad und kalibriere deinen KI-Tutor."
+      "title": "Profil erstellen",
+      "description": "Setze deine Lernziele, wähle deinen Pfad und personalisiere dein Erlebnis."
     },
     "step2": {
-      "title": "Kurse starten",
-      "description": "Tauche ein in immersive Vorlesungsumgebungen. Navigiere Folien, interagiere mit Inhalten und lass die KI dich führen."
+      "title": "Eintauchen",
+      "description": "Tauche ein in immersive Vorlesungsumgebungen. Navigiere Folien, interagiere mit Inhalten und lass dich von der KI führen."
     },
     "step3": {
-      "title": "KI-gestützte Meisterschaft",
-      "description": "Stelle Fragen in Echtzeit. Erhalte personalisierte Erklärungen, übe mit adaptiven Quizzen und steigere deine Fähigkeiten."
+      "title": "Level aufsteigen",
+      "description": "Stelle Fragen in Echtzeit. Erhalte personalisierte Erklärungen, übe mit adaptiven Quizzen und baue deine Fähigkeiten aus."
     },
     "step4": {
-      "title": "Verfolgen & Feiern",
-      "description": "Beobachte deinen Fortschritt in der Kommandozentrale. Sammle XP, halte Serien, schalte Erfolge frei und erreiche neue Level."
+      "title": "Fortschritt verfolgen",
+      "description": "Beobachte, wie dein Wissen wächst. Sammle Punkte, halte Serien, schalte Erfolge frei und erreiche neue Level."
     }
   },
   "professors": {
-    "eyebrow": "Für Kommandanten",
-    "headlineLeft": "Professoren-",
-    "headlineHighlight": "Kommandozentrale",
-    "subtitle": "Veröffentliche Kurse, beobachte den Studienfortschritt in Echtzeit und nutze KI-Analysen, um Lernergebnisse zu optimieren. Dein Klassenzimmer, neu gedacht als Kommandozentrale.",
-    "bullet1": "Vorlesungen mit v3 intelligentem PDF-Parsing (generatorbasiertes Routing)",
-    "bullet2": "Echtzeit-Analysen mit Konzeptverfolgung",
-    "bullet3": "KI-generierte mehrstufige Quizze (Abrufen → Evaluieren)",
-    "bullet4": "Verankerter KI-Tutor beschränkt auf Vorlesungsinhalte (null Halluzinationen)",
+    "eyebrow": "Für Lehrende",
+    "headlineLeft": "Deine",
+    "headlineHighlight": "Lehrzentrale",
+    "subtitle": "Veröffentliche Kurse, beobachte den Studienfortschritt in Echtzeit und nutze KI, um Lernergebnisse zu optimieren. Dein Klassenzimmer, neu gedacht.",
+    "bullet1": "Vorlesungen hochladen mit intelligentem PDF-Parsing",
+    "bullet2": "Echtzeit-Analysen des Engagements mit Konzeptverfolgung",
+    "bullet3": "KI-generierte mehrstufige Quizze",
+    "bullet4": "Verankerter KI-Tutor, strikt auf Vorlesungsinhalte beschränkt",
     "cta": "Jetzt unterrichten",
     "preview": {
       "title": "Klassen-Analytik",
@@ -111,13 +111,13 @@
   },
   "cta": {
     "headlineLeft": "Bereit zum",
-    "headlineHighlight": "Abheben?",
-    "subtitle": "Schließe dich Lernenden an, die schon auf Mission sind. Dein KI-Tutor steht bereit, dein Dashboard ist kalibriert und die Sterne warten.",
-    "primary": "Mission beginnen",
+    "headlineHighlight": "Starten?",
+    "subtitle": "Schließe dich Lernenden an, die bereits ihre Lerngewohnheiten transformieren. Dein KI-Tutor steht bereit.",
+    "primary": "Loslegen",
     "secondary": "Vertrieb kontaktieren"
   },
   "footer": {
-    "tagline": "Die Lernplattform der nächsten Generation. KI-gestützt, datenbasiert und gebaut für die Zukunft der Bildung.",
+    "tagline": "Für eine Sache gebaut: aus deinen Vorlesungen Wissen machen, das bleibt. Der Tutor antwortet nur aus deinem Kurs — nichts ist erfunden.",
     "platform": "Plattform",
     "resources": "Ressourcen",
     "company": "Unternehmen",
@@ -137,6 +137,6 @@
     },
     "imprint": "Impressum",
     "privacyPolicy": "Datenschutz",
-    "copyright": "© {{year}} Learnstation. Alle Systeme nominal."
+    "copyright": "© {{year}} Learnstation. Alle Rechte vorbehalten."
   }
 }

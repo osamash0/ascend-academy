@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 from .orchestrator import generate_text, parse_json_response
+from .voice import with_voice
 
 logger = logging.getLogger(__name__)
 
@@ -8,13 +9,13 @@ async def generate_analytics_insights(stats: Dict[str, Any], ai_model: str = "ll
     """
     Analyzes lecture performance statistics and generates actionable insights for professors.
     """
-    prompt = f"""You are an expert educational data analyst. 
+    prompt = f"""You are Learnstation's analytics coach for professors.
 Summarize these lecture statistics for a professor and provide 3 specific pedagogical suggestions for improvement.
 Stats: {stats}
 Return ONLY valid JSON: {{"summary": "...", "suggestions": ["...", "...", "..."]}}"""
 
     try:
-        raw = await generate_text(prompt, ai_model)
+        raw = await generate_text(with_voice(prompt, structured=True), ai_model)
         return parse_json_response(raw)
     except Exception as e:
         logger.error("AI Analytics insights failed: %s", e)
@@ -54,7 +55,7 @@ async def generate_slide_recommendation(
     )
     reasons_str = ", ".join(reasons) if reasons else "general weak signals"
 
-    prompt = f"""You are an instructional design coach helping a professor improve a single lecture slide.
+    prompt = f"""You are Learnstation's analytics coach for professors, helping improve a single lecture slide.
 
 Slide title: {slide_title}
 Slide content: {snippet or '(no extracted text)'}
@@ -70,7 +71,7 @@ to this specific slide (e.g., split into two slides, add a worked example, simpl
 rewrite the quiz prompt). Do NOT restate the metrics. Plain text only — no markdown, no lists."""
 
     try:
-        text = await generate_text(prompt, ai_model)
+        text = await generate_text(with_voice(prompt), ai_model)
         text = (text or "").strip()
         if not text:
             raise ValueError("empty LLM response")
@@ -92,11 +93,11 @@ async def generate_metric_feedback(
     """
     Generates personalized, brief feedback for a specific performance metric.
     """
-    prompt = f"""As an educational coach, provide a brief (1-2 sentences) feedback on the metric '{metric_name}' which is currently '{metric_value}'. 
+    prompt = f"""You are Learnstation's analytics coach for professors. Provide a brief (1-2 sentences) feedback on the metric '{metric_name}' which is currently '{metric_value}'.
 Use the following context to make it relevant: {context_stats}"""
-    
+
     try:
-        return await generate_text(prompt, ai_model)
+        return await generate_text(with_voice(prompt), ai_model)
     except Exception as e:
         logger.error("Metric feedback generation failed: %s", e)
         return f"The {metric_name} metric is currently {metric_value}."

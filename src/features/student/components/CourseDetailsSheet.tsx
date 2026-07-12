@@ -50,7 +50,7 @@ export function CourseDetailsSheet({
   whatYouWillLearn = [],
   averageRating,
   ratingCount = 0,
-  instructorName = 'Ascend Instructor',
+  instructorName = 'Instructor',
   lectures,
   onStartLecture,
   schedule = [],
