@@ -51,6 +51,20 @@ export interface FriendRequestItem extends SocialUser {
   createdAt: string;
 }
 
+/** One row from get_friend_activity — a friend earning a badge or finishing an exam. */
+export interface FriendActivityItem {
+  eventType: "badge" | "exam";
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  badgeKey: string | null;
+  badgeDisplayName: string | null;
+  badgeIcon: string | null;
+  courseTitle: string | null;
+  score: number | null;
+  createdAt: string;
+}
+
 export interface CourseChip {
   courseId: string;
   title: string;

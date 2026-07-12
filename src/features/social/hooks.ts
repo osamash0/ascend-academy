@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   bootstrapDemoFriends,
   cancelFriendRequest,
+  fetchFriendActivity,
   fetchFriendRequests,
   fetchFriends,
   fetchFriendSuggestions,
@@ -26,6 +27,7 @@ const KEYS = {
   global: ["social", "global"] as const,
   suggestions: (limit: number) => ["social", "suggestions", limit] as const,
   requests: ["social", "requests"] as const,
+  activity: (limit: number) => ["social", "activity", limit] as const,
   extras: ["social", "extras"] as const,
   weekly: ["social", "weekly"] as const,
   search: (p: SearchParams) => ["social", "search", p] as const,
@@ -40,6 +42,13 @@ export const useFriendSuggestions = (limit = 12, enabled = true) =>
   useQuery({ queryKey: KEYS.suggestions(limit), queryFn: () => fetchFriendSuggestions(limit), enabled });
 export const useFriendRequests = () =>
   useQuery({ queryKey: KEYS.requests, queryFn: fetchFriendRequests });
+/** Polls so the feed feels live without a Realtime subscription (see FriendActivityFeed). */
+export const useFriendActivity = (limit = 20) =>
+  useQuery({
+    queryKey: KEYS.activity(limit),
+    queryFn: () => fetchFriendActivity(limit),
+    refetchInterval: 15_000,
+  });
 export const useMySocialExtras = () =>
   useQuery({ queryKey: KEYS.extras, queryFn: fetchMySocialExtras });
 export const useWeeklyXpByDay = () =>

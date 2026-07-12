@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   initialsOf,
   type CourseChip,
+  type FriendActivityItem,
   type FriendRequestItem,
   type RelationshipStatus,
   type Role,
@@ -148,6 +149,36 @@ export async function fetchUserProfile(userId: string): Promise<SocialUser | nul
   if (error) throw error;
   const row = (data as RpcUserRow[])?.[0];
   return row ? mapUser(row) : null;
+}
+
+interface RpcFriendActivityRow {
+  event_type: "badge" | "exam";
+  user_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  badge_key: string | null;
+  badge_display_name: string | null;
+  badge_icon: string | null;
+  course_title: string | null;
+  score: number | null;
+  created_at: string;
+}
+
+export async function fetchFriendActivity(limit = 20): Promise<FriendActivityItem[]> {
+  const { data, error } = await rpc("get_friend_activity", { p_limit: limit });
+  if (error) throw error;
+  return ((data as RpcFriendActivityRow[]) ?? []).map((r) => ({
+    eventType: r.event_type,
+    userId: r.user_id,
+    displayName: r.display_name || "A friend",
+    avatarUrl: r.avatar_url,
+    badgeKey: r.badge_key,
+    badgeDisplayName: r.badge_display_name,
+    badgeIcon: r.badge_icon,
+    courseTitle: r.course_title,
+    score: r.score,
+    createdAt: r.created_at,
+  }));
 }
 
 export async function fetchUserCourses(userId: string): Promise<CourseChip[]> {
