@@ -1,0 +1,32 @@
+/* LearnStation Luna — Tailwind CSS Integration */
+
+@layer components {
+  .luna-container {
+    @apply inline-flex items-center justify-center;
+  }
+
+  .luna-float {
+    animation: luna-float 4s ease-in-out infinite;
+  }
+
+  .luna-pulse {
+    animation: luna-pulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes luna-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes luna-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Phase-specific background tints */
+[data-luna-phase="full"] .luna-bg { background-color: rgba(255, 254, 245, 0.05); }
+[data-luna-phase="gibbous"] .luna-bg { background-color: rgba(196, 181, 212, 0.05); }
+[data-luna-phase="quarter"] .luna-bg { background-color: rgba(107, 91, 149, 0.05); }
+[data-luna-phase="crescent"] .luna-bg { background-color: rgba(45, 36, 69, 0.05); }
+[data-luna-phase="dark"] .luna-bg { background-color: rgba(13, 10, 20, 0.05); }

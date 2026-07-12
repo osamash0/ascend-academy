@@ -1,0 +1,300 @@
+{
+  "platform": "LearnStation",
+  "version": "3.0",
+  "brand_identity": {
+    "name": "The LearnStation Crew",
+    "mascot": "Luna (main), Stella (commander)",
+    "tone": "Cosmic learning. Calm gaming. Your space.",
+    "dna_rules": [
+      "Always dark space background",
+      "Slow, breathing animations only",
+      "Gaming elements: XP, hearts, levels",
+      "Soft blush on every character face"
+    ]
+  },
+  "palette": {
+    "deep_space": "#0D0A14",
+    "space": "#1A1425",
+    "nebula": "#2D2445",
+    "nebula_purple": "#6B5B95",
+    "calm_teal": "#88B0B5",
+    "starlight": "#FFF8E7",
+    "warm_blush": "#E8A598",
+    "star_gold": "#FFD93D",
+    "stroke_dark": "#4A3F6B",
+    "stroke_deep": "#2D2445"
+  },
+  "characters": {
+    "luna": {
+      "name": "Luna",
+      "role": "Main Character \u2014 The Moon Astronaut",
+      "description": "Round moon face inside a glass helmet. Soft, sleepy, calm. The platform's primary face.",
+      "dna": {
+        "eyes": "White sclera, dark pupils, 40% face width",
+        "blush": "#E8A598 at 50% opacity",
+        "craters": "Always visible, tone shifts with phase",
+        "helmet": "Teal ring (#88B0B5) + glass visor"
+      },
+      "colors": {
+        "face_full": "#FFFEF5",
+        "face_mid": "#FFF8E7",
+        "face_dark": "#E8E4F0",
+        "helmet_ring": "#88B0B5",
+        "visor": "radial-gradient(#FFF8E7, #88B0B5, #6B5B95)",
+        "suit": "#FFF8E7",
+        "suit_stroke": "#4A3F6B",
+        "gloves_boots": "#88B0B5",
+        "backpack": "#4A3F6B",
+        "tanks": "#88B0B5",
+        "gauges": [
+          "#FFD93D",
+          "#E8A598",
+          "#88B0B5"
+        ],
+        "star_patch": "#6B5B95",
+        "star": "#FFD93D",
+        "chest_screen": "#1A1425",
+        "screen_data": [
+          "#6B5B95",
+          "#E8A598",
+          "#FFD93D",
+          "#88B0B5"
+        ]
+      },
+      "phase_system": {
+        "description": "Luna's face shifts from full moon (bright) to dark moon (sleek) via gradient interpolation",
+        "anchors": [
+          "eyes",
+          "blush",
+          "craters",
+          "helmet"
+        ],
+        "shifting": [
+          "face tone",
+          "visor tint",
+          "glow aura"
+        ],
+        "implementation": "Interpolate 3 radial gradient stops (face-light, face-mid, face-dark) based on 0-100 phase value"
+      }
+    },
+    "byte": {
+      "name": "Byte",
+      "role": "The Lunar Pilot",
+      "description": "Luna's roundness + Byte's tech in a spaceship suit. Fins, thrusters, antenna.",
+      "dna": {
+        "eyes": "White sclera, dark pupils",
+        "blush": "#E8A598 at 50% opacity",
+        "antenna": "Blinking light on top",
+        "shape": "Round body (from Luna)"
+      },
+      "colors": {
+        "body": "#FFF8E7",
+        "stroke": "#4A3F6B",
+        "fins": "#6B5B95",
+        "thruster": "#FFD93D",
+        "antenna": "#88B0B5",
+        "antenna_light": "#FFD93D",
+        "controller": "#88B0B5"
+      }
+    },
+    "stella": {
+      "name": "Stella",
+      "role": "Fleet Commander",
+      "description": "Main mascot upgraded. Star crown became captain's badge. Cape, rank stripes, command console.",
+      "dna": {
+        "eyes": "White sclera, dark pupils",
+        "blush": "#E8A598 at 50% opacity",
+        "badge": "Gold circle with star",
+        "expression": "Confident smile"
+      },
+      "colors": {
+        "body": "#FFF8E7",
+        "stroke": "#4A3F6B",
+        "cape": "#6B5B95",
+        "cape_inner": "#2D1B3D",
+        "badge": "#FFD93D",
+        "rank_stripes": "#FFD93D",
+        "collar": "#4A3F6B",
+        "epaulettes": "#6B5B95",
+        "belt": "#4A3F6B",
+        "belt_buckle": "#88B0B5",
+        "gloves_boots": "#4A3F6B",
+        "console_screen": "#1A1425"
+      }
+    },
+    "nebula": {
+      "name": "Nebula",
+      "role": "The Scientist",
+      "description": "Cloud body in a lab coat. Glasses, flask, pocket pen.",
+      "dna": {
+        "eyes": "White sclera, dark pupils",
+        "blush": "#E8A598 at 50% opacity",
+        "glasses": "Round frames",
+        "shape": "Overlapping cloud circles"
+      },
+      "colors": {
+        "cloud_1": "#6B5B95",
+        "cloud_2": "#88B0B5",
+        "cloud_3": "#6B5B95",
+        "cloud_4": "#88B0B5",
+        "lab_coat": "#FFF8E7",
+        "stroke": "#4A3F6B",
+        "flask": "#88B0B5",
+        "bubbles": [
+          "#88B0B5",
+          "#FFD93D",
+          "#E8A598"
+        ],
+        "pen": "#E8A598"
+      }
+    },
+    "orbit": {
+      "name": "Orbit",
+      "role": "The Observer",
+      "description": "Planet with rings. Telescope on top, star chart in hand, curious eyebrows.",
+      "dna": {
+        "eyes": "White sclera, dark pupils",
+        "blush": "#E8A598 at 50% opacity",
+        "rings": "Elliptical orbit ring",
+        "moon": "Tiny orbiting moon"
+      },
+      "colors": {
+        "planet": "#6B5B95",
+        "stroke": "#4A3F6B",
+        "rings": "#88B0B5",
+        "surface_lines": "#4A3F6B",
+        "telescope": "#88B0B5",
+        "telescope_lens": "#E8E4F0",
+        "star_chart": "#FFF8E7",
+        "moon": "#FFF8E7"
+      }
+    },
+    "pixel": {
+      "name": "Pixel",
+      "role": "The Ranger",
+      "description": "Comet body with speed trail. Goggles, scarf, determined eyes.",
+      "dna": {
+        "eyes": "White sclera, dark pupils",
+        "blush": "#E8A598 at 50% opacity",
+        "trail": "Speed lines behind",
+        "sparkle": "Ranger badge on head"
+      },
+      "colors": {
+        "body": "#FFF8E7",
+        "stroke": "#4A3F6B",
+        "trail": "#FFD93D",
+        "trail_secondary": "#E8A598",
+        "trail_tertiary": "#88B0B5",
+        "scarf": "#E8A598",
+        "goggles": "#88B0B5",
+        "ranger_badge": "#FFD93D",
+        "glow": "#FFD93D"
+      }
+    }
+  },
+  "animations": {
+    "timing": "Slow, breathing pace. 2-4s cycles. ease-in-out.",
+    "types": {
+      "float": "translateY oscillation \u00b14-8px",
+      "pulse": "scale or opacity breathing",
+      "rotate": "Gentle rotation for rings/orbits",
+      "blink": "Eyelid ry animation, 2.5-4s intervals",
+      "trail": "Path morphing for speed effects"
+    },
+    "rules": [
+      "No jarring movements",
+      "Everything breathes",
+      "Eyes blink slowly",
+      "Shadows scale with body"
+    ]
+  },
+  "loaders": {
+    "luna": {
+      "helmet_float": {
+        "use": "page load, welcome, idle",
+        "animation": "gentle float + shadow pulse"
+      },
+      "oxygen_breathing": {
+        "use": "calm wait, meditation, focus",
+        "animation": "expanding rings"
+      },
+      "star_patch_collect": {
+        "use": "achievements, XP gain",
+        "animation": "orbiting stars"
+      },
+      "suit_charge": {
+        "use": "saving, uploading, installing",
+        "animation": "progress bar + helmet slide"
+      }
+    },
+    "byte": {
+      "thruster_hover": {
+        "use": "page load, welcome",
+        "animation": "float + flame flicker"
+      },
+      "warp_speed": {
+        "use": "fast transitions, routing",
+        "animation": "speed lines + body shake"
+      },
+      "orbit_ring": {
+        "use": "syncing, connecting",
+        "animation": "rotating ring + orbiting dot"
+      },
+      "docking": {
+        "use": "saving, uploading",
+        "animation": "progress bar + ship slide"
+      }
+    },
+    "stella": {
+      "command_float": {
+        "use": "dashboard, admin, leaderboards",
+        "animation": "float + cape sway"
+      },
+      "badge_pulse": {
+        "use": "authority check, permissions",
+        "animation": "badge glow pulse"
+      },
+      "fleet_signal": {
+        "use": "broadcasting, notifications",
+        "animation": "rotating stars + signal waves"
+      },
+      "rank_up": {
+        "use": "XP progression, achievements",
+        "animation": "progress bar + commander slide"
+      }
+    },
+    "nebula": {
+      "experiment": {
+        "use": "creating, testing, building",
+        "animation": "bubbling flask"
+      }
+    },
+    "orbit": {
+      "scanning": {
+        "use": "searching, exploring, discovering",
+        "animation": "telescope beam + moon orbit"
+      }
+    },
+    "pixel": {
+      "speed_dash": {
+        "use": "quick actions, routing, instant",
+        "animation": "speed lines + trail morph"
+      }
+    }
+  },
+  "implementation": {
+    "format": "SVG with SMIL animations (no JS required for animation)",
+    "size": "Each loader < 3KB, hero characters < 8KB",
+    "react_integration": "Import as React components or use dangerouslySetInnerHTML for raw SVG",
+    "tailwind": "Use currentColor and CSS custom properties for theme sync",
+    "phase_system": {
+      "luna_only": true,
+      "method": "CSS custom properties or inline style updates",
+      "performance": "Only 3 gradient stops update, rest is static"
+    },
+    "accessibility": {
+      "reduced_motion": "Wrap animations in @media (prefers-reduced-motion: no-preference)",
+      "aria": "role='img' + aria-label describing the loader state"
+    }
+  }
+}

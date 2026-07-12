@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <circle cx="40" cy="40" r="18" fill="none" stroke="#88B0B5" stroke-width="2" opacity="0.6"/>
+  <circle cx="40" cy="40" r="15" fill="#FFF8E7" stroke="#4A3F6B" stroke-width="1.5"/>
+  <circle cx="37" cy="39" r="2.5" fill="white" stroke="#4A3F6B" stroke-width="0.6"/>
+  <circle cx="37" cy="39" r="1.2" fill="#4A3F6B"/>
+  <circle cx="43" cy="39" r="2.5" fill="white" stroke="#4A3F6B" stroke-width="0.6"/>
+  <circle cx="43" cy="39" r="1.2" fill="#4A3F6B"/>
+  <path d="M38 44 Q40 46 42 44" stroke="#4A3F6B" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <circle cx="34" cy="42" r="1.8" fill="#E8A598" opacity="0.5"/>
+  <circle cx="46" cy="42" r="1.8" fill="#E8A598" opacity="0.5"/>
+  <rect x="22" y="34" width="4" height="10" rx="2" fill="#6B5B95" stroke="#4A3F6B" stroke-width="0.8"/>
+  <circle cx="24" cy="37" r="1.5" fill="#FFD93D">
+    <animate attributeName="opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="24" cy="41" r="1.5" fill="#E8A598">
+    <animate attributeName="opacity" values="0.6;0.2;0.6" dur="1.5s" repeatCount="indefinite" begin="0.3s"/>
+  </circle>
+  <path d="M18 38 Q14 38 12 34" stroke="#88B0B5" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.6">
+    <animate attributeName="opacity" values="0.6;0;0.6" dur="1.2s" repeatCount="indefinite"/>
+  </path>
+  <path d="M18 42 Q14 42 12 46" stroke="#88B0B5" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.6">
+    <animate attributeName="opacity" values="0.6;0;0.6" dur="1.2s" repeatCount="indefinite" begin="0.4s"/>
+  </path>
+</svg>

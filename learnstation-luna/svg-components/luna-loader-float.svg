@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80" style="overflow: visible;">
+  <ellipse cx="40" cy="72" rx="14" ry="3" fill="#0D0A14" opacity="0.5">
+    <animate attributeName="rx" values="14;10;14" dur="4s" repeatCount="indefinite"/>
+  </ellipse>
+  <g>
+    <animateTransform attributeName="transform" type="translate" values="0 0; 0 -5; 0 0" dur="4s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1"/>
+    <circle cx="40" cy="32" r="20" fill="none" stroke="#88B0B5" stroke-width="2" opacity="0.9"/>
+    <circle cx="40" cy="32" r="17" fill="url(#vg)" opacity="0.3">
+      <defs>
+        <radialGradient id="vg" cx="35%" cy="30%">
+          <stop offset="0%" stop-color="#FFF8E7" stop-opacity="0.7"/>
+          <stop offset="100%" stop-color="#6B5B95" stop-opacity="0.1"/>
+        </radialGradient>
+      </defs>
+    </circle>
+    <circle cx="40" cy="32" r="14" fill="#FFF8E7" stroke="#4A3F6B" stroke-width="1.2"/>
+    <circle cx="34" cy="30" r="3" fill="#E8E4F0" opacity="0.4"/>
+    <circle cx="46" cy="32" r="4" fill="#E8E4F0" opacity="0.3"/>
+    <circle cx="35" cy="30" r="2.5" fill="white" stroke="#4A3F6B" stroke-width="0.8"/>
+    <circle cx="35" cy="30" r="1.2" fill="#4A3F6B"/>
+    <circle cx="45" cy="30" r="2.5" fill="white" stroke="#4A3F6B" stroke-width="0.8"/>
+    <circle cx="45" cy="30" r="1.2" fill="#4A3F6B"/>
+    <path d="M37 36 Q40 38 43 36" stroke="#4A3F6B" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+    <circle cx="32" cy="34" r="2" fill="#E8A598" opacity="0.5"/>
+    <circle cx="48" cy="34" r="2" fill="#E8A598" opacity="0.5"/>
+    <path d="M28 24 Q34 20 42 24" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+    <rect x="28" y="50" width="24" height="18" rx="8" fill="#FFF8E7" stroke="#4A3F6B" stroke-width="1.5"/>
+    <rect x="32" y="54" width="16" height="8" rx="3" fill="#1A1425" opacity="0.9"/>
+    <rect x="34" y="56" width="5" height="3" rx="1.5" fill="#6B5B95">
+      <animate attributeName="fill" values="#6B5B95;#88B0B5;#6B5B95" dur="3s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="41" y="56" width="5" height="3" rx="1.5" fill="#E8A598" opacity="0.7">
+      <animate attributeName="opacity" values="0.7;0.3;0.7" dur="2s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+</svg>

@@ -2,66 +2,57 @@
 // React 18 + TypeScript + Tailwind-ready
 
 import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { getLunaColors, phaseToNumber } from '../utils/colors';
 import type { LunaConfig } from '../types/luna';
 
-const SIZE_MAP = { sm: 80, md: 120, lg: 160, xl: 200 };
+const SIZE_MAP = { xs: 44, sm: 80, md: 120, lg: 160, xl: 200, xxl: 320 };
 
 export const LunaAstronaut: React.FC<LunaConfig> = ({
   phase = 'full',
   size = 'lg',
   animated = true,
   showShadow = true,
+  variant = 'full',
+  costume = 'default',
   suitColor = '#FFF8E7',
   visorTint = '#88B0B5',
   patchEmoji,
+  patchImage,
 }) => {
   const phaseNum = phaseToNumber(phase);
   const colors = useMemo(() => getLunaColors(phaseNum), [phaseNum]);
   const pixelSize = SIZE_MAP[size] || 160;
-  const viewBox = "0 0 160 180";
+  const viewBox = '0 0 160 180';
 
   return (
-    <div
-      className="inline-block"
+    <motion.div
+      className="inline-block cursor-pointer"
       style={{ width: pixelSize, height: (pixelSize * 180) / 160 }}
       aria-label={`Luna astronaut, moon phase ${phase}`}
+      whileHover={{ scale: 1.05, y: -5 }}
+      whileTap={{ scale: 0.9, y: 5, rotate: -5 }}
+      transition={{ type: "spring", stiffness: 400, damping: 17 }}
     >
-      <svg
-        viewBox={viewBox}
-        width="100%"
-        height="100%"
-        style={{ overflow: 'visible' }}
-        role="img"
-      >
+      <svg viewBox={viewBox} width="100%" height="100%" style={{ overflow: 'visible' }} role="img">
         <defs>
           <radialGradient id={`lunaFace-${phaseNum}`} cx="40%" cy="35%">
             <stop offset="0%" stopColor={colors.faceLight} />
-            <stop offset="60%" stopColor={colors.faceMid} />
+            <stop offset="65%" stopColor={colors.faceMid} />
             <stop offset="100%" stopColor={colors.faceDark} />
-          </radialGradient>
-          <radialGradient id={`lunaVisor-${phaseNum}`} cx="35%" cy="30%">
-            <stop offset="0%" stopColor={colors.visorLight} stopOpacity="0.7" />
-            <stop offset="50%" stopColor={colors.visorMid} stopOpacity="0.2" />
-            <stop offset="100%" stopColor={colors.visorDark} stopOpacity="0.05" />
           </radialGradient>
           <radialGradient id={`lunaGlow-${phaseNum}`} cx="50%" cy="50%">
             <stop offset="0%" stopColor="#FFD93D" stopOpacity={colors.glowCoreOpacity} />
             <stop offset="100%" stopColor="#FFD93D" stopOpacity="0" />
           </radialGradient>
-          <linearGradient id="suitGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="white" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#E8E4F0" stopOpacity="0.2" />
-          </linearGradient>
         </defs>
 
-        {/* Shadow */}
         {showShadow && (
-          <ellipse cx="80" cy="168" rx="32" ry="6" fill="#0D0A14" opacity="0.5">
+          <ellipse cx="80" cy="168" rx="26" ry="5.5" fill="#0D0A14" opacity="0.45">
             {animated && (
               <>
-                <animate attributeName="rx" values="32;24;32" dur="4s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.5;0.25;0.5" dur="4s" repeatCount="indefinite" />
+                <animate attributeName="rx" values="26;19;26" dur="4s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.45;0.22;0.45" dur="4s" repeatCount="indefinite" />
               </>
             )}
           </ellipse>
@@ -72,7 +63,7 @@ export const LunaAstronaut: React.FC<LunaConfig> = ({
             <animateTransform
               attributeName="transform"
               type="translate"
-              values="0 0; 0 -5; 0 0"
+              values="0 0; 0 -6; 0 0"
               dur="4s"
               repeatCount="indefinite"
               calcMode="spline"
@@ -80,144 +71,114 @@ export const LunaAstronaut: React.FC<LunaConfig> = ({
             />
           )}
 
-          {/* Backpack */}
-          <rect x="42" y="88" width="76" height="52" rx="16" fill="#4A3F6B" stroke="#2D2445" strokeWidth="2" opacity="0.9" />
-          <rect x="48" y="94" width="64" height="40" rx="12" fill="#6B5B95" opacity="0.6" />
-          <rect x="52" y="90" width="14" height="44" rx="7" fill="#88B0B5" opacity="0.4" stroke="#4A3F6B" strokeWidth="1" />
-          <rect x="94" y="90" width="14" height="44" rx="7" fill="#88B0B5" opacity="0.4" stroke="#4A3F6B" strokeWidth="1" />
-          <rect x="55" y="96" width="8" height="4" rx="2" fill="#FFD93D" opacity="0.8">
-            {animated && <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite" />}
-          </rect>
-          <rect x="97" y="96" width="8" height="4" rx="2" fill="#E8A598" opacity="0.7">
-            {animated && <animate attributeName="opacity" values="0.7;0.3;0.7" dur="2.5s" repeatCount="indefinite" begin="0.5s" />}
-          </rect>
+          {/* Suit body and limbs */}
+          {variant === 'full' && (
+            <>
+              {/* Suit body */}
+              <rect x="52" y="102" width="56" height="52" rx="24" fill={suitColor} stroke="#4A3F6B" strokeWidth="2.5" />
 
-          {/* Suit body */}
-          <rect x="48" y="96" width="64" height="56" rx="20" fill={suitColor} stroke="#4A3F6B" strokeWidth="2.5" />
-          <rect x="48" y="96" width="64" height="56" rx="20" fill="url(#suitGrad)" opacity="0.25" />
+              {/* University Costume Tie */}
+              {costume === 'university' && (
+                <g transform="translate(80, 102)">
+                  <path d="M-6 0 L6 0 L3 16 L-3 16 Z" fill="#8B5CF6" stroke="#4A3F6B" strokeWidth="1" opacity="0.9" />
+                  <path d="M-8 0 Q0 6 8 0 Q0 -4 -8 0" fill="#FFD93D" stroke="#4A3F6B" strokeWidth="1" />
+                </g>
+              )}
 
-          {/* Neck ring */}
-          <ellipse cx="80" cy="96" rx="22" ry="8" fill={visorTint} stroke="#4A3F6B" strokeWidth="2" />
-          <ellipse cx="80" cy="96" rx="18" ry="5" fill="#6B5B95" opacity="0.3" />
+              {/* Arms */}
+              <path d="M54 112 Q40 120 36 134" stroke="#4A3F6B" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+              <circle cx="35" cy="138" r="6.5" fill={suitColor} stroke="#4A3F6B" strokeWidth="1.8" />
+              <path d="M106 112 Q120 120 124 134" stroke="#4A3F6B" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+              <circle cx="125" cy="138" r="6.5" fill={suitColor} stroke="#4A3F6B" strokeWidth="1.8" />
 
-          {/* Chest module */}
-          <rect x="60" y="104" width="40" height="28" rx="10" fill="#E8E4F0" stroke="#4A3F6B" strokeWidth="1.5" />
-          <rect x="62" y="106" width="36" height="24" rx="8" fill="#1A1425" opacity="0.9" />
-          <rect x="66" y="110" width="10" height="6" rx="2" fill="#6B5B95">
-            {animated && <animate attributeName="fill" values="#6B5B95;#88B0B5;#6B5B95" dur="3s" repeatCount="indefinite" />}
-          </rect>
-          <rect x="78" y="110" width="10" height="6" rx="2" fill="#E8A598" opacity="0.7">
-            {animated && <animate attributeName="opacity" values="0.7;0.3;0.7" dur="2s" repeatCount="indefinite" begin="0.5s" />}
-          </rect>
-          <rect x="88" y="110" width="4" height="6" rx="1" fill="#FFD93D" opacity="0.8">
-            {animated && <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1s" repeatCount="indefinite" begin="0.6s" />}
-          </rect>
-          <rect x="66" y="118" width="20" height="3" rx="1.5" fill="#88B0B5" opacity="0.4">
-            {animated && <animate attributeName="width" values="20;12;20" dur="2.5s" repeatCount="indefinite" />}
-          </rect>
+              {/* Legs */}
+              <ellipse cx="66" cy="160" rx="9" ry="7" fill="#4A3F6B" stroke="#2D2445" strokeWidth="1.2" />
+              <ellipse cx="94" cy="160" rx="9" ry="7" fill="#4A3F6B" stroke="#2D2445" strokeWidth="1.2" />
 
-          {/* Star patch */}
-          <circle cx="56" cy="112" r="8" fill="#6B5B95" stroke="#4A3F6B" strokeWidth="1" />
-          {patchEmoji ? (
-            <text x="56" y="116" textAnchor="middle" fontSize="10" dominantBaseline="auto">{patchEmoji}</text>
-          ) : (
-            <path d="M56 106 L57 109 L60 109 L58 111 L59 114 L56 112 L53 114 L54 111 L52 109 L55 109 Z" fill="#FFD93D" stroke="#D4A017" strokeWidth="0.6" />
+              {/* Chest panel */}
+              <rect x="66" y="118" width="28" height="18" rx="7" fill="#E8E4F0" stroke="#4A3F6B" strokeWidth="1.4" opacity="0.9" />
+              {patchImage ? (
+                <>
+                  <clipPath id={`patchClip-${phaseNum}`}>
+                    <circle cx="80" cy="127" r="8" />
+                  </clipPath>
+                  <image href={patchImage} x="72" y="119" width="16" height="16" preserveAspectRatio="xMidYMid slice" clipPath={`url(#patchClip-${phaseNum})`} />
+                </>
+              ) : patchEmoji ? (
+                <text x="80" y="130" textAnchor="middle" fontSize="9" dominantBaseline="middle">{patchEmoji}</text>
+              ) : (
+                <path d="M80 121 L82 126 L87 126.5 L83.2 129.7 L84.4 134.5 L80 131.8 L75.6 134.5 L76.8 129.7 L73 126.5 L78 126 Z" fill="#FFD93D" stroke="#D4A017" strokeWidth="0.6" />
+              )}
+            </>
           )}
 
-          {/* Name tag */}
-          <rect x="96" y="108" width="12" height="8" rx="2" fill="#E8E4F0" stroke="#4A3F6B" strokeWidth="0.8" />
-          <rect x="98" y="110" width="8" height="2" rx="1" fill="#4A3F6B" opacity="0.5" />
-          <rect x="98" y="113" width="6" height="2" rx="1" fill="#4A3F6B" opacity="0.3" />
+          {/* Helmet ring */}
+          <circle cx="80" cy="62" r="38" fill="none" stroke={visorTint} strokeWidth="2.5" opacity="0.85" />
+          <circle cx="80" cy="62" r="38" fill={`url(#lunaGlow-${phaseNum})`} opacity="0.25" />
 
-          {/* Arms */}
-          <path d="M50 108 Q36 118 32 132" stroke="#4A3F6B" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-          <rect x="28" y="128" width="14" height="18" rx="7" fill="#FFF8E7" stroke="#4A3F6B" strokeWidth="1.5" transform="rotate(-12 35 137)" />
-          <circle cx="30" cy="140" r="5" fill="#88B0B5" stroke="#4A3F6B" strokeWidth="1.5" />
-          <circle cx="30" cy="138" r="2" fill="#88B0B5" opacity="0.5" />
+          {/* Luna's face */}
+          <circle cx="80" cy="62" r="30" fill={`url(#lunaFace-${phaseNum})`} stroke="#4A3F6B" strokeWidth="1.8" />
 
-          <path d="M110 108 Q124 118 128 132" stroke="#4A3F6B" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-          <rect x="118" y="128" width="14" height="18" rx="7" fill="#FFF8E7" stroke="#4A3F6B" strokeWidth="1.5" transform="rotate(12 125 137)" />
-          <circle cx="130" cy="140" r="5" fill="#88B0B5" stroke="#4A3F6B" strokeWidth="1.5" />
-          <circle cx="130" cy="138" r="2" fill="#88B0B5" opacity="0.5" />
+          {/* Craters — soft, sparse */}
+          <ellipse cx="64" cy="50" rx="4" ry="3" fill="#000" opacity={0.06 + colors.craterBaseOpacity} />
+          <ellipse cx="94" cy="72" rx="3.5" ry="2.6" fill="#000" opacity={0.05 + colors.craterBaseOpacity} />
+          <ellipse cx="60" cy="68" rx="2.4" ry="1.8" fill="#000" opacity={0.05 + colors.craterBaseOpacity} />
 
-          {/* Legs */}
-          <path d="M66 148 Q64 162 62 170" stroke="#4A3F6B" strokeWidth="2.5" fill="none" strokeLinecap="round">
-            {animated && <animate attributeName="d" values="M66 148 Q64 162 62 170;M66 148 Q66 164 66 172;M66 148 Q64 162 62 170" dur="2s" repeatCount="indefinite" />}
-          </path>
-          <rect x="54" y="166" width="16" height="10" rx="5" fill="#FFF8E7" stroke="#4A3F6B" strokeWidth="1.5" />
-          <ellipse cx="62" cy="174" rx="9" ry="4" fill="#4A3F6B" stroke="#2D2445" strokeWidth="1.5" />
-          <ellipse cx="62" cy="172" rx="6" ry="2" fill="#88B0B5" opacity="0.4" />
+          {/* Eyes — now with blink animation */}
+          <g transform="translate(70, 60)">
+            <g>
+              {animated && <animateTransform attributeName="transform" type="scale" values="1 1; 1 1; 1 0.1; 1 1; 1 1" keyTimes="0; 0.94; 0.96; 0.98; 1" dur="4.5s" repeatCount="indefinite" />}
+              <g transform="translate(-70, -60)">
+                <circle cx="70" cy="60" r="7" fill="white" stroke="#4A3F6B" strokeWidth="1.4" />
+                <circle cx="70" cy="61" r="3.4" fill="#3B3352">
+                  {animated && <animate attributeName="cx" values="70;71;70" dur="4s" repeatCount="indefinite" />}
+                </circle>
+                <circle cx="68.5" cy="58.5" r="1.4" fill="white" opacity="0.95" />
+                <path d="M63 55 Q70 51 77 55" stroke="#4A3F6B" strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.6" />
+              </g>
+            </g>
+          </g>
 
-          <path d="M94 148 Q96 162 98 170" stroke="#4A3F6B" strokeWidth="2.5" fill="none" strokeLinecap="round">
-            {animated && <animate attributeName="d" values="M94 148 Q96 162 98 170;M94 148 Q94 164 94 172;M94 148 Q96 162 98 170" dur="2s" repeatCount="indefinite" begin="0.5s" />}
-          </path>
-          <rect x="90" y="166" width="16" height="10" rx="5" fill="#FFF8E7" stroke="#4A3F6B" strokeWidth="1.5" />
-          <ellipse cx="98" cy="174" rx="9" ry="4" fill="#4A3F6B" stroke="#2D2445" strokeWidth="1.5" />
-          <ellipse cx="98" cy="172" rx="6" ry="2" fill="#88B0B5" opacity="0.4" />
-
-          {/* === HELMET === */}
-          <circle cx="80" cy="56" r="40" fill="none" stroke="#88B0B5" strokeWidth="3" opacity="0.9" />
-          <circle cx="80" cy="56" r="37" fill="#E8E4F0" opacity="0.15" />
-
-          {/* Visor */}
-          <circle cx="80" cy="56" r="34" fill={`url(#lunaVisor-${phaseNum})`} opacity="0.4" stroke={visorTint} strokeWidth="1.5" />
-          <circle cx="80" cy="56" r="34" fill="none" stroke="#4A3F6B" strokeWidth="2" opacity="0.6" />
-
-          {/* Comms ring */}
-          <rect x="42" y="48" width="6" height="16" rx="3" fill={visorTint} stroke="#4A3F6B" strokeWidth="1" />
-          <circle cx="45" cy="52" r="2" fill="#FFD93D" opacity="0.8">
-            {animated && <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite" />}
-          </circle>
-          <circle cx="45" cy="60" r="2" fill="#E8A598" opacity="0.6">
-            {animated && <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite" begin="0.5s" />}
-          </circle>
-
-          {/* === LUNA'S FACE === */}
-          <circle cx="80" cy="56" r="28" fill={`url(#lunaFace-${phaseNum})`} stroke="#4A3F6B" strokeWidth="1.5" />
-          <circle cx="80" cy="56" r="28" fill={`url(#lunaGlow-${phaseNum})`} opacity="0.3" />
-
-          {/* Craters */}
-          <circle cx="66" cy="44" r="4.5" fill="#000" opacity={0.08 + colors.craterBaseOpacity} />
-          <circle cx="94" cy="50" r="5.5" fill="#000" opacity={0.06 + colors.craterBaseOpacity} />
-          <circle cx="72" cy="68" r="3.5" fill="#000" opacity={0.07 + colors.craterBaseOpacity} />
-          <circle cx="90" cy="64" r="2.5" fill="#000" opacity={0.05 + colors.craterBaseOpacity} />
-          <circle cx="62" cy="58" r="2" fill="#000" opacity={0.06 + colors.craterBaseOpacity} />
-
-          {/* Eyes — NEVER CHANGE */}
-          <circle cx="72" cy="54" r="6" fill="white" stroke="#4A3F6B" strokeWidth="1.2" />
-          <circle cx="72" cy="54" r="3" fill="#4A3F6B">
-            {animated && <animate attributeName="cx" values="72;73;72" dur="4s" repeatCount="indefinite" />}
-          </circle>
-          <circle cx="72" cy="52" r="1.5" fill="white" opacity="0.9" />
-
-          <circle cx="88" cy="54" r="6" fill="white" stroke="#4A3F6B" strokeWidth="1.2" />
-          <circle cx="88" cy="54" r="3" fill="#4A3F6B">
-            {animated && <animate attributeName="cx" values="88;87;88" dur="4s" repeatCount="indefinite" />}
-          </circle>
-          <circle cx="88" cy="52" r="1.5" fill="white" opacity="0.9" />
-
-          {/* Sleepy lids */}
-          <path d="M66 52 Q72 56 78 52" stroke="#4A3F6B" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.5">
-            {animated && <animate attributeName="d" values="M66 52 Q72 56 78 52;M66 54 Q72 58 78 54;M66 52 Q72 56 78 52" dur="4s" repeatCount="indefinite" keyTimes="0;0.05;0.1" />}
-          </path>
-          <path d="M82 52 Q88 56 94 52" stroke="#4A3F6B" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.5">
-            {animated && <animate attributeName="d" values="M82 52 Q88 56 94 52;M82 54 Q88 58 94 54;M82 52 Q88 56 94 52" dur="4s" repeatCount="indefinite" keyTimes="0;0.05;0.1" />}
-          </path>
+          <g transform="translate(90, 60)">
+            <g>
+              {animated && <animateTransform attributeName="transform" type="scale" values="1 1; 1 1; 1 0.1; 1 1; 1 1" keyTimes="0; 0.94; 0.96; 0.98; 1" dur="4.5s" repeatCount="indefinite" />}
+              <g transform="translate(-90, -60)">
+                <circle cx="90" cy="60" r="7" fill="white" stroke="#4A3F6B" strokeWidth="1.4" />
+                <circle cx="90" cy="61" r="3.4" fill="#3B3352">
+                  {animated && <animate attributeName="cx" values="90;89;90" dur="4s" repeatCount="indefinite" />}
+                </circle>
+                <circle cx="88.5" cy="58.5" r="1.4" fill="white" opacity="0.95" />
+                <path d="M83 55 Q90 51 97 55" stroke="#4A3F6B" strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.6" />
+              </g>
+            </g>
+          </g>
 
           {/* Smile */}
-          <path d="M76 64 Q80 68 84 64" stroke="#4A3F6B" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M74 71 Q80 76 86 71" stroke="#4A3F6B" strokeWidth="2" fill="none" strokeLinecap="round" />
 
-          {/* Blush — ALWAYS #E8A598 */}
-          <circle cx="66" cy="60" r="4" fill="#E8A598" opacity="0.5" />
-          <circle cx="94" cy="60" r="4" fill="#E8A598" opacity="0.5" />
+          {/* Blush — always #E8A598 */}
+          <circle cx="62" cy="68" r="3.6" fill="#E8A598" opacity="0.5" />
+          <circle cx="98" cy="68" r="3.6" fill="#E8A598" opacity="0.5" />
 
-          {/* Visor reflections */}
-          <path d="M58 36 Q68 30 82 34" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5" />
-          <circle cx="62" cy="38" r="4" fill="white" opacity="0.3" />
-          <path d="M88 40 Q92 38 96 42" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.3" />
+          {/* Helmet shine */}
+          <path d="M52 42 Q64 32 82 36" stroke="white" strokeWidth="2.4" fill="none" strokeLinecap="round" opacity="0.45" />
+
+          {/* University Costume Graduation Cap */}
+          {costume === 'university' && (
+            <g transform="translate(0, -6)">
+              {/* Mortarboard Cap */}
+              <path d="M80 14 L42 26 L80 38 L118 26 Z" fill="#2D2445" stroke="#4A3F6B" strokeWidth="1.5" strokeLinejoin="round" />
+              {/* Cap Base */}
+              <path d="M58 31 L58 44 Q80 50 102 44 L102 31 Z" fill="#2D2445" />
+              {/* Tassel */}
+              <path d="M80 26 L112 33 L112 45" fill="none" stroke="#FFD93D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="80" cy="26" r="2.5" fill="#FFD93D" />
+              <path d="M110 45 L114 45 L113 51 L111 51 Z" fill="#FFD93D" />
+            </g>
+          )}
         </g>
       </svg>
-    </div>
+    </motion.div>
   );
 };
 
