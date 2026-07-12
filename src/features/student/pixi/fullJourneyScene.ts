@@ -49,8 +49,7 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
     // Interactivity
     nodeContainer.eventMode = 'static';
     nodeContainer.cursor = 'pointer';
-    nodeContainer.on('pointerdown', (e) => {
-      e.stopPropagation(); // prevent panning when clicking node
+    nodeContainer.on('pointertap', () => {
       opts.onNodeSelect?.(node);
     });
 

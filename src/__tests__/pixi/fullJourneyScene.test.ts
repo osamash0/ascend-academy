@@ -37,8 +37,8 @@ describe('FullJourneyScene', () => {
     const firstNode = nodeContainers[0];
     expect(firstNode.eventMode).toBe('static');
     
-    // Simulate pointerdown
-    firstNode.emit('pointerdown', { stopPropagation: () => {} });
+    // Simulate pointertap
+    firstNode.emit('pointertap');
     expect(clickedNodeId).toBe('1');
 
     // Test panning setup and math
