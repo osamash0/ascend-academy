@@ -57,7 +57,7 @@ services:
         limits:
           # Cap RAM/CPU so a LiteLLM leak/spike can't OOM the 4 GB box or
           # starve the API on 2 vCPU. Was previously unbounded.
-          memory: 512M
+          memory: 1G
           cpus: "0.75"
     depends_on:
       redis:
