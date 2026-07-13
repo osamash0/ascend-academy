@@ -226,7 +226,8 @@ export async function updateSlideContent(
   slideId: string,
   patch: { content_text?: string; summary?: string; title?: string },
 ): Promise<void> {
-  await supabase.from('slides').update(patch).eq('id', slideId);
+  const { error } = await supabase.from('slides').update(patch).eq('id', slideId);
+  if (error) throw error;
 }
 
 export async function fetchProfessorLectures(
@@ -305,19 +306,23 @@ export async function insertQuizQuestion(q: QuizQuestionInput): Promise<void> {
   if (cleanedMetadata && Object.keys(cleanedMetadata).length > 0) {
     payload.metadata = cleanedMetadata;
   }
-  await supabase.from('quiz_questions').insert(payload as any);
+  const { error } = await supabase.from('quiz_questions').insert(payload as any);
+  if (error) throw error;
 }
 
 export async function updateQuizQuestion(
   id: string,
   patch: { question_text: string; options: string[]; correct_answer: number },
 ): Promise<void> {
-  await supabase.from('quiz_questions').update(patch).eq('id', id);
+  const { error } = await supabase.from('quiz_questions').update(patch).eq('id', id);
+  if (error) throw error;
 }
 
 export async function deleteSlideWithQuestions(slideId: string): Promise<void> {
-  await supabase.from('quiz_questions').delete().eq('slide_id', slideId);
-  await supabase.from('slides').delete().eq('id', slideId);
+  const { error: qError } = await supabase.from('quiz_questions').delete().eq('slide_id', slideId);
+  if (qError) throw qError;
+  const { error: sError } = await supabase.from('slides').delete().eq('id', slideId);
+  if (sError) throw sError;
 }
 
 /**
