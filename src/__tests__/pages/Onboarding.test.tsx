@@ -96,8 +96,12 @@ describe('Onboarding', () => {
     const user = userEvent.setup();
     renderPage();
 
+    // Welcome screen
+    await waitFor(() => expect(screen.getByText(/Welcome to Learnstation/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Click to continue/i }));
+
     // Step 1: Name
-    await waitFor(() => expect(screen.getByText(/What should we call you on your journey/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/What should we call you/i)).toBeInTheDocument());
     const nameInput = screen.getByPlaceholderText(/Enter your name/i);
     await user.type(nameInput, 'Alice');
     await user.click(screen.getByRole('button', { name: /Next/i }));
@@ -154,6 +158,10 @@ describe('Onboarding', () => {
     getUniversitiesMock.mockResolvedValueOnce([{ id: 'uni2', name: 'No Cat Uni', emailDomains: [], hasCatalog: false }]);
     const user = userEvent.setup();
     renderPage();
+
+    // Welcome screen
+    await waitFor(() => expect(screen.getByText(/Welcome to Learnstation/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Click to continue/i }));
 
     // Skip to step 3 manually by typing in 1 and 2
     await waitFor(() => screen.getByPlaceholderText(/Enter your name/i));

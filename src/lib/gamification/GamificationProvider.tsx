@@ -164,6 +164,9 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         badgeName={current?.kind === 'badge' ? current.name : ''}
         badgeDescription={current?.kind === 'badge' ? current.description : ''}
         badgeIcon={current?.kind === 'badge' ? current.icon : '🏆'}
+        lunaSuitColor={profile?.luna_suit_color}
+        lunaVisorTint={profile?.luna_visor_tint}
+        lunaPatch={profile?.luna_patch}
       />
       <LevelUpModal
         isOpen={current?.kind === 'level'}

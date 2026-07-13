@@ -106,9 +106,9 @@ function OnboardingInner() {
 
   // Step 2 — Luna always selected, customization only
   const LUNA_AVATAR_KEY = '__luna__';
-  const [lunaSuit, setLunaSuit] = useState('#FFF8E7');
-  const [lunaVisor, setLunaVisor] = useState('#88B0B5');
-  const [lunaPatch, setLunaPatch] = useState('');
+  const [lunaSuit, setLunaSuit] = useState(profile?.luna_suit_color || '#FFF8E7');
+  const [lunaVisor, setLunaVisor] = useState(profile?.luna_visor_tint || '#88B0B5');
+  const [lunaPatch, setLunaPatch] = useState(profile?.luna_patch || '');
 
   // Step 5 — platform content courses (existing behaviour)
   const [courses, setCourses] = useState<Course[]>([]);
@@ -341,6 +341,9 @@ function OnboardingInner() {
           full_name: fullName.trim() || null,
           display_name: fullName.trim() || null,
           avatar_url: avatarUrl,
+          luna_suit_color: lunaSuit,
+          luna_visor_tint: lunaVisor,
+          luna_patch: lunaPatch || null,
         })
         .eq('user_id', user.id);
       if (profileError) throw profileError;

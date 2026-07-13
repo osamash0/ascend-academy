@@ -21,6 +21,7 @@ const STUDENT_TABS: NavTab[] = [
   { label: 'Ascent', to: StudentRoutes.ASCENT, icon: TrendingUp },
   { label: 'Ranking', to: StudentRoutes.LEADERBOARD, icon: Crown },
   { label: 'Friends', to: StudentRoutes.FRIENDS, icon: Users },
+  { label: 'Create', to: ProfessorRoutes.COURSES, icon: Upload },
 ];
 
 const PROFESSOR_TABS: NavTab[] = [
@@ -124,7 +125,7 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
           </button>
         )}
         <LiveClock />
-        {role === 'professor' && <UploadsIndicator />}
+        {(role === 'professor' || role === 'student') && <UploadsIndicator />}
         <NotificationBell />
         <Link
           to={SharedRoutes.SETTINGS}

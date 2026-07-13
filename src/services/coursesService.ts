@@ -7,6 +7,8 @@ import type { Lecture } from '@/types/domain';
 import { toSlug } from '@/lib/utils';
 
 
+export type CourseStatus = 'draft' | 'published';
+
 export interface Course {
   id: string;
   professor_id: string;
@@ -15,6 +17,7 @@ export interface Course {
   color: string | null;
   icon: string | null;
   is_archived: boolean;
+  status: CourseStatus;
   created_at: string | null;
   updated_at: string | null;
   lecture_count: number;
@@ -37,6 +40,7 @@ export interface UpdateCourseInput {
   color?: string | null;
   icon?: string | null;
   is_archived?: boolean;
+  status?: CourseStatus;
 }
 
 interface Envelope<T> {

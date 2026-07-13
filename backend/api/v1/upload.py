@@ -13,7 +13,7 @@ from backend.services import diagnostics_service
 from backend.services.slide_synth_service import synthesize_slide
 from backend.services.parser import repos as parser_repos
 from backend.domain.parse_models import RunStatus
-from backend.core.auth_middleware import require_professor
+from backend.core.auth_middleware import require_creator
 from backend.core.rate_limit import limiter
 from backend.core.file_validation import sanitize_filename
 from backend.services.cache import (
@@ -78,7 +78,7 @@ async def parse_pdf_stream_endpoint(
     parser: str = Form("auto"),
     lecture_id: Optional[str] = Form(None),
     course_id: Optional[str] = Form(None),
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
     if lecture_id:
@@ -163,7 +163,7 @@ async def import_pdf_lazy_endpoint(
     request: Request,
     file: UploadFile = File(...),
     ai_model: str = Form("cerebras"),
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     try:
         content = await upload_service.read_upload_capped(file, MAX_FILE_MB)
@@ -189,7 +189,7 @@ async def get_lazy_slide_endpoint(
     pdf_hash: str,
     idx: int,
     ai_model: str = "cerebras",
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     if not pdf_hash or len(pdf_hash) != 64: raise HTTPException(status_code=400, detail="invalid pdf_hash")
     if idx < 0: raise HTTPException(status_code=400, detail="idx must be >= 0")
@@ -208,7 +208,7 @@ class LazyDeckQuizRequest(BaseModel):
 async def lazy_deck_quiz_endpoint(
     request: Request,
     body: LazyDeckQuizRequest,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     from backend.services.layout_analyzer import PageLayout
     from backend.services.ai_service import generate_deck_summary, generate_deck_quiz
@@ -236,7 +236,7 @@ class CheckDuplicateRequest(BaseModel):
 async def check_duplicate_endpoint(
     request: Request,
     body: CheckDuplicateRequest,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     pdf_hash = (body.pdf_hash or "").strip()
     if not pdf_hash or len(pdf_hash) != 64 or any(c not in "0123456789abcdef" for c in pdf_hash):
@@ -259,7 +259,7 @@ class CheckParseCacheRequest(BaseModel):
 async def check_parse_cache_endpoint(
     request: Request,
     body: CheckParseCacheRequest,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     pdf_hash = (body.pdf_hash or "").strip()
     if not pdf_hash or len(pdf_hash) != 64 or any(c not in "0123456789abcdef" for c in pdf_hash):
@@ -277,7 +277,7 @@ class AttachLectureRequest(BaseModel):
 @router.post("/attach-lecture")
 async def attach_lecture_endpoint(
     body: AttachLectureRequest,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     if not body.pdf_hash or not body.lecture_id:
         raise HTTPException(status_code=400, detail="pdf_hash and lecture_id are required.")
@@ -309,7 +309,7 @@ async def enhance_slide_endpoint(
     request: Request,
     slide_id: str,
     ai_model: str = "auto",
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     """Run the unified per-slide synthesis on a single slide that was imported
     with 'Skip AI' (ai_enhanced=false), then flip the flag.
@@ -395,7 +395,7 @@ async def parse_raw_endpoint(
     request: Request,
     file: UploadFile = File(...),
     parser: str = Form("auto"),
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     try:
         content = await upload_service.read_upload_capped(file, MAX_FILE_MB)
@@ -420,7 +420,7 @@ async def parse_raw_endpoint(
 async def diagnostics_endpoint(
     request: Request,
     pdf_hash: str,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     if not pdf_hash: raise HTTPException(status_code=400, detail="pdf_hash is required.")
     user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
@@ -439,7 +439,7 @@ async def diagnostics_endpoint(
 @limiter.limit("5/minute")
 async def cleanup_cache_endpoint(
     request: Request,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     deleted = await purge_expired_slide_checkpoints()
     return {"deleted": deleted, "message": f"Purged {deleted} expired checkpoint rows."}
@@ -459,7 +459,7 @@ async def upload_batch_endpoint(
     course_id: Optional[str] = Form(None),
     parsing_mode: str = Form("ai"),
     ai_model: str = Form("cerebras"),
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     """Multi-file upload: enqueues one parse_pdf_unified job per file sharing
     a batch_id, and returns immediately (no SSE — poll GET /upload/jobs or
@@ -552,7 +552,7 @@ async def upload_batch_endpoint(
 async def retry_run_endpoint(
     request: Request,
     run_id: str,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     """Retry a FAILED parse run without re-uploading bytes — the original PDF
     is already in permanent storage, keyed by pdf_hash."""
@@ -594,7 +594,7 @@ async def retry_run_endpoint(
 async def list_upload_jobs_endpoint(
     request: Request,
     batch_id: Optional[str] = None,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     """In-flight + recently-finished parse runs for the authenticated
     professor — powers the persistent "Uploads" nav indicator (no batch_id)
@@ -628,7 +628,7 @@ async def list_upload_jobs_endpoint(
 async def get_batch_endpoint(
     request: Request,
     batch_id: str,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     """Batch review summary: per-lecture slide/quiz/flagged counts + deck
     summary for the Phase-1 batch review screen."""

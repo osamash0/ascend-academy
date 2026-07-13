@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field
 
 from backend.core.auth_middleware import (
     _user_id,
-    require_professor,
+    require_creator,
     require_student,
     verify_token,
 )
@@ -56,6 +56,7 @@ class CourseUpdate(BaseModel):
     color: Optional[str] = Field(default=None, max_length=32)
     icon: Optional[str] = Field(default=None, max_length=64)
     is_archived: Optional[bool] = Field(default=None)
+    status: Optional[str] = Field(default=None, pattern="^(draft|published)$")
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -63,7 +64,7 @@ class CourseUpdate(BaseModel):
 def _fetch_course(course_id: str) -> Optional[dict]:
     res = (
         supabase_admin.table("courses")
-        .select("id, professor_id, title, description, color, icon, is_archived, created_at, updated_at")
+        .select("id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at")
         .eq("id", course_id)
         .execute()
     )
@@ -91,6 +92,7 @@ def _serialize(course: dict, lecture_count: int = 0) -> dict:
         "color": course.get("color"),
         "icon": course.get("icon"),
         "is_archived": course.get("is_archived", False),
+        "status": course.get("status", "published"),
         "created_at": course.get("created_at"),
         "updated_at": course.get("updated_at"),
         "lecture_count": lecture_count,
@@ -177,22 +179,19 @@ async def list_courses(
 ):
     """List courses.
 
-    Professor → their own courses (with lecture_count).
-    Student   → courses tied to lectures they're enrolled in via assignments.
+    Own courses (rows with professor_id == uid, regardless of role) plus,
+    for non-owned rows, any course visible via course/assignment enrollment.
+    A creator who is also enrolled elsewhere as a student sees both.
     """
     uid = _user_id(user)
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
-    is_prof = await run_in_threadpool(_is_professor, user)
-
     def _load() -> List[dict]:
         q = supabase_admin.table("courses").select(
-            "id, professor_id, title, description, color, icon, is_archived, created_at, updated_at"
+            "id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at"
         )
-        if is_prof:
-            q = q.eq("professor_id", uid)
-        
+
         if only_archived:
             q = q.eq("is_archived", True)
         elif not include_archived:
@@ -206,9 +205,8 @@ async def list_courses(
         if has_more:
             rows = rows[:-1]
 
-        if not is_prof:
-            visible = _student_visible_course_ids(uid)
-            rows = [r for r in rows if r["id"] in visible]
+        visible = _student_visible_course_ids(uid)
+        rows = [r for r in rows if r["professor_id"] == uid or r["id"] in visible]
 
         # Batch-load lecture counts.
         counts: dict[str, int] = {r["id"]: 0 for r in rows}
@@ -253,8 +251,9 @@ async def browse_courses(
     def _load() -> List[dict]:
         q = (
             supabase_admin.table("courses")
-            .select("id, professor_id, title, description, color, icon, is_archived, created_at, updated_at")
+            .select("id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at")
             .eq("is_archived", False)
+            .eq("status", "published")
         )
         if params.cursor:
             q = q.lt("created_at", params.cursor)
@@ -306,6 +305,8 @@ async def enroll_course(
     def _enroll():
         course = _fetch_course(course_id)
         if not course:
+            raise HTTPException(status_code=404, detail="Course not found.")
+        if course.get("status") != "published" and course["professor_id"] != uid:
             raise HTTPException(status_code=404, detail="Course not found.")
 
         # Upsert enrollment
@@ -364,7 +365,7 @@ async def get_course(request: Request, course_id: str, user: Any = Depends(verif
         is_owner = c["professor_id"] == uid
         if not is_owner:
             visible = _student_visible_course_ids(uid)
-            if course_id not in visible:
+            if c.get("status") != "published" or course_id not in visible:
                 return ("forbidden", None)
 
         lec_query = (
@@ -424,7 +425,7 @@ async def get_course(request: Request, course_id: str, user: Any = Depends(verif
 async def create_course(
     request: Request,
     body: CourseCreate,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
     idempotency: Optional[str] = Depends(check_idempotency),
 ):
     uid = _user_id(user)
@@ -463,7 +464,7 @@ async def update_course(
     request: Request,
     course_id: str,
     body: CourseUpdate,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     uid = _user_id(user)
 
@@ -485,6 +486,25 @@ async def update_course(
             patch["icon"] = body.icon
         if body.is_archived is not None:
             patch["is_archived"] = body.is_archived
+        if body.status is not None and body.status != existing.get("status"):
+            if body.status == "published":
+                ready = (
+                    supabase_admin.table("lectures")
+                    .select("id, total_slides")
+                    .eq("course_id", course_id)
+                    .eq("is_archived", False)
+                    .gt("total_slides", 0)
+                    .limit(1)
+                    .execute()
+                    .data
+                    or []
+                )
+                if not ready:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Add at least one fully-parsed lecture before publishing.",
+                    )
+            patch["status"] = body.status
 
         if patch:
             supabase_admin.table("courses").update(patch).eq("id", course_id).execute()
@@ -538,7 +558,9 @@ async def get_course_context_endpoint(
         if not c:
             raise HTTPException(status_code=404, detail="Course not found.")
         is_owner = c["professor_id"] == uid
-        if not is_owner and course_id not in _student_visible_course_ids(uid):
+        if not is_owner and (
+            c.get("status") != "published" or course_id not in _student_visible_course_ids(uid)
+        ):
             raise HTTPException(status_code=403, detail="You do not have access to this course.")
 
     await run_in_threadpool(_check_visibility)
@@ -554,7 +576,7 @@ async def update_course_context_endpoint(
     request: Request,
     course_id: str,
     body: CourseContextUpdate,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     uid = _user_id(user)
 
@@ -604,7 +626,9 @@ async def get_concept_map_endpoint(
         if not c:
             raise HTTPException(status_code=404, detail="Course not found.")
         is_owner = c["professor_id"] == uid
-        if not is_owner and course_id not in _student_visible_course_ids(uid):
+        if not is_owner and (
+            c.get("status") != "published" or course_id not in _student_visible_course_ids(uid)
+        ):
             raise HTTPException(status_code=403, detail="You do not have access to this course.")
 
         lec_query = (
@@ -705,7 +729,9 @@ async def get_study_guide_endpoint(
         if not c:
             raise HTTPException(status_code=404, detail="Course not found.")
         is_owner = c["professor_id"] == uid
-        if not is_owner and course_id not in _student_visible_course_ids(uid):
+        if not is_owner and (
+            c.get("status") != "published" or course_id not in _student_visible_course_ids(uid)
+        ):
             raise HTTPException(status_code=403, detail="You do not have access to this course.")
 
     await run_in_threadpool(_check_visibility)
@@ -724,7 +750,7 @@ async def get_study_guide_endpoint(
 async def delete_course(
     request: Request,
     course_id: str,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
     reassign_to: Optional[str] = Query(default=None),
 ):
     """Delete a course.
@@ -790,7 +816,7 @@ async def assign_lecture(
     request: Request,
     course_id: str,
     lecture_id: str,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     uid = _user_id(user)
 
@@ -824,7 +850,7 @@ async def unassign_lecture(
     request: Request,
     course_id: str,
     lecture_id: str,
-    user: Any = Depends(require_professor),
+    user: Any = Depends(require_creator),
 ):
     uid = _user_id(user)
 

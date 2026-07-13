@@ -11,6 +11,9 @@ interface BadgeEarnedModalProps {
   badgeName: string;
   badgeDescription: string;
   badgeIcon?: string;
+  lunaSuitColor?: string | null;
+  lunaVisorTint?: string | null;
+  lunaPatch?: string | null;
 }
 
 export const BadgeEarnedModal = memo(function BadgeEarnedModal({
@@ -18,6 +21,9 @@ export const BadgeEarnedModal = memo(function BadgeEarnedModal({
   onClose,
   badgeName,
   badgeDescription,
+  lunaSuitColor,
+  lunaVisorTint,
+  lunaPatch,
   badgeIcon = '🏆',
 }: BadgeEarnedModalProps) {
   const { t } = useTranslation('gamification');
@@ -60,7 +66,16 @@ export const BadgeEarnedModal = memo(function BadgeEarnedModal({
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.1, type: 'spring', damping: 15 }}
                 >
-                  <LunaAstronaut variant="head" phase="full" size="xl" animated showShadow={false} />
+                  <LunaAstronaut
+                    variant="head"
+                    phase="full"
+                    size="xl"
+                    animated
+                    showShadow={false}
+                    suitColor={lunaSuitColor || undefined}
+                    visorTint={lunaVisorTint || undefined}
+                    patchImage={lunaPatch || undefined}
+                  />
                   
                   {/* Floating Badge */}
                   <motion.div 

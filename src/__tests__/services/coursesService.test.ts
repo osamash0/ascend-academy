@@ -38,6 +38,7 @@ const COURSE = {
   color: null,
   icon: null,
   is_archived: false,
+  status: 'published',
   created_at: null,
   updated_at: null,
   lecture_count: 0,

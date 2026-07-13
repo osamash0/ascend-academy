@@ -32,6 +32,10 @@ if (!("ResizeObserver" in window)) {
   };
 }
 
+if (!("CanvasRenderingContext2D" in window)) {
+  (window as any).CanvasRenderingContext2D = class {};
+}
+
 if (!("IntersectionObserver" in window)) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).IntersectionObserver = class {

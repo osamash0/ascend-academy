@@ -417,7 +417,7 @@ function AppRoutes() {
         <Route
           path={ProfessorRoutes.UPLOAD}
           element={
-            <ProtectedRoute allowedRoles={['professor']}>
+            <ProtectedRoute allowedRoles={['professor', 'student']}>
               <ConsoleLayout>
                 <LectureUpload />
               </ConsoleLayout>
@@ -427,7 +427,7 @@ function AppRoutes() {
         <Route
           path="/professor/upload/batch/:batchId/review"
           element={
-            <ProtectedRoute allowedRoles={['professor']}>
+            <ProtectedRoute allowedRoles={['professor', 'student']}>
               <ConsoleLayout>
                 <BatchReviewPage />
               </ConsoleLayout>
@@ -439,7 +439,7 @@ function AppRoutes() {
         <Route
           path={ProfessorRoutes.COURSES}
           element={
-            <ProtectedRoute allowedRoles={['professor']}>
+            <ProtectedRoute allowedRoles={['professor', 'student']}>
               <ConsoleLayout>
                 <ProfessorCourses />
               </ConsoleLayout>
@@ -449,7 +449,7 @@ function AppRoutes() {
         <Route
           path="/professor/courses/:courseId"
           element={
-            <ProtectedRoute allowedRoles={['professor']}>
+            <ProtectedRoute allowedRoles={['professor', 'student']}>
               <ConsoleLayout>
                 <ProfessorCourseDetail />
               </ConsoleLayout>
@@ -469,7 +469,7 @@ function AppRoutes() {
         <Route
           path="/professor/lecture/:lectureId"
           element={
-            <ProtectedRoute allowedRoles={['professor']}>
+            <ProtectedRoute allowedRoles={['professor', 'student']}>
               <ConsoleLayout>
                 <LectureUpload />
               </ConsoleLayout>

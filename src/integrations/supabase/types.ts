@@ -169,6 +169,9 @@ export interface Database {
           email: string
           full_name: string | null
           id: string
+          luna_patch: string | null
+          luna_suit_color: string | null
+          luna_visor_tint: string | null
           preferred_language: string | null
           total_xp: number | null
           user_id: string
@@ -183,6 +186,9 @@ export interface Database {
           email: string
           full_name?: string | null
           id?: string
+          luna_patch?: string | null
+          luna_suit_color?: string | null
+          luna_visor_tint?: string | null
           preferred_language?: string | null
           total_xp?: number | null
           user_id: string
@@ -197,6 +203,9 @@ export interface Database {
           email?: string
           full_name?: string | null
           id?: string
+          luna_patch?: string | null
+          luna_suit_color?: string | null
+          luna_visor_tint?: string | null
           preferred_language?: string | null
           total_xp?: number | null
           user_id?: string

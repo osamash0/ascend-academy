@@ -2,15 +2,17 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, BookOpen, Loader2, Plus, FileText, X, ExternalLink, Upload,
-  GraduationCap, Pencil, Save, Trash2, NotebookText,
+  GraduationCap, Pencil, Save, Trash2, NotebookText, Rocket, EyeOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
   getCourse,
+  updateCourse,
   unassignLectureFromCourse,
   assignLectureToCourse,
   fetchCourseContext,
@@ -258,6 +260,7 @@ export default function ProfessorCourseDetail() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [allLectures, setAllLectures] = useState<Lecture[]>([]);
   const [pickerLoading, setPickerLoading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!courseId) return;
@@ -295,6 +298,25 @@ export default function ProfessorCourseDetail() {
       await refresh();
     } catch (e) {
       toast({ title: 'Assign failed', description: String(e), variant: 'destructive' });
+    }
+  };
+
+  const togglePublish = async () => {
+    if (!courseId || !course) return;
+    const nextStatus = course.status === 'published' ? 'draft' : 'published';
+    setPublishing(true);
+    try {
+      const updated = await updateCourse(courseId, { status: nextStatus });
+      setCourse((c) => (c ? { ...c, status: updated.status } : c));
+      toast({ title: nextStatus === 'published' ? 'Course published' : 'Course unpublished' });
+    } catch (e) {
+      toast({
+        title: 'Could not update course',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -337,7 +359,12 @@ export default function ProfessorCourseDetail() {
             <BookOpen className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">{translateCurriculum(course.title)}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">{translateCurriculum(course.title)}</h1>
+              <Badge variant={course.status === 'published' ? 'default' : 'secondary'}>
+                {course.status === 'published' ? 'Published' : 'Draft'}
+              </Badge>
+            </div>
             {course.description && (
               <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{course.description}</p>
             )}
@@ -352,6 +379,16 @@ export default function ProfessorCourseDetail() {
           </Button>
           <Button onClick={() => navigate(`/professor/upload?courseId=${courseId}`)} className="gap-2">
             <Upload className="w-4 h-4" /> Upload new
+          </Button>
+          <Button onClick={togglePublish} disabled={publishing} variant="outline" className="gap-2">
+            {publishing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : course.status === 'published' ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Rocket className="w-4 h-4" />
+            )}
+            {course.status === 'published' ? 'Unpublish' : 'Publish'}
           </Button>
         </div>
       </div>

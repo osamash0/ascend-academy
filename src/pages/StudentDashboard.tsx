@@ -474,7 +474,14 @@ export default function StudentDashboard() {
           {/* Socratic AI Tutor Invite */}
           <div className="ai-tutor-invite p-4 rounded-2xl glass-card border border-primary/20 shadow-glow-primary bg-primary/5">
             <div className="flex items-center gap-4">
-              <LunaAstronaut phase="crescent" size="sm" animated />
+              <LunaAstronaut
+                phase="crescent"
+                size="sm"
+                animated
+                suitColor={profile?.luna_suit_color || undefined}
+                visorTint={profile?.luna_visor_tint || undefined}
+                patchImage={profile?.luna_patch || undefined}
+              />
               <div>
                 <p className="font-bold text-foreground text-lg">Ready to explore?</p>
                 <p className="text-muted-foreground text-sm">Upload your first lecture PDF</p>

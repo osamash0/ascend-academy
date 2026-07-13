@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learnstation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-deep text-white font-body min-h-screen overflow-x-hidden">
+
+    <!-- Background layers -->
+    <div id="bg-pattern" class="fixed inset-0 pointer-events-none z-0"></div>
+    <div class="ambient-blob blob-1"></div>
+    <div class="ambient-blob blob-2"></div>
+
+    <!-- App shell -->
+    <div id="app" class="relative z-10 min-h-screen flex flex-col">
+
+        <!-- Top bar -->
+        <header class="flex items-center justify-between px-5 md:px-8 py-4 border-b border-white/5 flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #5E6BFF, #8B5CF6);">
+                    <i data-lucide="book-open" class="w-3.5 h-3.5 text-white"></i>
+                </div>
+                <span class="font-display font-semibold text-base tracking-tight">learnstation</span>
+            </div>
+            <button id="lang-toggle" class="text-xs font-display font-medium text-white/30 hover:text-white/60 transition-colors tracking-wide px-3 py-1.5 rounded-lg hover:bg-white/5" aria-label="Toggle language">
+                EN · DE
+            </button>
+        </header>
+
+        <!-- Content layout -->
+        <div class="flex-1 flex max-w-6xl mx-auto w-full">
+
+            <!-- Desktop spine -->
+            <aside id="spine-desktop" class="hidden md:flex flex-col items-center py-10 px-6 w-44 shrink-0">
+                <div class="spine-node" data-beat="1">
+                    <div class="spine-node-dot" id="spine-dot-1"></div>
+                    <span class="spine-node-label" id="spine-label-1"></span>
+                </div>
+                <div class="spine-line" id="spine-line-1"><div class="spine-line-fill"></div></div>
+                <div class="spine-node" data-beat="2">
+                    <div class="spine-node-dot" id="spine-dot-2"></div>
+                    <span class="spine-node-label" id="spine-label-2"></span>
+                </div>
+                <div class="spine-line" id="spine-line-2"><div class="spine-line-fill"></div></div>
+                <div class="spine-node" data-beat="3">
+                    <div class="spine-node-dot" id="spine-dot-3"></div>
+                    <span class="spine-node-label" id="spine-label-3"></span>
+                </div>
+            </aside>
+
+            <!-- Mobile spine -->
+            <div id="spine-mobile" class="md:hidden flex items-center justify-center gap-1 px-5 py-3 w-full border-b border-white/5 flex-shrink-0">
+                <div class="spine-mobile-node" id="sm-dot-1"></div>
+                <div class="spine-mobile-line" id="sm-line-1"><div class="spine-mobile-line-fill"></div></div>
+                <span class="spine-mobile-label px-1" id="sm-label-1"></span>
+                <div class="spine-mobile-line" id="sm-line-2"><div class="spine-mobile-line-fill"></div></div>
+                <div class="spine-mobile-node" id="sm-dot-2"></div>
+                <div class="spine-mobile-line" id="sm-line-3"><div class="spine-mobile-line-fill"></div></div>
+                <span class="spine-mobile-label px-1" id="sm-label-2"></span>
+                <div class="spine-mobile-line" id="sm-line-4"><div class="spine-mobile-line-fill"></div></div>
+                <div class="spine-mobile-node" id="sm-dot-3"></div>
+            </div>
+
+            <!-- Main content area -->
+            <main class="flex-1 px-4 md:px-8 py-8 md:py-10 overflow-y-auto">
+                <div id="beat1" class="beat-container max-w-xl mx-auto"></div>
+                <div id="beat2" class="beat-container hidden max-w-xl mx-auto"></div>
+                <div id="beat3" class="beat-container hidden max-w-xl mx-auto"></div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Demo panel -->
+    <div id="demo-panel" class="fixed bottom-4 left-4 z-50 relative">
+        <button id="demo-toggle" aria-label="Demo controls">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+        </button>
+        <div id="demo-options" class="hidden">
+            <button onclick="demoState('idle')">Reset to start</button>
+            <button onclick="demoState('error-bad')">Bad file error</button>
+            <button onclick="demoState('error-parse')">Parse error</button>
+            <button onclick="demoState('quota')">Quota reached</button>
+            <button onclick="demoState('ready')">Skip to ready</button>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="file-input" class="hidden" accept=".pdf,.pptx,.ppt,.docx,.doc,.txt,.md" multiple>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        deep: '#0E1320',
+                        surface: '#181F33',
+                        'surface-light': '#1F2840',
+                        'indigo-brand': '#5E6BFF',
+                        'purple-brand': '#8B5CF6',
+                        'cyan-brand': '#22D3EE',
+                        'gold-brand': '#FCD34D',
+                        'emerald-brand': '#34D399',
+                        'orange-brand': '#FB923C',
+                    },
+                    fontFamily: {
+                        display: ['"Space Grotesk"', 'sans-serif'],
+                        body: ['"DM Sans"', 'sans-serif'],
+                    },
+                }
+            }
+        };
+    </script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

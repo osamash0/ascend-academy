@@ -206,6 +206,8 @@ export function InlineLecturePlayer({
   const [chatActive, setChatActive] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatAbortRef = useRef<AbortController | null>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+  const [selectedPdfText, setSelectedPdfText] = useState<{ text: string; top: number; left: number } | null>(null);
 
   const answeredRef = useRef<Set<string>>(new Set());
   const xpRef = useRef(0);
@@ -363,6 +365,54 @@ export function InlineLecturePlayer({
     obs.observe(pdfContainerRef.current);
     return () => obs.disconnect();
   }, [loading]);
+
+  // ── PDF Text Selection observer ────────────────────────────────────────────
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        setSelectedPdfText(null);
+        return;
+      }
+
+      const text = selection.toString().trim();
+      if (!text) {
+        setSelectedPdfText(null);
+        return;
+      }
+
+      // Ensure selection is inside the pdfContainer
+      let isInsidePdf = false;
+      let node: Node | null = selection.anchorNode;
+      while (node) {
+        if (node === pdfContainerRef.current) {
+          isInsidePdf = true;
+          break;
+        }
+        node = node.parentNode;
+      }
+
+      if (!isInsidePdf) {
+        setSelectedPdfText(null);
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const containerRect = pdfContainerRef.current?.getBoundingClientRect();
+
+      if (containerRect) {
+        setSelectedPdfText({
+          text,
+          top: rect.top - containerRect.top - 40,
+          left: rect.left - containerRect.left + rect.width / 2 - 50,
+        });
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
 
   const currentSlide = slides[currentIndex];
   const narrative = currentSlide?.summary || currentSlide?.content_text || '';
@@ -1170,6 +1220,35 @@ export function InlineLecturePlayer({
                 )}
               </motion.div>
             </AnimatePresence>
+
+            {/* AI Text Selection Popup */}
+            <AnimatePresence>
+              {selectedPdfText && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="absolute z-50 pointer-events-auto"
+                  style={{
+                    top: Math.max(10, selectedPdfText.top),
+                    left: Math.max(10, selectedPdfText.left),
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setChatInput(`Regarding: "${selectedPdfText.text}"\n\n`);
+                      setSelectedPdfText(null);
+                      window.getSelection()?.removeAllRanges();
+                      setTimeout(() => chatInputRef.current?.focus(), 50);
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-primary/50 bg-primary px-3 py-1.5 text-xs font-bold text-white shadow-xl shadow-primary/20 transition-all hover:bg-primary/90"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Ask about this
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Chat bar — always under the PDF. Submitting turns the right view
@@ -1185,6 +1264,7 @@ export function InlineLecturePlayer({
               <Plus className="h-4 w-4" />
             </span>
             <input
+              ref={chatInputRef}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               placeholder="Ask AI about this slide…"

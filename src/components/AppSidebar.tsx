@@ -191,7 +191,16 @@ export function AppSidebar() {
               <Avatar className="w-11 h-11 rounded-[14px] border border-white/10 flex-shrink-0 shadow-xl group-hover:border-primary/50 transition-all duration-500 group-hover:scale-105">
                 {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="User avatar" className="object-cover" />}
                 <AvatarFallback className="bg-gradient-to-br from-primary/20 via-secondary/20 to-xp/20 rounded-[14px]">
-                  <LunaAstronaut variant="head" size="xs" phase="full" showShadow={false} animated={false} />
+                  <LunaAstronaut
+                    variant="head"
+                    size="xs"
+                    phase="full"
+                    showShadow={false}
+                    animated={false}
+                    suitColor={profile?.luna_suit_color || undefined}
+                    visorTint={profile?.luna_visor_tint || undefined}
+                    patchImage={profile?.luna_patch || undefined}
+                  />
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col min-w-0">

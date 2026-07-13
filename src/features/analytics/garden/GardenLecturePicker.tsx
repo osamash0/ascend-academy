@@ -102,6 +102,7 @@ export function GardenLecturePicker({
         color: null,
         icon: null,
         is_archived: false,
+        status: 'published' as const,
         created_at: null,
         updated_at: null,
         lecture_count: uncategorized.length,

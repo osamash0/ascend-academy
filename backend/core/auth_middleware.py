@@ -205,3 +205,6 @@ def require_role(*allowed_roles: str):
 # Convenience aliases
 require_professor = require_role("professor")
 require_student = require_role("student")
+# Course/lecture creation is open to any authenticated user, professor or
+# student — ownership (not role) is what RLS and endpoint checks gate on.
+require_creator = require_role("professor", "student")

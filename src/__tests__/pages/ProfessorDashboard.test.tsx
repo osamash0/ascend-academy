@@ -51,7 +51,7 @@ describe("ProfessorDashboard page (smoke)", () => {
     });
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
     await waitFor(() => {
-      expect(screen.getByText(/no lectures detected/i)).toBeInTheDocument();
+      expect(screen.getByText(/no lectures yet/i)).toBeInTheDocument();
     });
   });
 
@@ -61,7 +61,7 @@ describe("ProfessorDashboard page (smoke)", () => {
     });
     await waitFor(
       () => {
-        expect(screen.getByText(/no lectures detected/i)).toBeInTheDocument();
+        expect(screen.getByText(/no lectures yet/i)).toBeInTheDocument();
       },
       { timeout: 3000 },
     );

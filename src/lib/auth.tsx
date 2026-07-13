@@ -24,6 +24,9 @@ export interface Profile {
   current_streak: number;
   best_streak: number;
   preferred_language?: 'en' | 'de' | null;
+  luna_suit_color?: string | null;
+  luna_visor_tint?: string | null;
+  luna_patch?: string | null;
 }
 
 interface AuthContextType {
@@ -59,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string): Promise<ProfileFetchResult> => {
     const { data: profileData, error } = await supabase
       .from('profiles')
-      .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak, preferred_language')
+      .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak, preferred_language, luna_suit_color, luna_visor_tint, luna_patch')
       .eq('user_id', userId)
       .single();
 

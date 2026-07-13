@@ -46,7 +46,16 @@ export function ProfileChip({ className }: ProfileChipProps) {
           {profile.avatar_url ? (
             <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
           ) : (
-            <LunaAstronaut variant="head" size="xs" phase="full" showShadow={false} animated={false} />
+            <LunaAstronaut
+              variant="head"
+              size="xs"
+              phase="full"
+              showShadow={false}
+              animated={false}
+              suitColor={profile.luna_suit_color || undefined}
+              visorTint={profile.luna_visor_tint || undefined}
+              patchImage={profile.luna_patch || undefined}
+            />
           )}
         </div>
       </RankRing>
