@@ -1260,7 +1260,7 @@ export function InlineLecturePlayer({
                 <div ref={chatScrollRef} className="flex-1 space-y-8 px-2 py-4">
                   {messages.map((m) =>
                     m.role === 'user' ? (
-                      <div key={m.id} className="flex flex-col items-start text-left w-full">
+                      <div key={m.id} className="flex flex-col items-end text-right w-full">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/45 mb-1">You</span>
                         <div className="text-sm text-indigo-200/80 max-w-[85%] leading-relaxed whitespace-pre-wrap">
                           {m.content}
