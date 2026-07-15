@@ -1040,13 +1040,13 @@ function OnboardingInner() {
 
                             {/* Status Overlay for selected cards */}
                             {included && (
-                              <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-10 flex flex-col justify-center items-center p-3 gap-2 transition-all duration-300">
-                                <p className="text-[10px] uppercase tracking-wider font-extrabold text-white/40 mb-1">Set status</p>
+                              <div className="absolute inset-0 bg-black/90 backdrop-blur-md z-10 flex flex-col justify-end p-2.5 pb-4 gap-1.5 transition-all duration-300">
+                                <p className="text-[9px] uppercase tracking-wider font-extrabold text-white/40 mb-1 text-center pointer-events-none">Status</p>
                                 {STATUS_ORDER.map((s) => (
                                   <button
                                     key={s}
                                     onClick={() => setSuggestedStatus(c.id, s)}
-                                    className={`w-full py-2 px-3 rounded-xl text-xs font-semibold transition-all ${status === s ? 'bg-primary text-white shadow-glow-primary/20 scale-105' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
+                                    className={`w-full py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all truncate text-center ${status === s ? 'bg-primary text-white shadow-glow-primary/20 scale-105' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
                                   >
                                     {t(`steps.confirmCourses.status.${s}`)}
                                   </button>
