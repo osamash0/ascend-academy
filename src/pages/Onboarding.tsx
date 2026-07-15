@@ -951,20 +951,33 @@ function OnboardingInner() {
             )}
 
             {step === 4 && (
-              <motion.div key="step4" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col max-h-[70vh]">
-                <div className="mb-6 max-w-lg mx-auto w-full">
-                  <div className="mx-auto mb-4 flex justify-center lg:hidden">
-                    <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
-                  </div>
-                  <div className="glass-panel p-6 md:p-8 rounded-[2rem] rounded-tl-sm border-white/10 shadow-xl relative text-left">
-                    <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('steps.confirmCourses.title', { semester })}</h1>
-                    <p className="text-muted-foreground text-lg">
-                      {t('steps.confirmCourses.subtitle')}
-                    </p>
+              <motion.div key="step4" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col md:flex-row gap-8 max-h-[80vh] md:max-h-[75vh]">
+                
+                {/* Left Side: Header & Sticky CTA */}
+                <div className="w-full md:w-[35%] flex flex-col shrink-0 relative z-10">
+                  <div className="md:sticky md:top-0 space-y-6">
+                    <div className="mx-auto flex justify-center lg:hidden mb-4">
+                      <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
+                    </div>
+                    <div className="text-left">
+                      <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-3 leading-tight tracking-tight">{t('steps.confirmCourses.title', { semester })}</h1>
+                      <p className="text-muted-foreground text-lg md:text-xl font-medium">
+                        {t('steps.confirmCourses.subtitle')}
+                      </p>
+                    </div>
+                    
+                    {/* Sticky Footer CTA on Desktop */}
+                    <div className="hidden md:flex flex-col gap-4 mt-8 pt-8 border-t border-white/10">
+                      <Button size="xl" onClick={handleNext} className="h-16 w-full rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-xl shadow-primary/20">
+                        {t('steps.confirmCourses.selectedCount', { count: includedCount })} · {t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" />
+                      </Button>
+                      <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 w-full rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-2">
+                {/* Right Side: Scrollable Grid */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar pb-24 md:pb-2 px-1">
                   {loadingSuggested ? (
                     <div className="flex items-center justify-center h-40"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
                   ) : suggested.length === 0 ? (
@@ -972,52 +985,99 @@ function OnboardingInner() {
                       <p className="text-muted-foreground">{t('steps.confirmCourses.empty')}</p>
                     </div>
                   ) : (
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-2">
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
                       {suggested.map((c) => {
                         const included = !!statusMap[c.id];
                         const status = statusMap[c.id] ?? c.suggestedStatus;
+
+                        // Dynamic icon mapping based on course title
+                        const titleLower = c.title.toLowerCase();
+                        let CourseIcon = BookOpen;
+                        if (titleLower.includes('math') || titleLower.includes('calculus') || titleLower.includes('algebra')) CourseIcon = Calculator;
+                        else if (titleLower.includes('science') || titleLower.includes('physics') || titleLower.includes('chemistry')) CourseIcon = FlaskConical;
+                        else if (titleLower.includes('history') || titleLower.includes('law')) CourseIcon = Landmark;
+                        else if (titleLower.includes('art') || titleLower.includes('design')) CourseIcon = Palette;
+                        else if (titleLower.includes('code') || titleLower.includes('computer') || titleLower.includes('program')) CourseIcon = Code;
+                        else if (titleLower.includes('business') || titleLower.includes('econ') || titleLower.includes('finance')) CourseIcon = Briefcase;
+                        else if (titleLower.includes('language') || titleLower.includes('english') || titleLower.includes('world')) CourseIcon = Globe;
+                        else if (titleLower.includes('health') || titleLower.includes('medicine') || titleLower.includes('bio')) CourseIcon = HeartPulse;
+                        else if (titleLower.includes('psychology') || titleLower.includes('mind')) CourseIcon = Brain;
+
+                        // Deterministic color palette selection based on title hashing
+                        const palettes = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#ef4444', '#14b8a6', '#6366f1'];
+                        let hash = 0;
+                        for (let i = 0; i < c.title.length; i++) {
+                          hash = c.title.charCodeAt(i) + ((hash << 5) - hash);
+                        }
+                        const color = palettes[Math.abs(hash) % palettes.length];
+
                         return (
-                          <motion.div variants={itemVariants} key={c.id} className={`p-3 rounded-2xl border-2 transition-all ${included ? 'border-primary/40 bg-primary/5' : 'border-white/5 bg-white/5'}`}>
-                          <div className="flex items-center gap-3">
+                          <div
+                            key={c.id}
+                            className={`group relative aspect-[3/4] w-full rounded-2xl text-left transition-all overflow-hidden shadow-xl ${included ? 'ring-4 ring-primary shadow-glow-primary/30 scale-[0.98]' : 'ring-1 ring-white/10 hover:ring-white/30 shadow-black/40'}`}
+                            style={{ 
+                               background: `linear-gradient(145deg, ${color} 0%, #050505 120%)`
+                            }}
+                          >
+                            {/* Card Body Clickable Region (for selection toggle) */}
                             <button
                               onClick={() => toggleSuggested(c.id, c.suggestedStatus)}
-                              className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-colors ${included ? 'bg-primary border-primary text-white' : 'border-white/20'}`}
+                              className="absolute inset-0 w-full h-full text-left focus-visible:outline-none z-0"
+                            />
+
+                            {/* Checkmark / Unselected Indicator Badge */}
+                            <button
+                              onClick={() => toggleSuggested(c.id, c.suggestedStatus)}
+                              className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center z-20 transition-all duration-300 ${included ? 'bg-primary text-white scale-100 opacity-100' : 'bg-black/40 text-white/50 scale-75 opacity-0 group-hover:scale-90 group-hover:opacity-100 backdrop-blur-md border border-white/20'}`}
                             >
-                              {included && <Check className="w-4 h-4" />}
+                              <Check className="w-5 h-5" strokeWidth={included ? 3 : 2} />
                             </button>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-foreground leading-tight truncate">{c.title}</h3>
-                              <p className="text-xs text-muted-foreground">
-                                {c.courseCode ? `${c.courseCode} · ` : ''}{c.typicalSemester ? t('steps.confirmCourses.semesterTag', { n: c.typicalSemester }) : t('steps.confirmCourses.elective')}
-                              </p>
+
+                            {/* Centered Graphic / Icon */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 group-hover:opacity-30 transition-opacity mix-blend-overlay">
+                              <CourseIcon className="w-24 h-24 lg:w-32 lg:h-32 text-white" />
                             </div>
+
+                            {/* Status Overlay for selected cards */}
                             {included && (
-                              <div className="flex gap-1 shrink-0">
+                              <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-10 flex flex-col justify-center items-center p-3 gap-2 transition-all duration-300">
+                                <p className="text-[10px] uppercase tracking-wider font-extrabold text-white/40 mb-1">Set status</p>
                                 {STATUS_ORDER.map((s) => (
                                   <button
                                     key={s}
                                     onClick={() => setSuggestedStatus(c.id, s)}
-                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${status === s ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+                                    className={`w-full py-2 px-3 rounded-xl text-xs font-semibold transition-all ${status === s ? 'bg-primary text-white shadow-glow-primary/20 scale-105' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
                                   >
                                     {t(`steps.confirmCourses.status.${s}`)}
                                   </button>
                                 ))}
                               </div>
                             )}
+
+                            {/* Title overlay */}
+                            <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-0 flex flex-col justify-end h-[60%] pointer-events-none">
+                              <span className="text-[9px] uppercase tracking-wider font-extrabold text-white/40 mb-1">
+                                {c.courseCode ? `${c.courseCode} · ` : ''}{c.typicalSemester ? t('steps.confirmCourses.semesterTag', { n: c.typicalSemester }) : t('steps.confirmCourses.elective')}
+                              </span>
+                              <h3 className="font-bold text-white text-base lg:text-lg leading-tight line-clamp-2">{c.title}</h3>
+                            </div>
                           </div>
-                        </motion.div>
-                      );
-                    })}
+                        );
+                      })}
                     </motion.div>
                   )}
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-white/10 flex justify-between items-center shrink-0">
-                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
-                  <Button size="xl" onClick={handleNext} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">
+                {/* Mobile Sticky Footer */}
+                <div className="md:hidden absolute -bottom-8 -inset-x-8 p-4 pt-8 bg-gradient-to-t from-background via-background/95 to-transparent flex gap-3 z-50">
+                  <Button variant="ghost" size="lg" onClick={handleBack} className="h-14 px-4 rounded-2xl hover:bg-white/5 bg-black/50 backdrop-blur-md">
+                    {t('actions.back')}
+                  </Button>
+                  <Button size="lg" onClick={handleNext} className="flex-1 h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold shadow-glow-primary/20">
                     {t('steps.confirmCourses.selectedCount', { count: includedCount })} · {t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </div>
+
               </motion.div>
             )}
 
