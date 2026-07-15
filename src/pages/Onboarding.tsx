@@ -4,7 +4,8 @@ import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-
 import {
   ArrowRight, Sparkles, BookOpen, Check, Loader2,
   Building2, Volume2, VolumeX,
-  Users, Trophy, MapPin, ChevronsUpDown
+  Users, Trophy, MapPin, ChevronsUpDown,
+  Calculator, FlaskConical, Landmark, Palette, Code, Briefcase, Globe, HeartPulse, Brain
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -1021,18 +1022,31 @@ function OnboardingInner() {
             )}
 
             {step === 5 && (
-              <motion.div key="step5" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col max-h-[70vh]">
-                <div className="mb-6 max-w-lg mx-auto w-full">
-                  <div className="mx-auto mb-6 flex justify-center lg:hidden">
-                    <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
-                  </div>
-                  <div className="glass-panel p-6 md:p-8 rounded-[2rem] rounded-tl-sm border-white/10 shadow-xl relative text-left">
-                    <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('steps.extraTopics.title')}</h1>
-                    <p className="text-muted-foreground text-lg">{t('steps.extraTopics.subtitle')}</p>
+              <motion.div key="step5" initial={v.initial} animate={v.animate} exit={v.exit} className="flex-1 flex flex-col md:flex-row gap-8 max-h-[80vh] md:max-h-[75vh]">
+                
+                {/* Left Side: Header & Sticky CTA */}
+                <div className="w-full md:w-[35%] flex flex-col shrink-0 relative z-10">
+                  <div className="md:sticky md:top-0 space-y-6">
+                    <div className="mx-auto flex justify-center lg:hidden mb-4">
+                      <LunaAstronaut variant="full" costume="university" phase="full" size="sm" animated showShadow={false} suitColor={lunaSuit} visorTint={lunaVisor} patchImage={lunaPatch || undefined} />
+                    </div>
+                    <div className="text-left">
+                      <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-3 leading-tight tracking-tight">{t('steps.extraTopics.title')}</h1>
+                      <p className="text-muted-foreground text-lg md:text-xl font-medium">{t('steps.extraTopics.subtitle')}</p>
+                    </div>
+                    
+                    {/* Sticky Footer CTA on Desktop */}
+                    <div className="hidden md:flex flex-col gap-4 mt-8 pt-8 border-t border-white/10">
+                      <Button size="xl" onClick={handleFinish} disabled={loading} className="h-16 w-full rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-xl shadow-primary/20">
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <>{t('actions.startLearning')} <Sparkles className="w-5 h-5 ml-2" /></>}
+                      </Button>
+                      <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 w-full rounded-2xl hover:bg-white/5" disabled={loading}>{t('actions.back')}</Button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                {/* Right Side: Scrollable Grid */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar pb-24 md:pb-2 px-1">
                   {loadingCourses ? (
                     <div className="flex items-center justify-center h-40"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
                   ) : courses.length === 0 ? (
@@ -1040,36 +1054,67 @@ function OnboardingInner() {
                       <p className="text-muted-foreground">{t('steps.extraTopics.empty')}</p>
                     </div>
                   ) : (
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
                       {courses.map((course) => {
                         const isSelected = selectedCourses.includes(course.id);
+                        
+                        // Dynamic icon mapping based on course title
+                        const titleLower = course.title.toLowerCase();
+                        let CourseIcon = BookOpen;
+                        if (titleLower.includes('math') || titleLower.includes('calculus') || titleLower.includes('algebra')) CourseIcon = Calculator;
+                        else if (titleLower.includes('science') || titleLower.includes('physics') || titleLower.includes('chemistry')) CourseIcon = FlaskConical;
+                        else if (titleLower.includes('history') || titleLower.includes('law')) CourseIcon = Landmark;
+                        else if (titleLower.includes('art') || titleLower.includes('design')) CourseIcon = Palette;
+                        else if (titleLower.includes('code') || titleLower.includes('computer') || titleLower.includes('program')) CourseIcon = Code;
+                        else if (titleLower.includes('business') || titleLower.includes('econ') || titleLower.includes('finance')) CourseIcon = Briefcase;
+                        else if (titleLower.includes('language') || titleLower.includes('english') || titleLower.includes('world')) CourseIcon = Globe;
+                        else if (titleLower.includes('health') || titleLower.includes('medicine') || titleLower.includes('bio')) CourseIcon = HeartPulse;
+                        else if (titleLower.includes('psychology') || titleLower.includes('mind')) CourseIcon = Brain;
+
                         return (
                           <motion.button
                             variants={itemVariants}
                             key={course.id}
                             onClick={() => toggleCourse(course.id)}
-                            className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${isSelected ? 'border-primary bg-primary/10 shadow-glow-primary/20' : 'border-white/5 bg-white/5 hover:border-white/20'}`}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.96 }}
+                            className={`group relative aspect-[3/4] w-full rounded-2xl text-left transition-all overflow-hidden focus-visible:outline-none shadow-xl ${isSelected ? 'ring-4 ring-primary shadow-glow-primary/30 scale-[0.98]' : 'ring-1 ring-white/10 hover:ring-white/30 shadow-black/40'}`}
+                            style={{ 
+                               background: `linear-gradient(145deg, ${course.color || '#3b82f6'} 0%, #050505 120%)`
+                            }}
                           >
-                          <div className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-primary border-primary text-white' : 'border-white/20'}`}>
-                            {isSelected && <Check className="w-4 h-4" />}
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-foreground text-lg leading-tight">{course.title}</h3>
-                            {course.description && <p className="text-sm text-muted-foreground line-clamp-1 mt-1">{course.description}</p>}
-                          </div>
-                        </motion.button>
-                      );
-                    })}
+                            {/* Checkmark Badge */}
+                            <div className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center z-20 transition-all duration-300 ${isSelected ? 'bg-primary text-white scale-100 opacity-100' : 'bg-black/40 text-white/50 scale-75 opacity-0 group-hover:scale-90 group-hover:opacity-100 backdrop-blur-md border border-white/20'}`}>
+                              <Check className="w-5 h-5" strokeWidth={isSelected ? 3 : 2} />
+                            </div>
+
+                            {/* Centered Graphic / Icon */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 group-hover:opacity-30 transition-opacity mix-blend-overlay">
+                              <CourseIcon className="w-24 h-24 lg:w-32 lg:h-32 text-white" />
+                            </div>
+
+                            {/* Title overlay */}
+                            <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10 flex flex-col justify-end h-[60%]">
+                              <h3 className="font-bold text-white text-base lg:text-lg leading-tight line-clamp-3">{course.title}</h3>
+                              {course.description && <p className="text-xs text-white/60 line-clamp-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute bottom-4 translate-y-4 group-hover:translate-y-0 group-hover:relative group-hover:bottom-auto">{course.description}</p>}
+                            </div>
+                          </motion.button>
+                        );
+                      })}
                     </motion.div>
                   )}
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-white/10 flex justify-between items-center shrink-0">
-                  <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5" disabled={loading}>{t('actions.back')}</Button>
-                  <Button size="xl" onClick={handleFinish} disabled={loading} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold min-w-[140px]">
+                {/* Mobile Sticky Footer */}
+                <div className="md:hidden absolute -bottom-8 -inset-x-8 p-4 pt-8 bg-gradient-to-t from-background via-background/95 to-transparent flex gap-3 z-50">
+                  <Button variant="ghost" size="lg" onClick={handleBack} className="h-14 px-4 rounded-2xl hover:bg-white/5 bg-black/50 backdrop-blur-md" disabled={loading}>
+                    {t('actions.back')}
+                  </Button>
+                  <Button size="lg" onClick={handleFinish} disabled={loading} className="flex-1 h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold shadow-glow-primary/20">
                     {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <>{t('actions.startLearning')} <Sparkles className="w-5 h-5 ml-2" /></>}
                   </Button>
                 </div>
+
               </motion.div>
             )}
           </AnimatePresence>
