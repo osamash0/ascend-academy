@@ -827,9 +827,19 @@ async def assign_lecture(
         lecture = _fetch_lecture(lecture_id)
         if not lecture:
             raise HTTPException(status_code=404, detail="Lecture not found.")
-        if lecture["professor_id"] != uid:
+        owner_id = lecture.get("professor_id") or lecture.get("student_owner_id")
+        if owner_id != uid:
             raise HTTPException(status_code=403, detail="You do not own this lecture.")
-        supabase_admin.table("lectures").update({"course_id": course_id}).eq(
+        
+        update_data = {"course_id": course_id}
+        if lecture.get("visibility") == "private_student":
+            update_data.update({
+                "visibility": "course",
+                "professor_id": uid,
+                "student_owner_id": None,
+            })
+            
+        supabase_admin.table("lectures").update(update_data).eq(
             "id", lecture_id
         ).execute()
         return {"course_id": course_id, "lecture_id": lecture_id}

@@ -38,6 +38,7 @@ import {
   Send,
   ArrowLeft,
   SlidersHorizontal,
+  Copy,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { apiClient } from '@/lib/apiClient';
@@ -209,6 +210,8 @@ export function InlineLecturePlayer({
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [selectedPdfText, setSelectedPdfText] = useState<{ text: string; top: number; left: number } | null>(null);
 
+
+
   const answeredRef = useRef<Set<string>>(new Set());
   const xpRef = useRef(0);
   const correctRef = useRef(0);
@@ -241,6 +244,12 @@ export function InlineLecturePlayer({
     markLectureComplete,
     flushSave: flushSlideProgress,
   } = useSlideProgress({ lectureId: lecture?.id ?? '', slides, userId: user?.id });
+
+  // Clear selection on slide change
+  useEffect(() => {
+    setSelectedPdfText(null);
+    window.getSelection()?.removeAllRanges();
+  }, [currentIndex]);
 
   // Apply restored progress once BOTH the slides and the restore payload are
   // ready — order-independent, so the resume position is never dropped.
@@ -358,8 +367,10 @@ export function InlineLecturePlayer({
     if (!pdfContainerRef.current) return;
     const obs = new ResizeObserver((entries) => {
       for (const e of entries) {
-        setPdfWidth(e.contentRect.width);
-        setPdfHeight(e.contentRect.height);
+        const newWidth = Math.round(e.contentRect.width);
+        const newHeight = Math.round(e.contentRect.height);
+        setPdfWidth((prev) => Math.abs(prev - newWidth) > 1 ? newWidth : prev);
+        setPdfHeight((prev) => Math.abs(prev - newHeight) > 1 ? newHeight : prev);
       }
     });
     obs.observe(pdfContainerRef.current);
@@ -383,13 +394,8 @@ export function InlineLecturePlayer({
 
       // Ensure selection is inside the pdfContainer
       let isInsidePdf = false;
-      let node: Node | null = selection.anchorNode;
-      while (node) {
-        if (node === pdfContainerRef.current) {
-          isInsidePdf = true;
-          break;
-        }
-        node = node.parentNode;
+      if (pdfContainerRef.current && selection.anchorNode) {
+        isInsidePdf = pdfContainerRef.current.contains(selection.anchorNode);
       }
 
       if (!isInsidePdf) {
@@ -399,13 +405,12 @@ export function InlineLecturePlayer({
 
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      const containerRect = pdfContainerRef.current?.getBoundingClientRect();
 
-      if (containerRect) {
+      if (rect) {
         setSelectedPdfText({
           text,
-          top: rect.top - containerRect.top - 40,
-          left: rect.left - containerRect.left + rect.width / 2 - 50,
+          top: rect.top - 55,
+          left: rect.left + (rect.width / 2 || 0),
         });
       }
     };
@@ -763,7 +768,7 @@ export function InlineLecturePlayer({
     setStreaming('');
 
     try {
-      const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      const history = messages.filter(m => m.content).map((m) => ({ role: m.role, content: m.content }));
       const ctrl = new AbortController();
       chatAbortRef.current = ctrl;
       const res = await apiClient.stream('/api/v1/ai/chat', {
@@ -1225,15 +1230,30 @@ export function InlineLecturePlayer({
             <AnimatePresence>
               {selectedPdfText && (
                 <motion.div
+                  onMouseDown={(e) => e.preventDefault()}
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="absolute z-50 pointer-events-auto"
+                  className="fixed z-[9999] pointer-events-auto flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0a0a12]/95 p-1.5 shadow-2xl backdrop-blur-md"
                   style={{
                     top: Math.max(10, selectedPdfText.top),
                     left: Math.max(10, selectedPdfText.left),
+                    transform: 'translateX(-50%)'
                   }}
                 >
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedPdfText.text);
+                      toast({ title: 'Copied to clipboard' });
+                      setSelectedPdfText(null);
+                      window.getSelection()?.removeAllRanges();
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </button>
+                  <div className="h-4 w-px bg-white/10" />
                   <button
                     onClick={() => {
                       setChatInput(`Regarding: "${selectedPdfText.text}"\n\n`);
@@ -1241,7 +1261,7 @@ export function InlineLecturePlayer({
                       window.getSelection()?.removeAllRanges();
                       setTimeout(() => chatInputRef.current?.focus(), 50);
                     }}
-                    className="flex items-center gap-1.5 rounded-lg border border-primary/50 bg-primary px-3 py-1.5 text-xs font-bold text-white shadow-xl shadow-primary/20 transition-all hover:bg-primary/90"
+                    className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/20 px-3 py-1.5 text-xs font-bold text-primary shadow-xl shadow-primary/10 transition-all hover:bg-primary/30 backdrop-blur-md"
                   >
                     <Zap className="h-3.5 w-3.5" />
                     Ask about this

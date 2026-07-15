@@ -42,7 +42,7 @@ router = APIRouter(prefix="/ai", tags=["slides-ai"])
 # orchestrator._USER_MODEL_TO_PROVIDER). Previously diverged: this list had
 # "deepseek" (unsupported) and lacked the gemini/gemma/mistral variants.
 _AiModel = Literal[
-    "cerebras", "groq", "groq_fast", "openrouter", "cloudflare", "gemini",
+    "auto", "cerebras", "groq", "groq_fast", "openrouter", "cloudflare", "gemini",
     "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemma",
     "mistral", "openai", "gpt-4o-mini"
 ]

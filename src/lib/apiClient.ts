@@ -33,6 +33,23 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   return headers;
 }
 
+function buildUrl(path: string): string {
+  let finalPath = path;
+  if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
+    finalPath = path.replace('/api/', '/api/v1/');
+  }
+
+  let url = `${API_BASE}${finalPath}`;
+  if (API_BASE.endsWith('/api/v1') && finalPath.startsWith('/api/v1/')) {
+    url = API_BASE + finalPath.substring(7);
+  } else if (API_BASE.endsWith('/api') && finalPath.startsWith('/api/')) {
+    url = API_BASE + finalPath.substring(4);
+  }
+  
+  // Clean up any double slashes (except in protocol)
+  return url.replace(/([^:]\/)\/+/g, "$1");
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -41,12 +58,9 @@ async function request<T>(
 ): Promise<T> {
   const headers = await getAuthHeaders();
   
-  let finalPath = path;
-  if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
-    finalPath = path.replace('/api/', '/api/v1/');
-  }
+  const url = buildUrl(path);
 
-  const res = await fetch(`${API_BASE}${finalPath}`, {
+  const res = await fetch(url, {
     method,
     headers: { ...headers, ...extraHeaders },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -75,12 +89,9 @@ export const apiClient = {
   stream: async (path: string, body: unknown, signal?: AbortSignal): Promise<Response> => {
     const headers = await getAuthHeaders();
 
-    let finalPath = path;
-    if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
-      finalPath = path.replace('/api/', '/api/v1/');
-    }
+    const url = buildUrl(path);
 
-    const res = await fetch(`${API_BASE}${finalPath}`, {
+    const res = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -96,12 +107,9 @@ export const apiClient = {
     const headers = await getAuthHeaders();
     delete headers['Content-Type'];
 
-    let finalPath = path;
-    if (path.startsWith('/api/') && !path.startsWith('/api/v1/')) {
-      finalPath = path.replace('/api/', '/api/v1/');
-    }
+    const url = buildUrl(path);
 
-    const res = await fetch(`${API_BASE}${finalPath}`, {
+    const res = await fetch(url, {
       method: 'POST',
       headers,
       body,

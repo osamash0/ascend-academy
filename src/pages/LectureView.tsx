@@ -1,9 +1,13 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import { BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle, Loader2, Send, ArrowLeft, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { fetchLecture, fetchSlides, fetchQuizQuestions, resolvePdfUrl } from '@/services/lectureService';
 import {
@@ -11,6 +15,7 @@ import {
   upsertLectureProgress,
   logLearningEvent,
 } from '@/services/studentService';
+
 import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { useSlideProgress } from '@/features/student/hooks/useSlideProgress';
 import { statesFromLegacyCompleted, allVisitedStates } from '@/lib/slideProgress';
@@ -18,22 +23,46 @@ import { apiClient } from '@/lib/apiClient';
 import { SlideViewer } from '@/components/SlideViewer';
 import { QuizCard } from '@/components/QuizCard';
 import { Button } from '@/components/ui/button';
-import { LectureSidebar } from '@/components/LectureSidebar';
-import { LectureChat } from '@/components/LectureChat';
 import { WorksheetsPanel } from '@/components/WorksheetsPanel';
 import { StudentPracticeSheetsPanel } from '@/features/practice_sheets/StudentPracticeSheetsPanel';
 import { LectureRecap, type RecapItem } from '@/components/LectureRecap';
 import { RelatedAcrossCoursesPanel } from '@/components/RelatedAcrossCoursesPanel';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
-import { AmbientGlow, GLOW_BY_STATUS } from '@/components/console';
+import { AmbientGlow, GLOW_BY_STATUS, DepthScene, LectureBackdrop } from '@/components/console';
 import { StudentRoutes, ProfessorRoutes } from '@/lib/routes';
-import { safeGetUUID } from '@/lib/utils';
+import { safeGetUUID, cn } from '@/lib/utils';
+import 'katex/dist/katex.min.css';
 
 import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
+
+type ChatMessage = { id: string; role: 'user' | 'model'; content: string };
+
+const PROSE_CLASS = [
+  'prose prose-invert max-w-none',
+  '[&>*:first-child]:mt-0',
+  'prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-foreground',
+  'prose-h1:text-[22px] prose-h1:mt-8 prose-h1:mb-3',
+  'prose-h2:text-lg prose-h2:mt-8 prose-h2:mb-3',
+  'prose-h3:text-base prose-h3:mt-6 prose-h3:mb-2',
+  'prose-p:text-[15px] prose-p:leading-7 prose-p:my-3 prose-p:text-foreground/85',
+  'prose-strong:text-foreground prose-strong:font-semibold',
+  'prose-em:text-foreground/80',
+  'prose-a:text-primary prose-a:underline-offset-2 hover:prose-a:text-primary/80',
+  'prose-ul:my-3 prose-ol:my-3 prose-li:my-1.5 prose-li:text-[15px] prose-li:text-foreground/85',
+  'prose-ul:pl-1 prose-li:marker:text-primary/70 prose-ol:marker:text-primary/70 prose-li:marker:font-semibold',
+  'prose-code:text-accent prose-code:bg-accent/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-medium prose-code:before:content-none prose-code:after:content-none',
+  'prose-pre:bg-black/40 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:text-[13px]',
+  'prose-blockquote:border-l-2 prose-blockquote:border-primary/50 prose-blockquote:bg-white/[0.03] prose-blockquote:rounded-r-lg prose-blockquote:px-4 prose-blockquote:py-0.5 prose-blockquote:not-italic prose-blockquote:text-foreground/75',
+  'prose-hr:border-white/10 prose-hr:my-6',
+  'prose-table:my-4 prose-table:text-[13px] prose-table:overflow-hidden prose-table:rounded-xl',
+  'prose-thead:border-white/10 prose-th:bg-white/[0.06] prose-th:text-foreground prose-th:font-semibold prose-th:px-3 prose-th:py-2 prose-th:border prose-th:border-white/10 prose-th:text-left',
+  'prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-white/10 prose-td:text-foreground/80',
+  'prose-img:rounded-xl prose-img:border prose-img:border-white/10',
+].join(' ');
 
 export default function LectureView() {
   const { t } = useTranslation(['lecture', 'common']);
@@ -130,9 +159,152 @@ export default function LectureView() {
   const [recapItems, setRecapItems] = useState<RecapItem[]>([]);
 
   // UI state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'slide' | 'worksheets' | 'related'>('slide');
   const { role } = useAuth();
+  const isMobile = useIsMobile();
+
+  // Chat state
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [streaming, setStreaming] = useState('');
+  const [chatActive, setChatActive] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const chatAbortRef = useRef<AbortController | null>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+
+  // Horizontal syllabus rail scrolling.
+  const railRef = useRef<HTMLDivElement>(null);
+  const [railEdges, setRailEdges] = useState({ left: false, right: false });
+  const railAnimRef = useRef<{ raf?: number; target?: number }>({});
+  const holdRef = useRef<{ timer?: ReturnType<typeof setTimeout>; raf?: number; dir: 1 | -1; held: boolean }>({ dir: 1, held: false });
+  const clickStreakRef = useRef<{ t: number; n: number }>({ t: 0, n: 0 });
+
+  const updateRailEdges = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return;
+    setRailEdges({
+      left: el.scrollLeft > 4,
+      right: el.scrollLeft < el.scrollWidth - el.clientWidth - 4,
+    });
+  }, []);
+
+  const railStep = useCallback(() => {
+    const el = railRef.current;
+    const card = el?.querySelector<HTMLElement>('[data-card]');
+    return (card?.offsetWidth ?? 220) + 12;
+  }, []);
+
+  const clampScroll = useCallback((v: number) => {
+    const el = railRef.current;
+    if (!el) return v;
+    return Math.max(0, Math.min(v, el.scrollWidth - el.clientWidth));
+  }, []);
+
+  const animateRail = useCallback(() => {
+    const el = railRef.current;
+    const a = railAnimRef.current;
+    if (!el || a.target == null) return;
+    const delta = a.target - el.scrollLeft;
+    if (Math.abs(delta) < 1) {
+      el.scrollLeft = a.target;
+      a.target = undefined;
+      a.raf = undefined;
+      updateRailEdges();
+      return;
+    }
+    el.scrollLeft += delta * 0.22;
+    a.raf = requestAnimationFrame(animateRail);
+  }, [updateRailEdges]);
+
+  const railClick = useCallback(
+    (dir: 1 | -1) => {
+      const el = railRef.current;
+      if (!el) return;
+      const now = performance.now();
+      const cs = clickStreakRef.current;
+      cs.n = now - cs.t < 450 ? cs.n + 1 : 1;
+      cs.t = now;
+      const multiplier = Math.min(cs.n, 5);
+      const a = railAnimRef.current;
+      const base = a.target ?? el.scrollLeft;
+      a.target = clampScroll(base + dir * railStep() * multiplier);
+      if (!a.raf) a.raf = requestAnimationFrame(animateRail);
+    },
+    [railStep, clampScroll, animateRail],
+  );
+
+  const railHoldStart = useCallback(
+    (dir: 1 | -1) => {
+      const el = railRef.current;
+      if (!el) return;
+      if (railAnimRef.current.raf) {
+        cancelAnimationFrame(railAnimRef.current.raf);
+        railAnimRef.current = {};
+      }
+      const tick = () => {
+        const node = railRef.current;
+        if (!node) return;
+        node.scrollLeft = clampScroll(node.scrollLeft + dir * 3);
+        updateRailEdges();
+        holdRef.current.raf = requestAnimationFrame(tick);
+      };
+      holdRef.current.raf = requestAnimationFrame(tick);
+    },
+    [clampScroll, updateRailEdges],
+  );
+
+  const railPress = useCallback(
+    (dir: 1 | -1) => {
+      const hs = holdRef.current;
+      hs.dir = dir;
+      hs.held = false;
+      hs.timer = setTimeout(() => {
+        hs.held = true;
+        railHoldStart(dir);
+      }, 220);
+    },
+    [railHoldStart],
+  );
+
+  const railRelease = useCallback(() => {
+    const hs = holdRef.current;
+    if (hs.timer) clearTimeout(hs.timer);
+    if (hs.held) {
+      if (hs.raf) cancelAnimationFrame(hs.raf);
+      hs.held = false;
+      updateRailEdges();
+    } else {
+      railClick(hs.dir);
+    }
+  }, [railClick, updateRailEdges]);
+
+  const railCancel = useCallback(() => {
+    const hs = holdRef.current;
+    if (hs.timer) clearTimeout(hs.timer);
+    if (hs.held && hs.raf) cancelAnimationFrame(hs.raf);
+    hs.held = false;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (railAnimRef.current.raf) cancelAnimationFrame(railAnimRef.current.raf);
+      if (holdRef.current.raf) cancelAnimationFrame(holdRef.current.raf);
+      if (holdRef.current.timer) clearTimeout(holdRef.current.timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    updateRailEdges();
+  }, [slides, updateRailEdges]);
+
+  useEffect(() => {
+    const el = railRef.current;
+    const active = el?.querySelector<HTMLElement>('[data-active="true"]');
+    if (el && active) {
+      el.scrollTo({ left: active.offsetLeft - el.clientWidth / 2 + active.offsetWidth / 2, behavior: 'smooth' });
+    }
+  }, [currentSlideIndex, slides.length]);
 
   // Mind map
   const { map: mindMap, generate: generateMindMap } = useMindMap(lectureId ?? null);
@@ -708,6 +880,71 @@ export default function LectureView() {
     // so students can review which questions they had to retry.
   };
 
+  const handleAsk = useCallback(async () => {
+    const q = chatInput.trim();
+    if (!q || chatLoading) return;
+    setChatInput('');
+    setActiveTab('slide');
+    setChatActive(true);
+    setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'user', content: q }]);
+    setChatLoading(true);
+    setStreaming('');
+
+    try {
+      const history = messages.filter(m => m.content).map((m) => ({ role: m.role, content: m.content }));
+      const ctrl = new AbortController();
+      chatAbortRef.current = ctrl;
+      const res = await apiClient.stream('/api/v1/ai/chat', {
+        slide_text: currentSlide?.content_text || currentSlide?.summary || '',
+        user_message: q,
+        chat_history: history,
+        ai_model: aiModel,
+        lecture_id: lecture?.id ?? '',
+        current_slide_index: currentSlideIndex,
+      }, ctrl.signal);
+
+      const ct = res.headers.get('content-type');
+      if (ct?.includes('text/event-stream')) {
+        const reader = res.body?.getReader();
+        const dec = new TextDecoder();
+        let full = '';
+        if (!reader) throw new Error('No reader');
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = dec.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') break;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.reply || parsed.content) {
+                  full += (parsed.reply || parsed.content);
+                  setStreaming(full);
+                }
+              } catch (e) {
+                // Ignore parse errors on incomplete chunks
+              }
+            }
+          }
+        }
+        setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'assistant', content: full }]);
+      } else {
+        const data = await res.json();
+        setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'assistant', content: data.reply }]);
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error('Chat error', e);
+        toast({ title: 'Error communicating with AI tutor', variant: 'destructive' });
+      }
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput, chatLoading, messages, currentSlide, aiModel, lecture?.id, currentSlideIndex, toast]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -717,38 +954,15 @@ export default function LectureView() {
   }
 
   return (
-    <div className="flex h-screen console-bg overflow-hidden relative">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <AmbientGlow color={GLOW_BY_STATUS.progress} />
-      </div>
-
-      {/* Sidebar */}
-      <LectureSidebar
-        slides={slides}
-        currentSlideIndex={currentSlideIndex}
-        slideStates={slideStates}
-        completionPct={completionPct}
-        onSelectSlide={(index) => {
-          goToSlide(index);
-          setShowQuiz(quizAnswers[index] !== undefined);
-        }}
-        onValidateSlide={validateSlide}
-        onMarkComplete={() => slideProgress.markLectureComplete()}
-        onResetProgress={() => {
-          if (window.confirm('Reset all slide progress for this lecture?')) {
-            slideProgress.resetProgress();
-            setQuizAnswers({});
-            answeredQuestionsRef.current = new Set();
-          }
-        }}
-        isCollapsed={isSidebarCollapsed}
-        onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
+    <DepthScene
+      status={lectureCompleted ? 'done' : 'progress'}
+      gradientIndex={currentSlideIndex}
+      motionKey={lectureId!}
+      backdrop={<LectureBackdrop lectureId={lectureId!} pdfUrl={resolvedPdfUrl} />}
+    >
+      <div className="flex flex-col h-[100svh] relative z-10 max-w-7xl mx-auto w-full overflow-hidden">
         {/* Header */}
-        <header className="glass-panel border-b-0 px-6 py-4 flex items-center justify-between relative z-50">
+        <header className="px-6 py-4 flex items-center justify-between relative z-50">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -756,7 +970,6 @@ export default function LectureView() {
               onClick={() => navigate(role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME)}
               className="rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
               title={t('lecture:chrome.exitLecture')}
-              aria-label={t('lecture:chrome.exitLecture')}
             >
               <X className="w-5 h-5" />
             </Button>
@@ -799,24 +1012,94 @@ export default function LectureView() {
                 <span className="text-xs font-bold">{t('lecture:chrome.sourcePdf')}</span>
               </Button>
             )}
-            
-            <Button
-              onClick={() => setIsChatOpen(!isChatOpen)}
-              className="gap-2 rounded-xl px-5 bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary border-none hover:opacity-90"
-            >
-              <Bot className="w-4 h-4" />
-              <span className="text-xs font-bold">{t('lecture:tutor.title')}</span>
-            </Button>
           </div>
         </header>
 
         {/* Content */}
-        <ResizablePanelGroup direction="horizontal" className="flex-1 w-full h-full">
-          <ResizablePanel defaultSize={isChatOpen ? 70 : 100} minSize={40} className="relative">
-            <div ref={scrollableContainerRef} className="h-full overflow-y-auto custom-scrollbar relative">
-          <div className="max-w-6xl mx-auto px-6 py-8">
-            <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
-              {/* Main content - Slide viewer */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6">
+          {/* Horizontal Rail */}
+          <div className="relative mb-6">
+            {railEdges.left && (
+              <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-16 bg-gradient-to-r from-background to-transparent" />
+            )}
+            {railEdges.right && (
+              <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-16 bg-gradient-to-l from-background to-transparent" />
+            )}
+            <div
+              className="absolute bottom-0 left-0 top-0 z-20 flex w-8 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:bg-white/5 hover:opacity-100"
+              onClick={() => railClick(-1)}
+              onPointerDown={() => railPress(-1)}
+              onPointerUp={railRelease}
+              onPointerLeave={railCancel}
+              onContextMenu={(e) => e.preventDefault()}
+            />
+            <div
+              className="absolute bottom-0 right-0 top-0 z-20 flex w-8 cursor-pointer items-center justify-center opacity-0 transition-opacity hover:bg-white/5 hover:opacity-100"
+              onClick={() => railClick(1)}
+              onPointerDown={() => railPress(1)}
+              onPointerUp={railRelease}
+              onPointerLeave={railCancel}
+              onContextMenu={(e) => e.preventDefault()}
+            />
+            <div
+              ref={railRef}
+              className="no-scrollbar relative flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth py-1"
+              onScroll={updateRailEdges}
+            >
+              {slides.map((s, i) => {
+                const isCurrent = i === currentSlideIndex;
+                const state = slideStates[s.id] || { status: 'unvisited', history: [] };
+                const isVisited = state.status === 'visited';
+                const isSkipped = state.status === 'skipped';
+                return (
+                  <button
+                    key={s.id}
+                    data-card
+                    data-active={isCurrent}
+                    onClick={() => {
+                      goToSlide(i);
+                      setShowQuiz(quizAnswers[i] !== undefined);
+                    }}
+                    className={cn(
+                      'group relative flex w-56 shrink-0 snap-start items-center gap-3 overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all hover:-translate-y-0.5',
+                      isCurrent
+                        ? 'border-primary/50 bg-primary/10 shadow-[0_0_20px_-5px_rgba(var(--primary),0.3)] ring-1 ring-primary/20'
+                        : isVisited
+                          ? 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                          : isSkipped
+                            ? 'border-dashed border-white/10 bg-transparent hover:border-white/20'
+                            : 'border-white/5 bg-transparent hover:border-white/10 hover:bg-white/[0.02]'
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+                        isCurrent
+                          ? 'bg-primary/20 text-primary'
+                          : isVisited
+                            ? 'bg-white/10 text-muted-foreground'
+                            : 'bg-white/5 text-muted-foreground/40 text-xs font-bold'
+                      )}
+                    >
+                      {isCurrent ? <BookOpen className="h-4 w-4" /> : i + 1}
+                    </div>
+                    <span className="min-w-0">
+                      <span className={cn('block truncate text-sm font-bold', isCurrent ? 'text-foreground' : 'text-muted-foreground')}>
+                        {s.title || `Slide ${s.slide_number}`}
+                      </span>
+                      <span className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                        {isCurrent ? 'Current' : isVisited ? 'Done' : isSkipped ? 'Skipped' : 'Remaining'}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column: Slide Viewer + Chat Bar */}
+            <div className="space-y-4">
               <AnimatePresence mode="wait">
                 {slides.length === 0 ? (
                   <motion.div
@@ -895,6 +1178,10 @@ export default function LectureView() {
                       }}
                       onMindMapRetry={() => mindMap.refetch()}
                       currentSlideId={currentSlide.id}
+                      onAskAbout={(text) => {
+                        setChatInput(text);
+                        setTimeout(() => chatInputRef.current?.focus(), 50);
+                      }}
                       onGenerateMindMap={() => {
                         generateMindMap.mutate(aiModel, {
                           onError: (error: Error) => {
@@ -920,206 +1207,252 @@ export default function LectureView() {
                       canUndoRegenerate={Boolean(currentSlide?.id) && regeneratedSlideIds.has(currentSlide!.id)}
                       onUndoRegenerate={role === 'professor' ? handleUndoRegenerateContent : undefined}
                     />
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
 
-              {/* Worksheets attached to this lecture (read-only for students) */}
-              {lectureId && (
-                <div className="bg-card/40 rounded-2xl border border-border p-5">
-                  <WorksheetsPanel lectureId={lectureId} editable={role === 'professor'} />
-                </div>
-              )}
 
-              {/* Practice Sheets — students see published sheets; professors see their own via LectureEdit */}
-              {lectureId && role !== 'professor' && (
-                <div className="bg-card/40 rounded-2xl border border-border p-5">
-                  <StudentPracticeSheetsPanel lectureId={lectureId} />
-                </div>
-              )}
+            </div>
 
-              {/* Cross-course concept overlap: surfaces other lectures that
-                  cover concepts present on this lecture. */}
-              {lectureId && (
-                <RelatedAcrossCoursesPanel lectureId={lectureId} />
-              )}
-
-              {/* Sidebar - Quiz */}
-              <div ref={quizRef}>
-                <AnimatePresence mode="wait">
-                  {lectureCompleted ? (
-                    <LectureRecap
-                      items={recapItems}
-                      xpEarned={xpEarned}
-                      correctOnFirstTry={correctAnswers}
-                      totalQuestions={questions.length || slides.length}
-                      onDone={() => navigate(role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME)}
-                    />
-                  ) : reviewStage && currentReviewItem ? (
-                    <motion.div
-                      key={`review-${reviewIndex}`}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="space-y-4"
-                      data-testid="review-stage"
-                    >
-                      <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
-                        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
-                          <HelpCircle className="w-5 h-5 text-primary-foreground" />
-                        </div>
-                        <div>
-                          <h2 className="text-base font-bold text-foreground">
-                            {t('lecture:chrome.reviewMissed')}
-                          </h2>
-                          <p className="text-xs text-muted-foreground">
-                            {t('lecture:chrome.reviewProgress', { current: reviewIndex + 1, total: missedQueueRef.current.length })}
-                          </p>
-                        </div>
-                      </div>
-                      <QuizCard
-                        key={`review-card-${reviewIndex}`}
-                        question={currentReviewItem.question.question_text}
-                        options={currentReviewItem.question.options}
-                        correctAnswer={currentReviewItem.question.correct_answer}
-                        onAnswer={handleReviewAnswer}
-                        onContinue={handleReviewContinue}
-                        continueLabel={
-                          reviewIndex < missedQueueRef.current.length - 1
-                            ? t('lecture:navigation.next')
-                            : t('lecture:navigation.finishLecture')
-                        }
-                        questionNumber={reviewIndex + 1}
-                        totalQuestions={missedQueueRef.current.length}
-                        initialSelectedAnswer={reviewSelectedAnswer}
-                        explanation={currentReviewItem.question.explanation}
-                        concept={currentReviewItem.question.concept}
-                      />
-                    </motion.div>
-                  ) : showQuiz && currentQuestion ? (
-                    <motion.div
-                      key={`quiz-${currentSlideIndex}`}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="space-y-4"
-                    >
-                      <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-3">
-                        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
-                          <HelpCircle className="w-5 h-5 text-primary-foreground" />
-                        </div>
-                        <div>
-                          <h2 className="text-base font-bold text-foreground truncate max-w-[200px]">
-                            {currentSlide?.title || t('lecture:chrome.quizFallback')}
-                          </h2>
-                          <p className="text-xs text-muted-foreground">{t('lecture:chrome.knowledgeCheck')}</p>
-                        </div>
-                      </div>
-                      <QuizCard
-                        question={currentQuestion.question_text}
-                        options={currentQuestion.options}
-                        correctAnswer={currentQuestion.correct_answer}
-                        onAnswer={handleQuizAnswer}
-                        onContinue={handleQuizContinue}
-                        continueLabel={currentSlideIndex < slides.length - 1 ? t('lecture:navigation.continue') : t('lecture:navigation.finishLecture')}
-                        questionNumber={currentSlideIndex + 1}
-                        totalQuestions={slides.length}
-                        initialSelectedAnswer={quizAnswers[currentSlideIndex]}
-                        explanation={currentQuestion.explanation}
-                        concept={currentQuestion.concept}
-                        // ``linked_slides`` are 0-based indices from the
-                        // planner; chip labels use 1-based slide numbers.
-                        linkedSlides={
-                          currentQuestion.linked_slides && currentQuestion.linked_slides.length > 0
-                            ? currentQuestion.linked_slides.map((i) => i + 1)
-                            : undefined
-                        }
-                        onJumpToSlide={(slideNumber) => {
-                          const idx = Math.max(0, Math.min(slides.length - 1, slideNumber - 1));
-                          goToSlide(idx);
-                          setShowQuiz(quizAnswers[idx] !== undefined);
-                        }}
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="bg-card rounded-2xl border border-border p-6"
-                    >
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center">
-                            <HelpCircle className="w-6 h-6 text-primary-foreground" />
-                          </div>
-                          <div>
-                            <h1 className="text-xl font-bold text-foreground">
-                              {currentSlide?.title || t('lecture:chrome.slideFallback')}
-                            </h1>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-4">
-                        {t('lecture:chrome.readSlideHint')}
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+            {/* Right Column: Tabs (Slide, Worksheets, Related) */}
+            <div className="flex flex-col bg-[#0a0a12]/50 border border-white/5 rounded-3xl p-6 relative overflow-hidden backdrop-blur-sm min-h-[500px]">
+              
+              {/* Tabs UI */}
+              <div className="flex items-center gap-6 border-b border-white/10 pb-4 mb-4">
+                {(['slide', 'worksheets', 'related'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      setActiveTab(tab);
+                      if (tab !== 'slide') setChatActive(false);
+                    }}
+                    className={cn(
+                      "text-sm font-bold uppercase tracking-widest transition-colors py-3 px-2 -ml-2 rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+                      activeTab === tab ? "text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    )}
+                  >
+                    {tab === 'slide' ? 'Notes & Chat' : tab}
+                  </button>
+                ))}
               </div>
+
+              {/* Assessment Overlays */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                {lectureCompleted ? (
+                  <LectureRecap
+                    items={recapItems}
+                    xpEarned={xpEarned}
+                    correctOnFirstTry={correctAnswers}
+                    totalQuestions={questions.length || slides.length}
+                    onDone={() => navigate(role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME)}
+                  />
+                ) : reviewStage && currentReviewItem ? (
+                  <motion.div
+                    key={`review-${reviewIndex}`}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="space-y-4"
+                    data-testid="review-stage"
+                  >
+
+                    <QuizCard
+                      key={`review-card-${reviewIndex}`}
+                      question={currentReviewItem.question.question_text}
+                      options={currentReviewItem.question.options}
+                      correctAnswer={currentReviewItem.question.correct_answer}
+                      onAnswer={handleReviewAnswer}
+                      onContinue={handleReviewContinue}
+                      continueLabel={
+                        reviewIndex < missedQueueRef.current.length - 1
+                          ? t('lecture:navigation.next')
+                          : t('lecture:navigation.finishLecture')
+                      }
+                      questionNumber={reviewIndex + 1}
+                      totalQuestions={missedQueueRef.current.length}
+                      initialSelectedAnswer={reviewSelectedAnswer}
+                      explanation={currentReviewItem.question.explanation}
+                      concept={currentReviewItem.question.concept}
+                    />
+                  </motion.div>
+                ) : showQuiz && currentQuestion ? (
+                  <motion.div
+                    key={`quiz-${currentSlideIndex}`}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="space-y-4"
+                  >
+
+                    <QuizCard
+                      question={currentQuestion.question_text}
+                      options={currentQuestion.options}
+                      correctAnswer={currentQuestion.correct_answer}
+                      onAnswer={handleQuizAnswer}
+                      onContinue={handleQuizContinue}
+                      continueLabel={currentSlideIndex < slides.length - 1 ? t('lecture:navigation.continue') : t('lecture:navigation.finishLecture')}
+                      questionNumber={currentSlideIndex + 1}
+                      totalQuestions={slides.length}
+                      initialSelectedAnswer={quizAnswers[currentSlideIndex]}
+                      explanation={currentQuestion.explanation}
+                      concept={currentQuestion.concept}
+                      linkedSlides={
+                        currentQuestion.linked_slides && currentQuestion.linked_slides.length > 0
+                          ? currentQuestion.linked_slides.map((i) => i + 1)
+                          : undefined
+                      }
+                      onJumpToSlide={(slideNumber) => {
+                        const idx = Math.max(0, Math.min(slides.length - 1, slideNumber - 1));
+                        goToSlide(idx);
+                        setShowQuiz(quizAnswers[idx] !== undefined);
+                      }}
+                    />
+                  </motion.div>
+                ) : (
+                  /* Tabs Content */
+                  <div className="w-full">
+                    {activeTab === 'worksheets' && (
+                      <div className="space-y-6">
+                        {lectureId && (
+                          <>
+                            <div className="bg-card/20 rounded-2xl border border-white/5 p-5">
+                              <WorksheetsPanel lectureId={lectureId} editable={role === 'professor'} />
+                            </div>
+                            {role !== 'professor' && (
+                              <div className="bg-card/20 rounded-2xl border border-white/5 p-5">
+                                <StudentPracticeSheetsPanel lectureId={lectureId} />
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {activeTab === 'related' && (
+                      <div className="space-y-6">
+                        {lectureId && (
+                          <div className="bg-card/20 rounded-2xl border border-white/5 p-5">
+                            <RelatedAcrossCoursesPanel lectureId={lectureId} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {activeTab === 'slide' && (
+                      chatActive ? (
+                        <div className="flex flex-col min-h-[320px]">
+                          <div className="flex items-center gap-3 py-2">
+                            <button
+                              onClick={() => setChatActive(false)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+                              aria-label="Back to slide notes"
+                            >
+                              <ArrowLeft className="h-4 w-4" />
+                            </button>
+                            <span className="text-sm font-semibold">Tutor</span>
+                          </div>
+                          <div ref={chatScrollRef} className="flex-1 space-y-8 py-4">
+                            {messages.map((m) =>
+                              m.role === 'user' ? (
+                                <div key={m.id} className="flex flex-col items-end text-right w-full">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">You</span>
+                                  <div className="text-sm text-indigo-200/80 max-w-[85%] leading-relaxed whitespace-pre-wrap">
+                                    {m.content}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div key={m.id} className="flex flex-col items-start text-left w-full">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Response</span>
+                                  <div className="text-sm text-foreground max-w-[85%]">
+                                    <div className={PROSE_CLASS + ' prose-p:text-sm prose-li:text-sm'}>
+                                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                        {m.content}
+                                      </ReactMarkdown>
+                                    </div>
+                                  </div>
+                                </div>
+                              ),
+                            )}
+                            {streaming && (
+                              <div className="flex flex-col items-start text-left w-full">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Response</span>
+                                <div className="text-sm text-foreground max-w-[85%]">
+                                  <div className={PROSE_CLASS + ' prose-p:text-sm prose-li:text-sm'}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                      {streaming}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {chatLoading && !streaming && (
+                              <div className="flex items-center gap-2 px-1 text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span className="text-xs">Thinking…</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="pt-2">
+                          {currentSlide?.title && (
+                            <h3 className="mb-4 text-2xl font-black tracking-tight">{currentSlide.title}</h3>
+                          )}
+                          {currentSlide?.summary || currentSlide?.content_text ? (
+                            <div className={PROSE_CLASS}>
+                              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                {currentSlide.summary || currentSlide.content_text || ''}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/60">
+                              <BookOpen className="w-12 h-12 opacity-20 mb-4" />
+                              <p>This slide has no notes yet.</p>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Chat Input (Right Column) */}
+              {!lectureCompleted && !reviewStage && !showQuiz && activeTab === 'slide' && slides.length > 0 && (
+                <div className="pt-4 mt-2 border-t border-white/10 shrink-0">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAsk();
+                    }}
+                    className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 backdrop-blur-sm focus-within:border-primary/40"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-muted-foreground">
+                      <Plus className="h-4 w-4" />
+                    </span>
+                    <input
+                      ref={chatInputRef}
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Ask AI about this slide…"
+                      disabled={chatLoading}
+                      className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 rounded-md"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!chatInput.trim() || chatLoading}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary transition-opacity hover:opacity-90 disabled:opacity-30 disabled:shadow-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                      aria-label="Send"
+                    >
+                      {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Level-up / badge popups are rendered globally by GamificationProvider. */}
-
-          </div> {/* End of scrollable center column */}
-          </ResizablePanel>
-
-          {/* Right Column - Chatbot */}
-          {isChatOpen && (
-            <>
-              <ResizableHandle withHandle className="hidden md:flex bg-white/10" />
-              <ResizablePanel defaultSize={30} minSize={20} maxSize={50} className="hidden md:block bg-surface-1/30">
-                <LectureChat
-                  isOpen={isChatOpen}
-                  onClose={() => setIsChatOpen(false)}
-                  slideText={currentSlide?.content_text || ''}
-                  slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
-                  slideId={currentSlide?.id}
-                  sessionId={sessionIdRef.current}
-                  lectureId={lectureId}
-                  currentSlideIndex={currentSlideIndex}
-                  onSlideJump={(idx) => {
-                    if (idx >= 0 && idx < slides.length) {
-                      goToSlide(idx);
-                    }
-                  }}
-                  isInline={true}
-                />
-              </ResizablePanel>
-            </>
-          )}
-          
-          {/* Mobile Chat Drawer (Fallback) */}
-          <div className="md:hidden">
-            <LectureChat
-              isOpen={isChatOpen}
-              onClose={() => setIsChatOpen(false)}
-              slideText={currentSlide?.content_text || ''}
-              slideTitle={currentSlide?.title || t('lecture:chrome.slideFallback')}
-              slideId={currentSlide?.id}
-              sessionId={sessionIdRef.current}
-              lectureId={lectureId}
-              currentSlideIndex={currentSlideIndex}
-              onSlideJump={(idx) => {
-                if (idx >= 0 && idx < slides.length) {
-                  goToSlide(idx);
-                }
-              }}
-              isInline={false}
-            />
-          </div>
-        </ResizablePanelGroup> {/* End of Resizable container */}
+        </div>
       </div>
-    </div>
+    </DepthScene>
   );
 }

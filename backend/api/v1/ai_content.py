@@ -21,7 +21,7 @@ _security = HTTPBearer()
 # the other. Unknown models fall back to the default chain, so the list is the
 # public request contract, not a hard capability gate.
 _AiModelLiteral = Literal[
-    "cerebras", "groq", "groq_fast", "openrouter", "cloudflare", "gemini",
+    "auto", "cerebras", "groq", "groq_fast", "openrouter", "cloudflare", "gemini",
     "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemma",
     "mistral", "openai", "gpt-4o-mini"
 ]

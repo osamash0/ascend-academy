@@ -330,8 +330,7 @@ describe("LectureView replay stage", () => {
 
     await walkThroughWithBothWrong();
 
-    expect(screen.getByText(/Review missed questions/i)).toBeInTheDocument();
-    expect(screen.getByText(/1 of 2/i)).toBeInTheDocument();
+    expect(screen.getByTestId("review-stage")).toBeInTheDocument();
     // The first missed question (Question 1) is shown first.
     expect(screen.getByText("Question 1?")).toBeInTheDocument();
   });
@@ -361,7 +360,7 @@ describe("LectureView replay stage", () => {
     // Continue to the second review question.
     fireEvent.click(screen.getByTestId("quiz-continue"));
     await waitFor(() => screen.getByText("Question 2?"));
-    expect(screen.getByText(/2 of 2/i)).toBeInTheDocument();
+    // Wait for the second question to mount
 
     // Answer the second wrong intentionally — second wrong is allowed and
     // must not loop back. Correct is B (index 1); pick A again.

@@ -119,7 +119,7 @@ export const QuizCard = memo(function QuizCard({
   const isCorrect = selectedAnswer === correctAnswer;
 
   return (
-    <div className="glass-card p-8 border-white/5 rounded-[32px] shadow-2xl relative overflow-hidden group">
+    <div className="glass-card p-6 border-white/5 rounded-3xl shadow-2xl relative overflow-hidden group">
       {/* Dynamic Background Glow */}
       <AnimatePresence>
         {showResult && (
@@ -131,7 +131,7 @@ export const QuizCard = memo(function QuizCard({
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-5">
         <div className="flex flex-col gap-1">
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">{t('lecture:quiz.evaluation', { defaultValue: 'Quiz' })}</p>
           <span className="text-sm font-bold text-foreground">
@@ -203,11 +203,11 @@ export const QuizCard = memo(function QuizCard({
         </div>
       )}
 
-      <h3 className="text-2xl font-bold text-foreground mb-10 tracking-tight leading-tight">
+      <h3 className="text-xl font-bold text-foreground mb-6 tracking-tight leading-tight">
         {question}
       </h3>
 
-      <div className="grid grid-cols-1 gap-4" role="radiogroup" aria-label="Quiz options">
+      <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label="Quiz options">
         {options.map((option, index) => {
           const isSelected = selectedAnswer === index;
           const isCorrectOption = index === correctAnswer;
@@ -239,7 +239,7 @@ export const QuizCard = memo(function QuizCard({
               role="radio"
               aria-checked={isSelected}
               aria-label={`Option ${String.fromCharCode(65 + index)}: ${option}`}
-              className={`w-full p-6 rounded-2xl border-2 text-left transition-all duration-300 ${optionClass} ${showResult ? 'cursor-default' : 'cursor-pointer'} relative overflow-hidden group/option`}
+              className={`w-full p-4 rounded-2xl border-2 text-left transition-all duration-300 ${optionClass} ${showResult ? 'cursor-default' : 'cursor-pointer'} relative overflow-hidden group/option`}
               onClick={() => handleAnswer(index)}
               disabled={showResult}
               initial={{ opacity: 0, y: 10 }}

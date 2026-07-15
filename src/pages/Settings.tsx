@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
     User, Mail, Camera, Save, Loader2, Trash2, Download,
-    Lock, Eye, EyeOff, BrainCircuit, Shield, CheckCircle2, Languages
+    Lock, Eye, EyeOff, BrainCircuit, Shield, CheckCircle2, Languages,
+    Settings2, Database, Sliders, Globe, AlertTriangle
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth, Profile } from '@/lib/auth';
@@ -11,18 +12,13 @@ import { useLanguagePreference } from '@/hooks/useLanguagePreference';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { supabase } from '@/integrations/supabase/client';
 import { apiClient } from '@/lib/apiClient';
-import { exportAccountData, deleteAccountData } from '@/services/studentService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { UniversityEmailLink } from '@/components/UniversityEmailLink';
-import { AcademicProfileEditor } from '@/components/AcademicProfileEditor';
 import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-// ... exported Profile from @/lib/auth is used instead
 
 interface ExportData {
     exported_at: string;
@@ -32,13 +28,7 @@ interface ExportData {
     learning_events: unknown[] | null;
 }
 
-type AiModelOption =
-    | 'auto'
-    | 'cerebras'
-    | 'groq'
-    | 'openrouter'
-    | 'cloudflare'
-    | 'openai';
+type AiModelOption = 'auto' | 'cerebras' | 'groq' | 'openrouter' | 'cloudflare' | 'openai';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -51,14 +41,7 @@ const PRESET_AVATARS = [
     { url: 'https://api.dicebear.com/7.x/personas/svg?seed=Riley&backgroundColor=ffdfbf', label: 'Persona Riley' },
 ] as const;
 
-const AI_MODEL_IDS: AiModelOption[] = [
-    'auto',
-    'cerebras',
-    'groq',
-    'openai',
-    'openrouter',
-    'cloudflare',
-];
+const AI_MODEL_IDS: AiModelOption[] = ['auto', 'cerebras', 'groq', 'openai', 'openrouter', 'cloudflare'];
 
 // ─── Custom Hook: Safe Async State ───────────────────────────────────────────
 
@@ -77,9 +60,9 @@ function useSafeAsync() {
     return { isMounted, safeSetState };
 }
 
-// ─── Sub-Components ──────────────────────────────────────────────────────────
+// ─── Components ──────────────────────────────────────────────────────────────
 
-function AvatarSection({
+function GeneralSettings({
     profile,
     user,
     onUpdate
@@ -92,197 +75,15 @@ function AvatarSection({
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
     const gamification = useGamification();
+
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (!event.target.files?.length || !user) return;
-
-        safeSetState(setIsUploading, true);
-
-        try {
-            const file = event.target.files[0];
-            const fileExt = file.name.split('.').pop();
-            const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ avatar_url: publicUrl })
-                .eq('user_id', user.id);
-
-            if (updateError) throw updateError;
-
-            await onUpdate();
-            gamification.evaluate();   // photo set → may earn "Identity Set"
-            toast({
-                title: t('settings:avatar.updated'),
-                description: t('settings:avatar.updatedDescription'),
-            });
-        } catch (error: unknown) {
-            toast({
-                title: t('settings:avatar.uploadError'),
-                description: error instanceof Error ? error.message : t('settings:avatar.uploadErrorDescription'),
-                variant: "destructive"
-            });
-        } finally {
-            safeSetState(setIsUploading, false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    }, [user, onUpdate, toast, safeSetState]);
-
-    const handleSelectPreset = useCallback(async (url: string) => {
-        if (!user) return;
-        safeSetState(setIsUploading, true);
-
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ avatar_url: url })
-                .eq('user_id', user.id);
-
-            if (error) throw error;
-
-            await onUpdate();
-            gamification.evaluate();   // photo set → may earn "Identity Set"
-            toast({
-                title: t('settings:avatar.updated'),
-                description: t('settings:avatar.presetUpdated'),
-            });
-        } catch {
-            toast({
-                title: t('settings:avatar.presetError'),
-                description: t('settings:avatar.presetErrorDescription'),
-                variant: "destructive"
-            });
-        } finally {
-            safeSetState(setIsUploading, false);
-        }
-    }, [user, onUpdate, toast, safeSetState]);
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="md:col-span-1"
-        >
-            <div className="bg-card rounded-2xl border border-border p-6 flex flex-col items-center text-center">
-                <div className="relative mb-6">
-                    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-background shadow-xl bg-muted flex items-center justify-center relative group">
-                        {profile?.avatar_url ? (
-                            <img
-                                src={profile.avatar_url}
-                                alt="Profile avatar"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'User'}`;
-                                }}
-                            />
-                        ) : (
-                            <User className="w-12 h-12 text-muted-foreground" aria-hidden="true" />
-                        )}
-
-                        <div
-                            className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                            onClick={() => fileInputRef.current?.click()}
-                            role="button"
-                            tabIndex={0}
-                            aria-label={t('settings:avatar.changeAvatar')}
-                        >
-                            <Camera className="w-8 h-8 text-white mb-2" aria-hidden="true" />
-                            <span className="text-white text-xs font-medium">{t('settings:avatar.changeAvatar')}</span>
-                        </div>
-                    </div>
-
-                    {isUploading && (
-                        <div className="absolute inset-0 rounded-full flex items-center justify-center bg-background/80 backdrop-blur-sm z-10 border-4 border-background">
-                            <Loader2 className="w-8 h-8 text-primary animate-spin" aria-hidden="true" />
-                        </div>
-                    )}
-                </div>
-
-                <h3 className="font-semibold text-lg">{profile?.full_name || t('settings:avatar.anonymousUser')}</h3>
-                <p className="text-muted-foreground text-sm mb-6">{profile?.email}</p>
-
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    disabled={isUploading}
-                    aria-label={t('settings:aria.uploadAvatar')}
-                />
-
-                <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                >
-                    <Camera className="w-4 h-4 mr-2" aria-hidden="true" />
-                    {t('settings:avatar.uploadPhoto')}
-                </Button>
-
-                <div className="w-full mt-6 pt-6 border-t border-border">
-                    <p className="text-sm font-medium text-foreground mb-3 text-left">{t('settings:avatar.presetsTitle')}</p>
-                    <div className="grid grid-cols-3 gap-3">
-                        {PRESET_AVATARS.map((preset) => (
-                            <button
-                                key={preset.url}
-                                onClick={() => handleSelectPreset(preset.url)}
-                                disabled={isUploading}
-                                aria-label={`Select ${preset.label} avatar`}
-                                aria-pressed={profile?.avatar_url === preset.url}
-                                className={`w-full aspect-square rounded-xl flex items-center justify-center p-2 border-2 transition-all 
-                                    ${profile?.avatar_url === preset.url
-                                        ? 'border-primary bg-primary/10 scale-105'
-                                        : 'border-border bg-muted/50 hover:border-primary/50 hover:bg-muted/80'}`}
-                            >
-                                <img
-                                    src={preset.url}
-                                    alt={preset.label}
-                                    className="w-full h-full object-contain"
-                                    loading="lazy"
-                                />
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </motion.div>
-    );
-}
-
-function ProfileForm({
-    profile,
-    user,
-    onUpdate
-}: {
-    profile: Profile | null;
-    user: { id: string } | null;
-    onUpdate: () => Promise<void>;
-}) {
-    const { t } = useTranslation(['settings', 'common']);
-    const { toast } = useToast();
-    const { safeSetState } = useSafeAsync();
-    const gamification = useGamification();
 
     const [fullName, setFullName] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // Only sync on initial load to prevent race conditions
     useEffect(() => {
         if (profile && !isInitialized) {
             setFullName(profile.full_name || '');
@@ -294,27 +95,67 @@ function ProfileForm({
     const hasUnsavedChanges = fullName !== (profile?.full_name || '') ||
         displayName !== (profile?.display_name || '');
 
-    const handleSave = useCallback(async () => {
+    const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!event.target.files?.length || !user) return;
+        safeSetState(setIsUploading, true);
+
+        try {
+            const file = event.target.files[0];
+            const fileExt = file.name.split('.').pop();
+            const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+            const { error: updateError } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('user_id', user.id);
+            if (updateError) throw updateError;
+
+            await onUpdate();
+            gamification.evaluate();
+            toast({ title: t('settings:avatar.updated'), description: t('settings:avatar.updatedDescription') });
+        } catch (error: unknown) {
+            toast({
+                title: t('settings:avatar.uploadError'),
+                description: error instanceof Error ? error.message : t('settings:avatar.uploadErrorDescription'),
+                variant: "destructive"
+            });
+        } finally {
+            safeSetState(setIsUploading, false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    }, [user, onUpdate, toast, safeSetState, gamification, t]);
+
+    const handleSelectPreset = useCallback(async (url: string) => {
+        if (!user) return;
+        safeSetState(setIsUploading, true);
+        try {
+            const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', user.id);
+            if (error) throw error;
+            await onUpdate();
+            gamification.evaluate();
+            toast({ title: t('settings:avatar.updated'), description: t('settings:avatar.presetUpdated') });
+        } catch {
+            toast({ title: t('settings:avatar.presetError'), description: t('settings:avatar.presetErrorDescription'), variant: "destructive" });
+        } finally {
+            safeSetState(setIsUploading, false);
+        }
+    }, [user, onUpdate, toast, safeSetState, gamification, t]);
+
+    const handleSaveProfile = useCallback(async () => {
         if (!user) return;
         safeSetState(setIsSaving, true);
 
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({
-                    full_name: fullName.trim() || null,
-                    display_name: displayName.trim() || null
-                })
-                .eq('user_id', user.id);
+            const { error } = await supabase.from('profiles').update({
+                full_name: fullName.trim() || null,
+                display_name: displayName.trim() || null
+            }).eq('user_id', user.id);
 
             if (error) throw error;
-
             await onUpdate();
-            gamification.evaluate();   // name set → may earn "Identity Set"
-            toast({
-                title: t('settings:profile.updated'),
-                description: t('settings:profile.updatedDescription'),
-            });
+            gamification.evaluate();
+            toast({ title: t('settings:profile.updated'), description: t('settings:profile.updatedDescription') });
         } catch (error: unknown) {
             toast({
                 title: t('settings:profile.saveError'),
@@ -324,115 +165,137 @@ function ProfileForm({
         } finally {
             safeSetState(setIsSaving, false);
         }
-    }, [user, fullName, displayName, onUpdate, toast, safeSetState]);
+    }, [user, fullName, displayName, onUpdate, toast, safeSetState, gamification, t]);
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="md:col-span-2"
-        >
-            <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
-                <div>
-                    <h2 className="text-xl font-semibold mb-4">{t('settings:profile.personalInfo')}</h2>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <label htmlFor="fullName" className="text-sm font-medium">{t('settings:profile.fullName')}</label>
-                            <div className="relative">
-                                <User className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                                <Input
-                                    id="fullName"
-                                    placeholder={t('settings:profile.fullNamePlaceholder')}
-                                    className="pl-10"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    maxLength={100}
+        <div className="space-y-8 animate-in fade-in duration-300">
+            <div>
+                <h2 className="text-xl font-medium text-foreground">{t('settings:profile.personalInfo')}</h2>
+                <p className="text-sm text-muted-foreground mt-1">Manage your identity and profile information.</p>
+            </div>
+            
+            <div className="flex flex-col md:flex-row gap-8 pb-8 border-b border-border">
+                {/* Avatar Section */}
+                <div className="flex-shrink-0 flex flex-col items-center">
+                    <div className="relative mb-6 group">
+                        <div className="w-24 h-24 rounded-full overflow-hidden border border-border shadow-sm bg-muted flex items-center justify-center relative">
+                            {profile?.avatar_url ? (
+                                <img
+                                    src={profile.avatar_url}
+                                    alt="Profile avatar"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'User'}`;
+                                    }}
                                 />
-                            </div>
+                            ) : (
+                                <User className="w-10 h-10 text-muted-foreground" aria-hidden="true" />
+                            )}
+                            {isUploading && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+                                    <Loader2 className="w-6 h-6 text-primary animate-spin" aria-hidden="true" />
+                                </div>
+                            )}
                         </div>
 
-                        <div className="space-y-2">
-                            <label htmlFor="displayName" className="text-sm font-medium">{t('settings:profile.displayName')}</label>
-                            <div className="relative">
-                                <User className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                                <Input
-                                    id="displayName"
-                                    placeholder={t('settings:profile.displayNamePlaceholder')}
-                                    className="pl-10"
-                                    value={displayName}
-                                    onChange={(e) => setDisplayName(e.target.value)}
-                                    maxLength={50}
-                                />
-                            </div>
-                            <p className="text-xs text-muted-foreground">{t('settings:profile.displayNameHelp')}</p>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+                            disabled={isUploading}
+                            aria-label={t('settings:avatar.changeAvatar')}
+                            className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full shadow-md transition-transform active:scale-95 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        >
+                            <Camera className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                    </div>
 
-                        <div className="space-y-2">
-                            <label htmlFor="email" className="text-sm font-medium">{t('settings:profile.email')}</label>
-                            <div className="relative">
-                                <Mail className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                                <Input
-                                    id="email"
-                                    value={profile?.email || ''}
-                                    className="pl-10 opacity-70 cursor-not-allowed"
-                                    readOnly
-                                    disabled
-                                    aria-label={t('settings:profile.email')}
-                                />
-                            </div>
-                            <p className="text-xs text-muted-foreground">{t('settings:profile.emailHelp')}</p>
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} disabled={isUploading} aria-label={t('settings:aria.uploadAvatar')} />
+
+                    <div className="w-full mt-2 max-w-[200px]">
+                        <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider text-center">{t('settings:avatar.presetsTitle')}</p>
+                        <div className="grid grid-cols-3 gap-2">
+                            {PRESET_AVATARS.map((preset) => (
+                                <button
+                                    key={preset.url}
+                                    onClick={() => handleSelectPreset(preset.url)}
+                                    disabled={isUploading}
+                                    aria-label={`Select ${preset.label} avatar`}
+                                    aria-pressed={profile?.avatar_url === preset.url}
+                                    className={`w-full aspect-square rounded-lg flex items-center justify-center p-1.5 border transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
+                                        ${profile?.avatar_url === preset.url
+                                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                            : 'border-transparent bg-muted/50 hover:bg-muted'}`}
+                                >
+                                    <img src={preset.url} alt={preset.label} className="w-full h-full object-contain" loading="lazy" />
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </div>
 
-                <div className="pt-4 border-t border-border">
-                    <h3 className="text-sm font-semibold mb-3">Institution verification</h3>
-                    <UniversityEmailLink />
-                </div>
-
-                <div className="pt-4 border-t border-border">
-                    <h3 className="text-sm font-semibold mb-1">Academic profile</h3>
-                    <p className="text-xs text-muted-foreground mb-3">
-                        Set your university, program and courses to unlock classmate suggestions, course recommendations and cohort rankings.
-                    </p>
-                    <AcademicProfileEditor />
-                </div>
-
-                <div className="pt-4 border-t border-border flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">
-                        {hasUnsavedChanges ? (
-                            <span className="text-amber-500 font-medium">{t('settings:profile.unsavedChanges')}</span>
-                        ) : (
-                            <span className="text-emerald-500 font-medium flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> {t('settings:profile.upToDate')}
-                            </span>
-                        )}
+                {/* Profile Form */}
+                <div className="flex-grow space-y-6 max-w-xl">
+                    <div className="space-y-2">
+                        <label htmlFor="fullName" className="text-sm font-medium">{t('settings:profile.fullName')}</label>
+                        <Input
+                            id="fullName"
+                            placeholder={t('settings:profile.fullNamePlaceholder')}
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            maxLength={100}
+                        />
                     </div>
-                    <Button
-                        onClick={handleSave}
-                        disabled={isSaving || !hasUnsavedChanges}
-                        aria-live="polite"
-                    >
-                        {isSaving ? (
-                            <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
-                                {t('settings:saving')}
-                            </>
-                        ) : (
-                            <>
-                                <Save className="w-4 h-4 mr-2" aria-hidden="true" />
-                                {t('settings:save')}
-                            </>
-                        )}
-                    </Button>
+
+                    <div className="space-y-2">
+                        <label htmlFor="displayName" className="text-sm font-medium">{t('settings:profile.displayName')}</label>
+                        <Input
+                            id="displayName"
+                            placeholder={t('settings:profile.displayNamePlaceholder')}
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            maxLength={50}
+                        />
+                        <p className="text-xs text-muted-foreground">{t('settings:profile.displayNameHelp')}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label htmlFor="email" className="text-sm font-medium">{t('settings:profile.email')}</label>
+                        <Input
+                            id="email"
+                            value={profile?.email || ''}
+                            className="bg-muted text-muted-foreground cursor-not-allowed"
+                            readOnly
+                            disabled
+                            aria-label={t('settings:profile.email')}
+                        />
+                        <p className="text-xs text-muted-foreground">{t('settings:profile.emailHelp')}</p>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between">
+                        <div className="text-sm">
+                            {hasUnsavedChanges ? (
+                                <span className="text-amber-600 dark:text-amber-500 font-medium">{t('settings:profile.unsavedChanges')}</span>
+                            ) : (
+                                <span className="text-emerald-600 dark:text-emerald-500 font-medium flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-4 h-4" /> {t('settings:profile.upToDate')}
+                                </span>
+                            )}
+                        </div>
+                        <Button onClick={handleSaveProfile} disabled={isSaving || !hasUnsavedChanges} aria-live="polite" className="active:scale-[0.98] transition-transform">
+                            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" /> : <Save className="w-4 h-4 mr-2" aria-hidden="true" />}
+                            {t('settings:save')}
+                        </Button>
+                    </div>
                 </div>
             </div>
-        </motion.div>
+
+
+        </div>
     );
 }
 
-function SecuritySection({ user }: { user: { email?: string } | null }) {
+function SecuritySettings({ user }: { user: { email?: string } | null }) {
     const { t } = useTranslation(['settings', 'common']);
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
@@ -453,18 +316,13 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
         safeSetState(setIsChangingPassword, true);
 
         try {
-            // Verify current password first
             const { error: signInError } = await supabase.auth.signInWithPassword({
                 email: user.email,
                 password: currentPassword,
             });
 
             if (signInError) {
-                toast({
-                    title: t('settings:security.currentIncorrect'),
-                    description: t('settings:security.currentIncorrectDescription'),
-                    variant: 'destructive'
-                });
+                toast({ title: t('settings:security.currentIncorrect'), description: t('settings:security.currentIncorrectDescription'), variant: 'destructive' });
                 return;
             }
 
@@ -486,24 +344,19 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
         } finally {
             safeSetState(setIsChangingPassword, false);
         }
-    }, [user, currentPassword, newPassword, canChangePassword, toast, safeSetState]);
+    }, [user, currentPassword, newPassword, canChangePassword, toast, safeSetState, t]);
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="bg-card rounded-2xl border border-border p-6"
-        >
-            <div className="flex items-center gap-2 mb-4">
-                <Shield className="w-5 h-5 text-primary" aria-hidden="true" />
-                <h2 className="text-xl font-semibold text-foreground">{t('settings:security.title')}</h2>
+        <div className="space-y-8 animate-in fade-in duration-300">
+            <div>
+                <h2 className="text-xl font-medium text-foreground">{t('settings:security.title')}</h2>
+                <p className="text-sm text-muted-foreground mt-1">Update your password to keep your account secure.</p>
             </div>
-            <div className="space-y-4">
-                <div>
-                    <label htmlFor="currentPassword" className="text-sm font-medium text-foreground mb-1 block">{t('settings:security.currentPassword')}</label>
+
+            <div className="space-y-6 max-w-md">
+                <div className="space-y-2">
+                    <label htmlFor="currentPassword" className="text-sm font-medium">{t('settings:security.currentPassword')}</label>
                     <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                         <Input
                             id="currentPassword"
                             type={showCurrentPassword ? 'text' : 'password'}
@@ -511,12 +364,12 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                             value={currentPassword}
                             onChange={(e) => setCurrentPassword(e.target.value)}
                             autoComplete="current-password"
-                            className="pl-10 pr-10"
+                            className="pr-12"
                         />
                         <button
                             type="button"
                             onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-pressed={showCurrentPassword}
                             aria-label={t('settings:aria.toggleCurrentPassword')}
                         >
@@ -525,10 +378,9 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                     </div>
                 </div>
 
-                <div>
-                    <label htmlFor="newPassword" className="text-sm font-medium text-foreground mb-1 block">{t('settings:security.newPassword')}</label>
+                <div className="space-y-2">
+                    <label htmlFor="newPassword" className="text-sm font-medium">{t('settings:security.newPassword')}</label>
                     <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                         <Input
                             id="newPassword"
                             type={showNewPassword ? 'text' : 'password'}
@@ -536,13 +388,13 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             autoComplete="new-password"
-                            className="pl-10 pr-10"
+                            className="pr-12"
                             minLength={6}
                         />
                         <button
                             type="button"
                             onClick={() => setShowNewPassword(!showNewPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-pressed={showNewPassword}
                             aria-label={t('settings:aria.toggleNewPassword')}
                         >
@@ -550,14 +402,13 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                         </button>
                     </div>
                     {newPassword && newPassword.length < 6 && (
-                        <p className="text-xs text-destructive mt-1">{t('settings:security.passwordTooShort')}</p>
+                        <p className="text-xs text-destructive">{t('settings:security.passwordTooShort')}</p>
                     )}
                 </div>
 
-                <div>
-                    <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground mb-1 block">{t('settings:security.confirmPassword')}</label>
+                <div className="space-y-2">
+                    <label htmlFor="confirmPassword" className="text-sm font-medium">{t('settings:security.confirmPassword')}</label>
                     <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                         <Input
                             id="confirmPassword"
                             type={showConfirmPassword ? 'text' : 'password'}
@@ -565,12 +416,12 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             autoComplete="new-password"
-                            className={`pl-10 pr-10 ${!passwordsMatch ? 'border-destructive' : ''}`}
+                            className={`pr-12 ${!passwordsMatch ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                         />
                         <button
                             type="button"
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-pressed={showConfirmPassword}
                             aria-label={t('settings:aria.toggleConfirmPassword')}
                         >
@@ -578,34 +429,106 @@ function SecuritySection({ user }: { user: { email?: string } | null }) {
                         </button>
                     </div>
                     {!passwordsMatch && (
-                        <p className="text-xs text-destructive mt-1">{t('settings:security.passwordsDontMatch')}</p>
+                        <p className="text-xs text-destructive">{t('settings:security.passwordsDontMatch')}</p>
                     )}
                 </div>
 
                 <Button
                     disabled={isChangingPassword || !canChangePassword}
                     onClick={handleChangePassword}
+                    className="w-full sm:w-auto active:scale-[0.98] transition-transform"
                 >
-                    {isChangingPassword ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />{t('settings:security.changing')}</>
-                    ) : (
-                        <><Lock className="w-4 h-4 mr-2" aria-hidden="true" />{t('settings:security.changePassword')}</>
-                    )}
+                    {isChangingPassword ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" /> : <Lock className="w-4 h-4 mr-2" aria-hidden="true" />}
+                    {isChangingPassword ? t('settings:security.changing') : t('settings:security.changePassword')}
                 </Button>
             </div>
-        </motion.div>
+        </div>
     );
 }
 
-function DataPrivacySection({
-    user,
-    signOut,
-    navigate
-}: {
-    user: { id: string } | null;
-    signOut: () => Promise<void>;
-    navigate: ReturnType<typeof useNavigate>;
-}) {
+function PreferencesSettings() {
+    const { t } = useTranslation(['settings', 'common']);
+    const { language, setLanguage } = useLanguagePreference();
+    const { aiModel, setAiModel } = useAiModel();
+    const { toast } = useToast();
+
+    const [pendingModel, setPendingModel] = useState<AiModelOption>(aiModel as AiModelOption);
+    const hasAiChanges = pendingModel !== (aiModel as AiModelOption);
+
+    const handleSaveAi = useCallback(() => {
+        setAiModel(pendingModel);
+        toast({ title: t('settings:ai.savedTitle'), description: t('settings:ai.savedDescription', { name: t(`settings:ai.models.${pendingModel}.name`) }) });
+    }, [pendingModel, setAiModel, toast, t]);
+
+    return (
+        <div className="space-y-10 animate-in fade-in duration-300">
+            <div>
+                <h2 className="text-xl font-medium text-foreground">{t('settings:language.title')}</h2>
+                <p className="text-sm text-muted-foreground mt-1 mb-6">{t('settings:language.description')}</p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+                    {(['en', 'de'] as const).map((lng) => {
+                        const active = language === lng;
+                        return (
+                            <button
+                                key={lng}
+                                type="button"
+                                onClick={() => setLanguage(lng)}
+                                aria-pressed={active}
+                                className={`flex items-center gap-4 p-4 rounded-xl border transition-all active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                                    ${active ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card hover:border-primary/50'}`}
+                            >
+                                <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                                    <Globe className="w-5 h-5" aria-hidden="true" />
+                                </div>
+                                <div className="text-left flex-grow">
+                                    <p className="font-medium text-foreground">{lng === 'en' ? 'English' : 'Deutsch'}</p>
+                                    <p className="text-xs text-muted-foreground">{lng === 'en' ? t('settings:language.english') : t('settings:language.german')}</p>
+                                </div>
+                                {active && <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className="pt-8 border-t border-border">
+                <h2 className="text-xl font-medium text-foreground">{t('settings:ai.preferences')}</h2>
+                <p className="text-sm text-muted-foreground mt-1 mb-6">{t('settings:ai.preferencesDescription')}</p>
+
+                <RadioGroup value={pendingModel} onValueChange={(v) => setPendingModel(v as AiModelOption)} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 max-w-2xl">
+                    {AI_MODEL_IDS.map((modelId) => (
+                        <div key={modelId} className="relative">
+                            <RadioGroupItem value={modelId} id={`ai-${modelId}`} className="sr-only" />
+                            <label
+                                htmlFor={`ai-${modelId}`}
+                                className={`cursor-pointer block rounded-xl border p-4 transition-all active:scale-[0.98] outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2
+                                    ${pendingModel === modelId ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card hover:border-primary/50'}`}
+                            >
+                                <div className="flex items-start justify-between mb-2">
+                                    <h3 className="font-medium text-foreground">{t(`settings:ai.models.${modelId}.name`)}</h3>
+                                    {pendingModel === modelId && <CheckCircle2 className="w-5 h-5 text-primary" aria-hidden="true" />}
+                                </div>
+                                <p className="text-sm text-muted-foreground">{t(`settings:ai.models.${modelId}.description`)}</p>
+                            </label>
+                        </div>
+                    ))}
+                </RadioGroup>
+
+                {hasAiChanges && (
+                    <div className="flex justify-start">
+                        <Button onClick={handleSaveAi} className="active:scale-[0.98] transition-transform">
+                            <Save className="w-4 h-4 mr-2" aria-hidden="true" />
+                            {t('settings:ai.savePreference')}
+                        </Button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function DataPrivacySettings({ user, signOut, navigate }: { user: { id: string } | null; signOut: () => Promise<void>; navigate: ReturnType<typeof useNavigate>; }) {
     const { t } = useTranslation(['settings', 'common']);
     const { toast } = useToast();
     const { safeSetState } = useSafeAsync();
@@ -650,17 +573,13 @@ function DataPrivacySection({
         } finally {
             safeSetState(setIsExporting, false);
         }
-    }, [user, toast, safeSetState]);
+    }, [user, toast, safeSetState, t]);
 
     const handleDelete = useCallback(async () => {
         if (!user) return;
         safeSetState(setIsDeleting, true);
 
         try {
-            // Authoritative deletion: the backend removes the auth.users row via
-            // the service-role admin API, which cascades to every table that
-            // references it (profiles, achievements, progress, attempts, …) —
-            // including data the client can't reach. This is the AUTH-29 fix.
             let serverDeleted = false;
             try {
                 await apiClient.post('/api/auth/delete-account', {});
@@ -670,8 +589,6 @@ function DataPrivacySection({
             }
 
             if (!serverDeleted) {
-                // Fallback for an older backend: delete the client-reachable rows.
-                // (This path leaves the auth identity behind — the original AUTH-29 gap.)
                 const tables = ['learning_events', 'student_progress', 'achievements', 'user_roles', 'profiles'] as const;
                 for (const table of tables) {
                     const { error } = await supabase.from(table).delete().eq('user_id', user.id);
@@ -694,192 +611,70 @@ function DataPrivacySection({
             safeSetState(setIsDeleting, false);
             safeSetState(setShowDeleteConfirm, false);
         }
-    }, [user, signOut, navigate, toast, safeSetState]);
+    }, [user, signOut, navigate, toast, safeSetState, t]);
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-card rounded-2xl border border-border p-6"
-        >
-            <h2 className="text-xl font-semibold text-foreground mb-4">{t('settings:data.title')}</h2>
-
-            <div className="flex items-center justify-between py-4 border-b border-border">
-                <div>
-                    <p className="font-medium text-foreground">{t('settings:data.exportTitle')}</p>
-                    <p className="text-sm text-muted-foreground">{t('settings:data.exportDescription')}</p>
-                </div>
-                <Button
-                    variant="outline"
-                    onClick={handleExport}
-                    disabled={isExporting}
-                >
-                    {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" /> : <Download className="w-4 h-4 mr-2" aria-hidden="true" />}
-                    {isExporting ? t('settings:data.exporting') : t('settings:data.exportButton')}
-                </Button>
+        <div className="space-y-8 animate-in fade-in duration-300">
+            <div>
+                <h2 className="text-xl font-medium text-foreground">{t('settings:data.title')}</h2>
+                <p className="text-sm text-muted-foreground mt-1">Manage your data exports and account deletion.</p>
             </div>
 
-            <div className="pt-4">
-                <p className="font-medium text-destructive mb-1">{t('settings:data.dangerZone')}</p>
-                <p className="text-sm text-muted-foreground mb-3">
-                    {t('settings:data.deleteDescription')}
-                </p>
-                {!showDeleteConfirm ? (
-                    <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
-                        <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
-                        {t('settings:data.deleteButton')}
+            <div className="max-w-xl border rounded-xl overflow-hidden">
+                <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card">
+                    <div>
+                        <p className="font-medium text-foreground">{t('settings:data.exportTitle')}</p>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-[280px]">{t('settings:data.exportDescription')}</p>
+                    </div>
+                    <Button variant="outline" onClick={handleExport} disabled={isExporting} className="active:scale-[0.98] transition-transform w-full sm:w-auto shrink-0">
+                        {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" /> : <Download className="w-4 h-4 mr-2" aria-hidden="true" />}
+                        {isExporting ? t('settings:data.exporting') : t('settings:data.exportButton')}
                     </Button>
-                ) : (
-                    <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30">
-                        <p className="text-sm text-destructive font-medium">{t('settings:data.deleteConfirmShort')}</p>
-                        <div className="flex gap-2 shrink-0">
-                            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)}>{t('settings:data.cancel')}</Button>
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                disabled={isDeleting}
-                                onClick={handleDelete}
-                            >
-                                {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" /> : null}
-                                {isDeleting ? t('settings:data.deleting') : t('settings:data.deleteFinal')}
-                            </Button>
+                </div>
+                
+                <div className="p-6 border-t border-border bg-destructive/5">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" aria-hidden="true" />
+                        <div className="flex-grow">
+                            <p className="font-medium text-destructive">{t('settings:data.dangerZone')}</p>
+                            <p className="text-sm text-destructive/80 mt-1 mb-4">{t('settings:data.deleteDescription')}</p>
+                            
+                            {!showDeleteConfirm ? (
+                                <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} className="active:scale-[0.98] transition-transform">
+                                    <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                                    {t('settings:data.deleteButton')}
+                                </Button>
+                            ) : (
+                                <div className="flex flex-col gap-3 p-4 rounded-lg bg-background border border-destructive/20">
+                                    <p className="text-sm font-medium text-destructive">{t('settings:data.deleteConfirmShort')}</p>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)} className="flex-1">{t('settings:data.cancel')}</Button>
+                                        <Button variant="destructive" size="sm" disabled={isDeleting} onClick={handleDelete} className="flex-1 active:scale-[0.98] transition-transform">
+                                            {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" /> : null}
+                                            {isDeleting ? t('settings:data.deleting') : t('settings:data.deleteFinal')}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
-                )}
+                </div>
             </div>
-        </motion.div>
-    );
-}
-
-function LanguageSection() {
-    const { t } = useTranslation(['settings']);
-    const { language, setLanguage } = useLanguagePreference();
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.22 }}
-            className="bg-card rounded-2xl border border-border p-6"
-        >
-            <div className="flex items-center gap-3 mb-2">
-                <Languages className="w-6 h-6 text-primary" aria-hidden="true" />
-                <h2 className="text-xl font-semibold text-foreground">{t('settings:language.title')}</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">{t('settings:language.description')}</p>
-            <div className="grid grid-cols-2 gap-3">
-                {(['en', 'de'] as const).map((lng) => {
-                    const active = language === lng;
-                    return (
-                        <button
-                            key={lng}
-                            type="button"
-                            onClick={() => setLanguage(lng)}
-                            aria-pressed={active}
-                            className={`p-4 rounded-xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                                active
-                                    ? 'border-primary bg-primary/10 shadow-sm'
-                                    : 'border-border bg-card hover:border-primary/50'
-                            }`}
-                        >
-                            <div className="flex items-center justify-between">
-                                <span className="text-2xl" aria-hidden="true">{lng === 'en' ? '🇬🇧' : '🇩🇪'}</span>
-                                {active && <CheckCircle2 className="w-5 h-5 text-primary" aria-hidden="true" />}
-                            </div>
-                            <p className="mt-2 font-semibold text-foreground">
-                                {lng === 'en' ? t('settings:language.english') : t('settings:language.german')}
-                            </p>
-                        </button>
-                    );
-                })}
-            </div>
-        </motion.div>
-    );
-}
-
-function AiPreferencesSection() {
-    const { t } = useTranslation(['settings', 'common']);
-    const { aiModel, setAiModel } = useAiModel();
-    const { toast } = useToast();
-
-    const [pendingModel, setPendingModel] = useState<AiModelOption>(aiModel as AiModelOption);
-    const hasChanges = pendingModel !== (aiModel as AiModelOption);
-
-    const handleSave = useCallback(() => {
-        setAiModel(pendingModel);
-        toast({
-            title: t('settings:ai.savedTitle'),
-            description: t('settings:ai.savedDescription', { name: t(`settings:ai.models.${pendingModel}.name`) })
-        });
-    }, [pendingModel, setAiModel, toast, t]);
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20 p-6"
-        >
-            <div className="flex items-center gap-3 mb-4">
-                <BrainCircuit className="w-6 h-6 text-primary" aria-hidden="true" />
-                <h2 className="text-xl font-semibold text-foreground">{t('settings:ai.preferences')}</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-6">
-                {t('settings:ai.preferencesDescription')}
-            </p>
-
-            <RadioGroup value={pendingModel} onValueChange={(v) => setPendingModel(v as AiModelOption)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                {AI_MODEL_IDS.map((modelId) => (
-                    <div key={modelId} className="relative">
-                        <RadioGroupItem value={modelId} id={`ai-${modelId}`} className="sr-only" />
-                        <label
-                            htmlFor={`ai-${modelId}`}
-                            className={`cursor-pointer block rounded-xl border-2 p-4 transition-all outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2
-                                ${pendingModel === modelId
-                                    ? 'border-primary bg-primary/10 shadow-sm'
-                                    : 'border-border bg-card hover:border-primary/50'}`}
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <h3 className="font-semibold text-foreground">{t(`settings:ai.models.${modelId}.name`)}</h3>
-                                {pendingModel === modelId && (
-                                    <CheckCircle2 className="w-5 h-5 text-primary" aria-hidden="true" />
-                                )}
-                            </div>
-                            <p className="text-xs text-muted-foreground">{t(`settings:ai.models.${modelId}.description`)}</p>
-                        </label>
-                    </div>
-                ))}
-            </RadioGroup>
-
-            <AnimatePresence>
-                {hasChanges && (
-                    <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="flex justify-end"
-                    >
-                        <Button onClick={handleSave}>
-                            <Save className="w-4 h-4 mr-2" aria-hidden="true" />
-                            {t('settings:ai.savePreference')}
-                        </Button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </motion.div>
+        </div>
     );
 }
 
 function LoadingSkeleton() {
     return (
-        <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-            <div className="animate-pulse space-y-8">
-                <div className="h-8 bg-muted rounded w-1/3" />
-                <div className="h-4 bg-muted rounded w-1/2" />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="h-96 bg-muted rounded-2xl" />
-                    <div className="md:col-span-2 h-96 bg-muted rounded-2xl" />
+        <div className="animate-pulse space-y-8">
+            <div className="h-8 bg-muted rounded w-48" />
+            <div className="h-4 bg-muted rounded w-96" />
+            <div className="flex flex-col md:flex-row gap-8">
+                <div className="w-24 h-24 bg-muted rounded-full shrink-0" />
+                <div className="flex-grow space-y-4 max-w-xl">
+                    <div className="h-10 bg-muted rounded w-full" />
+                    <div className="h-10 bg-muted rounded w-full" />
+                    <div className="h-10 bg-muted rounded w-full" />
                 </div>
             </div>
         </div>
@@ -888,46 +683,81 @@ function LoadingSkeleton() {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
+const TABS = [
+    { id: 'general', label: 'General', icon: Settings2 },
+    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'preferences', label: 'Preferences', icon: Sliders },
+    { id: 'data', label: 'Data & Privacy', icon: Database },
+];
+
 export default function Settings() {
     const { t } = useTranslation(['settings', 'common']);
     const { user, profile, refreshProfile, signOut } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTab = searchParams.get('tab') || 'general';
+
+    const setActiveTab = (tab: string) => {
+        setSearchParams({ tab });
+    };
 
     if (!profile) {
-        return <LoadingSkeleton />;
+        return (
+            <div className="container max-w-6xl py-10 mx-auto px-4 md:px-8">
+                <LoadingSkeleton />
+            </div>
+        );
     }
 
     return (
-        <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold text-foreground">{t('settings:header.title')}</h1>
-                <p className="text-muted-foreground mt-1">{t('settings:header.subtitle')}</p>
+        <div className="container max-w-6xl py-10 mx-auto px-4 md:px-8">
+            <div className="mb-10">
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('settings:header.title')}</h1>
+                <p className="text-muted-foreground mt-2">{t('settings:header.subtitle')}</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <AvatarSection
-                    profile={profile as Profile}
-                    user={user}
-                    onUpdate={refreshProfile}
-                />
-                <ProfileForm
-                    profile={profile as Profile}
-                    user={user}
-                    onUpdate={refreshProfile}
-                />
-            </div>
+            <div className="flex flex-col lg:flex-row gap-10">
+                {/* Sidebar Navigation */}
+                <aside className="lg:w-1/4 shrink-0 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+                    <nav className="flex lg:flex-col gap-1 min-w-max lg:min-w-0" aria-label="Settings Navigation">
+                        {TABS.map((tab) => {
+                            const isActive = activeTab === tab.id;
+                            const Icon = tab.icon;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    aria-current={isActive ? 'page' : undefined}
+                                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-ring
+                                        ${isActive 
+                                            ? 'bg-primary/10 text-primary' 
+                                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                        }`}
+                                >
+                                    <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} aria-hidden="true" />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </nav>
+                </aside>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <SecuritySection user={user} />
-                <DataPrivacySection
-                    user={user}
-                    signOut={signOut}
-                    navigate={navigate}
-                />
+                {/* Main Content Area */}
+                <div className="flex-1 lg:max-w-3xl min-h-[500px]">
+                    {activeTab === 'general' && (
+                        <GeneralSettings profile={profile as Profile} user={user} onUpdate={refreshProfile} />
+                    )}
+                    {activeTab === 'security' && (
+                        <SecuritySettings user={user} />
+                    )}
+                    {activeTab === 'preferences' && (
+                        <PreferencesSettings />
+                    )}
+                    {activeTab === 'data' && (
+                        <DataPrivacySettings user={user} signOut={signOut} navigate={navigate} />
+                    )}
+                </div>
             </div>
-
-            <LanguageSection />
-            <AiPreferencesSection />
         </div>
     );
 }

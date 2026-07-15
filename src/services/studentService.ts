@@ -97,7 +97,7 @@ export async function fetchLectureProgress(userId: string, lectureId: string): P
     .select('lecture_id, completed_slides, slide_states, quiz_score, total_questions_answered, correct_answers, last_slide_viewed, completed_at, updated_at')
     .eq('user_id', userId)
     .eq('lecture_id', lectureId)
-    .single();
+    .maybeSingle();
 
   if (!data) return null;
   return {
@@ -183,7 +183,7 @@ export async function checkAchievementExists(userId: string, badgeName: string):
     .select('id')
     .eq('user_id', userId)
     .eq('badge_name', badgeName)
-    .single();
+    .maybeSingle();
   return !!data;
 }
 

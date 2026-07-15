@@ -81,7 +81,7 @@ export async function fetchLecture(idOrSlug: string): Promise<Lecture | null> {
     .from('lectures')
     .select('*, course:courses(id, title, color)')
     .eq('id', id)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error(`Error fetching lecture ${id}:`, error);
@@ -198,7 +198,7 @@ export async function fetchProfessorLectures(
   }
 
   const { data } = await query
-    .eq('professor_id', professorId)
+    .or(`professor_id.eq.${professorId},student_owner_id.eq.${professorId}`)
     .order('created_at', { ascending: false });
   return (data ?? []) as unknown as Lecture[];
 }
@@ -302,7 +302,7 @@ export async function loadLectureForEdit(lectureId: string): Promise<LectureForE
     .from('lectures')
     .select('*')
     .eq('id', lectureId)
-    .single();
+    .maybeSingle();
   if (lErr) throw lErr;
 
   const lectureRow = lecture as typeof lecture & {
@@ -484,7 +484,7 @@ export async function deleteLecture(lectureId: string): Promise<void> {
     .from('lectures')
     .select('pdf_url')
     .eq('id', lectureId)
-    .single();
+    .maybeSingle();
   if (lectureData?.pdf_url) {
     const rawValue = lectureData.pdf_url as string;
     // Support both legacy full public URLs and newer path-only values.

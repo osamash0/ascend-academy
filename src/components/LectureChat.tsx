@@ -50,6 +50,8 @@ interface LectureChatProps {
     onSlideJump?: (slideIndex: number) => void;
     /** Whether to render as an inline sidebar instead of a drawer. */
     isInline?: boolean;
+    /** Text to prefill into the input field when opened or updated. */
+    seedInput?: string;
 }
 
 /* ── Typing Indicator Animation ── */
@@ -84,6 +86,7 @@ export function LectureChat({
     currentSlideIndex,
     onSlideJump,
     isInline = false,
+    seedInput,
 }: LectureChatProps) {
     const { t } = useTranslation(['lecture']);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -123,6 +126,17 @@ export function LectureChat({
             return () => clearTimeout(timer);
         }
     }, [isOpen]);
+
+    // Apply seed input
+    useEffect(() => {
+        if (seedInput) {
+            setInput(seedInput);
+            if (isOpen && inputRef.current) {
+                const timer = setTimeout(() => inputRef.current?.focus(), 50);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [seedInput, isOpen]);
 
     // Cleanup abort controller on unmount
     useEffect(() => {

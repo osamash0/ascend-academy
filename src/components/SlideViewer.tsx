@@ -2,10 +2,11 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, BookOpen, Volume2,
-  Square, Play, Pause, Star, HelpCircle, Loader2, Sparkles
+  Square, Play, Pause, Star, HelpCircle, Loader2, Sparkles, Copy, Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Document, Page, pdfjs } from 'react-pdf';
+import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -58,6 +59,7 @@ interface SlideViewerProps {
   /** True right after a regenerate succeeds; shows the one-level "Undo" affordance. */
   canUndoRegenerate?: boolean;
   onUndoRegenerate?: () => void;
+  onAskAbout?: (text: string) => void;
 }
 
 /** Returns true when extracted text looks like garbage */
@@ -113,12 +115,57 @@ export function SlideViewer({
   regenInstruction = '',
   canUndoRegenerate = false,
   onUndoRegenerate,
+  onAskAbout,
 }: SlideViewerProps) {
   const showMindMap = false;
   // PDF state
   const [pdfError, setPdfError] = useState(false);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
+  const { toast } = useToast();
+
+  // Text selection
+  const [selectedPdfText, setSelectedPdfText] = useState<{ text: string; top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        setSelectedPdfText(null);
+        return;
+      }
+
+      const text = selection.toString().trim();
+      if (!text) {
+        setSelectedPdfText(null);
+        return;
+      }
+
+      let isInsidePdf = false;
+      if (pdfContainerRef.current && selection.anchorNode) {
+        isInsidePdf = pdfContainerRef.current.contains(selection.anchorNode);
+      }
+
+      if (!isInsidePdf) {
+        setSelectedPdfText(null);
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      if (rect) {
+        setSelectedPdfText({
+          text,
+          top: rect.top - 55,
+          left: rect.left + (rect.width / 2 || 0),
+        });
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
 
   // Confidence rating
   const [confidence, setConfidence] = useState<Confidence>(initialConfidence);
@@ -167,18 +214,21 @@ export function SlideViewer({
     stop();
     setConfidence(initialConfidence ?? null);
     setJustRated(false);
+    setSelectedPdfText(null);
+    window.getSelection()?.removeAllRanges();
   }, [slideNumber, initialConfidence, stop]);
 
   // PDF resize observer with cleanup
   useEffect(() => {
     if (!pdfContainerRef.current) return;
-    const observer = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
+    const obs = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        const newWidth = Math.round(e.contentRect.width);
+        setContainerWidth((prev) => Math.abs(prev - newWidth) > 1 ? newWidth : prev);
       }
     });
-    observer.observe(pdfContainerRef.current);
-    return () => observer.disconnect();
+    obs.observe(pdfContainerRef.current);
+    return () => obs.disconnect();
   }, []);
 
   // Confidence rating handler
@@ -229,7 +279,7 @@ export function SlideViewer({
             <motion.button
               onClick={handleTTS}
               disabled={isTTSLoading}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300 ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all duration-300 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
                 isSpeaking
                   ? 'bg-primary/20 border-primary/30 text-primary shadow-glow-primary/20'
                   : 'bg-surface-2 border-white/5 text-muted-foreground hover:text-foreground hover:border-primary/30'
@@ -290,7 +340,7 @@ export function SlideViewer({
                 </div>
               )}
             </div>
-            <div ref={pdfContainerRef} className="w-full bg-black/20">
+            <div ref={pdfContainerRef} className="relative w-full bg-black/20 select-text">
               <Document
                 file={pdfUrl}
                 loading={
@@ -308,32 +358,60 @@ export function SlideViewer({
                   className="mx-auto"
                 />
               </Document>
+
+              {/* AI Text Selection Popup */}
+              <AnimatePresence>
+                {selectedPdfText && (
+                  <motion.div
+                    onMouseDown={(e) => e.preventDefault()}
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="fixed z-[9999] pointer-events-auto flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0a0a12]/95 p-1.5 shadow-2xl backdrop-blur-md"
+                    style={{
+                      top: Math.max(10, selectedPdfText.top),
+                      left: Math.max(10, selectedPdfText.left),
+                      transform: 'translateX(-50%)'
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedPdfText.text);
+                        toast({ title: 'Copied to clipboard' });
+                        setSelectedPdfText(null);
+                        window.getSelection()?.removeAllRanges();
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      Copy
+                    </button>
+                    {onAskAbout && (
+                      <>
+                        <div className="h-4 w-px bg-white/10" />
+                        <button
+                          onClick={() => {
+                            onAskAbout(`Regarding: "${selectedPdfText.text}"\n\n`);
+                            setSelectedPdfText(null);
+                            window.getSelection()?.removeAllRanges();
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/20 px-3 py-1.5 text-xs font-bold text-primary shadow-xl shadow-primary/10 transition-all hover:bg-primary/30 backdrop-blur-md"
+                        >
+                          <Zap className="h-3.5 w-3.5" />
+                          Ask about this
+                        </button>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         )}
 
         {/* AI Content Area (Bottom on Desktop) */}
         <div className="w-full flex flex-col">
-          {/* AI Narrative (Learning Teacher) */}
-          {summary && (
-            <div className="px-6 py-6 border-b border-white/5">
-              <div className="glass-panel border-white/5 rounded-2xl p-6 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative z-10">
-                  <div className="prose prose-lg dark:prose-invert max-w-none
-                    prose-headings:text-foreground prose-headings:font-bold prose-headings:tracking-tight
-                    prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:text-body-lg
-                    prose-strong:text-primary prose-strong:font-bold
-                    prose-ul:text-muted-foreground prose-li:my-2
-                    prose-code:text-accent prose-code:bg-accent/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md">
-                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                      {summary}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {/* Roadmap Phase 5.2: professor-only "regenerate with feedback" */}
           {isProfessor && onRegenerateContent && (
@@ -536,7 +614,7 @@ export function SlideViewer({
               variant="outline" 
               onClick={onPrevious} 
               disabled={isFirst}
-              className="rounded-xl px-6 h-12 font-bold border-white/5 hover:bg-white/5 hover:text-primary transition-all group"
+              className="rounded-xl px-6 h-12 font-bold border-white/5 hover:bg-white/5 hover:text-primary transition-all group focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
             >
               <ChevronLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
               Previous
@@ -562,7 +640,7 @@ export function SlideViewer({
             <Button 
               variant={isLast ? 'success' : 'default'} 
               onClick={onNext}
-              className={`rounded-xl px-8 h-12 font-bold transition-all group ${
+              className={`rounded-xl px-8 h-12 font-bold transition-all group focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a12] ${
                 isLast 
                   ? 'bg-success text-white shadow-glow-success border-none' 
                   : 'bg-primary text-white shadow-glow-primary border-none hover:opacity-90'

@@ -21,6 +21,7 @@
   },
   "badgeModal": {
     "eyebrow": "Neues Abzeichen",
+    "lunaGreeting": "Juhu! Du hast das **{{badgeName}}** Abzeichen erhalten.",
     "cta": "Super"
   },
   "ascent": {

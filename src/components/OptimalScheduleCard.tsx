@@ -69,7 +69,7 @@ interface ItemRowProps {
   onMarkDone: (id: string) => Promise<void>;
 }
 
-function ItemRow({ item, isToday, onMarkDone }: ItemRowProps) {
+const ItemRow = React.forwardRef<HTMLDivElement, ItemRowProps>(({ item, isToday, onMarkDone }, ref) => {
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
   const meta = PRIORITY_META[item.priority];
@@ -90,6 +90,7 @@ function ItemRow({ item, isToday, onMarkDone }: ItemRowProps) {
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: done ? 0.4 : 1, x: 0 }}
@@ -146,7 +147,8 @@ function ItemRow({ item, isToday, onMarkDone }: ItemRowProps) {
       <ChevronRight className="w-4 h-4 text-muted-foreground/30 mt-1 flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity" />
     </motion.div>
   );
-}
+});
+ItemRow.displayName = 'ItemRow';
 
 // ─── Day section ────────────────────────────────────────────────────────────
 

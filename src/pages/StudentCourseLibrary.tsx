@@ -156,7 +156,6 @@ export default function StudentCourseLibrary() {
     );
 
     const list = Array.from(courseMeta.values())
-      .filter((c) => c.id !== '__uncat__')
       .map((c) => {
         c.progress = c.lecturesCount > 0 ? Math.round((c.completedLectures / c.lecturesCount) * 100) : 0;
         c.status = c.progress === 100 ? 'done' : c.progress > 0 ? 'progress' : 'new';

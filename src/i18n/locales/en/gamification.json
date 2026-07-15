@@ -21,6 +21,7 @@
   },
   "badgeModal": {
     "eyebrow": "New badge",
+    "lunaGreeting": "Woohoo! You earned the {{badgeName}} badge.",
     "cta": "Nice"
   },
   "ascent": {

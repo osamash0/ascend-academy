@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain, ChevronLeft, Target, BookOpen, CheckCircle2,
   Sparkles, ArrowRight, Lightbulb, TrendingUp, Flame,
-  Trophy, Award, Zap, Star, Network, GitBranch,
+  Trophy, Award, Zap, Star, Network, GitBranch, Map as MapIcon
 } from 'lucide-react';
 import { InsightsMindmapView } from '@/components/InsightsMindmapView';
 import { SkillTreeView } from '@/components/SkillTreeView';
@@ -16,8 +16,12 @@ import { useSkillTree } from '@/features/skilltree/useSkillTree';
 import { useNavigate } from 'react-router-dom';
 import { SharedRoutes } from '@/lib/routes';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
-import { DepthScene } from '@/components/console';
+import { DepthScene, SectionHeader } from '@/components/console';
+import { AcademicProfileEditor } from '@/components/AcademicProfileEditor';
+import { UniversityEmailLink } from '@/components/UniversityEmailLink';
 import { toLectureView } from '@/features/student/homeFeed';
+import { FullJourneyPath } from '@/features/student/components/FullJourneyPath';
+import { type JourneyNode } from '@/features/student/pixi/fullJourneyScene';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchBadgeCatalog } from '@/services/gamificationService';
@@ -27,6 +31,19 @@ import type { InsightsView } from '@/components/InsightsViewTabs';
 // ─── types ───────────────────────────────────────────────────────────────────
 
 type AscentView = 'overview' | 'trophies' | 'mindmap' | 'skills';
+
+const MOCK_JOURNEY_NODES: JourneyNode[] = [
+  { id: '1', label: 'Introduction to Learnstation', status: 'completed' },
+  { id: '2', label: 'Fundamentals of UI Design', status: 'completed' },
+  { id: '3', label: 'Advanced Color Theory', status: 'completed' },
+  { id: '4', label: 'Typography Mastery', status: 'active' },
+  { id: '5', label: 'Interaction Design', status: 'locked' },
+  { id: '6', label: 'Prototyping with Framer', status: 'locked' },
+  { id: '7', label: 'User Testing Methods', status: 'locked' },
+  { id: '8', label: 'Design Systems', status: 'locked' },
+  { id: '9', label: 'Portfolio Preparation', status: 'locked' },
+  { id: '10', label: 'Final Assessment', status: 'locked' },
+];
 
 interface Achievement {
   id: string;
@@ -575,6 +592,37 @@ export default function Ascent() {
                     <InsightCard key={ins.label} {...ins} />
                   ))}
                 </div>
+
+                {/* Academic Profile */}
+                <section className="space-y-6 pt-8">
+                  <SectionHeader
+                    icon={BookOpen}
+                    eyebrow="Identity"
+                    title="Academic Profile"
+                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="glass-panel border-white/5 p-6 rounded-3xl">
+                      <h3 className="text-lg font-medium mb-2 text-foreground">Institution verification</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Link your university email to verify your student status.</p>
+                      <UniversityEmailLink />
+                    </div>
+                    <div className="glass-panel border-white/5 p-6 rounded-3xl">
+                      <h3 className="text-lg font-medium mb-2 text-foreground">Program details</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Set your university, program and courses to unlock classmate suggestions and cohort rankings.</p>
+                      <AcademicProfileEditor />
+                    </div>
+                  </div>
+                </section>
+
+                {/* Your Learning Journey */}
+                <section className="space-y-6 pt-8">
+                  <SectionHeader
+                    icon={MapIcon}
+                    eyebrow={t('dashboard:journey.eyebrow', { defaultValue: 'Curriculum' })}
+                    title={t('dashboard:journey.title', { defaultValue: 'Your Learning Journey' })}
+                  />
+                  <FullJourneyPath nodes={MOCK_JOURNEY_NODES} />
+                </section>
               </motion.div>
             </AnimatePresence>
           )}

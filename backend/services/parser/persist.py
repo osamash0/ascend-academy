@@ -103,8 +103,8 @@ async def set_course_id(lecture_id: UUID, course_id: Optional[UUID]) -> None:
 
 
 async def set_lecture_title(lecture_id: UUID, title: str) -> None:
-    """Update the lecture title (used when reusing a lecture on re-parse)."""
-    await _execute("UPDATE lectures SET title = $1 WHERE id = $2", title, lecture_id)
+    """Update the lecture title and unarchive it (used when reusing a lecture on re-parse)."""
+    await _execute("UPDATE lectures SET title = $1, is_archived = false WHERE id = $2", title, lecture_id)
 
 
 async def finalize_lecture(lecture_id: UUID, description: str, total_slides: int) -> None:

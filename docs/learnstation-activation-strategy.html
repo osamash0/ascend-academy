@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Learnstation v3.0 | Activation Strategy</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+    :root{--ink:#10251f;--muted:#5d6d67;--paper:#f3f0e8;--card:#fbfaf5;--green:#1f694f;--mint:#c7f0d2;--lime:#dffe77;--orange:#f6905d;--blue:#b9d9ff;--line:#c9cec5}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font-family:Manrope,Arial,sans-serif;line-height:1.45}
+    .shell{max-width:1240px;margin:auto;padding:0 32px 80px}.mono{font-family:"DM Mono",monospace;text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:500}
+    nav{position:sticky;top:0;z-index:10;background:rgba(243,240,232,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;padding:15px max(32px,calc((100vw - 1176px)/2))}
+    nav a{color:var(--ink);text-decoration:none;font-size:12px;margin-left:18px}nav b{font-size:15px}.hero{padding:72px 0 48px;display:grid;grid-template-columns:1.35fr .65fr;gap:56px;border-bottom:1px solid var(--ink)}
+    h1{font-size:clamp(48px,7vw,88px);line-height:.94;letter-spacing:-.065em;margin:14px 0 26px;max-width:880px}.hero p{font-size:19px;max-width:700px;color:var(--muted)}
+    .stamp{align-self:end;background:var(--ink);color:white;padding:28px;border-radius:50% 50% 45% 45%;aspect-ratio:1;display:grid;place-content:center;text-align:center;transform:rotate(5deg)}.stamp strong{font-size:42px;line-height:1}
+    section{padding:62px 0 10px}.section-head{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:26px}.section-head h2{font-size:38px;letter-spacing:-.04em;margin:5px 0}.section-head p{max-width:480px;color:var(--muted);margin:0}
+    .principle{font-size:25px;font-weight:700;max-width:980px;margin:0 0 34px}.grid{display:grid;gap:16px}.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:23px}.card h3{font-size:18px;margin:8px 0}.card p{color:var(--muted);font-size:14px;margin:8px 0}.tag{display:inline-block;border-radius:99px;padding:6px 10px;background:var(--mint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.tag.prof{background:var(--blue)}
+    .persona{position:relative;overflow:hidden;padding:28px}.persona:after{content:"";position:absolute;width:120px;height:120px;border-radius:50%;right:-35px;top:-35px;background:var(--mint)}.persona.prof:after{background:var(--blue)}
+    ul.clean{list-style:none;padding:0;margin:18px 0 0}ul.clean li{padding:9px 0;border-top:1px solid var(--line);font-size:14px}ul.clean b{display:inline-block;width:100px}
+    .aha{background:var(--ink);color:white;border-radius:20px;padding:30px;display:grid;grid-template-columns:150px 1fr;gap:24px}.aha .big{font-size:66px;font-weight:800;line-height:.85;color:var(--lime)}.aha p{color:#cbd7d2;margin:7px 0}.aha strong{font-size:22px}
+    .score{padding:20px;border-left:5px solid var(--green)}.score strong{font-size:27px;display:block}.score span{font-size:12px;color:var(--muted)}
+    .timeline{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--ink);border-radius:16px;overflow:hidden;background:var(--card)}.step{padding:20px 15px;min-height:190px;border-right:1px solid var(--line);position:relative}.step:last-child{border:0}.step .time{color:var(--green);font-weight:800;font-size:12px}.step h3{font-size:16px;margin:13px 0 8px}.step p{font-size:12px;color:var(--muted)}.step .reward{position:absolute;bottom:14px;left:14px;font:500 10px "DM Mono";background:var(--lime);padding:5px 7px;border-radius:5px}
+    .lane-label{display:flex;align-items:center;gap:10px;margin:24px 0 10px}.lane-label h3{margin:0}.lane-label:after{content:"";height:1px;background:var(--line);flex:1}
+    .waitbox{background:var(--green);color:white;border-radius:20px;padding:28px}.waitbox p{color:#d0e1da}.wait-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:24px}.wait-step{border:1px solid rgba(255,255,255,.27);border-radius:12px;padding:16px}.wait-step b{display:block;margin-bottom:7px}.wait-step span{font-size:12px;color:#d0e1da}
+    .micro{background:var(--card);border-radius:14px;padding:18px;border:1px solid var(--line)}.micro b{display:block;font-size:14px}.micro span{display:block;color:var(--muted);font-size:12px;margin-top:6px}
+    .wire{background:#fff;border:1px solid var(--ink);border-radius:14px;padding:14px;box-shadow:5px 5px 0 var(--ink)}.wire-top{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding-bottom:10px;font:500 10px "DM Mono"}.wire-body{min-height:190px;padding:18px 6px}.wire h4{font-size:20px;margin:8px 0}.wire p{font-size:12px;color:var(--muted)}.btn{display:block;background:var(--ink);color:white;text-align:center;padding:12px;border-radius:8px;font-size:13px;font-weight:800;margin-top:14px}.btn.alt{background:var(--green)}.ghost{display:block;text-align:center;font-size:11px;color:var(--muted);margin-top:10px}.hint{font:500 10px "DM Mono";margin-top:18px;color:var(--green)}
+    .hook{border-top:5px solid var(--orange)}.hook:nth-child(2){border-color:var(--lime)}.hook:nth-child(3){border-color:var(--blue)}.hook:nth-child(4){border-color:var(--green)}
+    table{width:100%;border-collapse:collapse;background:var(--card);font-size:13px}th,td{text-align:left;padding:14px;border-bottom:1px solid var(--line);vertical-align:top}th{font:500 10px "DM Mono";text-transform:uppercase;background:#e7e6de}td:first-child{font-weight:700}.priority{font:500 10px "DM Mono";border-radius:99px;padding:5px 8px;white-space:nowrap}.p0{background:var(--orange)}.p1{background:var(--lime)}.p2{background:var(--blue)}
+    .road{display:grid;grid-template-columns:150px 1fr;gap:15px;margin-bottom:12px}.road-time{background:var(--ink);color:white;border-radius:12px;padding:18px}.road-time strong{display:block;font-size:24px}.road-items{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.road-item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;font-size:13px}.road-item b{display:block;margin-bottom:5px}
+    .callout{background:var(--lime);padding:25px;border-radius:16px;font-size:20px;font-weight:800}.foot{margin-top:70px;padding-top:25px;border-top:1px solid var(--ink);display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
+    @media(max-width:850px){.shell{padding:0 18px 50px}nav{padding:14px 18px}.navlinks{display:none}.hero{grid-template-columns:1fr;padding-top:45px}.stamp{width:160px}.g2,.g3,.g4{grid-template-columns:1fr}.timeline{grid-template-columns:1fr}.step{min-height:150px;border-right:0;border-bottom:1px solid var(--line)}.wait-flow{grid-template-columns:1fr 1fr}.road{grid-template-columns:1fr}.road-items{grid-template-columns:1fr}.section-head{display:block}.aha{grid-template-columns:1fr}table{display:block;overflow-x:auto}}
+  </style>
+</head>
+<body>
+<nav><b>ASCEND / ACTIVATION</b><div class="navlinks"><a href="#journeys">Journeys</a><a href="#wait">Async UX</a><a href="#roadmap">Roadmap</a><a href="#metrics">Metrics</a></div><span class="mono">v3.0 / strategy</span></nav>
+<main class="shell">
+  <header class="hero">
+    <div><span class="mono">Learnstation v3.0 / Ascend Academy</span><h1>From content to confidence.</h1><p>A persona-led activation system that gets students to proof of learning and professors to proof of visibility, before product complexity gets in the way.</p></div>
+    <div class="stamp"><span class="mono">North star</span><strong>&lt;10m</strong><span>to first value</span></div>
+  </header>
+
+  <section id="strategy">
+    <div class="section-head"><div><span class="mono">01 / Strategic frame</span><h2>Two jobs. Two finish lines.</h2></div><p>Do not teach every feature. Ask one intent question, remove irrelevant setup, and lead each persona to one observable outcome.</p></div>
+    <p class="principle">ASCEND is not another content library. It is a confidence engine that converts trusted course material into visible learning progress for students and actionable teaching evidence for professors.</p>
+    <div class="grid g2">
+      <article class="card persona"><span class="tag">Student</span><h3>Learn efficiently & compete</h3><p><b>Entry intent:</b> pass an exam, understand a topic, or join a course.</p><ul class="clean"><li><b>Promise</b> Answers grounded in their lecture material</li><li><b>Primary path</b> Select course &rarr; Skill Tree &rarr; Tutor &rarr; quiz</li><li><b>Risk</b> Empty-state confusion; skepticism about AI accuracy</li><li><b>Hook</b> Visible mastery, XP, friends, weekly rank</li></ul></article>
+      <article class="card persona prof"><span class="tag prof">Professor</span><h3>Track engagement & diagnose content</h3><p><b>Entry intent:</b> publish materials, understand confusion, improve teaching.</p><ul class="clean"><li><b>Promise</b> See where students struggle, slide by slide</li><li><b>Primary path</b> Create course &rarr; upload &rarr; preview tree &rarr; invite</li><li><b>Risk</b> Parsing delay; no data before students arrive</li><li><b>Hook</b> Actionable alerts, adoption coverage, cohort trends</li></ul></article>
+    </div>
+    <div class="section-head" style="margin-top:42px"><div><span class="mono">The strategic wedge</span><h2 style="font-size:29px">Trust first. Structure second. Social third.</h2></div><p>ASCEND wins when its differentiators appear as one connected value chain rather than five competing features.</p></div>
+    <div class="grid g4">
+      <div class="card"><span class="tag">1 / Ground</span><h3>Trusted answer</h3><p>The Socratic Tutor answers only from course sources and cites the exact page. This removes the first adoption objection: “Can I trust it?”</p></div>
+      <div class="card"><span class="tag prof">2 / Orient</span><h3>Visible path</h3><p>The Skill Tree turns disconnected lectures into a navigable mastery map. It answers: “What should I learn next?”</p></div>
+      <div class="card"><span class="tag">3 / Prove</span><h3>Measured progress</h3><p>Short checks convert explanation into evidence. Mastery, not consumption, triggers activation and XP.</p></div>
+      <div class="card"><span class="tag prof">4 / Compound</span><h3>Shared signal</h3><p>Student behavior becomes professor insight; course improvement creates better future learning and stronger retention.</p></div>
+    </div>
+
+    <div class="section-head" style="margin-top:42px"><div><span class="mono">Jobs, anxieties, evidence</span><h2 style="font-size:29px">Design around the decision to continue.</h2></div><p>At each checkpoint, exchange one small user commitment for immediate, observable proof of value.</p></div>
+    <table>
+      <thead><tr><th>Persona & situation</th><th>Job to be done</th><th>Primary anxiety</th><th>Evidence required</th><th>Next commitment</th></tr></thead>
+      <tbody>
+        <tr><td>Student / exam soon</td><td>Find the fastest path through weak topics.</td><td>“This will waste time or hallucinate.”</td><td>A useful answer with a correct lecture citation.</td><td>Attempt a 3-question check.</td></tr>
+        <tr><td>Student / falling behind</td><td>Understand where concepts connect.</td><td>“The 3D tree will be confusing.”</td><td>One highlighted node and a clear next step.</td><td>Complete the recommended node.</td></tr>
+        <tr><td>Student / socially motivated</td><td>Stay accountable without feeling exposed.</td><td>“I will rank badly in public.”</td><td>Private progress first; comparable opt-in league later.</td><td>Add one trusted study ally.</td></tr>
+        <tr><td>Professor / course setup</td><td>Turn existing material into a usable course quickly.</td><td>“Uploading and reviewing will create more work.”</td><td>Accurate extracted structure and a short review queue.</td><td>Publish the first lecture.</td></tr>
+        <tr><td>Professor / course live</td><td>Know where teaching is not landing.</td><td>“The dashboard will show vanity metrics.”</td><td>A slide-level hotspot tied to student questions.</td><td>Act on one teaching recommendation.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="section-head" style="margin-top:42px"><div><span class="mono">Segmentation logic</span><h2 style="font-size:29px">Role chooses the lane. Intent chooses the next step.</h2></div><p>Do not create a separate onboarding for every cohort. Use role, readiness, and immediate intent to choose the next-best action dynamically.</p></div>
+    <div class="grid g3">
+      <div class="card"><span class="mono">Axis 01 / Role</span><h3>Who receives value?</h3><p><b>Student:</b> learning confidence.<br><b>Professor:</b> teaching visibility.<br>This determines the activation definition.</p></div>
+      <div class="card"><span class="mono">Axis 02 / Readiness</span><h3>What exists already?</h3><p><b>Student:</b> course found, invite link, or no course.<br><b>Professor:</b> material ready, course live, or evaluating.</p></div>
+      <div class="card"><span class="mono">Axis 03 / Urgency</span><h3>Why today?</h3><p>Exam prep, concept repair, exploration, course launch, engagement diagnosis, or content improvement.</p></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>Routing rules</h3><p><b>Invited student</b> &rarr; open shared course and recommended node. <b>Searching student</b> &rarr; find course by code; if absent, use a two-minute demo. <b>Professor with material</b> &rarr; create shell and upload immediately. <b>Professor evaluating</b> &rarr; preview populated analytics with clearly labeled sample data. Ask only the question needed to choose this branch.</p></div>
+
+    <div class="section-head" style="margin-top:42px"><div><span class="mono">Activation architecture</span><h2 style="font-size:29px">A ladder, not a checklist.</h2></div><p>Each stage earns the right to ask for more effort. Social and retention mechanics begin only after core value is proven.</p></div>
+    <div class="grid g4">
+      <div class="card score"><strong>1. Orient</strong><span>Role + intent chosen; user sees a relevant path</span></div>
+      <div class="card score"><strong>2. Trust</strong><span>Source boundary and citation are understood</span></div>
+      <div class="card score"><strong>3. Prove</strong><span>Student passes check / professor sees live insight</span></div>
+      <div class="card score"><strong>4. Compound</strong><span>Next action, return cue, and contextual invite</span></div>
+    </div>
+    <div class="callout" style="margin-top:16px">Activation equation: relevant context + trusted output + completed outcome + clear next step. Remove any onboarding task that does not strengthen one of these four terms.</div>
+
+    <div class="section-head" style="margin-top:42px"><div><span class="mono">Strategic choices</span><h2 style="font-size:29px">What ASCEND will and will not optimize.</h2></div></div>
+    <div class="grid g2">
+      <div class="card"><span class="tag">We will</span><ul class="clean"><li>Optimize for demonstrated learning, not content views</li><li>Show source evidence before celebrating AI novelty</li><li>Use one recommended node before exposing the full tree</li><li>Reward quality actions and activated invitations</li><li>Let background work remain resumable and transparent</li></ul></div>
+      <div class="card"><span class="tag prof">We will not</span><ul class="clean"><li>Force a generic product tour before core value</li><li>Gate first value behind profile completion</li><li>Use raw XP to disguise weak learning outcomes</li><li>Show public ranking before users establish confidence</li><li>Count upload completion or account creation as activation</li></ul></div>
+    </div>
+
+    <div class="section-head" style="margin-top:42px"><div><span class="mono">System-level flywheel</span><h2 style="font-size:29px">Every activated user improves the course.</h2></div><p>The durable moat is the interaction between grounded learning activity and professor action, not any feature in isolation.</p></div>
+    <div class="waitbox"><div class="wait-flow"><div class="wait-step"><b>1. Publish trusted material</b><span>Professor uploads and verifies sources.</span></div><div class="wait-step"><b>2. Generate learning signals</b><span>Students ask, practice, and reveal confusion.</span></div><div class="wait-step"><b>3. Diagnose friction</b><span>Analytics connect questions to slides and nodes.</span></div><div class="wait-step"><b>4. Improve the course</b><span>Professor updates material; learners return to a stronger path.</span></div></div></div>
+  </section>
+
+  <section>
+    <div class="section-head"><div><span class="mono">02 / Activation contract</span><h2>Define the “Aha!” in behavior.</h2></div><p>Activation is not account creation or upload. It is the earliest completed loop that proves the core promise.</p></div>
+    <div class="grid g2">
+      <div class="aha"><div class="big">S</div><div><span class="tag">Student Aha</span><p>Within the first session, the student asks a grounded question, completes the generated check, and</p><strong>passes their first AI-tutor-assisted quiz.</strong><p class="mono">Event: quiz_passed after tutor_query_submitted</p></div></div>
+      <div class="aha"><div class="big" style="color:var(--blue)">P</div><div><span class="tag prof">Professor Aha</span><p>After at least one learner interacts, the professor opens analytics and</p><strong>sees their first slide-level engagement graph.</strong><p class="mono">Event: slide_analytics_viewed with data_points &gt; 0</p></div></div>
+    </div>
+    <div class="grid g4" style="margin-top:16px">
+      <div class="card score"><strong>&ge;45%</strong><span>Student activation, D0</span></div><div class="card score"><strong>&ge;60%</strong><span>Upload completion</span></div><div class="card score"><strong>&lt;3 min</strong><span>Time-to-first-query</span></div><div class="card score"><strong>&ge;35%</strong><span>Professor activated, D7</span></div>
+    </div>
+  </section>
+
+  <section id="journeys">
+    <div class="section-head"><div><span class="mono">03 / 0-to-60 minutes</span><h2>The first-session choreography.</h2></div><p>Use progressive disclosure: one next-best action per state, with an always-visible checklist and a “do later” escape hatch.</p></div>
+    <div class="lane-label"><span class="tag">Student lane</span><h3>Course-led; upload is optional</h3></div>
+    <div class="timeline">
+      <div class="step"><span class="time">00–02</span><h3>Create account</h3><p>Ask role + “What are you studying for?” Defer profile photo and username.</p><span class="reward">+25 XP</span></div>
+      <div class="step"><span class="time">02–05</span><h3>Choose course</h3><p>Search university/course code; offer a curated demo if no result.</p><span class="reward">1/4 SETUP</span></div>
+      <div class="step"><span class="time">05–10</span><h3>Enter Skill Tree</h3><p>Focus camera on one recommended node. Explain locked branches in-context.</p><span class="reward">DISCOVERER</span></div>
+      <div class="step"><span class="time">10–18</span><h3>Ask + answer</h3><p>Seed 3 useful prompts, show PDF citation, then launch a 3-question check.</p><span class="reward">+75 XP</span></div>
+      <div class="step"><span class="time">18–25</span><h3>Celebrate mastery</h3><p>Animate node completion, show confidence delta and next recommendation.</p><span class="reward">FIRST ASCENT</span></div>
+      <div class="step"><span class="time">25–60</span><h3>Add a study ally</h3><p>Invite by link or sync classmates. Preview weekly duel, never auto-post.</p><span class="reward">+50 XP</span></div>
+    </div>
+    <div class="lane-label"><span class="tag prof">Professor lane</span><h3>Publish-led; analytics unlocks with usage</h3></div>
+    <div class="timeline">
+      <div class="step"><span class="time">00–03</span><h3>Create account</h3><p>Ask institution + course goal. SSO/email verification can run in parallel.</p><span class="reward">SETUP 1/4</span></div>
+      <div class="step"><span class="time">03–08</span><h3>Create course</h3><p>Course code, title, term. Pre-fill defaults; no advanced permissions yet.</p><span class="reward">COURSE LIVE</span></div>
+      <div class="step"><span class="time">08–12</span><h3>Upload lecture</h3><p>Drag PDF, validate instantly, show processing stages and honest ETA.</p><span class="reward">+100 XP</span></div>
+      <div class="step"><span class="time">12–20</span><h3>Build while waiting</h3><p>Set learning goal, preview demo analytics, customize invite copy.</p><span class="reward">2 TASKS</span></div>
+      <div class="step"><span class="time">20–35</span><h3>Preview + publish</h3><p>Inspect generated nodes and source citations; fix titles inline, publish.</p><span class="reward">CARTOGRAPHER</span></div>
+      <div class="step"><span class="time">35–60</span><h3>Invite first cohort</h3><p>Copy LMS link or email students. Set alert for first confusion hotspot.</p><span class="reward">TEAM BUILDER</span></div>
+    </div>
+  </section>
+
+  <section id="wait">
+    <div class="section-head"><div><span class="mono">04 / Async friction</span><h2>Turn processing time into progress.</h2></div><p>Arq/Redis processing should feel resumable and purposeful. Never trap the user on a spinner or imply false precision.</p></div>
+    <div class="waitbox">
+      <span class="mono">The productive wait pattern</span><h2 style="font-size:34px;margin:10px 0">Upload in the background. Advance in the foreground.</h2>
+      <div class="wait-flow">
+        <div class="wait-step"><b>1. Instant receipt</b><span>Filename, pages, size, passed validation. “Safe to leave this screen.”</span></div>
+        <div class="wait-step"><b>2. Stage progress</b><span>Uploading &rarr; extracting &rarr; mapping concepts &rarr; quality check. Use ranges, not fake %.</span></div>
+        <div class="wait-step"><b>3. Parallel tasks</b><span>Offer 2-minute jobs: set goal, name course, invite co-teacher, tour demo tree.</span></div>
+        <div class="wait-step"><b>4. Re-entry</b><span>In-app + email notification deep-links to “Review Skill Tree.” Preserve every choice.</span></div>
+      </div>
+    </div>
+    <div class="grid g3" style="margin-top:16px">
+      <div class="micro"><b>Under 30 seconds</b><span>Inline stage animation + “While we map 42 pages...” one-click goal chips.</span></div>
+      <div class="micro"><b>30 seconds–3 minutes</b><span>Release user into setup checklist; persistent processing pill in header.</span></div>
+      <div class="micro"><b>Over 3 minutes / failed</b><span>Offer leave-and-notify. On failure: retain file, explain fix, retry from failed stage.</span></div>
+    </div>
+    <div class="callout" style="margin-top:16px">Guardrail: parsing completion is not activation. Track <span style="text-decoration:underline">upload-to-review conversion</span> and recover unfinished reviews within 24 hours.</div>
+  </section>
+
+  <section id="ctas">
+    <div class="section-head"><div><span class="mono">05 / Critical CTA placement</span><h2>One dominant action per screen.</h2></div><p>Primary CTAs are sticky on mobile, action-specific, and paired with a low-anxiety secondary route.</p></div>
+    <div class="grid g3">
+      <div><div class="wire"><div class="wire-top"><span>STEP 1 OF 3</span><span>SKIP FOR NOW</span></div><div class="wire-body"><span class="tag">Student</span><h4>What do you want to master?</h4><p>[ Search course code or topic ]</p><p>&#9633; Exam prep &nbsp; &#9633; Catch up &nbsp; &#9633; Explore</p><span class="btn">Find my course &rarr;</span><span class="ghost">or explore a 2-minute demo</span></div></div><p class="hint">CTA: bottom/sticky; intent before profile</p></div>
+      <div><div class="wire"><div class="wire-top"><span>LECTURE 01.PDF</span><span>SAFE TO LEAVE</span></div><div class="wire-body"><span class="tag prof">MAPPING CONCEPTS</span><h4>Your tree is taking shape.</h4><p>Extracted 42 pages &nbsp; &#10003;<br>Connecting concepts &nbsp; in progress</p><span class="btn alt">Set the learning goal &rarr;</span><span class="ghost">Notify me when ready</span></div></div><p class="hint">CTA: productive task; status stays global</p></div>
+      <div><div class="wire"><div class="wire-top"><span>NODE COMPLETE</span><span>+75 XP</span></div><div class="wire-body"><span class="tag">First ascent</span><h4>83% mastery. You moved up.</h4><p>You passed the check with help from 2 cited explanations.</p><span class="btn">Unlock the next node &rarr;</span><span class="ghost">Invite a friend for +50 XP</span></div></div><p class="hint">CTA: learning momentum before social ask</p></div>
+    </div>
+    <div class="grid g2" style="margin-top:20px">
+      <div class="card"><h3>3D Skill Tree onboarding</h3><p>Use a “guided camera,” not a modal tour: spotlight one recommended node, label current/next/locked states, and let the first click teach pan/zoom. Always provide list view for accessibility and low-power devices.</p></div>
+      <div class="card"><h3>Trust treatment for the AI Tutor</h3><p>Lead with “Answers only from your course materials.” Show page/slide citations expanded on the first answer, a “not found in sources” refusal demo, and a report-answer control. Trust precedes query volume.</p></div>
+    </div>
+  </section>
+
+  <section id="growth">
+    <div class="section-head"><div><span class="mono">06 / Growth loops</span><h2>Reward progress, not busywork.</h2></div><p>XP marks meaningful learning. Social prompts appear only after earned value, and every invite carries shared context.</p></div>
+    <div class="grid g4">
+      <div class="card hook"><span class="mono">Checkpoint 01</span><h3>First query</h3><p><b>+25 XP</b> for citing a source-backed answer. Achievement: “Curious Mind.”</p></div>
+      <div class="card hook"><span class="mono">Checkpoint 02</span><h3>First passed quiz</h3><p><b>+75 XP</b> and “First Ascent.” Show rank only after 3 learning actions.</p></div>
+      <div class="card hook"><span class="mono">Checkpoint 03</span><h3>Course publish</h3><p>Professor earns “Cartographer.” Unlock a share card with course code and tree preview.</p></div>
+      <div class="card hook"><span class="mono">Checkpoint 04</span><h3>Study ally joins</h3><p>Both get <b>+50 XP</b> after the invitee completes one node; blocks spam invites.</p></div>
+    </div>
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card"><h3>Student retention loop</h3><p>Master node &rarr; gain XP &rarr; see friend progress &rarr; accept next challenge &rarr; return for streak. Use weekly leagues of 10–20 comparable learners, opt-in by default during onboarding.</p></div>
+      <div class="card"><h3>Professor growth loop</h3><p>Publish course &rarr; invite cohort &rarr; collect questions &rarr; reveal confusion hotspots &rarr; improve material &rarr; publish update. Reward student coverage and resolved hotspots, not raw logins.</p></div>
+    </div>
+  </section>
+
+  <section id="metrics">
+    <div class="section-head"><div><span class="mono">07 / Measurement</span><h2>Instrument the activation funnel.</h2></div><p>Report by persona, acquisition source, institution, device, file size, and queue-time band. Never blend students and professors.</p></div>
+    <table>
+      <thead><tr><th>Metric</th><th>Definition</th><th>Initial target</th><th>Diagnostic cut</th><th>Owner</th></tr></thead>
+      <tbody>
+        <tr><td>Time-to-First-Query</td><td>signup_completed &rarr; tutor_query_submitted</td><td>Median &lt;3m; P90 &lt;10m</td><td>Course found vs demo; mobile vs desktop</td><td>Student Growth</td></tr>
+        <tr><td>Upload Completion Rate</td><td>processing_succeeded / upload_started</td><td>&ge;60% end-to-end; &ge;95% technical success</td><td>Pages, MB, parse duration, failure reason</td><td>Platform</td></tr>
+        <tr><td>Student Activation</td><td>Passed quiz after a tutor query within D0</td><td>&ge;45%</td><td>New vs joined course; acquisition source</td><td>Growth</td></tr>
+        <tr><td>Professor Activation</td><td>Viewed populated slide analytics within D7</td><td>&ge;35%</td><td>Cohort size; first invite channel</td><td>B2B Product</td></tr>
+        <tr><td>Upload-to-Review</td><td>tree_review_opened / processing_succeeded within 24h</td><td>&ge;75%</td><td>Foreground vs notification re-entry</td><td>Core Product</td></tr>
+        <tr><td>First Social Action</td><td>Invite sent or friend added after core value</td><td>&ge;20% students; &ge;50% professors</td><td>Prompt moment; invite channel</td><td>Growth</td></tr>
+        <tr><td>Quality guardrails</td><td>Grounded-answer report rate; D7 retention; queue failure</td><td>&lt;2%; &ge;30%; &lt;2%</td><td>Model/course/file cohort</td><td>AI + Platform</td></tr>
+      </tbody>
+    </table>
+    <div class="card" style="margin-top:16px"><h3>Minimum event spine</h3><p class="mono" style="line-height:2">role_selected &rarr; intent_selected &rarr; course_selected | upload_started &rarr; processing_stage_changed &rarr; processing_succeeded &rarr; tree_opened &rarr; node_opened &rarr; tutor_query_submitted &rarr; citation_opened &rarr; quiz_started &rarr; quiz_passed &rarr; invite_sent &rarr; invite_activated &rarr; slide_analytics_viewed</p><p>Required properties: <b>user_role, session_id, course_id, source, device, queue_ms, parse_ms, page_count, experiment_variant.</b></p></div>
+  </section>
+
+  <section id="roadmap">
+    <div class="section-head"><div><span class="mono">08 / Tactical roadmap</span><h2>Ship the shortest path first.</h2></div><p>Sequence infrastructure and journey clarity before richer gamification. Targets are hypotheses to baseline in week one.</p></div>
+    <div class="road"><div class="road-time"><span class="mono">Phase 0</span><strong>Week 1</strong>Baseline</div><div class="road-items"><div class="road-item"><span class="priority p0">P0</span><b>Event spine + funnel</b>Persona dashboards, timing, queue bands, failure reasons.</div><div class="road-item"><span class="priority p0">P0</span><b>Role + intent fork</b>One question; route to student or professor checklist.</div><div class="road-item"><span class="priority p0">P0</span><b>Trust baseline</b>First tutor answer opens citations and states source boundary.</div></div></div>
+    <div class="road"><div class="road-time"><span class="mono">Phase 1</span><strong>Weeks 2–4</strong>Activate</div><div class="road-items"><div class="road-item"><span class="priority p0">P0</span><b>Productive wait</b>Stage status, background pill, parallel tasks, notification re-entry.</div><div class="road-item"><span class="priority p0">P0</span><b>Student golden path</b>Course lookup/demo &rarr; guided node &rarr; seeded query &rarr; quiz.</div><div class="road-item"><span class="priority p0">P0</span><b>Professor golden path</b>Create &rarr; upload &rarr; review &rarr; publish &rarr; cohort invite.</div></div></div>
+    <div class="road"><div class="road-time"><span class="mono">Phase 2</span><strong>Weeks 5–8</strong>Grow</div><div class="road-items"><div class="road-item"><span class="priority p1">P1</span><b>Earned rewards</b>First Ascent, Cartographer, semantic XP ledger.</div><div class="road-item"><span class="priority p1">P1</span><b>Shared-context invites</b>Deep links to course/node; reward after invitee value.</div><div class="road-item"><span class="priority p1">P1</span><b>Analytics teaser</b>Demo data while empty, then transition to live slide graph.</div></div></div>
+    <div class="road"><div class="road-time"><span class="mono">Phase 3</span><strong>Weeks 9–12</strong>Optimize</div><div class="road-items"><div class="road-item"><span class="priority p2">P2</span><b>Personalized checklist</b>Next-best action by incomplete activation event.</div><div class="road-item"><span class="priority p2">P2</span><b>Weekly leagues</b>Comparable groups; anti-gaming; learning quality guardrails.</div><div class="road-item"><span class="priority p2">P2</span><b>Lifecycle recovery</b>Abandoned upload, ready-to-review, first hotspot emails.</div></div></div>
+  </section>
+
+  <section>
+    <div class="section-head"><div><span class="mono">09 / Experiment queue</span><h2>Five tests before polishing.</h2></div></div>
+    <table><thead><tr><th>Order</th><th>Hypothesis</th><th>Primary metric</th><th>Guardrail</th></tr></thead><tbody>
+      <tr><td>1</td><td>Intent-first role fork reduces irrelevant setup vs unified onboarding.</td><td>Activation +10% relative</td><td>Signup completion</td></tr>
+      <tr><td>2</td><td>Demo course fallback gets course-less students to first query faster.</td><td>TTFQ -30%</td><td>D7 real-course join</td></tr>
+      <tr><td>3</td><td>Parallel setup tasks increase upload-to-review vs waiting screen.</td><td>Review conversion +15%</td><td>Processing errors noticed</td></tr>
+      <tr><td>4</td><td>Quiz-triggered social prompt outperforms signup invite prompt.</td><td>Invite activation +20%</td><td>Quiz completion</td></tr>
+      <tr><td>5</td><td>Demo analytics preview increases professor cohort invites.</td><td>First invite +15%</td><td>Expectation mismatch</td></tr>
+    </tbody></table>
+  </section>
+
+  <section><div class="callout">Decision rule: if an onboarding element does not shorten time-to-value, increase trust, or create a qualified return path, remove it.</div></section>
+  <footer class="foot"><span>Learnstation v3.0 / Ascend Academy</span><span>Activation & onboarding strategy / July 2026</span></footer>
+</main>
+</body>
+</html>
