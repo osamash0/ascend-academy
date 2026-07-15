@@ -13,8 +13,11 @@ from pydantic import AliasChoices, Field, model_validator
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        # Load backend/.env first; root .env is a fallback loaded by database.py
-        env_file=str(Path(__file__).parent.parent / ".env"),
+        # Load backend/.env first, then fallback to root .env
+        env_file=(
+            str(Path(__file__).parent.parent / ".env"),
+            str(Path(__file__).parent.parent.parent / ".env"),
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -34,6 +37,10 @@ class Settings(BaseSettings):
     # Fallback: frontend may export VITE_ prefixed vars
     vite_supabase_url: str = Field(alias="VITE_SUPABASE_URL", default="")
     vite_supabase_key: str = Field(alias="VITE_SUPABASE_PUBLISHABLE_KEY", default="")
+
+    # ─── Third-Party Services ──────────────────────────────────────────────────
+    resend_api_key: str = Field(alias="RESEND_API_KEY", default="")
+    feedback_email_to: str = Field(alias="FEEDBACK_EMAIL_TO", default="admin@learnstation.edu")
 
     # ─── LLM Providers ─────────────────────────────────────────────────────────
     groq_api_key: str = Field(alias="GROQ_API_KEY", default="")

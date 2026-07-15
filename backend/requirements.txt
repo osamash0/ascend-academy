@@ -36,3 +36,4 @@ openai>=1.50.0
 sentry-sdk>=2.0.0
 redis[hiredis]
 python-json-logger>=3.0  # required by backend/core/logging_config.py (imported in main.py)
+resend>=2.1.0

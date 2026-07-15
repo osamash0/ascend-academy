@@ -22,6 +22,117 @@ import { useToast } from '@/hooks/use-toast';
  * Hidden on auth/landing routes — those users have no JWT to authorize the
  * POST and we don't want anonymous spam.
  */
+interface RouteInfo {
+  pageName: string;
+  features: string[];
+}
+
+const getRouteInfo = (pathname: string): RouteInfo => {
+  if (pathname.includes('/study-guide')) {
+    return {
+      pageName: 'Study Guide Page',
+      features: ['Study Guide Content', 'Concepts List', 'Vocabulary & Dictionary Search', 'PDF Study Guide Download']
+    };
+  }
+  if (pathname.includes('/library')) {
+    return {
+      pageName: 'Course Library',
+      features: ['Slide Deck Grid', 'Interactive Quizzes', 'Search Lecture Material']
+    };
+  }
+  if (pathname.startsWith('/courses/')) {
+    return {
+      pageName: 'Course Main View',
+      features: ['Syllabus Information View', 'Lecture Index List', 'Course Chatbot Sidebar']
+    };
+  }
+  if (pathname.startsWith('/lecture/')) {
+    return {
+      pageName: 'Lecture Viewer',
+      features: ['Slide Content Navigation', 'AI Tutor Sidebar', 'Quiz Generator Widget', 'Concept Mind Map View']
+    };
+  }
+  if (pathname.startsWith('/exams/take/')) {
+    return {
+      pageName: 'Taking Mock Exam',
+      features: ['Question Cards', 'Exam Timer Bar', 'Finish Exam Button']
+    };
+  }
+  if (pathname.startsWith('/exams/config/')) {
+    return {
+      pageName: 'Mock Exam Configuration',
+      features: ['Select Question Count', 'Topics Selection Checkbox', 'Generate Exam Button']
+    };
+  }
+  if (pathname.startsWith('/exams/report/')) {
+    return {
+      pageName: 'Mock Exam Report',
+      features: ['Performance Score Chart', 'Questions Review List', 'Detailed Explanation Modal']
+    };
+  }
+  if (pathname.startsWith('/friends/profile/')) {
+    return {
+      pageName: 'Learner Profile Page',
+      features: ['User Activity Stream', 'Shared Courses List', 'Mutual Friends Grid', 'Friend Actions Menu']
+    };
+  }
+
+  const routesMap: Record<string, RouteInfo> = {
+    '/dashboard': {
+      pageName: 'Student Dashboard',
+      features: ['Activity Feed', 'Course Progress Overview', 'Quick Review Card', 'Daily Streak Tracker']
+    },
+    '/review': {
+      pageName: 'Review Session (Daily Ascent)',
+      features: ['Flashcards Deck Carousel', 'Self-Assessment Toggle', 'Finish Session Summary']
+    },
+    '/materials': {
+      pageName: 'My Materials',
+      features: ['Private PDF Document Upload', 'Document Index List', 'Private Search Input']
+    },
+    '/leaderboard': {
+      pageName: 'Leaderboard',
+      features: ['Global Learner Rankings Table', 'Earned Badges Showcase', 'XP Logs Chart']
+    },
+    '/settings': {
+      pageName: 'Account Settings',
+      features: ['Profile Details Form', 'Language Selection Dropdown', 'API Integrations Panel']
+    },
+    '/professor/dashboard': {
+      pageName: 'Professor Dashboard',
+      features: ['Manage Courses List', 'Upload Lectures Indicator', 'Lecture Overview List']
+    },
+    '/professor/analytics': {
+      pageName: 'Professor Analytics',
+      features: ['Student Performance Analytics', 'Lecture Engagement Chart', 'Advanced Metrics Grid']
+    },
+    '/professor/analytics/advanced': {
+      pageName: 'Advanced Analytics',
+      features: ['Per-Metric AI Explanation', 'Detailed Cohort Stats Grid']
+    },
+    '/professor/upload': {
+      pageName: 'Professor Lecture Upload',
+      features: ['PDF File Drag & Drop Area', 'AI Parsing Settings Options', 'Slides Splitter Interface']
+    },
+    '/admin/dashboard': {
+      pageName: 'Admin Dashboard',
+      features: ['System Resource Logs', 'Database Collections Overview', 'Analytics KPI Tracking']
+    }
+  };
+
+  return routesMap[pathname] || {
+    pageName: pathname,
+    features: []
+  };
+};
+
+const CATEGORIES = [
+  { id: 'Idea', label: 'Idea' },
+  { id: 'Bug', label: 'Bug' },
+  { id: 'Question', label: 'Question' },
+  { id: 'Other', label: 'Other' },
+];
+
 export function FeedbackWidget() {
   const { user } = useAuth();
   const location = useLocation();
@@ -29,6 +140,7 @@ export function FeedbackWidget() {
   const gamification = useGamification();
 
   const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState('Idea');
   const [feature, setFeature] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -46,16 +158,27 @@ export function FeedbackWidget() {
   const reset = useCallback(() => {
     setMessage('');
     setFeature('');
+    setCategory('Idea');
     setJustSent(false);
   }, []);
+
+  const routeInfo = getRouteInfo(path);
 
   const handleSubmit = useCallback(async () => {
     const trimmed = message.trim();
     if (!trimmed) return;
+
+    let finalFeature = feature.trim() || `General Page: ${routeInfo.pageName}`;
+
+    if (finalFeature.length > 120) {
+      finalFeature = finalFeature.substring(0, 117) + '...';
+    }
+
     setSubmitting(true);
     try {
       await apiClient.post('/api/feedback', {
-        feature: feature.trim() || `route:${path}`,
+        feature: finalFeature,
+        category: category,
         message: trimmed,
         route: path,
       });
@@ -76,7 +199,7 @@ export function FeedbackWidget() {
     } finally {
       setSubmitting(false);
     }
-  }, [message, feature, path, toast, reset]);
+  }, [message, feature, category, routeInfo.pageName, path, toast, reset, gamification]);
 
   if (hidden) return null;
 
@@ -134,22 +257,63 @@ export function FeedbackWidget() {
               </div>
 
               <div className="p-5 space-y-4">
-                <div>
+                {/* Category Selector Chips */}
+                <div className="space-y-1.5 text-left">
+                  <span className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Feedback Type</span>
+                  <div className="grid grid-cols-4 gap-2 mt-1.5">
+                    {CATEGORIES.map((cat) => {
+                      const active = category === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setCategory(cat.id)}
+                          disabled={submitting || justSent}
+                          className={`py-2 px-1 text-xs font-bold rounded-xl border text-center transition-all ${
+                            active
+                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                              : 'bg-muted/50 hover:bg-muted text-muted-foreground border-border'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Active Location Display */}
+                <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 flex flex-col gap-1 text-left">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Active Location</span>
+                  <span className="text-sm font-semibold text-foreground">{routeInfo.pageName}</span>
+                </div>
+
+                {/* Combobox style input using HTML5 Datalist */}
+                <div className="space-y-1.5 text-left">
                   <Label htmlFor="feedback-feature" className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Feature (optional)
+                    Feature / Component (optional)
                   </Label>
                   <Input
                     id="feedback-feature"
+                    list="feedback-features-list"
                     value={feature}
                     onChange={(e) => setFeature(e.target.value)}
-                    placeholder="e.g. quiz, mind map, lecture upload"
+                    placeholder={routeInfo.features.length > 0 ? "Type or select a component..." : "Type feature name..."}
                     maxLength={120}
                     disabled={submitting || justSent}
-                    className="mt-1.5"
+                    className="mt-1.5 text-foreground bg-background"
+                    autoComplete="off"
                   />
+                  {routeInfo.features.length > 0 && (
+                    <datalist id="feedback-features-list">
+                      {routeInfo.features.map((feat) => (
+                        <option key={feat} value={feat} />
+                      ))}
+                    </datalist>
+                  )}
                 </div>
 
-                <div>
+                <div className="space-y-1.5 text-left">
                   <Label htmlFor="feedback-message" className="text-xs uppercase tracking-widest text-muted-foreground">
                     Your feedback
                   </Label>
@@ -169,7 +333,7 @@ export function FeedbackWidget() {
                   </p>
                 </div>
 
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-[10px] text-muted-foreground text-left">
                   We attach the page you're on ({path}) so we can find the right surface.
                 </p>
               </div>
