@@ -1028,7 +1028,7 @@ function OnboardingInner() {
                             {/* Checkmark / Unselected Indicator Badge */}
                             <button
                               onClick={() => toggleSuggested(c.id, c.suggestedStatus)}
-                              className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center z-20 transition-all duration-300 ${included ? 'bg-primary text-white scale-100 opacity-100' : 'bg-black/40 text-white/50 scale-75 opacity-0 group-hover:scale-90 group-hover:opacity-100 backdrop-blur-md border border-white/20'}`}
+                              className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center z-35 transition-all duration-300 ${included ? 'bg-primary text-white scale-100 opacity-100' : 'bg-black/40 text-white/50 scale-75 opacity-0 group-hover:scale-90 group-hover:opacity-100 backdrop-blur-md border border-white/20'}`}
                             >
                               <Check className="w-5 h-5" strokeWidth={included ? 3 : 2} />
                             </button>
@@ -1040,7 +1040,7 @@ function OnboardingInner() {
 
                             {/* Status Overlay for selected cards */}
                             {included && (
-                              <div className="absolute inset-0 bg-black/90 backdrop-blur-md z-10 flex flex-col justify-end p-2.5 pb-4 gap-1.5 transition-all duration-300">
+                              <div className="absolute inset-0 bg-black/90 backdrop-blur-md z-20 flex flex-col justify-end p-2.5 pb-4 gap-1.5 transition-all duration-300">
                                 <p className="text-[9px] uppercase tracking-wider font-extrabold text-white/40 mb-1 text-center pointer-events-none">Status</p>
                                 {STATUS_ORDER.map((s) => (
                                   <button
@@ -1055,11 +1055,13 @@ function OnboardingInner() {
                             )}
 
                             {/* Title overlay */}
-                            <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-0 flex flex-col justify-end h-[60%] pointer-events-none">
-                              <span className="text-[9px] uppercase tracking-wider font-extrabold text-white/40 mb-1">
-                                {c.courseCode ? `${c.courseCode} · ` : ''}{c.typicalSemester ? t('steps.confirmCourses.semesterTag', { n: c.typicalSemester }) : t('steps.confirmCourses.elective')}
-                              </span>
-                              <h3 className="font-bold text-white text-base lg:text-lg leading-tight line-clamp-2">{c.title}</h3>
+                            <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10 flex flex-col justify-end h-[60%] pointer-events-none">
+                              <div className="w-full">
+                                <span className="text-[9px] uppercase tracking-wider font-extrabold text-white/40 mb-1 block">
+                                  {c.courseCode ? `${c.courseCode} · ` : ''}{c.typicalSemester ? t('steps.confirmCourses.semesterTag', { n: c.typicalSemester }) : t('steps.confirmCourses.elective')}
+                                </span>
+                                <h3 className="font-bold text-white text-sm lg:text-base leading-tight line-clamp-2">{c.title}</h3>
+                              </div>
                             </div>
                           </div>
                         );
@@ -1154,9 +1156,11 @@ function OnboardingInner() {
                             </div>
 
                             {/* Title overlay */}
-                            <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10 flex flex-col justify-end h-[60%]">
-                              <h3 className="font-bold text-white text-base lg:text-lg leading-tight line-clamp-3">{course.title}</h3>
-                              {course.description && <p className="text-xs text-white/60 line-clamp-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute bottom-4 translate-y-4 group-hover:translate-y-0 group-hover:relative group-hover:bottom-auto">{course.description}</p>}
+                            <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10 flex flex-col justify-end h-[60%] pointer-events-none">
+                              <div className="w-full">
+                                <h3 className="font-bold text-white text-sm lg:text-base leading-tight line-clamp-2">{course.title}</h3>
+                                {course.description && <p className="text-xs text-white/60 line-clamp-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute bottom-4 translate-y-4 group-hover:translate-y-0 group-hover:relative group-hover:bottom-auto">{course.description}</p>}
+                              </div>
                             </div>
                           </motion.button>
                         );
