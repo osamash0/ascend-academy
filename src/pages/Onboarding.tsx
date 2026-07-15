@@ -4,7 +4,7 @@ import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-
 import {
   ArrowRight, Sparkles, BookOpen, Check, Loader2,
   Building2, Volume2, VolumeX,
-  Users, Trophy, MapPin,
+  Users, Trophy, MapPin, ChevronsUpDown
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +27,8 @@ import { Input } from '@/components/ui/input';
 import { UniversityEmailLink } from '@/components/UniversityEmailLink';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 const PRESET_AVATARS = [
   { url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Felix&backgroundColor=b6e3f4', label: 'Robot' },
@@ -108,7 +110,8 @@ function OnboardingInner() {
   const LUNA_AVATAR_KEY = '__luna__';
   const [lunaSuit, setLunaSuit] = useState(profile?.luna_suit_color || '#FFF8E7');
   const [lunaVisor, setLunaVisor] = useState(profile?.luna_visor_tint || '#88B0B5');
-  const [lunaPatch, setLunaPatch] = useState(profile?.luna_patch || '');
+  // Preserved to prevent overwriting legacy insignia data on save
+  const [lunaPatch] = useState(profile?.luna_patch || '');
 
   // Step 5 — platform content courses (existing behaviour)
   const [courses, setCourses] = useState<Course[]>([]);
@@ -120,6 +123,7 @@ function OnboardingInner() {
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [programs, setPrograms] = useState<DegreeProgram[]>([]);
   const [uniId, setUniId] = useState('');
+  const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
   const [facId, setFacId] = useState('');
   const [progId, setProgId] = useState('');
   const [semester, setSemester] = useState(1);
@@ -769,32 +773,7 @@ function OnboardingInner() {
                     </div>
                   </div>
 
-                  {/* Insignia */}
-                  <div className="space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">{t('steps.avatar.insignia')}</p>
-                    <div className="grid grid-cols-5 gap-3">
-                      {[
-                        { image: '', label: 'Default' },
-                        { image: '/badges/rocket.jpg', label: 'Explorer' },
-                        { image: '/badges/shield.jpg', label: 'Guardian' },
-                        { image: '/badges/star.jpg', label: 'Dreamer' },
-                        { image: '/badges/target.jpg', label: 'Achiever' },
-                      ].map(({ image, label }) => (
-                        <button
-                          key={image || 'default'}
-                          onClick={() => setLunaPatch(image)}
-                          className={`group flex flex-col items-center gap-2 focus-visible:outline-none`}
-                        >
-                          <div 
-                            className={`w-full aspect-square rounded-full border-2 flex items-center justify-center transition-all duration-300 overflow-hidden ${lunaPatch === image ? 'border-primary ring-4 ring-primary/20 scale-105' : 'border-white/10 hover:border-white/30 hover:scale-105 bg-white/5'}`}
-                          >
-                            {image ? <img src={image} className="w-full h-full object-cover" alt={label} /> : <span className="text-xl">★</span>}
-                          </div>
-                          <span className={`text-[10px] font-medium transition-colors ${lunaPatch === image ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>{label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+
                 </motion.div>
 
                 <div className="w-full max-w-md mx-auto flex justify-between mt-8">
@@ -818,18 +797,49 @@ function OnboardingInner() {
 
                 <div className="flex-1 space-y-4 max-w-md mx-auto w-full">
                   <div>
-                    <Select value={uniId} onValueChange={(val) => { play('select'); setAutoMatched(false); setUniId(val); }}>
-                      <SelectTrigger className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground focus:border-primary/50 transition-all text-base">
-                        <SelectValue placeholder={t('steps.university.universityPlaceholder')} />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-white/10">
-                        {universities.map((u) => (
-                          <SelectItem key={u.id} value={u.id} className="rounded-lg cursor-pointer">
-                            {u.name}{u.city ? `, ${u.city}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={uniDropdownOpen} onOpenChange={setUniDropdownOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={uniDropdownOpen}
+                          className="w-full h-14 px-4 rounded-2xl bg-white/5 border-2 border-white/10 text-foreground hover:bg-white/5 hover:text-foreground hover:border-primary/50 transition-all text-base justify-between font-normal"
+                        >
+                          {uniId
+                            ? universities.find((u) => u.id === uniId)?.name
+                            : t('steps.university.universityPlaceholder')}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl border-white/10 bg-background/95 backdrop-blur-xl">
+                        <Command className="bg-transparent">
+                          <CommandInput placeholder={t('steps.university.universityPlaceholder')} className="h-12 border-none focus:ring-0 text-base" />
+                          <CommandList>
+                            <CommandEmpty className="py-4 text-center text-sm text-muted-foreground">No university found.</CommandEmpty>
+                            <CommandGroup>
+                              {universities.map((u) => (
+                                <CommandItem
+                                  key={u.id}
+                                  value={`${u.name} ${u.city || ''} ${u.id}`}
+                                  onSelect={() => {
+                                    play('select');
+                                    setAutoMatched(false);
+                                    setUniId(u.id);
+                                    setUniDropdownOpen(false);
+                                  }}
+                                  className="rounded-lg cursor-pointer my-1 text-sm aria-selected:bg-white/10"
+                                >
+                                  <Check
+                                    className={`mr-2 h-4 w-4 text-primary ${uniId === u.id ? 'opacity-100' : 'opacity-0'}`}
+                                  />
+                                  {u.name}{u.city ? `, ${u.city}` : ''}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <AnimatePresence>
                       {autoMatched && selectedUni && (
                         <motion.div
