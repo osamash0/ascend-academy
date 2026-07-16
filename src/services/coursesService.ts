@@ -91,6 +91,11 @@ export async function updateCourse(id: string, patch: UpdateCourseInput): Promis
   return res.data;
 }
 
+export async function generateCourseTitleSuggestion(lectures: string[]): Promise<string> {
+  const res = await apiClient.post<{ title: string }>('/api/v1/courses/generate-title-suggestion', { lectures });
+  return res.title;
+}
+
 /**
  * Generate a course-level description with AI, summarizing the course from the
  * titles and slide summaries of its lectures. Requires the course to already

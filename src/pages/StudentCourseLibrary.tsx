@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, ChevronLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -74,6 +74,8 @@ import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
 export default function StudentCourseLibrary() {
   const { courseId } = useParams<{ courseId?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const onboardTarget = location.state?.onboardTarget as string | undefined;
   const { t } = useTranslation(['dashboard', 'common']);
   const translateCurriculum = useCurriculumTranslation();
   const { data, isLoading, isError, refetch } = useStudentDashboard();
@@ -258,7 +260,7 @@ export default function StudentCourseLibrary() {
     setCourseFocus(idx >= 0 ? idx : 0);
   }, [railCourses, courseFocus, showAllCourses, semesterGroups]);
 
-  // Preselect the course from the URL (deep link from /course-v3/:courseId).
+  // Preselect the course from the URL (deep link from /course-v3/:courseId) or onboarding.
   useEffect(() => {
     if (!courseList.length) return;
     if (courseId) {
@@ -272,12 +274,25 @@ export default function StudentCourseLibrary() {
         const all = semesterGroups.flatMap((g) => g.courses);
         setCourseFocus(Math.max(0, all.findIndex((c) => c.id === courseId)));
       }
+    } else if (onboardTarget) {
+      const all = semesterGroups.flatMap((g) => g.courses);
+      const targetIdx = all.findIndex((c) => c.title.toLowerCase() === onboardTarget.toLowerCase());
+      if (targetIdx >= 0) {
+        const leadCourses = semesterGroups[0]?.courses ?? [];
+        const visibleIdx = leadCourses.findIndex((c) => c.title.toLowerCase() === onboardTarget.toLowerCase());
+        if (visibleIdx >= 0) {
+          setCourseFocus(visibleIdx);
+        } else {
+          setShowAllCourses(true);
+          setCourseFocus(targetIdx);
+        }
+      }
     } else {
       setCourseFocus(0);
     }
     setActiveRow('courses');
     setLectureFocus(0);
-  }, [courseId, courseList.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [courseId, courseList.length, onboardTarget]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const focusedCourse = railCourses[courseFocus];
   const courseLectures = useMemo(
@@ -517,10 +532,16 @@ export default function StudentCourseLibrary() {
                     const i = ++flat;
                     const active = i === courseFocus;
                     const dim = activeRow === 'lectures';
+                    const isTarget = onboardTarget && c.title.toLowerCase() === onboardTarget.toLowerCase();
                     return (
-                <button
-                  key={c.id}
-                  data-active={active}
+                <div key={c.id} className="relative flex flex-col items-center gap-2">
+                  {isTarget && (
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-50 whitespace-nowrap bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-full shadow-xl animate-bounce pointer-events-none before:content-[''] before:absolute before:-bottom-1 before:left-1/2 before:-translate-x-1/2 before:border-4 before:border-transparent before:border-t-primary">
+                      Here is your course!
+                    </div>
+                  )}
+                  <button
+                    data-active={active}
                   onClick={() => {
                     setCourseFocus(i);
                     setActiveRow('courses');
@@ -578,6 +599,7 @@ export default function StudentCourseLibrary() {
                     {c.title}
                   </span>
                 </button>
+              </div>
                     );
                   })}
                 </div>
@@ -806,6 +828,7 @@ export default function StudentCourseLibrary() {
                 onClose={() => setInlineLectureId(null)}
                 onExpand={() => open(inlineLectureId, focusedCourse?.id)}
                 onSlideChange={setInlineSlideIndex}
+                isOnboarding={!!onboardTarget}
               />
             </motion.div>
           )}

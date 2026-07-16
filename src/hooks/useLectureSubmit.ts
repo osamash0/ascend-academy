@@ -101,9 +101,26 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
       if (serverLectureId) {
         setLoading(true);
         try {
+          const isStudent = user?.app_metadata?.role === 'student';
+          const updatePayload: any = { title, description, course_id: courseId ?? null };
+          
+          if (courseId) {
+            updatePayload.visibility = 'course';
+            updatePayload.professor_id = user?.id;
+            updatePayload.student_owner_id = null;
+          } else if (isStudent) {
+            updatePayload.visibility = 'private_student';
+            updatePayload.professor_id = null;
+            updatePayload.student_owner_id = user?.id;
+          } else {
+            updatePayload.visibility = 'course';
+            updatePayload.professor_id = user?.id;
+            updatePayload.student_owner_id = null;
+          }
+
           const { error } = await supabase
             .from('lectures')
-            .update({ title, description, course_id: courseId ?? null })
+            .update(updatePayload)
             .eq('id', serverLectureId);
           if (error) throw error;
           try {
@@ -147,17 +164,33 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
           pdfUrl = filePath;
         }
 
+        const isStudent = user?.app_metadata?.role === 'student';
+        const insertPayload: any = {
+          id: lectureId,
+          title,
+          description,
+          total_slides: slides.length,
+          pdf_url: pdfUrl,
+          course_id: courseId ?? null,
+        };
+
+        if (courseId) {
+          insertPayload.visibility = 'course';
+          insertPayload.professor_id = user?.id;
+          insertPayload.student_owner_id = null;
+        } else if (isStudent) {
+          insertPayload.visibility = 'private_student';
+          insertPayload.professor_id = null;
+          insertPayload.student_owner_id = user?.id;
+        } else {
+          insertPayload.visibility = 'course';
+          insertPayload.professor_id = user?.id;
+          insertPayload.student_owner_id = null;
+        }
+
         const { data: lecture, error: lectureError } = await supabase
           .from('lectures')
-          .insert({
-            id: lectureId,
-            title,
-            description,
-            professor_id: user?.id,
-            total_slides: slides.length,
-            pdf_url: pdfUrl,
-            course_id: courseId ?? null,
-          })
+          .insert(insertPayload)
           .select()
           .single();
 

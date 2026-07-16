@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, useCallback, useDeferredValue } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, useDeferredValue } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, X, TrendingUp, ChevronRight, Sparkles } from 'lucide-react';
+import { Flame, X, TrendingUp, ChevronRight, Sparkles, Compass } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
@@ -22,8 +23,10 @@ import {
   SectionHeader,
 } from '@/components/console';
 import { HeroStage } from '@/features/student/components/HeroStage';
+import { WelcomeOnboardingHero } from '@/features/student/components/WelcomeOnboardingHero';
 import { DashboardFriendsWidget } from '@/features/social/components/DashboardFriendsWidget';
 import { BentoGrid } from '@/features/student/components/BentoGrid';
+import { LunaDashboardTour } from '@/features/student/components/LunaDashboardTour';
 import { BrowseRow } from '@/features/student/components/BrowseRow';
 import { OnboardPanel } from '@/features/student/components/OnboardPanel';
 import { ReviewCelebration } from '@/features/student/components/ReviewCelebration';
@@ -56,6 +59,8 @@ export default function StudentDashboard() {
   // so the entrance animation (hero + rail) stays buttery instead of janking
   // while bento/rows/cards mount and fire their queries.
   const [showBelowFold, setShowBelowFold] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+  const tourTriggeredRef = useRef(false);
 
   const { data: dashboardData, isLoading: loading, isError, refetch } = useStudentDashboard();
 
@@ -190,6 +195,33 @@ export default function StudentDashboard() {
     return () => clearTimeout(id);
   }, []);
 
+  // First-ever dashboard visit after onboarding: auto-play the skippable Luna
+  // tour once the below-fold anchors (browse courses / My Materials) exist,
+  // then never again — `has_seen_dashboard_tour` is the persisted guard.
+  useEffect(() => {
+    if (tourTriggeredRef.current) return;
+    if (!showBelowFold || !profile) return;
+    if (profile.has_seen_dashboard_tour) return;
+    tourTriggeredRef.current = true;
+    // Deliberately no cleanup: this is a one-shot, ref-guarded trigger. A
+    // cleanup that clears the timeout would cancel it under React 18
+    // StrictMode's dev-only double-invoke (the second invocation short-
+    // circuits on the now-true ref, so nothing would ever re-schedule it).
+    setTimeout(() => setShowTour(true), 300);
+  }, [showBelowFold, profile]);
+
+  const handleTourDone = useCallback(() => {
+    setShowTour(false);
+    if (!user?.id) return;
+    supabase
+      .from('profiles')
+      .update({ has_seen_dashboard_tour: true })
+      .eq('user_id', user.id)
+      .then(({ error }) => {
+        if (error) console.error('Failed to persist dashboard tour dismissal:', error);
+      });
+  }, [user?.id]);
+
   if (loading) {
     return (
       <div className="console-bg relative min-h-screen flex items-end p-6 lg:p-12">
@@ -284,11 +316,13 @@ export default function StudentDashboard() {
 
         <div className="flex-1" />
 
-        {/* Lower third: hero metadata + floating rail */}
-        <div className="px-6 lg:px-12 pb-8 space-y-7">
-          {focusedLec && focusedView ? (
-            <>
-              <HeroStage
+        {heroKind === 'onboard' ? (
+          <WelcomeOnboardingHero />
+        ) : (
+          <div className="px-6 lg:px-12 pb-8 space-y-7">
+            {focusedLec && focusedView ? (
+              <>
+                <HeroStage
                 view={focusedView}
                 eyebrow={`${getGreeting()} · ${displayName}`}
                 accuracy={accuracy}
@@ -337,11 +371,11 @@ export default function StudentDashboard() {
             </div>
           )}
         </div>
+        )}
       </section>
 
       {/* ── Below the fold: adapts to the hero kind ── */}
-      {/* Brand-new student: a focused "start here", not the full firehose. */}
-      {showBelowFold && heroKind === 'onboard' && <OnboardPanel />}
+      {/* Brand-new student: The onboarding hero handles everything above. */}
 
       {/* Everyone else (resume / next / review): the full feed, with a
           celebration banner leading the way when everything's done. */}
@@ -372,6 +406,31 @@ export default function StudentDashboard() {
             onOpenMyMaterials={() => navigate(StudentRoutes.MY_MATERIALS)}
             onOpenStudyGuide={(courseId) => navigate(StudentRoutes.STUDY_GUIDE(courseId))}
           />
+
+          {/* Browse the full course catalog — also the "browse courses" anchor for the Luna tour. */}
+          <div
+            data-tour="browse-courses"
+            onClick={() => navigate(StudentRoutes.LIBRARY)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate(StudentRoutes.LIBRARY);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={t('dashboard:browseCourses.description', { defaultValue: 'Browse the course catalog' })}
+            className="depth-card p-5 flex items-center gap-4 cursor-pointer hover:border-primary/30 hover:shadow-glow-primary transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+              <Compass className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-sm">{t('dashboard:browseCourses.title', { defaultValue: 'Browse courses' })}</p>
+              <p className="text-xs text-white/50">{t('dashboard:browseCourses.description', { defaultValue: 'Find and enroll in more courses' })}</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-white/40 shrink-0" />
+          </div>
 
           {/* Recently Viewed: lectures + courses, MRF ordered, deduplicated */}
           <RecentlyViewed
@@ -471,6 +530,8 @@ export default function StudentDashboard() {
         </div>
       </motion.div>
       )}
+
+      {showTour && <LunaDashboardTour profile={profile} onDone={handleTourDone} />}
     </DepthScene>
   );
 }

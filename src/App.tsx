@@ -63,6 +63,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const StudentUploadWizard = lazy(() => import("./features/student/components/StudentUploadWizard"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const StudentCourseView = lazy(() => import("./pages/StudentCourseView"));
 const StudentCourseLibrary = lazy(() => import("./pages/StudentCourseLibrary"));
@@ -240,6 +241,16 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <Onboarding />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={StudentRoutes.ONBOARDING_UPLOAD}
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ConsoleLayout>
+                <StudentUploadWizard />
+              </ConsoleLayout>
             </ProtectedRoute>
           }
         />

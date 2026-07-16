@@ -44,6 +44,30 @@
   "lectureCount_other": "{{count}} Vorlesungen",
   "recentAchievements": "Aktuelle Erfolge",
   "viewAll": "Alle anzeigen",
+  "browseCourses": {
+    "title": "Kurse durchsuchen",
+    "description": "Finde weitere Kurse und schreib dich ein"
+  },
+  "tour": {
+    "ariaLabel": "Geführte Tour",
+    "skip": "Tour überspringen",
+    "next": "Weiter",
+    "finish": "Verstanden!",
+    "steps": {
+      "welcome": {
+        "title": "Hey, ich bin Luna 👋",
+        "body": "Eine kurze Tour, bevor es losgeht — du kannst jederzeit überspringen."
+      },
+      "browse": {
+        "title": "Entdecke weitere Kurse",
+        "body": "Durchstöbere den vollständigen Katalog und schreib dich in alles ein, was du sonst noch studierst."
+      },
+      "materials": {
+        "title": "Bring deine eigenen Notizen mit",
+        "body": "Lade hier deine eigenen Vorlesungsfolien oder PDFs hoch — ich verwandle sie in interaktives Lernmaterial."
+      }
+    }
+  },
   "onboard": {
     "eyebrow": "Hier starten",
     "title": "Willkommen bei Learnstation",

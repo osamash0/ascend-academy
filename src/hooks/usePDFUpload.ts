@@ -254,14 +254,17 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
             } else if (data.type === 'complete') {
               setProcessedSlides(prev => {
                 const finalSlides = prev.filter(Boolean) as SlideData[];
-                setSlides(finalSlides);
-                setActiveSlideIndex(0);
-                if (!title) setTitle(file.name.replace(/\.(pdf|pptx)$/i, ''));
-                setPdfFile(file);
-                toast({
-                  title: 'PDF Imported Successfully',
-                  description: `${finalSlides.length} slides extracted and structured.`,
-                });
+                // Schedule state updates outside the updater function
+                setTimeout(() => {
+                  setSlides(finalSlides);
+                  setActiveSlideIndex(0);
+                  if (!title) setTitle(file.name.replace(/\.(pdf|pptx)$/i, ''));
+                  setPdfFile(file);
+                  toast({
+                    title: 'PDF Imported Successfully',
+                    description: `${finalSlides.length} slides extracted and structured.`,
+                  });
+                }, 0);
                 return prev;
               });
               // Authoritative completion signal — flips the overlay's "AI

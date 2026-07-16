@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { fetchBatchSummary } from '@/services/uploadBatchService';
-import { ProfessorRoutes } from '@/lib/routes';
+import { ProfessorRoutes, StudentRoutes } from '@/lib/routes';
 
 /**
  * Phase 1.3 batch review screen. There is no draft/published state on
@@ -32,6 +32,11 @@ import { ProfessorRoutes } from '@/lib/routes';
 export default function BatchReviewPage() {
   const { batchId } = useParams<{ batchId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const routeState = location.state as any;
+  const fromOnboarding = routeState?.fromOnboarding;
+  const targetCourseTitle = routeState?.targetCourseTitle;
+  
   const { toast } = useToast();
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
 
@@ -61,7 +66,13 @@ export default function BatchReviewPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate(ProfessorRoutes.UPLOAD)}
+              onClick={() => {
+                if (fromOnboarding) {
+                  navigate(StudentRoutes.LIBRARY, { state: { onboardTarget: targetCourseTitle } });
+                } else {
+                  navigate(ProfessorRoutes.UPLOAD);
+                }
+              }}
               className="rounded-full h-8 w-8"
             >
               <ChevronLeft className="w-5 h-5" />
@@ -84,6 +95,15 @@ export default function BatchReviewPage() {
             >
               <CheckCircle2 className="w-4 h-4" />
               Done reviewing all
+            </Button>
+          )}
+          {lectures && lectures.length > 0 && remaining.length === 0 && fromOnboarding && (
+            <Button
+              onClick={() => navigate(StudentRoutes.LIBRARY, { state: { onboardTarget: targetCourseTitle } })}
+              className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Go to Course Library
             </Button>
           )}
         </div>

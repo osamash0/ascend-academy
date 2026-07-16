@@ -44,6 +44,30 @@
   "lectureCount_other": "{{count}} lectures",
   "recentAchievements": "Recent Achievements",
   "viewAll": "View all",
+  "browseCourses": {
+    "title": "Browse courses",
+    "description": "Find and enroll in more courses"
+  },
+  "tour": {
+    "ariaLabel": "Guided tour",
+    "skip": "Skip tour",
+    "next": "Next",
+    "finish": "Got it!",
+    "steps": {
+      "welcome": {
+        "title": "Hey, I'm Luna 👋",
+        "body": "Quick tour before you dive in — feel free to skip anytime."
+      },
+      "browse": {
+        "title": "Explore more courses",
+        "body": "Browse the full catalog and enroll in anything else you're studying."
+      },
+      "materials": {
+        "title": "Bring your own notes",
+        "body": "Upload your own lecture slides or PDFs here — I'll turn them into interactive study material."
+      }
+    }
+  },
   "onboard": {
     "eyebrow": "Start here",
     "title": "Welcome to Learnstation",

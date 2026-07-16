@@ -168,6 +168,7 @@ export interface Database {
           display_name: string | null
           email: string
           full_name: string | null
+          has_seen_dashboard_tour: boolean
           id: string
           luna_patch: string | null
           luna_suit_color: string | null
@@ -185,6 +186,7 @@ export interface Database {
           display_name?: string | null
           email: string
           full_name?: string | null
+          has_seen_dashboard_tour?: boolean
           id?: string
           luna_patch?: string | null
           luna_suit_color?: string | null
@@ -202,6 +204,7 @@ export interface Database {
           display_name?: string | null
           email?: string
           full_name?: string | null
+          has_seen_dashboard_tour?: boolean
           id?: string
           luna_patch?: string | null
           luna_suit_color?: string | null

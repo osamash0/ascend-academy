@@ -174,6 +174,7 @@ async def process_pdf_stream(
     user_id: Optional[str] = None,
     force_reparse: bool = False,
     course_id: Optional[str] = None,
+    visibility: str = "course",
 ) -> AsyncGenerator[str, None]:
     odl_pages = None
     odl_succeeded = False
@@ -248,6 +249,7 @@ async def process_pdf_stream(
             force_reparse=force_reparse,
             parsing_mode=parsing_mode,
             course_id=course_id,
+            visibility=visibility,
         )
     except Exception as e:
         # The job queue is unreachable. Running the full CPU/RAM-heavy parse
@@ -319,6 +321,7 @@ async def process_pdf_stream(
             force_reparse=force_reparse,
             parsing_mode=parsing_mode,
             course_id=course_id,
+            visibility=visibility,
         ))
 
         while True:

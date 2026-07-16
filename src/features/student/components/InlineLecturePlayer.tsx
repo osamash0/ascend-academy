@@ -84,6 +84,8 @@ interface InlineLecturePlayerProps {
   onExpand?: () => void;
   /** Fires with the active slide index so the host can react (e.g. wallpaper). */
   onSlideChange?: (index: number) => void;
+  /** Whether the user navigated here via the onboarding flow */
+  isOnboarding?: boolean;
 }
 
 /**
@@ -128,6 +130,7 @@ export function InlineLecturePlayer({
   onClose,
   onExpand,
   onSlideChange,
+  isOnboarding,
 }: InlineLecturePlayerProps) {
   const { user, session, refreshProfile } = useAuth();
   const queryClient = useQueryClient();
@@ -1273,7 +1276,21 @@ export function InlineLecturePlayer({
 
           {/* Chat bar — always under the PDF. Submitting turns the right view
               into the conversation (prompt + grounded response). */}
-          <form
+          <div className="relative">
+            {isOnboarding && !chatActive && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute -top-14 left-4 z-50 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-xl shadow-primary/20"
+              >
+                <div className="absolute -bottom-1.5 left-6 h-3 w-3 rotate-45 bg-primary" />
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Try asking Luna to explain this slide!
+                </div>
+              </motion.div>
+            )}
+            <form
             onSubmit={(e) => {
               e.preventDefault();
               handleAsk();
@@ -1300,6 +1317,7 @@ export function InlineLecturePlayer({
               {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </button>
           </form>
+          </div>
         </div>
 
         {/* Right column: content / chat / quiz / completion — flows naturally and scroll is page-level */}

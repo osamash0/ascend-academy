@@ -27,6 +27,7 @@ export interface Profile {
   luna_suit_color?: string | null;
   luna_visor_tint?: string | null;
   luna_patch?: string | null;
+  has_seen_dashboard_tour: boolean;
 }
 
 interface AuthContextType {
@@ -62,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string): Promise<ProfileFetchResult> => {
     const { data: profileData, error } = await supabase
       .from('profiles')
-      .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak, preferred_language, luna_suit_color, luna_visor_tint, luna_patch')
+      .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak, preferred_language, luna_suit_color, luna_visor_tint, luna_patch, has_seen_dashboard_tour')
       .eq('user_id', userId)
       .single();
 

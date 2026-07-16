@@ -304,6 +304,7 @@ export async function loadLectureForEdit(lectureId: string): Promise<LectureForE
     .eq('id', lectureId)
     .maybeSingle();
   if (lErr) throw lErr;
+  if (!lecture) throw new Error("Lecture not found or you do not have permission to view it.");
 
   const lectureRow = lecture as typeof lecture & {
     course_id?: string | null;

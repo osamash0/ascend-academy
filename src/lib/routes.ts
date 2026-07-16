@@ -17,6 +17,7 @@ export const StudentRoutes = {
   MY_MATERIALS: '/materials',
   ONBOARDING: '/onboarding',
   LIBRARY: '/library',
+  ONBOARDING_UPLOAD: '/onboarding/upload',
   COURSE_V3: (id: string) => `/course-v3/${id}`,
   COURSE_DETAIL: (id: string) => `/course/${id}`,
   EXAM: (courseId: string) => `/exam/${courseId}`,

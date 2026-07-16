@@ -59,6 +59,10 @@ class CourseUpdate(BaseModel):
     status: Optional[str] = Field(default=None, pattern="^(draft|published)$")
 
 
+class TitleSuggestionRequest(BaseModel):
+    lectures: List[str]
+
+
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 def _fetch_course(course_id: str) -> Optional[dict]:
@@ -249,12 +253,22 @@ async def browse_courses(
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
     def _load() -> List[dict]:
+        # Only show courses created by professors in the global catalog
+        professors = supabase_admin.table("user_roles").select("user_id").eq("role", "professor").execute().data or []
+        prof_ids = [p["user_id"] for p in professors] if professors else []
+
         q = (
             supabase_admin.table("courses")
             .select("id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at")
             .eq("is_archived", False)
             .eq("status", "published")
         )
+        if prof_ids:
+            q = q.in_("professor_id", prof_ids)
+        else:
+            # If no professors exist, return empty to be safe
+            q = q.eq("id", "00000000-0000-0000-0000-000000000000")
+
         if params.cursor:
             q = q.lt("created_at", params.cursor)
             
@@ -288,6 +302,33 @@ async def browse_courses(
     except Exception as e:
         logger.error("Courses browse failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to browse courses.")
+
+
+@router.post("/generate-title-suggestion")
+async def generate_title_suggestion(req: TitleSuggestionRequest, _user_id: UUID = Depends(_user_id)):
+    from openai import AsyncOpenAI
+    from backend.core.config import settings
+
+    if not req.lectures:
+        return {"title": "My New Course"}
+
+    # Use a small temperature to get a bit of variation on retry
+    prompt = f"Suggest a short, catchy, professional course title (max 6 words) for a course that covers these lectures: {', '.join(req.lectures)}. Output ONLY the title, no quotes or prefix."
+
+    try:
+        client = AsyncOpenAI(api_key=settings.litellm_client_key, base_url=settings.litellm_base_url)
+        resp = await client.chat.completions.create(
+            # Using stage-text or default model mapped in litellm
+            model="gpt-4o-mini", 
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=20,
+            temperature=0.8
+        )
+        title = resp.choices[0].message.content.strip().strip('"').strip("'")
+        return {"title": title}
+    except Exception as e:
+        logger.error(f"Failed to generate title suggestion: {e}")
+        return {"title": "My AI Generated Course"}
 
 
 @router.post("/{course_id}/enroll")

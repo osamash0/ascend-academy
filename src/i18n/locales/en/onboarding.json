@@ -49,7 +49,11 @@
       "empty": "No catalog courses found for this program.",
       "elective": "Elective",
       "semesterTag": "Semester {{n}}",
+      "currentSemesterTag": "Semester {{n}} · Current",
+      "electiveGroup": "Electives",
       "selectedCount": "{{count}} selected",
+      "add": "Add {{title}}",
+      "remove": "Remove {{title}}",
       "status": {
         "completed": "Completed",
         "in_progress": "Taking now",

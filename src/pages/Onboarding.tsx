@@ -53,6 +53,56 @@ interface RevealData {
 
 const STATUS_ORDER: StudentCatalogStatus[] = ['completed', 'in_progress', 'planned'];
 
+const COURSE_COLOR_PALETTE = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#ef4444', '#14b8a6', '#6366f1'];
+
+// Platform courses are authored once (in German) without localized titles yet;
+// translate the known ones here until the backend stores per-locale titles.
+const PLATFORM_COURSE_TITLE_EN: Record<string, string> = {
+  'Datenbanksysteme': 'Database Systems',
+};
+
+function localizeCourseTitle(title: string, language: string) {
+  if (!language.startsWith('en')) return title;
+  return PLATFORM_COURSE_TITLE_EN[title] ?? title;
+}
+
+function getCourseIcon(title: string) {
+  const titleLower = title.toLowerCase();
+  if (titleLower.includes('math') || titleLower.includes('calculus') || titleLower.includes('algebra')) return Calculator;
+  if (titleLower.includes('science') || titleLower.includes('physics') || titleLower.includes('chemistry')) return FlaskConical;
+  if (titleLower.includes('history') || titleLower.includes('law')) return Landmark;
+  if (titleLower.includes('art') || titleLower.includes('design')) return Palette;
+  if (titleLower.includes('code') || titleLower.includes('computer') || titleLower.includes('program')) return Code;
+  if (titleLower.includes('business') || titleLower.includes('econ') || titleLower.includes('finance')) return Briefcase;
+  if (titleLower.includes('language') || titleLower.includes('english') || titleLower.includes('world')) return Globe;
+  if (titleLower.includes('health') || titleLower.includes('medicine') || titleLower.includes('bio')) return HeartPulse;
+  if (titleLower.includes('psychology') || titleLower.includes('mind')) return Brain;
+  return BookOpen;
+}
+
+function getCourseColor(title: string) {
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) {
+    hash = title.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return COURSE_COLOR_PALETTE[Math.abs(hash) % COURSE_COLOR_PALETTE.length];
+}
+
+/** Groups suggested courses by their typical semester (electives last), so students can browse and pick courses outside their current semester. */
+function groupSuggestedBySemester<T extends { typicalSemester: number | null }>(courses: T[]) {
+  const groups = new Map<number | 'elective', T[]>();
+  courses.forEach((c) => {
+    const key = c.typicalSemester ?? 'elective';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(c);
+  });
+  return Array.from(groups.entries()).sort(([a], [b]) => {
+    if (a === 'elective') return 1;
+    if (b === 'elective') return -1;
+    return a - b;
+  });
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
@@ -91,7 +141,7 @@ function SoundToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => 
 }
 
 function OnboardingInner() {
-  const { t } = useTranslation('onboarding');
+  const { t, i18n } = useTranslation('onboarding');
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { play, enabled: soundOn, toggle: toggleSound } = useSound();
@@ -167,7 +217,8 @@ function OnboardingInner() {
     (async () => {
       try {
         const data = await browseCourses();
-        setCourses(data);
+        // Extra-topics onboarding step only surfaces courses that are ready today.
+        setCourses(data.filter((c) => c.title.trim().toLowerCase() === 'datenbanksysteme'));
       } catch (err) {
         console.error('Failed to load courses', err);
       } finally {
@@ -177,7 +228,9 @@ function OnboardingInner() {
     (async () => {
       try {
         const unis = await getUniversities();
-        setUniversities(unis);
+        // Marburg has the fullest course catalog today, so surface it first in the list.
+        const sorted = [...unis].sort((a, b) => (a.name === 'University of Marburg' ? -1 : b.name === 'University of Marburg' ? 1 : 0));
+        setUniversities(sorted);
         // Smart default: pre-select the university matching the user's email domain.
         const domain = (user?.email?.split('@')[1] || '').toLowerCase();
         if (domain) {
@@ -628,7 +681,7 @@ function OnboardingInner() {
         </motion.div>
 
         {/* Right Side: Onboarding Form */}
-        <div className="w-full max-w-2xl">
+        <div className={`w-full transition-[max-width] duration-300 ${step === 4 || step === 5 ? 'max-w-3xl' : 'max-w-2xl'}`}>
           {/* Animated journey map (replaces plain progress dots) */}
           <div className="mb-6">
             <OnboardingJourneyMap current={step} total={TOTAL_STEPS} labels={JOURNEY_LABELS} height={120} reduceMotion={reduceMotion} />
@@ -985,83 +1038,74 @@ function OnboardingInner() {
                       <p className="text-muted-foreground">{t('steps.confirmCourses.empty')}</p>
                     </div>
                   ) : (
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
-                      {suggested.map((c) => {
-                        const included = !!statusMap[c.id];
-                        const status = statusMap[c.id] ?? c.suggestedStatus;
-
-                        // Dynamic icon mapping based on course title
-                        const titleLower = c.title.toLowerCase();
-                        let CourseIcon = BookOpen;
-                        if (titleLower.includes('math') || titleLower.includes('calculus') || titleLower.includes('algebra')) CourseIcon = Calculator;
-                        else if (titleLower.includes('science') || titleLower.includes('physics') || titleLower.includes('chemistry')) CourseIcon = FlaskConical;
-                        else if (titleLower.includes('history') || titleLower.includes('law')) CourseIcon = Landmark;
-                        else if (titleLower.includes('art') || titleLower.includes('design')) CourseIcon = Palette;
-                        else if (titleLower.includes('code') || titleLower.includes('computer') || titleLower.includes('program')) CourseIcon = Code;
-                        else if (titleLower.includes('business') || titleLower.includes('econ') || titleLower.includes('finance')) CourseIcon = Briefcase;
-                        else if (titleLower.includes('language') || titleLower.includes('english') || titleLower.includes('world')) CourseIcon = Globe;
-                        else if (titleLower.includes('health') || titleLower.includes('medicine') || titleLower.includes('bio')) CourseIcon = HeartPulse;
-                        else if (titleLower.includes('psychology') || titleLower.includes('mind')) CourseIcon = Brain;
-
-                        // Deterministic color palette selection based on title hashing
-                        const palettes = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#ef4444', '#14b8a6', '#6366f1'];
-                        let hash = 0;
-                        for (let i = 0; i < c.title.length; i++) {
-                          hash = c.title.charCodeAt(i) + ((hash << 5) - hash);
-                        }
-                        const color = palettes[Math.abs(hash) % palettes.length];
+                    <motion.div variants={containerVariants} initial="hidden" animate="show">
+                      {groupSuggestedBySemester(suggested).map(([semesterKey, items]) => {
+                        const isCurrent = semesterKey === semester;
+                        const groupLabel = semesterKey === 'elective'
+                          ? t('steps.confirmCourses.electiveGroup')
+                          : isCurrent
+                            ? t('steps.confirmCourses.currentSemesterTag', { n: semesterKey })
+                            : t('steps.confirmCourses.semesterTag', { n: semesterKey });
 
                         return (
-                          <div
-                            key={c.id}
-                            className={`group relative aspect-[3/4] w-full rounded-2xl text-left transition-all overflow-hidden shadow-xl ${included ? 'ring-4 ring-primary shadow-glow-primary/30 scale-[0.98]' : 'ring-1 ring-white/10 hover:ring-white/30 shadow-black/40'}`}
-                            style={{ 
-                               background: `linear-gradient(145deg, ${color} 0%, #050505 120%)`
-                            }}
-                          >
-                            {/* Card Body Clickable Region (for selection toggle) */}
-                            <button
-                              onClick={() => toggleSuggested(c.id, c.suggestedStatus)}
-                              className="absolute inset-0 w-full h-full text-left focus-visible:outline-none z-0"
-                            />
-
-                            {/* Checkmark / Unselected Indicator Badge */}
-                            <button
-                              onClick={() => toggleSuggested(c.id, c.suggestedStatus)}
-                              className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center z-35 transition-all duration-300 ${included ? 'bg-primary text-white scale-100 opacity-100' : 'bg-black/40 text-white/50 scale-75 opacity-0 group-hover:scale-90 group-hover:opacity-100 backdrop-blur-md border border-white/20'}`}
-                            >
-                              <Check className="w-5 h-5" strokeWidth={included ? 3 : 2} />
-                            </button>
-
-                            {/* Centered Graphic / Icon */}
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 group-hover:opacity-30 transition-opacity mix-blend-overlay">
-                              <CourseIcon className="w-24 h-24 lg:w-32 lg:h-32 text-white" />
+                          <div key={semesterKey} className="mb-5 last:mb-0">
+                            <div className={`flex items-center gap-2.5 mb-2 px-1 ${isCurrent ? 'text-primary' : 'text-muted-foreground/60'}`}>
+                              <span className="text-[11px] font-extrabold uppercase tracking-wider whitespace-nowrap">{groupLabel}</span>
+                              <span className="h-px flex-1 bg-white/10" />
                             </div>
+                            <div className="space-y-2 sm:space-y-2.5">
+                              {items.map((c) => {
+                                const included = !!statusMap[c.id];
+                                const status = statusMap[c.id] ?? c.suggestedStatus;
+                                const CourseIcon = getCourseIcon(c.title);
+                                const color = getCourseColor(c.title);
 
-                            {/* Status Overlay for selected cards */}
-                            {included && (
-                              <div className="absolute inset-0 bg-black/90 backdrop-blur-md z-20 flex flex-col justify-end p-2.5 pb-4 gap-1.5 transition-all duration-300">
-                                <p className="text-[9px] uppercase tracking-wider font-extrabold text-white/40 mb-1 text-center pointer-events-none">Status</p>
-                                {STATUS_ORDER.map((s) => (
-                                  <button
-                                    key={s}
-                                    onClick={() => setSuggestedStatus(c.id, s)}
-                                    className={`w-full py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all truncate text-center ${status === s ? 'bg-primary text-white shadow-glow-primary/20 scale-105' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
+                                return (
+                                  <motion.div
+                                    variants={itemVariants}
+                                    key={c.id}
+                                    className={`rounded-2xl border transition-colors ${included ? 'border-primary/40 bg-primary/5' : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.07]'}`}
                                   >
-                                    {t(`steps.confirmCourses.status.${s}`)}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
+                                    <button
+                                      onClick={() => toggleSuggested(c.id, c.suggestedStatus)}
+                                      aria-label={included ? t('steps.confirmCourses.remove', { title: c.title }) : t('steps.confirmCourses.add', { title: c.title })}
+                                      className="w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 text-left rounded-2xl transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                                    >
+                                      <span
+                                        className="relative shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center"
+                                        style={{ background: `linear-gradient(145deg, ${color} 0%, #0a0a0a 130%)` }}
+                                      >
+                                        <CourseIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                                        <span className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-background transition-all ${included ? 'bg-primary text-white scale-100 opacity-100' : 'bg-white/10 text-transparent scale-75 opacity-0'}`}>
+                                          <Check className="w-3 h-3" strokeWidth={3} />
+                                        </span>
+                                      </span>
 
-                            {/* Title overlay */}
-                            <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10 flex flex-col justify-end h-[60%] pointer-events-none">
-                              <div className="w-full">
-                                <span className="text-[9px] uppercase tracking-wider font-extrabold text-white/40 mb-1 block">
-                                  {c.courseCode ? `${c.courseCode} · ` : ''}{c.typicalSemester ? t('steps.confirmCourses.semesterTag', { n: c.typicalSemester }) : t('steps.confirmCourses.elective')}
-                                </span>
-                                <h3 className="font-bold text-white text-sm lg:text-base leading-tight line-clamp-2">{c.title}</h3>
-                              </div>
+                                      <span className="flex-1 min-w-0">
+                                        <span className="block text-[10px] sm:text-[11px] uppercase tracking-wider font-bold text-muted-foreground/70 mb-0.5 truncate">
+                                          {c.courseCode ? `${c.courseCode} · ` : ''}{c.typicalSemester ? t('steps.confirmCourses.semesterTag', { n: c.typicalSemester }) : t('steps.confirmCourses.elective')}
+                                        </span>
+                                        <span className="block font-semibold text-foreground leading-snug text-sm sm:text-base break-words">{c.title}</span>
+                                      </span>
+                                    </button>
+
+                                    {/* Status picker for selected courses */}
+                                    {included && (
+                                      <div className="flex gap-1.5 px-3 sm:px-4 pb-3 sm:pb-4">
+                                        {STATUS_ORDER.map((s) => (
+                                          <button
+                                            key={s}
+                                            onClick={() => setSuggestedStatus(c.id, s)}
+                                            className={`flex-1 py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-bold leading-tight text-center transition-all ${status === s ? 'bg-primary text-white shadow-glow-primary/20' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
+                                          >
+                                            {t(`steps.confirmCourses.status.${s}`)}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </motion.div>
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -1116,51 +1160,34 @@ function OnboardingInner() {
                       <p className="text-muted-foreground">{t('steps.extraTopics.empty')}</p>
                     </div>
                   ) : (
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-2.5">
                       {courses.map((course) => {
                         const isSelected = selectedCourses.includes(course.id);
-                        
-                        // Dynamic icon mapping based on course title
-                        const titleLower = course.title.toLowerCase();
-                        let CourseIcon = BookOpen;
-                        if (titleLower.includes('math') || titleLower.includes('calculus') || titleLower.includes('algebra')) CourseIcon = Calculator;
-                        else if (titleLower.includes('science') || titleLower.includes('physics') || titleLower.includes('chemistry')) CourseIcon = FlaskConical;
-                        else if (titleLower.includes('history') || titleLower.includes('law')) CourseIcon = Landmark;
-                        else if (titleLower.includes('art') || titleLower.includes('design')) CourseIcon = Palette;
-                        else if (titleLower.includes('code') || titleLower.includes('computer') || titleLower.includes('program')) CourseIcon = Code;
-                        else if (titleLower.includes('business') || titleLower.includes('econ') || titleLower.includes('finance')) CourseIcon = Briefcase;
-                        else if (titleLower.includes('language') || titleLower.includes('english') || titleLower.includes('world')) CourseIcon = Globe;
-                        else if (titleLower.includes('health') || titleLower.includes('medicine') || titleLower.includes('bio')) CourseIcon = HeartPulse;
-                        else if (titleLower.includes('psychology') || titleLower.includes('mind')) CourseIcon = Brain;
+                        const CourseIcon = getCourseIcon(course.title);
+                        const color = course.color || getCourseColor(course.title);
+                        const displayTitle = localizeCourseTitle(course.title, i18n.language);
 
                         return (
                           <motion.button
                             variants={itemVariants}
                             key={course.id}
                             onClick={() => toggleCourse(course.id)}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.96 }}
-                            className={`group relative aspect-[3/4] w-full rounded-2xl text-left transition-all overflow-hidden focus-visible:outline-none shadow-xl ${isSelected ? 'ring-4 ring-primary shadow-glow-primary/30 scale-[0.98]' : 'ring-1 ring-white/10 hover:ring-white/30 shadow-black/40'}`}
-                            style={{ 
-                               background: `linear-gradient(145deg, ${course.color || '#3b82f6'} 0%, #050505 120%)`
-                            }}
+                            whileTap={{ scale: 0.98 }}
+                            className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl border text-left transition-colors ${isSelected ? 'border-primary bg-primary/10 shadow-glow-primary/10' : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.07]'}`}
                           >
-                            {/* Checkmark Badge */}
-                            <div className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center z-20 transition-all duration-300 ${isSelected ? 'bg-primary text-white scale-100 opacity-100' : 'bg-black/40 text-white/50 scale-75 opacity-0 group-hover:scale-90 group-hover:opacity-100 backdrop-blur-md border border-white/20'}`}>
-                              <Check className="w-5 h-5" strokeWidth={isSelected ? 3 : 2} />
+                            <div
+                              className="relative shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center"
+                              style={{ background: `linear-gradient(145deg, ${color} 0%, #0a0a0a 130%)` }}
+                            >
+                              <CourseIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                              <span className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-background transition-all ${isSelected ? 'bg-primary text-white scale-100 opacity-100' : 'bg-white/10 text-transparent scale-75 opacity-0'}`}>
+                                <Check className="w-3 h-3" strokeWidth={3} />
+                              </span>
                             </div>
 
-                            {/* Centered Graphic / Icon */}
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 group-hover:opacity-30 transition-opacity mix-blend-overlay">
-                              <CourseIcon className="w-24 h-24 lg:w-32 lg:h-32 text-white" />
-                            </div>
-
-                            {/* Title overlay */}
-                            <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10 flex flex-col justify-end h-[60%] pointer-events-none">
-                              <div className="w-full">
-                                <h3 className="font-bold text-white text-sm lg:text-base leading-tight line-clamp-2">{course.title}</h3>
-                                {course.description && <p className="text-xs text-white/60 line-clamp-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute bottom-4 translate-y-4 group-hover:translate-y-0 group-hover:relative group-hover:bottom-auto">{course.description}</p>}
-                              </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-foreground leading-snug text-sm sm:text-base break-words">{displayTitle}</h3>
+                              {course.description && <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{course.description}</p>}
                             </div>
                           </motion.button>
                         );

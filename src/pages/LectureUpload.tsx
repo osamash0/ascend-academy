@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -340,8 +340,10 @@ export default function LectureUpload() {
   const [description, setDescription] = useState('');
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [searchParams] = useSearchParams();
-  const prefilledCourseId = searchParams.get('courseId');
-  const [courseId, setCourseId] = useState<string | null>(prefilledCourseId);
+  const location = useLocation();
+  const routeState = location.state as any;
+  const prefilledCourseId = searchParams.get('courseId') || routeState?.targetCourseId;
+  const [courseId, setCourseId] = useState<string | null>(prefilledCourseId || null);
   const [originalCourseId, setOriginalCourseId] = useState<string | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   type ParserChoice = 'auto' | 'pymupdf' | 'opendataloader' | 'mineru' | 'llamaparse' | 'markitdown';
@@ -422,7 +424,7 @@ export default function LectureUpload() {
   const batchUpload = useBatchUpload({ courseId, parsingMode, aiModel });
   useEffect(() => {
     if (batchUpload.batchId && batchUpload.allSettled) {
-      navigate(ProfessorRoutes.UPLOAD_BATCH_REVIEW(batchUpload.batchId));
+      navigate(ProfessorRoutes.UPLOAD_BATCH_REVIEW(batchUpload.batchId), { state: location.state });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batchUpload.batchId, batchUpload.allSettled]);

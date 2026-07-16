@@ -62,7 +62,10 @@ vi.mock('@/services/academicService', () => ({
   getMyVerification: (...args: any[]) => getMyVerificationMock(...args),
 }));
 
-const browseCoursesMock = vi.fn().mockResolvedValue([{ id: 'c1', title: 'Platform Course', description: 'Desc' }]);
+const browseCoursesMock = vi.fn().mockResolvedValue([
+  { id: 'c1', title: 'Datenbanksysteme', description: 'Desc' },
+  { id: 'c2', title: 'Platform Course', description: 'Other' },
+]);
 const enrollInCourseMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/services/coursesService', () => ({
   browseCourses: (...args: any[]) => browseCoursesMock(...args),
@@ -128,10 +131,11 @@ describe('Onboarding', () => {
     expect(screen.getByText('Intro CS')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
-    // Step 5: Platform courses
+    // Step 5: Platform courses (only the ready "Datenbanksysteme" course is surfaced)
     await waitFor(() => expect(screen.getByText(/Add extra topics/i)).toBeInTheDocument());
-    expect(screen.getByText('Platform Course')).toBeInTheDocument();
-    await user.click(screen.getByText('Platform Course'));
+    expect(screen.getByText('Datenbanksysteme')).toBeInTheDocument();
+    expect(screen.queryByText('Platform Course')).not.toBeInTheDocument();
+    await user.click(screen.getByText('Datenbanksysteme'));
     
     // Original from mock: .eq('user_id', user.id) is used in update profile
     const originalFrom = supabaseMock.from;

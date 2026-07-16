@@ -49,7 +49,11 @@
       "empty": "Für diesen Studiengang wurden keine Kurse gefunden.",
       "elective": "Wahlfach",
       "semesterTag": "Semester {{n}}",
+      "currentSemesterTag": "Semester {{n}} · Aktuell",
+      "electiveGroup": "Wahlfächer",
       "selectedCount": "{{count}} ausgewählt",
+      "add": "{{title}} hinzufügen",
+      "remove": "{{title}} entfernen",
       "status": {
         "completed": "Abgeschlossen",
         "in_progress": "Läuft gerade",

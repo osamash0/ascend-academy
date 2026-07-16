@@ -31,11 +31,13 @@ function Cell({
   children,
   onClick,
   label,
+  dataTour,
 }: {
   className?: string;
   children: React.ReactNode;
   onClick?: () => void;
   label?: string;
+  dataTour?: string;
 }) {
   const interactive = !!onClick;
 
@@ -71,6 +73,7 @@ function Cell({
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       aria-label={label}
+      data-tour={dataTour}
       onKeyDown={interactive ? (e) => (e.key === 'Enter' || e.key === ' ') && handleClick() : undefined}
     >
       {children}
@@ -261,6 +264,7 @@ function MyMaterialsCell({ w, onOpen }: { w: MyMaterialsWidget; onOpen: () => vo
       className="flex flex-col justify-between"
       onClick={onOpen}
       label={`My Materials — ${w.count} uploaded`}
+      dataTour="my-materials"
     >
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/50">My Materials</span>

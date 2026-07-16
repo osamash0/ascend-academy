@@ -13,7 +13,7 @@ from backend.services import diagnostics_service
 from backend.services.slide_synth_service import synthesize_slide
 from backend.services.parser import repos as parser_repos
 from backend.domain.parse_models import RunStatus
-from backend.core.auth_middleware import require_creator
+from backend.core.auth_middleware import require_creator, _app_metadata
 from backend.core.rate_limit import limiter
 from backend.core.file_validation import sanitize_filename
 from backend.services.cache import (
@@ -81,6 +81,13 @@ async def parse_pdf_stream_endpoint(
     user: Any = Depends(require_creator),
 ):
     user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
+    meta_role = _app_metadata(user).get("role", "")
+    if not meta_role and user_id:
+        from backend.core.auth_middleware import _lookup_role_from_db
+        db_roles = _lookup_role_from_db(str(user_id))
+        if db_roles and "student" in db_roles:
+            meta_role = "student"
+    visibility = "course" if course_id else ("private_student" if meta_role == "student" else "course")
     if lecture_id:
         res = await run_sync(
             lambda: supabase_admin.table("lectures").select("professor_id").eq("id", lecture_id).execute()
@@ -164,6 +171,7 @@ async def parse_pdf_stream_endpoint(
             ai_model=ai_model, use_blueprint=use_blueprint, parsing_mode=parsing_mode,
             parser=parser, lecture_id=lecture_id, user_id=user_id, force_reparse=force_reparse,
             course_id=course_id,
+            visibility=visibility,
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
@@ -518,6 +526,13 @@ async def upload_batch_endpoint(
     batch_id = uuid4()
     course_uuid = UUID(course_id) if course_id else None
     user_uuid = UUID(user_id) if user_id else None
+    meta_role = _app_metadata(user).get("role", "")
+    if not meta_role and user_id:
+        from backend.core.auth_middleware import _lookup_role_from_db
+        db_roles = _lookup_role_from_db(str(user_id))
+        if db_roles and "student" in db_roles:
+            meta_role = "student"
+    visibility = "course" if course_id else ("private_student" if meta_role == "student" else "course")
 
     results: List[Dict[str, Any]] = []
     for file in files:
@@ -560,6 +575,7 @@ async def upload_batch_endpoint(
                 parsing_mode=parsing_mode,
                 batch_id=str(batch_id),
                 course_id=course_id,
+                visibility=visibility,
             )
             results.append({"filename": filename, "pdf_hash": pdf_hash,
                              "run_id": str(run.run_id), "status": "queued"})
@@ -581,6 +597,8 @@ async def retry_run_endpoint(
     """Retry a FAILED parse run without re-uploading bytes — the original PDF
     is already in permanent storage, keyed by pdf_hash."""
     user_id = _user_id(user)
+    meta_role = _app_metadata(user).get("role", "")
+    visibility = "private_student" if meta_role == "student" else "course"
     try:
         run_uuid = UUID(run_id)
     except ValueError:
@@ -609,6 +627,7 @@ async def retry_run_endpoint(
         parsing_mode=run.parsing_mode or "ai",
         batch_id=str(run.batch_id) if run.batch_id else None,
         course_id=str(run.course_id) if run.course_id else None,
+        visibility=visibility,
     )
     return {"run_id": str(run.run_id), "status": "queued"}
 
