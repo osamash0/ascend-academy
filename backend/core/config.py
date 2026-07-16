@@ -51,7 +51,13 @@ class Settings(BaseSettings):
     llamaparse_model: str = Field(alias="LLAMAPARSE_MODEL", default="")
 
     # ─── Parser v3 infra ───────────────────────────────────────────────────────
+    # App cache Redis (auth-token/parse/embedding caches). Runs allkeys-lru in
+    # prod — safe to evict.
     redis_url: str = Field(alias="REDIS_URL", default="redis://localhost:6379")
+    # Job-queue Redis: Arq broker + results + parse SSE pub/sub. MUST run a
+    # non-evicting policy (noeviction) with AOF so queued jobs are never dropped.
+    # Defaults to redis_url when unset so single-Redis dev keeps working.
+    redis_queue_url: str = Field(alias="REDIS_QUEUE_URL", default="")
     litellm_base_url: str = Field(alias="LITELLM_BASE_URL", default="http://localhost:4000")
     # Auth key the backend sends to the LiteLLM gateway. When set, the gateway
     # rejects any request that doesn't present it (defense in depth on top of
@@ -85,6 +91,11 @@ class Settings(BaseSettings):
     # rather than hardcoded, since a 30-file batch enqueues 30 jobs at once
     # and the worker throttles to this number regardless of origin batch.
     arq_max_jobs: int = Field(alias="ARQ_MAX_JOBS", default=4)
+    # Backpressure ceiling: reject new parse uploads with 429 once this many
+    # jobs are already pending on the queue, so a spike surfaces as an honest
+    # "server busy" instead of an unbounded, invisible backlog. 0 disables the
+    # check. A 30-file batch counts as up to 30 pending jobs.
+    arq_max_queue_depth: int = Field(alias="ARQ_MAX_QUEUE_DEPTH", default=50)
 
     # ─── Review engine (Roadmap Phase 1.1, "Daily Ascent") ─────────────────────
     # Off by default — gates the /review router mount and the card-factory
@@ -138,6 +149,10 @@ class Settings(BaseSettings):
             raise ValueError(
                 "SUPABASE_URL and SUPABASE_KEY must be set in the .env file"
             )
+        # Fall back to the cache Redis when a dedicated queue Redis isn't set,
+        # so single-instance dev/test environments boot unchanged.
+        if not self.redis_queue_url:
+            self.redis_queue_url = self.redis_url
         return self
 
     @property

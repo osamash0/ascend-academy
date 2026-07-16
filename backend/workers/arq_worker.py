@@ -37,7 +37,9 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
 
-    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+    # Broker + results live on the dedicated queue Redis (noeviction + AOF),
+    # never the LRU app-cache Redis — otherwise queued jobs can be evicted.
+    redis_settings = RedisSettings.from_dsn(settings.redis_queue_url)
 
     # Concurrent jobs per worker — respects the VPS RAM budget; tunable via
     # ARQ_MAX_JOBS since a multi-file batch (Phase 1) can enqueue many jobs

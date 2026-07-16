@@ -7,13 +7,14 @@ name: ascend-academy-oracle
 # Target shape: VM.Standard.A1.Flex — 1 OCPU · 6 GB RAM
 #
 # Memory budget (hard limits below sum to ~1.9 GB):
-#   redis    256 MB
-#   litellm  512 MB
-#   api      512 MB   ← uvicorn overridden to 1 worker (was 2 in Dockerfile)
-#   worker   384 MB
-#   frontend  64 MB  (nginx static files — very light)
+#   redis        256 MB
+#   redis-queue  160 MB  (durable Arq broker — noeviction + AOF)
+#   litellm      512 MB
+#   api          512 MB   ← uvicorn overridden to 1 worker (was 2 in Dockerfile)
+#   worker       384 MB
+#   frontend      64 MB  (nginx static files — very light)
 #   ─────────────────
-#   total   1728 MB  (~1.7 GB)
+#   total       1888 MB  (~1.9 GB)
 #   Ubuntu OS + Docker daemon: ~800 MB
 #   headroom: ~3.5 GB free of 6 GB
 #
@@ -34,7 +35,7 @@ networks:
 
 services:
 
-  # ── Message broker + job queue ──────────────────────────────────────────────
+  # ── App cache (evictable) ─────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     networks:
@@ -47,6 +48,27 @@ services:
       resources:
         limits:
           memory: 256M
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Job queue broker (durable) ────────────────────────────────────────────
+  # Arq broker + results + parse SSE pub/sub. noeviction + AOF so queued parse
+  # jobs are never dropped. Kept tiny (128 MB) — fits the 6 GB budget easily.
+  redis-queue:
+    image: redis:7-alpine
+    networks:
+      - ascend_net
+    volumes:
+      - redis_queue_data:/data
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 128mb --maxmemory-policy noeviction --appendonly yes --loglevel warning
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 160M
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -104,6 +126,7 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
       - LITELLM_BASE_URL=http://litellm:4000
       - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     restart: unless-stopped
@@ -114,16 +137,18 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      redis-queue:
+        condition: service_healthy
       litellm:
         condition: service_started
     healthcheck:
-      # Probe /health (always on), NOT /docs — docs are disabled outside
-      # development, so a /docs probe would 404 and block frontend startup.
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      # Probe /health/ready — verifies DB + both Redis instances (returns 503
+      # when a dependency is down). DB is only critical when DATABASE_URL is set.
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ready || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 20s
 
   # ── React frontend served by nginx ─────────────────────────────────────────
   frontend:
@@ -163,6 +188,7 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
       - LITELLM_BASE_URL=http://litellm:4000
     restart: unless-stopped
     deploy:
@@ -172,9 +198,12 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      redis-queue:
+        condition: service_healthy
       litellm:
         condition: service_started
 
 
 volumes:
   redis_data:
+  redis_queue_data:

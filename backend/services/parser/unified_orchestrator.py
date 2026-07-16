@@ -229,7 +229,7 @@ async def parse_pdf_unified(
     )
     redis_client = None
     if not emit_fn:
-        redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+        redis_client = aioredis.from_url(settings.redis_queue_url, decode_responses=True)
     channel = f"{REDIS_CHANNEL_PREFIX}{pdf_hash}"
 
     async def emit(event_type: str, data: dict) -> None:

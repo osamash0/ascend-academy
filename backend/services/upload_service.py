@@ -38,33 +38,61 @@ async def get_arq_pool():
     if _arq_pool is None:
         from arq.connections import create_pool, RedisSettings
         from backend.core.config import settings
-        _arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        _arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_queue_url))
     return _arq_pool
 
-async def upload_pdf_to_storage(pdf_hash: str, content: bytes) -> None:
-    """Upload PDF bytes to Supabase Storage keyed by sha256 (idempotent)."""
-    path = f"{pdf_hash}.pdf"
+
+async def queue_depth() -> int:
+    """Number of jobs currently pending (enqueued, not yet started) on the
+    default Arq queue. Used for upload backpressure. Returns 0 on any error so
+    a monitoring hiccup never blocks uploads."""
     try:
-        sb = get_client(use_admin=True)
-        sb.storage.from_("pdf-uploads").upload(
-            path,
-            content,
-            file_options={"content-type": "application/pdf", "upsert": "true"},
-        )
+        from arq.constants import default_queue_name
+        pool = await get_arq_pool()
+        return int(await pool.zcard(default_queue_name))
     except Exception as e:
-        if "Bucket not found" in str(e):
-            try:
-                sb = get_client(use_admin=True)
-                sb.storage.create_bucket("pdf-uploads", options={"public": False})
-                sb.storage.from_("pdf-uploads").upload(
-                    path,
-                    content,
-                    file_options={"content-type": "application/pdf", "upsert": "true"},
-                )
-                return
-            except Exception as create_e:
-                logger.warning("Failed to create pdf-uploads bucket: %s", create_e)
-        logger.warning("PDF storage upload failed for %s: %s — worker will retry", pdf_hash, e)
+        logger.debug("queue_depth check failed: %s", e)
+        return 0
+
+
+class QueueFullError(RuntimeError):
+    """Raised when the parse queue is at/over ARQ_MAX_QUEUE_DEPTH. The upload
+    endpoints translate this into a 429 so the client can retry shortly."""
+
+async def upload_pdf_to_storage(pdf_hash: str, content: bytes) -> None:
+    """Upload PDF bytes to Supabase Storage keyed by sha256 (idempotent).
+
+    The Supabase storage client is synchronous, so the actual upload is
+    offloaded to a thread — this runs inside the async upload request handler
+    and would otherwise park the event loop for the whole upload round-trip.
+    """
+    path = f"{pdf_hash}.pdf"
+
+    def _sync_upload() -> None:
+        try:
+            sb = get_client(use_admin=True)
+            sb.storage.from_("pdf-uploads").upload(
+                path,
+                content,
+                file_options={"content-type": "application/pdf", "upsert": "true"},
+            )
+        except Exception as e:
+            if "Bucket not found" in str(e):
+                try:
+                    sb = get_client(use_admin=True)
+                    sb.storage.create_bucket("pdf-uploads", options={"public": False})
+                    sb.storage.from_("pdf-uploads").upload(
+                        path,
+                        content,
+                        file_options={"content-type": "application/pdf", "upsert": "true"},
+                    )
+                    return
+                except Exception as create_e:
+                    logger.warning("Failed to create pdf-uploads bucket: %s", create_e)
+            logger.warning("PDF storage upload failed for %s: %s — worker will retry", pdf_hash, e)
+
+    from backend.core.database import run_sync
+    await run_sync(_sync_upload)
 
 async def _validate_pptx(content: bytes) -> int:
     """Validate a PowerPoint upload and return its slide count.
@@ -222,17 +250,41 @@ async def process_pdf_stream(
             course_id=course_id,
         )
     except Exception as e:
-        logger.warning("Redis connection failed, running unified synchronously: %s", e)
-        use_arq = False
+        # The job queue is unreachable. Running the full CPU/RAM-heavy parse
+        # inline would block the API event loop and can OOM the memory-capped
+        # API container — the worst place to do heavy work under load. Only fall
+        # back to the in-process path in development (convenient without Redis);
+        # in any other environment, fail loudly so the queue outage is visible
+        # rather than silently melting the API.
+        if _cfg.env == "development":
+            logger.warning("Queue unavailable; running unified parse in-process (dev only): %s", e)
+            use_arq = False
+        else:
+            logger.error("Queue unavailable; refusing in-process parse in env=%s: %s", _cfg.env, e)
+            yield f"data: {json.dumps({'type': 'error', 'message': 'The processing service is temporarily unavailable. Please try again shortly.'})}\n\n"
+            return
 
     if use_arq:
         import redis.asyncio as aioredis
-        redis_client = aioredis.from_url(_cfg.redis_url, decode_responses=True)
+        redis_client = aioredis.from_url(_cfg.redis_queue_url, decode_responses=True)
         channel = f"parse:{pdf_hash}"
+        # Emit an SSE comment ping after this many seconds of silence so an
+        # intermediary proxy (nginx proxy_read_timeout, load balancer idle
+        # timeout) never drops the connection during a long, quiet parse stage
+        # — e.g. vision OCR on a large deck can run minutes between events.
+        # Comment lines (": …") are ignored by the browser EventSource client.
+        HEARTBEAT_SECONDS = 20
         try:
             async with redis_client.pubsub() as pubsub:
                 await pubsub.subscribe(channel)
-                async for message in pubsub.listen():
+                while True:
+                    message = await pubsub.get_message(
+                        ignore_subscribe_messages=True,
+                        timeout=HEARTBEAT_SECONDS,
+                    )
+                    if message is None:
+                        yield ": ping\n\n"
+                        continue
                     if message.get("type") != "message":
                         continue
                     try:

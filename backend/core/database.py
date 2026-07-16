@@ -109,6 +109,24 @@ else:
 supabase: Client = supabase_admin
 
 
+async def run_sync(fn, *args, **kwargs):
+    """Run a blocking call (e.g. a synchronous ``supabase_admin.…execute()``)
+    in the default threadpool so it never freezes the event loop.
+
+    The Supabase client is built on a *sync* httpx client (see ``create_client``
+    above), so calling ``.execute()`` directly inside an ``async`` handler parks
+    the entire event loop for a full round-trip. On the single-worker API that
+    serializes all concurrent requests. Wrap such calls:
+
+        row = await run_sync(lambda: supabase_admin.table("x").select("*").execute())
+
+    Prefer this (greppable) helper over ad-hoc ``run_in_threadpool`` so the
+    offload pattern is consistent and easy to audit.
+    """
+    from starlette.concurrency import run_in_threadpool
+    return await run_in_threadpool(fn, *args, **kwargs)
+
+
 def get_client(use_admin: bool = False) -> Client:
     """Return the appropriate Supabase client.
 

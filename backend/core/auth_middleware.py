@@ -86,7 +86,10 @@ async def verify_token(
     try:
         import httpx
         url = f"{supabase_admin.auth_url}/user"
-        async with httpx.AsyncClient(http2=False) as client:
+        # Bounded timeout: this runs on every auth-cache miss. Without it a slow
+        # Supabase Auth would hang each request indefinitely and pile up.
+        _auth_timeout = httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0)
+        async with httpx.AsyncClient(http2=False, timeout=_auth_timeout) as client:
             resp = await client.get(
                 url,
                 headers={

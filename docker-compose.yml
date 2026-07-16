@@ -22,7 +22,7 @@
 
 services:
 
-  # ── Message broker + job queue ──────────────────────────────────────────────
+  # ── App cache (evictable) ─────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     ports:
@@ -30,6 +30,22 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env} --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Job queue broker (durable) ────────────────────────────────────────────
+  # Mirrors prod: Arq broker + results + parse SSE pub/sub, noeviction + AOF.
+  # Bound to 6380 on the host so you can inspect queue keys separately.
+  redis-queue:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - redis_queue_data:/data
+    command: redis-server --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env} --maxmemory-policy noeviction --appendonly yes --loglevel warning
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -72,10 +88,13 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
       - LITELLM_BASE_URL=http://litellm:4000
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5000,http://localhost:5001,http://localhost:5173
     depends_on:
       redis:
+        condition: service_healthy
+      redis-queue:
         condition: service_healthy
       litellm:
         condition: service_started
@@ -113,9 +132,12 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
       - LITELLM_BASE_URL=http://litellm:4000
     depends_on:
       redis:
+        condition: service_healthy
+      redis-queue:
         condition: service_healthy
       litellm:
         condition: service_started
@@ -125,3 +147,4 @@ services:
 
 volumes:
   redis_data:
+  redis_queue_data:

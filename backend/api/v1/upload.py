@@ -21,7 +21,7 @@ from backend.services.cache import (
     get_cached_parse,
     purge_expired_slide_checkpoints,
 )
-from backend.core.database import supabase_admin  # ADMIN: cross-tenant authorization lookup for diagnostics and lectures
+from backend.core.database import supabase_admin, run_sync  # ADMIN: cross-tenant authorization lookup for diagnostics and lectures
 from backend.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -82,7 +82,9 @@ async def parse_pdf_stream_endpoint(
 ):
     user_id = user.id if hasattr(user, "id") else (user.get("id") if isinstance(user, dict) else None)
     if lecture_id:
-        res = supabase_admin.table("lectures").select("professor_id").eq("id", lecture_id).execute()
+        res = await run_sync(
+            lambda: supabase_admin.table("lectures").select("professor_id").eq("id", lecture_id).execute()
+        )
         if not res.data or res.data[0].get("professor_id") != user_id:
             raise HTTPException(status_code=403, detail="You do not own this lecture.")
 
@@ -145,6 +147,16 @@ async def parse_pdf_stream_endpoint(
             yield f"data: {json.dumps({'type': 'complete', 'total': total})}\n\n"
 
         return StreamingResponse(cached_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    # Backpressure: a cache miss means we're about to enqueue a real parse job.
+    # Reject up front when the queue is already saturated so the client gets an
+    # honest 429 instead of joining an unbounded backlog.
+    _max_depth = settings.arq_max_queue_depth
+    if _max_depth and await upload_service.queue_depth() >= _max_depth:
+        raise HTTPException(
+            status_code=429,
+            detail="The processing queue is busy right now. Please retry in a few minutes.",
+        )
 
     return StreamingResponse(
         upload_service.process_pdf_stream(
@@ -485,9 +497,21 @@ async def upload_batch_endpoint(
         )
 
     if course_id:
-        res = supabase_admin.table("courses").select("professor_id").eq("id", course_id).execute()
+        res = await run_sync(
+            lambda: supabase_admin.table("courses").select("professor_id").eq("id", course_id).execute()
+        )
         if not res.data or res.data[0].get("professor_id") != user_id:
             raise HTTPException(status_code=403, detail="You do not own this course.")
+
+    # Backpressure: a batch enqueues up to one job per file. Reject the whole
+    # batch up front when the queue is already saturated rather than piling
+    # dozens more jobs onto an unbounded backlog.
+    _max_depth = settings.arq_max_queue_depth
+    if _max_depth and await upload_service.queue_depth() >= _max_depth:
+        raise HTTPException(
+            status_code=429,
+            detail="The processing queue is busy right now. Please retry in a few minutes.",
+        )
 
     parsing_mode = parsing_mode if parsing_mode in {"ai", "on_demand"} else "ai"
     resolved_model = ai_model if (ai_model and ai_model.lower() != "auto") else (settings.parser_llm_model or "cerebras")

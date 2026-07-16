@@ -15,7 +15,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable, Optional
 
-from backend.core.database import supabase_admin
+from backend.core.database import supabase_admin, run_sync
 
 logger = logging.getLogger(__name__)
 
@@ -123,16 +123,22 @@ async def get_or_compute_async(
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
     force_refresh: bool = False,
 ) -> Any:
-    """Async variant of :func:`get_or_compute`."""
+    """Async variant of :func:`get_or_compute`.
+
+    Unlike the sync variant (which callers already run via ``run_in_threadpool``
+    from the request handler), this runs *on the event loop*, so the blocking
+    ``_read``/``_write`` Supabase calls are offloaded to the threadpool here to
+    avoid stalling the single API worker.
+    """
     if not lecture_id:
         return await compute_fn()
     ph = _params_hash(params)
     if not force_refresh:
-        hit = _read(lecture_id, view_name, ph)
+        hit = await run_sync(_read, lecture_id, view_name, ph)
         if hit is not None:
             return hit
     result = await compute_fn()
-    _write(lecture_id, view_name, ph, result, ttl_seconds)
+    await run_sync(_write, lecture_id, view_name, ph, result, ttl_seconds)
     return result
 
 

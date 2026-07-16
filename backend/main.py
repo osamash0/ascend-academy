@@ -268,4 +268,64 @@ async def read_root():
 
 @app.get("/health")
 async def health_check():
+    """Liveness: the process is up and the event loop is responsive.
+
+    Deliberately dependency-free so a transient DB/Redis blip never triggers
+    a container restart loop. Use /health/ready for dependency health.
+    """
     return {"status": "ok"}
+
+
+@app.get("/health/ready")
+async def readiness_check():
+    """Readiness: the API can actually serve traffic.
+
+    Checks the asyncpg pool, the app-cache Redis, and the job-queue Redis.
+    Returns 503 (with a per-component breakdown) if any critical dependency
+    is down, so the orchestrator can gate traffic / cycle the container
+    instead of routing requests that would 500 on every real route.
+    """
+    checks: dict[str, str] = {}
+    ok = True
+
+    # Postgres via the asyncpg pool. Only critical when DATABASE_URL is actually
+    # configured — the app supports a REST-only (Supabase) mode with no pool, and
+    # we must not report not-ready (and block frontend startup) in that mode.
+    from backend.core.database import db_pool, DB_URL
+    if not DB_URL:
+        checks["database"] = "not_configured"
+    else:
+        try:
+            if db_pool is None:
+                checks["database"] = "uninitialized"
+                ok = False
+            else:
+                async with db_pool.acquire() as conn:
+                    await conn.fetchval("SELECT 1")
+                checks["database"] = "ok"
+        except Exception as e:
+            checks["database"] = f"error: {e.__class__.__name__}"
+            ok = False
+
+    # App-cache Redis.
+    try:
+        from backend.core.redis import get_redis_client
+        await get_redis_client().ping()
+        checks["redis_cache"] = "ok"
+    except Exception as e:
+        checks["redis_cache"] = f"error: {e.__class__.__name__}"
+        ok = False
+
+    # Job-queue Redis (Arq broker). Reuses the shared enqueue pool so we probe
+    # the exact connection uploads depend on.
+    try:
+        from backend.services.upload_service import get_arq_pool
+        pool = await get_arq_pool()
+        await pool.ping()
+        checks["redis_queue"] = "ok"
+    except Exception as e:
+        checks["redis_queue"] = f"error: {e.__class__.__name__}"
+        ok = False
+
+    body = {"status": "ok" if ok else "unavailable", "checks": checks}
+    return JSONResponse(body, status_code=200 if ok else 503)

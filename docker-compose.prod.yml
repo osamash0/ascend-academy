@@ -9,7 +9,9 @@ networks:
 
 services:
 
-  # ── Message broker + job queue ──────────────────────────────────────────────
+  # ── App cache (evictable) ─────────────────────────────────────────────────
+  # Auth-token / parse / embedding caches. allkeys-lru is SAFE here: every entry
+  # is a rebuildable cache value. This Redis must NOT host the job queue.
   redis:
     image: redis:7-alpine
     networks:
@@ -22,6 +24,28 @@ services:
       resources:
         limits:
           memory: 256M
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Job queue broker (durable) ────────────────────────────────────────────
+  # Arq broker + results + parse SSE pub/sub. noeviction + AOF so an enqueued
+  # parse job is NEVER dropped under memory pressure. Kept small — the queue
+  # holds job payloads, not bulk data.
+  redis-queue:
+    image: redis:7-alpine
+    networks:
+      - ascend_net
+    volumes:
+      - redis_queue_data:/data
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 128mb --maxmemory-policy noeviction --appendonly yes --loglevel warning
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 160M
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -81,6 +105,7 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
       - LITELLM_BASE_URL=http://litellm:4000
       - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     # Single uvicorn worker in prod: two workers each load FastAPI + PyMuPDF +
@@ -96,17 +121,21 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      redis-queue:
+        condition: service_healthy
       litellm:
         condition: service_healthy
     healthcheck:
-      # Probe /health (always on), NOT /docs — docs are disabled in production
-      # (ENVIRONMENT!=development), so a /docs probe would 404 and mark api
-      # unhealthy, which would block the frontend from ever starting.
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      # Probe /health/ready — verifies DB + both Redis instances, not just that
+      # the process is up. curl -f fails on the 503 the endpoint returns when a
+      # dependency is down, so the frontend gate (depends_on) won't open against
+      # an API that would 500 on every real route. DB is only critical when
+      # DATABASE_URL is set, so REST-only deploys still pass.
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ready || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 20s
 
   # ── React frontend served by nginx ─────────────────────────────────────────
   frontend:
@@ -142,6 +171,7 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
       - LITELLM_BASE_URL=http://litellm:4000
     restart: unless-stopped
     deploy:
@@ -154,9 +184,12 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      redis-queue:
+        condition: service_healthy
       litellm:
         condition: service_healthy
 
 
 volumes:
   redis_data:
+  redis_queue_data:

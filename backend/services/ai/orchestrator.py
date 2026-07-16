@@ -295,6 +295,31 @@ except ImportError:
     _OpenAI = None
 
 try:
+    import httpx as _httpx
+except ImportError:
+    _httpx = None
+
+# Bounded HTTP config shared by every OpenAI-compatible provider client.
+# Without this the OpenAI SDK defaults to a 600s timeout and an unbounded
+# connection pool: a slow/hung provider would keep an executor thread parked
+# for up to 10 minutes (call_llm's asyncio timeout cancels the awaiter, not the
+# underlying blocking thread), leaking threadpool capacity under load. read=120s
+# is a hard backstop well above the app-level LLM_TIMEOUT_SECONDS (25–90s).
+_LLM_HTTP_LIMITS = None
+_LLM_HTTP_TIMEOUT = None
+if _httpx is not None:
+    _LLM_HTTP_LIMITS = _httpx.Limits(max_connections=20, max_keepalive_connections=10)
+    _LLM_HTTP_TIMEOUT = _httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
+
+
+def _bounded_http_client():
+    """A sync httpx client with bounded timeout + pool for OpenAI-compatible
+    clients. Returns None when httpx is unavailable (falls back to SDK defaults)."""
+    if _httpx is None:
+        return None
+    return _httpx.Client(limits=_LLM_HTTP_LIMITS, timeout=_LLM_HTTP_TIMEOUT)
+
+try:
     from google import genai as _genai
     _gem_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     # Use the SDK's default API version (v1beta). The previous v1 pin caused
@@ -318,6 +343,9 @@ def _make_openai_client(env_var: str, base_url: str) -> Optional[Any]:
         extra = {}
         if "openrouter" in base_url:
             extra["default_headers"] = {"HTTP-Referer": "https://ascend.academy"}
+        http_client = _bounded_http_client()
+        if http_client is not None:
+            extra["http_client"] = http_client
         return _OpenAI(api_key=key, base_url=base_url, max_retries=0, **extra)
     except Exception as exc:
         logger.debug("Could not init client for %s: %s", env_var, exc)
@@ -336,10 +364,15 @@ def _make_cloudflare_client() -> Optional[Any]:
     if not token or len(token) < 8 or not account_id:
         return None
     try:
+        cf_extra = {}
+        http_client = _bounded_http_client()
+        if http_client is not None:
+            cf_extra["http_client"] = http_client
         return _OpenAI(
             api_key=token,
             base_url=f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
             max_retries=0,
+            **cf_extra,
         )
     except Exception as exc:
         logger.debug("Could not init Cloudflare Workers AI client: %s", exc)

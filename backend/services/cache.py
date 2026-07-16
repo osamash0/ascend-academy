@@ -203,8 +203,12 @@ async def get_cached_parse(pdf_hash: str, parsing_mode: str = "ai") -> Optional[
     """Retrieve full parse result from database using SUPABASE_ADMIN."""
     key = _scoped_cache_key(pdf_hash, parsing_mode)
     try:
-        # Use supabase_admin for background caching to bypass RLS if necessary
-        res = supabase_admin.table("pdf_parse_cache").select("result").eq("pdf_hash", key).execute()
+        # Use supabase_admin for background caching to bypass RLS if necessary.
+        # Offloaded: this runs in the async upload request path before every
+        # parse, and the Supabase client is synchronous.
+        res = await run_in_threadpool(
+            lambda: supabase_admin.table("pdf_parse_cache").select("result").eq("pdf_hash", key).execute()
+        )
         if res.data:
             return res.data[0]["result"]
     except Exception as e:
@@ -340,11 +344,13 @@ async def get_similar_slides(embedding: List[float], limit: int = 5, threshold: 
     Requires the match_slides RPC function in PostgreSQL.
     """
     try:
-        res = supabase_admin.rpc("match_slides", {
-            "query_embedding": embedding,
-            "match_threshold": threshold,
-            "match_count": limit
-        }).execute()
+        res = await run_in_threadpool(
+            lambda: supabase_admin.rpc("match_slides", {
+                "query_embedding": embedding,
+                "match_threshold": threshold,
+                "match_count": limit
+            }).execute()
+        )
         return res.data or []
     except Exception as e:
         logger.error("Failed to get similar slides: %s", e)
@@ -367,12 +373,14 @@ async def get_similar_slides_scoped(
     if not course_ids:
         return []
     try:
-        res = supabase_admin.rpc("match_slides_scoped", {
-            "query_embedding": embedding,
-            "scoped_course_ids": course_ids,
-            "match_threshold": threshold,
-            "match_count": limit,
-        }).execute()
+        res = await run_in_threadpool(
+            lambda: supabase_admin.rpc("match_slides_scoped", {
+                "query_embedding": embedding,
+                "scoped_course_ids": course_ids,
+                "match_threshold": threshold,
+                "match_count": limit,
+            }).execute()
+        )
         return res.data or []
     except Exception as e:
         logger.error("Failed to get scoped similar slides: %s", e)
@@ -386,11 +394,13 @@ async def search_slides_keyword_scoped(
     if not course_ids or not query.strip():
         return []
     try:
-        res = supabase_admin.rpc("search_slides_keyword", {
-            "search_query": query,
-            "scoped_course_ids": course_ids,
-            "match_count": limit,
-        }).execute()
+        res = await run_in_threadpool(
+            lambda: supabase_admin.rpc("search_slides_keyword", {
+                "search_query": query,
+                "scoped_course_ids": course_ids,
+                "match_count": limit,
+            }).execute()
+        )
         return res.data or []
     except Exception as e:
         logger.error("Failed keyword slide search: %s", e)

@@ -10,6 +10,10 @@ unified parser (which needs it to own the lecture).
 We force the Redis-down *sync* fallback (get_arq_pool raises) and replace the
 orchestrator with a fake that just emits a `complete` event, so no real parsing /
 Arq / Redis runs. We assert the orchestrator was invoked and with what args.
+
+The in-process sync fallback only runs in the development environment (in prod a
+queue outage fails loudly instead of parsing inside the API event loop), so the
+fixture pins ``settings.env = "development"`` to keep using it as the test vehicle.
 """
 from __future__ import annotations
 
@@ -46,6 +50,9 @@ def routing(monkeypatch):
             await emit_fn("complete", {"total": 1})
         return _fn
 
+    # The in-process fallback is dev-only; pin the env so the sync-fallback
+    # vehicle this fixture relies on stays active regardless of .env.
+    monkeypatch.setattr(settings, "env", "development", raising=False)
     monkeypatch.setattr(upload_service, "upload_pdf_to_storage", _no_storage)
     monkeypatch.setattr(upload_service, "get_arq_pool", _arq_down)
     monkeypatch.setattr(unified_orchestrator, "parse_pdf_unified", _fake("unified"))
