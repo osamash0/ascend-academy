@@ -198,3 +198,49 @@ New files `test_odl_run_sync.py` (5 tests) and `test_parser_storage.py` (2 tests
 - `parser/storage._fetch_pdf_bytes` (47%→100%): download happy path + error→None
   (Supabase storage mocked at get_client). No bugs found.
 
+### 11. file_parse_service.py deterministic helpers (2026-07-17)
+New file `backend/tests/unit/test_file_parse_helpers.py` (18 tests). Covered the
+pure text-shaping helpers: `_build_text_batch` (plain, ODL-table injection, OCR
+override injection, context_only prefix flagging), `_make_fallback_slide`
+(truncation + parse_error), `_build_embedding_text` (title/summary/content
+combine, placeholder-title skip, 2400-char truncation, empty→""),
+`_detect_repeating_lines` (small-deck→empty, header detection at threshold,
+short-line ignore), and `_title_from_layout` (first meaningful line, skip-line
+handling, placeholder, 80-char truncation). file_parse_service 63%→65% (the
+remaining gap is the LLM/cache orchestration loop + import_pdf_lazy, which the
+integration suite exercises). No bugs found.
+
+---
+
+## Summary (2026-07-17)
+
+Full non-db suite: **1111 passed, 8 failed** (the same 8 pre-existing failures
+from the baseline — untouched). Net new: **+231 passing tests** across 11 new
+test files. No source code was modified; every test describes current behavior.
+
+Coverage lifts on the target subsystems:
+| Module | Before | After |
+|---|---|---|
+| services/upload_service.py | 42% | 96% |
+| services/deterministic_extractor.py | 24% | 100% |
+| services/slide_synth_service.py | 21% | 100% |
+| services/parser/persist.py | 53% | 100% |
+| services/parser/repos.py | 21% | 100% |
+| services/parser/synthesis.py | 59% | 99% |
+| services/parser/storage.py | 47% | 100% |
+| services/ai/quiz_validator.py | 94% | 100% |
+| api/v1/courses.py | 67% | 78% |
+| services/file_parse_service.py | 63% | 65% |
+| ai/orchestrator.parse_json_response | (untested) | full edge coverage |
+
+Bugs found (logged above, NOT fixed per guardrails): **B1** (parse_json_response
+truncation-recovery dead for real token-limit truncation) and **B2**
+(generate-title-suggestion endpoint unreachable — 422 on every call).
+
+Stopping point: the three target subsystems (upload pipeline, course creation,
+lecture quiz generation) plus student course CRUD are thoroughly covered. The
+largest remaining uncovered code is the file_parse_service / import_pdf_lazy
+orchestration loop and ai/orchestrator LLM-routing branches — both dominated by
+external-service integration rather than deterministic logic, where further unit
+tests would mostly re-assert mocks.
+
