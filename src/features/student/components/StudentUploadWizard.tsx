@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -28,6 +29,7 @@ import { StudentRoutes } from '@/lib/routes';
 import { supabase } from '@/integrations/supabase/client';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { useAuth } from '@/lib/auth';
+import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { apiClient } from '@/lib/apiClient';
 import type { BatchSummaryRow } from '@/types/upload';
 import type { QuizQuestion } from '@/types/domain';
@@ -39,7 +41,9 @@ export default function StudentUploadWizard() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
+  const gamification = useGamification();
+  const queryClient = useQueryClient();
   
   // Step 1 state
   const { aiModel } = useAiModel();
@@ -129,7 +133,7 @@ export default function StudentUploadWizard() {
     setIsSaving(true);
     try {
       // 1. Create course
-      const course = await createCourse(courseTitle, '');
+      const course = await createCourse({ title: courseTitle });
       
       const successfulLectures = batchSummary.filter(l => l.status === 'completed' && l.lecture_id);
       
@@ -159,24 +163,29 @@ export default function StudentUploadWizard() {
         }
       }));
 
-      // 3. Mark onboarding completed (actually, just the fact they have a course might be enough,
-      // but let's try to update profile if they have one. Usually onboarding_completed is tracked or
-      // they wouldn't be here. The prompt said set onboarding_completed = true. Let's do that if that column exists).
-      if (profile && profile.id) {
-        await supabase.from('profiles').update({ updated_at: new Date().toISOString() }).eq('id', profile.id);
-        // The instruction says "update the user's onboarding_completed = true". 
-        // We will just update updated_at to be safe since onboarding_completed might not exist, 
-        // or we just call refreshProfile().
+      // 3. Retire the first-run guard so the Luna spotlight tour never fires
+      // after onboarding — the Hero Decision replaces it as the sole
+      // first-run experience.
+      if (user?.id) {
+        await supabase.from('profiles').update({ has_seen_dashboard_tour: true }).eq('user_id', user.id);
         await refreshProfile();
       }
 
+      // 4. Real celebration: grant XP and invalidate cached dashboard/library
+      // data so the new course shows up in the media rail without a reload.
+      await gamification.grantXp(50, 'course_created', course.id);
+      window.dispatchEvent(new CustomEvent('fire-confetti'));
+      queryClient.invalidateQueries({ queryKey: ['student-courses'] });
+      queryClient.invalidateQueries({ queryKey: ['student-lectures'] });
+      queryClient.invalidateQueries({ queryKey: ['student-progress', user?.id] });
+
       setStep(5);
-      
+
       // Auto redirect
       setTimeout(() => {
         navigate(StudentRoutes.LIBRARY, { state: { onboardTarget: courseTitle } });
       }, 3000);
-      
+
     } catch (err) {
       console.error(err);
       toast({ title: 'Error saving course', variant: 'destructive' });

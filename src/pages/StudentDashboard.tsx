@@ -198,9 +198,13 @@ export default function StudentDashboard() {
   // First-ever dashboard visit after onboarding: auto-play the skippable Luna
   // tour once the below-fold anchors (browse courses / My Materials) exist,
   // then never again — `has_seen_dashboard_tour` is the persisted guard.
+  // Brand-new students (heroKind === 'onboard') see the Hero Decision instead
+  // of the below-fold section, so its data-tour targets don't exist yet —
+  // skip until they've picked a path and the below-fold section can mount.
   useEffect(() => {
     if (tourTriggeredRef.current) return;
     if (!showBelowFold || !profile) return;
+    if (heroKind === 'onboard') return;
     if (profile.has_seen_dashboard_tour) return;
     tourTriggeredRef.current = true;
     // Deliberately no cleanup: this is a one-shot, ref-guarded trigger. A
@@ -208,7 +212,7 @@ export default function StudentDashboard() {
     // StrictMode's dev-only double-invoke (the second invocation short-
     // circuits on the now-true ref, so nothing would ever re-schedule it).
     setTimeout(() => setShowTour(true), 300);
-  }, [showBelowFold, profile]);
+  }, [showBelowFold, profile, heroKind]);
 
   const handleTourDone = useCallback(() => {
     setShowTour(false);

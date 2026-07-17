@@ -8,23 +8,41 @@ import { ProfessorRoutes, StudentRoutes } from '@/lib/routes';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
 import { browseCourses, enrollInCourse } from '@/services/coursesService';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export function WelcomeOnboardingHero() {
   const { t } = useTranslation(['dashboard']);
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const { data: dashboardData, refetch } = useStudentDashboard();
   const [isEnrolling, setIsEnrolling] = useState(false);
 
   const firstName = profile?.full_name?.split(' ')[0] || 'there';
 
+  // Once a path is chosen, retire the Luna spotlight tour's auto-trigger —
+  // the Hero Decision is the sole first-run experience, so the two overlays
+  // should never both fire for the same student. Fire-and-forget: this is a
+  // one-way persisted flag, not something the UI needs to await.
+  const retireSpotlightTour = () => {
+    if (!user?.id) return;
+    supabase
+      .from('profiles')
+      .update({ has_seen_dashboard_tour: true })
+      .eq('user_id', user.id)
+      .then(({ error }) => {
+        if (error) console.error('Failed to retire dashboard tour:', error);
+      });
+  };
+
   const handleUploadJourney = () => {
     // Path 1: Upload Journey - Route directly to the wizard
+    retireSpotlightTour();
     navigate(StudentRoutes.ONBOARDING_UPLOAD);
   };
 
   const handleGuidedTour = async () => {
     // Path 2: Guided Tour into Database Systems
+    retireSpotlightTour();
     const targetCourseTitle = 'Datenbanksysteme';
     const targetEnTitle = 'Database Systems';
     

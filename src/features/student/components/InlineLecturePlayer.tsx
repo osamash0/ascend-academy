@@ -39,6 +39,7 @@ import {
   ArrowLeft,
   SlidersHorizontal,
   Copy,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { apiClient } from '@/lib/apiClient';
@@ -1278,17 +1279,22 @@ export function InlineLecturePlayer({
               into the conversation (prompt + grounded response). */}
           <div className="relative">
             {isOnboarding && !chatActive && (
-              <motion.div
+              <motion.button
+                type="button"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute -top-14 left-4 z-50 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-xl shadow-primary/20"
+                onClick={() => {
+                  setChatInput('Summarize this slide for me');
+                  setTimeout(() => chatInputRef.current?.focus(), 50);
+                }}
+                className="absolute -top-14 left-4 z-50 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-xl shadow-primary/20 transition-transform hover:scale-105"
               >
                 <div className="absolute -bottom-1.5 left-6 h-3 w-3 rotate-45 bg-primary" />
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4" />
                   Try asking Luna to explain this slide!
                 </div>
-              </motion.div>
+              </motion.button>
             )}
             <form
             onSubmit={(e) => {
