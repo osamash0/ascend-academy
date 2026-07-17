@@ -55,3 +55,6 @@ backend/loadtest/.students.json
 .coverage
 coverage/
 htmlcov/
+
+# Large generated dataset (not source; regenerated from scrapers)
+Dataset/
