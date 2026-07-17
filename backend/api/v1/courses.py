@@ -305,7 +305,7 @@ async def browse_courses(
 
 
 @router.post("/generate-title-suggestion")
-async def generate_title_suggestion(req: TitleSuggestionRequest, _user_id: UUID = Depends(_user_id)):
+async def generate_title_suggestion(req: TitleSuggestionRequest, user: Any = Depends(verify_token)):
     from openai import AsyncOpenAI
     from backend.core.config import settings
 

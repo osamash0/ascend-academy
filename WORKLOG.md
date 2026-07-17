@@ -62,7 +62,7 @@ opposite of the intended graceful degradation.
 NOT fixed (per goal guardrails). Pinned by
 `test_json_parsing.py::test_truncated_array_without_closing_bracket_returns_empty_dict`.
 
-### B2 — generate-title-suggestion endpoint is unreachable (always 422)
+### B2 — generate-title-suggestion endpoint is unreachable (always 422) — FIXED 2026-07-18
 `backend/api/v1/courses.py::generate_title_suggestion` (line 308).
 The signature is `async def generate_title_suggestion(req, _user_id: UUID = Depends(_user_id))`
 but `_user_id` (from `auth_middleware`) is a plain helper `def _user_id(user)` —
@@ -71,9 +71,12 @@ NOT a FastAPI dependency. Used with `Depends(...)`, FastAPI treats its unresolve
 422 `{"loc": ["query", "user"]}`. The course-creation "suggest a title" button
 is therefore dead. Every other endpoint here does the correct thing:
 `user = Depends(verify_token)` then `_user_id(user)`.
-NOT fixed (per goal guardrails). Pinned by
-`test_courses_creation.py::test_title_suggestion_normal_call_422s_bug`; the
-handler logic is covered via a `?user=` workaround.
+FIXED (2026-07-18, branch fix/confirmed-bugs-b1-b2): changed the signature to
+`user: Any = Depends(verify_token)` — a proper auth dependency. `grep -rn
+"Depends(_user_id)" backend/api` confirmed this was the only occurrence.
+`test_courses_creation.py` title-suggestion tests updated to call the endpoint
+with no `?user=` workaround; added
+`test_title_suggestion_reachable_by_normal_authed_call` as the regression guard.
 
 Minor quirk (not filed as a bug, pinned by test): a NUL (0x00) byte outside a
 JSON string is not stripped by `_sanitize_json_string` (guard is strict

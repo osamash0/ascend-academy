@@ -39,22 +39,21 @@ def _patch_openai(monkeypatch, *, content=None, raises=False):
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeAsyncOpenAI)
 
 
-def test_title_suggestion_normal_call_422s_bug(app_client):
-    # BUG B2 (see WORKLOG): the endpoint declares `_user_id: UUID = Depends(_user_id)`
-    # but `_user_id` is a plain helper `_user_id(user)`, so FastAPI wires its `user`
-    # arg as a REQUIRED QUERY PARAM. A normal authenticated call omits it → 422.
-    # The endpoint is effectively unreachable for real clients. Pins current behavior.
-    res = app_client.post("/api/v1/courses/generate-title-suggestion", json={"lectures": []})
-    assert res.status_code == 422
-    assert res.json()["detail"][0]["loc"] == ["query", "user"]
+def test_title_suggestion_reachable_by_normal_authed_call(app_client, monkeypatch):
+    # Regression guard for BUG B2 (fixed): the endpoint used Depends(_user_id) — a
+    # plain helper — which made `user` a required query param, 422-ing every real
+    # call. It now uses Depends(verify_token) and is reachable with no query param.
+    _patch_openai(monkeypatch, content="Databases 101")
+    res = app_client.post(
+        "/api/v1/courses/generate-title-suggestion", json={"lectures": ["SQL basics"]}
+    )
+    assert res.status_code == 200
+    assert res.json()["title"] == "Databases 101"
 
-
-# The handler body (309-331) is only reachable via the ?user= workaround forced by
-# BUG B2. These cover the deterministic suggestion logic + LLM-mocked fallbacks.
 
 def test_title_suggestion_empty_lectures_returns_default(app_client):
     res = app_client.post(
-        "/api/v1/courses/generate-title-suggestion?user=x", json={"lectures": []}
+        "/api/v1/courses/generate-title-suggestion", json={"lectures": []}
     )
     assert res.status_code == 200
     assert res.json()["title"] == "My New Course"
@@ -63,7 +62,7 @@ def test_title_suggestion_empty_lectures_returns_default(app_client):
 def test_title_suggestion_success_strips_quotes(app_client, monkeypatch):
     _patch_openai(monkeypatch, content='  "Intro to Databases"  ')
     res = app_client.post(
-        "/api/v1/courses/generate-title-suggestion?user=x",
+        "/api/v1/courses/generate-title-suggestion",
         json={"lectures": ["SQL basics", "Normalization"]},
     )
     assert res.status_code == 200
@@ -73,7 +72,7 @@ def test_title_suggestion_success_strips_quotes(app_client, monkeypatch):
 def test_title_suggestion_llm_failure_falls_back(app_client, monkeypatch):
     _patch_openai(monkeypatch, raises=True)
     res = app_client.post(
-        "/api/v1/courses/generate-title-suggestion?user=x",
+        "/api/v1/courses/generate-title-suggestion",
         json={"lectures": ["A", "B"]},
     )
     assert res.status_code == 200
