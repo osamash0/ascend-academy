@@ -41,7 +41,31 @@ Baseline coverage on target modules:
 | **TOTAL (target set)** | **66%** |
 
 ## Bugs found
-(none yet)
+
+### B1 — parse_json_response truncation-recovery is dead for real truncation
+`backend/services/ai/orchestrator.py::parse_json_response` (~line 700-740).
+The docstring promises that a truncated JSON **array** (LLM hit its output
+token limit mid-object) is salvaged object-by-object. In practice it is NOT,
+for the exact case it was written for:
+- A genuinely truncated array like `[{"q":"one"},{"q":"two"},{"q":"thr` has no
+  closing `]`.
+- The extraction regex `(\{[\s\S]*\}|\[[\s\S]*\])` therefore can't match the
+  `[...]` branch (needs a closing `]`); it falls back to the `{...}` branch and
+  captures the inner `{"q":"one"},{"q":"two"}` span.
+- The salvage loop is gated on `candidate.lstrip().startswith("[")`, so it
+  never runs → returns `{}` and the whole batch of already-complete objects is
+  lost.
+Salvage only works when a `]` happens to be present (e.g. a malformed-but-
+closed array `[{ok},{bad}]`). Impact: on a real token-limit truncation the
+deck-quiz / slide batch returns empty instead of the completed slides — the
+opposite of the intended graceful degradation.
+NOT fixed (per goal guardrails). Pinned by
+`test_json_parsing.py::test_truncated_array_without_closing_bracket_returns_empty_dict`.
+
+Minor quirk (not filed as a bug, pinned by test): a NUL (0x00) byte outside a
+JSON string is not stripped by `_sanitize_json_string` (guard is strict
+`0x00 < ord(ch)`), so it breaks the parse; other C0 controls (0x01–0x1F) are
+stripped.
 
 ---
 
@@ -70,4 +94,35 @@ New file `backend/tests/unit/test_upload_service.py` (37 tests). Covered:
 Remaining uncovered (external/hard): real Arq pool creation (38-42), inner
 bucket-create failure log (90-91), pubsub json-decode continue (297-298),
 sync-fallback task-timeout branch (333-339). No source changes. No bugs found.
+
+### 2. deterministic_extractor.py — 24% → 100% (2026-07-17)
+New file `backend/tests/unit/test_deterministic_extractor.py` (20 tests).
+Covered `_split_first_nonempty_line` (empty, peel, leading blanks, all-
+whitespace), `_looks_like_title` (length/word/sentence rules incl. the
+short-line-ending-in-period accept), `build_slide_from_layout` (title vs
+placeholder, content truncation+ellipsis, metadata→SKIP route, manifest reason,
+`_meta` block fields), and `build_slides_from_layouts` (sort, metadata flags,
+empty input). Pure logic; no bugs found.
+
+### 3. parser/synthesis.py — 59% → 80% (2026-07-17)
+New file `backend/tests/unit/test_synthesis.py` (23 tests). LLM mocked at
+`generate_text`/`generate_text_bulk`; `parse_json_response`/`with_voice` real.
+Covered prompt assembly (first-15-slide cap, course-hint append only when
+present, ≤10 quiz slides, ≤2 cross-lecture candidates), response handling
+(parsed dict/list, non-dict→{}, non-list→[], garbage→{}/[]), `analyze_slide`
+content-fallback chain, cross-lecture source tagging + drop-unknown-concept +
+LLM-exception→[], and `_map_cross_lecture_quiz` answer resolution/drop. Rest
+(`_map_deck_quiz`, 250-281) already covered by test_synthesis_quiz_mapping.py.
+No bugs found. (Note: `_normalize_answer_index` treats any single-char answer
+as a column letter A–Z, never as literal option text — expected, documented.)
+
+### 4. ai/orchestrator.parse_json_response — dedicated coverage (2026-07-17)
+New file `backend/tests/unit/test_json_parsing.py` (22 tests). The LLM-output
+choke point. Covered dict/list passthrough, scalar coercion, plain object/array,
+fenced (```json and bare ```), JSON embedded in prose (object + array),
+truncation behavior (see BUG B1 — real truncation → {}, closed-but-malformed
+array → salvage), total garbage/empty → {}, and `_sanitize_json_string`
+defects (literal newline in string, lone backslash doubling, valid escapes,
+bell strip, NUL quirk) plus Unicode preservation and `\uXXXX` decode.
+Found BUG B1 (logged above).
 
