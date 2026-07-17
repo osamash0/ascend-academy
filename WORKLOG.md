@@ -42,7 +42,7 @@ Baseline coverage on target modules:
 
 ## Bugs found
 
-### B1 — parse_json_response truncation-recovery is dead for real truncation
+### B1 — parse_json_response truncation-recovery is dead for real truncation — FIXED 2026-07-18
 `backend/services/ai/orchestrator.py::parse_json_response` (~line 700-740).
 The docstring promises that a truncated JSON **array** (LLM hit its output
 token limit mid-object) is salvaged object-by-object. In practice it is NOT,
@@ -59,8 +59,14 @@ Salvage only works when a `]` happens to be present (e.g. a malformed-but-
 closed array `[{ok},{bad}]`). Impact: on a real token-limit truncation the
 deck-quiz / slide batch returns empty instead of the completed slides — the
 opposite of the intended graceful degradation.
-NOT fixed (per goal guardrails). Pinned by
-`test_json_parsing.py::test_truncated_array_without_closing_bracket_returns_empty_dict`.
+FIXED (2026-07-18, branch fix/confirmed-bugs-b1-b2): salvage now runs off the
+original array text (`raw`) when it starts with `[`, falling back to `candidate`
+for the closed-but-malformed-array case — so a genuinely truncated array (no
+closing `]`) recovers every complete object instead of returning `{}`. Scope
+kept minimal: truncated *objects* still return `{}`, and well-formed / non-array
+inputs are unchanged (dangling-open-fence truncation deliberately out of scope —
+the AI prompts instruct "no markdown"). Regression guard flipped to
+`test_json_parsing.py::test_truncated_array_without_closing_bracket_salvages_complete_objects`.
 
 ### B2 — generate-title-suggestion endpoint is unreachable (always 422) — FIXED 2026-07-18
 `backend/api/v1/courses.py::generate_title_suggestion` (line 308).

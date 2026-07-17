@@ -74,14 +74,23 @@ def test_malformed_array_with_closing_bracket_salvages_complete_objects():
     assert out == [{"q": "one"}, {"q": "two"}]
 
 
-def test_truncated_array_without_closing_bracket_returns_empty_dict():
-    # BUG (see WORKLOG): a genuinely token-limit-truncated array has no closing
-    # ']', so the extraction regex matches the inner '{...}' span instead of the
-    # '[...]' span; salvage is gated on candidate.startswith('[') and never
-    # fires. The documented truncation-recovery is therefore dead for the exact
-    # case it was written for. This test pins the CURRENT (buggy) behavior.
+def test_truncated_array_without_closing_bracket_salvages_complete_objects():
+    # Regression guard for BUG B1 (fixed): a genuinely token-limit-truncated
+    # array has no closing ']', so the extraction regex falls back to the inner
+    # '{...}' span. Salvage now runs off the original array text, recovering
+    # every complete object before the truncation point.
     raw = '[{"q": "one"}, {"q": "two"}, {"q": "thr'
-    assert parse_json_response(raw) == {}
+    assert parse_json_response(raw) == [{"q": "one"}, {"q": "two"}]
+
+
+def test_truncated_array_salvage_ignores_incomplete_trailing_object():
+    # Only complete {...} blocks are recovered; the partial trailing object is
+    # dropped rather than corrupting the result.
+    raw = '[{"id": 1, "ok": true}, {"id": 2, "ok": false}, {"id": 3, "ok'
+    assert parse_json_response(raw) == [
+        {"id": 1, "ok": True},
+        {"id": 2, "ok": False},
+    ]
 
 
 def test_truncated_array_with_no_complete_object_returns_empty_dict():

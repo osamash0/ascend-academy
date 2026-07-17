@@ -716,12 +716,25 @@ def parse_json_response(raw: str) -> Any:
         # mid-object (e.g. "[{...}, {\"title\": \"Foo\",").  We can still
         # salvage all *complete* objects that appear before the truncation
         # point by scanning for self-contained {...} blocks inside the array.
-        if candidate.lstrip().startswith("["):
+        #
+        # Salvage from `raw` (the full sanitized text) when it is an array: a
+        # genuinely truncated array has no closing ']', so the extraction regex
+        # above can't match the '[...]' span and falls back to the inner
+        # '{...}' span — `candidate` then starts with '{', not '[', and gating
+        # salvage on `candidate` alone would miss the exact case this recovery
+        # exists for. Fall back to `candidate` for the closed-but-malformed
+        # array case (a valid '[...]' whose contents don't parse).
+        salvage_source = None
+        if raw.lstrip().startswith("["):
+            salvage_source = raw
+        elif candidate.lstrip().startswith("["):
+            salvage_source = candidate
+        if salvage_source is not None:
             salvaged = []
             # Greedily extract every balanced {…} block from the partial text
             depth = 0
             start = None
-            for i, ch in enumerate(candidate):
+            for i, ch in enumerate(salvage_source):
                 if ch == "{":
                     if depth == 0:
                         start = i
@@ -729,7 +742,7 @@ def parse_json_response(raw: str) -> Any:
                 elif ch == "}":
                     depth -= 1
                     if depth == 0 and start is not None:
-                        fragment = candidate[start:i + 1]
+                        fragment = salvage_source[start:i + 1]
                         try:
                             obj = json.loads(fragment)
                             if isinstance(obj, dict):
