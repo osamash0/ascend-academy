@@ -126,3 +126,26 @@ defects (literal newline in string, lone backslash doubling, valid escapes,
 bell strip, NUL quirk) plus Unicode preservation and `\uXXXX` decode.
 Found BUG B1 (logged above).
 
+### 5. parser/persist.py — 53% → 100% (2026-07-17)
+New file `backend/tests/unit/test_parser_persist.py` (27 tests). asyncpg mocked
+at `get_db_connection` with a recording fake conn. Covered create_lecture
+owner-shape validation (3 raise paths) + both happy paths, the UPDATE helper
+arg wiring (finalize int-cast, title unarchive, set_course_id, set_run_lecture,
+clear content, regen-instruction 0-based map), insert_slide SSE→columns mapping
++ title/content fallbacks, `_quiz_metadata` truthy-only + extra merge,
+insert_slide_quizzes drop rules + count, insert_deck_quizzes anchor resolution
+(first linked / min fallback), source-lecture tags, drop-unresolvable +
+non-dict skip, and fetch_lecture_for_replay reconstruction (JSON-string options
+decode, bad-JSON→[], None desc→""). No bugs found.
+
+### 6. parser/repos.py — 21% → 100% (2026-07-17)
+New file `backend/tests/unit/test_parser_repos.py` (26 tests). Pool mocked at
+`core.database.db_pool` with a fake conn (fetchrow/fetch queue). Covered `_pool`
+init + raise, `_run_from_row` full mapping / outline-from-dict / outline-from-
+string / bad-outline tolerance / missing optional columns, get_or_create_run &
+get_run_by_id & list_runs_by_user (batch vs recent branches), get_batch_summary
+rollup (counts, title→filename fallback, deck_summary, no-lecture skip),
+set_status finished_at branch, set_page_count/outline/error, ensure_page_rows
+tuple build, pending/unanalyzed page lists, and the deserialize-tolerant page
+getters + replay_slides + commit_extract/content. No bugs found.
+
