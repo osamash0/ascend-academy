@@ -182,7 +182,7 @@ export default function LectureEdit() {
         setDiagnosticsError(null);
         try {
             const data = await apiClient.get<DiagnosticsResponse>(
-                `/api/upload/diagnostics/${pdfHash}`,
+                `/api/v1/upload/diagnostics/${pdfHash}`,
             );
             setDiagnostics(data);
         } catch (err) {
@@ -329,7 +329,7 @@ export default function LectureEdit() {
         }
         setAiSummaryLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
-            const data = await apiClient.post<{ summary: string }>('/api/ai/generate-summary', { slide_text: content, ai_model: aiModel });
+            const data = await apiClient.post<{ summary: string }>('/api/v1/ai/generate-summary', { slide_text: content, ai_model: aiModel });
             updateSlide(slideIndex, 'summary', data.summary);
             toast({ title: 'Summary generated!' });
         } catch {
@@ -347,7 +347,7 @@ export default function LectureEdit() {
         }
         setAiQuizLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
-            const quiz = await apiClient.post<{ question: string; options: string[]; correctAnswer: number }>('/api/ai/generate-quiz', { slide_text: content, ai_model: aiModel });
+            const quiz = await apiClient.post<{ question: string; options: string[]; correctAnswer: number }>('/api/v1/ai/generate-quiz', { slide_text: content, ai_model: aiModel });
             const newSlides = [...slides];
             // keep existing id if there was one
             const existingId = newSlides[slideIndex].questions[0]?.id;
@@ -374,7 +374,7 @@ export default function LectureEdit() {
         }
         setAiTitleLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
-            const data = await apiClient.post<{ title: string }>('/api/ai/suggest-title', { slide_text: content, ai_model: aiModel });
+            const data = await apiClient.post<{ title: string }>('/api/v1/ai/suggest-title', { slide_text: content, ai_model: aiModel });
             updateSlide(slideIndex, 'title', data.title);
             toast({ title: 'Title generated!' });
         } catch {
@@ -389,7 +389,7 @@ export default function LectureEdit() {
         const existingTitle = slides[slideIndex].title;
         setAiContentLoading(prev => ({ ...prev, [slideIndex]: true }));
         try {
-            const data = await apiClient.post<{ content: string }>('/api/ai/suggest-content', { 
+            const data = await apiClient.post<{ content: string }>('/api/v1/ai/suggest-content', { 
                 slide_text: existingContent || existingTitle || "Educational topic", 
                 ai_model: aiModel 
             });
@@ -411,7 +411,7 @@ export default function LectureEdit() {
         }
         setDeckQuizLoading(true);
         try {
-            await apiClient.post(`/api/ai/decks/${lectureId}/generate-quiz`, { ai_model: aiModel });
+            await apiClient.post(`/api/v1/ai/decks/${lectureId}/generate-quiz`, { ai_model: aiModel });
             toast({ title: 'Cross-slide quiz generated!', description: 'Refreshing slides…' });
             await fetchLecture();
         } catch (err) {

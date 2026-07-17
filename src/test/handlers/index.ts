@@ -71,23 +71,23 @@ export const defaultHandlers = [
   ),
 
   // ── AI generation ─────────────────────────────────────────────────────────
-  http.post(`${API}/api/ai/generate-summary`, () =>
+  http.post(`${API}/api/v1/ai/generate-summary`, () =>
     HttpResponse.json({ summary: "Test summary." }),
   ),
-  http.post(`${API}/api/ai/generate-quiz`, () =>
+  http.post(`${API}/api/v1/ai/generate-quiz`, () =>
     HttpResponse.json({
       question: "What is 2+2?",
       options: ["3", "4", "5", "6"],
       correctAnswer: 1,
     }),
   ),
-  http.post(`${API}/api/ai/chat`, () =>
+  http.post(`${API}/api/v1/ai/chat`, () =>
     HttpResponse.json({ reply: "Test reply.", citations: [] }),
   ),
-  http.post(`${API}/api/upload/attach-lecture`, () =>
+  http.post(`${API}/api/v1/upload/attach-lecture`, () =>
     HttpResponse.json({ updated: 0 }),
   ),
-  http.post(`${API}/api/ai/analytics-insights`, () =>
+  http.post(`${API}/api/v1/ai/analytics-insights`, () =>
     HttpResponse.json({ summary: "Insight.", suggestions: ["Try X"] }),
   ),
 
@@ -118,7 +118,7 @@ export const defaultHandlers = [
   ),
 
   // ── Streaming PDF parse ───────────────────────────────────────────────────
-  http.post(`${API}/api/upload/parse-pdf-stream`, () => {
+  http.post(`${API}/api/v1/upload/parse-pdf-stream`, () => {
     const body =
       [
         `data: ${JSON.stringify({ type: "info", parser: "pymupdf" })}\n\n`,
@@ -196,13 +196,13 @@ export const defaultHandlers = [
   ),
 
   // ── Worksheets & Practice Sheets ──────────────────────────────────────────
-  http.get(`${API}/api/lectures/:id/worksheets`, () =>
+  http.get(`${API}/api/v1/lectures/:id/worksheets`, () =>
     HttpResponse.json({
       success: true,
       data: [],
     }),
   ),
-  http.get(`${API}/api/lectures/:id/practice-sheets`, () =>
+  http.get(`${API}/api/v1/lectures/:id/practice-sheets`, () =>
     HttpResponse.json({
       success: true,
       data: [],
@@ -210,13 +210,13 @@ export const defaultHandlers = [
   ),
 
   // ── Concepts ──────────────────────────────────────────────────────────────
-  http.get(`http://localhost:8000/api/concepts/lecture/:id`, () =>
+  http.get(`http://localhost:8000/api/v1/concepts/lecture/:id`, () =>
     HttpResponse.json({
       success: true,
       data: [],
     }),
   ),
-  http.get(`${API}/api/concepts/lecture/:id`, () =>
+  http.get(`${API}/api/v1/concepts/lecture/:id`, () =>
     HttpResponse.json({
       success: true,
       data: [],

@@ -54,7 +54,7 @@ export default function FastUpload() {
       form.append("file", file);
 
       setProgress(30);
-      const res = await fetch(`${API_BASE}/api/fast-upload/`, { 
+      const res = await fetch(`${API_BASE}/api/v1/fast-upload/`, { 
         method: "POST", 
         body: form,
         headers: {
@@ -76,7 +76,7 @@ export default function FastUpload() {
         attempts++;
         setProgress(Math.min(60 + Math.log1p(attempts) * 8, 95));
         try {
-          const r = await fetch(`${API_BASE}/api/fast-upload/status/${upload.id}`, {
+          const r = await fetch(`${API_BASE}/api/v1/fast-upload/status/${upload.id}`, {
             headers: {
               Authorization: `Bearer ${session?.access_token}`
             }

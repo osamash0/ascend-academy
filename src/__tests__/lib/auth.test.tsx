@@ -81,7 +81,7 @@ beforeEach(() => {
   (supabaseMock as any).removeChannel = vi.fn();
   // signOut coordinates a backend logout POST before clearing local creds.
   server.use(
-    http.post('http://api.test/api/auth/logout', () => HttpResponse.json({})),
+    http.post('http://api.test/api/v1/auth/logout', () => HttpResponse.json({})),
   );
 });
 

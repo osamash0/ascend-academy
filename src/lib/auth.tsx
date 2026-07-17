@@ -275,7 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
         const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        await fetch(`${apiBase}/api/auth/logout`, {
+        await fetch(`${apiBase}/api/v1/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,

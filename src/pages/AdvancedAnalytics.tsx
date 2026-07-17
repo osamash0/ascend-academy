@@ -630,7 +630,7 @@ export default function AdvancedAnalytics() {
           .join(', '),
       };
 
-      const data = await apiClient.post<{ feedback: string }>('/api/ai/metric-feedback', {
+      const data = await apiClient.post<{ feedback: string }>('/api/v1/ai/metric-feedback', {
         metric_name: title,
         metric_value: value,
         context_stats: context,
@@ -679,7 +679,7 @@ export default function AdvancedAnalytics() {
     setSlideSuggestions((prev) => ({ ...prev, [slideId]: { text: '', loading: true } }));
     try {
       const res = await apiClient.post<{ suggestion: string }>(
-        `/api/ai/slides/${slideId}/recommendation`,
+        `/api/v1/ai/slides/${slideId}/recommendation`,
         { ai_model: aiModel },
       );
       setSlideSuggestions((prev) => ({
@@ -769,7 +769,7 @@ export default function AdvancedAnalytics() {
         .map((s: { name: string }) => s.name)
         .join(', ');
 
-      const result = await apiClient.post<AIInsights>('/api/ai/analytics-insights', {
+      const result = await apiClient.post<AIInsights>('/api/v1/ai/analytics-insights', {
         total_students: dashboardData?.overview?.uniqueStudents,
         average_score: dashboardData?.overview?.averageScore,
         total_attempts: dashboardData?.overview?.totalAttempts,

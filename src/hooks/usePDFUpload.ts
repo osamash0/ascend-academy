@@ -114,7 +114,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
 
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const endpoint = isLazy ? '/api/upload/import-pdf-lazy' : '/api/upload/parse-pdf-stream';
+        const endpoint = isLazy ? '/api/v1/upload/import-pdf-lazy' : '/api/v1/upload/parse-pdf-stream';
         const response = await fetch(`${API_BASE}${endpoint}`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${session?.access_token}` },
@@ -294,7 +294,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
       try {
         const hash = await sha256OfFile(file);
         const { data: { session } } = await supabase.auth.getSession();
-        const response = await fetch(`${API_BASE}/api/upload/check-duplicate`, {
+        const response = await fetch(`${API_BASE}/api/v1/upload/check-duplicate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -330,7 +330,7 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
     async (hash: string): Promise<{ cached: boolean; parsedAt: string | null }> => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const response = await fetch(`${API_BASE}/api/upload/check-parse-cache`, {
+        const response = await fetch(`${API_BASE}/api/v1/upload/check-parse-cache`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

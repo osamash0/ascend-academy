@@ -129,6 +129,27 @@ v1_router.include_router(academic_router)
 # Mount parent v1_router onto app
 app.include_router(v1_router)
 
+# Also mount it at /v1 to handle requests where Nginx strips the /api prefix
+v1_alias_router = APIRouter(prefix="/v1")
+v1_alias_router.include_router(auth_router)
+v1_alias_router.include_router(analytics_router)
+v1_alias_router.include_router(admin_router)
+v1_alias_router.include_router(upload_router)
+v1_alias_router.include_router(ai_router)
+v1_alias_router.include_router(mind_map_router)
+v1_alias_router.include_router(feedback_router)
+v1_alias_router.include_router(assignments_router)
+v1_alias_router.include_router(concepts_router)
+v1_alias_router.include_router(courses_router)
+v1_alias_router.include_router(worksheets_router)
+v1_alias_router.include_router(nudges_router)
+v1_alias_router.include_router(schedule_router)
+v1_alias_router.include_router(slides_ai_router)
+v1_alias_router.include_router(practice_sheets_router)
+v1_alias_router.include_router(fast_upload_router)
+v1_alias_router.include_router(academic_router)
+app.include_router(v1_alias_router)
+
 # Import and register DomainError global exception handlers
 from backend.core.exceptions import DomainError
 

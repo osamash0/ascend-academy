@@ -93,7 +93,7 @@ export async function updateCourse(id: string, patch: UpdateCourseInput): Promis
  * exist and have at least one lecture with slides.
  */
 export async function generateCourseDescription(courseId: string): Promise<string> {
-  const res = await apiClient.post<{ description: string }>('/api/ai/course-description', {
+  const res = await apiClient.post<{ description: string }>('/api/v1/ai/course-description', {
     course_id: courseId,
   });
   return res.description;

@@ -1,6 +1,6 @@
 /**
  * Practice Sheets service — wraps /api/practice-sheets/* and
- * /api/lectures/{id}/practice-sheets/* endpoints.
+ * /api/v1/lectures/{id}/practice-sheets/* endpoints.
  */
 import { apiClient } from '@/lib/apiClient';
 
@@ -55,14 +55,14 @@ interface Envelope<T> {
 
 export async function listPracticeSheets(lectureId: string): Promise<PracticeSheet[]> {
   const res = await apiClient.get<Envelope<PracticeSheet[]>>(
-    `/api/lectures/${lectureId}/practice-sheets`,
+    `/api/v1/lectures/${lectureId}/practice-sheets`,
   );
   return res.data;
 }
 
 export async function createManualSheet(lectureId: string, title: string): Promise<PracticeSheet> {
   const res = await apiClient.post<Envelope<PracticeSheet>>(
-    `/api/lectures/${lectureId}/practice-sheets`,
+    `/api/v1/lectures/${lectureId}/practice-sheets`,
     { title },
   );
   return res.data;
@@ -70,7 +70,7 @@ export async function createManualSheet(lectureId: string, title: string): Promi
 
 export async function generateAutoSheet(lectureId: string): Promise<PracticeSheet> {
   const res = await apiClient.post<Envelope<PracticeSheet>>(
-    `/api/lectures/${lectureId}/practice-sheets/auto`,
+    `/api/v1/lectures/${lectureId}/practice-sheets/auto`,
     {},
   );
   return res.data;

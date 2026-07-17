@@ -322,7 +322,7 @@ export default function LectureView() {
     if (!currentSlide || !user) return;
     setIsRegeneratingContent(true);
     try {
-      const json = await apiClient.post<{ slide: Slide }>(`/api/ai/slides/${currentSlide.id}/regenerate-content`, { ai_model: aiModel });
+      const json = await apiClient.post<{ slide: Slide }>(`/api/v1/ai/slides/${currentSlide.id}/regenerate-content`, { ai_model: aiModel });
       const updated = json.slide;
       // Patch the slide in local state so the UI updates immediately
       setSlides(prev => prev.map(s =>

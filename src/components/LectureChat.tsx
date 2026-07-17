@@ -235,7 +235,7 @@ export function LectureChat({
                     }
                 }
             } else {
-                // JSON response (this is what the grounded /api/ai/chat returns).
+                // JSON response (this is what the grounded /api/v1/ai/chat returns).
                 const data = await res.json();
                 aiResponseText = data.reply ?? '';
                 setMessages(prev => [...prev, {

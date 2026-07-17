@@ -92,13 +92,13 @@ describe("usePDFUpload duplicate-detection branching", () => {
     ];
 
     const { calls } = installFetchRouter({
-      "/api/upload/check-duplicate": (init) => {
+      "/api/v1/upload/check-duplicate": (init) => {
         const body = JSON.parse(init.body as string) as { pdf_hash?: string };
         // SHA-256 of any input is 64 lowercase hex chars.
         expect(body.pdf_hash).toMatch(/^[0-9a-f]{64}$/);
         return new Response(JSON.stringify({ duplicates: matches }), { status: 200 });
       },
-      "/api/upload/parse-pdf-stream": () =>
+      "/api/v1/upload/parse-pdf-stream": () =>
         new Response("err", { status: 500 }),
     });
 
@@ -127,9 +127,9 @@ describe("usePDFUpload duplicate-detection branching", () => {
 
     let receivedFD: FormData | null = null;
     installFetchRouter({
-      "/api/upload/check-duplicate": () =>
+      "/api/v1/upload/check-duplicate": () =>
         new Response(JSON.stringify({ duplicates: [] }), { status: 200 }),
-      "/api/upload/parse-pdf-stream": (init) => {
+      "/api/v1/upload/parse-pdf-stream": (init) => {
         receivedFD = init.body as FormData;
         return new Response("err", { status: 500 });
       },
@@ -153,7 +153,7 @@ describe("usePDFUpload duplicate-detection branching", () => {
 
     let receivedFD: FormData | null = null;
     installFetchRouter({
-      "/api/upload/parse-pdf-stream": (init) => {
+      "/api/v1/upload/parse-pdf-stream": (init) => {
         receivedFD = init.body as FormData;
         return new Response("err", { status: 500 });
       },
@@ -172,9 +172,9 @@ describe("usePDFUpload duplicate-detection branching", () => {
     const file = makeFile();
 
     const { calls } = installFetchRouter({
-      "/api/upload/check-duplicate": () =>
+      "/api/v1/upload/check-duplicate": () =>
         new Response(JSON.stringify({ error: "boom" }), { status: 500 }),
-      "/api/upload/parse-pdf-stream": () => new Response("err", { status: 500 }),
+      "/api/v1/upload/parse-pdf-stream": () => new Response("err", { status: 500 }),
     });
 
     const onDuplicate = vi.fn();

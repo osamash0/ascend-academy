@@ -481,7 +481,7 @@ export default function LectureUpload() {
     const courseName = courseId ? courses.find(c => c.id === courseId)?.title : undefined;
     setIsGeneratingDescription(true);
     apiClient
-      .post<{ description: string }>('/api/ai/lecture-description', {
+      .post<{ description: string }>('/api/v1/ai/lecture-description', {
         lecture_title: title || 'Lecture',
         course_name: courseName,
         slide_summaries: summaries,
@@ -537,7 +537,7 @@ export default function LectureUpload() {
 
     const attemptGenerate = async () => {
       const quiz = await apiClient.post<{ question: string; options: string[]; correctAnswer: number; explanation?: string; concept?: string }>(
-        '/api/ai/generate-quiz',
+        '/api/v1/ai/generate-quiz',
         { slide_text: slide.content, ai_model: 'cerebras' }
       );
       setSuggestedQuizzes(prev => ({

@@ -98,7 +98,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         if (pdfHash) {
           try {
             const { data: { session } } = await supabase.auth.getSession();
-            await fetch(`${API_BASE}/api/upload/attach-lecture`, {
+            await fetch(`${API_BASE}/api/v1/upload/attach-lecture`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -190,7 +190,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         // queries.  Failure here must not block lecture creation.
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          fetch(`${API_BASE}/api/concepts/ingest/${lecture.id}`, {
+          fetch(`${API_BASE}/api/v1/concepts/ingest/${lecture.id}`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${session?.access_token}` },
           }).catch(() => { /* swallow */ });

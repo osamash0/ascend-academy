@@ -94,9 +94,9 @@ describe("getDashboardData", () => {
 });
 
 describe("getAiInsights", () => {
-  it("posts to /api/ai/analytics-insights", async () => {
+  it("posts to /api/v1/ai/analytics-insights", async () => {
     server.use(
-      http.post("http://api.test/api/ai/analytics-insights", async ({ request }) => {
+      http.post("http://api.test/api/v1/ai/analytics-insights", async ({ request }) => {
         const body = (await request.json()) as Record<string, unknown>;
         expect(body.lecture_id).toBe("L1");
         return HttpResponse.json({ summary: "s", suggestions: ["a"] });

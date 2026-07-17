@@ -1,7 +1,7 @@
 /**
  * LectureChat citation-chip tests.
  *
- * Guards the grounded-tutor contract: /api/ai/chat returns
+ * Guards the grounded-tutor contract: /api/v1/ai/chat returns
  * { reply, citations: [{ slide_index, similarity }] } and LectureChat
  * renders one "Slide N" button per citation (1-indexed label, 0-indexed
  * slide_index in the onSlideJump callback).
@@ -112,7 +112,7 @@ async function sendQuestion(user: ReturnType<typeof userEvent.setup>) {
 describe("LectureChat citation chips", () => {
   it("renders a clickable [Slide N] chip and forwards the 0-indexed slide_index to onSlideJump", async () => {
     server.use(
-      http.post("http://api.test/api/ai/chat", () =>
+      http.post("http://api.test/api/v1/ai/chat", () =>
         HttpResponse.json({
           reply: "See the cited slide for context.",
           citations: [{ slide_index: 2, similarity: 0.9 }],
@@ -136,7 +136,7 @@ describe("LectureChat citation chips", () => {
 
   it("renders no chips and never invokes onSlideJump when the response carries no citations", async () => {
     server.use(
-      http.post("http://api.test/api/ai/chat", () =>
+      http.post("http://api.test/api/v1/ai/chat", () =>
         HttpResponse.json({
           reply: "I cannot answer from the provided slides.",
           citations: [],

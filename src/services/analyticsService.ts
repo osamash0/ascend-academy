@@ -125,7 +125,7 @@ export async function getProfessorOverview(courseId: string, days = 7): Promise<
 }
 
 export async function getAiInsights(lectureId: string, context: Record<string, unknown>): Promise<{ summary: string; suggestions: string[] }> {
-  return apiClient.post(`/api/ai/analytics-insights`, { lecture_id: lectureId, ...context });
+  return apiClient.post(`/api/v1/ai/analytics-insights`, { lecture_id: lectureId, ...context });
 }
 
 // ── Insight Garden ────────────────────────────────────────────────────────────

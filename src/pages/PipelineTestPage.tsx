@@ -374,7 +374,7 @@ export default function PipelineTestPage() {
     formData.append('parser', parser)
 
     try {
-      const res = await fetch(`${API_BASE}/api/upload/parse-raw`, {
+      const res = await fetch(`${API_BASE}/api/v1/upload/parse-raw`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: formData,
@@ -414,7 +414,7 @@ export default function PipelineTestPage() {
     abortRef.current = controller
 
     try {
-      const response = await fetch(`${API_BASE}/api/upload/parse-pdf-stream`, {
+      const response = await fetch(`${API_BASE}/api/v1/upload/parse-pdf-stream`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: formData,

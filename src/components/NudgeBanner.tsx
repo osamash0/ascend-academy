@@ -84,7 +84,7 @@ export function NudgeBanner() {
     const dismiss = async () => {
         setHiddenIds(prev => new Set(prev).add(top.id));
         try {
-            await fetch(`/api/nudges/${top.id}/dismiss`, {
+            await fetch(`/api/v1/nudges/${top.id}/dismiss`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${session?.access_token ?? ''}`,

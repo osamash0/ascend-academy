@@ -20,7 +20,7 @@ export function useLectureTagline(lectureId: string | undefined, enabled = true)
   return useQuery({
     queryKey: ['lecture-tagline', lectureId],
     queryFn: async () => {
-      const data = await apiClient.post<TaglineResponse>('/api/ai/lecture-tagline', {
+      const data = await apiClient.post<TaglineResponse>('/api/v1/ai/lecture-tagline', {
         lecture_id: lectureId,
         ai_model: aiModel,
       });

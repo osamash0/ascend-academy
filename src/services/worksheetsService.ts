@@ -30,7 +30,7 @@ interface Envelope<T> {
 
 export async function listWorksheets(lectureId: string): Promise<Worksheet[]> {
   const res = await apiClient.get<Envelope<Worksheet[]>>(
-    `/api/lectures/${lectureId}/worksheets`,
+    `/api/v1/lectures/${lectureId}/worksheets`,
   );
   return res.data;
 }
@@ -45,7 +45,7 @@ export async function uploadWorksheet(
   const fd = new FormData();
   fd.append('file', file);
   if (title) fd.append('title', title);
-  const res = await fetch(`${API_BASE}/api/lectures/${lectureId}/worksheets`, {
+  const res = await fetch(`${API_BASE}/api/v1/lectures/${lectureId}/worksheets`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.access_token}` },
     body: fd,

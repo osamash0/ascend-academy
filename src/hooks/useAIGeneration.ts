@@ -44,7 +44,7 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
 
       setOpLoading(slideIndex, 'summary', true);
       try {
-        const data = await apiClient.post<{ summary: string }>('/api/ai/generate-summary', {
+        const data = await apiClient.post<{ summary: string }>('/api/v1/ai/generate-summary', {
           slide_text: content,
           ai_model: aiModel,
         });
@@ -76,7 +76,7 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
           explanation?: string;
           concept?: string;
         }>(
-          '/api/ai/generate-quiz',
+          '/api/v1/ai/generate-quiz',
           { slide_text: content, ai_model: aiModel }
         );
         if (isAdministrativeQuiz(quiz)) {
@@ -197,7 +197,7 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
                 explanation?: string;
                 concept?: string;
               }>(
-                '/api/ai/generate-quiz',
+                '/api/v1/ai/generate-quiz',
                 { slide_text: slide.content, ai_model: aiModel }
               );
               setSuggestedQuizzes(prev => ({
@@ -242,7 +242,7 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
 
       setOpLoading(slideIndex, 'title', true);
       try {
-        const data = await apiClient.post<{ title: string }>('/api/ai/suggest-title', {
+        const data = await apiClient.post<{ title: string }>('/api/v1/ai/suggest-title', {
           slide_text: content,
           ai_model: aiModel,
         });
@@ -265,7 +265,7 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
 
       setOpLoading(slideIndex, 'content', true);
       try {
-        const data = await apiClient.post<{ content: string }>('/api/ai/suggest-content', {
+        const data = await apiClient.post<{ content: string }>('/api/v1/ai/suggest-content', {
           slide_text: existingContent || existingTitle || 'Educational topic',
           ai_model: aiModel,
         });
