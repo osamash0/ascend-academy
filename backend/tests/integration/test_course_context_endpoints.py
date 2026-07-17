@@ -30,10 +30,12 @@ def _auth_as(app, user: SimpleNamespace) -> None:
         app.dependency_overrides.pop(require_professor, None)
 
 
-def _seed_course(fake, course_id: str, professor_id: str) -> None:
+def _seed_course(fake, course_id: str, professor_id: str, status: str = "published") -> None:
+    # Non-owner (student) visibility requires status == "published"; default to
+    # it so enrolled-student tests exercise the visible path, not the status gate.
     fake.table("courses").insert({
         "id": course_id, "professor_id": professor_id, "title": "C",
-        "is_archived": False,
+        "is_archived": False, "status": status,
     }).execute()
 
 

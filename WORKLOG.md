@@ -212,7 +212,41 @@ integration suite exercises). No bugs found.
 
 ---
 
-## Summary (2026-07-17)
+### 12. api/v1/courses.py — 78% → 100% (2026-07-18)
+Two parts:
+
+**(a) Fixed 4 stale pre-existing failures.** `test_study_guide_endpoint`,
+`test_concept_map_endpoint`, `test_course_context_endpoints`, and
+`test_courses_endpoints::test_student_course_detail_hides_unenrolled_lectures`
+all seeded courses WITHOUT `status`. The visibility guard correctly requires
+`status == "published"` for non-owner (student) access, so an *enrolled* student
+was denied at the status gate → 403/404 → the "can_see"/"detail" tests failed.
+Root cause = stale test fixtures predating the published-status requirement, NOT
+a source bug (`_student_visible_course_ids` returns the course correctly).
+Fixed by defaulting `_seed_course(status="published")` in the three helpers and
+publishing the course in the courses_endpoints test. These fixes also cover the
+student-visible success paths + `get_course` lecture-filtering (432-452).
+Pre-existing failures: 8 → 4 (remaining 4 are unrelated: docs-redirect disabled
+in test env, 2× courses_prod header/error, and the stale
+`test_create_course_student_forbidden` which expects the old "students can't
+create courses" rule — `require_creator` now intentionally allows students).
+
+**(b) New file `test_courses_full_coverage.py` (42 tests)** for every remaining
+branch: `_is_professor` helper (incl. DB fallback + error), the
+`_student_visible_course_ids` assignment-without-lectures edge, browse_courses
+(published-by-professor, no-professors sentinel, cursor+has_more, 500),
+list_courses (only_archived, cursor, has_more slice, invalid-uid 401, 500), every
+`except Exception → 500` handler (create/update/delete/assign/unassign/enroll/
+unenroll/list/browse/concept-map/context-patch), invalid-uid 401 guards,
+get_course missing/forbidden→404, update icon branch, context PATCH 404 + service
+500, concept-map empty/orphan-skip branches, study-guide invalid-uid, delete
+missing→404, unassign course/lecture not-found→404. The handler-level `if not
+uid` guards behind `require_student` (dead through normal auth) and the
+`except HTTPException: raise` branch were reached via dependency-override injection
+and an HTTPException-raising delete. No source changes. No bugs found (B2 already
+logged).
+
+## Summary (2026-07-17, courses→100% 2026-07-18)
 
 Full non-db suite: **1111 passed, 8 failed** (the same 8 pre-existing failures
 from the baseline — untouched). Net new: **+231 passing tests** across 11 new
@@ -229,7 +263,7 @@ Coverage lifts on the target subsystems:
 | services/parser/synthesis.py | 59% | 99% |
 | services/parser/storage.py | 47% | 100% |
 | services/ai/quiz_validator.py | 94% | 100% |
-| api/v1/courses.py | 67% | 78% |
+| api/v1/courses.py | 67% | **100%** |
 | services/file_parse_service.py | 63% | 65% |
 | ai/orchestrator.parse_json_response | (untested) | full edge coverage |
 

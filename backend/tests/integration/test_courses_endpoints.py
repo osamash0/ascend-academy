@@ -134,6 +134,9 @@ def test_student_course_detail_hides_unenrolled_lectures(
     _auth_as(app, professor_user)
     _seed_user_role(fake_supabase, professor_user.id, "professor")
     cid = client.post("/api/courses", json={"title": "Mixed"}).json()["data"]["id"]
+    # A non-owner student can only reach a course that is published; set it
+    # directly (the publish endpoint would require a fully-parsed lecture).
+    fake_supabase.table("courses").update({"status": "published"}).eq("id", cid).execute()
     for lid in ("lec-enrolled", "lec-secret"):
         fake_supabase.table("lectures").insert({
             "id": lid, "professor_id": professor_user.id,

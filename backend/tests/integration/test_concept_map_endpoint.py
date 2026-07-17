@@ -34,9 +34,11 @@ def _new_id() -> str:
     return str(uuid.uuid4())
 
 
-def _seed_course(fake, course_id: str, professor_id: str) -> None:
+def _seed_course(fake, course_id: str, professor_id: str, status: str = "published") -> None:
+    # Non-owner (student) visibility requires status == "published".
     fake.table("courses").insert({
         "id": course_id, "professor_id": professor_id, "title": "C", "is_archived": False,
+        "status": status,
     }).execute()
 
 
