@@ -182,3 +182,19 @@ enroll/unenroll (published happy, unpublished-hidden→404, missing→404, unenr
 Found BUG B2 (logged above). Remaining uncovered: browse_courses, student
 lecture-filtering in get_course, context/concept-map/study-guide (own test files).
 
+### 9. ai/quiz_validator.py — 94% → 100% (2026-07-17)
+New file `backend/tests/unit/test_quiz_validator_edges.py` (14 tests). Pinned the
+remaining reject branches of `_normalize_answer_index` (options not-a-list/empty,
+bool answer, int/digit/letter out of range, empty string, `answer` fallback,
+valid digit string, multi-char non-matching text) and `validate_mcq`
+(non-string option, empty option). No bugs found.
+
+### 10. odl_service._run_odl_sync + parser/storage.py (2026-07-17)
+New files `test_odl_run_sync.py` (5 tests) and `test_parser_storage.py` (2 tests).
+- `_run_odl_sync`: native `convert` faked to write JSON — exercises temp-dir
+  plumbing, JSON discovery, FileNotFoundError-when-no-output, and the
+  path-traversal filename sanitization (traversal stripped, unsafe chars
+  replaced, .pdf appended, empty→placeholder). Security-relevant branch pinned.
+- `parser/storage._fetch_pdf_bytes` (47%→100%): download happy path + error→None
+  (Supabase storage mocked at get_client). No bugs found.
+
