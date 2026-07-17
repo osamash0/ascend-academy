@@ -62,6 +62,19 @@ opposite of the intended graceful degradation.
 NOT fixed (per goal guardrails). Pinned by
 `test_json_parsing.py::test_truncated_array_without_closing_bracket_returns_empty_dict`.
 
+### B2 — generate-title-suggestion endpoint is unreachable (always 422)
+`backend/api/v1/courses.py::generate_title_suggestion` (line 308).
+The signature is `async def generate_title_suggestion(req, _user_id: UUID = Depends(_user_id))`
+but `_user_id` (from `auth_middleware`) is a plain helper `def _user_id(user)` —
+NOT a FastAPI dependency. Used with `Depends(...)`, FastAPI treats its unresolved
+`user` parameter as a **required query parameter**, so every normal call returns
+422 `{"loc": ["query", "user"]}`. The course-creation "suggest a title" button
+is therefore dead. Every other endpoint here does the correct thing:
+`user = Depends(verify_token)` then `_user_id(user)`.
+NOT fixed (per goal guardrails). Pinned by
+`test_courses_creation.py::test_title_suggestion_normal_call_422s_bug`; the
+handler logic is covered via a `?user=` workaround.
+
 Minor quirk (not filed as a bug, pinned by test): a NUL (0x00) byte outside a
 JSON string is not stripped by `_sanitize_json_string` (guard is strict
 `0x00 < ord(ch)`), so it breaks the parse; other C0 controls (0x01–0x1F) are
@@ -148,4 +161,24 @@ rollup (counts, title→filename fallback, deck_summary, no-lecture skip),
 set_status finished_at branch, set_page_count/outline/error, ensure_page_rows
 tuple build, pending/unanalyzed page lists, and the deserialize-tolerant page
 getters + replay_slides + commit_extract/content. No bugs found.
+
+### 7. slide_synth_service.py — 21% → 100% (2026-07-17)
+New file `backend/tests/unit/test_slide_synth_service.py` (15 tests). Cache +
+LLM (`batch_analyze_text_slides`) mocked at the boundary. Covered synthesize_slide
+control flow (cache hit, no-pdf-cache/no-layouts/out-of-range guards, empty-text
+metadata branch, neighbor-window context flags, happy enrich+store, LLM-raise→
+None, target-missing→None) and make_stub_slide / _make_empty_slide / _enrich
+`_meta` blocks + truncation. No bugs found.
+
+### 8. api/v1/courses.py — 67% → 78% (2026-07-17)
+New file `backend/tests/integration/test_courses_creation.py` (22 tests).
+Covered generate_title_suggestion (LLM mocked at OpenAI boundary: empty→default,
+success strip, failure→fallback — see BUG B2), create_course (blank-desc→NULL,
+insert-failure→500), update publish gate (400 without a parsed lecture, 200 with,
+description-clear + color update, missing→404), delete reassign-to-not-owned→400,
+assign_lecture (happy, private_student→course conversion, not-owned→403, missing
+lecture/course→404), unassign (happy, not-in-course→400), and student
+enroll/unenroll (published happy, unpublished-hidden→404, missing→404, unenroll).
+Found BUG B2 (logged above). Remaining uncovered: browse_courses, student
+lecture-filtering in get_course, context/concept-map/study-guide (own test files).
 
