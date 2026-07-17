@@ -246,11 +246,35 @@ uid` guards behind `require_student` (dead through normal auth) and the
 and an HTTPException-raising delete. No source changes. No bugs found (B2 already
 logged).
 
-## Summary (2026-07-17, courses→100% 2026-07-18)
+### 13. Resolved all remaining pre-existing failures — suite fully green (2026-07-18)
+Fixed the last 4 baseline failures, all stale test infrastructure (no source
+changes; the underlying behaviors are correct):
+- `test_courses_prod::test_security_headers` — used the removed httpx `app=`
+  kwarg AND hit `/api/health` (which 307-redirects to a non-existent
+  `/api/v1/health`). Switched to `ASGITransport` and the real `/health` route.
+- `test_courses_prod::test_domain_error_handling` — used the removed httpx
+  `app=` kwarg, the OLD `NotFoundError(resource, id)` signature (current is
+  `(message, code=...)`, so `"123"` became the code), and an `/api/v1/...` path
+  that the import-time legacy-redirect catch-all shadows. Switched to
+  `ASGITransport`, `NotFoundError("Course not found: 123")`, and a non-`/api`
+  route path.
+- `test_api_v1_structure::test_v1_docs_redirect` — asserted `/docs`==200, but
+  docs are dev-only (`settings.env=="development"`); the test env runs as
+  production → 404. Now asserts against `app.docs_url` so it holds in any env.
+- `test_courses_admin_endpoints::test_create_course_student_forbidden` — asserted
+  students get 403, but `create_course` uses `require_creator` (professor OR
+  student): students may create their own courses (Roadmap 3.1). Renamed to
+  `test_create_course_student_allowed`, asserts 201 + student-owned.
 
-Full non-db suite: **1111 passed, 8 failed** (the same 8 pre-existing failures
-from the baseline — untouched). Net new: **+231 passing tests** across 11 new
-test files. No source code was modified; every test describes current behavior.
+**Full non-db suite: 1161 passed, 0 failed.** (was 880 passed / 8 failed at
+baseline.)
+
+## Summary (2026-07-17, courses→100% + suite green 2026-07-18)
+
+Full non-db suite: **1161 passed, 0 failed** (all 8 baseline failures resolved —
+4 were stale course-visibility seeds, 4 were stale test infrastructure). Net new:
+**+281 passing tests** across 12 new test files, plus 8 stale tests repaired. No
+source code was modified; every test describes current behavior.
 
 Coverage lifts on the target subsystems:
 | Module | Before | After |

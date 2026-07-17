@@ -17,15 +17,19 @@ def test_create_course_professor(app_client: TestClient, fake_supabase):
     assert len(rows) == 1
     assert rows[0]["title"] == "Test Course"
 
-def test_create_course_student_forbidden(app, authed, student_user):
+def test_create_course_student_allowed(app, authed, student_user, fake_supabase):
+    # Course creation uses require_creator (professor OR student): students may
+    # create their own courses (Roadmap 3.1 "student creating a course").
     client = TestClient(app)
     authed.as_user(student_user)
-    
+
     res = client.post(
         "/api/v1/courses",
         json={"title": "Student Course"}
     )
-    assert res.status_code == 403
+    assert res.status_code == 201
+    rows = fake_supabase.table("courses").select("*").execute().data
+    assert rows[0]["professor_id"] == student_user.id  # owned by the creating student
 
 def test_update_course_owner(app_client: TestClient, fake_supabase, professor_user):
     course_id = str(uuid.uuid4())
