@@ -79,7 +79,7 @@ def _fetch_course(course_id: str) -> Optional[dict]:
 def _fetch_lecture(lecture_id: str) -> Optional[dict]:
     res = (
         supabase_admin.table("lectures")
-        .select("id, professor_id, course_id, title")
+        .select("id, professor_id, course_id, title, student_owner_id, visibility")
         .eq("id", lecture_id)
         .execute()
     )
