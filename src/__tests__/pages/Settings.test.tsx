@@ -87,8 +87,12 @@ describe("Settings page (smoke)", () => {
       signOut: vi.fn(),
       refreshProfile: vi.fn(),
     });
-    renderWithProviders(<Settings />, { initialEntries: ["/settings"] });
-    expect(screen.getByText(/data & privacy/i)).toBeInTheDocument();
+    // The Data & Privacy pane renders only when its tab is active (default is
+    // 'general'); the page reads the active tab from the `?tab=` query param.
+    renderWithProviders(<Settings />, { initialEntries: ["/settings?tab=data"] });
+    // "Data & Privacy" appears twice once the tab is active: the nav label and
+    // the pane heading — hence getAllByText.
+    expect(screen.getAllByText(/data & privacy/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/export my data/i)).toBeInTheDocument();
   });
 });

@@ -64,10 +64,6 @@ vi.mock("@/features/social/components/DashboardFriendsWidget", () => ({
   DashboardFriendsWidget: () => <div data-testid="mock-friends-widget" />
 }));
 
-vi.mock("@/features/student/components/FullJourneyPath", () => ({
-  FullJourneyPath: () => <div data-testid="mock-full-journey-path" />
-}));
-
 import StudentDashboard from "@/pages/StudentDashboard";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
@@ -94,7 +90,9 @@ describe("StudentDashboard page (smoke)", () => {
     expect(screen.getByText(/no courses yet/i)).toBeInTheDocument();
   });
 
-  it("renders the focused lecture when data is populated", () => {
+  it("renders the focused lecture when data is populated", async () => {
+    // Some progress → hero kind 'resume' (not 'onboard'), so the focused
+    // HeroStage + rail render the lecture title rather than the onboarding hero.
     useStudentDashboardMock.mockReturnValue({
       data: {
         lectures: [
@@ -111,14 +109,23 @@ describe("StudentDashboard page (smoke)", () => {
             },
           },
         ],
-        progress: [],
+        progress: [
+          {
+            lecture_id: "lec1",
+            completed_slides: [1],
+            total_questions_answered: 0,
+            correct_answers: 0,
+          },
+        ],
         achievements: [],
       },
       isLoading: false,
     });
     renderWithProviders(<StudentDashboard />, { initialEntries: ["/dashboard"] });
-    // Title now appears in the hero and the rail tile — assert it's present.
-    expect(screen.getAllByText("Astrophysics 101").length).toBeGreaterThan(0);
+    // Title appears in the hero and the rail tile — assert it's present.
+    await waitFor(() =>
+      expect(screen.getAllByText("Astrophysics 101").length).toBeGreaterThan(0),
+    );
   });
 
   it("adapts to a brand-new student with a focused onboarding panel (no firehose)", async () => {
@@ -142,8 +149,8 @@ describe("StudentDashboard page (smoke)", () => {
       isLoading: false,
     });
     renderWithProviders(<StudentDashboard />, { initialEntries: ["/dashboard"] });
-    // The deferred below-the-fold shows the "start here" panel…
-    await waitFor(() => expect(screen.getByText(/welcome to learnstation/i)).toBeInTheDocument());
+    // Onboard hero (WelcomeOnboardingHero) shows the "choose your path" panel…
+    await waitFor(() => expect(screen.getByText(/ready to learn/i)).toBeInTheDocument());
     // …and NOT the full browse-row firehose (the per-course rail).
     expect(screen.queryByText("Database Systems")).not.toBeInTheDocument();
   });
@@ -181,7 +188,9 @@ describe("StudentDashboard page (smoke)", () => {
     );
   });
 
-  it("renders the FullJourneyPath component when not in onboard mode", async () => {
+  it("renders the below-the-fold feed when not in onboard mode", async () => {
+    // Partial progress → hero kind 'resume', so the deferred below-the-fold
+    // feed (bento + browse-courses anchor) mounts, unlike the onboard hero.
     useStudentDashboardMock.mockReturnValue({
       data: {
         lectures: [
@@ -207,8 +216,12 @@ describe("StudentDashboard page (smoke)", () => {
       },
       isLoading: false,
     });
-    renderWithProviders(<StudentDashboard />, { initialEntries: ["/dashboard"] });
-    
-    await waitFor(() => expect(screen.getByTestId("mock-full-journey-path")).toBeInTheDocument());
+    const { container } = renderWithProviders(<StudentDashboard />, {
+      initialEntries: ["/dashboard"],
+    });
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-tour="browse-courses"]')).not.toBeNull(),
+    );
   });
 });

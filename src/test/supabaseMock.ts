@@ -20,9 +20,18 @@ export interface MockTable {
 
 export type MockData = Record<string, MockTable>;
 
+interface OrCond {
+  col: string;
+  op: string;
+  val: string;
+}
+
 interface QueryState {
   table: string;
   filters: { op: "eq" | "neq" | "in" | "contains"; col: string; val: unknown }[];
+  // Each `.or()` call parses to one group whose conditions are OR'd together;
+  // separate `.or()` calls (and the plain `filters` above) are AND'd.
+  orGroups: OrCond[][];
   order: { col: string; ascending: boolean } | null;
   limitN: number | null;
   rangeBounds: [number, number] | null;
@@ -36,7 +45,25 @@ interface QueryState {
   headOption?: boolean;
 }
 
-function rowMatches(row: Record<string, unknown>, filters: QueryState["filters"]) {
+function orCondMatches(row: Record<string, unknown>, c: OrCond) {
+  const v = row[c.col];
+  switch (c.op) {
+    case "eq":
+      return String(v) === c.val;
+    case "neq":
+      return String(v) !== c.val;
+    case "is":
+      return c.val === "null" ? v === null || v === undefined : String(v) === c.val;
+    default:
+      return false;
+  }
+}
+
+function rowMatches(
+  row: Record<string, unknown>,
+  filters: QueryState["filters"],
+  orGroups: QueryState["orGroups"] = [],
+) {
   for (const f of filters) {
     const v = row[f.col];
     if (f.op === "eq" && v !== f.val) return false;
@@ -48,6 +75,10 @@ function rowMatches(row: Record<string, unknown>, filters: QueryState["filters"]
         if ((v as Record<string, unknown>)[k] !== sub[k]) return false;
       }
     }
+  }
+  // Every OR group must have at least one matching condition (groups AND'd).
+  for (const group of orGroups) {
+    if (!group.some((c) => orCondMatches(row, c))) return false;
   }
   return true;
 }
@@ -89,16 +120,16 @@ function executeQuery(data: MockData, q: QueryState) {
     return { data: upserted, error: null };
   }
 
-  let result = table.rows.filter((r) => rowMatches(r, q.filters));
+  let result = table.rows.filter((r) => rowMatches(r, q.filters, q.orGroups));
 
   if (q.mutation === "update") {
     for (const r of table.rows) {
-      if (rowMatches(r, q.filters)) Object.assign(r, q.patch || {});
+      if (rowMatches(r, q.filters, q.orGroups)) Object.assign(r, q.patch || {});
     }
     return { data: result, error: null };
   }
   if (q.mutation === "delete") {
-    table.rows = table.rows.filter((r) => !rowMatches(r, q.filters));
+    table.rows = table.rows.filter((r) => !rowMatches(r, q.filters, q.orGroups));
     return { data: result, error: null };
   }
 
@@ -126,6 +157,7 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown }> {
     this.state = {
       table,
       filters: [],
+      orGroups: [],
       order: null,
       limitN: null,
       rangeBounds: null,
@@ -153,6 +185,17 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown }> {
   }
   contains(col: string, val: unknown) {
     this.state.filters.push({ op: "contains", col, val });
+    return this;
+  }
+  or(filter: string) {
+    // PostgREST `.or()` takes a comma-separated list of conditions OR'd
+    // together, e.g. "professor_id.eq.P1,student_owner_id.eq.P1". Each
+    // condition is "col.op.val" (val may itself contain dots).
+    const group = filter.split(",").map((cond) => {
+      const [col, op, ...rest] = cond.split(".");
+      return { col, op, val: rest.join(".") };
+    });
+    this.state.orGroups.push(group);
     return this;
   }
   order(col: string, opts?: { ascending?: boolean }) {

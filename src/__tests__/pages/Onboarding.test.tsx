@@ -109,33 +109,33 @@ describe('Onboarding', () => {
     await user.type(nameInput, 'Alice');
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
-    // Step 2: Avatar
-    await waitFor(() => expect(screen.getByText(/Choose Your Avatar/i)).toBeInTheDocument());
+    // Step 2: Avatar (Luna customizer — "Suit Finish" is the first control)
+    await waitFor(() => expect(screen.getByText(/Suit Finish/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
-    // Step 3: Academic setup
+    // Step 3: Academic setup. University auto-matches from the email domain
+    // (uni.edu → Test Uni), then the single-option faculty and program cascade
+    // in and auto-select — no manual dropdown interaction. Waiting for the
+    // program name ("CS") in its Select trigger confirms the full cascade ran.
     await waitFor(() => expect(screen.getByText(/Tell us where you study/i)).toBeInTheDocument());
-    // Auto-selected by email domain match 'uni.edu' -> uni1
-    expect(screen.getAllByRole('combobox')[0]).toHaveValue('uni1');
-    // Wait for cascading faculty to load and auto-select
-    await waitFor(() => {
-      const selects = screen.getAllByRole('combobox');
-      expect(selects[1]).toHaveValue('fac1'); // Faculty
-      expect(selects[2]).toHaveValue('prog1'); // Program
-    });
+    await waitFor(() => expect(screen.getByText('Test Uni')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('CS')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
     // Step 4: Catalog courses confirmation
-    await waitFor(() => expect(screen.getByText(/Confirm your courses/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/We set up your Semester/i)).toBeInTheDocument());
     expect(getSuggestedCoursesMock).toHaveBeenCalledWith('prog1', 1);
     expect(screen.getByText('Intro CS')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Next/i }));
+    // Step 4 renders both a desktop and a mobile CTA (both call Next); happy-dom
+    // keeps both in the DOM since it doesn't resolve the responsive CSS.
+    await user.click(screen.getAllByRole('button', { name: /Next/i }).at(-1)!);
 
-    // Step 5: Platform courses (only the ready "Datenbanksysteme" course is surfaced)
+    // Step 5: Platform courses (only the ready "Datenbanksysteme" course is
+    // surfaced, displayed with its English label "Database Systems").
     await waitFor(() => expect(screen.getByText(/Add extra topics/i)).toBeInTheDocument());
-    expect(screen.getByText('Datenbanksysteme')).toBeInTheDocument();
+    expect(screen.getByText('Database Systems')).toBeInTheDocument();
     expect(screen.queryByText('Platform Course')).not.toBeInTheDocument();
-    await user.click(screen.getByText('Datenbanksysteme'));
+    await user.click(screen.getByText('Database Systems'));
     
     // Original from mock: .eq('user_id', user.id) is used in update profile
     const originalFrom = supabaseMock.from;
@@ -145,21 +145,32 @@ describe('Onboarding', () => {
       return originalFrom.call(supabaseMock, table);
     });
 
-    // Finish
-    await user.click(screen.getByRole('button', { name: /Start Learning/i }));
+    // Finish (responsive desktop + mobile CTAs, like step 4)
+    await user.click(screen.getAllByRole('button', { name: /Start Learning/i }).at(-1)!);
 
     await waitFor(() => {
-      expect(updateSpy).toHaveBeenCalledWith({ full_name: 'Alice', display_name: 'Alice', avatar_url: expect.any(String) });
+      // objectContaining: the profile update also persists cosmetic Luna
+      // customization fields (luna_suit_color/visor_tint/patch); we only assert
+      // the identity fields the onboarding is responsible for.
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ full_name: 'Alice', display_name: 'Alice', avatar_url: expect.any(String) }),
+      );
       expect(setAcademicProfileMock).toHaveBeenCalledWith({ universityId: 'uni1', facultyId: 'fac1', programId: 'prog1', currentSemester: 1 });
       expect(confirmCatalogCoursesMock).toHaveBeenCalledWith([{ catalogCourseId: 'cat1', status: 'planned' }]);
       expect(enrollInCourseMock).toHaveBeenCalledWith('c1');
-      expect(evaluateMock).toHaveBeenCalled();
-      expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Setup Complete!' }));
     });
+    // Badge evaluation is deliberately NOT run here — it's deferred to the
+    // Dashboard's on-mount effect so its popup doesn't obscure the reveal
+    // montage (which now replaces the old "Setup Complete!" toast). See
+    // handleFinish in Onboarding.tsx.
+    expect(evaluateMock).not.toHaveBeenCalled();
   });
 
   it('skips step 4 if university has no catalog', async () => {
-    getUniversitiesMock.mockResolvedValueOnce([{ id: 'uni2', name: 'No Cat Uni', emailDomains: [], hasCatalog: false }]);
+    // Give the no-catalog uni a matching email domain so it auto-selects on
+    // step 3 (the university picker is now a searchable Popover/Command, not a
+    // native <select> that selectOptions can drive).
+    getUniversitiesMock.mockResolvedValueOnce([{ id: 'uni2', name: 'No Cat Uni', emailDomains: ['uni.edu'], hasCatalog: false }]);
     const user = userEvent.setup();
     renderPage();
 
@@ -172,18 +183,18 @@ describe('Onboarding', () => {
     await user.type(screen.getByPlaceholderText(/Enter your name/i), 'Bob');
     await user.click(screen.getByRole('button', { name: /Next/i }));
     
-    await waitFor(() => screen.getByText(/Choose Your Avatar/i));
+    await waitFor(() => screen.getByText(/Suit Finish/i));
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
-    // Step 3
+    // Step 3 — uni2 auto-matches from the email domain; because it has no
+    // catalog, the free-institution notice replaces the faculty/program cascade.
     await waitFor(() => screen.getByText(/Tell us where you study/i));
-    await user.selectOptions(screen.getAllByRole('combobox')[0], 'uni2');
-
     await waitFor(() => expect(screen.getByText(/We don't have No Cat Uni's course catalog yet/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
-    // Should jump to Step 5 (Add extra topics), skipping step 4
+    // Should jump to Step 5 (Add extra topics), skipping step 4. Step 5 only
+    // ever surfaces the ready "Datenbanksysteme" course (others are filtered out).
     await waitFor(() => expect(screen.getByText(/Add extra topics/i)).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText('Platform Course')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Database Systems')).toBeInTheDocument());
   });
 });

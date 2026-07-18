@@ -16,6 +16,14 @@ vi.mock('@/lib/auth', () => ({
   }),
 }));
 
+// StudentDashboard renders DashboardFriendsWidget, which requires a
+// SocialProvider ancestor (useSocial() throws otherwise). This suite isn't
+// exercising social features, so stub the widget out — same pattern as
+// src/__tests__/pages/StudentDashboard.test.tsx.
+vi.mock('@/features/social/components/DashboardFriendsWidget', () => ({
+  DashboardFriendsWidget: () => null,
+}));
+
 // Import pages to test
 import Auth from '@/pages/Auth';
 import StudentDashboard from '@/pages/StudentDashboard';

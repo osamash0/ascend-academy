@@ -1,6 +1,17 @@
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, ws } from "msw";
 
 const API = "http://api.test";
+
+// Supabase Realtime opens a WebSocket when a component subscribes to a channel
+// (e.g. presence/gamification). Tests that render against the real Supabase
+// client (rather than the in-memory mock) would otherwise trip MSW's
+// onUnhandledRequest:"error" strategy on that unhandled connection, surfacing
+// as a fatal run-level error even when every test passes. We register a no-op
+// handler so the connection is "handled"; we don't emulate the phoenix
+// protocol because no test asserts on realtime traffic.
+const supabaseRealtime = ws.link(
+  "wss://fake.supabase.test/realtime/v1/websocket",
+);
 
 /**
  * Route helper that registers each endpoint at BOTH `/api/...` and
@@ -23,6 +34,19 @@ const dual = (
 ) => [http[method](path, resolver), http[method](v1(path), resolver)];
 
 export const defaultHandlers = [
+  // Accept + no-op the Supabase Realtime WebSocket (see note above).
+  supabaseRealtime.addEventListener("connection", () => {}),
+
+  // Benign stub for Supabase RPCs on the real client. Pages rendered against
+  // the real client (e.g. the a11y suite) fire-and-forget calls like
+  // record_daily_activity; left unhandled these reject and — being un-awaited —
+  // surface as a fatal unhandled rejection that fails the whole run. (React
+  // Query'd reads are caught by retry:false, so we deliberately leave the REST
+  // GETs unhandled to preserve the pages' current loading-state rendering.)
+  http.post("https://fake.supabase.test/rest/v1/rpc/*", () =>
+    HttpResponse.json(null),
+  ),
+
   // ── Analytics ─────────────────────────────────────────────────────────────
   ...dual("get", `${API}/api/analytics/lecture/:id/overview`, () =>
     HttpResponse.json({
@@ -115,6 +139,35 @@ export const defaultHandlers = [
   ),
   ...dual("post", `${API}/api/ai/analytics-insights`, () =>
     HttpResponse.json({ summary: "Insight.", suggestions: ["Try X"] }),
+  ),
+  ...dual("post", `${API}/api/ai/lecture-tagline`, () =>
+    HttpResponse.json({ tagline: "", cached: true }),
+  ),
+
+  // ── Review engine (student daily-review) ──────────────────────────────────
+  ...dual("get", `${API}/api/review/stats`, () =>
+    HttpResponse.json({
+      due_today: 0,
+      streak: 0,
+      retention_pct: null,
+      reviews_last_30d: 0,
+    }),
+  ),
+  ...dual("get", `${API}/api/review/queue`, () =>
+    HttpResponse.json({ cards: [], total: 0 }),
+  ),
+
+  // ── My Materials (student uploads) ─────────────────────────────────────────
+  ...dual("get", `${API}/api/materials`, () =>
+    HttpResponse.json({ materials: [] }),
+  ),
+  ...dual("get", `${API}/api/materials/quota`, () =>
+    HttpResponse.json({
+      period: "month",
+      uploads_used: 0,
+      quota_limit: 10,
+      remaining: 10,
+    }),
   ),
 
   // ── Mind map ──────────────────────────────────────────────────────────────
