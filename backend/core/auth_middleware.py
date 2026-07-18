@@ -5,6 +5,7 @@ Validates Supabase access tokens on protected routes.
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
+import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -14,6 +15,30 @@ from backend.services.cache import get_cached_token, store_cached_token
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
+
+# Bounded timeout: this client backs every auth-cache-miss request. Without a
+# bound a slow Supabase Auth would hang each request indefinitely and pile up.
+_AUTH_TIMEOUT = httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0)
+
+# Shared, connection-pooled client reused across requests. A fresh
+# AsyncClient per request (the previous approach) pays a new TCP+TLS
+# handshake to Supabase Auth on every cache miss (~150-700ms measured
+# locally); reusing one client via keep-alive drops that to ~30ms.
+_auth_http_client: Optional[httpx.AsyncClient] = None
+
+
+def get_auth_http_client() -> httpx.AsyncClient:
+    global _auth_http_client
+    if _auth_http_client is None:
+        _auth_http_client = httpx.AsyncClient(http2=False, timeout=_AUTH_TIMEOUT)
+    return _auth_http_client
+
+
+async def close_auth_http_client() -> None:
+    global _auth_http_client
+    if _auth_http_client is not None:
+        await _auth_http_client.aclose()
+        _auth_http_client = None
 
 
 @dataclass
@@ -84,19 +109,15 @@ async def verify_token(
 
     # 2. Verify with Supabase Auth (slow path)
     try:
-        import httpx
         url = f"{supabase_admin.auth_url}/user"
-        # Bounded timeout: this runs on every auth-cache miss. Without it a slow
-        # Supabase Auth would hang each request indefinitely and pile up.
-        _auth_timeout = httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0)
-        async with httpx.AsyncClient(http2=False, timeout=_auth_timeout) as client:
-            resp = await client.get(
-                url,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "apikey": supabase_admin.supabase_key,
-                }
-            )
+        client = get_auth_http_client()
+        resp = await client.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "apikey": supabase_admin.supabase_key,
+            }
+        )
 
         if resp.status_code != 200:
             raise HTTPException(

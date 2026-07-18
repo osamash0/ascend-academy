@@ -20,6 +20,7 @@ for the same `pdf_hash`.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -152,30 +153,41 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
             """,
             UUID(user_id), STUDENT_PIPELINE_VERSION,
         )
-        lecture_ids = [r["lecture_id"] for r in run_rows if r["lecture_id"]]
-        lectures: Dict[Any, Any] = {}
-        counts: Dict[Any, Any] = {}
-        if lecture_ids:
-            lecture_rows = await conn.fetch(
-                """
-                SELECT id, title, description, total_slides, created_at FROM lectures
-                WHERE id = ANY($1::uuid[]) AND student_owner_id = $2
-                """,
-                lecture_ids, UUID(user_id),
-            )
-            lectures = {r["id"]: r for r in lecture_rows}
-            agg_rows = await conn.fetch(
-                """
-                SELECT s.lecture_id, COUNT(*) AS slide_count,
-                       (SELECT COUNT(*) FROM quiz_questions q
-                          JOIN slides s2 ON s2.id = q.slide_id
-                         WHERE s2.lecture_id = s.lecture_id) AS quiz_count
-                FROM slides s WHERE s.lecture_id = ANY($1::uuid[])
-                GROUP BY s.lecture_id
-                """,
-                lecture_ids,
-            )
-            counts = {r["lecture_id"]: dict(r) for r in agg_rows}
+
+    lecture_ids = [r["lecture_id"] for r in run_rows if r["lecture_id"]]
+    lectures: Dict[Any, Any] = {}
+    counts: Dict[Any, Any] = {}
+    if lecture_ids:
+        # These two queries don't depend on each other, so run them on separate
+        # pooled connections concurrently instead of serially — each is a
+        # network round-trip to the remote Supabase Postgres.
+        async def _fetch_lectures():
+            async with await get_db_connection() as c:
+                return await c.fetch(
+                    """
+                    SELECT id, title, description, total_slides, created_at FROM lectures
+                    WHERE id = ANY($1::uuid[]) AND student_owner_id = $2
+                    """,
+                    lecture_ids, UUID(user_id),
+                )
+
+        async def _fetch_counts():
+            async with await get_db_connection() as c:
+                return await c.fetch(
+                    """
+                    SELECT s.lecture_id, COUNT(*) AS slide_count,
+                           (SELECT COUNT(*) FROM quiz_questions q
+                              JOIN slides s2 ON s2.id = q.slide_id
+                             WHERE s2.lecture_id = s.lecture_id) AS quiz_count
+                    FROM slides s WHERE s.lecture_id = ANY($1::uuid[])
+                    GROUP BY s.lecture_id
+                    """,
+                    lecture_ids,
+                )
+
+        lecture_rows, agg_rows = await asyncio.gather(_fetch_lectures(), _fetch_counts())
+        lectures = {r["id"]: r for r in lecture_rows}
+        counts = {r["lecture_id"]: dict(r) for r in agg_rows}
 
     out = []
     for r in run_rows:

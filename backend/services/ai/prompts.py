@@ -13,14 +13,14 @@ For EACH slide, return a JSON object with exactly these fields:
   - Explicitly link concepts mentioned in the Master Plan.
 - "summary": 2-3 sentence overview. Mention how this builds on previous slides as suggested in the Master Plan.
 - "questions": array with exactly ONE concept-testing MCQ shaped as:
-    {{
+    {
       "question": string,
       "options": [A, B, C, D],
       "answer": "A"|"B"|"C"|"D",
       "explanation": "one sentence justifying why the correct option is right",
       "concept": "the specific concept being tested — use the Master Plan's proposed_title or one of its key concepts when present, otherwise the most important idea on the slide",
       "cognitive_level": "recall" | "apply" | "analyse"
-    }}
+    }
 - "slide_type": one of "content_slide", "diagram_slide", "title_slide"
 - "is_metadata": false
 
@@ -46,14 +46,14 @@ Analyze the following text extracted from a single university lecture slide.
 Generate exactly ONE high-quality, multiple-choice question that tests conceptual understanding of this specific slide's content.
 
 Return ONLY a single JSON object (not an array):
-{{
+{
   "question": "Clear, concise question testing a core concept from the slide",
   "options": ["Distractor A", "Correct Answer B", "Distractor C", "Distractor D"],
   "answer": "A"|"B"|"C"|"D",
   "explanation": "One sentence explaining why the correct answer is right and distractors are wrong",
   "concept": "The specific concept being tested",
   "cognitive_level": "recall" | "apply" | "analyse"
-}}
+}
 
 Rules:
 - Default to "apply" or "analyse" cognitive_level. Only fall back to "recall" when the slide is genuinely thin.
@@ -71,8 +71,8 @@ Based on this lecture summary, generate 5 multiple-choice questions that test
 conceptual understanding.
 
 Return a JSON array of question objects:
-[{{ "question": str, "options": [A,B,C,D], "answer": "A"|"B"|"C"|"D",
-   "explanation": str, "topics": [str] }}]
+[{ "question": str, "options": [A,B,C,D], "answer": "A"|"B"|"C"|"D",
+   "explanation": str, "topics": [str] }]
 
 Rules:
 - NEVER use "all of the above" / "none of the above".
@@ -155,19 +155,19 @@ question must obey the same rules:
 - "explanation" is exactly one sentence justifying the correct option.
 
 Return a JSON array — one object per slide below, in the same order:
-{{
+{
   "page_number": int,
   "questions": [
-    {{
+    {
       "question": string,
       "options": [A, B, C, D],
       "answer": "A"|"B"|"C"|"D",
       "explanation": string,
       "concept": string,
       "cognitive_level": "recall"|"apply"|"analyse"
-    }}
+    }
   ]
-}}
+}
 
 Return ONLY the JSON array, no preamble.
 

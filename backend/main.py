@@ -244,6 +244,8 @@ async def startup_event():
     from backend.core.redis import init_redis
     await init_db_pool()
     await init_redis()
+    from backend.core.auth_middleware import get_auth_http_client
+    get_auth_http_client()
     # Start the daily nudge engine scheduler when explicitly enabled. Off by
     # default (and during tests) so we don't fan out notifications from local
     # dev shells. In production set ENABLE_NUDGE_SCHEDULER=1.
@@ -260,6 +262,8 @@ async def shutdown_event():
     from backend.core.redis import close_redis
     await close_db_pool()
     await close_redis()
+    from backend.core.auth_middleware import close_auth_http_client
+    await close_auth_http_client()
 
 @app.get("/")
 async def read_root():
