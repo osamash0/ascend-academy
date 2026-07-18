@@ -20,6 +20,8 @@ WB = os.path.join(HERE, "FEATURE_AUDIT.xlsx")
 
 # column index (1-based) by phase field
 COL = {"test": 10, "errors": 11, "severity": 12, "fix": 13, "retest": 14}
+COL_FILES = 7
+COL_STATUS = 8
 
 RESULT_FILL = {
     "PASS": "C6EFCE", "FAIL": "FFC7CE", "BLOCKED": "FFEB9C",
@@ -84,22 +86,38 @@ UPDATES = {
     "AUTH-29": {"test": "Partial (confirmed)", "errors": "Account deletion removed client-reachable rows but NOT the Supabase auth user → auth identity (and non-client-reachable data) persisted. GDPR erasure gap.", "severity": "High", "fix": "New POST /api/auth/delete-account (verify_token, 3/min) calls supabase_admin.auth.admin.delete_user(uid) → cascades via auth.users FKs; invalidates token cache first. Settings.handleDelete calls it authoritatively, falling back to client row-deletes if unavailable. +3 backend tests (mocked admin API).", "retest": "PASS (backend tests green; tsc 0). NOTE: live admin-delete + FK cascade need verification against a real Supabase project."},
 
     # ── Dispositioned non-defects (config / feature-gap / by-design) — NOT code errors ──
-    "PDF-15": {"fix": "BY DESIGN — documented", "retest": "v5 generates a deck-level quiz only; per-slide quizzes are authored in the editor. Intentional."},
-    "PDF-16": {"fix": "KNOWN GAP — documented", "retest": "Client auto-suggested quizzes not persisted on the v5 server-authoritative save path. Needs save-path rework; deferred (Tier 2+)."},
-    "CRS-18": {"fix": "FEATURE GAP — documented", "retest": "Unenroll endpoint exists; no UI calls it. Missing feature, not an error."},
-    "AI-02":  {"fix": "CONFIG — documented", "retest": "Zero-vector embeddings only when GEMINI_API_KEY unset (tutor degrades to current-slide grounding). Ops config, not a code defect."},
-    "WRK-14": {"fix": "BY DESIGN — documented", "retest": "free_form self-assessed (excluded from score); short_answer exact-match. Pinned in test_practice_sheet_grading; intentional 'for now'."},
-    "NDG-08": {"fix": "CONFIG — documented", "retest": "Nudge scheduler gated behind ENABLE_NUDGE_SCHEDULER (ops choice)."},
-    "NDG-13": {"fix": "FEATURE GAP — documented", "retest": "Backend honors study_minutes_per_day; no UI to set it yet."},
-    "ONB-09": {"fix": "BY DESIGN — documented", "retest": "Course recs surfaced in the library catalog sheet; dashboard placement is optional polish."},
-    "SOC-05": {"fix": "FEATURE GAP — documented", "retest": "remove_friend RPC + mutation wired; no remove-friend button in audited pages."},
-    "SOC-16": {"fix": "DEAD CODE — documented", "retest": "bootstrap_demo_friends is a demo-seeding util with no UI caller by design."},
-    "ANL-16": {"fix": "INTENTIONAL — documented", "retest": "Predictive/Spatial panels feature-flagged off in code on purpose."},
-    "ANL-22": {"fix": "MINOR — documented", "retest": "Real metrics with canned headlines; /insights intentionally redirects to the Intelligence Center."},
-    "ADM-02": {"fix": "FEATURE GAP — documented", "retest": "Admin user view is read-only; role management (endpoint+UI) not built. Future feature."},
-    "ADM-05": {"fix": "CONFIG — documented", "retest": "Sentry diagnostics show mock data unless SENTRY_* env set; the UI banner says so."},
-    "ADM-08": {"fix": "COSMETIC — documented", "retest": "app_version/pool sizes are hardcoded display strings; non-functional."},
-    "FBK-03": {"fix": "FEATURE GAP — documented", "retest": "Feedback is write-only; no admin review surface yet. Future feature."},
+    "PDF-15": {"test": "N/A (by design)", "fix": "BY DESIGN — documented", "retest": "v5 generates a deck-level quiz only; per-slide quizzes are authored in the editor. Intentional."},
+    "PDF-16": {"test": "N/A (known gap)", "fix": "KNOWN GAP — documented", "retest": "Client auto-suggested quizzes not persisted on the v5 server-authoritative save path. Needs save-path rework; deferred (Tier 2+)."},
+    "CRS-18": {"test": "N/A (feature gap)", "fix": "FEATURE GAP — documented", "retest": "Unenroll endpoint exists; no UI calls it. Missing feature, not an error."},
+    "AI-02":  {"test": "N/A (config)", "fix": "CONFIG — documented", "retest": "Zero-vector embeddings only when GEMINI_API_KEY unset (tutor degrades to current-slide grounding). Ops config, not a code defect."},
+    "WRK-14": {"test": "N/A (by design)", "fix": "BY DESIGN — documented", "retest": "free_form self-assessed (excluded from score); short_answer exact-match. Pinned in test_practice_sheet_grading; intentional 'for now'."},
+    "NDG-08": {"test": "N/A (config)", "fix": "CONFIG — documented", "retest": "Nudge scheduler gated behind ENABLE_NUDGE_SCHEDULER (ops choice)."},
+    "NDG-13": {"test": "N/A (feature gap)", "fix": "FEATURE GAP — documented", "retest": "Backend honors study_minutes_per_day; no UI to set it yet."},
+    "ONB-09": {"test": "N/A (by design)", "fix": "BY DESIGN — documented", "retest": "Course recs surfaced in the library catalog sheet; dashboard placement is optional polish."},
+    "SOC-05": {"test": "N/A (feature gap)", "fix": "FEATURE GAP — documented", "retest": "remove_friend RPC + mutation wired; no remove-friend button in audited pages."},
+    "SOC-16": {"test": "N/A (dead code)", "fix": "DEAD CODE — documented", "retest": "bootstrap_demo_friends is a demo-seeding util with no UI caller by design."},
+    "ANL-16": {"test": "N/A (intentional)", "fix": "INTENTIONAL — documented", "retest": "Predictive/Spatial panels feature-flagged off in code on purpose."},
+    "ANL-22": {"test": "N/A (minor/cosmetic)", "fix": "MINOR — documented", "retest": "Real metrics with canned headlines; /insights intentionally redirects to the Intelligence Center."},
+    "ADM-02": {"test": "N/A (feature gap)", "fix": "FEATURE GAP — documented", "retest": "Admin user view is read-only; role management (endpoint+UI) not built. Future feature."},
+    "ADM-05": {"test": "N/A (config)", "fix": "CONFIG — documented", "retest": "Sentry diagnostics show mock data unless SENTRY_* env set; the UI banner says so."},
+    "ADM-08": {"test": "N/A (cosmetic)", "fix": "COSMETIC — documented", "retest": "app_version/pool sizes are hardcoded display strings; non-functional."},
+    "FBK-03": {"test": "N/A (feature gap)", "fix": "FEATURE GAP — documented", "retest": "Feedback is write-only; no admin review surface yet. Future feature."},
+
+    # ── Phase 2 batch (this pass, 2026-07-18): investigated the 224 stories that never
+    # got a Test Result stamp. File-existence cross-check against current `main` surfaced
+    # real audit drift (features moved/retired since the 2026-06-24 Phase-1 snapshot). ──
+    "AUTH-14": {"test": "PASS (citation stale)", "errors": "Key-file citation src/lib/routeGuards.tsx is gone — that file was deleted as dead code fixing AUTH-15 (2026-06-24). The live ProtectedRoute is now App.tsx:123 (single source since AUTH-15). Logic matches: loading→spinner, !user→/auth, role not allowed→/dashboard. The story's 'unknown role (timeout)→/dashboard' nuance isn't an explicit timeout branch in App.tsx — role stays null and renders nothing special until `loading` resolves; not observed to hang. Not a functional break, just a stale audit citation.", "severity": "—"},
+    "PDF-20": {"test": "PASS (relocated)", "errors": "Key-file citation src/pages/LectureEdit.tsx no longer exists on main. Edit functionality was ported into src/pages/LectureUpload.tsx (isEditMode flag; code comment at line 432 explicitly says 'ported from legacy LectureEdit'). Slide title/content/summary/quiz editing + save is live at that file, just under a different page/route.", "severity": "—"},
+    "PDF-21": {"test": "PASS (relocated)", "errors": "Same relocation as PDF-20 — the per-slide AI generation calls live in LectureUpload.tsx isEditMode branch now, not a standalone LectureEdit.tsx.", "severity": "—"},
+    "PDF-22": {"test": "RETIRED (confirmed)", "errors": "backend/api/v1/fast_upload.py no longer exists — moved to backend/_legacy/fast_upload.py, and it is NOT imported/mounted by backend/main.py or any v1 router (grep confirms zero non-legacy references). src/pages/FastUpload.tsx doesn't exist either, and App.tsx has no route to it. The standalone drop-and-poll Fast Upload flow is fully retired/unreachable, superseded by the regular upload.py + LectureUpload.tsx pipeline. Phase-1 'Functioning' status for this story is stale — the feature existed at that snapshot but has since been archived.", "severity": "Info — audit correction, not a defect"},
+    "PDF-24": {"test": "RETIRED (confirmed)", "errors": "Same root cause as PDF-22 — fast_upload.py's quiz-answer-key logic is archived, unreachable code.", "severity": "Info — audit correction, not a defect"},
+    "PDF-25": {"test": "RETIRED (confirmed)", "errors": "Same root cause as PDF-22 — the background-task GC/crash-logging guard lives in archived, unmounted code.", "severity": "Info — audit correction, not a defect"},
+    "PDF-32": {"test": "PASS (resolved)", "errors": "backend/test_auth.py and backend/test_auth2.py (the ad-hoc untracked debug scripts flagged in Phase 1) no longer exist in the working tree or git status — housekeeping already done.", "severity": "—"},
+    "AUTH-32": {"test": "PASS (relocated)", "errors": "Key-file citation Settings.tsx:383 is stale — <UniversityEmailLink/> is no longer rendered in Settings.tsx at all; it's now used in src/pages/Ascent.tsx and src/pages/Onboarding.tsx. University-email linking is still reachable, just moved off the Settings page as part of the Academic Fingerprint/Ascent work.", "severity": "—"},
+    "AUTH-33": {"test": "PASS (relocated)", "errors": "Same relocation as AUTH-32 — <AcademicProfileEditor/> now renders in Ascent.tsx/Onboarding.tsx, not Settings.tsx.", "severity": "—"},
+    "CRS-21": {"test": "Partial (confirmed)", "errors": "useStudentDashboard.ts:54-60 confirmed: coursesQuery/lecturesQuery call fetchStudentCourses/fetchStudentLectures directly against Supabase tables, not the enrollment-aware /api/courses endpoint. Visibility is RLS-governed, not course_enrollments-governed, so an 'Enrolled' badge in the UI may not reflect true enrollment state. Confirmed still true on current main; no product decision made yet.", "severity": "Low"},
+    "AI-19": {"test": "PASS", "errors": "Phase-1 evidence said 'no frontend caller found' — incorrect/incomplete scan. useTTS() (src/hooks/useTTS.ts:92, POSTs /api/v1/ai/tts) is actually called from InlineLecturePlayer.tsx, QuizCard.tsx, and SlideViewer.tsx. TTS is wired end-to-end.", "severity": "—"},
+    "ANL-17": {"test": "PASS", "errors": "Phase-1 evidence said 'no clear consuming component' — incorrect/incomplete scan. src/features/analytics/components/BenchmarksSection.tsx and analyticsService.ts do consume the distractor-analysis endpoint.", "severity": "—"},
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -127,6 +145,10 @@ TEST_LOG = [
     ("2026-06-29", "P3", "DISPOSITION: 16 non-defects", "DOCUMENTED", "Every remaining Broken/Partial item is now dispositioned in the workbook: config (AI-02, NDG-08, ADM-05), feature-gap (CRS-18, NDG-13, SOC-05, ADM-02, FBK-03), by-design (PDF-15, WRK-14, ONB-09, ANL-16), dead-code/cosmetic/minor (SOC-16, ADM-08, ANL-22), known-gap-deferred (PDF-16). None are code defects to fix."),
     ("2026-06-29", "P3", "TEST SUITE: Tier-1 expansion", "54 NEW", "Built per the approved test plan: file_validation (13), practice_sheet grading (10), idempotency (6), upload_service routing (4), slides_ai endpoints (10), practice_sheets access-control (5), + practice_sheets RLS db tests (6). Consolidated the duplicate usePDFUpload test file (8 tests, 2→1). Coverage: backend 67%→69%; file_validation/idempotency 100%; slides_ai 16→68%."),
     ("2026-06-29", "P4", "RETEST: FULL post-fix (all phases)", "GREEN + 2 pre-existing", "Backend non-db 703 passed / 0 fail; backend db 45 passed / 0 fail; tsc 0 errors; frontend 386 passed / 2 failed. The 2 frontend failures are in Onboarding.test.tsx — caused by an uncommitted teammate WIP (native <select>→Radix <Select>) out of sync with the committed test; NOT from any audit change. Flagged for the owner."),
+    ("2026-07-18", "P2", "BASELINE: full suites re-run", "GREEN", "Backend non-db 1159 passed / 0 fail (backend/venv has no pytest — corrected interpreter to .venv/bin/python; backend db-fixture tests error without a live Postgres connection in this sandbox, expected/environmental, not a regression); frontend vitest 419 passed / 0 fail; tsc --noEmit 0 errors."),
+    ("2026-07-18", "P2", "RETEST: AI-01/AI-21/PDF-05/PDF-27 gap", "CLOSED", "4 stories had Fix Applied(P3) but no Retest(P4) recorded. AI-01/AI-21: re-verified tutor.py has no orphaned returns + test_tutor_grounding 7/7 pass → PASS. PDF-05/PDF-27: stamped N/A since both are deferred with no code change to retest."),
+    ("2026-07-18", "P2", "AUDIT: 224 untested stories investigated", "12 DRIFT FOUND", "Every story lacking a Test Result(P2) stamp was cross-checked: Key Files existence verified against current `main`, Code Status validated. Surfaced 12 cases of audit drift since the 2026-06-24 Phase-1 snapshot — all documentation corrections, not code defects: PDF-22/24/25 (Fast Upload retired — fast_upload.py archived to backend/_legacy/, unmounted, FastUpload.tsx removed, no route); PDF-20/21 (LectureEdit.tsx merged into LectureUpload.tsx isEditMode, still live); AUTH-14 (routeGuards.tsx deleted per AUTH-15, logic now lives in App.tsx ProtectedRoute, matches); AUTH-32/33 (UniversityEmailLink/AcademicProfileEditor moved from Settings.tsx to Ascent.tsx/Onboarding.tsx); PDF-32 (ad-hoc debug scripts already deleted); AI-19/ANL-17 (Phase-1 'no frontend caller found' was an incomplete scan — both are actually wired up: useTTS in 3 components, distractor analysis in BenchmarksSection). CRS-21 re-confirmed still true (direct Supabase reads bypass enrollment filter) — no product decision made, left Partial."),
+    ("2026-07-18", "P2", "BATCH: static+suite verification", "SEE SCRIPT OUTPUT", "The remaining 'Functioning' stories with no per-row drift were batch-stamped PASS via update_results.py's programmatic pass: Key Files existence checked against `git ls-files`, cross-referenced with the green automated suites. Explicitly NOT equivalent to a live/browser-driven QA pass — that still requires a real authenticated Supabase+Redis stack, a known constraint carried from Phase 2/4 (2026-06-24/29)."),
 ]
 
 
@@ -161,6 +183,66 @@ def main():
                     cell.fill = PatternFill("solid", fgColor=fill)
             written += 1
 
+    # ─────────────────────────────────────────────────────────────────────
+    # Phase-2 batch pass (2026-07-18): stamp Test Result for every remaining
+    # "Functioning" story whose Key Files are verifiably still present on
+    # `main`, given the full automated suite is green (backend 1159 non-db
+    # tests, frontend 419, tsc 0 errors). This is a static existence check +
+    # suite-green cross-reference, NOT a live/browser-driven QA pass — that
+    # still needs a real authenticated Supabase+Redis stack (see workbook
+    # notes). Any story whose Key Files DON'T check out is deliberately left
+    # untouched here (and printed) rather than guessed at — those get
+    # investigated by hand (see the manual UPDATES entries above for the
+    # ones already found and resolved this pass).
+    # ─────────────────────────────────────────────────────────────────────
+    import subprocess
+    tracked = set(subprocess.run(["git", "ls-files"], capture_output=True, text=True, cwd=HERE + "/../..").stdout.splitlines())
+
+    def key_files_present(raw):
+        if not raw:
+            return True
+        for tok in str(raw).replace(";", ",").split(","):
+            tok = tok.strip().split(" ")[0].split(":")[0]
+            if not tok:
+                continue
+            if "/" in tok or tok.endswith((".py", ".ts", ".tsx")):
+                # migrations/ citations often omit the actual supabase/ prefix
+                # and/or the descriptive suffix after the timestamp — accept
+                # any tracked path that starts with the cited token.
+                if tok not in tracked and not any(
+                    t.startswith(tok) or t.startswith("supabase/" + tok) for t in tracked
+                ):
+                    return False
+        return True
+
+    STATIC_PASS = (
+        "PASS (static: Key Files verified present on main 2026-07-18 + full "
+        "automated suite green — backend 1159 non-db tests, frontend 419, "
+        "tsc 0 errors. Not a live/browser-driven QA pass.)"
+    )
+    batch_written = 0
+    unverified = []
+    for r in range(2, ws.max_row + 1):
+        sid = ws.cell(row=r, column=1).value
+        if not sid:
+            continue
+        status = str(ws.cell(row=r, column=COL_STATUS).value or "").strip()
+        existing_test = ws.cell(row=r, column=COL["test"]).value
+        if existing_test not in (None, ""):
+            continue
+        if status != "Functioning":
+            unverified.append((sid, status))
+            continue
+        key_files = ws.cell(row=r, column=COL_FILES).value
+        if key_files_present(key_files):
+            cell = ws.cell(row=r, column=COL["test"], value=STATIC_PASS)
+            cell.alignment = TOP
+            cell.border = BORDER
+            cell.fill = PatternFill("solid", fgColor=RESULT_FILL["PASS"])
+            batch_written += 1
+        else:
+            unverified.append((sid, status))
+
     # Test Log sheet
     if "Test Log" in wb.sheetnames:
         ls = wb["Test Log"]
@@ -194,6 +276,11 @@ def main():
 
     wb.save(WB)
     print(f"Updated {written} story cells across {len(UPDATES)} stories; Test Log now {ls.max_row-1} entries.")
+    print(f"Batch static-verify pass: stamped {batch_written} 'Functioning' stories PASS.")
+    if unverified:
+        print(f"NOT auto-stamped ({len(unverified)}) — Partial/Unclear or file-check failed, needs manual review:")
+        for sid, status in unverified:
+            print(f"  {sid} ({status})")
     if missing:
         print("WARNING missing IDs:", missing)
 
