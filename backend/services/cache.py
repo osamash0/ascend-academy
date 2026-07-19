@@ -338,22 +338,44 @@ async def purge_old_blueprint_versions(keep_version: int) -> int:
 
 # --- pgvector Semantic Cache ---
 
-async def get_similar_slides(embedding: List[float], limit: int = 5, threshold: float = 0.8) -> List[Dict[str, Any]]:
+# NOTE: the old unscoped get_similar_slides() (called match_slides directly,
+# then relied on a Python post-filter in retrieval.py) was deleted here —
+# Roadmap P1-4 replaced its only caller with get_similar_slides_by_lecture()
+# below, which pushes the lecture_id/pdf_hash scope into SQL instead. The
+# match_slides RPC itself is left in place (P0-3's canonical function,
+# tested directly in backend/tests/db/test_slide_embeddings_migration.py) —
+# only this now-dead Python wrapper was removed.
+
+async def get_similar_slides_by_lecture(
+    embedding: List[float],
+    lecture_id: Optional[str],
+    pdf_hash: Optional[str],
+    limit: int = 5,
+    threshold: float = 0.65,
+) -> List[Dict[str, Any]]:
+    """Single-lecture-scoped ANN search via `match_slides_by_lecture` (Roadmap P1-4).
+
+    Unlike the old `get_similar_slides` + Python post-filter path, the
+    lecture_id/pdf_hash scope is applied in SQL, so a relevant slide in the
+    target lecture is never dropped because a global candidate window
+    filled up with other lectures' slides first (the same class of bug
+    `get_similar_slides_scoped` already fixed for the course-wide path).
     """
-    Search for similar slides in Supabase using cosine similarity.
-    Requires the match_slides RPC function in PostgreSQL.
-    """
+    if not lecture_id and not pdf_hash:
+        return []
     try:
         res = await run_in_threadpool(
-            lambda: supabase_admin.rpc("match_slides", {
+            lambda: supabase_admin.rpc("match_slides_by_lecture", {
                 "query_embedding": embedding,
+                "p_lecture_id": lecture_id,
+                "p_pdf_hash": pdf_hash,
                 "match_threshold": threshold,
-                "match_count": limit
+                "match_count": limit,
             }).execute()
         )
         return res.data or []
     except Exception as e:
-        logger.error("Failed to get similar slides: %s", e)
+        logger.error("Failed to get lecture-scoped similar slides: %s", e)
         return []
 
 
