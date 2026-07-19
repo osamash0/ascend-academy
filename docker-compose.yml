@@ -144,7 +144,35 @@ services:
     volumes:
       - ./backend:/app/backend:ro
 
+  # ── Metrics (Roadmap Foundation 10x, P1-2) ──────────────────────────────────
+  # Scrapes the api service's /metrics. Optional for local dev — run with
+  # `docker compose up prometheus grafana` alongside the rest of the stack.
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+
 
 volumes:
   redis_data:
   redis_queue_data:
+  prometheus_data:
+  grafana_data:

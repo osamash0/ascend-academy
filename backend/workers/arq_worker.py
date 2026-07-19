@@ -8,6 +8,7 @@ Or via docker-compose:
       command: python -m arq backend.workers.arq_worker.WorkerSettings
 """
 import logging
+import time
 
 from arq.connections import RedisSettings
 
@@ -32,10 +33,56 @@ async def shutdown(ctx: dict) -> None:
     logger.info("Arq worker shutdown complete")
 
 
+async def on_job_start(ctx: dict) -> None:
+    """Roadmap P1-2: stamp a start time on this job's ctx (Arq passes the
+    SAME ctx dict through on_job_start -> the job function -> after_job_end,
+    so this survives to the duration calculation below) and opportunistically
+    refresh the queue-depth gauge — free since a job just left the queue."""
+    ctx["_metrics_start_ts"] = time.monotonic()
+    try:
+        from backend.services.upload_service import queue_depth
+        await queue_depth()
+    except Exception:
+        logger.debug("arq metrics: queue_depth sample failed", exc_info=True)
+
+
+async def after_job_end(ctx: dict) -> None:
+    """Roadmap P1-2: records arq_job_duration_seconds / arq_job_outcome_total.
+
+    Runs after Arq has already persisted the job result, so
+    ``Job(job_id, redis).result_info()`` (the only place function name +
+    success/failure are available outside run_job's local closure) is safe
+    to read here. Best-effort — a metrics hiccup must never affect job
+    processing, which Arq awaits this hook for.
+    """
+    from backend.core.metrics import ARQ_JOB_DURATION_SECONDS, ARQ_JOB_OUTCOME_TOTAL
+
+    function_name = "unknown"
+    outcome = "unknown"
+    try:
+        from arq.jobs import Job
+        job_id = ctx.get("job_id")
+        redis = ctx.get("redis")
+        if job_id is not None and redis is not None:
+            info = await Job(job_id, redis).result_info()
+            if info is not None:
+                function_name = info.function or "unknown"
+                outcome = "success" if info.success else "failure"
+    except Exception:
+        logger.debug("arq metrics: result_info lookup failed", exc_info=True)
+
+    ARQ_JOB_OUTCOME_TOTAL.labels(function=function_name, outcome=outcome).inc()
+    start_ts = ctx.get("_metrics_start_ts")
+    if start_ts is not None:
+        ARQ_JOB_DURATION_SECONDS.labels(function=function_name).observe(time.monotonic() - start_ts)
+
+
 class WorkerSettings:
     functions = [parse_pdf_unified, generate_review_cards]
     on_startup = startup
     on_shutdown = shutdown
+    on_job_start = on_job_start
+    after_job_end = after_job_end
 
     # Broker + results live on the dedicated queue Redis (noeviction + AOF),
     # never the LRU app-cache Redis — otherwise queued jobs can be evicted.
