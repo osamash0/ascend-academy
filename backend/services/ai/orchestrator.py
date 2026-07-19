@@ -803,10 +803,15 @@ async def generate_text(prompt: str, ai_model: str = "cerebras") -> str:
     it maps to a known provider (cerebras, groq, openrouter, cloudflare, gemini, ...).
     """
     from backend.services.llm_client import call_llm
+    from backend.services.ai.prompt_log import log_prompt_response
     if ai_model == "llama3":
-        return await call_llm(lambda: _call_provider("llama3", prompt))
+        text = await call_llm(lambda: _call_provider("llama3", prompt))
+        await log_prompt_response("generate_text", prompt, text)
+        return text
     preferred = _resolve_preferred(ai_model)
-    return await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=preferred))
+    text = await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=preferred))
+    await log_prompt_response("generate_text", prompt, text)
+    return text
 
 
 async def generate_text_bulk(prompt: str, ai_model: str = "cerebras") -> str:
@@ -816,8 +821,11 @@ async def generate_text_bulk(prompt: str, ai_model: str = "cerebras") -> str:
     User-selected ``ai_model`` is honored at the head of the chain when known.
     """
     from backend.services.llm_client import call_llm
+    from backend.services.ai.prompt_log import log_prompt_response
     preferred = _resolve_preferred(ai_model)
-    return await call_llm(lambda: _generate_with_rotation(prompt, BULK_CHAIN, preferred=preferred))
+    text = await call_llm(lambda: _generate_with_rotation(prompt, BULK_CHAIN, preferred=preferred))
+    await log_prompt_response("generate_text_bulk", prompt, text)
+    return text
 
 
 def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
