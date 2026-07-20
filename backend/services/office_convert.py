@@ -91,7 +91,7 @@ async def to_pdf(file_bytes: bytes, filename: str) -> bytes:
 
     Raises RuntimeError if soffice is unavailable or conversion fails.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _convert_sync, file_bytes, filename)
 
 

@@ -14,7 +14,7 @@ import sys
 import uuid
 import random
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(project_root))
@@ -32,7 +32,7 @@ def rand_past_dt(days_back: int = 7) -> str:
         hours=random.randint(0, 23),
         minutes=random.randint(0, 59),
     )
-    dt = datetime.utcnow() - offset
+    dt = datetime.now(timezone.utc) - offset
     return dt.isoformat()
 
 

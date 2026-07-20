@@ -132,5 +132,5 @@ async def extract_pages(pdf_bytes: bytes, filename: str) -> Dict[int, dict]:
     """
     if not _ODL_AVAILABLE:
         raise RuntimeError("opendataloader-pdf not installed")
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _run_odl_sync, pdf_bytes, filename)

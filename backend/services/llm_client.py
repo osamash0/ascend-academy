@@ -36,7 +36,7 @@ async def _call_with_retry(fn):
     fn must be a zero-argument callable (lambda/partial) — called fresh each retry.
     Dispatches to a thread executor so sync SDK calls don't block the event loop.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         return await loop.run_in_executor(None, fn)
     except LLMRateLimitError:

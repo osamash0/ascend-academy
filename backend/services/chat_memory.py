@@ -6,7 +6,7 @@ import json
 import logging
 import uuid
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.core.redis import get_redis_client
 
@@ -31,7 +31,7 @@ async def create_session(user_id: str, lecture_id: Optional[str] = None, title: 
     meta_key = _get_meta_key(session_id)
     user_sessions_key = _get_user_sessions_key(user_id)
     
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     if not title:
         title = f"Chat - {now[:10]}"
         
@@ -108,7 +108,7 @@ async def append_message(session_id: str, role: str, content: str) -> None:
     await redis_client.expire(messages_key, SESSION_TTL)
     
     # Update updated_at metadata
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     await redis_client.hset(meta_key, "updated_at", now)
     await redis_client.expire(meta_key, SESSION_TTL)
     

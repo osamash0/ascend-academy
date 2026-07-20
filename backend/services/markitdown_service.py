@@ -103,7 +103,7 @@ async def extract_pages(file_bytes: bytes, filename: str) -> Dict[int, dict]:
             "markitdown is not installed. "
             "Run `pip install markitdown[pptx]` or choose a different parser."
         )
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     markdown = await loop.run_in_executor(None, _run_markitdown_sync, file_bytes, filename)
     pages = _parse_markdown_to_pages(markdown)
     if not pages:

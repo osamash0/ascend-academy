@@ -667,7 +667,7 @@ def _compute_lecture_insights(lecture_id: str, token: str = None) -> Dict[str, A
     insights = build_insights(lecture_id, token)
     return {
         "lectureId": lecture_id,
-        "computedAt": datetime.utcnow().isoformat() + "Z",
+        "computedAt": datetime.now(timezone.utc).isoformat() + "Z",
         "insights": insights,
     }
 
@@ -1302,7 +1302,7 @@ async def _compute_professor_overview(
             day = (created or "")[:10]
         if day:
             by_day[day] += 1
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     sparkline = []
     for i in range(days - 1, -1, -1):
         d = (today - timedelta(days=i)).isoformat()
@@ -1331,7 +1331,7 @@ def _median(values: List[float]) -> float:
 
 
 def _empty_sparkline(days: int) -> List[Dict[str, Any]]:
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     return [
         {"date": (today - timedelta(days=i)).isoformat(), "count": 0}
         for i in range(days - 1, -1, -1)
