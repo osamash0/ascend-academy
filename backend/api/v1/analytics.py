@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
 from uuid import UUID
 from backend.services import analytics_service, analytics_cache
+from backend.services import personal_schedule_service
 from backend.services.insights import evidence as insight_evidence
 from backend.services.ai.ask_data import (
     PUBLIC_MAX_QUESTION_LENGTH,
@@ -800,7 +801,7 @@ async def get_personal_optimal_schedule(
     """
     try:
         data = await run_in_threadpool(
-            analytics_service.get_personal_optimal_schedule,
+            personal_schedule_service.get_personal_optimal_schedule,
             user.id,
             creds.credentials,
             timezone_offset,
