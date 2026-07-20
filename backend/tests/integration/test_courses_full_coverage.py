@@ -157,15 +157,26 @@ def test_browse_returns_published_professor_courses(app_client, fake_supabase, p
     assert data[0]["lecture_count"] == 1
 
 
-def test_browse_empty_when_no_professors(app_client, fake_supabase):
-    # No user_roles rows → prof_ids empty → sentinel query → no results.
+def test_browse_returns_published_course_without_user_roles_seeded(app_client, fake_supabase):
+    """
+    P2-1: `browse_courses` used to additionally gate results on a
+    `user_roles`-derived `prof_ids` list (empty user_roles -> sentinel query
+    -> no results). That check was always redundant — `courses` rows can
+    only be inserted by a caller who is `professor_id = auth.uid() AND
+    has_role(auth.uid(), 'professor')` (20260503000012_courses.sql), so every
+    course is already professor-owned by construction — and it's gone now
+    that browse_courses reads through the RLS-enforcing client + the
+    published/non-archived migration policy (20260719020000) instead of a
+    manual Python filter. A published, non-archived course is visible
+    regardless of what `user_roles` happens to contain.
+    """
     fake_supabase.seed("courses", [
         {"id": _cid(), "professor_id": "p1", "title": "X",
          "is_archived": False, "status": "published", "created_at": "2026-03-01"},
     ])
     r = app_client.get("/api/v1/courses/browse")
     assert r.status_code == 200
-    assert r.json()["data"] == []
+    assert len(r.json()["data"]) == 1
 
 
 def test_browse_cursor_and_has_more(app_client, fake_supabase, professor_user):

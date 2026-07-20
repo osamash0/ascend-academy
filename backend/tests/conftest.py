@@ -192,9 +192,17 @@ def app_client(app, professor_user):
     """TestClient with verify_token + require_role overridden to return the
     professor by default. Tests that need a different identity should call
     `client.app.dependency_overrides[verify_token] = lambda: ...` themselves.
+
+    Also overrides `security` (the shared `HTTPBearer(auto_error=False)`
+    dependency) so routes that additionally depend on it for the raw bearer
+    token (e.g. to build an RLS-enforcing per-user Supabase client via
+    `analytics_service.get_auth_client`, see P2-1) get a non-None
+    credentials object without every test having to pass a real
+    `Authorization` header.
     """
     from fastapi.testclient import TestClient
-    from backend.core.auth_middleware import verify_token
+    from fastapi.security import HTTPAuthorizationCredentials
+    from backend.core.auth_middleware import verify_token, security
 
     def _verify():
         return professor_user
@@ -202,7 +210,11 @@ def app_client(app, professor_user):
     def _require_role(*_args, **_kwargs):
         return lambda: professor_user
 
+    def _security():
+        return HTTPAuthorizationCredentials(scheme="Bearer", credentials="fake-token")
+
     app.dependency_overrides[verify_token] = _verify
+    app.dependency_overrides[security] = _security
     return TestClient(app)
 
 

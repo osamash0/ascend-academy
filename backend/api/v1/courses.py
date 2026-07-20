@@ -24,16 +24,19 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 
 from backend.core.auth_middleware import (
     _user_id,
     require_creator,
     require_student,
+    security,
     verify_token,
 )
 from backend.core.pagination import PaginationParams, PaginatedResponse
 from backend.core.database import supabase_admin  # ADMIN: bulk relationship queries spanning multiple tables and roles
+from backend.services import analytics_service  # RLS-enforcing per-user client (P2-1): analytics_service.get_auth_client
 from backend.core.rate_limit import limiter
 from backend.core.idempotency import check_idempotency
 
@@ -120,7 +123,23 @@ def _is_professor(user: Any) -> bool:
 
 
 def _student_visible_course_ids(user_id: str) -> set[str]:
-    """Course ids whose lectures the student can see via course enrollment or assignment enrollment."""
+    """Course ids whose lectures the student can see via course enrollment or assignment enrollment.
+
+    P2-1 (RLS-as-API-boundary) note: `list_courses` and `browse_courses` below
+    no longer call this — they've been converted to the RLS-enforcing
+    per-user client, and the `courses` table's own SELECT policies
+    (20260611000000, 20260621000000, 20260719020000) already encode exactly
+    this "own course OR enrolled via course_enrollments OR enrolled via an
+    assignment's lectures" visibility, so Postgres enforces it directly.
+
+    This function is still a live, hand-rolled authorization check used by
+    `get_course` (this module), `backend/api/v1/exams.py::_student_visible_course_ids`
+    import, and `backend/services/search_service.py` for cross-course search
+    scoping — none of those were converted in this slice (get_course also
+    layers a per-lecture assignment filter on top that would need its own SQL
+    re-derivation; exams/search are separate endpoints not touched here). Left
+    as an explicit, documented follow-up rather than silently orphaned.
+    """
     # 1. Direct course enrollments
     ce = (
         supabase_admin.table("course_enrollments")
@@ -177,6 +196,7 @@ def _student_visible_course_ids(user_id: str) -> set[str]:
 async def list_courses(
     request: Request,
     user: Any = Depends(verify_token),
+    creds: HTTPAuthorizationCredentials = Depends(security),
     only_archived: bool = Query(default=False),
     include_archived: bool = Query(default=False),
     params: PaginationParams = Depends(),
@@ -186,13 +206,23 @@ async def list_courses(
     Own courses (rows with professor_id == uid, regardless of role) plus,
     for non-owned rows, any course visible via course/assignment enrollment.
     A creator who is also enrolled elsewhere as a student sees both.
+
+    P2-1 (RLS-as-API-boundary): this used to fetch every course with the
+    service-role `supabase_admin` client and re-implement student visibility
+    in Python (`_student_visible_course_ids`). It now queries with the
+    RLS-enforcing per-user client instead -- the `courses` table's SELECT
+    policies (professor owns the row; OR the caller is enrolled via
+    `course_enrollments`; OR the caller is enrolled in an assignment whose
+    lectures belong to the course) already encode exactly this visibility,
+    so Postgres enforces it directly and the manual post-filter is gone.
     """
     uid = _user_id(user)
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
     def _load() -> List[dict]:
-        q = supabase_admin.table("courses").select(
+        client = analytics_service.get_auth_client(creds.credentials)
+        q = client.table("courses").select(
             "id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at"
         )
 
@@ -209,10 +239,9 @@ async def list_courses(
         if has_more:
             rows = rows[:-1]
 
-        visible = _student_visible_course_ids(uid)
-        rows = [r for r in rows if r["professor_id"] == uid or r["id"] in visible]
-
-        # Batch-load lecture counts.
+        # Batch-load lecture counts. Still admin: this is a pure aggregation
+        # over an already-authorized set of course ids, not a fresh
+        # authorization decision.
         counts: dict[str, int] = {r["id"]: 0 for r in rows}
         if rows:
             ids = [r["id"] for r in rows]
@@ -245,29 +274,35 @@ async def list_courses(
 async def browse_courses(
     request: Request,
     user: Any = Depends(verify_token),
+    creds: HTTPAuthorizationCredentials = Depends(security),
     params: PaginationParams = Depends(),
 ):
-    """Browse all available (non-archived) courses. Useful for onboarding and discovery."""
+    """Browse all available (non-archived, published) courses. Useful for onboarding and discovery.
+
+    P2-1 (RLS-as-API-boundary): converted from `supabase_admin` + a manual
+    `status`/`is_archived`/professor-role filter to the RLS-enforcing
+    per-user client. Migration 20260719020000 adds a matching
+    "Authenticated users browse published courses" SELECT policy on
+    `courses` (status='published' AND is_archived=false, any authenticated
+    caller) -- this is the exact same rule the Python filter enforced, so
+    catalog contents are unchanged. The old `prof_ids` re-check (only show
+    courses owned by a `professor`-role user) was always redundant: the
+    `courses` INSERT policy already requires `professor_id = auth.uid() AND
+    has_role(auth.uid(), 'professor')`, so no course row can exist that
+    isn't professor-owned.
+    """
     uid = _user_id(user)
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
     def _load() -> List[dict]:
-        # Only show courses created by professors in the global catalog
-        professors = supabase_admin.table("user_roles").select("user_id").eq("role", "professor").execute().data or []
-        prof_ids = [p["user_id"] for p in professors] if professors else []
-
+        client = analytics_service.get_auth_client(creds.credentials)
         q = (
-            supabase_admin.table("courses")
+            client.table("courses")
             .select("id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at")
             .eq("is_archived", False)
             .eq("status", "published")
         )
-        if prof_ids:
-            q = q.in_("professor_id", prof_ids)
-        else:
-            # If no professors exist, return empty to be safe
-            q = q.eq("id", "00000000-0000-0000-0000-000000000000")
 
         if params.cursor:
             q = q.lt("created_at", params.cursor)
