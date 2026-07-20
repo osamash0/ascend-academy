@@ -220,7 +220,7 @@ async def store_cached_parse(pdf_hash: str, data: Dict[str, Any], parsing_mode: 
     """Store full parse result in database."""
     key = _scoped_cache_key(pdf_hash, parsing_mode)
     try:
-        payload = {"pdf_hash": key, "result": data, "created_at": "now()"}
+        payload = {"pdf_hash": key, "result": data, "created_at": datetime.now(timezone.utc).isoformat()}
         supabase_admin.table("pdf_parse_cache").upsert(payload, on_conflict="pdf_hash").execute()
     except Exception as e:
         logger.error("Failed to store cached parse: %s", e)
@@ -298,7 +298,7 @@ async def store_cached_blueprint(
             "pdf_hash": pdf_hash,
             "blueprint_json": blueprint,
             "version": version,
-            "created_at": "now()",
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         # on_conflict MUST reference the composite unique constraint
         # (pdf_hash, version) — NOT just pdf_hash.  Using only pdf_hash
@@ -679,7 +679,7 @@ async def set_cache(key: str, data: Any, ttl_seconds: int = 300) -> None:
             logger.error("Cache payload not JSON-serializable for key %s: %s", key, enc_exc)
             return
 
-        from datetime import timezone
+        from datetime import timedelta, datetime, timezone
         expires_at_dt = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
 
         if db_pool:

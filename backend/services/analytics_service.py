@@ -5,6 +5,8 @@ from backend.services.utils.analytics_utils import calculate_student_typology, g
 from supabase import Client
 from backend.services import analytics_cache
 import json
+import hashlib
+from functools import lru_cache
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta, date
 
@@ -40,7 +42,8 @@ def _fetch_all_in(
     return out
 
 
-def get_auth_client(token: Optional[str]) -> Client:
+@lru_cache(maxsize=128)
+def get_auth_client(token: str = None) -> Client:
     """Create a Supabase client authenticated with the user's JWT.
     Enforces RLS by using the ANON_KEY (not the service_role key).
 
@@ -343,7 +346,6 @@ def _compute_student_performance(lecture_id: str, token: str = None) -> List[Dic
 
         typology = calculate_student_typology(prog_pct, score, stud_ai_queries, stud_revisions)
 
-        import hashlib
         anon_id = "anon_" + hashlib.md5(p["user_id"].encode()).hexdigest()[:8]
         students_matrix.append({
             "student_id": anon_id,

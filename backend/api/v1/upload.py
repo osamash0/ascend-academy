@@ -13,7 +13,7 @@ from backend.services import diagnostics_service
 from backend.services.slide_synth_service import synthesize_slide
 from backend.services.parser import repos as parser_repos
 from backend.domain.parse_models import RunStatus
-from backend.core.auth_middleware import require_creator, _app_metadata
+from backend.core.auth_middleware import require_creator, require_professor, _app_metadata
 from backend.core.rate_limit import limiter
 from backend.core.file_validation import sanitize_filename
 from starlette.concurrency import run_in_threadpool
@@ -460,7 +460,7 @@ async def diagnostics_endpoint(
 @limiter.limit("5/minute")
 async def cleanup_cache_endpoint(
     request: Request,
-    user: Any = Depends(require_creator),
+    user: Any = Depends(require_professor),
 ):
     deleted = await purge_expired_slide_checkpoints()
     return {"deleted": deleted, "message": f"Purged {deleted} expired checkpoint rows."}

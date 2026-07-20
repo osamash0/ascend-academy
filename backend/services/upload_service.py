@@ -348,6 +348,15 @@ async def process_pdf_lazy(content: bytes, filename: str, ai_model: str) -> Asyn
         logger.error("Lazy import failed: %s", e, exc_info=True)
         yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'recoverable': False})}\n\n"
 
+def _do_pymupdf_extract(content: bytes) -> Dict[int, dict]:
+    import fitz
+    result: Dict[int, dict] = {}
+    with fitz.open(stream=content, filetype="pdf") as doc:
+        for i, page in enumerate(doc):
+            text = page.get_text("text") or ""
+            result[i + 1] = {"text": text, "title": None}
+    return result
+
 async def extract_raw_pages(content: bytes, filename: str, parser: str) -> Dict[str, Any]:
     pages_raw: Dict[int, dict] = {}
     parser_used = "pymupdf"
@@ -365,15 +374,7 @@ async def extract_raw_pages(content: bytes, filename: str, parser: str) -> Dict[
         pages_raw = await _odl(content, filename)
         parser_used = "opendataloader-pdf"
     elif parser == "pymupdf":
-        def _pymupdf_extract() -> Dict[int, dict]:
-            import fitz
-            result: Dict[int, dict] = {}
-            with fitz.open(stream=content, filetype="pdf") as doc:
-                for i, page in enumerate(doc):
-                    text = page.get_text("text") or ""
-                    result[i + 1] = {"text": text, "title": None}
-            return result
-        pages_raw = await asyncio.wait_for(asyncio.to_thread(_pymupdf_extract), timeout=60.0)
+        pages_raw = await asyncio.wait_for(asyncio.to_thread(lambda: _do_pymupdf_extract(content)), timeout=60.0)
         parser_used = "pymupdf"
     else:  # auto
         try:
@@ -381,15 +382,7 @@ async def extract_raw_pages(content: bytes, filename: str, parser: str) -> Dict[
             pages_raw = await _odl(content, filename)
             parser_used = "opendataloader-pdf"
         except Exception:
-            def _pymupdf_extract_auto() -> Dict[int, dict]:
-                import fitz
-                result: Dict[int, dict] = {}
-                with fitz.open(stream=content, filetype="pdf") as doc:
-                    for i, page in enumerate(doc):
-                        text = page.get_text("text") or ""
-                        result[i + 1] = {"text": text, "title": None}
-                return result
-            pages_raw = await asyncio.wait_for(asyncio.to_thread(_pymupdf_extract_auto), timeout=60.0)
+            pages_raw = await asyncio.wait_for(asyncio.to_thread(lambda: _do_pymupdf_extract(content)), timeout=60.0)
             parser_used = "pymupdf"
 
     pages_out = []
