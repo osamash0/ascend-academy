@@ -98,7 +98,7 @@ def _compute_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, A
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "lecture_complete")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     total_time = 0
     event_count = 0
@@ -159,13 +159,13 @@ def _compute_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[st
     view_events = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "slide_view")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     # Confidence ratings — used to compute confusion_rate per slide
     confidence_events = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "confidence_rating")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     # Quiz attempts joined with their slide via quiz_questions
     quiz_questions = _fetch_all(client.table("quiz_questions")\
@@ -176,7 +176,7 @@ def _compute_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[st
     quiz_events = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     # Aggregate per-slide quiz totals/correct
     quiz_by_slide: Dict[str, Dict[str, int]] = {}
@@ -265,7 +265,7 @@ def _compute_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     attempts_data = events_data or []
     quiz_analytics = []
@@ -318,7 +318,7 @@ def _compute_student_performance(lecture_id: str, token: str = None) -> List[Dic
 
     events_data = _fetch_all(client.table("learning_events")\
         .select("user_id, event_type")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     # Data is already lists from _fetch_all
 
@@ -378,7 +378,7 @@ def _compute_distractor_analysis(lecture_id: str, token: str = None) -> List[Dic
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     attempts_data = events_data or []
     result = []
@@ -498,12 +498,12 @@ def _compute_retry_performance(lecture_id: str, token: str = None) -> List[Dict[
     first_events = _fetch_all(client.table("learning_events")
         .select("event_data")
         .eq("event_type", "quiz_attempt")
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     retry_events = _fetch_all(client.table("learning_events")
         .select("event_data")
         .eq("event_type", "quiz_retry_attempt")
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     return _calculate_retry_performance(quiz_data, first_events, retry_events)
 
@@ -573,7 +573,7 @@ def _compute_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dic
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "confidence_rating")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
@@ -1131,7 +1131,7 @@ async def _compute_professor_overview(
                 _fetch_all,
                 client.table("learning_events")
                 .select("user_id, event_type, event_data, created_at")
-                .contains("event_data", {"lectureId": lid})
+                .eq("event_data->>lectureId", str(lid))
             )
             for e in events_data:
                 created_at_val = e.get("created_at")

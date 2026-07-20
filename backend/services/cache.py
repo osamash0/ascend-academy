@@ -1,7 +1,7 @@
 import hashlib
 import json
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional, List, Dict
@@ -513,7 +513,7 @@ async def store_slide_parse_result(
     """
     try:
         expires_at = (
-            datetime.utcnow() + timedelta(days=_CHECKPOINT_TTL_DAYS)
+            datetime.now(timezone.utc) + timedelta(days=_CHECKPOINT_TTL_DAYS)
         ).isoformat()
         payload = {
             "pdf_hash": pdf_hash,
@@ -595,7 +595,7 @@ async def get_cached_slide_results(
     checkpoints never surface as valid results after their TTL window.
     """
     try:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         res = (
             supabase_admin.table("slide_parse_cache")
             .select("slide_index,slide_data")
@@ -652,7 +652,7 @@ async def get_cache(key: str) -> Optional[Any]:
                     return json.loads(data) if isinstance(data, str) else data
         else:
             def _sync_get():
-                now = datetime.utcnow().isoformat()
+                now = datetime.now(timezone.utc).isoformat()
                 res = supabase_admin.table("backend_cache") \
                     .select("data") \
                     .eq("cache_key", key) \

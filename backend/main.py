@@ -70,7 +70,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["127.0.0.1", "10.0.0.0/8", "172.16.0.0/12"])
 
 # ── Security & Logging Middleware ────────────────────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
