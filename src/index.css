@@ -290,7 +290,6 @@
   /* Selection styling */
   ::selection {
     background: hsl(var(--primary) / 0.25);
-    color: hsl(var(--foreground));
   }
 }
 
