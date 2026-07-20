@@ -431,20 +431,6 @@ async def store_slide_embedding(
         return False
 
     try:
-        if pdf_hash:
-            try:
-                supabase_admin.table("slide_embeddings") \
-                    .delete() \
-                    .eq("pdf_hash", pdf_hash) \
-                    .eq("slide_index", slide_index) \
-                    .eq("pipeline_version", pipeline_version) \
-                    .execute()
-            except Exception as e:
-                # Pre-delete failures are non-fatal; the insert below may
-                # produce a duplicate row but that's strictly better than
-                # losing the embedding entirely.
-                logger.warning("Pre-insert delete failed for slide %d: %s", slide_index, e)
-
         data = {
             "lecture_id": lecture_id,
             "pdf_hash": pdf_hash,
@@ -454,7 +440,13 @@ async def store_slide_embedding(
             "content_hash": content_hash,
             "pipeline_version": pipeline_version,
         }
-        supabase_admin.table("slide_embeddings").insert(data).execute()
+        
+        if pdf_hash:
+            supabase_admin.table("slide_embeddings").upsert(
+                data, on_conflict="pdf_hash,slide_index,pipeline_version"
+            ).execute()
+        else:
+            supabase_admin.table("slide_embeddings").insert(data).execute()
         return True
     except Exception as e:
         logger.error("Failed to store slide embedding: %s", e)
