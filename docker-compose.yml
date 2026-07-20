@@ -83,7 +83,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     environment:
@@ -118,7 +118,7 @@ services:
         VITE_LAZY_PDF_IMPORT: ${VITE_LAZY_PDF_IMPORT:-false}
         VITE_ANON_SALT: ${VITE_ANON_SALT:-learnstation-analytics-2026}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - api
 
