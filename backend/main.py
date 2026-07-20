@@ -58,12 +58,37 @@ docs_url = "/docs" if _docs_enabled else None
 redoc_url = "/redoc" if _docs_enabled else None
 openapi_url = "/openapi.json" if _docs_enabled else None
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from backend.core.database import init_db_pool, close_db_pool
+    from backend.core.redis import init_redis, close_redis
+    from backend.core.auth_middleware import get_auth_http_client, close_auth_http_client
+    
+    await init_db_pool()
+    await init_redis()
+    get_auth_http_client()
+    if os.environ.get("ENABLE_NUDGE_SCHEDULER") == "1":
+        try:
+            from backend.services.nudge_scheduler import start_scheduler
+            start_scheduler()
+        except Exception as e:
+            logger.error("Failed to start nudge scheduler: %s", e, exc_info=True)
+            
+    yield
+    
+    await close_db_pool()
+    await close_redis()
+    close_auth_http_client()
+
 app = FastAPI(
     title="Learnstation API",
     version="0.1.0",
     docs_url=docs_url,
     redoc_url=redoc_url,
     openapi_url=openapi_url,
+    lifespan=lifespan,
 )
 
 # ── Rate limiting ────────────────────────────────────────────────────────────
@@ -237,33 +262,6 @@ async def redirect_legacy_api(request: Request, path: str):
         new_path = f"{new_path}?{query_params}"
     return RedirectResponse(url=new_path, status_code=307)
 
-
-@app.on_event("startup")
-async def startup_event():
-    from backend.core.database import init_db_pool
-    from backend.core.redis import init_redis
-    await init_db_pool()
-    await init_redis()
-    from backend.core.auth_middleware import get_auth_http_client
-    get_auth_http_client()
-    # Start the daily nudge engine scheduler when explicitly enabled. Off by
-    # default (and during tests) so we don't fan out notifications from local
-    # dev shells. In production set ENABLE_NUDGE_SCHEDULER=1.
-    if os.environ.get("ENABLE_NUDGE_SCHEDULER") == "1":
-        try:
-            from backend.services.nudge_scheduler import start_scheduler
-            start_scheduler()
-        except Exception as e:
-            logger.error("Failed to start nudge scheduler: %s", e, exc_info=True)
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    from backend.core.database import close_db_pool
-    from backend.core.redis import close_redis
-    await close_db_pool()
-    await close_redis()
-    from backend.core.auth_middleware import close_auth_http_client
-    await close_auth_http_client()
 
 @app.get("/")
 async def read_root():
