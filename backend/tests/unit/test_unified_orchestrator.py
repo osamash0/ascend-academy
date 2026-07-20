@@ -274,6 +274,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     import backend.services.concept_graph as concept_graph
     import backend.services.content_filter as content_filter
     import backend.services.course_context_service as course_context_service
+    import backend.services.ai.orchestrator as ai_orchestrator
 
     async def meta(slides, model, course_context_hint=""):
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": ["Gradient Descent", "Loss Functions"]}
@@ -310,6 +311,25 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
         # pool (whatever DATABASE_URL happens to resolve to in this env).
         return {"prior_lectures": [], "instructor": None, "grading_scheme": None}
 
+    async def fake_batch_analyze_text_slides(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        # Roadmap P3-1: default fake for the batched text-synthesis path so
+        # any test whose fixture pages happen to be >= _MIN_TEXT_FOR_SYNTH
+        # chars (routing them through the batch call, not _synthesize_slide)
+        # still gets deterministic, offline output shaped like the "synth"
+        # per-slide fake above — same title/summary pattern — so existing
+        # assertions on slide title/summary content stay valid regardless of
+        # which path a given slide's text length routes it through.
+        rec.setdefault("batch_calls", []).append([s["index"] for s in slides_input])
+        return [
+            {"index": s["index"], "title": f"S{s['index']}", "summary": f"sum{s['index']}",
+             "slide_type": "text"}
+            for s in slides_input
+        ]
+
+    class _FakeRotator:
+        def remaining_headroom(self, chain):
+            return 100_000
+
     monkeypatch.setattr(synthesis, "analyze_lecture_meta", meta)
     monkeypatch.setattr(synthesis, "generate_quiz_questions", quiz)
     monkeypatch.setattr(fps, "_safe_embedding_task", embed)
@@ -317,6 +337,8 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(concept_graph, "ingest_lecture_concepts", ingest_concepts)
     monkeypatch.setattr(content_filter, "is_metadata_slide", is_metadata_default)
     monkeypatch.setattr(course_context_service, "get_course_synthesis_context", course_ctx_default)
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", fake_batch_analyze_text_slides)
+    monkeypatch.setattr(ai_orchestrator, "get_rotator", lambda: _FakeRotator())
     return rec, run
 
 
@@ -983,3 +1005,124 @@ async def test_parse_pdf_unified_pdf_missing_errors(monkeypatch):
     assert any(t == "error" for t, _ in events)
     assert rec["errors"]  # run marked failed
     assert "complete" not in [t for t, _ in events]
+
+
+# ── Roadmap P3-1: batch synthesis + budget pre-flight gate ───────────────────
+
+_LONG_SLIDE_TEXT = "This is a real lecture slide with plenty of extractable text content, well past the threshold. "
+
+
+def _long_pages(n: int) -> list:
+    return [f"{_LONG_SLIDE_TEXT}Slide {i}." for i in range(n)]
+
+
+async def test_batch_synthesis_reduces_call_count_to_n_over_8(monkeypatch):
+    """Core P3-1 acceptance criterion: a 30-slide deck of text-bearing slides
+    parses with ~N/8 synthesis (batch) calls, not N — each call handles a
+    whole chunk of QUIZ_BATCH_CONFIG.batch_size (default 8) slides."""
+    from backend.services.ai.orchestrator import QUIZ_BATCH_CONFIG
+
+    n = 30
+    rec, run = _patch_common(monkeypatch, pages=_long_pages(n))
+
+    async def boom_synth(*a, **kw):
+        raise AssertionError("per-slide _synthesize_slide must NOT run when batching succeeds")
+
+    monkeypatch.setattr(uo, "_synthesize_slide", boom_synth)
+
+    events = await _run("h", OWNER, filename="Deck.pdf")
+
+    assert [t for t, _ in events][-1] == "complete"
+    assert len(rec["slides"]) == n  # every slide still persisted
+
+    expected_batch_calls = -(-n // QUIZ_BATCH_CONFIG.batch_size)  # ceil(30/8) = 4
+    assert expected_batch_calls == 4
+    assert len(rec["batch_calls"]) == expected_batch_calls
+    # Every slide index appears in exactly one batch call.
+    all_batched_indices = sorted(i for batch in rec["batch_calls"] for i in batch)
+    assert all_batched_indices == list(range(n))
+
+
+async def test_batch_failure_falls_back_to_per_slide_for_that_batch_only(monkeypatch):
+    """A forced failure on one batch call falls back to per-slide synthesis
+    for JUST that batch's slides — the rest of the lecture still uses the
+    batched path, and the lecture still completes with the correct total
+    slide count."""
+    import backend.services.ai.orchestrator as ai_orchestrator
+    from backend.services.ai.orchestrator import QUIZ_BATCH_CONFIG
+
+    n = 30
+    rec, run = _patch_common(monkeypatch, pages=_long_pages(n))
+
+    call_count = {"n": 0}
+
+    async def flaky_batch(slides_input, ai_model="cerebras", blueprint=None, **_kw):
+        call_count["n"] += 1
+        if call_count["n"] == 2:  # second chunk's batch call fails
+            raise RuntimeError("simulated LLM batch failure")
+        rec.setdefault("batch_calls", []).append([s["index"] for s in slides_input])
+        return [
+            {"index": s["index"], "title": f"S{s['index']}", "summary": f"sum{s['index']}",
+             "slide_type": "text"}
+            for s in slides_input
+        ]
+
+    per_slide_calls = []
+
+    async def fallback_synth(idx, text, ctx, model, pdf):
+        per_slide_calls.append(idx)
+        return {"title": f"F{idx}", "content": text, "summary": f"fsum{idx}", "slide_type": "text"}
+
+    monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", flaky_batch)
+    monkeypatch.setattr(uo, "_synthesize_slide", fallback_synth)
+
+    events = await _run("h", OWNER, filename="Deck.pdf")
+
+    assert [t for t, _ in events][-1] == "complete"
+    # Correct total slide count despite the mid-lecture batch failure.
+    assert len(rec["slides"]) == n
+
+    bs = QUIZ_BATCH_CONFIG.batch_size
+    second_chunk_indices = list(range(bs, min(2 * bs, n)))
+    # Per-slide fallback ran for exactly the failing batch's slides — no more.
+    assert sorted(per_slide_calls) == second_chunk_indices
+    # The other (successful) batches never touched the per-slide path.
+    successful_batched = sorted(i for batch in rec["batch_calls"] for i in batch)
+    assert set(successful_batched).isdisjoint(second_chunk_indices)
+    assert set(successful_batched) | set(second_chunk_indices) == set(range(n))
+
+
+async def test_preflight_gate_aborts_before_parsing_on_insufficient_headroom(monkeypatch):
+    """A parse started with deliberately-insufficient daily provider headroom
+    aborts pre-flight with a clear typed error — BEFORE any synthesis or
+    lecture creation — not a mid-parse failure."""
+    import backend.services.ai.orchestrator as ai_orchestrator
+
+    n = 40
+    rec, run = _patch_common(monkeypatch, pages=_long_pages(n))
+
+    class _StarvedRotator:
+        def remaining_headroom(self, chain):
+            return 3  # far below the ~42-call floor (40 slides + 2)
+
+    monkeypatch.setattr(ai_orchestrator, "get_rotator", lambda: _StarvedRotator())
+
+    async def boom_synth(*a, **kw):
+        raise AssertionError("synthesis must never start when pre-flight aborts")
+
+    monkeypatch.setattr(uo, "_synthesize_slide", boom_synth)
+
+    events = []
+
+    async def emit(t, d):
+        events.append((t, d))
+
+    with pytest.raises(uo.InsufficientHeadroomError):
+        await uo.parse_pdf_unified({}, pdf_hash="h", user_id=OWNER, emit_fn=emit)
+
+    assert rec["errors"]  # run marked FAILED via repos.set_error
+    assert any(t == "error" for t, _ in events)
+    assert "complete" not in [t for t, _ in events]
+    # Never got as far as creating the lecture or persisting a slide.
+    assert rec["lectures"] == []
+    assert rec["slides"] == []
