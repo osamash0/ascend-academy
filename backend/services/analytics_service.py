@@ -8,7 +8,7 @@ import json
 import hashlib
 from functools import lru_cache
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 
 def _fetch_all(query: Any, limit: int = 10000) -> List[Dict[str, Any]]:
     """Helper to fetch all records from a Supabase query using pagination."""

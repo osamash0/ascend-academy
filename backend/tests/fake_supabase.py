@@ -73,6 +73,23 @@ def _matches_contains(value: Any, sub: dict) -> bool:
     return True
 
 
+def _get_val(row: dict, col: str) -> Any:
+    if "->>" in col:
+        base_col, key = col.split("->>", 1)
+        base_val = row.get(base_col)
+        if isinstance(base_val, str):
+            import json
+            try:
+                base_val = json.loads(base_val)
+            except Exception:
+                base_val = {}
+        if isinstance(base_val, dict):
+            v = base_val.get(key)
+            return str(v) if v is not None else None
+        return None
+    return row.get(col)
+
+
 class _Storage:
     def __init__(self) -> None:
         self.uploaded: list[tuple[str, str]] = []
@@ -247,21 +264,21 @@ class _QueryBuilder:
         matching = [copy.deepcopy(r) for r in rows]
         for op, col, val in self._filters:
             if op == "eq":
-                matching = [r for r in matching if r.get(col) == val]
+                matching = [r for r in matching if _get_val(r, col) == val]
             elif op == "neq":
-                matching = [r for r in matching if r.get(col) != val]
+                matching = [r for r in matching if _get_val(r, col) != val]
             elif op == "gt":
-                matching = [r for r in matching if r.get(col) is not None and r.get(col) > val]
+                matching = [r for r in matching if _get_val(r, col) is not None and _get_val(r, col) > val]
             elif op == "gte":
-                matching = [r for r in matching if r.get(col) is not None and r.get(col) >= val]
+                matching = [r for r in matching if _get_val(r, col) is not None and _get_val(r, col) >= val]
             elif op == "lt":
-                matching = [r for r in matching if r.get(col) is not None and r.get(col) < val]
+                matching = [r for r in matching if _get_val(r, col) is not None and _get_val(r, col) < val]
             elif op == "lte":
-                matching = [r for r in matching if r.get(col) is not None and r.get(col) <= val]
+                matching = [r for r in matching if _get_val(r, col) is not None and _get_val(r, col) <= val]
             elif op == "in":
-                matching = [r for r in matching if r.get(col) in val]
+                matching = [r for r in matching if _get_val(r, col) in val]
             elif op == "contains":
-                matching = [r for r in matching if _matches_contains(r.get(col), val)]
+                matching = [r for r in matching if _matches_contains(_get_val(r, col), val)]
             elif op == "or":
                 new_matching = []
                 for r in matching:
@@ -331,21 +348,22 @@ class _QueryBuilder:
     # ── helpers ────────────────────────────────────────────────────────────
     def _row_matches(self, row: dict) -> bool:
         for op, col, val in self._filters:
-            if op == "eq" and row.get(col) != val:
+            row_val = _get_val(row, col)
+            if op == "eq" and row_val != val:
                 return False
-            if op == "neq" and row.get(col) == val:
+            if op == "neq" and row_val == val:
                 return False
-            if op == "gt" and not (row.get(col) is not None and row.get(col) > val):
+            if op == "gt" and not (row_val is not None and row_val > val):
                 return False
-            if op == "gte" and not (row.get(col) is not None and row.get(col) >= val):
+            if op == "gte" and not (row_val is not None and row_val >= val):
                 return False
-            if op == "lt" and not (row.get(col) is not None and row.get(col) < val):
+            if op == "lt" and not (row_val is not None and row_val < val):
                 return False
-            if op == "lte" and not (row.get(col) is not None and row.get(col) <= val):
+            if op == "lte" and not (row_val is not None and row_val <= val):
                 return False
-            if op == "in" and row.get(col) not in val:
+            if op == "in" and row_val not in val:
                 return False
-            if op == "contains" and not _matches_contains(row.get(col), val):
+            if op == "contains" and not _matches_contains(row_val, val):
                 return False
             if op == "or":
                 parts = val.split(",")
