@@ -159,7 +159,7 @@ def test_auth_user_delete_cascades_full_pii_footprint(
         )
         cur.execute(
             "INSERT INTO public.learning_events (user_id, event_type, event_data) "
-            "VALUES (%s, 'test_event', '{}'::jsonb)",
+            "VALUES (%s, 'login', '{}'::jsonb)",
             (str(professor),),
         )
 

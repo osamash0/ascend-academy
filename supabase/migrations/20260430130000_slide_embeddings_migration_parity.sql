@@ -1,6 +1,18 @@
 -- S-2 (GDPR posture, docs/ROADMAP_10X_FOUNDATION.md §14): close the P0-3 gap
 -- where `slide_embeddings` exists only in the un-versioned
 -- `backend/scripts/slide_embeddings.sql`, never in `supabase/migrations/`.
+--
+-- MERGE NOTE: this branch was authored independently, before
+-- `fix/p0-promote-slide-embeddings-migration` (P0-3) had landed on main —
+-- P0-3's `20260430120000_promote_slide_embeddings_and_match_slides.sql`
+-- (which this file is now timestamped to sort immediately after) already
+-- creates `slide_embeddings` with the exact `ON DELETE CASCADE` FK this
+-- migration exists to guarantee. Left in place rather than dropped because
+-- it's fully defensive/idempotent (ADD COLUMN IF NOT EXISTS, a
+-- constraint-existence-guarded ADD CONSTRAINT) — against a DB that already
+-- ran P0-3's migration, every statement here is a documented no-op. It only
+-- does real work in the hypothetical case P0-3 is ever reverted without
+-- this file also being reverted.
 -- A database bootstrapped from migrations alone (a fresh Supabase project,
 -- CI, `db reset`) has NO cascade path for this table at all — which matters
 -- for GDPR erasure specifically, because account deletion relies on
