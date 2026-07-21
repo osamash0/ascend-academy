@@ -39,6 +39,7 @@ from backend.core.database import supabase_admin  # ADMIN: bulk relationship que
 from backend.services import analytics_service  # RLS-enforcing per-user client (P2-1): analytics_service.get_auth_client
 from backend.core.rate_limit import limiter
 from backend.core.idempotency import check_idempotency
+from backend.schemas.courses import CourseListResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/courses", tags=["courses"])
@@ -191,7 +192,7 @@ def _student_visible_course_ids(user_id: str) -> set[str]:
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
-@router.get("")
+@router.get("", response_model=CourseListResponse)
 @limiter.limit("60/minute")
 async def list_courses(
     request: Request,
@@ -214,7 +215,10 @@ async def list_courses(
     policies (professor owns the row; OR the caller is enrolled via
     `course_enrollments`; OR the caller is enrolled in an assignment whose
     lectures belong to the course) already encode exactly this visibility,
-    so Postgres enforces it directly and the manual post-filter is gone.
+    so Postgres enforces it directly and the manual post-filter is gone --
+    which also sidesteps the P4-2 filter-after-limit pagination bug (see
+    docs/ROADMAP_10X_FOUNDATION.md §9) for this endpoint specifically: there
+    is no post-filter left to apply after slicing to `limit`.
     """
     uid = _user_id(user)
     if not uid:
@@ -259,7 +263,11 @@ async def list_courses(
                     if only_archived or l.get("is_archived") is False:
                         counts[cid] = counts[cid] + 1
         next_cursor = rows[-1]["created_at"] if rows else None
-        return PaginatedResponse(data=[_serialize(r, counts.get(r["id"], 0)) for r in rows], cursor=next_cursor, has_more=has_more)
+        return PaginatedResponse(
+            data=[_serialize(r, counts.get(r["id"], 0)) for r in rows],
+            cursor=next_cursor,
+            has_more=has_more,
+        )
 
     try:
         data = await run_in_threadpool(_load)
@@ -269,7 +277,7 @@ async def list_courses(
         raise HTTPException(status_code=500, detail="Failed to load courses.")
 
 
-@router.get("/browse")
+@router.get("/browse", response_model=CourseListResponse)
 @limiter.limit("60/minute")
 async def browse_courses(
     request: Request,
