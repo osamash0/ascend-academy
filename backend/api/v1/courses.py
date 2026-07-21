@@ -32,10 +32,11 @@ from backend.core.auth_middleware import (
     require_student,
     verify_token,
 )
-from backend.core.pagination import PaginationParams, PaginatedResponse
+from backend.core.pagination import PaginationParams, PaginatedResponse, paginate_with_predicate
 from backend.core.database import supabase_admin  # ADMIN: bulk relationship queries spanning multiple tables and roles
 from backend.core.rate_limit import limiter
 from backend.core.idempotency import check_idempotency
+from backend.schemas.courses import CourseListResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/courses", tags=["courses"])
@@ -172,7 +173,7 @@ def _student_visible_course_ids(user_id: str) -> set[str]:
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
-@router.get("")
+@router.get("", response_model=CourseListResponse)
 @limiter.limit("60/minute")
 async def list_courses(
     request: Request,
@@ -186,31 +187,48 @@ async def list_courses(
     Own courses (rows with professor_id == uid, regardless of role) plus,
     for non-owned rows, any course visible via course/assignment enrollment.
     A creator who is also enrolled elsewhere as a student sees both.
+
+    Visibility (`professor_id == uid` or enrolled) can't be expressed as a
+    single SQL filter here because `_student_visible_course_ids` resolves it
+    from separate enrollment tables — so it must run in Python. Doing that
+    AFTER slicing to `limit` is exactly the P4-2 pagination bug (see
+    docs/ROADMAP_10X_FOUNDATION.md §9): a page could silently return fewer
+    than `limit` visible rows while `has_more`/cursor were computed on the
+    unfiltered set. `paginate_with_predicate` (backend/core/pagination.py)
+    fixes this by filtering each batch before deciding whether another batch
+    is needed, so `has_more`/cursor are always correct for what the caller
+    can actually see.
     """
     uid = _user_id(user)
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
-    def _load() -> List[dict]:
-        q = supabase_admin.table("courses").select(
-            "id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at"
-        )
-
-        if only_archived:
-            q = q.eq("is_archived", True)
-        elif not include_archived:
-            q = q.eq("is_archived", False)
-
-        if params.cursor:
-            q = q.lt("created_at", params.cursor)
-
-        rows = q.order("created_at", desc=True).limit(params.limit + 1).execute().data or []
-        has_more = len(rows) > params.limit
-        if has_more:
-            rows = rows[:-1]
-
+    def _load() -> PaginatedResponse:
         visible = _student_visible_course_ids(uid)
-        rows = [r for r in rows if r["professor_id"] == uid or r["id"] in visible]
+
+        def _fetch_batch(cursor: Optional[str], batch_limit: int) -> List[dict]:
+            q = supabase_admin.table("courses").select(
+                "id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at"
+            )
+            if only_archived:
+                q = q.eq("is_archived", True)
+            elif not include_archived:
+                q = q.eq("is_archived", False)
+            if cursor:
+                q = q.lt("created_at", cursor)
+            return q.order("created_at", desc=True).limit(batch_limit).execute().data or []
+
+        def _is_visible(row: dict) -> bool:
+            return row["professor_id"] == uid or row["id"] in visible
+
+        page = paginate_with_predicate(
+            fetch_batch=_fetch_batch,
+            predicate=_is_visible,
+            cursor_field="created_at",
+            limit=params.limit,
+            initial_cursor=params.cursor,
+        )
+        rows = page.rows
 
         # Batch-load lecture counts.
         counts: dict[str, int] = {r["id"]: 0 for r in rows}
@@ -229,8 +247,11 @@ async def list_courses(
                 if cid in counts:
                     if only_archived or l.get("is_archived") is False:
                         counts[cid] = counts[cid] + 1
-        next_cursor = rows[-1]["created_at"] if rows else None
-        return PaginatedResponse(data=[_serialize(r, counts.get(r["id"], 0)) for r in rows], cursor=next_cursor, has_more=has_more)
+        return PaginatedResponse(
+            data=[_serialize(r, counts.get(r["id"], 0)) for r in rows],
+            cursor=page.cursor,
+            has_more=page.has_more,
+        )
 
     try:
         data = await run_in_threadpool(_load)
@@ -240,7 +261,7 @@ async def list_courses(
         raise HTTPException(status_code=500, detail="Failed to load courses.")
 
 
-@router.get("/browse")
+@router.get("/browse", response_model=CourseListResponse)
 @limiter.limit("60/minute")
 async def browse_courses(
     request: Request,
