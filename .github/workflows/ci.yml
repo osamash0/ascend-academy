@@ -84,6 +84,46 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
+  dependency-scan:
+    name: Dependency vulnerability scan (SCA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: pip-audit (backend)
+        run: |
+          pip install --quiet pip-audit
+          # Fails the job on any known vulnerability in backend/requirements.txt.
+          # Informational advisories with no fix available yet can be ignored
+          # with `--ignore-vuln <id>` once triaged — do not blanket-suppress.
+          pip-audit -r backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: npm audit (frontend)
+        run: |
+          npm ci --legacy-peer-deps
+          # --audit-level=high: fail on high/critical only so low/moderate
+          # advisories in transitive dev-tooling don't block every PR; revisit
+          # if the project wants a stricter bar.
+          npm audit --audit-level=high
+
+  secret-scan:
+    name: Secret scanning (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No paid GITLEAKS_LICENSE needed — the Action only requires a
+          # license key for GitHub Enterprise Server; github.com repos run free.
+
   nightly-db:
     name: DB / RLS tests (nightly only)
     # Runs nightly on the schedule trigger and on-demand via workflow_dispatch
