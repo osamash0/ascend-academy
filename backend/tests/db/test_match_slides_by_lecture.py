@@ -1,5 +1,5 @@
 """DB regression tests for match_slides_by_lecture (Roadmap Foundation 10x,
-Phase 1 P1-4 — migration 20260719020000_match_slides_by_lecture.sql).
+Phase 1 P1-4 — migration 20260719020001_match_slides_by_lecture.sql).
 
 Before this migration, the single-lecture tutor's retrieval
 (backend/services/ai/retrieval.py) queried the UNSCOPED match_slides RPC
@@ -67,14 +67,19 @@ def test_match_slides_by_lecture_scales_with_many_other_lectures(db_conn, make_u
     prof = make_user(role="professor")
     target = make_lecture(prof, title="Target Lecture")
     query_vector = [0.1] * 768
-    _insert_embedding(db_conn, target, "target-hash", 0, query_vector, "target0")
+    # pdf_hash must be globally unique: P3-3's UNIQUE(pdf_hash, slide_index,
+    # pipeline_version) constraint spans the whole table, and the db-test
+    # session DB isn't truncated between tests — so derive the hash from the
+    # unique lecture uuid rather than a fixed string that collides with the
+    # sibling test's "target-hash".
+    _insert_embedding(db_conn, target, f"scale-{target}", 0, query_vector, "target0")
 
     # 20 other lectures, each with a slide at the SAME similarity as the
     # target's — enough to have filled (and overflowed) the old unscoped
     # top-5/top-20 candidate window entirely with non-target slides.
     for i in range(20):
         other = make_lecture(prof, title=f"Other Lecture {i}")
-        _insert_embedding(db_conn, other, f"other-hash-{i}", 0, query_vector, f"other{i}")
+        _insert_embedding(db_conn, other, f"scale-{other}", 0, query_vector, f"other{i}")
 
     with db_conn.cursor() as cur:
         cur.execute(

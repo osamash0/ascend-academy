@@ -213,7 +213,11 @@ async def test_repeated_tutor_question_embeds_once(
     async def _no_matches(*args, **kwargs):
         return []
 
-    monkeypatch.setattr(retrieval_mod, "get_similar_slides", _no_matches, raising=True)
+    # P1-4 replaced the unscoped get_similar_slides wrapper with the
+    # SQL-scoped get_similar_slides_by_lecture RPC — that's what
+    # retrieve_relevant_slides calls now; stub it out so this test focuses
+    # purely on the query-embedding cache behavior.
+    monkeypatch.setattr(retrieval_mod, "get_similar_slides_by_lecture", _no_matches, raising=True)
 
     query = "What is backpropagation?"
 
@@ -231,7 +235,11 @@ async def test_different_tutor_questions_each_embed(
     async def _no_matches(*args, **kwargs):
         return []
 
-    monkeypatch.setattr(retrieval_mod, "get_similar_slides", _no_matches, raising=True)
+    # P1-4 replaced the unscoped get_similar_slides wrapper with the
+    # SQL-scoped get_similar_slides_by_lecture RPC — that's what
+    # retrieve_relevant_slides calls now; stub it out so this test focuses
+    # purely on the query-embedding cache behavior.
+    monkeypatch.setattr(retrieval_mod, "get_similar_slides_by_lecture", _no_matches, raising=True)
 
     await retrieval_mod.retrieve_relevant_slides("question one", lecture_id="lecture-1")
     await retrieval_mod.retrieve_relevant_slides("question two", lecture_id="lecture-1")
