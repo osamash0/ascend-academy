@@ -6,8 +6,21 @@ from __future__ import annotations
 from typing import Any
 from supabase import Client
 
+from backend.schemas.learning_events import validate_event
+
 
 def insert_event(client: Client, user_id: str, event_type: str, event_data: dict[str, Any]) -> None:
+    """Insert a learning_events row via the shared backend write boundary.
+
+    Validates `event_data` against the P5-1 event registry
+    (backend/schemas/learning_events.py) before writing. An unknown
+    event_type raises `UnknownEventTypeError`; a payload that doesn't match
+    its type's schema raises `pydantic.ValidationError`. Both are backed by
+    the `event_type` CHECK constraint on the table itself, which is the only
+    enforcement point for writers that don't go through this function (e.g.
+    the frontend's direct-to-Supabase `logLearningEvent()`).
+    """
+    validate_event(event_type, event_data)
     client.table("learning_events").insert(
         {"user_id": user_id, "event_type": event_type, "event_data": event_data}
     ).execute()
