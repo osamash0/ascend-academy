@@ -14,6 +14,7 @@ from arq.connections import RedisSettings
 from backend.core.config import settings
 from backend.services.parser.unified_orchestrator import parse_pdf_unified
 from backend.services.review.card_factory import generate_review_cards
+from backend.workers.dlq import capture_dlq_on_job_end
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,12 @@ class WorkerSettings:
     functions = [parse_pdf_unified, generate_review_cards]
     on_startup = startup
     on_shutdown = shutdown
+
+    # Roadmap P2-3: best-effort dead-letter capture for permanently-failed
+    # jobs. See backend/workers/dlq.py for the lifecycle rationale (why
+    # after_job_end, and the one case — crash-loop past max_tries — it can't
+    # cover without patching arq internals).
+    after_job_end = capture_dlq_on_job_end
 
     # Broker + results live on the dedicated queue Redis (noeviction + AOF),
     # never the LRU app-cache Redis — otherwise queued jobs can be evicted.

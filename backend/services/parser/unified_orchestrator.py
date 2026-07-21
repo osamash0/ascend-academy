@@ -36,9 +36,15 @@ from uuid import UUID
 import redis.asyncio as aioredis
 
 from backend.core.config import settings
+from backend.core.job_locks import acquire_job_lock, parse_lock_key, release_job_lock
 from backend.domain.parse_models import RunStatus
 from backend.services.parser import repos, persist
 from backend.services.parser.storage import _fetch_pdf_bytes
+
+# In-flight lock TTL (Roadmap P2-3): must comfortably outlast the worker's
+# job_timeout (900s, see arq_worker.py) so a lock never expires mid-parse and
+# lets a re-enqueued duplicate start clobbering an attempt that's still running.
+PARSE_LOCK_TTL_SECONDS = 1200
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +254,17 @@ async def parse_pdf_unified(
     slide_db_ids: Dict[int, UUID] = {}
     deck_summary = ""
 
+    # In-flight dedupe lock (Roadmap P2-3). Prefer the worker's own Arq redis
+    # pool (`ctx["redis"]`, queue Redis) so a real job needs no extra
+    # connection; dev/test callers passing ctx={} fall back to a throwaway
+    # connection to the same queue Redis.
+    lock_key = parse_lock_key(pdf_hash)
+    lock_redis = ctx.get("redis") if isinstance(ctx, dict) else None
+    owns_lock_conn = lock_redis is None
+    if owns_lock_conn:
+        lock_redis = aioredis.from_url(settings.redis_queue_url, decode_responses=True)
+    got_lock = False
+
     try:
         await emit("info", {"parser": parser_used})
 
@@ -266,6 +283,16 @@ async def parse_pdf_unified(
         # rebuild the existing lecture in place (step 3 reuses existing_lecture_id).
         if run.status == RunStatus.COMPLETED and existing_lecture_id and not force_reparse:
             await _replay_from_db(existing_lecture_id, pdf_hash, emit)
+            return str(run_uuid)
+
+        # ── In-flight dedupe: skip if another attempt for this pdf_hash is
+        # already running (Roadmap P2-3 acceptance criterion) ───────────────
+        got_lock = await acquire_job_lock(lock_redis, lock_key, PARSE_LOCK_TTL_SECONDS)
+        if not got_lock:
+            logger.info(
+                "parse_pdf_unified: pdf_hash=%s already in flight, skipping duplicate run %s",
+                pdf_hash, run_uuid,
+            )
             return str(run_uuid)
 
         await repos.set_status(run_uuid, RunStatus.EXTRACTING)
@@ -587,6 +614,10 @@ async def parse_pdf_unified(
             pass
         raise
     finally:
+        if got_lock:
+            await release_job_lock(lock_redis, lock_key)
+        if owns_lock_conn and lock_redis is not None:
+            await lock_redis.aclose()
         if redis_client:
             await redis_client.aclose()
 
