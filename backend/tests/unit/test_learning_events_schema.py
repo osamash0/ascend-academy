@@ -120,15 +120,15 @@ def test_malformed_payload_for_known_type_rejected(event_type, bad_payload):
         validate_event(event_type, bad_payload)
 
 
-def test_insert_event_rejects_unknown_type(fake_supabase):
+async def test_insert_event_rejects_unknown_type(fake_supabase):
     """The shared backend write boundary (event_repo.insert_event) refuses
     to write a row for an unregistered event_type."""
     with pytest.raises(UnknownEventTypeError):
-        event_repo.insert_event(fake_supabase, "u-1", "not_a_real_event", {})
+        await event_repo.insert_event(fake_supabase, "u-1", "not_a_real_event", {})
     assert not fake_supabase.tables.get("learning_events")
 
 
-def test_insert_event_rejects_malformed_payload(fake_supabase):
+async def test_insert_event_rejects_malformed_payload(fake_supabase):
     with pytest.raises(ValidationError):
-        event_repo.insert_event(fake_supabase, "u-1", "slide_view", {"lectureId": "L1"})
+        await event_repo.insert_event(fake_supabase, "u-1", "slide_view", {"lectureId": "L1"})
     assert not fake_supabase.tables.get("learning_events")

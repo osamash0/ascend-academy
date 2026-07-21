@@ -13,6 +13,7 @@ from arq.connections import RedisSettings
 from arq.cron import cron
 
 from backend.core.config import settings
+from backend.services.analytics_rollup import rollup_analytics_cache, rollup_concept_mastery
 from backend.services.parser.unified_orchestrator import parse_pdf_unified
 from backend.services.review.card_factory import generate_review_cards
 from backend.workers.dlq import capture_dlq_on_job_end
@@ -89,7 +90,12 @@ async def refresh_professor_overview_mv(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [parse_pdf_unified, generate_review_cards]
+    functions = [
+        parse_pdf_unified,
+        generate_review_cards,
+        rollup_analytics_cache,
+        rollup_concept_mastery,
+    ]
     cron_jobs = [
         cron(refresh_professor_overview_mv, minute={0, 10, 20, 30, 40, 50}, run_at_startup=True),
     ]

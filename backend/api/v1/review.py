@@ -30,7 +30,6 @@ from backend.core.database import get_db_connection
 from backend.core.idempotency import check_idempotency
 from backend.core.rate_limit import limiter
 from backend.schemas.learning_events import ReviewGraded
-from backend.services.review import mastery
 from backend.services.review.scheduler import ReviewState, schedule
 
 logger = logging.getLogger(__name__)
@@ -217,7 +216,30 @@ async def grade_card(
             user_id, review_graded_payload.model_dump_json(),
         )
 
-        await mastery.record_grade(conn, user_id, card_uuid, body.rating)
+    # P5-3: concept_mastery recompute used to run here, awaited inline
+    # inside the same transaction as the grade write (SELECT +
+    # Laplace-smoothed compute + UPSERT) — genuine synchronous Python-side
+    # aggregate recomputation on the hot write path. It's now a fire-and-
+    # forget Arq job enqueued after the transaction commits and the write
+    # is durable, so the response never waits on it. Best-effort: a queue
+    # hiccup degrades to a stale (or, today, always-empty — see
+    # mastery.record_grade's docstring) concept_mastery row, never a 500
+    # on the grade itself; the failure is still logged and Arq retries it.
+    try:
+        from backend.services.upload_service import get_arq_pool
+
+        pool = await get_arq_pool()
+        await pool.enqueue_job(
+            "rollup_concept_mastery",
+            user_id=user_id,
+            card_id=str(card_uuid),
+            rating=body.rating,
+        )
+    except Exception:
+        logger.warning(
+            "Failed to enqueue rollup_concept_mastery for user_id=%s card_id=%s",
+            user_id, card_id, exc_info=True,
+        )
 
     return {
         "card_id": card_id,
