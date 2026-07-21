@@ -102,6 +102,37 @@ async def test_validate_upload_sanitizes_traversal_filename(sample_pdf_bytes):
     assert await upload_service.validate_upload("../../etc/passwd.pdf", sample_pdf_bytes) == 3
 
 
+async def test_validate_upload_rejects_text_file_renamed_to_pdf():
+    # Wrong-MIME abuse case: a plain-text file given a spoofed .pdf extension.
+    # No %PDF magic bytes anywhere in the content → rejected at the magic-byte
+    # check, before fitz (or any parser) ever sees it.
+    fake = b"This is just a plain text file pretending to be a PDF.\n" * 10
+    with pytest.raises(ValueError, match="Invalid file format"):
+        await upload_service.validate_upload("notes.pdf", fake)
+
+
+async def test_validate_upload_rejects_truncated_real_pdf(sample_pdf_bytes):
+    # A genuinely truncated file: real PDF bytes cut off mid-stream. Magic
+    # bytes at the front are intact (so it clears validate_pdf_content), but
+    # fitz must fail to open the incomplete structure → friendly 4xx-style
+    # ValueError, not a crash.
+    # PyMuPDF's repair heuristics can reconstruct a lightly-truncated PDF from
+    # its raw content stream, so cut deep enough (past the object table) that
+    # no valid structure remains — this reliably reproduces a real "someone's
+    # upload got cut off mid-transfer" corruption.
+    truncated = sample_pdf_bytes[: len(sample_pdf_bytes) // 10]
+    with pytest.raises(ValueError, match="corrupted or password-protected"):
+        await upload_service.validate_upload("truncated.pdf", truncated)
+
+
+async def test_validate_upload_rejects_corrupt_header_pdf():
+    # Corrupt/mangled header: magic bytes present but garbled immediately
+    # after, and no valid PDF structure at all.
+    corrupt_header = b"%PDF-9.9\x00\x00\x00CORRUPTHEADERGARBAGE" + b"\xff" * 200
+    with pytest.raises(ValueError, match="corrupted or password-protected"):
+        await upload_service.validate_upload("corrupt.pdf", corrupt_header)
+
+
 # ── validate_upload / _validate_pptx (PPTX) ──────────────────────────────────
 
 def _pptx_bytes(n_slides: int) -> bytes:
