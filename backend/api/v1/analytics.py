@@ -157,6 +157,33 @@ def _assert_course_owner(course_id: str, user_id: str) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
 
+async def _assert_course_owner_async(course_id: str, user_id: str) -> None:
+    """asyncpg equivalent of ``_assert_course_owner`` (Roadmap P2-2 pilot slice).
+
+    Raises the same 404/403 ``HTTPException``s, on the same conditions, as
+    the sync REST version above — this is a concurrency change (runs on the
+    event loop instead of occupying a threadpool slot), not a behavior
+    change. Only wired into ``get_course_exam_aggregate`` for now; the other
+    three callers of ``_assert_course_owner`` are unconverted (see roadmap
+    doc P2-2 for the full deferred-scope list).
+
+    A malformed (non-UUID) ``course_id`` is left to raise ``ValueError``
+    uncaught here, matching the sync path: PostgREST rejects a non-uuid
+    filter value with a DB error that isn't caught by ``_assert_course_owner``
+    either, so both versions bubble up to the caller's generic 500 handler.
+    """
+    course_uuid = UUID(course_id)
+
+    async with await get_db_connection() as conn:
+        row = await conn.fetchrow(
+            "SELECT professor_id FROM courses WHERE id = $1", course_uuid
+        )
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+    if str(row["professor_id"]) != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
+
 def _assert_lecture_owner(lecture_id: str, user_id: str, token: str = None) -> None:
     """Raise 403 if the authenticated user is not the professor who owns this lecture."""
     # Use the authenticated client if token provided, else default
@@ -767,7 +794,7 @@ async def get_course_exam_aggregate(
     single student's attempt, only an aggregate suppressed below
     MIN_ATTEMPTS_FOR_AGGREGATE distinct students.
     """
-    await run_in_threadpool(_assert_course_owner, course_id, user.id)
+    await _assert_course_owner_async(course_id, user.id)
     try:
         try:
             course_uuid = UUID(course_id)

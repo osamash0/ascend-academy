@@ -6,16 +6,37 @@ Start with:
 Or via docker-compose:
     worker:
       command: python -m arq backend.workers.arq_worker.WorkerSettings
+
+Roadmap P2-2: also hosts the daily nudge-engine cron job (moved off
+in-process APScheduler in backend/services/nudge_scheduler.py — see that
+module's docstring for why). ``cron(..., unique=True)`` is arq's default,
+so even if this worker is ever scaled to N processes, only one of them
+actually executes the job at each scheduled time (arq dedupes via a
+Redis-backed key), never N double-fires the way APScheduler would have.
 """
 import logging
 
 from arq.connections import RedisSettings
+from arq.cron import cron
 
 from backend.core.config import settings
+from backend.services.nudge_scheduler import (
+    NUDGE_CRON_ENABLED,
+    NUDGE_RUN_HOUR_UTC,
+    run_nudge_engine_cron,
+)
 from backend.services.parser.unified_orchestrator import parse_pdf_unified
 from backend.services.review.card_factory import generate_review_cards
 
 logger = logging.getLogger(__name__)
+
+# Empty when ENABLE_NUDGE_SCHEDULER isn't set to "1" — same off-by-default
+# posture as the old APScheduler wiring (never fires in dev/tests).
+_cron_jobs = (
+    [cron(run_nudge_engine_cron, hour=NUDGE_RUN_HOUR_UTC, minute=0, unique=True)]
+    if NUDGE_CRON_ENABLED
+    else []
+)
 
 
 async def startup(ctx: dict) -> None:
@@ -34,6 +55,7 @@ async def shutdown(ctx: dict) -> None:
 
 class WorkerSettings:
     functions = [parse_pdf_unified, generate_review_cards]
+    cron_jobs = _cron_jobs
     on_startup = startup
     on_shutdown = shutdown
 
