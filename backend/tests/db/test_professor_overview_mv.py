@@ -15,7 +15,7 @@ Setup (once):
     psql -d p52_scratch -c "CREATE EXTENSION IF NOT EXISTS vector;"
     psql -d p52_scratch -f backend/tests/db/sql/00_bootstrap.sql
     for f in supabase/migrations/*.sql; do
-      # apply every migration through 20260720000000_professor_overview_daily_activity_mv.sql
+      # apply every migration through 20260720000001_professor_overview_daily_activity_mv.sql
       psql -d p52_scratch -v ON_ERROR_STOP=1 -f "$f" || break
     done
 
@@ -50,7 +50,7 @@ pytestmark = pytest.mark.db
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
-MV_MIGRATION = MIGRATIONS_DIR / "20260720000000_professor_overview_daily_activity_mv.sql"
+MV_MIGRATION = MIGRATIONS_DIR / "20260720000001_professor_overview_daily_activity_mv.sql"
 
 PG_TEST_DSN = os.environ.get("PG_TEST_DSN", "dbname=p52_scratch")
 

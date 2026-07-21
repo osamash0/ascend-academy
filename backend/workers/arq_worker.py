@@ -37,7 +37,7 @@ async def shutdown(ctx: dict) -> None:
 # ── P5-2: scheduled materialized-view refresh ────────────────────────────────
 #
 # `mv_course_daily_activity` (supabase/migrations/
-# 20260720000000_professor_overview_daily_activity_mv.sql) backs the
+# 20260720000001_professor_overview_daily_activity_mv.sql) backs the
 # professor-overview dashboard aggregate (analytics_service.py::
 # _compute_professor_overview) instead of a live per-request scan over
 # learning_events. It needs a periodic refresh or the dashboard would show
@@ -77,12 +77,12 @@ async def refresh_professor_overview_mv(ctx: dict) -> None:
             )
         logger.info("mv_course_daily_activity refreshed")
     except asyncpg.UndefinedTableError:
-        # Migration 20260720000000_professor_overview_daily_activity_mv.sql has
+        # Migration 20260720000001_professor_overview_daily_activity_mv.sql has
         # not been applied yet — skip silently so the worker starts cleanly in
         # local dev before the schema is in sync.
         logger.warning(
             "mv_course_daily_activity does not exist yet — "
-            "run migration 20260720000000_professor_overview_daily_activity_mv.sql to create it"
+            "run migration 20260720000001_professor_overview_daily_activity_mv.sql to create it"
         )
     except Exception as e:
         logger.error("mv_course_daily_activity refresh failed: %s", e, exc_info=True)

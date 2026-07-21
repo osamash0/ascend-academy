@@ -1086,7 +1086,7 @@ async def _compute_professor_overview(
     # active_students / median_time_minutes / activity_sparkline no longer
     # scan every learning_events row for the course; they read
     # `mv_course_daily_activity` (supabase/migrations/
-    # 20260720000000_professor_overview_daily_activity_mv.sql), a per
+    # 20260720000001_professor_overview_daily_activity_mv.sql), a per
     # (course_id, day) rollup refreshed on a schedule by an Arq cron job
     # (backend/workers/arq_worker.py, every 10 minutes — see that file for
     # the bounded-staleness rationale). weakest_concepts/weakest_slides still

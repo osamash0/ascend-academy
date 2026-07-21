@@ -4,7 +4,7 @@ scheduled materialized-view refresh cron job.
 
 backend/workers/arq_worker.py::refresh_professor_overview_mv is what keeps
 `mv_course_daily_activity` (supabase/migrations/
-20260720000000_professor_overview_daily_activity_mv.sql) from going stale
+20260720000001_professor_overview_daily_activity_mv.sql) from going stale
 forever — nothing else refreshes it. These tests exercise the function in
 isolation (mocked asyncpg connection) rather than requiring a live worker;
 the real-Postgres proof that the migration + REFRESH CONCURRENTLY actually
