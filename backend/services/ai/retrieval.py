@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from backend.core.database import supabase_admin
 from backend.services.ai.embeddings import generate_embeddings
 from backend.services.cache import (
-    get_similar_slides,
+    get_similar_slides_by_lecture,
     get_similar_slides_scoped,
     search_slides_keyword_scoped,
 )
@@ -123,27 +123,24 @@ async def retrieve_relevant_slides(
         logger.warning("Query embedding failed (degrading to current slide): %s", e)
         return await _current_only(current_slide_index, lecture_id, pdf_hash)
 
-    # Pull a generous candidate set; we'll trim after scoping.
+    # Scoped in SQL (Roadmap P1-4) — no over-fetch, no Python post-filter.
+    # match_slides_by_lecture applies the lecture_id/pdf_hash scope in the
+    # WHERE clause itself, so a relevant slide in this lecture is never
+    # dropped because a global candidate window filled up with other
+    # lectures' slides first (see migration 20260719020000's comment).
     raw_matches: List[Dict[str, Any]]
     try:
-        raw_matches = await get_similar_slides(
-            embedding, limit=max(k * 4, 8), threshold=threshold
+        raw_matches = await get_similar_slides_by_lecture(
+            embedding, lecture_id, pdf_hash, limit=k, threshold=threshold
         )
     except Exception as e:
-        logger.warning("match_slides RPC failed: %s", e)
+        logger.warning("match_slides_by_lecture RPC failed: %s", e)
         raw_matches = []
-
-    scoped: List[Dict[str, Any]] = []
-    for r in raw_matches:
-        if lecture_id and r.get("lecture_id") == lecture_id:
-            scoped.append(r)
-        elif pdf_hash and r.get("pdf_hash") == pdf_hash:
-            scoped.append(r)
 
     # Dedup by slide_index (most-similar wins because RPC orders by distance).
     seen: set[int] = set()
     deduped: List[Dict[str, Any]] = []
-    for r in scoped:
+    for r in raw_matches:
         idx = r.get("slide_index")
         if idx is None or idx in seen:
             continue
