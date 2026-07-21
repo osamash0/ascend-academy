@@ -29,6 +29,7 @@ from backend.core.auth_middleware import _user_id, require_professor, require_st
 from backend.core.database import get_db_connection
 from backend.core.idempotency import check_idempotency
 from backend.core.rate_limit import limiter
+from backend.schemas.learning_events import ReviewGraded
 from backend.services.review import mastery
 from backend.services.review.scheduler import ReviewState, schedule
 
@@ -210,9 +211,10 @@ async def grade_card(
             "INSERT INTO review_log (user_id, card_id, rating, elapsed_ms) VALUES ($1, $2, $3, $4)",
             user_id, card_uuid, body.rating, body.elapsed_ms,
         )
+        review_graded_payload = ReviewGraded(card_id=str(card_id), rating=int(body.rating))
         await conn.execute(
             "INSERT INTO learning_events (user_id, event_type, event_data) VALUES ($1, 'review_graded', $2::jsonb)",
-            user_id, f'{{"card_id": "{card_id}", "rating": {body.rating}}}',
+            user_id, review_graded_payload.model_dump_json(),
         )
 
         await mastery.record_grade(conn, user_id, card_uuid, body.rating)

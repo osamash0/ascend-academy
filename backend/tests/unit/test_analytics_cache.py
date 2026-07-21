@@ -108,7 +108,13 @@ def test_event_insert_invalidates_cache(patch_supabase):
         patch_supabase,
         user_id="u1",
         event_type="quiz_attempt",
-        event_data={"lectureId": "L1", "questionId": "q1", "correct": True},
+        event_data={
+            "lectureId": "L1",
+            "questionId": "q1",
+            "correct": True,
+            "sessionId": "sess-1",
+            "timestamp": "2026-07-20T00:00:00Z",
+        },
     )
 
     assert patch_supabase.tables.get("analytics_cache", []) == []
@@ -161,7 +167,13 @@ def test_overview_endpoint_recomputes_after_invalidation(app, patch_supabase, pr
     from backend.repositories import event_repo
     event_repo.insert_event(
         patch_supabase, "u2", "slide_view",
-        {"lectureId": "L1", "slideId": "s1", "duration_seconds": 30},
+        {
+            "lectureId": "L1",
+            "slideId": "s1",
+            "duration_seconds": 30,
+            "sessionId": "sess-2",
+            "timestamp": "2026-07-20T00:00:00Z",
+        },
     )
     assert patch_supabase.tables.get("analytics_cache", []) == []
 
