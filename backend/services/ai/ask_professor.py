@@ -611,7 +611,9 @@ async def chat_professor_data(
     context = await run_in_threadpool(_build_professor_context, token, professor_id)
     prompt = _build_chat_prompt(context, trimmed)
     try:
-        reply = await generate_text(prompt, ai_model)
+        reply = await generate_text(
+            prompt, ai_model, user_id=professor_id, feature="ask_professor_chat"
+        )
     except Exception as e:
         logger.error("ask_professor chat failed: %s", e, exc_info=True)
         return f"Sorry — I couldn't answer that just now. Debug Error: {type(e).__name__}: {str(e)}"

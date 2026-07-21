@@ -438,3 +438,21 @@ async def get_deployment_info(request: Request, user: Any = Depends(require_admi
     except Exception as e:
         logger.error("Failed to load deployment info: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve deployment telemetry.")
+
+
+# ── LLM cost accounting (Roadmap Foundation 10x, Phase 1 P1-1) ─────────────
+
+@router.get("/llm-spend/{user_id}")
+@limiter.limit("30/minute")
+async def get_user_llm_spend(user_id: str, request: Request, user: Any = Depends(require_admin)):
+    """Authoritative (DB-backed) LLM spend for `user_id` for the current UTC
+    calendar month — sums public.llm_calls.est_cost_usd. Only reflects calls
+    made through a code path that passed `user_id` to generate_text/
+    generate_text_bulk (not every orchestrator call site does this yet)."""
+    from backend.services.ai.cost import get_user_monthly_spend_from_db
+    try:
+        spend_usd = await get_user_monthly_spend_from_db(user_id)
+        return {"user_id": user_id, "monthly_spend_usd": round(spend_usd, 6)}
+    except Exception as e:
+        logger.error("Failed to load LLM spend for user %s: %s", user_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve LLM spend.")

@@ -623,9 +623,9 @@ class TestPerSlideQuizRegeneration:
         seen_prompts: List[str] = []
         responses = iter([first_response, regen_response])
 
-        def fake_rotation(prompt: str, _chain: List[str], preferred=None, **_kw) -> str:
+        def fake_rotation(prompt: str, _chain: List[str], preferred=None, **_kw):
             seen_prompts.append(prompt)
-            return next(responses)
+            return next(responses), "cerebras", "gpt-oss-120b", None
 
         monkeypatch.setattr(orchestrator, "_generate_with_rotation", fake_rotation)
         # call_llm wraps the lambda; just call it.
@@ -663,9 +663,9 @@ class TestPerSlideQuizRegeneration:
             ']'
         )
 
-        def fake_rotation(prompt: str, _chain: List[str], preferred=None, **_kw) -> str:
+        def fake_rotation(prompt: str, _chain: List[str], preferred=None, **_kw):
             seen_prompts.append(prompt)
-            return clean_response
+            return clean_response, "cerebras", "gpt-oss-120b", None
 
         async def passthrough_call_llm(fn):
             return fn()
@@ -710,8 +710,8 @@ class TestPerSlideQuizRegeneration:
         )
         responses = iter([first_response, regen_response])
 
-        def fake_rotation(prompt: str, _chain: List[str], preferred=None, **_kw) -> str:
-            return next(responses)
+        def fake_rotation(prompt: str, _chain: List[str], preferred=None, **_kw):
+            return next(responses), "cerebras", "gpt-oss-120b", None
 
         async def passthrough_call_llm(fn):
             return fn()
@@ -745,8 +745,8 @@ class TestPerSlideQuizRegeneration:
         # (still-degenerate) question rather than error.
         responses = iter([first_response, "not even json"])
 
-        def fake_rotation(prompt: str, _chain: List[str], preferred=None, **_kw) -> str:
-            return next(responses)
+        def fake_rotation(prompt: str, _chain: List[str], preferred=None, **_kw):
+            return next(responses), "cerebras", "gpt-oss-120b", None
 
         async def passthrough_call_llm(fn):
             return fn()

@@ -75,7 +75,7 @@ def test_json_mode_off_by_default_never_sends_response_format():
     no `response_format` key reaches the SDK call at all."""
     client = _FakeClient(lambda kwargs: _ok_response())
 
-    out = orch._call_openai_compat(client, "some-model", "hello", provider_id="openai")
+    out, _usage = orch._call_openai_compat(client, "some-model", "hello", provider_id="openai")
 
     assert out == '{"ok": true}'
     assert len(client.chat.completions.calls) == 1
@@ -87,7 +87,7 @@ def test_json_mode_on_supported_provider_sends_response_format():
     the first and only call — no wasted retry."""
     client = _FakeClient(lambda kwargs: _ok_response('{"a": 1}'))
 
-    out = orch._call_openai_compat(
+    out, _usage = orch._call_openai_compat(
         client, "gpt-4o-mini", "summarize", provider_id="openai", json_mode=True,
     )
 
@@ -116,7 +116,7 @@ def test_json_mode_falls_back_gracefully_when_provider_rejects_param():
 
     client = _FakeClient(behavior)
 
-    out = orch._call_openai_compat(
+    out, _usage = orch._call_openai_compat(
         client, "llama-3.3-70b:free", "classify", provider_id="openrouter", json_mode=True,
     )
 
@@ -135,7 +135,7 @@ def test_json_mode_unsupported_provider_is_not_retried_on_subsequent_calls():
     orch._JSON_MODE_UNSUPPORTED.add("cloudflare")
     client = _FakeClient(lambda kwargs: _ok_response('{"x": 1}'))
 
-    out = orch._call_openai_compat(
+    out, _usage = orch._call_openai_compat(
         client, "llama-3.3-70b", "analyze", provider_id="cloudflare", json_mode=True,
     )
 

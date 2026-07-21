@@ -156,6 +156,24 @@ class Settings(BaseSettings):
         alias="LEARNING_EVENTS_RETENTION_EXECUTE", default=False
     )
 
+    # ─── LLM cost accounting (Roadmap Foundation 10x, Phase 1 P1-1) ────────────
+    # Fleet-wide daily $ ceiling on the "openai" provider specifically — the
+    # only provider in orchestrator.PROVIDER_REGISTRY with daily_limit=0
+    # (unmetered) and a real per-token bill. Once the fleet's combined openai
+    # spend for today (tracked in Redis, shared across all worker processes)
+    # reaches this, ProviderRotator.available() drops "openai" from the chain
+    # regardless of which process asks. 0 disables the gate (unlimited).
+    llm_openai_daily_cost_ceiling_usd: float = Field(
+        alias="LLM_OPENAI_DAILY_COST_CEILING_USD", default=10.0
+    )
+    # Per-user monthly $ cap across all providers (Redis-tracked running total,
+    # keyed by user_id + calendar month). Only enforced for calls that pass a
+    # user_id — most orchestrator call sites don't yet (fast-follow to thread
+    # user_id through every feature). 0 disables the cap.
+    llm_monthly_user_cost_cap_usd: float = Field(
+        alias="LLM_MONTHLY_USER_COST_CAP_USD", default=5.0
+    )
+
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")
     def resolve_supabase_credentials(self) -> "Settings":
