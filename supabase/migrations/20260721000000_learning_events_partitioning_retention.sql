@@ -81,7 +81,28 @@ CREATE TABLE public.learning_events (
     event_type  text NOT NULL,
     event_data  jsonb DEFAULT '{}',
     created_at  timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (id, created_at)
+    PRIMARY KEY (id, created_at),
+    -- P5-1's event_type CHECK constraint (20260720000000) doesn't survive
+    -- this rename-and-recreate; it must be redeclared here or the catalog
+    -- guardrail silently disappears for every partition. A CHECK on a
+    -- partitioned parent IS inherited by every partition (unlike RLS, which
+    -- is not — see the note below), so this only needs to be declared once.
+    CONSTRAINT learning_events_event_type_check CHECK (event_type IN (
+        'lecture_start',
+        'slide_view',
+        'quiz_attempt',
+        'quiz_retry_attempt',
+        'lecture_complete',
+        'ai_tutor_query',
+        'micro_quiz_attempt',
+        'login',
+        'slide_back_navigation',
+        'confidence_rating',
+        'search_performed',
+        'exam_generated',
+        'exam_submitted',
+        'review_graded'
+    ))
 ) PARTITION BY RANGE (created_at);
 
 COMMENT ON TABLE public.learning_events IS

@@ -155,8 +155,14 @@ def test_hnsw_index_used_and_similarity_order_correct(db_conn, make_user, make_l
         plan_text = "\n".join(r[0] for r in cur.fetchall())
         cur.execute("SET enable_seqscan = on")
 
+        # match_slides is the deliberately-unscoped global RPC and its LIMIT
+        # applies before the outer pdf_hash filter — in the shared
+        # session-scoped test DB, other db-test files' rows can occupy the
+        # top-N slots ahead of this test's own 3 rows. A generously large
+        # candidate count keeps this test correct regardless of how much
+        # other fixture data already exists in the table.
         cur.execute(
-            "SELECT slide_index, similarity FROM match_slides(%s::vector, -1.0, 5) "
+            "SELECT slide_index, similarity FROM match_slides(%s::vector, -1.0, 1000) "
             "WHERE pdf_hash = 'hnsw-planner-test' ORDER BY similarity DESC",
             (base,),
         )

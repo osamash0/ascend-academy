@@ -79,15 +79,24 @@ def test_match_slides_end_to_end_retrieves_stored_embedding(db_conn, make_user, 
             """,
             (str(lecture), "deadbeef1234", query_vector),
         )
+        # match_slides is the deliberately-unscoped global RPC and its
+        # candidate-count LIMIT applies before any filtering — in the shared
+        # session-scoped test DB, other db-test files insert rows with this
+        # same identical query_vector, so a small count can crowd this
+        # test's own row out entirely. A generously large count keeps this
+        # test correct regardless of how much other fixture data exists.
         cur.execute(
             "SELECT id, lecture_id, pdf_hash, slide_index, similarity "
-            "FROM match_slides(%s::vector, 0.5, 5)",
+            "FROM match_slides(%s::vector, 0.5, 1000)",
             (query_vector,),
         )
         rows = cur.fetchall()
 
-    assert len(rows) == 1
-    _id, lecture_id, pdf_hash, slide_index, similarity = rows[0]
+    # Filter to this test's own row rather than assume exclusivity over the
+    # whole table — see the note above.
+    own_rows = [r for r in rows if str(r[1]) == str(lecture)]
+    assert len(own_rows) == 1
+    _id, lecture_id, pdf_hash, slide_index, similarity = own_rows[0]
     assert str(lecture_id) == str(lecture)
     assert pdf_hash == "deadbeef1234"
     assert slide_index == 1
