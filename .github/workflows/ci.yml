@@ -136,7 +136,11 @@ jobs:
         # 2026-07-21) then flip this to blocking. Kept non-blocking for now so
         # CI is informative without breaking on day one.
         run: ruff check backend/ --statistics || true
-      - run: python -m pytest backend/tests --cov=backend --cov-report=html --cov-report=term --cov-fail-under=70 -q
+      # Database/RLS tests are separately gated below: nightly, dispatch, or
+      # a PR touching database-relevant paths. Keeping this fast suite free
+      # of Docker makes ordinary pushes deterministic while retaining the
+      # targeted authorization-boundary gate.
+      - run: python -m pytest backend/tests -m "not db" --cov=backend --cov-report=html --cov-report=term --cov-fail-under=70 -q
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -187,7 +191,16 @@ jobs:
           # Fails the job on any known vulnerability in backend/requirements.txt.
           # Informational advisories with no fix available yet can be ignored
           # with `--ignore-vuln <id>` once triaged — do not blanket-suppress.
-          pip-audit -r backend/requirements.txt
+          # FastAPI 0.136.x constrains Starlette to <0.53, while every
+          # currently published Starlette fix for these advisories is 1.x.
+          # Keep the exceptions specific and temporary; remove them once a
+          # compatible FastAPI release permits a patched Starlette.
+          pip-audit -r backend/requirements.txt \
+            --ignore-vuln PYSEC-2026-161 \
+            --ignore-vuln PYSEC-2026-248 \
+            --ignore-vuln PYSEC-2026-249 \
+            --ignore-vuln PYSEC-2026-2280 \
+            --ignore-vuln PYSEC-2026-2281
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
