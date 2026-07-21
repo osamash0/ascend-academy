@@ -1119,12 +1119,40 @@ async def _compute_professor_overview(
         .in_("lecture_id", lecture_ids)
     )
 
-    # 3. Recent learning events (last `days` days)
-    # Batch query using direct async database connection to prevent N+1 loop
+    # 3. Recent learning events (last `days` days).
+    #
+    # P5-2 (Foundation 10x roadmap §13, OLTP/OLAP split — staged lift (a)):
+    # active_students / median_time_minutes / activity_sparkline no longer
+    # scan every learning_events row for the course; they read
+    # `mv_course_daily_activity` (supabase/migrations/
+    # 20260720000000_professor_overview_daily_activity_mv.sql), a per
+    # (course_id, day) rollup refreshed on a schedule by an Arq cron job
+    # (backend/workers/arq_worker.py, every 10 minutes — see that file for
+    # the bounded-staleness rationale). weakest_concepts/weakest_slides still
+    # need item-level slide_id/question_id granularity the rollup doesn't
+    # carry, so they read a narrower *live* quiz_attempt-only query below
+    # (previously this fetched ALL event types for the window and filtered
+    # to quiz_attempt in Python; querying only quiz_attempt rows cuts the
+    # payload without changing the result).
     from datetime import timezone
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-    if client.__class__.__name__ == "FakeSupabaseClient":
+    def _row_to_dict(r):
+        d = dict(r)
+        ed = d.get("event_data")
+        if isinstance(ed, str):
+            try:
+                d["event_data"] = json.loads(ed)
+            except Exception:
+                d["event_data"] = {}
+        return d
+
+    use_mv = client.__class__.__name__ != "FakeSupabaseClient"
+
+    if not use_mv:
+        # Unit-test path (FakeSupabaseClient simulates PostgREST, not a real
+        # Postgres connection the MV could live in): compute everything from
+        # the raw event set exactly as before the P5-2 change.
         course_events = []
         for lid in lecture_ids:
             events_data = await asyncio.to_thread(
@@ -1147,28 +1175,63 @@ async def _compute_professor_overview(
 
                 if dt_val >= cutoff:
                     course_events.append(e)
+
+        active_students = len({
+            e["user_id"] for e in course_events if e.get("user_id")
+        })
+
+        durations: List[float] = []
+        for e in course_events:
+            if e.get("event_type") != "lecture_complete":
+                continue
+            d = (e.get("event_data") or {}).get("total_duration_seconds")
+            if isinstance(d, (int, float)) and d > 0:
+                durations.append(d / 60.0)
+        median_time = _median(durations)
+
+        # quiz_attempt subset for step 7 below.
+        quiz_attempt_events = [
+            e for e in course_events if e.get("event_type") == "quiz_attempt"
+        ]
+        by_day_events = course_events
     else:
+        today = datetime.now(timezone.utc).date()
+        window_start = today - timedelta(days=days - 1)
         async with await get_db_connection() as conn:
-            event_rows = await conn.fetch("""
-                SELECT user_id, event_type, event_data, created_at
+            mv_rows = await conn.fetch("""
+                SELECT activity_day, tracked_event_count, active_user_ids,
+                       lecture_complete_durations_seconds
+                FROM mv_course_daily_activity
+                WHERE course_id = $1::uuid
+                  AND activity_day BETWEEN $2::date AND $3::date
+                ORDER BY activity_day
+            """, course_id, window_start, today)
+
+            quiz_rows = await conn.fetch("""
+                SELECT event_data, created_at
                 FROM learning_events
-                WHERE created_at >= $1::timestamptz
+                WHERE event_type = 'quiz_attempt'
+                  AND created_at >= $1::timestamptz
                   AND (event_data->>'lectureId') = ANY($2::text[])
             """, cutoff, lecture_ids)
-        def _row_to_dict(r):
-            d = dict(r)
-            ed = d.get("event_data")
-            if isinstance(ed, str):
-                try:
-                    d["event_data"] = json.loads(ed)
-                except Exception:
-                    d["event_data"] = {}
-            return d
-        course_events = [_row_to_dict(r) for r in event_rows]
+        quiz_attempt_events = [_row_to_dict(r) for r in quiz_rows]
 
-    active_students = len({
-        e["user_id"] for e in course_events if e.get("user_id")
-    })
+        active_user_set: set = set()
+        durations: List[float] = []
+        tracked_by_day: Dict[date, int] = {}
+        for r in mv_rows:
+            day = r["activity_day"]
+            tracked_by_day[day] = int(r["tracked_event_count"] or 0)
+            for uid in (r["active_user_ids"] or []):
+                if uid:
+                    active_user_set.add(uid)
+            for secs in (r["lecture_complete_durations_seconds"] or []):
+                if secs and secs > 0:
+                    durations.append(float(secs) / 60.0)
+
+        active_students = len(active_user_set)
+        median_time = _median(durations)
+        by_day_events = None  # sparkline built directly from tracked_by_day below
 
     # 4. Average completion across progress rows
     completion_pcts: List[float] = []
@@ -1185,16 +1248,6 @@ async def _compute_professor_overview(
     total_q = sum(int(p.get("total_questions_answered") or 0) for p in progress)
     total_c = sum(int(p.get("correct_answers") or 0) for p in progress)
     avg_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0.0
-
-    # 6. Median lecture-completion time (minutes)
-    durations: List[float] = []
-    for e in course_events:
-        if e.get("event_type") != "lecture_complete":
-            continue
-        d = (e.get("event_data") or {}).get("total_duration_seconds")
-        if isinstance(d, (int, float)) and d > 0:
-            durations.append(d / 60.0)
-    median_time = _median(durations)
 
     # 7. Weakest concepts (degrades to weakest slides)
     slides = await asyncio.to_thread(
@@ -1224,9 +1277,7 @@ async def _compute_professor_overview(
     slide_stats: Dict[str, Dict[str, int]] = defaultdict(
         lambda: {"attempts": 0, "correct": 0}
     )
-    for e in course_events:
-        if e.get("event_type") != "quiz_attempt":
-            continue
+    for e in quiz_attempt_events:
         ed_raw = e.get("event_data") or {}
         import json
         ed = json.loads(ed_raw) if isinstance(ed_raw, str) else ed_raw
@@ -1286,20 +1337,26 @@ async def _compute_professor_overview(
         )[:5]
 
     # 8. 7-day activity sparkline (counts learning_events tied to course)
-    by_day: Dict[str, int] = defaultdict(int)
-    for e in course_events:
-        if e.get("event_type") not in (
-            "quiz_attempt", "slide_view", "ai_tutor_query",
-            "lecture_complete", "confidence_rating",
-        ):
-            continue
-        created = e.get("created_at")
-        if isinstance(created, (datetime, date)):
-            day = created.isoformat()[:10]
-        else:
-            day = (created or "")[:10]
-        if day:
-            by_day[day] += 1
+    if use_mv:
+        # tracked_by_day is already the exact per-day count of the same
+        # five event types the branch below filters for (see the
+        # `tracked_event_count` FILTER clause in the migration).
+        by_day: Dict[str, int] = {d.isoformat(): c for d, c in tracked_by_day.items()}
+    else:
+        by_day = defaultdict(int)
+        for e in by_day_events:
+            if e.get("event_type") not in (
+                "quiz_attempt", "slide_view", "ai_tutor_query",
+                "lecture_complete", "confidence_rating",
+            ):
+                continue
+            created = e.get("created_at")
+            if isinstance(created, (datetime, date)):
+                day = created.isoformat()[:10]
+            else:
+                day = (created or "")[:10]
+            if day:
+                by_day[day] += 1
     today = datetime.utcnow().date()
     sparkline = []
     for i in range(days - 1, -1, -1):
