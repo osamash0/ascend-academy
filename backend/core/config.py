@@ -138,6 +138,24 @@ class Settings(BaseSettings):
     # 20260711020000_study_guides.sql. Set FEATURE_STUDY_GUIDE=1 to enable.
     feature_study_guide: bool = Field(alias="FEATURE_STUDY_GUIDE", default=False)
 
+    # ─── learning_events retention (Roadmap Phase 5.4, "Retention & partitioning") ─
+    # Disabled by default (0 = never archive/drop anything). Set to a positive
+    # number of days to enable backend/scripts/learning_events_retention.py's
+    # archive step for partitions whose range ends more than this many days
+    # ago. Even when enabled, the script only *archives* (writes rollups) and
+    # reports drop candidates unless LEARNING_EVENTS_RETENTION_EXECUTE=1 is
+    # ALSO set — the two-flag design means a single stray env var can never
+    # cause a silent delete.
+    learning_events_retention_days: int = Field(
+        alias="LEARNING_EVENTS_RETENTION_DAYS", default=0
+    )
+    # Second gate: even with a retention window configured, the script only
+    # detaches/drops old partitions when this is explicitly true. Default
+    # false means the script always runs in dry-run/archive-only mode.
+    learning_events_retention_execute: bool = Field(
+        alias="LEARNING_EVENTS_RETENTION_EXECUTE", default=False
+    )
+
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")
     def resolve_supabase_credentials(self) -> "Settings":

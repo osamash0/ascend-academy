@@ -19,6 +19,12 @@ import pytest
 
 try:
     import psycopg
+
+    HAS_PSYCOPG = True
+except ImportError:
+    HAS_PSYCOPG = False
+
+try:
     from testcontainers.postgres import PostgresContainer  # type: ignore[import-not-found]
 
     HAS_TESTCONTAINERS = True
@@ -30,15 +36,43 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
 BOOTSTRAP_SQL = Path(__file__).resolve().parent / "sql" / "00_bootstrap.sql"
 
+# Local Postgres to try before falling back to testcontainers/Docker — a
+# Homebrew (or similar) Postgres running on the default port with no
+# password, as on this repo's primary dev machine. Overridable so CI/other
+# machines can point elsewhere without code changes.
+LOCAL_PG_ADMIN_DSN = os.environ.get(
+    "DB_TEST_LOCAL_ADMIN_DSN", "postgresql://localhost:5432/postgres"
+)
+
 
 # ── Container & DSN ──────────────────────────────────────────────────────────
 
 
+def _docker_available() -> bool:
+    return bool(os.environ.get("DOCKER_HOST")) or Path("/var/run/docker.sock").exists()
+
+
+def _local_postgres_available() -> bool:
+    """Probe a local (e.g. Homebrew) Postgres reachable at LOCAL_PG_ADMIN_DSN."""
+    if not HAS_PSYCOPG:
+        return False
+    try:
+        with psycopg.connect(LOCAL_PG_ADMIN_DSN, connect_timeout=2, autocommit=True):
+            return True
+    except Exception:
+        return False
+
+
 @pytest.fixture(scope="session")
-def pg_container() -> Iterator["PostgresContainer"]:
+def pg_container() -> Iterator[object]:
+    """
+    Docker-backed Postgres for CI/nightly. Local dev machines without Docker
+    fall through to `pg_dsn`'s local-Postgres branch below instead of using
+    this fixture at all — see that fixture for the routing logic.
+    """
     if not HAS_TESTCONTAINERS:
-        pytest.skip("testcontainers / psycopg not installed; install for nightly DB tests")
-    if not os.environ.get("DOCKER_HOST") and not Path("/var/run/docker.sock").exists():
+        pytest.skip("testcontainers not installed; install for container-backed DB tests")
+    if not _docker_available():
         pytest.skip("Docker is not available in this environment")
     # pgvector/pgvector is the official Postgres 15 image with the
     # `vector` extension pre-installed. The parser v3 schema migration
@@ -58,13 +92,52 @@ def pg_container() -> Iterator["PostgresContainer"]:
 
 
 @pytest.fixture(scope="session")
-def pg_dsn(pg_container) -> str:
-    """Plain libpq URL (psycopg v3 doesn't accept the +psycopg2 suffix)."""
-    return (
-        pg_container.get_connection_url()
-        .replace("postgresql+psycopg2", "postgresql")
-        .replace("postgresql+psycopg", "postgresql")
-    )
+def pg_dsn() -> Iterator[str]:
+    """
+    DSN for the DB test suite. Prefers a real local Postgres (Homebrew
+    postgresql@18 + pgvector on dev machines without Docker) over the
+    testcontainers path, so `pytest -m db` exercises an actual database
+    rather than skipping outright when Docker isn't installed. Falls back to
+    the Docker-backed container fixture when Docker IS available (CI/nightly)
+    and no local Postgres is reachable.
+
+    The local-Postgres branch creates a throwaway, uniquely-named database
+    for the session and drops it on teardown — it never touches any
+    developer's real project databases.
+    """
+    if _local_postgres_available():
+        db_name = f"p54_dbtest_{uuid.uuid4().hex[:12]}"
+        with psycopg.connect(LOCAL_PG_ADMIN_DSN, autocommit=True) as conn:
+            with conn.cursor() as cur:
+                cur.execute(f'CREATE DATABASE "{db_name}"')
+        base = LOCAL_PG_ADMIN_DSN.rsplit("/", 1)[0]
+        test_dsn = f"{base}/{db_name}"
+        try:
+            with psycopg.connect(test_dsn, autocommit=True) as conn:
+                with conn.cursor() as cur:
+                    # pgvector must be available for the parser v3 schema
+                    # migration; Homebrew installs it as a regular extension.
+                    cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            yield test_dsn
+        finally:
+            with psycopg.connect(LOCAL_PG_ADMIN_DSN, autocommit=True) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(f'DROP DATABASE IF EXISTS "{db_name}" WITH (FORCE)')
+        return
+
+    if not HAS_TESTCONTAINERS or not _docker_available():
+        pytest.skip(
+            "No local Postgres reachable and no Docker available for the "
+            "testcontainers fallback"
+        )
+
+    PGVECTOR_DIGEST = "pgvector/pgvector:pg15"
+    with PostgresContainer(PGVECTOR_DIGEST) as pg:
+        yield (
+            pg.get_connection_url()
+            .replace("postgresql+psycopg2", "postgresql")
+            .replace("postgresql+psycopg", "postgresql")
+        )
 
 
 # ── Bootstrap + migrations (session-scoped) ──────────────────────────────────
