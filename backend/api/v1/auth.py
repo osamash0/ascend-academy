@@ -18,6 +18,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from backend.core.auth_middleware import verify_token, require_role, _user_id
 from backend.core.database import supabase_admin
 from backend.core.rate_limit import limiter
+from backend.services.account_service import (
+    erase_user_storage_and_derived_data,
+    export_user_data,
+)
 from backend.services.cache import (
     invalidate_cached_token,
     purge_expired_backend_cache,
@@ -56,6 +60,34 @@ async def logout_endpoint(
     return {"message": "Session invalidated."}
 
 
+@router.get("/export-data")
+@limiter.limit("5/minute")
+async def export_data_endpoint(
+    request: Request,
+    user: Any = Depends(verify_token),
+):
+    """Export every PII / derived-from-PII row belonging to the caller
+    (GDPR Art. 20 right to data portability).
+
+    Returns a single JSON document — one key per source table (profile,
+    progress, events, uploads/lectures, exams, review schedule, etc.) plus
+    ``exported_at``. This is the full server-side counterpart to the
+    previously partial client-side-only export in ``src/pages/Settings.tsx``.
+    """
+    uid = _user_id(user)
+    if not uid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user context.")
+
+    try:
+        return await export_user_data(uid)
+    except Exception as e:
+        logger.error("Data export failed for %s: %s", uid, e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not export your data. Please contact support.",
+        )
+
+
 @router.post("/delete-account")
 @limiter.limit("3/minute")
 async def delete_account_endpoint(
@@ -72,6 +104,15 @@ async def delete_account_endpoint(
     why client-side row deletion alone (the old Settings flow) left the auth
     identity — and anything not client-reachable — behind.
 
+    Two things a DB cascade cannot reach — Supabase Storage objects
+    (``pdf-uploads``/``worksheets``) and the (historically script-only)
+    ``slide_embeddings``/``lecture_blueprints`` rows — are cleaned up
+    explicitly by ``erase_user_storage_and_derived_data`` BEFORE the
+    ``auth.users`` row is deleted, since that call reads ``lectures`` rows a
+    subsequent cascade would otherwise remove first. See
+    ``backend/services/account_service.py`` for the full design rationale
+    (content-addressed dedup safety, what is intentionally NOT deleted).
+
     We invalidate the token cache first so the just-deleted user can't replay
     their bearer token within the 45s TTL window.
     """
@@ -80,6 +121,17 @@ async def delete_account_endpoint(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user context.")
 
     await invalidate_cached_token(credentials.credentials)
+
+    try:
+        storage_summary = await erase_user_storage_and_derived_data(uid)
+    except Exception as e:
+        # Non-fatal: storage cleanup failing should not block the user's
+        # right to erasure of their DB-resident data. Logged for follow-up;
+        # any orphaned content-addressed blob is still unreachable once the
+        # owning lecture rows are cascaded away with the auth.users delete.
+        logger.error("Erasure storage cleanup failed for %s: %s", uid, e)
+        storage_summary = None
+
     try:
         await run_in_threadpool(supabase_admin.auth.admin.delete_user, uid)
     except Exception as e:
@@ -88,7 +140,7 @@ async def delete_account_endpoint(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Could not delete the account. Please contact support.",
         )
-    return {"message": "Account deleted."}
+    return {"message": "Account deleted.", "storage_cleanup": storage_summary}
 
 
 @router.post("/cleanup-token-cache")
