@@ -1060,6 +1060,7 @@ async def generate_text(
     """
     from backend.services.llm_client import call_llm
     from backend.services.ai.cost import check_user_llm_budget
+    from backend.services.ai.prompt_log import log_prompt_response
 
     if user_id:
         await check_user_llm_budget(user_id)
@@ -1070,6 +1071,7 @@ async def generate_text(
             "llama3", OLLAMA_MODEL, usage,
             user_id=user_id, course_id=course_id, feature=feature or "generate_text",
         )
+        await log_prompt_response("generate_text", prompt, text)
         return text
 
     preferred = _resolve_preferred(ai_model)
@@ -1084,6 +1086,7 @@ async def generate_text(
         provider_id, model, usage,
         user_id=user_id, course_id=course_id, feature=feature or "generate_text",
     )
+    await log_prompt_response("generate_text", prompt, text)
     return text
 
 
@@ -1107,6 +1110,7 @@ async def generate_text_bulk(
     """
     from backend.services.llm_client import call_llm
     from backend.services.ai.cost import check_user_llm_budget
+    from backend.services.ai.prompt_log import log_prompt_response
 
     if user_id:
         await check_user_llm_budget(user_id)
@@ -1123,6 +1127,7 @@ async def generate_text_bulk(
         provider_id, model, usage,
         user_id=user_id, course_id=course_id, feature=feature or "generate_text_bulk",
     )
+    await log_prompt_response("generate_text_bulk", prompt, text)
     return text
 
 

@@ -254,3 +254,30 @@ jobs:
             backend/tests/db/sql/
             supabase/migrations/
           retention-days: 14
+
+  nightly-ai-eval:
+    name: AI eval harness (nightly only)
+    # Roadmap Foundation 10x P1-3: catches silent AI-quality regressions
+    # (prompt changes, model swaps, provider failover) that nothing else in
+    # CI would notice. Deliberately NOT run per-commit — it calls live
+    # models, so it's slow/flaky/costly by nature; nightly is the right
+    # cadence. Needs real provider keys configured as repo secrets to do a
+    # real run; without them LivePipeline's calls fail and this job fails
+    # loudly (not silently skips) so a missing-secret misconfiguration is
+    # itself visible.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: pip install -r backend/requirements-dev.txt
+      - name: Run AI eval harness
+        env:
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: make eval

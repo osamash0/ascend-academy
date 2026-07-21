@@ -174,6 +174,14 @@ class Settings(BaseSettings):
         alias="LLM_MONTHLY_USER_COST_CAP_USD", default=5.0
     )
 
+    # ─── AI eval harness / prompt logging (Roadmap Foundation 10x, P1-3) ───────
+    # Off by default — logging every prompt+response is a real storage/PII
+    # cost, so it's opt-in (e.g. enabled temporarily while chasing a
+    # specific bad-output report). Set FEATURE_LLM_PROMPT_LOGGING=1 to enable.
+    feature_llm_prompt_logging: bool = Field(alias="FEATURE_LLM_PROMPT_LOGGING", default=False)
+    # TTL for logged prompt/response pairs (backend/services/ai/prompt_log.py).
+    llm_prompt_log_ttl_seconds: int = Field(alias="LLM_PROMPT_LOG_TTL_SECONDS", default=7 * 86400)
+
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")
     def resolve_supabase_credentials(self) -> "Settings":
