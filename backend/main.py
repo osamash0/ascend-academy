@@ -66,11 +66,41 @@ app = FastAPI(
     openapi_url=openapi_url,
 )
 
+def _trusted_proxy_hosts() -> list[str]:
+    """Hosts/CIDRs allowed to set X-Forwarded-For / X-Forwarded-Proto.
+
+    S-3 (docs/ROADMAP_10X_FOUNDATION.md §14): this used to be ``["*"]``,
+    which tells ``ProxyHeadersMiddleware`` to trust EVERY peer's
+    X-Forwarded-For value, including a direct internet client's own
+    self-supplied header — i.e. any caller could set
+    ``X-Forwarded-For: 1.2.3.4`` and have it taken as their "real" IP,
+    trivially defeating per-IP rate limiting (rotate the header, dodge the
+    limit).
+
+    In the real deployment topology (docker-compose.prod.yml) the `api`
+    container is never reachable directly — only the `frontend` nginx
+    container talks to it, over the `ascend_net` bridge network, whose
+    default (unpinned) subnet falls in Docker's standard bridge range. We
+    trust only that range plus loopback (used by local dev / tests /
+    reverse-proxy-on-localhost setups), so ProxyHeadersMiddleware ignores
+    X-Forwarded-For from anything else — e.g. a request that reaches `api`
+    some other way can no longer inject a fake header.
+
+    Override with the comma-separated ``TRUSTED_PROXY_HOSTS`` env var if a
+    deployment's proxy sits somewhere else (e.g. a pinned bridge subnet, a
+    cloud LB's known egress range).
+    """
+    raw = os.environ.get("TRUSTED_PROXY_HOSTS", "").strip()
+    if raw:
+        return [h.strip() for h in raw.split(",") if h.strip()]
+    return ["127.0.0.1", "::1", "172.16.0.0/12"]
+
+
 # ── Rate limiting ────────────────────────────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_trusted_proxy_hosts())
 
 # ── Security & Logging Middleware ────────────────────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
