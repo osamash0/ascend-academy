@@ -95,8 +95,10 @@ def test_get_slides_orders_by_number(fake_supabase):
     assert [s["slide_number"] for s in out] == [1, 2]
 
 
-def test_insert_event_writes_row(fake_supabase):
-    event_repo.insert_event(fake_supabase, "u-1", "slide_view", {"slideId": "s1"})
+async def test_insert_event_writes_row(fake_supabase):
+    # No lectureId in the payload -> no rollup enqueue attempted, so this
+    # exercises the write path with zero Arq/Redis dependency.
+    await event_repo.insert_event(fake_supabase, "u-1", "slide_view", {"slideId": "s1"})
     assert len(fake_supabase.tables["learning_events"]) == 1
     row = fake_supabase.tables["learning_events"][0]
     assert row["user_id"] == "u-1"

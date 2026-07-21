@@ -12,6 +12,7 @@ import logging
 from arq.connections import RedisSettings
 
 from backend.core.config import settings
+from backend.services.analytics_rollup import rollup_analytics_cache, rollup_concept_mastery
 from backend.services.parser.unified_orchestrator import parse_pdf_unified
 from backend.services.review.card_factory import generate_review_cards
 
@@ -33,7 +34,12 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [parse_pdf_unified, generate_review_cards]
+    functions = [
+        parse_pdf_unified,
+        generate_review_cards,
+        rollup_analytics_cache,
+        rollup_concept_mastery,
+    ]
     on_startup = startup
     on_shutdown = shutdown
 

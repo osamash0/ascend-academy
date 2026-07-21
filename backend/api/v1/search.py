@@ -55,7 +55,7 @@ async def search(
     results = await search_service.global_search(uid, is_prof, q)
 
     try:
-        insert_event(supabase_admin, uid, "search_performed", {
+        await insert_event(supabase_admin, uid, "search_performed", {
             "query": q[:MAX_QUERY_CHARS],
             "result_counts": {k: len(v) for k, v in results.items()},
         })

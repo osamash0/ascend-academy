@@ -2,10 +2,24 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.services import analytics_cache
+from backend.services import analytics_cache, analytics_rollup
+
+
+async def _run_enqueued_job(job_name, **kwargs):
+    """Test double for an Arq pool that runs the job body immediately —
+    stands in for "the out-of-band worker eventually processes this job",
+    without needing a real Redis/worker in these unit tests."""
+    if job_name == "rollup_analytics_cache":
+        await analytics_rollup.rollup_analytics_cache({}, kwargs["lecture_id"])
+    elif job_name == "rollup_concept_mastery":
+        await analytics_rollup.rollup_concept_mastery(
+            {}, kwargs["user_id"], kwargs["card_id"], kwargs["rating"]
+        )
 
 
 def test_get_or_compute_caches_first_result(patch_supabase):
@@ -97,24 +111,33 @@ async def test_async_get_or_compute_caches(patch_supabase):
     assert calls["n"] == 1
 
 
-def test_event_insert_invalidates_cache(patch_supabase):
-    """Writing a learning_event for a lecture must drop its cached rows."""
+async def test_event_insert_invalidates_cache(patch_supabase):
+    """Writing a learning_event for a lecture must eventually drop its
+    cached rows — but (P5-3) not inline: the write only enqueues the
+    rollup, and the cache is still warm immediately after insert_event
+    returns. The out-of-band worker (simulated here) is what actually
+    invalidates it."""
     from backend.repositories import event_repo
 
     analytics_cache.get_or_compute("L1", "overview", lambda: {"v": 1})
     assert len(patch_supabase.tables.get("analytics_cache", [])) == 1
 
-    event_repo.insert_event(
-        patch_supabase,
-        user_id="u1",
-        event_type="quiz_attempt",
-        event_data={"lectureId": "L1", "questionId": "q1", "correct": True},
-    )
+    fake_pool = SimpleNamespace(enqueue_job=AsyncMock(side_effect=_run_enqueued_job))
+    with patch("backend.services.upload_service.get_arq_pool", new=AsyncMock(return_value=fake_pool)):
+        await event_repo.insert_event(
+            patch_supabase,
+            user_id="u1",
+            event_type="quiz_attempt",
+            event_data={"lectureId": "L1", "questionId": "q1", "correct": True},
+        )
 
+    fake_pool.enqueue_job.assert_awaited_once_with("rollup_analytics_cache", lecture_id="L1")
+    # The rollup ran (simulated worker), so the cache is now invalidated —
+    # eventually, out-of-band, not as part of the write itself.
     assert patch_supabase.tables.get("analytics_cache", []) == []
 
 
-def test_overview_endpoint_recomputes_after_invalidation(app, patch_supabase, professor_user):
+async def test_overview_endpoint_recomputes_after_invalidation(app, patch_supabase, professor_user):
     """End-to-end: hit, write event → invalidate, hit again → recompute."""
     from fastapi.testclient import TestClient
     from backend.core.auth_middleware import verify_token
@@ -157,12 +180,16 @@ def test_overview_endpoint_recomputes_after_invalidation(app, patch_supabase, pr
                     headers={"Authorization": "Bearer fake-token"})
     assert r2.json()["data"] == first  # served from cache
 
-    # Now write an event via the real repository path → invalidates cache.
+    # Now write an event via the real repository path — the write itself
+    # only enqueues the rollup; the out-of-band worker (simulated) is what
+    # invalidates the cache.
     from backend.repositories import event_repo
-    event_repo.insert_event(
-        patch_supabase, "u2", "slide_view",
-        {"lectureId": "L1", "slideId": "s1", "duration_seconds": 30},
-    )
+    fake_pool = SimpleNamespace(enqueue_job=AsyncMock(side_effect=_run_enqueued_job))
+    with patch("backend.services.upload_service.get_arq_pool", new=AsyncMock(return_value=fake_pool)):
+        await event_repo.insert_event(
+            patch_supabase, "u2", "slide_view",
+            {"lectureId": "L1", "slideId": "s1", "duration_seconds": 30},
+        )
     assert patch_supabase.tables.get("analytics_cache", []) == []
 
     r3 = client.get("/api/analytics/lecture/L1/overview",
