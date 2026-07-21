@@ -22,6 +22,33 @@ jobs:
       - name: Fail on new duplicate migration timestamps
         run: python backend/scripts/check_migration_timestamps.py
 
+  migration-lint-definer-grants:
+    name: Migration lint (SECURITY DEFINER grant audit)
+    # S-1 (docs/ROADMAP_10X_FOUNDATION.md §14): fails a PR that adds a new
+    # SECURITY DEFINER function to supabase/migrations/ without an explicit
+    # REVOKE/GRANT in the same file — Postgres grants EXECUTE to PUBLIC by
+    # default, so an unguarded DEFINER function is reachable by the public
+    # anon key over PostgREST. See docs/RPC_EXPOSURE_AUDIT.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Determine new/changed migration files
+        id: changed
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
+          FILES=$(git diff --name-only --diff-filter=A "$BASE_REF"...HEAD -- 'supabase/migrations/*.sql' || true)
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: Lint new migrations for unguarded SECURITY DEFINER functions
+        if: steps.changed.outputs.files != ''
+        run: python backend/scripts/lint_new_definer_functions.py ${{ steps.changed.outputs.files }}
+
   lint:
     name: Lint (frontend)
     runs-on: ubuntu-latest
