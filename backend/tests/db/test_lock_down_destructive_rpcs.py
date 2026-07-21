@@ -1,4 +1,4 @@
-"""DB regression tests for 20260719000000_lock_down_destructive_rpcs.sql.
+"""DB regression tests for 20260719000003_lock_down_destructive_rpcs.sql.
 
 Verified, pre-fix vulnerability: `reset_all_analytics()` / `restore_analytics()`
 (20260614000000) and `increment_upload_quota()` (20260710040000) shipped with
