@@ -220,6 +220,19 @@ if settings.feature_student_uploads:
 # Mount parent v1_router onto app
 app.include_router(v1_router)
 
+# ── Metrics (Roadmap Foundation 10x, Phase 1 P1-2) ──────────────────────────
+# RED metrics (request rate/error/duration by route) via
+# prometheus-fastapi-instrumentator; custom domain metrics (Arq queue depth,
+# LLM cost/latency, cache hit rates, ...) live in backend/core/metrics.py and
+# are recorded at their own call sites — they share this same default
+# prometheus_client registry, so they show up on the same /metrics scrape.
+# NOTE: this endpoint is unauthenticated, matching the standard Prometheus
+# self-hosted-scrape model — restrict it at the reverse proxy/firewall in
+# prod, don't expose it on the public internet.
+from prometheus_fastapi_instrumentator import Instrumentator
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=_docs_enabled)
+
 # Import and register DomainError global exception handlers
 from backend.core.exceptions import DomainError
 

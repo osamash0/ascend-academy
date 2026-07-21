@@ -45,14 +45,23 @@ async def get_arq_pool():
 async def queue_depth() -> int:
     """Number of jobs currently pending (enqueued, not yet started) on the
     default Arq queue. Used for upload backpressure. Returns 0 on any error so
-    a monitoring hiccup never blocks uploads."""
+    a monitoring hiccup never blocks uploads.
+
+    Also samples the arq_queue_depth Prometheus gauge (Roadmap P1-2) — this is
+    the single place both the upload backpressure check and the worker's
+    per-job metrics hook read depth from, so instrumenting here covers both
+    without a separate polling loop.
+    """
     try:
         from arq.constants import default_queue_name
         pool = await get_arq_pool()
-        return int(await pool.zcard(default_queue_name))
+        depth = int(await pool.zcard(default_queue_name))
     except Exception as e:
         logger.debug("queue_depth check failed: %s", e)
         return 0
+    from backend.core.metrics import ARQ_QUEUE_DEPTH
+    ARQ_QUEUE_DEPTH.set(depth)
+    return depth
 
 
 class QueueFullError(RuntimeError):

@@ -41,3 +41,5 @@ sentry-sdk==2.66.0
 redis[hiredis]==5.3.1
 python-json-logger==4.1.0  # required by backend/core/logging_config.py (imported in main.py)
 resend==2.34.0
+prometheus-fastapi-instrumentator==7.1.0  # /metrics endpoint (Roadmap P1-2); bundles prometheus_client
+

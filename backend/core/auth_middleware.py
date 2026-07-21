@@ -103,9 +103,14 @@ async def verify_token(
     # 1. Check shared database L2 cache first
     cached_user = await get_cached_token(token)
     if cached_user:
+        from backend.core.metrics import AUTH_CACHE_TOTAL
+        AUTH_CACHE_TOTAL.labels(result="hit").inc()
         if isinstance(cached_user, dict):
             return CachedUser.from_dict(cached_user)
         return cached_user
+
+    from backend.core.metrics import AUTH_CACHE_TOTAL
+    AUTH_CACHE_TOTAL.labels(result="miss").inc()
 
     # 2. Verify with Supabase Auth (slow path)
     try:

@@ -15,6 +15,7 @@ actually executes the job at each scheduled time (arq dedupes via a
 Redis-backed key), never N double-fires the way APScheduler would have.
 """
 import logging
+import time
 
 from arq.connections import RedisSettings
 from arq.cron import cron
@@ -109,6 +110,65 @@ async def refresh_professor_overview_mv(ctx: dict) -> None:
         logger.error("mv_course_daily_activity refresh failed: %s", e, exc_info=True)
 
 
+async def on_job_start(ctx: dict) -> None:
+    """Roadmap P1-2: stamp a start time on this job's ctx (Arq passes the
+    SAME ctx dict through on_job_start -> the job function -> after_job_end,
+    so this survives to the duration calculation below) and opportunistically
+    refresh the queue-depth gauge — free since a job just left the queue."""
+    ctx["_metrics_start_ts"] = time.monotonic()
+    try:
+        from backend.services.upload_service import queue_depth
+        await queue_depth()
+    except Exception:
+        logger.debug("arq metrics: queue_depth sample failed", exc_info=True)
+
+
+async def after_job_end(ctx: dict) -> None:
+    """Roadmap P1-2: records arq_job_duration_seconds / arq_job_outcome_total.
+
+    Runs after Arq has already persisted the job result, so
+    ``Job(job_id, redis).result_info()`` (the only place function name +
+    success/failure are available outside run_job's local closure) is safe
+    to read here. Best-effort — a metrics hiccup must never affect job
+    processing, which Arq awaits this hook for.
+    """
+    from backend.core.metrics import ARQ_JOB_DURATION_SECONDS, ARQ_JOB_OUTCOME_TOTAL
+
+    function_name = "unknown"
+    outcome = "unknown"
+    try:
+        from arq.jobs import Job
+        job_id = ctx.get("job_id")
+        redis = ctx.get("redis")
+        if job_id is not None and redis is not None:
+            info = await Job(job_id, redis).result_info()
+            if info is not None:
+                function_name = info.function or "unknown"
+                outcome = "success" if info.success else "failure"
+    except Exception:
+        logger.debug("arq metrics: result_info lookup failed", exc_info=True)
+
+    ARQ_JOB_OUTCOME_TOTAL.labels(function=function_name, outcome=outcome).inc()
+    start_ts = ctx.get("_metrics_start_ts")
+    if start_ts is not None:
+        ARQ_JOB_DURATION_SECONDS.labels(function=function_name).observe(time.monotonic() - start_ts)
+
+
+async def _after_job_end(ctx: dict) -> None:
+    """Composed ``after_job_end`` hook — Arq allows only one, but both P1-2
+    (metrics) and P2-3 (dead-letter capture) need to run after a job ends.
+    Each is independently best-effort; a failure in one must not skip the
+    other, so both are guarded."""
+    try:
+        await after_job_end(ctx)   # P1-2: arq_job_duration/outcome metrics
+    except Exception:
+        logger.debug("after_job_end: metrics hook failed", exc_info=True)
+    try:
+        await capture_dlq_on_job_end(ctx)   # P2-3: dead-letter capture
+    except Exception:
+        logger.debug("after_job_end: DLQ capture hook failed", exc_info=True)
+
+
 class WorkerSettings:
     functions = [
         parse_pdf_unified,
@@ -122,12 +182,14 @@ class WorkerSettings:
     ]
     on_startup = startup
     on_shutdown = shutdown
-
-    # Roadmap P2-3: best-effort dead-letter capture for permanently-failed
-    # jobs. See backend/workers/dlq.py for the lifecycle rationale (why
-    # after_job_end, and the one case — crash-loop past max_tries — it can't
-    # cover without patching arq internals).
-    after_job_end = capture_dlq_on_job_end
+    # P1-2: stamps a start time + samples queue depth for the arq metrics.
+    on_job_start = on_job_start
+    # Composed hook running BOTH P1-2's metrics recording AND P2-3's
+    # best-effort dead-letter capture for permanently-failed jobs (Arq only
+    # supports a single after_job_end). See backend/workers/dlq.py for the
+    # DLQ lifecycle rationale (why after_job_end, and the one case — crash-
+    # loop past max_tries — it can't cover without patching arq internals).
+    after_job_end = _after_job_end
 
     # Broker + results live on the dedicated queue Redis (noeviction + AOF),
     # never the LRU app-cache Redis — otherwise queued jobs can be evicted.

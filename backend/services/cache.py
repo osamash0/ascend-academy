@@ -201,6 +201,7 @@ def _scoped_cache_key(pdf_hash: str, parsing_mode: str = "ai") -> str:
 
 async def get_cached_parse(pdf_hash: str, parsing_mode: str = "ai") -> Optional[Dict[str, Any]]:
     """Retrieve full parse result from database using SUPABASE_ADMIN."""
+    from backend.core.metrics import CACHE_TOTAL
     key = _scoped_cache_key(pdf_hash, parsing_mode)
     try:
         # Use supabase_admin for background caching to bypass RLS if necessary.
@@ -210,9 +211,11 @@ async def get_cached_parse(pdf_hash: str, parsing_mode: str = "ai") -> Optional[
             lambda: supabase_admin.table("pdf_parse_cache").select("result").eq("pdf_hash", key).execute()
         )
         if res.data:
+            CACHE_TOTAL.labels(cache="pdf_parse", result="hit").inc()
             return res.data[0]["result"]
     except Exception as e:
         logger.error("Failed to get cached parse: %s", e)
+    CACHE_TOTAL.labels(cache="pdf_parse", result="miss").inc()
     return None
 
 
