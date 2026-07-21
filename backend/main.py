@@ -246,15 +246,15 @@ async def startup_event():
     await init_redis()
     from backend.core.auth_middleware import get_auth_http_client
     get_auth_http_client()
-    # Start the daily nudge engine scheduler when explicitly enabled. Off by
-    # default (and during tests) so we don't fan out notifications from local
-    # dev shells. In production set ENABLE_NUDGE_SCHEDULER=1.
-    if os.environ.get("ENABLE_NUDGE_SCHEDULER") == "1":
-        try:
-            from backend.services.nudge_scheduler import start_scheduler
-            start_scheduler()
-        except Exception as e:
-            logger.error("Failed to start nudge scheduler: %s", e, exc_info=True)
+    # Roadmap P2-2: the daily nudge engine no longer runs here. It used to be
+    # an in-process APScheduler job (ENABLE_NUDGE_SCHEDULER=1), which is why
+    # docker-compose.prod.yml pinned uvicorn to --workers 1 — APScheduler has
+    # no leader election, so a second web replica would double-fire every
+    # nudge. It now runs as an Arq cron job in the worker process instead
+    # (backend/workers/arq_worker.py, backend/services/nudge_scheduler.py),
+    # which dedupes across worker processes via arq's cron(unique=True).
+    # Same ENABLE_NUDGE_SCHEDULER / NUDGE_RUN_HOUR_UTC env vars still control
+    # it — just read by the worker now, not the API process.
 
 @app.on_event("shutdown")
 async def shutdown_event():
