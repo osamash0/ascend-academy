@@ -30,7 +30,11 @@ markitdown[pptx]==0.1.6   # native PPTX → per-slide markdown import (markitdow
 docling==2.92.0
 arq==0.28.0
 fastembed==0.8.0
-litellm==1.83.0
+litellm==1.85.0  # S-5: bumped past PYSEC-2026-388/2598-2602 (proxy-mode CVEs).
+                 # This repo only imports the litellm SDK from dead backend/_legacy/
+                 # code — the live parser path calls the LiteLLM *gateway container*
+                 # over HTTP, not this package's proxy server — but keep the pinned
+                 # floor patched regardless.
 
 openai==2.35.0
 sentry-sdk==2.66.0
