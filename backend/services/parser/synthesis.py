@@ -21,6 +21,13 @@ from backend.services.ai.orchestrator import (
     generate_text,
     parse_json_response,
 )
+from backend.services.ai.prompts import (
+    CROSS_LECTURE_QUIZ_PROMPT,
+    LECTURE_META_ANALYSIS_PROMPT,
+    SLIDE_ANALYSIS_PROMPT,
+    SYLLABUS_FACTS_EXTRACTION_PROMPT,
+    SYNTHESIS_DECK_QUIZ_PROMPT,
+)
 from backend.services.ai.quiz_validator import _normalize_answer_index
 from backend.services.ai.voice import with_voice
 
@@ -45,19 +52,7 @@ async def analyze_lecture_meta(
     combined_text = "\n\n".join(
         f"[Slide {i + 1}]: {text[:400]}" for i, text in enumerate(slides[:15])
     )
-    prompt = f"""You are an expert at understanding university lecture slides. Analyze the provided slide texts and return a JSON object.
-
-Return ONLY valid JSON, no markdown. Keys:
-- title: string (the lecture title)
-- lectureType: one of "introduction", "exam-prep", "theory", "lab", "review", "case-study", "overview", "workshop"
-- subject: string (academic subject, e.g. "Computer Science", "Mathematics", "Biology")
-- courseCode: string (course code if visible, else "")
-- summary: string (3-4 sentence summary of what this entire lecture covers)
-- keyTopics: array of strings (5-8 key topics/concepts covered)
-
-Analyze these lecture slides:
-
-{combined_text}"""
+    prompt = LECTURE_META_ANALYSIS_PROMPT.format(combined_text=combined_text)
     if course_context_hint:
         prompt += f"\n\nFor consistent terminology, this course already covers:\n{course_context_hint}"
     raw = await generate_text(prompt, ai_model=ai_model)
@@ -71,20 +66,11 @@ async def analyze_slide(
     ai_model: str,
 ) -> Dict[str, Any]:
     """Analyze a single slide; returns the LLM result dict."""
-    prompt = f"""You are an expert at analyzing university lecture slides. Given raw text extracted from a PDF slide, analyze it and return a JSON object.
-
-Return ONLY valid JSON, no markdown, no code blocks. Keys:
-- title: string (short descriptive title for this slide, max 60 chars)
-- slideType: one of "text", "image-only", "math-diagram", "graph", "mixed", "title-slide", "table-of-contents"
-- aiInsight: string (A concise narrative explanation (1-3 sentences) of this slide as if you are a professor teaching a class. If this slide covers the same topic as the previous slide, DO NOT repeat the explanation; focus ONLY on what is new or briefly summarize the continuation. Maintain a logical flow and avoid giving the impression that each slide is being explained in isolation. Do NOT use phrases like "This slide", "In this slide", or "This image". Connect it to the previous slide if mentioned in the context.)
-- contextNote: string (1 sentence about where this slide fits in the lecture narrative)
-
-Lecture context: {lecture_context[:1000]}
-
-Slide {slide_number} raw text:
-{text[:1500]}
-
-If the text is nearly empty or only has symbols/numbers, classify as "image-only" or "math-diagram"."""
+    prompt = SLIDE_ANALYSIS_PROMPT.format(
+        lecture_context=lecture_context[:1000],
+        slide_number=slide_number,
+        text=text[:1500],
+    )
     raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     res = parse_json_response(raw)
     if not isinstance(res, dict):
@@ -107,23 +93,10 @@ async def generate_quiz_questions(
     slide_summary = "\n\n".join(
         f"[Slide {i + 1}]: {text[:500]}" for i, text in enumerate(content_slides)
     )
-    prompt = f"""Generate quiz questions for a university lecture. Return ONLY a valid JSON array of question objects, no markdown.
-
-Each object has:
-- question: string
-- options: array of 4 strings (A, B, C, D options — do NOT include "A)", "B)" prefixes, just the text)
-- correctAnswer: string (must match one of the options exactly)
-- explanation: string (brief explanation of why the answer is correct)
-- concept: string (the specific concept being tested — a short name, not a sentence)
-- difficulty: "easy" | "medium" | "hard"
-- slideId: number (1-based slide number the question is drawn from)
-
-Lecture: "{lecture_title}"
-
-Slides:
-{slide_summary}
-
-Generate 5-8 diverse, well-formed multiple choice questions covering key concepts. Mix difficulties."""
+    prompt = SYNTHESIS_DECK_QUIZ_PROMPT.format(
+        lecture_title=lecture_title,
+        slide_summary=slide_summary,
+    )
     raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     res = parse_json_response(raw)
     return res if isinstance(res, list) else []
@@ -149,21 +122,11 @@ async def generate_cross_lecture_questions(
         return []
 
     concept_list = "\n".join(f'- "{p["top_concept"]}" (from lecture: {p["title"]})' for p in candidates)
-    prompt = f"""Generate up to {len(candidates)} multiple-choice question(s) that connect the current lecture to a concept from an EARLIER lecture in the same course. Return ONLY a valid JSON array, no markdown.
-
-Each object has:
-- question: string (must meaningfully connect the current lecture's material to the earlier concept — not a generic recall question)
-- options: array of 4 strings
-- correctAnswer: string (must match one of the options exactly)
-- explanation: string
-- source_concept: string (must exactly match one of the concept names listed below)
-
-Current lecture: "{lecture_title}"
-
-Concepts from earlier lectures in this course:
-{concept_list}
-
-If you cannot form a genuine connection for a concept, omit it rather than forcing a generic question."""
+    prompt = CROSS_LECTURE_QUIZ_PROMPT.format(
+        num_candidates=len(candidates),
+        lecture_title=lecture_title,
+        concept_list=concept_list,
+    )
     try:
         raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
         res = parse_json_response(raw)
@@ -219,16 +182,7 @@ async def extract_syllabus_facts(text: str, ai_model: str) -> Dict[str, Any]:
     """Extract structured course facts from an administrative/organizational
     slide's text (Roadmap Phase 3, "course brain"). Best-effort — callers
     treat a failure or empty result as "nothing extracted", never fatal."""
-    prompt = f"""You are extracting structured facts from one administrative slide of a university course (e.g. a syllabus, grading policy, or schedule slide). Return ONLY valid JSON, no markdown. Keys:
-- instructor: string (professor/lecturer name if mentioned, else "")
-- exam_dates: array of objects {{"label": string, "date": string}} (any exam, midterm, or deadline dates mentioned; empty array if none)
-- grading_scheme: string (grading policy or weighting if mentioned, else "")
-- other_facts: object (any other durable course facts worth remembering as key-value pairs, e.g. {{"textbook": "..."}}; empty object if none)
-
-Only extract facts that are ACTUALLY present in the text below — never invent a name or date.
-
-Slide text:
-{text[:2000]}"""
+    prompt = SYLLABUS_FACTS_EXTRACTION_PROMPT.format(text=text[:2000])
     try:
         raw = await generate_text(prompt, ai_model=ai_model)
         res = parse_json_response(raw)

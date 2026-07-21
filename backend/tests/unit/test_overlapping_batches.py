@@ -178,7 +178,7 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(prompt: str, _chain, preferred=None):
+        def fake_rotation(prompt: str, _chain, preferred=None, **_kw):
             captured["prompt"] = prompt
             return _make_response(slides)
 
@@ -211,7 +211,7 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(prompt: str, _chain, preferred=None):
+        def fake_rotation(prompt: str, _chain, preferred=None, **_kw):
             captured["prompt"] = prompt
             return _make_response(slides)
 
@@ -268,7 +268,7 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(_prompt: str, _chain, preferred=None):
+        def fake_rotation(_prompt: str, _chain, preferred=None, **_kw):
             return bad_response
 
         monkeypatch.setattr(
@@ -315,7 +315,7 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(_prompt: str, _chain, preferred=None):
+        def fake_rotation(_prompt: str, _chain, preferred=None, **_kw):
             return "literally not json at all"
 
         monkeypatch.setattr(
@@ -386,7 +386,7 @@ class TestCrossBatchContextRegression:
                 }],
             }
 
-        def fake_rotation(prompt: str, _chain, preferred=None):
+        def fake_rotation(prompt: str, _chain, preferred=None, **_kw):
             prompts.append(prompt)
             # Identify which window we're in by which page numbers appear
             # OUTSIDE <context_only> blocks.
@@ -489,7 +489,7 @@ class TestPerSlideRegenWithOverlap:
 
         prompts: List[str] = []
 
-        def fake_rotation(prompt: str, _chain, preferred=None):
+        def fake_rotation(prompt: str, _chain, preferred=None, **_kw):
             prompts.append(prompt)
             import re
             is_regen = "regenerate" in prompt.lower()
