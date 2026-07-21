@@ -407,6 +407,49 @@ async def search_slides_keyword_scoped(
         return []
 
 
+async def get_slide_embedding_content_hash(
+    pdf_hash: str,
+    slide_index: int,
+    pipeline_version: str = "1",
+) -> Optional[str]:
+    """Look up the `content_hash` already stored for (pdf_hash, slide_index,
+    pipeline_version), if any.
+
+    Used by `_safe_embedding_task` (P3-2, docs/ROADMAP_10X_FOUNDATION.md §8)
+    to dedupe re-embedding on re-parse: the caller computes the candidate
+    slide's content_hash *before* calling the embedding API, compares it
+    against what's already stored, and only pays for a fresh embedding when
+    the hashes differ (content actually changed) or nothing is stored yet
+    (new slide).
+
+    Returns None both when no row exists and when the lookup itself fails —
+    either way the caller's safe default is to proceed with embedding rather
+    than silently skip it.
+    """
+    if not pdf_hash:
+        return None
+    try:
+        res = await run_in_threadpool(
+            lambda: supabase_admin.table("slide_embeddings")
+            .select("content_hash")
+            .eq("pdf_hash", pdf_hash)
+            .eq("slide_index", slide_index)
+            .eq("pipeline_version", pipeline_version)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if rows:
+            return rows[0].get("content_hash")
+        return None
+    except Exception as e:
+        logger.warning(
+            "content_hash lookup failed for %s/%d (will re-embed): %s",
+            pdf_hash, slide_index, e,
+        )
+        return None
+
+
 async def store_slide_embedding(
     lecture_id: Optional[str],
     slide_index: int,
