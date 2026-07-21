@@ -1007,13 +1007,20 @@ async def _account_for_call(
     user_id: Optional[str],
     course_id: Optional[str],
     feature: str,
+    duration_seconds: float,
 ) -> None:
     """Shared cost-accounting tail for generate_text/generate_text_bulk
     (Roadmap P1-1): mirrors this call's provider count (and openai's cost, if
     any) to Redis for fleet-wide budget tracking, logs the completion to
     ``public.llm_calls``, and — when ``user_id`` is given — adds to that
-    user's running monthly spend. Entirely best-effort; never raises."""
+    user's running monthly spend. It also emits the completed call's latency,
+    cost, and token usage to Prometheus. Entirely best-effort; never raises."""
     from backend.services.ai.cost import estimate_cost, log_llm_call, record_user_llm_spend
+    from backend.core.metrics import (
+        LLM_CALL_COST_USD_TOTAL,
+        LLM_CALL_DURATION_SECONDS,
+        LLM_CALL_TOKENS_TOTAL,
+    )
 
     await _rotator.flush_success_to_redis(provider_id)
     cost = estimate_cost(provider_id, model, usage)
@@ -1025,6 +1032,13 @@ async def _account_for_call(
     )
     if user_id and cost > 0:
         await record_user_llm_spend(user_id, cost)
+
+    labels = {"provider": provider_id, "model": model, "feature": feature}
+    LLM_CALL_DURATION_SECONDS.labels(**labels).observe(duration_seconds)
+    LLM_CALL_COST_USD_TOTAL.labels(**labels).inc(cost)
+    if usage:
+        LLM_CALL_TOKENS_TOTAL.labels(**labels, kind="prompt").inc(usage.prompt_tokens)
+        LLM_CALL_TOKENS_TOTAL.labels(**labels, kind="completion").inc(usage.completion_tokens)
 
 
 async def generate_text(
@@ -1066,16 +1080,19 @@ async def generate_text(
         await check_user_llm_budget(user_id)
 
     if ai_model == "llama3":
+        call_started = time.perf_counter()
         text, usage = await call_llm(lambda: _call_provider("llama3", prompt))
         await _account_for_call(
             "llama3", OLLAMA_MODEL, usage,
             user_id=user_id, course_id=course_id, feature=feature or "generate_text",
+            duration_seconds=time.perf_counter() - call_started,
         )
         await log_prompt_response("generate_text", prompt, text)
         return text
 
     preferred = _resolve_preferred(ai_model)
     await _rotator.refresh_from_redis(QUALITY_CHAIN)
+    call_started = time.perf_counter()
     text, provider_id, model, usage = await call_llm(
         lambda: _generate_with_rotation(
             prompt, QUALITY_CHAIN, preferred=preferred,
@@ -1085,6 +1102,7 @@ async def generate_text(
     await _account_for_call(
         provider_id, model, usage,
         user_id=user_id, course_id=course_id, feature=feature or "generate_text",
+        duration_seconds=time.perf_counter() - call_started,
     )
     await log_prompt_response("generate_text", prompt, text)
     return text
@@ -1117,6 +1135,7 @@ async def generate_text_bulk(
 
     preferred = _resolve_preferred(ai_model)
     await _rotator.refresh_from_redis(BULK_CHAIN)
+    call_started = time.perf_counter()
     text, provider_id, model, usage = await call_llm(
         lambda: _generate_with_rotation(
             prompt, BULK_CHAIN, preferred=preferred,
@@ -1126,6 +1145,7 @@ async def generate_text_bulk(
     await _account_for_call(
         provider_id, model, usage,
         user_id=user_id, course_id=course_id, feature=feature or "generate_text_bulk",
+        duration_seconds=time.perf_counter() - call_started,
     )
     await log_prompt_response("generate_text_bulk", prompt, text)
     return text
@@ -1513,6 +1533,7 @@ async def batch_analyze_text_slides(
         from backend.services.llm_client import call_llm
         preferred = _resolve_preferred(ai_model)
         await _rotator.refresh_from_redis(BULK_CHAIN)
+        call_started = time.perf_counter()
         raw, provider_id, model, usage = await call_llm(
             lambda: _generate_with_rotation(
                 full_prompt, BULK_CHAIN, preferred=preferred,
@@ -1522,6 +1543,7 @@ async def batch_analyze_text_slides(
         await _account_for_call(
             provider_id, model, usage,
             user_id=None, course_id=None, feature="batch_analyze_text_slides",
+            duration_seconds=time.perf_counter() - call_started,
         )
     except Exception as exc:
         # Re-raise so the outer per-slide retry path (e.g.
@@ -1681,6 +1703,7 @@ async def _regenerate_failing_slide_quizzes(
         from backend.services.llm_client import call_llm
         preferred = _resolve_preferred(ai_model)
         await _rotator.refresh_from_redis(BULK_CHAIN)
+        call_started = time.perf_counter()
         raw, provider_id, model, usage = await call_llm(
             lambda: _generate_with_rotation(
                 full_prompt, BULK_CHAIN, preferred=preferred,
@@ -1690,6 +1713,7 @@ async def _regenerate_failing_slide_quizzes(
         await _account_for_call(
             provider_id, model, usage,
             user_id=None, course_id=None, feature="regenerate_failing_slide_quizzes",
+            duration_seconds=time.perf_counter() - call_started,
         )
     except Exception as exc:
         logger.warning(

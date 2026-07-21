@@ -61,6 +61,46 @@ async def test_verify_token_increments_auth_cache_hit(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_account_for_call_emits_llm_usage_metrics(monkeypatch):
+    """The cost-accounting tail is the sole LLM Prometheus emission point."""
+    from backend.services.ai import cost as cost_module
+    from backend.services.ai import orchestrator
+    from backend.services.ai.cost import LLMUsage
+
+    async def _noop(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(orchestrator._rotator, "flush_success_to_redis", _noop)
+    monkeypatch.setattr(cost_module, "estimate_cost", lambda *_args: 0.125)
+    monkeypatch.setattr(cost_module, "log_llm_call", _noop)
+    monkeypatch.setattr(cost_module, "record_user_llm_spend", _noop)
+
+    labels = {"provider": "openai", "model": "gpt-4o-mini", "feature": "test_feature"}
+    duration = metrics.LLM_CALL_DURATION_SECONDS.labels(**labels)
+    cost = metrics.LLM_CALL_COST_USD_TOTAL.labels(**labels)
+    prompt = metrics.LLM_CALL_TOKENS_TOTAL.labels(**labels, kind="prompt")
+    completion = metrics.LLM_CALL_TOKENS_TOTAL.labels(**labels, kind="completion")
+    before_duration = duration._sum.get()
+    before_cost = cost._value.get()
+    before_prompt = prompt._value.get()
+    before_completion = completion._value.get()
+
+    await orchestrator._account_for_call(
+        "openai", "gpt-4o-mini", LLMUsage(prompt_tokens=120, completion_tokens=45),
+        user_id="user-1", course_id="course-1", feature="test_feature", duration_seconds=0.25,
+    )
+
+    assert duration._sum.get() == pytest.approx(before_duration + 0.25)
+    assert cost._value.get() == pytest.approx(before_cost + 0.125)
+    assert prompt._value.get() == before_prompt + 120
+    assert completion._value.get() == before_completion + 45
+    body = client.get("/metrics").text
+    assert "llm_call_duration_seconds" in body
+    assert "llm_call_cost_usd_total" in body
+    assert "llm_call_tokens_total" in body
+
+
+@pytest.mark.asyncio
 async def test_get_cached_parse_increments_miss_when_no_row(monkeypatch):
     from backend.services import cache as cache_module
 

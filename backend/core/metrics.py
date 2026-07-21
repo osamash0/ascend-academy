@@ -48,17 +48,6 @@ CACHE_TOTAL = Counter(
     ["cache", "result"],  # cache: pdf_parse | ... ; result: hit | miss
 )
 
-# NOT YET WIRED: these three are defined here (so the names/labels are
-# settled) but nothing calls them yet. Emitting real values needs the
-# per-call provider/model/usage data that P1-1 (branch
-# fix/p1-1-llm-cost-accounting, backend/services/ai/cost.py + orchestrator.py's
-# _account_for_call) computes — that branch predates this one and doesn't have
-# backend/core/metrics.py to import from, and this branch doesn't have P1-1's
-# usage-tuple-returning orchestrator.py to instrument. Wire these into
-# _account_for_call (wrap the call_llm(...) invocation in
-# time.perf_counter(), pass duration through) as a follow-up once both
-# branches are merged to main — don't reimplement a shallower version against
-# the pre-P1-1 orchestrator.py shape, it'll just be thrown away.
 LLM_CALL_DURATION_SECONDS = Histogram(
     "llm_call_duration_seconds",
     "LLM provider call latency in seconds (includes rotation/retry within one logical call).",
