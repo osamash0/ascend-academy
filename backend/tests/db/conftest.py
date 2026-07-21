@@ -58,8 +58,29 @@ def pg_container() -> Iterator["PostgresContainer"]:
 
 
 @pytest.fixture(scope="session")
-def pg_dsn(pg_container) -> str:
-    """Plain libpq URL (psycopg v3 doesn't accept the +psycopg2 suffix)."""
+def pg_dsn(request) -> str:
+    """Plain libpq URL (psycopg v3 doesn't accept the +psycopg2 suffix).
+
+    If ``LOCAL_PG_DSN`` is set, use it directly instead of spinning up a
+    testcontainers Postgres — lets this suite run against a real local
+    Postgres (e.g. Homebrew Postgres) in sandboxes with no Docker access.
+    The migrations/bootstrap are identical either way; only the target
+    connection differs. A real Postgres is required either way (nothing
+    here is mocked) — this just changes where that Postgres instance runs.
+
+    Must be a full ``postgresql://`` URI (not a bare libpq keyword string
+    like ``dbname=... host=...``) — some tests (e.g. test_exam_api.py) open
+    an asyncpg pool directly against this DSN, and asyncpg requires a URI
+    scheme. Example for a local Homebrew Postgres on a Unix socket, current
+    user, empty pre-created database ``s1_pytest``:
+    ``LOCAL_PG_DSN="postgresql://$(whoami)@%2Ftmp:5432/s1_pytest"``.
+    """
+    local_dsn = os.environ.get("LOCAL_PG_DSN")
+    if local_dsn:
+        if not HAS_TESTCONTAINERS:
+            pytest.skip("psycopg not installed; install for DB tests")
+        return local_dsn
+    pg_container = request.getfixturevalue("pg_container")
     return (
         pg_container.get_connection_url()
         .replace("postgresql+psycopg2", "postgresql")
