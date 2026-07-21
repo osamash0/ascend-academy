@@ -5,8 +5,23 @@ on:
   push:
     branches: [main]
   schedule:
-    # 03:17 UTC nightly — runs the DB / RLS suite against a real Postgres.
-    # Off-the-hour to avoid the GitHub Actions hourly cron stampede.
+    # 03:17 UTC nightly. This is the SINGLE scheduled trigger for every
+    # security-relevant background check in this workflow (S-6, Foundation
+    # 10x roadmap §14) — not just the DB/RLS suite below. When a sibling
+    # initiative lands a new scheduled security job (S-1's anon-key
+    # PostgREST probe, S-5's SCA/secret scan), add it as another job gated
+    # on `github.event_name == 'schedule' || github.event_name ==
+    # 'workflow_dispatch'` under THIS same cron entry, rather than adding a
+    # second schedule trigger. One nightly home means one place to look
+    # when something fails, and avoids multiplying the hourly-cron-stampede
+    # problem this off-the-hour time already dodges.
+    #
+    # Failure visibility today: GitHub's default "notify the workflow
+    # actor / repo watchers on failure" email is the only alerting in
+    # place. There is no Slack/webhook integration configured in this repo
+    # (checked: no secrets, no notify step, no dependabot/other automation
+    # referencing a webhook). That is a documented gap, not a silent one —
+    # see docs/SECURITY_CI.md.
     - cron: "17 3 * * *"
   workflow_dispatch:
 
@@ -48,6 +63,31 @@ jobs:
       - name: Lint new migrations for unguarded SECURITY DEFINER functions
         if: steps.changed.outputs.files != ''
         run: python backend/scripts/lint_new_definer_functions.py ${{ steps.changed.outputs.files }}
+
+  # Cheap path-detection so PRs that touch nothing RLS/migration-related
+  # don't pay for a Docker/testcontainers boot. See the `nightly-db` job's
+  # `if:` below for how this gates PR runs, and docs/SECURITY_CI.md for the
+  # full reasoning on the PR-vs-nightly tradeoff (S-6).
+  changes:
+    name: Detect DB/RLS-relevant changes
+    runs-on: ubuntu-latest
+    outputs:
+      db: ${{ steps.filter.outputs.db }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        # Only meaningful (and only run) for pull_request diffs; push/
+        # schedule/workflow_dispatch already run nightly-db unconditionally
+        # via the event-type checks below, so an empty output here is fine.
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            db:
+              - 'supabase/migrations/**'
+              - 'backend/tests/db/**'
+              - 'backend/core/**'
+              - 'backend/repositories/**'
 
   lint:
     name: Lint (frontend)
@@ -169,10 +209,30 @@ jobs:
           # license key for GitHub Enterprise Server; github.com repos run free.
 
   nightly-db:
-    name: DB / RLS tests (nightly only)
-    # Runs nightly on the schedule trigger and on-demand via workflow_dispatch
-    # so we can re-run after a migration change without waiting for 03:17.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    name: DB / RLS tests
+    needs: changes
+    # Runs nightly on the schedule trigger, on-demand via workflow_dispatch,
+    # AND on any PR that touches a migration / db-test / RLS-relevant path
+    # (see the `changes` job above).
+    #
+    # S-6 (Foundation 10x §14) reasoning for adding the PR trigger: this
+    # suite is the enforced authorization-boundary regression test for
+    # RLS (the P2-1 "RLS-as-boundary" work) — a PR that silently drops or
+    # weakens a policy is exactly the kind of change that must NOT wait
+    # for the 03:17 nightly to be caught, because by then it may already
+    # be merged and deployed. The tradeoff: Docker/testcontainers boot +
+    # migration replay adds real wall-clock time to a PR (this repo's own
+    # conftest comments note the container boot cost), so we do NOT run it
+    # on every PR unconditionally — only on PRs whose diff touches
+    # supabase/migrations/**, backend/tests/db/**, or backend/app RLS/core
+    # code. A frontend-only or docs-only PR skips this job entirely and
+    # still merges fast. This is a narrower, path-scoped gate rather than
+    # a blanket "run pytest -m db on every PR," which is the right balance
+    # between "catch it before merge" and "don't tax unrelated PRs."
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && needs.changes.outputs.db == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
