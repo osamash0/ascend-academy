@@ -7,6 +7,10 @@ pytest>=8.0
 pytest-asyncio>=0.23
 pytest-cov>=5.0
 
+# ── Lint (P4-4: wired into CI report-only for now — 180 pre-existing
+# violations as of 2026-07-21; see ci.yml) ───────────────────────────────────
+ruff>=0.15
+
 # ── HTTP mocking / time travel / fakes ───────────────────────────────────────
 respx>=0.21
 freezegun>=1.5

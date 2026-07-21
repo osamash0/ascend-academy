@@ -1,39 +1,39 @@
-fastapi
-uvicorn
-sqlmodel
-supabase
-pydantic
-pydantic-settings
-python-dotenv
-asyncpg
-pypdf
+fastapi==0.136.1
+uvicorn==0.46.0
+sqlmodel==0.0.39
+supabase==2.30.0
+pydantic==2.13.3
+pydantic-settings==2.14.0
+python-dotenv==1.2.2
+asyncpg==0.31.0
+pypdf==6.14.2
 PyMuPDF==1.24.0
-Pillow
-python-multipart
-ollama
-google-genai
-groq
-edge-tts
-slowapi
+Pillow==12.2.0
+python-multipart==0.0.27
+ollama==0.6.2
+google-genai==2.12.1
+groq==1.2.0
+edge-tts==7.2.8
+slowapi==0.1.9
 tenacity==8.2.3
 tiktoken==0.7.0
 pytesseract==0.3.10
 pandas==2.1.4
 tabulate==0.9.0
-paddlepaddle
-paddleocr
-lxml
-llama-cloud-services
-markitdown[pptx]>=0.1.6   # native PPTX → per-slide markdown import (markitdown_service.py)
+paddlepaddle==3.3.1
+paddleocr==3.7.0
+lxml==6.1.0
+llama-cloud-services==0.6.35
+markitdown[pptx]==0.1.6   # native PPTX → per-slide markdown import (markitdown_service.py)
 
 # ── Parser v3 ─────────────────────────────────────────────────────────────────
-docling>=2.0
-arq>=0.26
-fastembed>=0.3
-litellm>=1.40
+docling==2.92.0
+arq==0.28.0
+fastembed==0.8.0
+litellm==1.83.0
 
-openai>=1.50.0
-sentry-sdk>=2.0.0
-redis[hiredis]
-python-json-logger>=3.0  # required by backend/core/logging_config.py (imported in main.py)
-resend>=2.1.0
+openai==2.35.0
+sentry-sdk==2.66.0
+redis[hiredis]==5.3.1
+python-json-logger==4.1.0  # required by backend/core/logging_config.py (imported in main.py)
+resend==2.34.0

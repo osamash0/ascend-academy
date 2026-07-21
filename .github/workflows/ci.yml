@@ -11,6 +11,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  migration-lint:
+    name: Migration governance (timestamp collisions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Fail on new duplicate migration timestamps
+        run: python backend/scripts/check_migration_timestamps.py
+
   lint:
     name: Lint (frontend)
     runs-on: ubuntu-latest
@@ -52,7 +63,13 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
       - run: pip install -r backend/requirements-dev.txt
-      - run: python -m pytest backend/tests --cov=backend --cov-report=html --cov-report=term -q
+      - name: ruff (report-only — 180 pre-existing violations, not yet gated)
+        # TODO(P4-4 follow-up): fix or file the 180 pre-existing violations
+        # (53 E402, 49 E701, 35 E741, 32 F401, 8 F841, 2 F811, 1 E731 as of
+        # 2026-07-21) then flip this to blocking. Kept non-blocking for now so
+        # CI is informative without breaking on day one.
+        run: ruff check backend/ --statistics || true
+      - run: python -m pytest backend/tests --cov=backend --cov-report=html --cov-report=term --cov-fail-under=70 -q
       - uses: actions/upload-artifact@v4
         if: always()
         with:
