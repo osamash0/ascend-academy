@@ -522,12 +522,71 @@ _ProviderRotator = ProviderRotator
 # Per-provider call implementations
 # ---------------------------------------------------------------------------
 
-def _call_openai_compat(client: Any, model: str, prompt: str) -> str:
-    """Unified caller for all OpenAI-compatible providers."""
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-    )
+# Providers that have, at some point in this process's life, rejected the
+# `response_format={"type": "json_object"}` parameter (400/"unsupported" type
+# errors). Once a provider lands here we stop asking it for JSON mode for the
+# rest of the process — cheaper than re-discovering the failure every call,
+# and safe because provider capability doesn't change mid-process.
+_JSON_MODE_UNSUPPORTED: set = set()
+
+
+def _call_openai_compat(
+    client: Any,
+    model: str,
+    prompt: str,
+    *,
+    provider_id: Optional[str] = None,
+    json_mode: bool = False,
+) -> str:
+    """Unified caller for all OpenAI-compatible providers.
+
+    Foundation Roadmap P4-3: bulk/quality chains that parse the reply as JSON
+    (`parse_json_response`) can pass ``json_mode=True`` to request the
+    provider's native JSON-object response format, which removes a whole
+    class of "model wrapped it in prose" / truncation-adjacent parse
+    failures for free on providers that support it.
+
+    Not every OpenAI-compatible free-tier endpoint honors `response_format`
+    (some free-tier proxies 400 on unrecognized params). We optimistically
+    ask for it, and if the provider rejects it we retry once WITHOUT the
+    parameter and remember not to ask that provider again this process
+    lifetime — see ``_JSON_MODE_UNSUPPORTED``. Errors unrelated to the param
+    (auth, rate limit, network) are NOT swallowed here; they propagate so the
+    existing rotation/backoff logic in ``_generate_with_rotation`` handles
+    them as it always has.
+    """
+    use_json_mode = json_mode and provider_id not in _JSON_MODE_UNSUPPORTED
+    kwargs: Dict[str, Any] = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if use_json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+    try:
+        resp = client.chat.completions.create(**kwargs)
+    except Exception as exc:
+        if not use_json_mode:
+            raise
+        msg = str(exc).lower()
+        looks_like_param_rejection = any(
+            k in msg for k in (
+                "response_format", "json_object", "json_schema",
+                "unsupported", "not support", "unknown parameter",
+                "unrecognized",
+            )
+        )
+        if not looks_like_param_rejection:
+            raise
+        logger.warning(
+            "Provider '%s' rejected response_format=json_object; retrying "
+            "without JSON mode and disabling it for this provider for the "
+            "rest of the process: %s",
+            provider_id, exc,
+        )
+        if provider_id:
+            _JSON_MODE_UNSUPPORTED.add(provider_id)
+        kwargs.pop("response_format", None)
+        resp = client.chat.completions.create(**kwargs)
     return resp.choices[0].message.content or ""
 
 
@@ -538,10 +597,18 @@ def _call_google(model: str, prompt: str) -> str:
     return _google_client.models.generate_content(model=model, contents=prompt).text
 
 
-def _call_provider(provider_id: str, prompt: str) -> str:
+def _call_provider(provider_id: str, prompt: str, *, json_mode: bool = False) -> str:
     """
     Dispatches a prompt to the named provider.
     Raises RuntimeError if the provider is not configured.
+
+    ``json_mode`` (Foundation Roadmap P4-3) is only wired through to the
+    OpenAI-compatible client path below (``_call_openai_compat``), which is
+    where `response_format` lives. The Ollama/Google-SDK/native-Groq-SDK
+    branches don't take this parameter today — follow-up if we want JSON
+    mode there too (Google's SDK has an equivalent via
+    ``response_mime_type``, already used by vision.py, but wiring it into
+    this text path is out of scope for this pass).
     """
     cfg = PROVIDER_REGISTRY.get(provider_id)
     if cfg is None:
@@ -572,7 +639,9 @@ def _call_provider(provider_id: str, prompt: str) -> str:
     client = _clients.get(provider_id)
     if client is None:
         raise RuntimeError(f"Provider '{provider_id}' client not initialised ({cfg.env_var} missing)")
-    return _call_openai_compat(client, cfg.model, prompt)
+    return _call_openai_compat(
+        client, cfg.model, prompt, provider_id=provider_id, json_mode=json_mode,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -583,12 +652,26 @@ def _generate_with_rotation(
     prompt: str,
     chain: List[str],
     preferred: Optional[str] = None,
+    *,
+    json_mode: bool = False,
+    prompt_name: Optional[str] = None,
 ) -> str:
     """
     Tries each provider in `chain` (skipping unavailable ones), rotates on 429.
     If ``preferred`` is a known provider id it is moved to the head of the
     chain so the user's selection is honored first when available.
     Raises the last exception if every provider fails.
+
+    ``json_mode`` is passed to ``_call_provider`` ONLY when truthy — this
+    keeps the call signature backward-compatible with test doubles that
+    monkeypatch ``_call_provider``/``_generate_with_rotation`` with the
+    pre-P4-3 2/3-positional-arg signature.
+
+    ``prompt_name`` (optional) is a ``prompts.PROMPT_VERSIONS`` key, logged
+    alongside the serving provider as a breadcrumb correlating a provider
+    choice to the prompt/version that produced it.
+    TODO(P1-1 llm-cost-accounting): once the ``llm_calls`` table lands, write
+    ``prompt_name``/its resolved version as real columns instead of a log line.
     """
     chain = _chain_with_preferred(chain, preferred)
     available = _rotator.available(chain)
@@ -599,9 +682,20 @@ def _generate_with_rotation(
 
     for pid in available:
         try:
-            result = _call_provider(pid, prompt)
+            result = (
+                _call_provider(pid, prompt, json_mode=True)
+                if json_mode
+                else _call_provider(pid, prompt)
+            )
             _rotator.record_success(pid)
-            logger.info("✅ Provider '%s' served request", pid)
+            if prompt_name:
+                from backend.services.ai.prompts import get_prompt_version
+                logger.info(
+                    "✅ Provider '%s' served request (prompt=%s version=%s)",
+                    pid, prompt_name, get_prompt_version(prompt_name),
+                )
+            else:
+                logger.info("✅ Provider '%s' served request", pid)
             return result
         except Exception as exc:
             msg = str(exc).lower()
@@ -795,21 +889,44 @@ def _llm_generate_text_sync(prompt: str, ai_model: str = "cerebras") -> str:
     return _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=_resolve_preferred(ai_model))
 
 
-async def generate_text(prompt: str, ai_model: str = "cerebras") -> str:
+async def generate_text(
+    prompt: str,
+    ai_model: str = "cerebras",
+    *,
+    json_mode: bool = False,
+    prompt_name: Optional[str] = None,
+) -> str:
     """
     Quality chain: Cerebras → Groq 70B → OpenRouter → Cloudflare → Gemini → …
     Use for blueprints, planning, deck summaries.
     The user-selected ``ai_model`` is moved to the head of the chain when
     it maps to a known provider (cerebras, groq, openrouter, cloudflare, gemini, ...).
+
+    Pass ``json_mode=True`` when the caller will run ``parse_json_response``
+    on the reply (Foundation Roadmap P4-3) — this requests provider-native
+    JSON-object mode where supported, with an automatic per-provider
+    fallback (see ``_call_openai_compat``). ``prompt_name`` optionally tags
+    the request with a ``prompts.PROMPT_VERSIONS`` key for the success log.
     """
     from backend.services.llm_client import call_llm
     if ai_model == "llama3":
         return await call_llm(lambda: _call_provider("llama3", prompt))
     preferred = _resolve_preferred(ai_model)
-    return await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=preferred))
+    return await call_llm(
+        lambda: _generate_with_rotation(
+            prompt, QUALITY_CHAIN, preferred=preferred,
+            json_mode=json_mode, prompt_name=prompt_name,
+        )
+    )
 
 
-async def generate_text_bulk(prompt: str, ai_model: str = "cerebras") -> str:
+async def generate_text_bulk(
+    prompt: str,
+    ai_model: str = "cerebras",
+    *,
+    json_mode: bool = False,
+    prompt_name: Optional[str] = None,
+) -> str:
     """
     Bulk chain: Cerebras → Groq 8B → Cloudflare → Gemma → Mistral → OpenRouter → …
     Use for slide-by-slide processing to preserve the scarce Groq 70B quota.
@@ -817,7 +934,12 @@ async def generate_text_bulk(prompt: str, ai_model: str = "cerebras") -> str:
     """
     from backend.services.llm_client import call_llm
     preferred = _resolve_preferred(ai_model)
-    return await call_llm(lambda: _generate_with_rotation(prompt, BULK_CHAIN, preferred=preferred))
+    return await call_llm(
+        lambda: _generate_with_rotation(
+            prompt, BULK_CHAIN, preferred=preferred,
+            json_mode=json_mode, prompt_name=prompt_name,
+        )
+    )
 
 
 def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
@@ -826,14 +948,20 @@ def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]
         "Analyze this lecture slide and return JSON with "
         "{title, content, summary, questions, slide_type, is_metadata}:\n\n" + text
     )
-    raw = _generate_with_rotation(prompt, BULK_CHAIN, preferred=_resolve_preferred(ai_model))
+    raw = _generate_with_rotation(
+        prompt, BULK_CHAIN, preferred=_resolve_preferred(ai_model), json_mode=True,
+        prompt_name="process_slide_batch_inline",
+    )
     return parse_json_response(raw)
 
 
 async def enhance_slide_content(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
     from backend.services.ai.prompts import ENHANCE_PROMPT
     from backend.services.ai.voice import with_voice
-    raw = await generate_text(with_voice(ENHANCE_PROMPT.format(text=text), structured=True), ai_model=ai_model)
+    raw = await generate_text(
+        with_voice(ENHANCE_PROMPT.format(text=text), structured=True),
+        ai_model=ai_model, json_mode=True, prompt_name="ENHANCE_PROMPT",
+    )
     return parse_json_response(raw)
 
 
@@ -953,7 +1081,10 @@ async def generate_deck_quiz(
     else:
         prompt = DECK_QUIZ_PROMPT + (summary or "")
 
-    raw = await generate_text(with_voice(prompt, structured=True), ai_model=ai_model)
+    raw = await generate_text(
+        with_voice(prompt, structured=True), ai_model=ai_model,
+        json_mode=True, prompt_name="deck_quiz_prompt",
+    )
     parsed = parse_json_response(raw)
     if not isinstance(parsed, list):
         return []
@@ -983,7 +1114,10 @@ async def generate_deck_quiz(
         if not regen_cache["called"]:
             regen_cache["called"] = True
             try:
-                raw2 = await generate_text(prompt, ai_model=ai_model)
+                raw2 = await generate_text(
+                    prompt, ai_model=ai_model,
+                    json_mode=True, prompt_name="deck_quiz_prompt",
+                )
                 items = parse_json_response(raw2)
                 regen_cache["items"] = items if isinstance(items, list) else []
             except Exception as exc:
@@ -1190,7 +1324,10 @@ async def batch_analyze_text_slides(
         from backend.services.llm_client import call_llm
         preferred = _resolve_preferred(ai_model)
         raw = await call_llm(
-            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN, preferred=preferred)
+            lambda: _generate_with_rotation(
+                full_prompt, BULK_CHAIN, preferred=preferred,
+                json_mode=True, prompt_name="BATCH_SLIDE_PROMPT",
+            )
         )
     except Exception as exc:
         # Re-raise so the outer per-slide retry path (e.g.
@@ -1350,7 +1487,10 @@ async def _regenerate_failing_slide_quizzes(
         from backend.services.llm_client import call_llm
         preferred = _resolve_preferred(ai_model)
         raw = await call_llm(
-            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN, preferred=preferred)
+            lambda: _generate_with_rotation(
+                full_prompt, BULK_CHAIN, preferred=preferred,
+                json_mode=True, prompt_name="BATCH_SLIDE_QUIZ_REGEN_PROMPT",
+            )
         )
     except Exception as exc:
         logger.warning(
@@ -1428,7 +1568,10 @@ async def generate_slide_quiz(text: str, ai_model: str = "cerebras") -> Dict[str
         if not regen_cache["called"]:
             regen_cache["called"] = True
             try:
-                raw2 = await generate_text(prompt, ai_model=ai_model)
+                raw2 = await generate_text(
+                    prompt, ai_model=ai_model,
+                    json_mode=True, prompt_name="SINGLE_SLIDE_QUIZ_PROMPT",
+                )
                 item = parse_json_response(raw2)
                 if isinstance(item, list) and item:
                     item = item[0]
@@ -1438,7 +1581,10 @@ async def generate_slide_quiz(text: str, ai_model: str = "cerebras") -> Dict[str
                 regen_cache["item"] = {}
         return regen_cache["item"]
 
-    raw = await generate_text(prompt, ai_model=ai_model)
+    raw = await generate_text(
+        prompt, ai_model=ai_model,
+        json_mode=True, prompt_name="SINGLE_SLIDE_QUIZ_PROMPT",
+    )
     parsed = parse_json_response(raw)
     
     if isinstance(parsed, list) and parsed:

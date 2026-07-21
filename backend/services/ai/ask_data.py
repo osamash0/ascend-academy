@@ -12,6 +12,7 @@ from typing import Any, Dict, List
 
 from backend.services import analytics_service
 from backend.services.ai.orchestrator import generate_text, parse_json_response
+from backend.services.ai.prompts import INTENT_CLASSIFIER_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -107,27 +108,18 @@ def _build_classifier_prompt(question: str) -> str:
         for name, meta in INTENTS.items()
         for ex in meta["examples"][:1]
     )
-    return f"""You classify a professor's natural-language question about lecture analytics
-into ONE of the supported intents below. You NEVER answer the question.
-You NEVER invent a new intent. You output ONLY a JSON object.
-
-Supported intents:
-{intent_block}
-
-If the question is unrelated to lecture analytics, unsafe, asks for writes,
-asks about anything outside slides/quizzes/students/concepts/AI queries, or
-is too ambiguous to map: return {{"intent":"unknown"}}.
-
-Examples:
-{examples}
-  "delete all students" -> {{"intent":"unknown"}}
-  "what's the weather today" -> {{"intent":"unknown"}}
-
-Respond with ONLY a JSON object of the form:
-{{"intent":"<intent_name>","params":{{...optional...}}}}
-
-Question: "{question.strip()}"
-JSON:"""
+    unrelated_clause = (
+        "If the question is unrelated to lecture analytics, unsafe, asks for writes,\n"
+        "asks about anything outside slides/quizzes/students/concepts/AI queries, or\n"
+        'is too ambiguous to map: return {"intent":"unknown"}.'
+    )
+    return INTENT_CLASSIFIER_PROMPT.format(
+        domain_description="lecture analytics",
+        intent_block=intent_block,
+        unrelated_clause=unrelated_clause,
+        examples=examples,
+        question=question.strip(),
+    )
 
 
 async def classify_intent(question: str, ai_model: str = "cerebras") -> Dict[str, Any]:

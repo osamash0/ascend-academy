@@ -20,6 +20,7 @@ from typing import Any, Dict, List
 from backend.services import analytics_service
 from backend.services.ai.ask_data import _clamp_int
 from backend.services.ai.orchestrator import generate_text, parse_json_response
+from backend.services.ai.prompts import INTENT_CLASSIFIER_PROMPT, PROFESSOR_CHAT_SYSTEM_PROMPT
 from backend.services.ai.voice import VOICE_PROSE, LANG_MATCH
 
 logger = logging.getLogger(__name__)
@@ -301,27 +302,19 @@ def _build_classifier_prompt(question: str) -> str:
         for name, meta in INTENTS.items()
         for ex in meta["examples"][:1]
     )
-    return f"""You classify a professor's natural-language question about their teaching
-analytics (spanning ALL their courses and lectures) into ONE of the supported
-intents below. You NEVER answer the question. You NEVER invent a new intent.
-You output ONLY a JSON object.
-
-Supported intents:
-{intent_block}
-
-If the question is unrelated to teaching analytics, unsafe, asks for writes, or
-is too ambiguous to map: return {{"intent":"unknown"}}.
-
-Examples:
-{examples}
-  "delete all students" -> {{"intent":"unknown"}}
-  "what's the weather today" -> {{"intent":"unknown"}}
-
-Respond with ONLY a JSON object of the form:
-{{"intent":"<intent_name>","params":{{...optional...}}}}
-
-Question: "{question.strip()}"
-JSON:"""
+    unrelated_clause = (
+        "If the question is unrelated to teaching analytics, unsafe, asks for writes, or\n"
+        'is too ambiguous to map: return {"intent":"unknown"}.'
+    )
+    return INTENT_CLASSIFIER_PROMPT.format(
+        domain_description=(
+            "their teaching analytics (spanning ALL their courses and lectures)"
+        ),
+        intent_block=intent_block,
+        unrelated_clause=unrelated_clause,
+        examples=examples,
+        question=question.strip(),
+    )
 
 
 async def classify_intent(question: str, ai_model: str = "cerebras") -> Dict[str, Any]:
@@ -589,24 +582,11 @@ def _build_professor_context(token: str, professor_id: str) -> str:
 
 
 def _build_chat_prompt(context: str, messages: List[Dict[str, str]]) -> str:
-    system = f"""You are the analytics assistant for a professor on the Learnstation learning platform.
-You help them understand their own teaching: their courses, lectures, students,
-engagement, completion, quiz performance, and where students struggle.
-
-The professor's current data (this is everything you know — there is no other source):
-{context}
-
-Rules:
-- Answer ONLY from the data above and the conversation so far.
-- If the data doesn't contain the answer, say so briefly and suggest what they can ask
-  (e.g. drop-off, completion, quiz scores, struggling students, confusing slides).
-- Never invent lectures, courses, students, or numbers that aren't in the data.
-- Be concise, warm, and direct. Refer to lectures/courses by name. Plain language, no markdown headers.
-
-{VOICE_PROSE}
-
-{LANG_MATCH}
-"""
+    system = PROFESSOR_CHAT_SYSTEM_PROMPT.format(
+        context=context,
+        voice_prose=VOICE_PROSE,
+        lang_match=LANG_MATCH,
+    )
     convo = "\n".join(
         f"{'User' if m.get('role') == 'user' else 'Assistant'}: {m.get('content', '').strip()}"
         for m in messages
