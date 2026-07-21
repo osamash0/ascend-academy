@@ -922,9 +922,9 @@ export default function AdminDashboard() {
             <AlertDialogAction 
               onClick={() => {
                 if (dialogState.backupId) {
-                  dialogState.actionType === 'restore' 
+                  void (dialogState.actionType === 'restore'
                     ? executeRestoreBackup(dialogState.backupId)
-                    : executeDeleteBackup(dialogState.backupId);
+                    : executeDeleteBackup(dialogState.backupId));
                 }
               }}
               className={dialogState.actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90 text-white' : 'bg-primary hover:bg-primary/90 text-white'}

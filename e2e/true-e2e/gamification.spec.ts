@@ -17,7 +17,9 @@ test.describe("Student True E2E: Gamification XP & Badges", () => {
       await page.getByRole("button", { name: /next/i }).click();
       await page.getByRole("button", { name: /next/i }).click();
       await page.getByRole("button", { name: /start learning/i }).click();
-    } catch { }
+    } catch {
+      // The student may already have completed onboarding.
+    }
 
     await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
     await expect(page.locator("h1")).toContainText(/Dashboard|Overview/i);
