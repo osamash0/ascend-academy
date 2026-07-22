@@ -1,5 +1,5 @@
 """Real-Postgres validation of repos.get_or_create_run's Phase-1 upsert
-behavior — the ON CONFLICT(pdf_hash, pipeline_version) DO UPDATE semantics
+behavior — the ON CONFLICT(pdf_hash, pipeline_version, user_id) DO UPDATE semantics
 can't be meaningfully asserted against a mocked pool, since the point is the
 actual SQL's COALESCE/overwrite behavior.
 

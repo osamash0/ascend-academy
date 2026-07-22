@@ -73,7 +73,7 @@ async def get_or_create_run(
             INSERT INTO parse_runs (pdf_hash, lecture_id, pipeline_version, status,
                                      batch_id, user_id, course_id, filename, parsing_mode)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT (pdf_hash, pipeline_version) DO UPDATE
+            ON CONFLICT (pdf_hash, pipeline_version, user_id) DO UPDATE
                 SET batch_id = COALESCE(EXCLUDED.batch_id, parse_runs.batch_id),
                     user_id = COALESCE(EXCLUDED.user_id, parse_runs.user_id),
                     course_id = COALESCE(EXCLUDED.course_id, parse_runs.course_id),
