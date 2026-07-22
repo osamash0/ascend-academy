@@ -7,6 +7,7 @@ backup/restore, and server/deployment diagnostics.
 import os
 import logging
 from typing import Any
+import json
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 import httpx
 from pydantic import BaseModel
@@ -28,9 +29,48 @@ require_admin = require_role("admin")
 
 @router.get("/users")
 @limiter.limit("30/minute")
-async def list_users(request: Request, user: Any = Depends(require_admin)):
+async def list_users(
+    request: Request, 
+    user: Any = Depends(require_admin),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    search: str = Query(None),
+    role: str = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_desc: bool = Query(True)
+):
     """List all user profiles along with their assigned roles and aggregate statistics."""
-    query = """
+    offset = (page - 1) * limit
+    order_dir = "DESC" if sort_desc else "ASC"
+    
+    # Mapping safe sort columns
+    sort_mapping = {
+        "created_at": "p.created_at",
+        "full_name": "p.full_name",
+        "total_xp": "p.total_xp",
+        "current_level": "p.current_level"
+    }
+    safe_sort_col = sort_mapping.get(sort_by, "p.created_at")
+
+    where_clauses = []
+    params = []
+    
+    if search:
+        params.append(f"%{search}%")
+        where_clauses.append(f"(p.full_name ILIKE ${len(params)} OR p.email ILIKE ${len(params)})")
+        
+    where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    
+    # We use a subquery to filter by role if needed, or join
+    # If role filter is active, we add to WHERE
+    if role:
+        params.append(role)
+        where_sql += f"{' AND ' if where_clauses else 'WHERE '}EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.user_id AND ur.role = ${len(params)})"
+
+    # Total count query
+    count_query = f"SELECT count(*) FROM public.profiles p {where_sql}"
+
+    query = f"""
         SELECT 
             p.user_id, 
             p.email, 
@@ -40,19 +80,27 @@ async def list_users(request: Request, user: Any = Depends(require_admin)):
             p.total_xp, 
             p.current_level, 
             p.created_at,
+            (SELECT max(created_at) FROM public.learning_events e WHERE e.user_id = p.user_id) as last_seen,
             COALESCE(
-                (SELECT json_agg(role) FROM public.user_roles r WHERE r.user_id = p.user_id),
+                (SELECT json_agg(ur.role) FROM public.user_roles ur WHERE ur.user_id = p.user_id),
                 '[]'::json
             ) as roles
         FROM public.profiles p
-        ORDER BY p.created_at DESC;
+        {where_sql}
+        ORDER BY {safe_sort_col} {order_dir} NULLS LAST
+        LIMIT ${len(params) + 1} OFFSET ${len(params) + 2};
     """
     try:
         from backend.core.database import db_pool, init_db_pool
         if not db_pool:
             await init_db_pool()
         async with db_pool.acquire() as conn:
-            rows = await conn.fetch(query)
+            total_count = await conn.fetchval(count_query, *params)
+            
+            # Execute main query
+            query_params = params + [limit, offset]
+            rows = await conn.fetch(query, *query_params)
+            
             users_list = []
             for r in rows:
                 users_list.append({
@@ -64,12 +112,128 @@ async def list_users(request: Request, user: Any = Depends(require_admin)):
                     "total_xp": r["total_xp"],
                     "current_level": r["current_level"],
                     "created_at": r["created_at"].isoformat() if r["created_at"] else None,
-                    "roles": list(r["roles"]) if r["roles"] else []
+                    "last_seen": r["last_seen"].isoformat() if r["last_seen"] else None,
+                    "roles": json.loads(r["roles"]) if r["roles"] else []
                 })
-            return {"success": True, "data": users_list}
+            return {
+                "success": True, 
+                "data": users_list,
+                "meta": {
+                    "total": total_count,
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": (total_count + limit - 1) // limit
+                }
+            }
     except Exception as e:
         logger.error("Admin list users failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve users list.")
+        
+class RoleManagementRequest(BaseModel):
+    action: str
+    role: str
+
+@router.post("/users/{target_user_id}/roles")
+@limiter.limit("10/minute")
+async def manage_user_roles(target_user_id: str, body: RoleManagementRequest, request: Request, user: Any = Depends(require_admin)):
+    """Add or remove a role from a user."""
+    if body.action not in ("add", "remove"):
+        raise HTTPException(status_code=400, detail="Action must be 'add' or 'remove'")
+    
+    if body.role not in ("admin", "professor", "student"):
+        raise HTTPException(status_code=400, detail="Invalid role specified")
+        
+    try:
+        from backend.core.database import db_pool, init_db_pool
+        if not db_pool:
+            await init_db_pool()
+        async with db_pool.acquire() as conn:
+            if body.action == "add":
+                # Check if role exists
+                exists = await conn.fetchval("SELECT 1 FROM public.user_roles WHERE user_id = $1 AND role = $2", target_user_id, body.role)
+                if not exists:
+                    await conn.execute("INSERT INTO public.user_roles (user_id, role) VALUES ($1, $2)", target_user_id, body.role)
+            elif body.action == "remove":
+                # Don't let the last admin remove their own admin role
+                if body.role == "admin" and target_user_id == user["id"]:
+                    admin_count = await conn.fetchval("SELECT count(*) FROM public.user_roles WHERE role = 'admin'")
+                    if admin_count <= 1:
+                        raise HTTPException(status_code=400, detail="Cannot remove the last admin")
+                await conn.execute("DELETE FROM public.user_roles WHERE user_id = $1 AND role = $2", target_user_id, body.role)
+                
+            # Fetch updated roles
+            rows = await conn.fetch("SELECT role FROM public.user_roles WHERE user_id = $1", target_user_id)
+            roles = [r["role"] for r in rows]
+            
+            return {"success": True, "data": {"user_id": target_user_id, "roles": roles}}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Admin role management failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update user roles.")
+
+@router.get("/users/{target_user_id}/detail")
+@limiter.limit("30/minute")
+async def get_user_detail(target_user_id: str, request: Request, user: Any = Depends(require_admin)):
+    """Get full user details including recent activity, courses, etc."""
+    try:
+        from backend.core.database import db_pool, init_db_pool
+        if not db_pool:
+            await init_db_pool()
+        async with db_pool.acquire() as conn:
+            # Get profile
+            p_row = await conn.fetchrow("""
+                SELECT p.*,
+                (SELECT json_agg(role) FROM public.user_roles ur WHERE ur.user_id = p.user_id) as roles
+                FROM public.profiles p WHERE p.user_id = $1
+            """, target_user_id)
+            
+            if not p_row:
+                raise HTTPException(status_code=404, detail="User not found")
+                
+            profile = dict(p_row)
+            if profile.get("created_at"): profile["created_at"] = profile["created_at"].isoformat()
+            if profile.get("updated_at"): profile["updated_at"] = profile["updated_at"].isoformat()
+            if profile.get("roles"): profile["roles"] = json.loads(profile["roles"])
+            else: profile["roles"] = []
+            
+            # Get recent events
+            e_rows = await conn.fetch("""
+                SELECT id, event_type, created_at, event_data
+                FROM public.learning_events
+                WHERE user_id = $1
+                ORDER BY created_at DESC LIMIT 10
+            """, target_user_id)
+            
+            events = []
+            for r in e_rows:
+                events.append({
+                    "id": str(r["id"]),
+                    "event_type": r["event_type"],
+                    "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                    "event_data": r["event_data"]
+                })
+                
+            # Get LLM spend
+            from backend.services.ai.cost import get_user_monthly_spend_from_db
+            try:
+                spend_usd = await get_user_monthly_spend_from_db(target_user_id)
+            except:
+                spend_usd = 0.0
+                
+            return {
+                "success": True, 
+                "data": {
+                    "profile": profile,
+                    "recent_events": events,
+                    "monthly_spend_usd": round(spend_usd, 6)
+                }
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Admin user detail failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve user detail.")
 
 
 @router.get("/events")
@@ -78,11 +242,44 @@ async def list_events(
     request: Request,
     user: Any = Depends(require_admin),
     page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=200)
+    limit: int = Query(50, ge=1, le=200),
+    event_type: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
+    search: str = Query(None)
 ):
-    """List paginated user interaction events (logins, slide views, quiz attempts)."""
+    """List paginated user interaction events with filters."""
     offset = (page - 1) * limit
-    query = """
+    
+    where_clauses = []
+    params = []
+    
+    if event_type:
+        params.append(event_type)
+        where_clauses.append(f"e.event_type = ${len(params)}")
+        
+    if date_from:
+        params.append(date_from)
+        where_clauses.append(f"e.created_at >= ${len(params)}::timestamp")
+        
+    if date_to:
+        params.append(date_to)
+        where_clauses.append(f"e.created_at <= ${len(params)}::timestamp")
+        
+    if search:
+        params.append(f"%{search}%")
+        where_clauses.append(f"(p.email ILIKE ${len(params)} OR p.full_name ILIKE ${len(params)} OR p.display_name ILIKE ${len(params)})")
+        
+    where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+    count_query = f"""
+        SELECT count(*) 
+        FROM public.learning_events e
+        LEFT JOIN public.profiles p ON p.user_id = e.user_id
+        {where_sql}
+    """
+
+    query = f"""
         SELECT 
             e.id, 
             e.user_id, 
@@ -93,15 +290,20 @@ async def list_events(
             p.display_name as user_name
         FROM public.learning_events e
         LEFT JOIN public.profiles p ON p.user_id = e.user_id
+        {where_sql}
         ORDER BY e.created_at DESC
-        LIMIT $1 OFFSET $2;
+        LIMIT ${len(params) + 1} OFFSET ${len(params) + 2};
     """
     try:
         from backend.core.database import db_pool, init_db_pool
         if not db_pool:
             await init_db_pool()
         async with db_pool.acquire() as conn:
-            rows = await conn.fetch(query, limit, offset)
+            total_count = await conn.fetchval(count_query, *params)
+            
+            query_params = params + [limit, offset]
+            rows = await conn.fetch(query, *query_params)
+            
             events = []
             for r in rows:
                 events.append({
@@ -113,7 +315,16 @@ async def list_events(
                     "user_email": r["user_email"],
                     "user_name": r["user_name"]
                 })
-            return {"success": True, "data": events}
+            return {
+                "success": True, 
+                "data": events,
+                "meta": {
+                    "total": total_count,
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": (total_count + limit - 1) // limit
+                }
+            }
     except Exception as e:
         logger.error("Admin list events failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to load activity logs.")
@@ -456,3 +667,69 @@ async def get_user_llm_spend(user_id: str, request: Request, user: Any = Depends
     except Exception as e:
         logger.error("Failed to load LLM spend for user %s: %s", user_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve LLM spend.")
+
+
+@router.get("/platform-stats")
+@limiter.limit("30/minute")
+async def get_platform_stats(request: Request, user: Any = Depends(require_admin)):
+    """Fetch high-level KPI aggregate statistics for the platform."""
+    try:
+        from backend.core.database import db_pool, init_db_pool
+        if not db_pool:
+            await init_db_pool()
+            
+        async with db_pool.acquire() as conn:
+            # 1. Total users and role breakdown
+            total_users = await conn.fetchval("SELECT count(*) FROM public.profiles")
+            professors = await conn.fetchval("SELECT count(DISTINCT user_id) FROM public.user_roles WHERE role = 'professor'")
+            admins = await conn.fetchval("SELECT count(DISTINCT user_id) FROM public.user_roles WHERE role = 'admin'")
+            students = (total_users or 0) - (professors or 0) - (admins or 0)
+            if students < 0:
+                students = 0
+            
+            # 2. Active sessions (last 24h events)
+            active_24h = await conn.fetchval("SELECT count(DISTINCT user_id) FROM public.learning_events WHERE created_at >= NOW() - INTERVAL '24 hours'")
+            
+            # 3. Content stats
+            total_courses = await conn.fetchval("SELECT count(*) FROM public.courses")
+            total_lectures = await conn.fetchval("SELECT count(*) FROM public.lectures")
+            
+            # 4. Total LLM Cost (approximated for all users this month)
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            try:
+                total_llm_cost = await conn.fetchval(
+                    "SELECT SUM(est_cost_usd) FROM public.llm_calls WHERE created_at >= $1", 
+                    start_of_month
+                )
+                total_llm_cost = round(total_llm_cost, 4) if total_llm_cost else 0.0
+            except Exception as e:
+                logger.warning(f"Failed to fetch LLM cost: {e}")
+                total_llm_cost = 0.0
+
+        return {
+            "success": True,
+            "data": {
+                "users": {
+                    "total": total_users,
+                    "professors": professors,
+                    "admins": admins,
+                    "students": students,
+                    "active_24h": active_24h
+                },
+                "content": {
+                    "courses": total_courses,
+                    "lectures": total_lectures
+                },
+                "financial": {
+                    "month_llm_cost_usd": total_llm_cost
+                }
+            }
+        }
+    except Exception as e:
+        logger.error("Failed to load platform stats: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve platform stats.")

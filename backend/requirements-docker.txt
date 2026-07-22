@@ -47,3 +47,4 @@ python-json-logger>=3.0  # required by backend/core/logging_config.py
 #   docker run --rm learnstation-api pip freeze > backend/requirements.lock
 # then in the Dockerfile install from the lock:  pip install -r requirements.lock
 # Regenerate the lock deliberately when you intend to upgrade.
+prometheus-fastapi-instrumentator==8.0.2

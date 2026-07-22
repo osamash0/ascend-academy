@@ -25,6 +25,9 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
       },
     },
+    watch: {
+      ignored: ['**/venv/**', '**/.venv/**'],
+    },
   },
   plugins: [react()],
   resolve: {
