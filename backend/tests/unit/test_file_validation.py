@@ -94,3 +94,17 @@ def test_sanitize_dot_and_dotdot_become_default():
 
 def test_sanitize_passes_through_a_normal_name():
     assert sanitize_filename("Lecture 3 — Intro.pdf") == "Lecture 3 — Intro.pdf"
+
+
+def test_sanitize_strips_html_metacharacters():
+    assert sanitize_filename('<img src=x onerror=alert(1)>.pdf') == "img src=x onerror=alert(1).pdf"
+    assert sanitize_filename('lecture".pdf') == "lecture.pdf"
+    for ch in ("<", ">", '"'):
+        assert ch not in sanitize_filename(f'a{ch}b.pdf')
+
+
+def test_sanitize_preserves_non_ascii_university_filenames():
+    # DACH-university filenames (umlauts, spaces) must survive unmangled —
+    # this sanitizer is intentionally narrower than worksheets.py's own
+    # ASCII-only _sanitize_filename.
+    assert sanitize_filename("Übungsblatt 3 – Woche 5.pdf") == "Übungsblatt 3 – Woche 5.pdf"
