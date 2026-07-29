@@ -55,6 +55,7 @@ services:
   # ── LLM gateway ────────────────────────────────────────────────────────────
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
+    entrypoint: ["sh", "-c", "unset DATABASE_URL && exec docker/prod_entrypoint.sh \"$$@\"", "--"]
     ports:
       - "127.0.0.1:4000:4000"
     volumes:
@@ -71,7 +72,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health')\" || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\" || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
