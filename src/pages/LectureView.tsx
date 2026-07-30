@@ -9,7 +9,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle, Loader2, Send, ArrowLeft, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { fetchLecture, fetchSlides, fetchQuizQuestions, resolvePdfUrl } from '@/services/lectureService';
+import { fetchLocalizedLectureBundle, resolvePdfUrl } from '@/services/lectureService';
 import {
   fetchLectureProgress,
   upsertLectureProgress,
@@ -38,6 +38,7 @@ import { safeGetUUID, cn } from '@/lib/utils';
 import 'katex/dist/katex.min.css';
 
 import type { Slide, QuizQuestion, Lecture } from '@/types/domain';
+import { recordOnboardingActivation } from '@/services/onboardingService';
 
 type ChatMessage = { id: string; role: 'user' | 'model'; content: string };
 
@@ -65,7 +66,7 @@ const PROSE_CLASS = [
 ].join(' ');
 
 export default function LectureView() {
-  const { t } = useTranslation(['lecture', 'common']);
+  const { t, i18n } = useTranslation(['lecture', 'common']);
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -159,7 +160,9 @@ export default function LectureView() {
   const [recapItems, setRecapItems] = useState<RecapItem[]>([]);
 
   // UI state
-  const [activeTab, setActiveTab] = useState<'slide' | 'worksheets' | 'related'>('slide');
+  const [activeTab, setActiveTab] = useState<'slide' | 'worksheets' | 'related'>(() =>
+    typeof window !== 'undefined' && window.location.hash === '#worksheets' ? 'worksheets' : 'slide',
+  );
   const { role } = useAuth();
   const isMobile = useIsMobile();
 
@@ -321,7 +324,7 @@ export default function LectureView() {
     if (lectureId && user) {
       fetchLectureData();
     }
-  }, [lectureId, user]);
+  }, [lectureId, user, i18n.resolvedLanguage]);
 
   // Opening a lecture is enough to earn "Welcome Aboard" (first slide ever) — the
   // dashboard records the lecture_visit on navigation; the server sweep awards it.
@@ -398,20 +401,17 @@ export default function LectureView() {
     if (!currentLectureId) return;
 
     try {
-      const lectureData = await fetchLecture(currentLectureId);
-      if (!lectureData) {
-        toast({ title: t('lecture:toasts.notFoundTitle'), description: t('lecture:toasts.notFoundDescription'), variant: 'destructive' });
-        navigate(role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME);
-        return;
-      }
+      const localized = await fetchLocalizedLectureBundle(currentLectureId);
+      const lectureData = localized.lecture;
       setLecture(lectureData);
 
     // Resolve the stored pdf_url (path or legacy public URL) to an authenticated
     // signed URL so the private bucket is accessible in the browser.
     resolvePdfUrl(lectureData.pdf_url).then(setResolvedPdfUrl).catch(() => setResolvedPdfUrl(null));
 
-    // Fetch slides
-    const slidesFromService = await fetchSlides(lectureData.id);
+    // The bundle is revision-atomic: titles, body text, and quizzes all use
+    // the same preferred-language snapshot.
+    const slidesFromService = localized.slides;
     const slidesData = slidesFromService.length > 0 ? slidesFromService : null;
 
     if (slidesData && slidesData.length > 0) {
@@ -420,8 +420,7 @@ export default function LectureView() {
       setSlides([]);
     }
 
-    // Fetch questions
-    const questionsFromService = await fetchQuizQuestions(lectureData.id);
+    const questionsFromService = localized.questions;
     const questionsData = questionsFromService.length > 0 ? questionsFromService : null;
 
     if (questionsData && questionsData.length > 0) {
@@ -481,6 +480,7 @@ export default function LectureView() {
     if (user?.id) {
       logLearningEvent(user.id, 'lecture_start', { lectureId: lectureData.id, sessionId: sessionIdRef.current })
         .catch((err) => console.warn('lecture_start telemetry failed', err));
+      void recordOnboardingActivation('lecture', lectureData.course_id ?? null);
     }
 
     setLoading(false);
@@ -984,6 +984,11 @@ export default function LectureView() {
               <h1 className="text-sm font-bold text-foreground truncate max-w-[300px]">
                 {currentSlide?.title || t('lecture:chrome.slideView')}
               </h1>
+              {role === 'professor' && lecture?.source_language && (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('lecture:chrome.sourceLanguage', { language: lecture.source_language.toUpperCase() })}
+                </span>
+              )}
             </div>
           </div>
 
@@ -1225,6 +1230,9 @@ export default function LectureView() {
                     onClick={() => {
                       setActiveTab(tab);
                       if (tab !== 'slide') setChatActive(false);
+                      if (tab === 'worksheets') {
+                        void recordOnboardingActivation('worksheet', lecture?.course_id ?? null);
+                      }
                     }}
                     className={cn(
                       "text-sm font-bold uppercase tracking-widest transition-colors py-3 px-2 -ml-2 rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",

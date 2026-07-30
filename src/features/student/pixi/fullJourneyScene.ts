@@ -1,10 +1,12 @@
 // src/features/student/pixi/fullJourneyScene.ts
-import { Application, Container, Graphics, Text, Rectangle } from 'pixi.js';
+import { Application, Container, FederatedPointerEvent, Graphics, Text, Rectangle } from 'pixi.js';
 
 export interface JourneyNode {
   id: string;
   label: string;
   status: 'locked' | 'active' | 'completed';
+  description?: string | null;
+  lectureId?: string;
 }
 
 export interface ThemePalette {
@@ -84,7 +86,7 @@ export function createFullJourneyScene(app: Application, opts: FullJourneySceneO
     hasPanned = false;
   });
 
-  const onDragEnd = (e: any) => { 
+  const onDragEnd = (e: FederatedPointerEvent) => {
     if (e.pointerId === activePointerId) {
       activePointerId = null; 
     }

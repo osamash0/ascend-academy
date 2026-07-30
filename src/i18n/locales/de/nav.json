@@ -1,6 +1,7 @@
 {
   "student": {
     "dashboard": "Dashboard",
+    "materials": "Meine Materialien",
     "ascent": "Mein Aufstieg",
     "achievements": "Erfolge",
     "leaderboard": "Bestenliste",
@@ -23,6 +24,7 @@
     "protocolProgress": "XP-Fortschritt",
     "signOut": "Abmelden",
     "version": "v2.0",
-    "brand": "Learnstation"
+    "brand": "Learnstation",
+    "goToDashboard": "Zum Dashboard"
   }
 }

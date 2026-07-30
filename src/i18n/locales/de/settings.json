@@ -51,6 +51,19 @@
     "saved": "Sprache gespeichert",
     "savedDescription": "Deine Spracheinstellung wurde aktualisiert."
   },
+  "notifications": {
+    "title": "Lernerinnerungen",
+    "description": "Lege fest, ob Ascend dir in der App Erinnerungen zu Lern- und Lehrschritten zeigen darf.",
+    "lifecycleLabel": "Lernerinnerungen anzeigen",
+    "lifecycleHelp": "Dazu gehören zeitkritische Hinweise wie ein noch nicht begonnenes erstes Quiz oder ein Kurs ohne ersten Upload.",
+    "inAppOnly": "Diese Erinnerungen bleiben in Ascend. E-Mail- und Push-Zustellung bleiben aus, bis du bei Verfügbarkeit ausdrücklich zustimmst.",
+    "enabled": "Lernerinnerungen aktiviert",
+    "enabledDescription": "Relevante Erinnerungen können wieder in Ascend erscheinen.",
+    "disabled": "Lernerinnerungen pausiert",
+    "disabledDescription": "Ascend erstellt keine neuen Lifecycle-Erinnerungen für dich.",
+    "loadError": "Deine Benachrichtigungseinstellungen konnten nicht geladen werden",
+    "saveError": "Deine Benachrichtigungseinstellungen konnten nicht gespeichert werden"
+  },
   "ai": {
     "models": {
       "auto": {

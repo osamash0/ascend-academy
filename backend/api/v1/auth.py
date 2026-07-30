@@ -22,6 +22,10 @@ from backend.services.cache import (
     invalidate_cached_token,
     purge_expired_backend_cache,
 )
+from backend.services.account_service import (
+    erase_user_storage_and_derived_data,
+    export_user_data,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -72,6 +76,15 @@ async def delete_account_endpoint(
     why client-side row deletion alone (the old Settings flow) left the auth
     identity — and anything not client-reachable — behind.
 
+    Two things a Postgres FK cascade cannot reach are handled explicitly,
+    BEFORE the ``auth.users`` row is deleted (see
+    ``backend/services/account_service.py`` for the full rationale):
+      1. Supabase Storage objects (``pdf-uploads``, ``worksheets`` buckets)
+         — cascades never touch storage, only tables.
+      2. ``slide_embeddings`` — its FK to ``lectures`` is currently
+         script-only (roadmap P0-3), not a versioned migration, so it is
+         not safe to assume the cascade exists in every environment.
+
     We invalidate the token cache first so the just-deleted user can't replay
     their bearer token within the 45s TTL window.
     """
@@ -80,6 +93,16 @@ async def delete_account_endpoint(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user context.")
 
     await invalidate_cached_token(credentials.credentials)
+
+    try:
+        erasure_summary = await erase_user_storage_and_derived_data(uid)
+    except Exception as e:
+        # Non-fatal: storage/embedding cleanup failing should not block the
+        # user's right to erasure of their DB-resident PII. Logged for
+        # manual follow-up rather than silently swallowed.
+        logger.error("Pre-deletion storage/embedding cleanup failed for %s: %s", uid, e)
+        erasure_summary = {"error": str(e)}
+
     try:
         await run_in_threadpool(supabase_admin.auth.admin.delete_user, uid)
     except Exception as e:
@@ -88,7 +111,31 @@ async def delete_account_endpoint(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Could not delete the account. Please contact support.",
         )
+    logger.info("Account %s deleted; erasure summary: %s", uid, erasure_summary)
     return {"message": "Account deleted."}
+
+
+@router.get("/export-data")
+@limiter.limit("5/minute")
+async def export_data_endpoint(
+    request: Request,
+    user: Any = Depends(verify_token),
+):
+    """Export every PII / derived-from-PII row belonging to the caller
+    (GDPR Art. 20 — right to data portability).
+
+    Returns a plain JSON document covering every table the account touches
+    (profile, progress, achievements, learning events, XP, notifications,
+    feedback, enrollments/visits, nudges, schedule, review/SRS state, exam
+    attempts, practice attempts, catalog selections, social/friend data,
+    roles, and any owned lectures/private uploads). This replaces the
+    previous client-side export in Settings, which only ever read four
+    tables directly via the RLS-scoped Supabase client.
+    """
+    uid = _user_id(user)
+    if not uid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user context.")
+    return await export_user_data(uid)
 
 
 @router.post("/cleanup-token-cache")

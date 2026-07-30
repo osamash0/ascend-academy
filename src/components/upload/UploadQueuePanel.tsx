@@ -9,6 +9,7 @@ const STATUS_LABEL: Record<BatchFileEntry['status'], string> = {
   parsing: 'Parsing…',
   done: 'Done',
   failed: 'Failed',
+  duplicate: 'Duplicate — skipped',
 };
 
 function StatusPill({ status }: { status: BatchFileEntry['status'] }) {
@@ -22,6 +23,13 @@ function StatusPill({ status }: { status: BatchFileEntry['status'] }) {
   if (status === 'failed') {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+        <AlertCircle className="w-3.5 h-3.5" /> {STATUS_LABEL[status]}
+      </span>
+    );
+  }
+  if (status === 'duplicate') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
         <AlertCircle className="w-3.5 h-3.5" /> {STATUS_LABEL[status]}
       </span>
     );
@@ -47,6 +55,7 @@ export function UploadQueuePanel({ files, onRemove, onReorder, onRetry, submitte
 
   const doneCount = files.filter((f) => f.status === 'done').length;
   const failedCount = files.filter((f) => f.status === 'failed').length;
+  const duplicateCount = files.filter((f) => f.status === 'duplicate').length;
 
   if (files.length === 0) return null;
 
@@ -55,7 +64,8 @@ export function UploadQueuePanel({ files, onRemove, onReorder, onRetry, submitte
       {submitted && (
         <div className="px-4 py-2 border-b border-border text-xs text-muted-foreground">
           {doneCount} of {files.length} done{failedCount > 0 ? `, ${failedCount} failed` : ''}
-          {doneCount + failedCount < files.length ? ', processing…' : ''}
+          {duplicateCount > 0 ? `, ${duplicateCount} duplicate skipped` : ''}
+          {doneCount + failedCount + duplicateCount < files.length ? ', processing…' : ''}
         </div>
       )}
       <ul>
@@ -92,9 +102,14 @@ export function UploadQueuePanel({ files, onRemove, onReorder, onRetry, submitte
             )}
             <span className="flex-1 min-w-0 text-sm text-foreground truncate">{entry.file.name}</span>
             <StatusPill status={entry.status} />
-            {entry.status === 'failed' && entry.error && (
+            {(entry.status === 'failed' || entry.status === 'duplicate') && entry.error && (
               <span className="text-xs text-muted-foreground max-w-[16rem] truncate" title={entry.error}>
                 {entry.error}
+              </span>
+            )}
+            {entry.warning && (
+              <span className="max-w-[18rem] truncate text-xs text-amber-600" title={entry.warning}>
+                {entry.warning}
               </span>
             )}
             {entry.status === 'failed' && entry.runId && (

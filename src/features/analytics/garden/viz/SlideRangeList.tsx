@@ -25,9 +25,9 @@ export function SlideRangeList({ insight }: { insight: Insight }) {
           <span className="flex-1 truncate text-sm text-foreground">{s.title}</span>
           <div className="hidden h-2 w-32 overflow-hidden rounded-full bg-white/5 sm:block">
             <motion.div
-              className="h-full bg-rose-400/80"
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(s.confusionRate, 100)}%` }}
+              className="h-full w-full origin-left bg-rose-400/80"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: Math.min(s.confusionRate, 100) / 100 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             />
           </div>

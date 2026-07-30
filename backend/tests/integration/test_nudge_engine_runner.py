@@ -146,3 +146,55 @@ def test_run_daily_skips_dormant_users(monkeypatch, patch_supabase):
     report = nudge_engine.run_daily(now=NOW, client=fake)
     assert report["users_evaluated"] == 0
     assert fake.tables.get("notifications", []) == []
+
+
+def test_run_daily_emits_professor_activation_nudge(monkeypatch, patch_supabase):
+    fake = patch_supabase
+    _patch_admin(monkeypatch, fake)
+    uid = "00000000-0000-0000-0000-000000000099"
+    fake.tables.setdefault("profiles", []).append({
+        "user_id": uid,
+        "current_streak": 0,
+        "created_at": (NOW - timedelta(days=2)).isoformat(),
+        "avatar_url": None,
+    })
+    fake.tables.setdefault("user_roles", []).append({"user_id": uid, "role": "professor"})
+    fake.tables.setdefault("learning_events", []).append({
+        "id": "e-prof", "user_id": uid, "event_type": "account_created",
+        "event_data": {}, "created_at": (NOW - timedelta(days=2)).isoformat(),
+    })
+
+    report = nudge_engine.run_daily(now=NOW, client=fake)
+
+    assert report["notifications_emitted"] == 1
+    notification = fake.tables["notifications"][0]
+    assert notification["type"] == "activation"
+    assert notification["deep_link"] == "/professor/upload"
+
+
+def test_run_daily_respects_lifecycle_nudge_opt_out(monkeypatch, patch_supabase):
+    fake = patch_supabase
+    _patch_admin(monkeypatch, fake)
+    uid = "00000000-0000-0000-0000-000000000098"
+    fake.tables.setdefault("profiles", []).append({
+        "user_id": uid,
+        "current_streak": 0,
+        "created_at": (NOW - timedelta(days=2)).isoformat(),
+        "avatar_url": None,
+    })
+    fake.tables.setdefault("user_roles", []).append({"user_id": uid, "role": "professor"})
+    fake.tables.setdefault("learning_events", []).append({
+        "id": "e-opt-out", "user_id": uid, "event_type": "account_created",
+        "event_data": {}, "created_at": (NOW - timedelta(days=2)).isoformat(),
+    })
+    fake.tables.setdefault("notification_preferences", []).append({
+        "user_id": uid,
+        "lifecycle_nudges_enabled": False,
+        "in_app_enabled": True,
+    })
+
+    report = nudge_engine.run_daily(now=NOW, client=fake)
+
+    assert report["users_opted_out"] == 1
+    assert report["notifications_emitted"] == 0
+    assert fake.tables.get("notifications", []) == []

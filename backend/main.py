@@ -47,6 +47,8 @@ from backend.api.v1.review import router as review_router
 from backend.api.v1.exams import router as exams_router
 from backend.api.v1.search import router as search_router
 from backend.api.v1.materials import router as materials_router
+from backend.api.v1.onboarding import router as onboarding_router
+from backend.api.v1.localized_content import router as localized_content_router
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -173,6 +175,8 @@ v1_router.include_router(schedule_router)
 v1_router.include_router(slides_ai_router)
 v1_router.include_router(practice_sheets_router)
 v1_router.include_router(academic_router)
+v1_router.include_router(onboarding_router)
+v1_router.include_router(localized_content_router)
 # Roadmap Phase 1.1 (review engine) — off by default; FEATURE_REVIEW_ENGINE=1 to enable.
 if settings.feature_review_engine:
     v1_router.include_router(review_router)

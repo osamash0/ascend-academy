@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Flame, Trophy, Layers, Play, ChevronRight, Sparkles, UploadCloud, NotebookText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { ConsoleTile } from '@/components/console';
 import type {
@@ -259,23 +260,26 @@ function ReviewCell({ w, onOpen }: { w: ReviewWidget; onOpen: () => void }) {
 }
 
 function MyMaterialsCell({ w, onOpen }: { w: MyMaterialsWidget; onOpen: () => void }) {
+  const { t } = useTranslation(['myMaterials']);
+  const hasMaterials = w.count > 0;
+
   return (
     <Cell
       className="flex flex-col justify-between"
       onClick={onOpen}
-      label={`My Materials — ${w.count} uploaded`}
+      label={t('widget.ariaLabel', { count: w.count, defaultValue: 'My Materials: {{count}} uploaded' })}
       dataTour="my-materials"
     >
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/50">My Materials</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/50">{t('widget.title')}</span>
         <UploadCloud className="h-4 w-4 text-primary" />
       </div>
       <div className="flex items-end gap-2">
         <span className="text-4xl font-black leading-none">{w.count}</span>
-        <span className="pb-1 text-xs font-bold uppercase tracking-wider text-white/50">uploaded</span>
+        <span className="pb-1 text-xs font-bold uppercase tracking-wider text-white/50">{t('widget.uploaded')}</span>
       </div>
       <span className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-white/70">
-        Upload a PDF <ChevronRight className="h-3.5 w-3.5" />
+        {hasMaterials ? t('widget.open') : t('widget.cta')} <ChevronRight className="h-3.5 w-3.5" />
       </span>
     </Cell>
   );

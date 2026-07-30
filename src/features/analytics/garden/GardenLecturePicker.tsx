@@ -486,7 +486,7 @@ export function GardenLecturePicker({
           <div className="pt-12">{header}</div>
 
           {/* Tier 1 — Courses + ask bar */}
-          <section className="flex min-h-[calc(100vh-7rem)] flex-col justify-center space-y-10">
+          <section className="flex min-h-[calc(100dvh-7rem)] flex-col justify-center space-y-10">
             {hero}
             {coursesRailEl}
             <AnimatePresence>

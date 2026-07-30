@@ -51,7 +51,8 @@
     "uncategorized": "Nicht kategorisiert",
     "lectureLoading": "Wird geladen...",
     "slideView": "Folienansicht",
-    "sourcePdf": "Quell-PDF"
+  "sourcePdf": "Quell-PDF",
+  "sourceLanguage": "Quelle: {{language}}"
   },
   "toasts": {
     "notFoundTitle": "Nicht gefunden",
@@ -80,7 +81,8 @@
     "jumpTo": "Zu Folie {{number}} springen",
     "slideRef": "Folie {{number}}",
     "requestFailed": "Chat-Anfrage fehlgeschlagen",
-    "noReader": "Kein Reader verfügbar"
+    "noReader": "Kein Reader verfügbar",
+    "close": "Chat schließen"
   },
   "regenerate": {
     "button": "Folie neu analysieren",

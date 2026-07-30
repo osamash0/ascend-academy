@@ -627,9 +627,9 @@ export function SlideViewer({
               </div>
               <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-primary via-secondary to-accent rounded-full relative"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(slideNumber / totalSlides) * 100}%` }}
+                  className="h-full w-full origin-left bg-gradient-to-r from-primary via-secondary to-accent rounded-full relative"
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: slideNumber / totalSlides }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                 >
                   <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-glow-primary" />

@@ -35,7 +35,7 @@ interface ConsoleLayoutProps {
  * home tab transition. Course-scoped library deep-links sit with the library.
  */
 const TAB_ORDER = [
-  '/dashboard', '/library', '/course-v3', '/course', '/achievements', '/leaderboard', '/insights',
+  '/dashboard', '/library', '/materials', '/course-v3', '/course', '/achievements', '/leaderboard', '/insights',
   '/professor/dashboard', '/professor/courses', '/professor/archive', '/professor/analytics', '/professor/upload'
 ];
 

@@ -102,10 +102,9 @@ export function Layer2Viz({ insight, onOpenEvidence }: Layer2VizProps) {
     }
 
     default:
-      return (
-        <p className="text-sm text-muted-foreground">
-          Detailed view for this insight is coming soon.
-        </p>
-      );
+      return <MetricTiles tiles={Object.entries(m).slice(0, 3).map(([key, value]) => ({
+        label: key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase()),
+        value: String(value),
+      }))} />;
   }
 }

@@ -29,6 +29,7 @@ export interface Profile {
 /** Lightweight course summary embedded on lecture rows for grouping/UX. */
 export interface CourseSummary {
   id: string;
+  professor_id?: string | null;
   title: string;
   color?: string | null;
   description?: string | null;
@@ -63,6 +64,10 @@ export interface Lecture {
   course?: CourseSummary | null;
   /** Optional worksheet list when the API or service hydrates it. */
   worksheets?: Worksheet[];
+  /** Canonical language detected from the uploaded PDF. */
+  source_language?: 'en' | 'de';
+  /** Incremented whenever canonical study content changes. */
+  content_revision?: number;
 }
 
 export interface Slide {

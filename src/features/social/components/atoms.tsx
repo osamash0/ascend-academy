@@ -77,12 +77,17 @@ export function OnlineDot({
   size?: number;
 }) {
   return (
-    <span className="relative inline-flex" style={{ width: size, height: size }}>
+    <span className="relative inline-flex" style={{ width: size, height: size }} role="status">
+      <span className="sr-only">{online ? "Online" : "Offline"}</span>
       {online && pulse && (
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
       )}
       <span
-        className={cn("relative inline-flex rounded-full", online ? "bg-success" : "bg-muted-foreground/40")}
+        aria-hidden="true"
+        className={cn(
+          "relative inline-flex rounded-full",
+          online ? "bg-success" : "bg-transparent ring-1 ring-inset ring-muted-foreground/40"
+        )}
         style={{ width: size, height: size }}
       />
     </span>

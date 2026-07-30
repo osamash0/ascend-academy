@@ -3,6 +3,8 @@ import confetti from 'canvas-confetti';
 
 export function ConfettiCanvas() {
   const fireConfetti = useCallback(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
     const duration = 3000;
     const end = Date.now() + duration;
 

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Upload,
   CheckCircle2,
@@ -10,30 +10,38 @@ import {
   ChevronLeft,
   Wand2,
   AlertCircle,
-  FileText,
-  Trash2,
-  PartyPopper,
-  BookOpen
+  BookOpen,
+  ChevronUp,
+  ChevronDown,
+  GripVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { MultiFileDropzone } from '@/components/upload/MultiFileDropzone';
 import { UploadQueuePanel } from '@/components/upload/UploadQueuePanel';
 import { useBatchUpload } from '@/hooks/useBatchUpload';
 import { fetchBatchSummary } from '@/services/uploadBatchService';
-import { fetchQuizQuestions, deleteSlideWithQuestions, updateQuizQuestion, insertQuizQuestion } from '@/services/lectureService';
-import { createCourse, assignLectureToCourse, generateCourseTitleSuggestion } from '@/services/coursesService';
+import { generateCourseTitleSuggestion, type Course } from '@/services/coursesService';
 import { StudentRoutes } from '@/lib/routes';
 import { supabase } from '@/integrations/supabase/client';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { useAuth } from '@/lib/auth';
-import { useGamification } from '@/lib/gamification/GamificationProvider';
-import { apiClient } from '@/lib/apiClient';
 import type { BatchSummaryRow } from '@/types/upload';
-import type { QuizQuestion } from '@/types/domain';
 import { cn } from '@/lib/utils';
+import { recordOnboardingEvent, saveOnboardingProgress, type StudyGoal } from '@/services/onboardingService';
+import {
+  createCourseFromBlueprint,
+  fetchCourseBlueprint,
+  splitCourseBlueprintItem,
+  updateCourseBlueprint,
+  updateCourseBlueprintItem,
+  type CourseBlueprint,
+  type CourseBlueprintItem,
+  type MaterialClassification,
+} from '@/services/courseBlueprintService';
 
 export default function StudentUploadWizard() {
   const [step, setStep] = useState(1);
@@ -41,82 +49,96 @@ export default function StudentUploadWizard() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, profile, refreshProfile } = useAuth();
-  const gamification = useGamification();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const { user, refreshProfile } = useAuth();
   const queryClient = useQueryClient();
+  const journeyState = (location.state as { studyGoal?: StudyGoal; existingCourseId?: string; existingCourseTitle?: string } | null);
+  const studyGoal = journeyState?.studyGoal ?? 'weekly_study';
+  const existingCourseId = journeyState?.existingCourseId ?? null;
+  const existingCourseTitle = journeyState?.existingCourseTitle ?? null;
+  const isAddingToExistingCourse = Boolean(existingCourseId);
   
   // Step 1 state
   const { aiModel } = useAiModel();
-  const batchUpload = useBatchUpload({ courseId: null, parsingMode: 'ai', aiModel });
+  const batchUpload = useBatchUpload({ courseId: existingCourseId, parsingMode: 'ai', aiModel });
+  const { batchId, resumeBatch } = batchUpload;
   
   // Step 2 & 3 state
   const [batchSummary, setBatchSummary] = useState<BatchSummaryRow[]>([]);
-  const [renamedLectures, setRenamedLectures] = useState<Record<string, string>>({});
-  
-  // Step 4 state
-  const [quizzes, setQuizzes] = useState<Record<string, (QuizQuestion & { _discarded?: boolean })[]>>({});
-  const [loadingQuizzes, setLoadingQuizzes] = useState(false);
-  const [skipQuiz, setSkipQuiz] = useState(false);
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  const [createdCourse, setCreatedCourse] = useState<Course | null>(null);
+  const [blueprint, setBlueprint] = useState<CourseBlueprint | null>(null);
+  const [draggedBlueprintItemId, setDraggedBlueprintItemId] = useState<string | null>(null);
+  const hasLoggedBlueprintView = useRef(false);
+  const hasLoggedProcessingComplete = useRef(false);
+  const isPollingBatch = useRef(false);
+  const resumedBatchId = searchParams.get('batch') ?? ((location.state as { batchId?: string } | null)?.batchId) ?? null;
+  const hasResumedBatch = useRef(false);
 
-  // Poll batch processing
   useEffect(() => {
-    if (step === 2 && batchUpload.batchId) {
-      const interval = setInterval(async () => {
+    if (!resumedBatchId || hasResumedBatch.current || batchId) return;
+    hasResumedBatch.current = true;
+    resumeBatch(resumedBatchId);
+    setStep(2);
+  }, [batchId, resumeBatch, resumedBatchId]);
+
+  // Keep the course proposal in sync while parsing continues. A student can
+  // create a useful course as soon as one grounded lecture is ready; the
+  // remaining files stay visibly in progress rather than blocking activation.
+  useEffect(() => {
+    if ((step === 2 || step === 3) && batchUpload.batchId) {
+      const poll = async () => {
+        if (isPollingBatch.current) return;
+        isPollingBatch.current = true;
         try {
           const summary = await fetchBatchSummary(batchUpload.batchId!);
           setBatchSummary(summary);
+          const hasReadyMaterial = summary.some((item) => item.status === 'completed' && item.lecture_id);
           const allDone = summary.length > 0 && summary.every(l => l.status === 'completed' || l.status === 'failed');
-          if (allDone) {
-            clearInterval(interval);
-            // Pre-fill default names
-            const initialRenames: Record<string, string> = {};
-            summary.forEach(l => {
-              if (l.status === 'completed' && l.run_id) {
-                initialRenames[l.run_id] = l.title || l.filename || 'Untitled Lecture';
-              }
-            });
-            setRenamedLectures(initialRenames);
-            setStep(3);
+          if (hasReadyMaterial || allDone) {
+            const nextBlueprint = await fetchCourseBlueprint(batchUpload.batchId!);
+            setBlueprint(nextBlueprint);
+            setCourseTitle((current) => current || nextBlueprint.title);
+            if (step === 2) setStep(3);
+            if (user?.id && !hasLoggedBlueprintView.current) {
+              hasLoggedBlueprintView.current = true;
+              void recordOnboardingEvent(user.id, 'course_blueprint_viewed', {
+                blueprint_id: nextBlueprint.id,
+                batch_id: batchUpload.batchId,
+                item_count: nextBlueprint.items.length,
+              });
+            }
+          }
+          if (allDone && user?.id && !hasLoggedProcessingComplete.current) {
+            hasLoggedProcessingComplete.current = true;
+              void recordOnboardingEvent(user.id, 'file_processing_completed', {
+                batch_id: batchUpload.batchId,
+                completed_files: summary.filter((item) => item.status === 'completed').length,
+                failed_files: summary.filter((item) => item.status === 'failed').length,
+              });
           }
         } catch (e) {
           console.error(e);
+        } finally {
+          isPollingBatch.current = false;
         }
-      }, 2000);
+      };
+      void poll();
+      const interval = window.setInterval(() => void poll(), 2500);
       return () => clearInterval(interval);
     }
-  }, [step, batchUpload.batchId]);
-
-  const loadQuizzes = async () => {
-    setLoadingQuizzes(true);
-    try {
-      const successfulLectures = batchSummary.filter(l => l.status === 'completed' && l.lecture_id);
-      const qz: Record<string, QuizQuestion[]> = {};
-      const lectureTitles: string[] = [];
-      await Promise.all(successfulLectures.map(async (l) => {
-        lectureTitles.push(renamedLectures[l.run_id] || l.title || l.filename || 'Lecture');
-        const res = await fetchQuizQuestions(l.lecture_id!);
-        // only keep first 5 to not overwhelm
-        qz[l.lecture_id!] = res.slice(0, 5);
-      }));
-      setQuizzes(qz);
-      setStep(4);
-      handleGenerateTitle(lectureTitles);
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Could not load quizzes', variant: 'destructive' });
-      setStep(4);
-    } finally {
-      setLoadingQuizzes(false);
-    }
-  };
+  }, [step, batchUpload.batchId, user?.id]);
 
   const handleGenerateTitle = async (lectures?: string[]) => {
     setIsGeneratingTitle(true);
     try {
-      const titlesToUse = lectures || batchSummary.filter(l => l.status === 'completed').map(l => renamedLectures[l.run_id] || l.title || l.filename || 'Lecture');
+      const titlesToUse = lectures || blueprint?.items.filter((item) => item.include_in_course).map((item) => item.title) || [];
       const suggestion = await generateCourseTitleSuggestion(titlesToUse);
-      if (suggestion) setCourseTitle(suggestion);
+      if (suggestion) {
+        setCourseTitle(suggestion);
+        if (blueprint) setBlueprint(await updateCourseBlueprint(blueprint.id, { title: suggestion }));
+      }
     } catch (e) {
       console.error(e);
       toast({ title: 'Failed to suggest title', variant: 'destructive' });
@@ -132,36 +154,14 @@ export default function StudentUploadWizard() {
     }
     setIsSaving(true);
     try {
-      // 1. Create course
-      const course = await createCourse({ title: courseTitle });
-      
-      const successfulLectures = batchSummary.filter(l => l.status === 'completed' && l.lecture_id);
-      
-      // 2. Assign lectures & rename & handle quizzes
-      await Promise.all(successfulLectures.map(async (l) => {
-        const lid = l.lecture_id!;
-        await assignLectureToCourse(course.id, lid);
-        
-        // Rename lecture directly via API
-        const newTitle = renamedLectures[l.run_id];
-        if (newTitle) {
-           await apiClient.patch(`/api/v1/courses/lecture/${lid}`, { title: newTitle });
-        }
-        
-        // Delete discarded quizzes
-        if (skipQuiz) {
-          // just ignore them, or delete them all if we want to be clean
-          // For now, if skipped, we could leave them or delete them. Let's not delete to save time, 
-          // or we can call a bulk delete if needed. The backend doesn't have an easy bulk delete quiz endpoint.
-        } else {
-          const lQuizzes = quizzes[lid] || [];
-          for (const q of lQuizzes) {
-            if (q._discarded && q.id) {
-              await apiClient.delete(`/api/v1/courses/quiz/${q.id}`);
-            }
-          }
-        }
-      }));
+      if (!blueprint) throw new Error('Course blueprint is not ready yet.');
+      if (blueprint.items.every((item) => !item.include_in_course || !item.lecture_id)) {
+        throw new Error('Choose at least one processed material before creating your course.');
+      }
+      await updateCourseBlueprint(blueprint.id, { title: courseTitle.trim(), study_goal: studyGoal });
+      // One backend transaction owns course creation and material assignment.
+      const course = await createCourseFromBlueprint(blueprint.id);
+      const includedCount = blueprint.items.filter((item) => item.include_in_course && item.lecture_id).length;
 
       // 3. Retire the first-run guard so the Luna spotlight tour never fires
       // after onboarding — the Hero Decision replaces it as the sole
@@ -171,20 +171,21 @@ export default function StudentUploadWizard() {
         await refreshProfile();
       }
 
-      // 4. Real celebration: grant XP and invalidate cached dashboard/library
-      // data so the new course shows up in the media rail without a reload.
-      await gamification.grantXp(50, 'course_created', course.id);
-      window.dispatchEvent(new CustomEvent('fire-confetti'));
+      // 4. Creating a course is setup, not the activation. Invalidate the
+      // library and take the student to a deliberate "start learning" state.
       queryClient.invalidateQueries({ queryKey: ['student-courses'] });
       queryClient.invalidateQueries({ queryKey: ['student-lectures'] });
       queryClient.invalidateQueries({ queryKey: ['student-progress', user?.id] });
-
+      if (user?.id) {
+        void saveOnboardingProgress(user.id, { active_batch_id: null });
+        void recordOnboardingEvent(user.id, 'course_created', {
+          course_id: course.id,
+          study_goal: studyGoal,
+          lecture_count: includedCount,
+        });
+      }
+      setCreatedCourse(course);
       setStep(5);
-
-      // Auto redirect
-      setTimeout(() => {
-        navigate(StudentRoutes.LIBRARY, { state: { onboardTarget: courseTitle } });
-      }, 3000);
 
     } catch (err) {
       console.error(err);
@@ -194,14 +195,62 @@ export default function StudentUploadWizard() {
     }
   };
 
-  const toggleDiscard = (lectureId: string, qIdx: number) => {
-    setQuizzes(prev => {
-      const next = { ...prev };
-      const qs = [...next[lectureId]];
-      qs[qIdx] = { ...qs[qIdx], _discarded: !qs[qIdx]._discarded };
-      next[lectureId] = qs;
-      return next;
-    });
+  const persistItem = async (item: CourseBlueprintItem, patch: Partial<Pick<CourseBlueprintItem, 'title' | 'position' | 'classification' | 'include_in_course' | 'lecture_group_id'>>) => {
+    if (!blueprint) return;
+    try {
+      setBlueprint(await updateCourseBlueprintItem(blueprint.id, item.id, patch));
+      if (user?.id) {
+        void recordOnboardingEvent(user.id, 'course_blueprint_edited', {
+          blueprint_id: blueprint.id,
+          item_id: item.id,
+          fields: Object.keys(patch),
+        });
+      }
+    } catch (error) {
+      console.error('Could not update course blueprint item', error);
+      toast({ title: 'Could not save that change', description: 'Please try again.', variant: 'destructive' });
+    }
+  };
+
+  const persistBlueprint = async (patch: Partial<Pick<CourseBlueprint, 'title' | 'description' | 'study_goal'>>) => {
+    if (!blueprint) return;
+    try {
+      const nextBlueprint = await updateCourseBlueprint(blueprint.id, patch);
+      setBlueprint(nextBlueprint);
+      if (user?.id) {
+        void recordOnboardingEvent(user.id, 'course_blueprint_edited', {
+          blueprint_id: blueprint.id,
+          fields: Object.keys(patch),
+        });
+      }
+    } catch (error) {
+      console.error('Could not update course blueprint', error);
+      toast({ title: 'Could not save that change', description: 'Please try again.', variant: 'destructive' });
+    }
+  };
+
+  const splitItem = async (item: CourseBlueprintItem) => {
+    if (!blueprint) return;
+    try {
+      setBlueprint(await splitCourseBlueprintItem(blueprint.id, item.id));
+      if (user?.id) {
+        void recordOnboardingEvent(user.id, 'course_blueprint_edited', {
+          blueprint_id: blueprint.id,
+          item_id: item.id,
+          fields: ['split'],
+        });
+      }
+    } catch (error) {
+      console.error('Could not split course blueprint item', error);
+      toast({ title: 'Could not split this material', description: error instanceof Error ? error.message : 'Try again once the file is ready.', variant: 'destructive' });
+    }
+  };
+
+  const updateItemDraft = (itemId: string, patch: Partial<CourseBlueprintItem>) => {
+    setBlueprint((current) => current ? {
+      ...current,
+      items: current.items.map((item) => item.id === itemId ? { ...item, ...patch } : item),
+    } : current);
   };
 
   return (
@@ -215,15 +264,13 @@ export default function StudentUploadWizard() {
             AI Course Kitchen
           </h1>
           <div className="flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground">
-            <span className={cn("px-2", step >= 1 ? "text-primary" : "")}>Upload</span>
+            <span className={cn("px-2", step >= 1 ? "text-primary" : "")}>Materials</span>
             <ChevronRight className="w-4 h-4 opacity-30" />
             <span className={cn("px-2", step >= 2 ? "text-primary" : "")}>Process</span>
             <ChevronRight className="w-4 h-4 opacity-30" />
-            <span className={cn("px-2", step >= 3 ? "text-primary" : "")}>Review</span>
+            <span className={cn("px-2", step >= 3 ? "text-primary" : "")}>Structure</span>
             <ChevronRight className="w-4 h-4 opacity-30" />
-            <span className={cn("px-2", step >= 4 ? "text-primary" : "")}>Quiz</span>
-            <ChevronRight className="w-4 h-4 opacity-30" />
-            <span className={cn("px-2", step >= 5 ? "text-primary" : "")}>Done</span>
+            <span className={cn("px-2", step >= 5 ? "text-primary" : "")}>Start</span>
           </div>
         </div>
 
@@ -231,8 +278,9 @@ export default function StudentUploadWizard() {
         {step === 1 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="bg-card/50 border rounded-2xl p-6 text-center shadow-sm">
-              <h2 className="text-xl font-bold mb-2">Step 1: Bring Your Materials</h2>
-              <p className="text-muted-foreground mb-6">Drag and drop your PDFs here. You can upload one lecture or a whole semester's worth.</p>
+              <h2 className="text-xl font-bold mb-2">{isAddingToExistingCourse ? `Add material to ${existingCourseTitle || 'your course'}` : 'Add the material you want to study'}</h2>
+              <p className="text-muted-foreground mb-2">{isAddingToExistingCourse ? 'Upload PDFs or slides and Luna will place them as new lectures in this course.' : 'Upload one lecture or an entire course. Luna will suggest the names, order, and structure.'}</p>
+              <p className="text-xs text-primary mb-6">Your focus: {studyGoal === 'exam' ? 'exam preparation' : studyGoal === 'assignment' ? 'a specific assignment' : studyGoal === 'understanding' ? 'general understanding' : 'weekly study'}.</p>
               
               <MultiFileDropzone
                 onFilesSelected={batchUpload.addFiles}
@@ -255,12 +303,20 @@ export default function StudentUploadWizard() {
                       className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-violet-500/25"
                       onClick={async () => {
                         const res = await batchUpload.submitBatch();
-                        if (res?.batchId) setStep(2);
+                        if (res?.batchId) {
+                          if (user?.id) {
+                            void saveOnboardingProgress(user.id, { active_batch_id: res.batchId });
+                            void recordOnboardingEvent(user.id, 'upload_started', { batch_id: res.batchId, file_count: batchUpload.files.length, study_goal: studyGoal });
+                            void recordOnboardingEvent(user.id, 'upload_completed', { batch_id: res.batchId, file_count: batchUpload.files.length });
+                            void recordOnboardingEvent(user.id, 'file_processing_started', { batch_id: res.batchId, file_count: batchUpload.files.length });
+                          }
+                          setStep(2);
+                        }
                       }}
                       disabled={batchUpload.isSubmitting}
                     >
                       {batchUpload.isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Wand2 className="w-5 h-5 mr-2" />}
-                      Generate Course
+                      {isAddingToExistingCourse ? 'Add this material' : 'Organize my material'}
                     </Button>
                   </div>
                 </div>
@@ -276,7 +332,7 @@ export default function StudentUploadWizard() {
               <Loader2 className="w-10 h-10 text-white animate-spin" />
             </div>
             <h2 className="text-2xl font-bold mb-2">Luna is reading your materials...</h2>
-            <p className="text-muted-foreground max-w-md">Our AI is extracting the text, identifying key concepts, and generating summary slides and quizzes. This usually takes about 30 seconds per lecture.</p>
+            <p className="text-muted-foreground max-w-md">Luna is reading files, finding lecture information, checking the order, and preparing grounded AI access. You can leave while this runs; your materials will be ready to review when processing finishes.</p>
             
             {batchSummary.length > 0 && (
               <div className="mt-8 w-full max-w-md bg-card border rounded-xl p-4 text-left">
@@ -294,6 +350,13 @@ export default function StudentUploadWizard() {
                 ))}
               </div>
             )}
+            <button
+              type="button"
+              onClick={() => navigate(StudentRoutes.LIBRARY)}
+              className="mt-7 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Continue to my courses — we’ll let you know when this is ready
+            </button>
           </motion.div>
         )}
 
@@ -301,142 +364,224 @@ export default function StudentUploadWizard() {
         {step === 3 && (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
             <div className="bg-card/50 border rounded-2xl p-6 shadow-sm">
-              <h2 className="text-xl font-bold mb-2">Step 2: Taste the Dish (Review)</h2>
-              <p className="text-muted-foreground mb-6">Here is what Luna extracted. You can rename the lectures to keep them organized.</p>
+              <h2 className="text-xl font-bold mb-2">{isAddingToExistingCourse ? `New material for ${existingCourseTitle || 'your course'} is ready` : 'Your course structure is ready'}</h2>
+              <p className="text-muted-foreground mb-6">{isAddingToExistingCourse ? 'We suggested the lecture names and order. Fine-tune anything you want, then add it to your course.' : 'We suggested a simple structure from your materials. Fine-tune anything you want, then create your course.'}</p>
+              {blueprint?.description ? <p className="mb-5 rounded-xl bg-muted/50 px-3 py-2 text-sm text-muted-foreground">{blueprint.description}</p> : null}
               
               <div className="space-y-4">
-                {batchSummary.map((l) => {
-                  const failed = l.status === 'failed';
-                  if (failed) {
-                    return (
-                      <div key={l.run_id} className="p-4 border border-destructive/30 bg-destructive/5 rounded-xl flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-destructive">{l.filename}</p>
-                          <p className="text-xs text-destructive/80 mt-1">{l.error || 'Failed to parse'}</p>
-                        </div>
-                      </div>
-                    );
-                  }
-                  
+                {blueprint?.items.map((item, index) => {
+                  const ready = Boolean(item.lecture_id);
+                  const sourceState = item.material_source?.processing_state ?? (ready ? 'ready' : 'processing');
+                  const isProcessing = sourceState === 'queued' || sourceState === 'processing';
+                  const isFailed = sourceState === 'failed' || sourceState === 'needs_attention';
+                  const parseError = item.material_source?.extracted_metadata?.parse_error;
+                  const matchingSummary = batchSummary.find((row) => (
+                    (item.lecture_id !== null && row.lecture_id === item.lecture_id)
+                    || row.filename === item.material_source?.original_filename
+                  ));
+                  const matchingUpload = batchUpload.files.find((file) => file.runId === matchingSummary?.run_id);
+                  const sourceRange = item.source_range && typeof item.source_range === 'object'
+                    && 'start_slide' in item.source_range && 'end_slide' in item.source_range
+                    ? `Slides ${String(item.source_range.start_slide)}–${String(item.source_range.end_slide)}`
+                    : null;
                   return (
-                    <div key={l.run_id} className="p-4 border bg-card rounded-xl flex items-start gap-4">
-                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
-                        <BookOpen className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <Input 
-                          value={renamedLectures[l.run_id] || ''}
-                          onChange={(e) => setRenamedLectures(p => ({ ...p, [l.run_id]: e.target.value }))}
-                          className="font-semibold text-base h-9"
-                        />
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span className="bg-muted px-2 py-1 rounded-md">{l.slide_count} slides</span>
-                          <span className="bg-muted px-2 py-1 rounded-md">{l.quiz_count} questions generated</span>
+                    <div
+                      key={item.id}
+                      draggable={!isProcessing}
+                      onDragStart={() => setDraggedBlueprintItemId(item.id)}
+                      onDragEnd={() => setDraggedBlueprintItemId(null)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={() => {
+                        const moving = blueprint?.items.find((candidate) => candidate.id === draggedBlueprintItemId);
+                        if (moving && moving.id !== item.id) void persistItem(moving, { position: item.position });
+                        setDraggedBlueprintItemId(null);
+                      }}
+                      className={cn(
+                        'rounded-xl border p-4 transition-colors',
+                        isFailed ? 'border-destructive/30 bg-destructive/5' : 'bg-card',
+                        draggedBlueprintItemId === item.id && 'opacity-50',
+                      )}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                          {ready ? <BookOpen className="h-5 w-5 text-primary" /> : isFailed ? <AlertCircle className="h-5 w-5 text-destructive" /> : <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold leading-6">{item.title}</p>
+                          <p className="truncate text-xs text-muted-foreground" title={item.material_source?.original_filename}>{item.material_source?.original_filename ?? 'Uploaded material'}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span className="rounded-md bg-muted px-2 py-1 capitalize">{item.classification === 'exam' ? 'Past exam' : item.classification}</span>
+                            {sourceRange ? <span className="rounded-md bg-muted px-2 py-1">{sourceRange}</span> : null}
+                            {ready ? <span className="rounded-md bg-muted px-2 py-1">{item.confidence >= 0.8 ? 'Ready to use' : 'Review suggested'}</span> : null}
+                            {isProcessing ? <span className="text-primary">Luna is still preparing this file</span> : null}
+                            {isFailed ? <span className="text-destructive">Could not process this file</span> : null}
+                          </div>
+                          {isFailed ? <p className="mt-2 text-xs text-destructive/80">{typeof parseError === 'string' ? parseError : 'This file may be password-protected or unreadable. Upload an unlocked copy or continue without it.'}</p> : null}
                         </div>
                       </div>
+                      <details className="mt-3 border-t border-border/60 pt-3">
+                        <summary className="flex w-fit cursor-pointer items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"><GripVertical className="h-3.5 w-3.5" /> Adjust this material or drag to reorder</summary>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                          <div className="space-y-2">
+                            <Label htmlFor={`blueprint-title-${item.id}`} className="text-xs">Lecture name</Label>
+                            <Input id={`blueprint-title-${item.id}`} value={item.title} onChange={(event) => updateItemDraft(item.id, { title: event.target.value })} onBlur={() => void persistItem(item, { title: item.title })} className="h-9" disabled={isProcessing} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`blueprint-type-${item.id}`} className="text-xs">Type</Label>
+                            <select id={`blueprint-type-${item.id}`} value={item.classification} disabled={isProcessing} onChange={(event) => {
+                              const classification = event.target.value as MaterialClassification;
+                              updateItemDraft(item.id, { classification });
+                              void persistItem(item, { classification });
+                            }} className="h-9 rounded-md border bg-background px-2 text-sm text-foreground">
+                              <option value="lecture">Lecture</option><option value="reading">Reading</option><option value="assignment">Assignment</option><option value="worksheet">Worksheet</option><option value="exam">Past exam</option><option value="supporting">Supplement</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Move ${item.title} up`}
+                          disabled={index === 0 || isProcessing}
+                          onClick={() => void persistItem(item, { position: item.position - 1 })}
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Move ${item.title} down`}
+                          disabled={index === (blueprint?.items.length ?? 0) - 1 || isProcessing}
+                          onClick={() => void persistItem(item, { position: item.position + 1 })}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={item.include_in_course ? 'secondary' : 'outline'}
+                          size="sm"
+                          disabled={!ready}
+                          onClick={() => {
+                            const include_in_course = !item.include_in_course;
+                            updateItemDraft(item.id, { include_in_course });
+                            void persistItem(item, { include_in_course });
+                          }}
+                        >
+                          {item.include_in_course ? 'Included' : 'Exclude'}
+                        </Button>
+                        {index > 0 && item.lecture_group_id !== blueprint?.items[index - 1]?.lecture_group_id ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={isProcessing}
+                            onClick={() => {
+                              const lecture_group_id = blueprint!.items[index - 1].lecture_group_id;
+                              updateItemDraft(item.id, { lecture_group_id });
+                              void persistItem(item, { lecture_group_id });
+                            }}
+                          >
+                            Merge above
+                          </Button>
+                        ) : null}
+                        {index > 0 && item.lecture_group_id === blueprint?.items[index - 1]?.lecture_group_id ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={isProcessing}
+                            onClick={() => {
+                              const lecture_group_id = crypto.randomUUID();
+                              updateItemDraft(item.id, { lecture_group_id });
+                              void persistItem(item, { lecture_group_id });
+                            }}
+                          >
+                            Keep separate
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={!ready || isProcessing}
+                          onClick={() => void splitItem(item)}
+                        >
+                          Split lecture
+                        </Button>
+                        {isFailed && matchingUpload?.fileId ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void batchUpload.retryFile(matchingUpload.fileId)}
+                          >
+                            Retry
+                          </Button>
+                        ) : null}
+                        </div>
+                      </details>
                     </div>
                   );
                 })}
               </div>
+              {batchUpload.files.some((file) => file.status === 'duplicate') ? (
+                <p className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">We skipped an exact duplicate and kept the original file in this course.</p>
+              ) : null}
 
-              <div className="mt-8 flex justify-end">
+              {!isAddingToExistingCourse ? <>
+              <div className="mt-8 border-t border-border pt-6">
+                <Label className="flex items-center gap-2">
+                  Course name
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs text-violet-500 hover:text-violet-600 hover:bg-violet-500/10"
+                    onClick={() => handleGenerateTitle()}
+                    disabled={isGeneratingTitle}
+                  >
+                    {isGeneratingTitle ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Wand2 className="w-3 h-3 mr-1" />}
+                    Suggest again
+                  </Button>
+                </Label>
+                <Input
+                  placeholder="e.g. Database Systems"
+                  value={courseTitle}
+                  onChange={(event) => setCourseTitle(event.target.value)}
+                  onBlur={() => void persistBlueprint({ title: courseTitle.trim() })}
+                  className="mt-2 h-12 text-lg"
+                  disabled={isGeneratingTitle}
+                />
+                <p className="mt-2 text-xs text-muted-foreground">{isGeneratingTitle ? 'Luna is suggesting a course name.' : 'You can change this later.'}</p>
+              </div>
+
+              <details className="mt-4 rounded-xl border border-border/70 px-4 py-3">
+                <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">Edit course description</summary>
+                <Textarea
+                  value={blueprint?.description ?? ''}
+                  onChange={(event) => setBlueprint((current) => current ? { ...current, description: event.target.value } : current)}
+                  onBlur={() => void persistBlueprint({ description: blueprint?.description ?? '' })}
+                  className="mt-3 min-h-20 resize-y"
+                  maxLength={4000}
+                  aria-label="Course description"
+                />
+              </details>
+              </> : null}
+
+              <div className="sticky bottom-4 mt-8 flex justify-end rounded-2xl border border-primary/20 bg-background/95 p-3 shadow-xl backdrop-blur">
                 <Button 
                   size="lg" 
-                  onClick={loadQuizzes}
+                  onClick={handleFinalSave}
+                  disabled={isSaving || !courseTitle.trim() || !blueprint?.items.some((item) => item.include_in_course && item.lecture_id)}
                   className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white"
                 >
-                  Looks Good, Review Quiz <ChevronRight className="w-4 h-4 ml-2" />
+                  {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {isAddingToExistingCourse ? 'Add material to course' : 'Create my course'} <ChevronRight className="w-4 h-4 ml-2" />
                 </Button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* STEP 4: REVIEW QUIZ & CREATE COURSE */}
-        {step === 4 && (
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-            <div className="bg-card/50 border rounded-2xl p-6 shadow-sm">
-              <h2 className="text-xl font-bold mb-2">Step 3: Approve the Garnish (Quiz)</h2>
-              <p className="text-muted-foreground mb-6">Luna generated some practice questions. Keep the ones you like, discard the rest.</p>
-              
-              {loadingQuizzes ? (
-                <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-              ) : (
-                <div className="space-y-8">
-                  {Object.entries(quizzes).map(([lectureId, questions]) => {
-                    const lectureTitle = batchSummary.find(l => l.lecture_id === lectureId)?.title || 'Lecture';
-                    if (questions.length === 0) return null;
-                    
-                    return (
-                      <div key={lectureId} className="space-y-3">
-                        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">{lectureTitle}</h3>
-                        <div className="grid gap-3">
-                          {questions.map((q, qIdx) => (
-                            <div key={qIdx} className={cn("p-4 border rounded-xl transition-all", q._discarded ? "opacity-50 bg-muted/50" : "bg-card")}>
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <p className="font-medium text-sm">{q.question_text}</p>
-                                  <p className="text-xs text-muted-foreground mt-2 font-mono bg-muted inline-block px-2 py-1 rounded">Answer: {q.correct_answer}</p>
-                                </div>
-                                <Button
-                                  variant={q._discarded ? "outline" : "secondary"}
-                                  size="sm"
-                                  className="shrink-0"
-                                  onClick={() => toggleDiscard(lectureId, qIdx)}
-                                >
-                                  {q._discarded ? 'Restore' : 'Discard'}
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="mt-12 pt-8 border-t space-y-4">
-                <h3 className="text-lg font-bold">Final Step: Name Your Course</h3>
-                <div className="flex gap-4 items-end">
-                  <div className="flex-1 space-y-2">
-                    <Label className="flex items-center gap-2">
-                      Course Title
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 px-2 text-xs text-violet-500 hover:text-violet-600 hover:bg-violet-500/10"
-                        onClick={() => handleGenerateTitle()}
-                        disabled={isGeneratingTitle}
-                      >
-                        {isGeneratingTitle ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Wand2 className="w-3 h-3 mr-1" />}
-                        Retry AI Suggestion
-                      </Button>
-                    </Label>
-                    <Input 
-                      placeholder="e.g. Intro to Biology 101" 
-                      value={courseTitle}
-                      onChange={(e) => setCourseTitle(e.target.value)}
-                      className="h-12 text-lg"
-                      disabled={isGeneratingTitle}
-                    />
-                  </div>
-                  <Button 
-                    size="lg" 
-                    className="h-12 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 px-8"
-                    onClick={handleFinalSave}
-                    disabled={isSaving || !courseTitle.trim()}
-                  >
-                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
-                    Accept & Create
-                  </Button>
-                </div>
-                <div className="flex justify-end pt-2">
-                  <Button variant="link" className="text-muted-foreground text-xs" onClick={() => { setSkipQuiz(true); handleFinalSave(); }}>
-                    Skip Quiz for now
-                  </Button>
-                </div>
               </div>
             </div>
           </motion.div>
@@ -446,13 +591,19 @@ export default function StudentUploadWizard() {
         {step === 5 && (
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mb-6 shadow-2xl shadow-emerald-500/30">
-              <PartyPopper className="w-12 h-12 text-white" />
+              <BookOpen className="w-12 h-12 text-white" />
             </div>
-            <h2 className="text-3xl font-bold mb-3">Course Created!</h2>
-            <p className="text-muted-foreground text-lg mb-8 max-w-md">Your AI course "{courseTitle}" is ready. You've earned +50 XP for bringing your own material.</p>
-            <div className="flex items-center gap-2 text-sm text-primary animate-pulse">
-              <Loader2 className="w-4 h-4 animate-spin" /> Redirecting to library...
-            </div>
+            <h2 className="text-3xl font-bold mb-3">{isAddingToExistingCourse ? `${existingCourseTitle || courseTitle} has new material` : `${courseTitle} is ready`}</h2>
+            <p className="text-muted-foreground text-lg mb-8 max-w-md">{isAddingToExistingCourse ? 'Your new lecture is ready to study.' : 'Start learning now. You can add or reorganize material at any time.'}</p>
+            <Button size="lg" className="gap-2" onClick={() => createdCourse && navigate(StudentRoutes.COURSE_V3(createdCourse.id), {
+              state: {
+                onboardingStart: true,
+                studyGoal,
+                initialActivity: studyGoal === 'exam' ? 'quiz' : studyGoal === 'assignment' ? 'grounded_ai' : 'lecture',
+              },
+            })} disabled={!createdCourse}>
+              {studyGoal === 'exam' ? 'Take a diagnostic quiz' : studyGoal === 'assignment' ? 'Ask Luna about my assignment' : 'Start Lecture 1'} <ChevronRight className="h-4 w-4" />
+            </Button>
           </motion.div>
         )}
 

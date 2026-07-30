@@ -47,6 +47,24 @@ export const defaultHandlers = [
     HttpResponse.json(null),
   ),
 
+  // ── Locale-resolved lecture reads ─────────────────────────────────────────
+  ...dual("get", `${API}/api/localized-content/lectures/:id`, ({ params }) =>
+    HttpResponse.json({
+      locale: "en",
+      lecture: {
+        id: params.id,
+        title: "Test lecture",
+        description: null,
+        total_slides: 0,
+        professor_id: "prof-1",
+        created_at: "2025-01-01T00:00:00Z",
+        pdf_url: null,
+      },
+      slides: [],
+      questions: [],
+    }),
+  ),
+
   // ── Analytics ─────────────────────────────────────────────────────────────
   ...dual("get", `${API}/api/analytics/lecture/:id/overview`, () =>
     HttpResponse.json({
@@ -112,6 +130,15 @@ export const defaultHandlers = [
   ),
   ...dual("get", `${API}/api/analytics/lecture/:id/confidence-by-slide`, () =>
     HttpResponse.json({ success: true, data: [] }),
+  ),
+  ...dual("get", `${API}/api/analytics/lecture/:id/insights`, ({ params }) =>
+    HttpResponse.json({
+      success: true,
+      data: { lectureId: params.id, computedAt: "2025-01-01T00:00:00Z", insights: [] },
+    }),
+  ),
+  ...dual("get", `${API}/api/analytics/professor/ask/suggestions`, () =>
+    HttpResponse.json({ success: true, data: { questions: [] } }),
   ),
 
   // ── AI generation ─────────────────────────────────────────────────────────

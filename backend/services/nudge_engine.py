@@ -75,6 +75,17 @@ class UserContext:
     weak_concepts: List[dict] = field(default_factory=list)
     dismissals: dict = field(default_factory=dict)  # {(rule_key, subject_key): quiet_until}
     due_review_count: int = 0  # Roadmap Phase 1.1 (review engine)
+    role: str = "student"
+    account_created_at: Optional[datetime] = None
+    has_avatar: bool = False
+    quiz_attempt_count: int = 0
+    lecture_upload_count: int = 0
+    first_upload_at: Optional[datetime] = None
+    analytics_viewed_at: Optional[datetime] = None
+    # Consent controls. Missing preference rows deliberately preserve the
+    # historical in-app default; explicit opt-out stops every lifecycle nudge.
+    lifecycle_nudges_enabled: bool = True
+    in_app_enabled: bool = True
 
 
 # ── Rule base class ──────────────────────────────────────────────────────────
@@ -261,11 +272,127 @@ class WeakConceptStaleRule(Rule):
         return out
 
 
+def _is_activation_day(ctx: UserContext, day: int) -> bool:
+    """Whether the daily runner is evaluating the requested lifecycle day.
+
+    We intentionally use a one-day window rather than ``>= day`` so a delayed
+    scheduler run never sends an old activation message after the user has
+    moved beyond that moment in their journey.
+    """
+    if not ctx.account_created_at:
+        return False
+    age = ctx.now - ctx.account_created_at
+    return timedelta(days=day) <= age < timedelta(days=day + 1)
+
+
+class StudentNoQuizDayOneRule(Rule):
+    key = "student_no_quiz_day_1"
+    dismiss_quiet_days = 7
+
+    def should_fire(self, ctx: UserContext) -> List[Nudge]:
+        if ctx.role != "student" or ctx.quiz_attempt_count > 0 or not _is_activation_day(ctx, 1):
+            return []
+        return [Nudge(
+            rule_key=self.key, subject_key="", type="activation", priority=55,
+            title="Try a quick knowledge check",
+            message="Answer one quiz question today to see what to review next.",
+            deep_link="/dashboard", quiet_days=7,
+        )]
+
+
+class StudentNoAvatarDayThreeRule(Rule):
+    key = "student_no_avatar_day_3"
+    dismiss_quiet_days = 14
+
+    def should_fire(self, ctx: UserContext) -> List[Nudge]:
+        if ctx.role != "student" or ctx.has_avatar or not _is_activation_day(ctx, 3):
+            return []
+        return [Nudge(
+            rule_key=self.key, subject_key="", type="activation", priority=35,
+            title="Make your profile yours",
+            message="Add an avatar so classmates can recognise you in shared spaces.",
+            deep_link="/settings", quiet_days=14,
+        )]
+
+
+class StudentInactiveDaySevenRule(Rule):
+    key = "student_inactive_day_7"
+    dismiss_quiet_days = 14
+
+    def should_fire(self, ctx: UserContext) -> List[Nudge]:
+        if ctx.role != "student" or not _is_activation_day(ctx, 7):
+            return []
+        if ctx.last_activity_at and ctx.last_activity_at > ctx.now - timedelta(days=7):
+            return []
+        return [Nudge(
+            rule_key=self.key, subject_key="", type="activation", priority=65,
+            title="Ready to pick up where you left off?",
+            message="A short study session is enough to rebuild your momentum.",
+            deep_link="/dashboard", quiet_days=14,
+        )]
+
+
+class ProfessorNoUploadDayTwoRule(Rule):
+    key = "professor_no_upload_day_2"
+    dismiss_quiet_days = 7
+
+    def should_fire(self, ctx: UserContext) -> List[Nudge]:
+        if ctx.role != "professor" or ctx.lecture_upload_count > 0 or not _is_activation_day(ctx, 2):
+            return []
+        return [Nudge(
+            rule_key=self.key, subject_key="", type="activation", priority=60,
+            title="Turn your first lecture into a course",
+            message="Upload a PDF and we'll build an interactive learning experience from it.",
+            deep_link="/professor/upload", quiet_days=7,
+        )]
+
+
+class ProfessorNoAnalyticsDayFiveRule(Rule):
+    key = "professor_upload_no_analytics_day_5"
+    dismiss_quiet_days = 14
+
+    def should_fire(self, ctx: UserContext) -> List[Nudge]:
+        if ctx.role != "professor" or ctx.analytics_viewed_at or not ctx.first_upload_at:
+            return []
+        age = ctx.now - ctx.first_upload_at
+        if not timedelta(days=5) <= age < timedelta(days=6):
+            return []
+        return [Nudge(
+            rule_key=self.key, subject_key="", type="activation", priority=50,
+            title="See how students engage with your course",
+            message="Open analytics to find where learners need more support.",
+            deep_link="/professor/analytics", quiet_days=14,
+        )]
+
+
+class ProfessorInactiveDayFourteenRule(Rule):
+    key = "professor_inactive_day_14"
+    dismiss_quiet_days = 21
+
+    def should_fire(self, ctx: UserContext) -> List[Nudge]:
+        if ctx.role != "professor" or not _is_activation_day(ctx, 14):
+            return []
+        if ctx.last_activity_at and ctx.last_activity_at > ctx.now - timedelta(days=14):
+            return []
+        return [Nudge(
+            rule_key=self.key, subject_key="", type="activation", priority=45,
+            title="Your course is ready when you are",
+            message="Return to publish material, review progress, or plan the next lecture.",
+            deep_link="/professor/dashboard", quiet_days=21,
+        )]
+
+
 DEFAULT_RULES: List[Rule] = [
     StreakAtRiskRule(),
     AssignmentDueSoonRule(),
     WeakConceptStaleRule(),
     ReviewsPilingUpRule(),
+    StudentNoQuizDayOneRule(),
+    StudentNoAvatarDayThreeRule(),
+    StudentInactiveDaySevenRule(),
+    ProfessorNoUploadDayTwoRule(),
+    ProfessorNoAnalyticsDayFiveRule(),
+    ProfessorInactiveDayFourteenRule(),
 ]
 
 
@@ -332,7 +459,22 @@ def _load_active_user_ids(client=None, since_days: int = 30, now: Optional[datet
     except Exception as e:
         logger.error("Failed to load active users: %s", e)
         return []
-    return list({r["user_id"] for r in rows if r.get("user_id")})
+    active_ids = {r["user_id"] for r in rows if r.get("user_id")}
+    # Lifecycle rules must also see recently created accounts that have not
+    # produced a learning event yet (for example, a professor with no upload).
+    try:
+        profiles = (
+            cli.table("profiles")
+            .select("user_id, created_at")
+            .gte("created_at", cutoff)
+            .execute()
+            .data
+            or []
+        )
+        active_ids.update(r["user_id"] for r in profiles if r.get("user_id"))
+    except Exception as e:
+        logger.warning("Failed to load recently created users for lifecycle nudges: %s", e)
+    return list(active_ids)
 
 
 def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
@@ -341,17 +483,30 @@ def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
     # Streak + last activity --------------------------------------------------
     profile = (
         cli.table("profiles")
-        .select("user_id, current_streak")
+        .select("user_id, current_streak, avatar_url, created_at")
         .eq("user_id", user_id)
         .execute()
         .data
         or []
     )
-    current_streak = (profile[0].get("current_streak") if profile else 0) or 0
+    profile_row = profile[0] if profile else {}
+    current_streak = profile_row.get("current_streak") or 0
+    account_created_at = _parse_ts(profile_row.get("created_at"))
+    has_avatar = bool(profile_row.get("avatar_url"))
+
+    role_rows = (
+        cli.table("user_roles")
+        .select("role")
+        .eq("user_id", user_id)
+        .execute()
+        .data
+        or []
+    )
+    role = str(role_rows[0].get("role") or "student") if role_rows else "student"
 
     last_event_rows = (
         cli.table("learning_events")
-        .select("created_at")
+        .select("event_type, created_at")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .limit(1)
@@ -360,6 +515,40 @@ def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
         or []
     )
     last_activity_at = _parse_ts(last_event_rows[0]["created_at"]) if last_event_rows else None
+    lifecycle_events = (
+        cli.table("learning_events")
+        .select("event_type, created_at")
+        .eq("user_id", user_id)
+        .in_("event_type", ["quiz_attempt", "micro_quiz_attempt", "analytics_dashboard_viewed"])
+        .execute()
+        .data
+        or []
+    )
+    quiz_attempt_count = sum(
+        1 for event in lifecycle_events
+        if event.get("event_type") in {"quiz_attempt", "micro_quiz_attempt"}
+    )
+    analytics_dates = [
+        _parse_ts(event.get("created_at"))
+        for event in lifecycle_events
+        if event.get("event_type") == "analytics_dashboard_viewed"
+    ]
+    analytics_viewed_at = max((date for date in analytics_dates if date), default=None)
+
+    lecture_upload_count = 0
+    first_upload_at = None
+    if role == "professor":
+        lecture_rows = (
+            cli.table("lectures")
+            .select("id, created_at")
+            .eq("professor_id", user_id)
+            .execute()
+            .data
+            or []
+        )
+        lecture_upload_count = len(lecture_rows)
+        upload_dates = [_parse_ts(row.get("created_at")) for row in lecture_rows]
+        first_upload_at = min((date for date in upload_dates if date), default=None)
 
     # Assignments due soon ----------------------------------------------------
     enroll_rows = (
@@ -459,6 +648,28 @@ def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
         if until:
             dismissals[(r.get("rule_key") or "", r.get("subject_key") or "")] = until
 
+    # Delivery consent -------------------------------------------------------
+    # This is an in-app-only system today. The preference table is optional
+    # during rollout so deployments that have not applied the migration yet
+    # retain the previous safe behaviour rather than failing the daily runner.
+    lifecycle_nudges_enabled = True
+    in_app_enabled = True
+    try:
+        preference_rows = (
+            cli.table("notification_preferences")
+            .select("lifecycle_nudges_enabled, in_app_enabled")
+            .eq("user_id", user_id)
+            .execute()
+            .data
+            or []
+        )
+        if preference_rows:
+            preference = preference_rows[0]
+            lifecycle_nudges_enabled = preference.get("lifecycle_nudges_enabled", True) is not False
+            in_app_enabled = preference.get("in_app_enabled", True) is not False
+    except Exception as e:
+        logger.warning("Failed to load notification preferences for %s: %s", user_id, e)
+
     return UserContext(
         user_id=user_id,
         now=now,
@@ -468,6 +679,15 @@ def _build_context(user_id: str, now: datetime, client=None) -> UserContext:
         weak_concepts=weak_concepts,
         dismissals=dismissals,
         due_review_count=due_review_count,
+        role=role,
+        account_created_at=account_created_at,
+        has_avatar=has_avatar,
+        quiz_attempt_count=quiz_attempt_count,
+        lecture_upload_count=lecture_upload_count,
+        first_upload_at=first_upload_at,
+        analytics_viewed_at=analytics_viewed_at,
+        lifecycle_nudges_enabled=lifecycle_nudges_enabled,
+        in_app_enabled=in_app_enabled,
     )
 
 
@@ -528,11 +748,15 @@ def run_daily(
     user_ids = _load_active_user_ids(client=cli, now=now)
     emitted = 0
     users_with_nudge = 0
+    users_opted_out = 0
     for uid in user_ids:
         try:
             ctx = _build_context(uid, now, client=cli)
         except Exception as e:
             logger.error("nudge ctx failed for %s: %s", uid, e, exc_info=True)
+            continue
+        if not ctx.lifecycle_nudges_enabled or not ctx.in_app_enabled:
+            users_opted_out += 1
             continue
         nudges = evaluate_user(ctx, rules=rules)
         if not nudges:
@@ -545,6 +769,7 @@ def run_daily(
         "users_evaluated": len(user_ids),
         "users_with_nudge": users_with_nudge,
         "notifications_emitted": emitted,
+        "users_opted_out": users_opted_out,
         "ran_at": now.isoformat(),
     }
     logger.info("nudge_engine.run_daily: %s", report)

@@ -25,7 +25,8 @@
     "autosaving": "Wird gespeichert…",
     "expiredWarning": "Die Zeit ist um — gib jetzt ab, bevor die Kulanzzeit endet.",
     "submitting": "Wird abgegeben…",
-    "goToQuestion": "Zu Frage {{n}} springen"
+    "goToQuestion": "Zu Frage {{n}} springen",
+    "submitFailed": "Deine Prüfung konnte nicht abgegeben werden. Bitte versuche es erneut."
   },
   "report": {
     "title": "Prüfungsergebnis",
@@ -50,7 +51,8 @@
     "totalOf": "{{total}} gesamt",
     "questionReview": "Fragenübersicht",
     "questionNumber": "Frage {{n}}",
-    "notAvailable": "Prüfungsbericht nicht verfügbar."
+    "notAvailable": "Prüfungsbericht nicht verfügbar.",
+    "sendToReviewFailed": "Diese Fragen konnten nicht zur Wiederholung gesendet werden. Bitte versuche es erneut."
   },
   "widget": {
     "title": "Probeprüfung",

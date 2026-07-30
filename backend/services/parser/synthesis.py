@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 async def analyze_lecture_meta(
-    slides: List[str], ai_model: str, course_context_hint: str = ""
+    slides: List[str], ai_model: str, course_context_hint: str = "", source_language: str = "en"
 ) -> Dict[str, Any]:
     """One LLM call on the first 15 slides to extract lecture-level metadata.
 
@@ -45,6 +45,7 @@ async def analyze_lecture_meta(
     combined_text = "\n\n".join(
         f"[Slide {i + 1}]: {text[:400]}" for i, text in enumerate(slides[:15])
     )
+    output_language = "German" if source_language == "de" else "English"
     prompt = f"""You are an expert at understanding university lecture slides. Analyze the provided slide texts and return a JSON object.
 
 Return ONLY valid JSON, no markdown. Keys:
@@ -54,6 +55,9 @@ Return ONLY valid JSON, no markdown. Keys:
 - courseCode: string (course code if visible, else "")
 - summary: string (3-4 sentence summary of what this entire lecture covers)
 - keyTopics: array of strings (5-8 key topics/concepts covered)
+
+Write every user-facing string in {output_language}, the source language of
+this lecture. Do not translate it into another language.
 
 Analyze these lecture slides:
 
@@ -69,8 +73,10 @@ async def analyze_slide(
     text: str,
     lecture_context: str,
     ai_model: str,
+    source_language: str = "en",
 ) -> Dict[str, Any]:
     """Analyze a single slide; returns the LLM result dict."""
+    output_language = "German" if source_language == "de" else "English"
     prompt = f"""You are an expert at analyzing university lecture slides. Given raw text extracted from a PDF slide, analyze it and return a JSON object.
 
 Return ONLY valid JSON, no markdown, no code blocks. Keys:
@@ -78,6 +84,9 @@ Return ONLY valid JSON, no markdown, no code blocks. Keys:
 - slideType: one of "text", "image-only", "math-diagram", "graph", "mixed", "title-slide", "table-of-contents"
 - aiInsight: string (A concise narrative explanation (1-3 sentences) of this slide as if you are a professor teaching a class. If this slide covers the same topic as the previous slide, DO NOT repeat the explanation; focus ONLY on what is new or briefly summarize the continuation. Maintain a logical flow and avoid giving the impression that each slide is being explained in isolation. Do NOT use phrases like "This slide", "In this slide", or "This image". Connect it to the previous slide if mentioned in the context.)
 - contextNote: string (1 sentence about where this slide fits in the lecture narrative)
+
+Write title, aiInsight, and contextNote in {output_language}, the source
+language of this lecture. Do not translate them into another language.
 
 Lecture context: {lecture_context[:1000]}
 
@@ -98,6 +107,7 @@ async def generate_quiz_questions(
     slides: List[str],
     lecture_title: str,
     ai_model: str,
+    source_language: str = "en",
 ) -> List[Dict[str, Any]]:
     """Generate 5–8 deck-level MCQs from content-rich slides."""
     content_slides = [s for s in slides if len(s) > 50][:10]
@@ -107,6 +117,7 @@ async def generate_quiz_questions(
     slide_summary = "\n\n".join(
         f"[Slide {i + 1}]: {text[:500]}" for i, text in enumerate(content_slides)
     )
+    output_language = "German" if source_language == "de" else "English"
     prompt = f"""Generate quiz questions for a university lecture. Return ONLY a valid JSON array of question objects, no markdown.
 
 Each object has:
@@ -117,6 +128,9 @@ Each object has:
 - concept: string (the specific concept being tested — a short name, not a sentence)
 - difficulty: "easy" | "medium" | "hard"
 - slideId: number (1-based slide number the question is drawn from)
+
+Write all user-facing strings in {output_language}, the source language of
+this lecture. Do not translate them into another language.
 
 Lecture: "{lecture_title}"
 

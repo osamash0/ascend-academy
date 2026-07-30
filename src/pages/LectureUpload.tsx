@@ -400,6 +400,12 @@ export default function LectureUpload() {
     },
   });
 
+  const handleRemoveSlide = (index: number) => {
+    if (window.confirm(t('upload:deleteSlideConfirm'))) {
+      removeSlide(index);
+    }
+  };
+
   const {
     isUploading,
     uploadProgress, uploadTotal, uploadStatus,
@@ -1147,7 +1153,7 @@ export default function LectureUpload() {
   // (e.g. 20+ slides) and the ENTIRE page scrolls instead, which is what let
   // a newly-selected slide's fields land off-screen above the fold.
   const editorContent = (
-    <div className="h-screen bg-background flex flex-col">
+    <div className="h-dvh bg-background flex flex-col">
       {/* ═══════ TOP BAR ═══════ */}
       <div className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-30">
         <div className="flex items-center justify-between px-4 lg:px-6 h-16">
@@ -1391,12 +1397,12 @@ export default function LectureUpload() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          removeSlide(index);
+                          handleRemoveSlide(index);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-destructive/10 hover:text-destructive transition-all"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-2 -m-1 rounded-md hover:bg-destructive/10 hover:text-destructive transition-all"
                         aria-label={t('upload:deleteSlideAria', { number: index + 1, defaultValue: `Delete slide ${index + 1}` })}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </motion.div>
                   );
@@ -1551,7 +1557,7 @@ export default function LectureUpload() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeSlide(activeSlideIndex)}
+                        onClick={() => handleRemoveSlide(activeSlideIndex)}
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

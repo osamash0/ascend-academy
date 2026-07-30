@@ -330,6 +330,7 @@ export function LectureChat({
                                         variant="ghost"
                                         size="icon"
                                         onClick={onClose}
+                                        aria-label={t('lecture:chat.close')}
                                         className="rounded-full text-muted-foreground hover:text-foreground hover:bg-white/5"
                                     >
                                         <X className="w-5 h-5" />

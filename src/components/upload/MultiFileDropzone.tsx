@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { FolderOpen, UploadCloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const ACCEPTED_EXTENSIONS = ['.pdf']; // .pptx isn't supported in batch upload yet (see backend/api/v1/upload.py)
+const ACCEPTED_EXTENSIONS = ['.pdf', '.pptx'];
 
 function filterAccepted(files: File[]): File[] {
   return files.filter((f) => ACCEPTED_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext)));
@@ -58,7 +58,7 @@ export function MultiFileDropzone({ onFilesSelected, maxFiles, currentCount, hid
         )}
       >
         <UploadCloud className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-        <p className="text-sm font-medium text-foreground">Drop PDFs here, or click to browse</p>
+        <p className="text-sm font-medium text-foreground">Drop PDFs or PowerPoint files here, or click to browse</p>
         <p className="text-xs text-muted-foreground mt-1">
           Up to {remaining} more file{remaining === 1 ? '' : 's'} ({maxFiles} per batch)
         </p>
@@ -80,9 +80,9 @@ export function MultiFileDropzone({ onFilesSelected, maxFiles, currentCount, hid
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf,.pptx"
         multiple
-        aria-label="Choose PDF files"
+        aria-label="Choose PDF or PowerPoint files"
         onChange={(e) => {
           handleFiles(e.target.files);
           e.target.value = '';

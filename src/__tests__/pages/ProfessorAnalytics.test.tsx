@@ -53,6 +53,11 @@ vi.mock("@/features/analytics/hooks/useAnalytics", () => ({
   useAnalytics: (lectureId: string | null) => useAnalyticsMock(lectureId),
 }));
 
+const logLearningEventMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/services/studentService", () => ({
+  logLearningEvent: (...args: unknown[]) => logLearningEventMock(...args),
+}));
+
 vi.mock("@/components/NeuralBackground", () => ({
   NeuralBackground: () => null,
 }));
@@ -72,9 +77,28 @@ beforeEach(() => {
   useAnalyticsMock.mockReturnValue({
     dashboard: { data: null, isLoading: false, isError: false },
   });
+  logLearningEventMock.mockClear();
 });
 
 describe("ProfessorAnalytics page (smoke)", () => {
+  it("records an analytics-dashboard view for lifecycle reporting", async () => {
+    fetchProfessorLecturesMock.mockResolvedValue([]);
+    renderWithProviders(
+      <Routes>
+        <Route path="/professor/analytics" element={<ProfessorAnalytics />} />
+      </Routes>,
+      { initialEntries: ["/professor/analytics"] },
+    );
+
+    await waitFor(() => {
+      expect(logLearningEventMock).toHaveBeenCalledWith(
+        "prof-1",
+        "analytics_dashboard_viewed",
+        { surface: "professor_analytics" },
+      );
+    });
+  });
+
   it("mounts a loading spinner while lectures are being fetched", () => {
     fetchProfessorLecturesMock.mockReturnValue(new Promise(() => {}));
     const { container } = renderWithProviders(

@@ -158,6 +158,44 @@ export interface Database {
           }
         ]
       }
+      notification_preferences: {
+        Row: {
+          user_id: string
+          lifecycle_nudges_enabled: boolean
+          in_app_enabled: boolean
+          email_enabled: boolean
+          push_enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          lifecycle_nudges_enabled?: boolean
+          in_app_enabled?: boolean
+          email_enabled?: boolean
+          push_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          lifecycle_nudges_enabled?: boolean
+          in_app_enabled?: boolean
+          email_enabled?: boolean
+          push_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -168,6 +206,7 @@ export interface Database {
           display_name: string | null
           email: string
           full_name: string | null
+          has_completed_activation_onboarding: boolean
           has_seen_dashboard_tour: boolean
           id: string
           luna_patch: string | null
@@ -186,6 +225,7 @@ export interface Database {
           display_name?: string | null
           email: string
           full_name?: string | null
+          has_completed_activation_onboarding?: boolean
           has_seen_dashboard_tour?: boolean
           id?: string
           luna_patch?: string | null
@@ -204,6 +244,7 @@ export interface Database {
           display_name?: string | null
           email?: string
           full_name?: string | null
+          has_completed_activation_onboarding?: boolean
           has_seen_dashboard_tour?: boolean
           id?: string
           luna_patch?: string | null
@@ -216,6 +257,65 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      onboarding_progress: {
+        Row: {
+          acquisition_source: string | null
+          active_batch_id: string | null
+          activated_at: string | null
+          completed_at: string | null
+          demo_mission_step: number
+          first_activity_type: string | null
+          luna_customization_seen_at: string | null
+          selected_path: string | null
+          second_session_started_at: string | null
+          study_goal: string | null
+          updated_at: string
+          user_id: string
+          university_match_dismissed_at: string | null
+          version: number
+        }
+        Insert: {
+          acquisition_source?: string | null
+          active_batch_id?: string | null
+          activated_at?: string | null
+          completed_at?: string | null
+          demo_mission_step?: number
+          first_activity_type?: string | null
+          luna_customization_seen_at?: string | null
+          selected_path?: string | null
+          second_session_started_at?: string | null
+          study_goal?: string | null
+          updated_at?: string
+          user_id: string
+          university_match_dismissed_at?: string | null
+          version?: number
+        }
+        Update: {
+          acquisition_source?: string | null
+          active_batch_id?: string | null
+          activated_at?: string | null
+          completed_at?: string | null
+          demo_mission_step?: number
+          first_activity_type?: string | null
+          luna_customization_seen_at?: string | null
+          selected_path?: string | null
+          second_session_started_at?: string | null
+          study_goal?: string | null
+          updated_at?: string
+          user_id?: string
+          university_match_dismissed_at?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_progress_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "users"
@@ -497,6 +597,30 @@ export interface Database {
           _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
         }
+        Returns: boolean
+      }
+      get_institution_match_suggestion: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          university: string
+        }[]
+      }
+      record_onboarding_activation: {
+        Args: {
+          p_activity_type: string
+          p_course_id?: string | null
+        }
+        Returns: boolean
+      }
+      complete_activation_onboarding: {
+        Args: {
+          p_path: string
+          p_study_goal?: string | null
+        }
+        Returns: Json
+      }
+      record_onboarding_second_session: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
     }

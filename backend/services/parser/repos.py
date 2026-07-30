@@ -52,9 +52,9 @@ async def get_or_create_run(
     filename: Optional[str] = None,
     parsing_mode: Optional[str] = None,
 ) -> ParseRun:
-    """Return the run for (pdf_hash, pipeline_version), creating it if needed.
+    """Return the run for one user's (pdf_hash, pipeline_version), creating it if needed.
 
-    Upserts on the existing UNIQUE(pdf_hash, pipeline_version) constraint:
+    Upserts on UNIQUE(pdf_hash, pipeline_version, user_id):
     re-enqueuing byte-identical PDF content (e.g. the same file uploaded in a
     later batch) updates batch_id/user_id/course_id/filename/parsing_mode to
     the new values rather than silently keeping the first caller's — "last
@@ -62,9 +62,9 @@ async def get_or_create_run(
     surprise. All five use COALESCE so a call that doesn't know a value (e.g.
     the orchestrator's own internal re-fetch, which doesn't pass batch_id)
     never clobbers a value an earlier call already recorded — only an
-    explicit new value overwrites. Known v1 sharp edge: this is not scoped by
-    user_id, so two different professors uploading the same PDF share one run
-    row — accepted for now, a candidate to scope by user_id in a fast-follow.
+    explicit new value overwrites. Different users receive independent runs
+    even when they upload identical bytes, keeping private uploads and batch
+    routing isolated.
     """
     pool = await _pool()
     async with pool.acquire() as conn:
@@ -73,7 +73,7 @@ async def get_or_create_run(
             INSERT INTO parse_runs (pdf_hash, lecture_id, pipeline_version, status,
                                      batch_id, user_id, course_id, filename, parsing_mode)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT (pdf_hash, pipeline_version) DO UPDATE
+            ON CONFLICT (pdf_hash, pipeline_version, user_id) DO UPDATE
                 SET batch_id = COALESCE(EXCLUDED.batch_id, parse_runs.batch_id),
                     user_id = COALESCE(EXCLUDED.user_id, parse_runs.user_id),
                     course_id = COALESCE(EXCLUDED.course_id, parse_runs.course_id),

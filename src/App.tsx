@@ -62,7 +62,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 const Landing = lazy(() => import("./pages/Landing"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Onboarding = lazy(() => import("./pages/ActivationOnboarding"));
 const StudentUploadWizard = lazy(() => import("./features/student/components/StudentUploadWizard"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const StudentCourseView = lazy(() => import("./pages/StudentCourseView"));
@@ -161,8 +161,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     if (role === 'admin') {
       return <Navigate to="/admin/dashboard" replace />;
     }
-    // If student hasn't finished onboarding (no full name), enforce onboarding
-    if (profile && !profile.full_name) {
+    // New accounts choose a study path before reaching the dashboard. A name
+    // is now optional and belongs to progressive personalization.
+    if (profile && !profile.has_completed_activation_onboarding) {
       return <Navigate to="/onboarding" replace />;
     }
     return <Navigate to="/dashboard" replace />;
@@ -178,8 +179,7 @@ function StudentDashboardRoute() {
     return <Navigate to={ProfessorRoutes.DASHBOARD} replace />;
   }
 
-  // Prevent accessing dashboard if onboarding isn't finished
-  if (profile && !profile.full_name) {
+  if (profile && !profile.has_completed_activation_onboarding) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -581,7 +581,7 @@ const App = () => {
   return (
   <AppErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="dark">
         <TooltipProvider>
           <Toaster />
           <Sonner />

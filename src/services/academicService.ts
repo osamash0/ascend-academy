@@ -164,6 +164,15 @@ export async function verifyMyInstitution(): Promise<boolean> {
   return !!data;
 }
 
+/** Return a confirmed-email university match without changing the profile.
+ * The caller decides whether to accept the progressive onboarding suggestion. */
+export async function getInstitutionMatchSuggestion(): Promise<string | null> {
+  const { data, error } = await rpc('get_institution_match_suggestion');
+  if (error) throw error;
+  const row = (data as Array<{ university?: string }> | null)?.[0];
+  return row?.university ?? null;
+}
+
 export type LinkEmailReason = 'verified' | 'invalid' | 'taken' | 'unknown_domain' | 'mismatch';
 export interface LinkEmailResult {
   verified: boolean;

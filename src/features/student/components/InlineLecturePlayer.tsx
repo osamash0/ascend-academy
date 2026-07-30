@@ -74,6 +74,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
+import { recordOnboardingActivation, recordOnboardingEvent } from '@/services/onboardingService';
 
 interface InlineLecturePlayerProps {
   lectureId: string;
@@ -85,6 +86,21 @@ interface InlineLecturePlayerProps {
   onExpand?: () => void;
   /** Fires with the active slide index so the host can react (e.g. wallpaper). */
   onSlideChange?: (index: number) => void;
+  /** Allows a host flow, such as the example-course mission, to respond to completion. */
+  onLectureComplete?: () => void;
+  /** Optional mission hook fired after a successful grounded AI response. */
+  onGroundedQuestionAsked?: () => void;
+  /** Optional mission hook fired after the learner answers a quiz question. */
+  onQuizAnswered?: () => void;
+  /** Opens the first available in-lecture quiz for a diagnostic-first journey. */
+  startWithQuiz?: boolean;
+  /** Lets the host consume a one-time diagnostic recommendation. */
+  onStartWithQuizConsumed?: () => void;
+  /** Falls back gracefully when a diagnostic has not finished generating. */
+  onStartWithQuizUnavailable?: () => void;
+  /** Focuses a suggested grounded-AI question for an assignment-led journey. */
+  focusGroundedAi?: boolean;
+  onGroundedAiFocusConsumed?: () => void;
   /** Whether the user navigated here via the onboarding flow */
   isOnboarding?: boolean;
 }
@@ -131,6 +147,14 @@ export function InlineLecturePlayer({
   onClose,
   onExpand,
   onSlideChange,
+  onLectureComplete,
+  onGroundedQuestionAsked,
+  onQuizAnswered,
+  startWithQuiz = false,
+  onStartWithQuizConsumed,
+  onStartWithQuizUnavailable,
+  focusGroundedAi = false,
+  onGroundedAiFocusConsumed,
   isOnboarding,
 }: InlineLecturePlayerProps) {
   const { user, session, refreshProfile } = useAuth();
@@ -194,6 +218,7 @@ export function InlineLecturePlayer({
   const [loading, setLoading] = useState(true);
 
   const [showQuiz, setShowQuiz] = useState(false);
+  const [startQuizWhenReady, setStartQuizWhenReady] = useState(startWithQuiz);
   // Direction of the last slide move (1 = forward/right, -1 = back/left) so the
   // content + slide image can slide in/out horizontally instead of flashing.
   const [dir, setDir] = useState<1 | -1>(1);
@@ -203,13 +228,12 @@ export function InlineLecturePlayer({
   const [completed, setCompleted] = useState(false);
 
   // ── AI chat (input lives under the PDF; conversation renders in the right view) ──
-  type ChatMessage = { id: string; role: 'user' | 'model'; content: string };
+  type ChatMessage = { id: string; role: 'user' | 'model'; content: string; sourceLabel?: string };
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [streaming, setStreaming] = useState('');
   const [chatActive, setChatActive] = useState(false);
-  const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatAbortRef = useRef<AbortController | null>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [selectedPdfText, setSelectedPdfText] = useState<{ text: string; top: number; left: number } | null>(null);
@@ -270,6 +294,7 @@ export function InlineLecturePlayer({
     async function load() {
       setLoading(true);
       setShowQuiz(false);
+      setStartQuizWhenReady(startWithQuiz);
       setQuizAnswers({});
       setXpEarned(0);
       setCorrectAnswers(0);
@@ -307,6 +332,11 @@ export function InlineLecturePlayer({
             options: Array.isArray(q.options) ? (q.options as string[]) : [],
           })),
         );
+        if (startWithQuiz && questionsData.length === 0) {
+          setStartQuizWhenReady(false);
+          onStartWithQuizConsumed?.();
+          onStartWithQuizUnavailable?.();
+        }
 
         if (user?.id) {
           const progress = await fetchLectureProgress(user.id, lec.id);
@@ -351,6 +381,7 @@ export function InlineLecturePlayer({
             lectureId: lec.id,
             sessionId: sessionIdRef.current,
           }).catch(() => {});
+          void recordOnboardingActivation('lecture', lec.course_id ?? null);
         }
       } catch (err) {
         console.error('InlineLecturePlayer load failed', err);
@@ -438,6 +469,28 @@ export function InlineLecturePlayer({
       })[0];
   }, [questions, currentSlide?.id]);
 
+  useEffect(() => {
+    if (!focusGroundedAi || loading) return;
+    setChatInput((current) => current || 'Help me find the material relevant to my assignment.');
+    const timer = window.setTimeout(() => chatInputRef.current?.focus(), 50);
+    onGroundedAiFocusConsumed?.();
+    return () => window.clearTimeout(timer);
+  }, [focusGroundedAi, loading, onGroundedAiFocusConsumed]);
+
+  // An exam-preparation journey should lead with the promised diagnostic,
+  // rather than merely showing a lecture and mentioning a quiz in the copy.
+  // We choose the first slide that has a generated question and leave the
+  // ordinary lecture path untouched when no quiz is ready yet.
+  useEffect(() => {
+    if (!startQuizWhenReady || !slides.length || !questions.length) return;
+    const quizSlideIndex = slides.findIndex((slide) => questions.some((question) => question.slide_id === slide.id));
+    setStartQuizWhenReady(false);
+    onStartWithQuizConsumed?.();
+    if (quizSlideIndex < 0) return;
+    goToSlide(quizSlideIndex);
+    setShowQuiz(true);
+  }, [goToSlide, onStartWithQuizConsumed, questions, slides, startQuizWhenReady]);
+
   const totalForScore = questions.length || slides.length;
 
   // ── Quiz handling ──────────────────────────────────────────────────────────
@@ -458,7 +511,9 @@ export function InlineLecturePlayer({
           sessionId: sessionIdRef.current,
           timestamp: new Date().toISOString(),
         }).catch(() => {});
+        void recordOnboardingActivation('quiz', lecture?.course_id ?? null);
       }
+      onQuizAnswered?.();
 
       if (isCorrect) {
         const newXp = xpRef.current + 10;
@@ -511,7 +566,7 @@ export function InlineLecturePlayer({
       }
       await flushSlideProgress();
     },
-    [currentQuestion, currentIndex, currentSlide, user, lecture, lectureId, totalForScore, refreshProfile, flushSlideProgress],
+    [currentQuestion, currentIndex, currentSlide, user, lecture, lectureId, totalForScore, refreshProfile, flushSlideProgress, onQuizAnswered],
   );
 
   const finishLecture = useCallback(async () => {
@@ -533,6 +588,11 @@ export function InlineLecturePlayer({
         sessionId: sessionIdRef.current,
         completed_at: new Date().toISOString(),
       }).catch(() => {});
+      void recordOnboardingEvent(user.id, 'learning_activity_completed', {
+        activity_type: 'lecture',
+        course_id: lecture.course_id ?? null,
+        lecture_id: lecture.id,
+      });
 
       queryClient.invalidateQueries({ queryKey: ['student-progress', user.id] });
 
@@ -544,7 +604,8 @@ export function InlineLecturePlayer({
       gamification.evaluate();
     }
     toast({ title: 'Lecture complete! 🎉', description: `+${xpRef.current} XP` });
-  }, [markLectureComplete, user, lecture, slides, totalForScore, toast]);
+    onLectureComplete?.();
+  }, [markLectureComplete, user, lecture, slides, totalForScore, toast, onLectureComplete]);
 
   const advance = useCallback(() => {
     if (currentIndex < slides.length - 1) {
@@ -617,11 +678,6 @@ export function InlineLecturePlayer({
     setChatLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
-
-  // Keep the conversation scrolled to the latest message.
-  useEffect(() => {
-    chatScrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages, streaming, chatLoading]);
 
   useEffect(() => () => chatAbortRef.current?.abort(), []);
 
@@ -770,6 +826,9 @@ export function InlineLecturePlayer({
     setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'user', content: q }]);
     setChatLoading(true);
     setStreaming('');
+    const sourceLabel = currentSlide
+      ? `${lecture?.title || courseTitle || 'Current lecture'} · Slide ${currentSlide.slide_number}`
+      : undefined;
 
     try {
       const history = messages.filter(m => m.content).map((m) => ({ role: m.role, content: m.content }));
@@ -797,7 +856,7 @@ export function InlineLecturePlayer({
             if (!line.startsWith('data: ')) continue;
             const data = line.slice(6);
             if (data === '[DONE]') {
-              setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'model', content: full }]);
+              setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'model', content: full, sourceLabel }]);
               setStreaming('');
             } else {
               try {
@@ -815,7 +874,7 @@ export function InlineLecturePlayer({
         }
       } else {
         const data = await res.json();
-        setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'model', content: data.reply ?? '' }]);
+        setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'model', content: data.reply ?? '', sourceLabel }]);
       }
 
       if (user) {
@@ -827,7 +886,9 @@ export function InlineLecturePlayer({
           query: q,
           timestamp: new Date().toISOString(),
         }).catch(() => {});
+        void recordOnboardingActivation('grounded_ai', lecture?.course_id ?? null);
       }
+      onGroundedQuestionAsked?.();
     } catch (err) {
       if (!(err instanceof Error && err.name === 'AbortError')) {
         setMessages((prev) => [
@@ -840,7 +901,39 @@ export function InlineLecturePlayer({
       setStreaming('');
       chatAbortRef.current = null;
     }
-  }, [chatInput, chatLoading, messages, session, currentSlide, narrative, aiModel, lectureId, currentIndex, user]);
+  }, [chatInput, chatLoading, messages, session, currentSlide, narrative, aiModel, courseTitle, lecture, lectureId, currentIndex, onGroundedQuestionAsked, user]);
+
+  const renderChatComposer = () => (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleAsk();
+      }}
+      className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 backdrop-blur-sm transition-colors focus-within:border-primary/40"
+      aria-label="Ask AI about this slide"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-muted-foreground">
+        <Plus className="h-4 w-4" />
+      </span>
+      <input
+        ref={chatInputRef}
+        value={chatInput}
+        onChange={(e) => setChatInput(e.target.value)}
+        placeholder="Ask AI about this slide…"
+        aria-label="Ask AI about this slide"
+        disabled={chatLoading}
+        className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-60"
+      />
+      <button
+        type="submit"
+        disabled={!chatInput.trim() || chatLoading}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary transition-opacity hover:opacity-90 disabled:opacity-30 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        aria-label="Send question to AI"
+      >
+        {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+      </button>
+    </form>
+  );
 
   const { badge } = splitLectureTitle(translateCurriculum(lecture?.title) ?? '');
   const hasPdf = pdfUrl && !pdfError;
@@ -1040,8 +1133,8 @@ export function InlineLecturePlayer({
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-28 overflow-hidden rounded-full bg-white/10">
                 <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-success to-success/70"
-                  animate={{ width: `${completionPct}%` }}
+                  className="h-full w-full origin-left rounded-full bg-gradient-to-r from-success to-success/70"
+                  animate={{ scaleX: completionPct / 100 }}
                   transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 />
               </div>
@@ -1296,33 +1389,18 @@ export function InlineLecturePlayer({
                 </div>
               </motion.button>
             )}
-            <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleAsk();
-            }}
-            className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 backdrop-blur-sm focus-within:border-primary/40"
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-muted-foreground">
-              <Plus className="h-4 w-4" />
-            </span>
-            <input
-              ref={chatInputRef}
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Ask AI about this slide…"
-              disabled={chatLoading}
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-60"
-            />
-            <button
-              type="submit"
-              disabled={!chatInput.trim() || chatLoading}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary transition-opacity hover:opacity-90 disabled:opacity-30 disabled:shadow-none"
-              aria-label="Send"
-            >
-              {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </button>
-          </form>
+            <AnimatePresence initial={false}>
+              {!chatActive && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                >
+                  {renderChatComposer()}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -1381,7 +1459,7 @@ export function InlineLecturePlayer({
                     <ArrowLeft className="h-4 w-4" />
                   </button>
                 </div>
-                <div ref={chatScrollRef} className="flex-1 space-y-8 px-2 py-4">
+                <div className="flex-1 space-y-8 px-2 py-4">
                   {messages.map((m) =>
                     m.role === 'user' ? (
                       <div key={m.id} className="flex flex-col items-end text-right w-full">
@@ -1412,6 +1490,11 @@ export function InlineLecturePlayer({
                             {streaming}
                           </ReactMarkdown>
                         </div>
+                        {m.sourceLabel ? (
+                          <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+                            <BookOpen className="h-3 w-3" /> Grounded in {m.sourceLabel}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   )}
@@ -1422,6 +1505,14 @@ export function InlineLecturePlayer({
                     </div>
                   )}
                 </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="mt-2 border-t border-white/10 px-2 pt-4"
+                >
+                  {renderChatComposer()}
+                </motion.div>
               </motion.div>
             ) : showQuiz && currentQuestion ? (
               <motion.div

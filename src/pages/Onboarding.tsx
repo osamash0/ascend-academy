@@ -40,6 +40,15 @@ const PRESET_AVATARS = [
   { url: 'https://api.dicebear.com/7.x/personas/svg?seed=Riley&backgroundColor=ffdfbf', label: 'Riley' },
 ];
 
+/** Luna's palette is intentionally paired so every selection feels on-brand. */
+const LUNA_THEMES = [
+  { id: 'moonlight', name: 'Moonlight', description: 'Luna’s signature calm', suit: '#FFF8E7', visor: '#88B0B5' },
+  { id: 'nebula', name: 'Nebula', description: 'Soft violet in deep space', suit: '#E8E4F0', visor: '#6B5B95' },
+  { id: 'starlight', name: 'Starlight', description: 'A warm, golden glow', suit: '#FFF8E7', visor: '#D6A92A' },
+  { id: 'rose-orbit', name: 'Rose Orbit', description: 'Gentle blush and mauve', suit: '#F3D8D5', visor: '#A76B83' },
+  { id: 'tidal', name: 'Tidal', description: 'Cool blue-grey horizon', suit: '#DCE9EA', visor: '#5E8F99' },
+] as const;
+
 const TOTAL_STEPS = 5;
 const JOURNEY_LABELS = ['You', 'Avatar', 'Studies', 'Courses', 'Explore'];
 
@@ -195,6 +204,15 @@ function OnboardingInner() {
     fullName.trim().split(' ')[0] || profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
   const tier = rankForXp(profile?.total_xp);
   const rankProg = rankProgress(profile?.total_xp);
+  const selectedLunaTheme = LUNA_THEMES.find(
+    (theme) => theme.suit === lunaSuit && theme.visor === lunaVisor,
+  );
+
+  const selectLunaTheme = (theme: (typeof LUNA_THEMES)[number]) => {
+    setLunaSuit(theme.suit);
+    setLunaVisor(theme.visor);
+    play('select');
+  };
 
   // Waiting for explicit user interaction instead of auto-advance
 
@@ -766,68 +784,52 @@ function OnboardingInner() {
                   </div>
                 </motion.div>
 
-                {/* ── Premium Customizer ── */}
+                {/* ── Luna theme selector ── */}
                 <motion.div
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.18, duration: 0.4 }}
-                  className="w-full max-w-md mx-auto space-y-8 mt-4"
+                  className="w-full max-w-lg mx-auto mt-4"
                 >
-                  {/* Suit Finish */}
-                  <div className="space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">{t('steps.avatar.suitFinish')}</p>
-                    <div className="grid grid-cols-5 gap-3">
-                      {[
-                        { hex: '#111111', label: 'Obsidian' },
-                        { hex: '#FAFAFA', label: 'Titanium' },
-                        { hex: '#1C2A3A', label: 'Deep Space' },
-                        { hex: '#3B1C1C', label: 'Crimson' },
-                        { hex: '#FFF8E7', label: 'Classic' },
-                      ].map(({ hex, label }) => (
-                        <button
-                          key={hex}
-                          onClick={() => setLunaSuit(hex)}
-                          title={label}
-                          className={`group flex flex-col items-center gap-2 focus-visible:outline-none`}
-                        >
-                          <div 
-                            className={`w-full aspect-square rounded-2xl border-2 transition-all duration-300 ${lunaSuit === hex ? 'border-primary ring-4 ring-primary/20 scale-105' : 'border-white/10 hover:border-white/30 hover:scale-105'}`}
-                            style={{ backgroundColor: hex }}
-                          />
-                          <span className={`text-[10px] font-medium transition-colors ${lunaSuit === hex ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>{label}</span>
-                        </button>
-                      ))}
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4 md:p-5 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.75)]">
+                    <div className="mb-4 flex items-start justify-between gap-4 px-1">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{t('steps.avatar.themeTitle')}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{t('steps.avatar.themeSubtitle')}</p>
+                      </div>
+                      {selectedLunaTheme && (
+                        <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                          {selectedLunaTheme.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2" role="radiogroup" aria-label={t('steps.avatar.themeTitle')}>
+                      {LUNA_THEMES.map((theme) => {
+                        const isSelected = selectedLunaTheme?.id === theme.id;
+                        return (
+                          <button
+                            key={theme.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={isSelected}
+                            onClick={() => selectLunaTheme(theme)}
+                            className={`group flex items-center gap-3 rounded-2xl border p-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${isSelected ? 'border-primary/60 bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.18)]' : 'border-white/10 bg-white/[0.025] hover:border-white/25 hover:bg-white/[0.06]'}`}
+                          >
+                            <span aria-hidden="true" className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/15" style={{ background: `linear-gradient(135deg, ${theme.suit} 0%, ${theme.suit} 58%, ${theme.visor} 59%, ${theme.visor} 100%)` }}>
+                              <span className="h-5 w-5 rounded-full border-2 border-white/80" style={{ backgroundColor: theme.suit, boxShadow: `0 0 0 3px ${theme.visor}` }} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-foreground">{theme.name}</span>
+                              <span className="mt-0.5 block text-xs text-muted-foreground">{theme.description}</span>
+                            </span>
+                            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-white/20 text-transparent group-hover:border-white/40'}`}>
+                              <Check className="h-3 w-3" strokeWidth={3} />
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-
-                  {/* Visor Tint */}
-                  <div className="space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">{t('steps.avatar.visorTint')}</p>
-                    <div className="grid grid-cols-5 gap-3">
-                      {[
-                        { hex: '#00F0FF', label: 'Cyan' },
-                        { hex: '#FF003C', label: 'Cyber' },
-                        { hex: '#FFD700', label: 'Solar' },
-                        { hex: '#8B5CF6', label: 'Void' },
-                        { hex: '#88B0B5', label: 'Classic' },
-                      ].map(({ hex, label }) => (
-                        <button
-                          key={hex}
-                          onClick={() => setLunaVisor(hex)}
-                          title={label}
-                          className={`group flex flex-col items-center gap-2 focus-visible:outline-none`}
-                        >
-                          <div 
-                            className={`w-full aspect-square rounded-2xl border-2 transition-all duration-300 ${lunaVisor === hex ? 'border-primary ring-4 ring-primary/20 scale-105 shadow-glow-primary' : 'border-white/10 hover:border-white/30 hover:scale-105'}`}
-                            style={{ backgroundColor: hex }}
-                          />
-                          <span className={`text-[10px] font-medium transition-colors ${lunaVisor === hex ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>{label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-
                 </motion.div>
 
                 <div className="w-full max-w-md mx-auto flex justify-between mt-8">

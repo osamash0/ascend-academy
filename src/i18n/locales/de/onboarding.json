@@ -24,6 +24,8 @@
     "avatar": {
       "companionName": "luna",
       "companionTagline": "deine Lernbegleiterin · Nachtwache",
+      "themeTitle": "Wähle Lunas Look",
+      "themeSubtitle": "Jedes Thema kombiniert Anzug- und Visierfarben, die zu Luna passen.",
       "suitFinish": "Anzug",
       "visorTint": "Visierfarbe",
       "insignia": "Abzeichen"
@@ -35,10 +37,10 @@
       "autoMatched": "Sieht aus, als wärst du an der {{university}}. Aus deiner E-Mail übernommen.",
       "noCatalog": "Wir haben den Studiengangskatalog von {{university}} noch nicht. Sag uns trotzdem deine Hochschule — wir personalisieren, sobald sie verfügbar ist.",
       "institutionPlaceholder": "Deine Hochschule",
-      "facultyPlaceholder": "Wähle deine Fakultät…",
+      "facultyPlaceholder": "Wähle deinen Fachbereich…",
       "facultyPlaceholderLocked": "Wähle zuerst eine Universität",
-      "programPlaceholder": "Wähle deinen Studiengang…",
-      "programPlaceholderLocked": "Wähle zuerst eine Fakultät",
+      "programPlaceholder": "Wähle dein Fachgebiet…",
+      "programPlaceholderLocked": "Wähle zuerst einen Fachbereich",
       "semesterLabel": "Aktuelles Semester",
       "semesterPlaceholder": "Semester",
       "semesterOption": "Semester {{n}}"

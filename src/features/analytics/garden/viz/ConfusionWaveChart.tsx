@@ -45,9 +45,10 @@ export function ConfusionWaveChart({ insight }: { insight: Insight }) {
           {segs.map((s) => (
             <motion.div
               key={s.label}
-              className={s.cls}
-              initial={{ width: 0 }}
-              animate={{ width: `${(s.value / total) * 100}%` }}
+              className={`h-full origin-left ${s.cls}`}
+              style={{ width: `${(s.value / total) * 100}%` }}
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               title={`${s.label}: ${s.value}`}
             />

@@ -36,6 +36,7 @@ from uuid import UUID
 import redis.asyncio as aioredis
 
 from backend.core.config import settings
+from backend.core.database import supabase_admin
 from backend.domain.parse_models import RunStatus
 from backend.services.parser import repos, persist
 from backend.services.parser.storage import _fetch_pdf_bytes
@@ -86,7 +87,8 @@ def _render_page_jpeg(pdf_bytes: bytes, idx: int) -> bytes:
 
 
 async def _synthesize_slide(
-    idx: int, text: str, lecture_context: str, ai_model: str, pdf_bytes: bytes
+    idx: int, text: str, lecture_context: str, ai_model: str, pdf_bytes: bytes,
+    source_language: str = "en",
 ) -> Dict[str, Any]:
     """One slide → {title, content, summary, slide_type, vision_routed}.
     Text-based synthesis when the slide has text; vision when it's
@@ -100,7 +102,7 @@ async def _synthesize_slide(
     text = text or ""
     if len(text.strip()) >= _MIN_TEXT_FOR_SYNTH:
         from backend.services.parser.synthesis import analyze_slide
-        res = await analyze_slide(idx + 1, text, lecture_context, ai_model)
+        res = await analyze_slide(idx + 1, text, lecture_context, ai_model, source_language)
         if not isinstance(res, dict):
             res = {}
         return {
@@ -158,6 +160,100 @@ def _review_flag_for(
     if not raw_title or not raw_summary:
         return True, "empty_content"
     return False, None
+
+
+async def _attach_completed_blueprint_material(run_id: UUID, lecture_id: UUID) -> None:
+    """Attach a late-arriving source file to a course created from its blueprint.
+
+    The onboarding path deliberately allows a course to be created from the
+    first ready lecture. Once another run in that same batch completes, it
+    must become part of the course without relying on the student to reopen a
+    now-finished processing screen.
+    """
+    def _attach() -> None:
+        run_res = (
+            supabase_admin.table("parse_runs")
+            .select("batch_id, user_id, filename")
+            .eq("run_id", str(run_id))
+            .limit(1)
+            .execute()
+        )
+        if not run_res.data:
+            return
+        run = run_res.data[0]
+        if not run.get("batch_id") or not run.get("user_id"):
+            return
+        blueprint_res = (
+            supabase_admin.table("course_blueprints")
+            .select("id, course_id, owner_id")
+            .eq("batch_id", run["batch_id"])
+            .eq("owner_id", run["user_id"])
+            .not_.is_("course_id", "null")
+            .limit(1)
+            .execute()
+        )
+        if not blueprint_res.data:
+            return
+        blueprint = blueprint_res.data[0]
+        source_res = (
+            supabase_admin.table("material_sources")
+            .select("id")
+            .eq("parse_run_id", str(run_id))
+            .limit(1)
+            .execute()
+        )
+        if not source_res.data:
+            return
+        item_res = (
+            supabase_admin.table("course_blueprint_items")
+            .select("id, lecture_id, include_in_course")
+            .eq("blueprint_id", blueprint["id"])
+            .eq("material_source_id", source_res.data[0]["id"])
+            .limit(1)
+            .execute()
+        )
+        if not item_res.data:
+            return
+
+        item = item_res.data[0]
+        # Processing items cannot be excluded in the blueprint editor, so a
+        # false value here is the initial placeholder rather than an explicit
+        # student decision. Promote it to an included lecture on completion.
+        supabase_admin.table("course_blueprint_items").update({
+            "lecture_id": str(lecture_id),
+            "include_in_course": True,
+        }).eq("id", item["id"]).execute()
+
+        lecture_res = (
+            supabase_admin.table("lectures")
+            .select("visibility")
+            .eq("id", str(lecture_id))
+            .limit(1)
+            .execute()
+        )
+        if not lecture_res.data:
+            return
+        lecture_patch: dict[str, Any] = {"course_id": blueprint["course_id"]}
+        if lecture_res.data[0].get("visibility") == "private_student":
+            lecture_patch.update({
+                "visibility": "course",
+                "professor_id": blueprint["owner_id"],
+                "student_owner_id": None,
+            })
+        supabase_admin.table("lectures").update(lecture_patch).eq("id", str(lecture_id)).execute()
+        supabase_admin.table("notifications").insert({
+            "user_id": blueprint["owner_id"],
+            "title": "Material added to your course",
+            "message": f"{run.get('filename') or 'A file'} is ready to study.",
+            "type": "info",
+        }).execute()
+
+    try:
+        await asyncio.to_thread(_attach)
+    except Exception as exc:
+        # A completed parse must stay completed even if the optional course
+        # attachment/notification service is temporarily unavailable.
+        logger.warning("Could not attach late blueprint material for run %s: %s", run_id, exc)
 
 
 async def _store_lecture_pdf(lecture_id: UUID, filename: str, pdf_bytes: bytes) -> Optional[str]:
@@ -224,8 +320,9 @@ async def parse_pdf_unified(
     embeddings to whichever owner parsed last. Fixing that is a prerequisite
     for cross-owner dedupe and is out of scope here.
     """
+    owner_str = user_id if user_id else "unknown"
     pipeline_version = (
-        f"{PIPELINE_VERSION_UNIFIED}-student" if visibility == "private_student" else PIPELINE_VERSION_UNIFIED
+        f"{PIPELINE_VERSION_UNIFIED}-student-{owner_str}" if visibility == "private_student" else f"{PIPELINE_VERSION_UNIFIED}-{owner_str}"
     )
     redis_client = None
     if not emit_fn:
@@ -282,6 +379,8 @@ async def parse_pdf_unified(
         await emit("phase", {"phase": "extract"})
         raw_slides = await asyncio.to_thread(_extract_pages, pdf_bytes, odl_pages)
         total = len(raw_slides)
+        from backend.services.localization_service import detect_source_language
+        source_language = detect_source_language("\n".join(raw_slides[:15]))
         await emit("progress", {"current": total, "total": total, "message": f"Extracted {total} slides"})
 
         # ``on_demand`` (Skip AI): persist raw extracted slides with no LLM
@@ -316,7 +415,10 @@ async def parse_pdf_unified(
         if ai_mode:
             from backend.services.parser.synthesis import analyze_lecture_meta
             try:
-                meta = await analyze_lecture_meta(raw_slides, ai_model, course_context_hint=course_context_hint)
+                meta = await analyze_lecture_meta(
+                    raw_slides, ai_model, course_context_hint=course_context_hint,
+                    source_language=source_language,
+                )
             except Exception as exc:
                 logger.warning("lecture meta failed (non-fatal): %s", exc)
                 meta = {}
@@ -338,24 +440,30 @@ async def parse_pdf_unified(
             created_lecture_id = existing_lecture_id
             await persist.clear_lecture_content(created_lecture_id)
             await persist.set_lecture_title(created_lecture_id, lecture_title)
+            await persist.set_lecture_source_language(created_lecture_id, source_language)
             if course_uuid is not None:
                 await persist.set_course_id(created_lecture_id, course_uuid)
         else:
             if visibility == "private_student":
                 created_lecture_id = await persist.create_lecture(
                     title=lecture_title, pdf_hash=pdf_hash,
-                    visibility=visibility, student_owner_id=owner,
+                    visibility=visibility, student_owner_id=owner, source_language=source_language,
                 )
             else:
                 created_lecture_id = await persist.create_lecture(
                     title=lecture_title, professor_id=owner, pdf_hash=pdf_hash,
-                    course_id=course_uuid,
+                    course_id=course_uuid, source_language=source_language,
                 )
             await persist.set_run_lecture(run_uuid, created_lecture_id)
         pdf_path = await _store_lecture_pdf(created_lecture_id, filename, pdf_bytes)
         if pdf_path:
             await persist.set_lecture_pdf_url(created_lecture_id, pdf_path)
-        await emit("meta", {"pdf_hash": pdf_hash, "lecture_id": str(created_lecture_id)})
+        await emit("meta", {
+            "pdf_hash": pdf_hash,
+            "lecture_id": str(created_lecture_id),
+            "source_language": source_language,
+            "localization_status": "pending",
+        })
 
         # ── 4. Per-slide synthesis (chunked-parallel; narrative carries over) ─
         from backend.services.ai.orchestrator import QUIZ_BATCH_CONFIG
@@ -390,7 +498,9 @@ async def parse_pdf_unified(
                     return f"{ctx_for_chunk}\n\nThe professor gave this instruction for this slide — honor it: {instr}"
 
                 results = await asyncio.gather(*[
-                    _synthesize_slide(i, raw_slides[i], _ctx_with_instruction(i), ai_model, pdf_bytes)
+                    _synthesize_slide(
+                        i, raw_slides[i], _ctx_with_instruction(i), ai_model, pdf_bytes, source_language,
+                    )
                     for i in range(chunk_start, chunk_end)
                 ], return_exceptions=True)
             else:
@@ -488,7 +598,9 @@ async def parse_pdf_unified(
             await emit("progress", {"current": total, "total": total, "message": "Generating quiz…"})
             from backend.services.parser.synthesis import generate_quiz_questions, _map_deck_quiz
             try:
-                deck_quiz = _map_deck_quiz(await generate_quiz_questions(raw_slides, lecture_title, ai_model))
+                deck_quiz = _map_deck_quiz(
+                    await generate_quiz_questions(raw_slides, lecture_title, ai_model, source_language)
+                )
             except Exception as exc:
                 logger.warning("deck quiz failed (non-fatal): %s", exc)
                 deck_quiz = []
@@ -518,6 +630,38 @@ async def parse_pdf_unified(
                 await persist.finalize_lecture(created_lecture_id, deck_summary, total_persisted)
             except Exception as exc:
                 logger.error("deck/finalize persist failed: %s", exc)
+                raise
+            # A reader locale is only published as an atomic snapshot of the
+            # canonical source revision — never a partial translation. But a
+            # provider-side failure must not throw away a deck that parsed
+            # fine: the locale row stays 'failed' (so the reader endpoint keeps
+            # answering 409 "still being prepared" instead of serving mixed
+            # languages) and a background job rebuilds it with backoff.
+            try:
+                from backend.services.localization_service import localize_lecture
+                await localize_lecture(created_lecture_id, ai_model)
+                if course_uuid is not None:
+                    from backend.services.localization_service import localize_course
+                    await localize_course(course_uuid, ai_model)
+                await emit("localization", {"status": "ready", "locales": ["en", "de"]})
+            except Exception as exc:
+                logger.error("lecture localization failed, queueing retry: %s", exc)
+                try:
+                    redis_pool = ctx.get("redis")
+                    if redis_pool:
+                        await redis_pool.enqueue_job(
+                            "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
+                        )
+                    else:
+                        from backend.services.upload_service import get_arq_pool
+                        pool = await get_arq_pool()
+                        await pool.enqueue_job(
+                            "localize_lecture_job", lecture_id=str(created_lecture_id), ai_model=ai_model,
+                        )
+                    await emit("localization", {"status": "retrying"})
+                except Exception as enqueue_exc:
+                    logger.warning("localization retry enqueue failed: %s", enqueue_exc)
+                    await emit("localization", {"status": "failed"})
             # Roadmap Phase 1.1 (review engine): generate spaced-repetition
             # cards from this lecture's quiz questions. Best-effort — never
             # blocks parse completion. Off by default (FEATURE_REVIEW_ENGINE).
@@ -569,6 +713,8 @@ async def parse_pdf_unified(
         })
 
         await repos.set_status(run_uuid, RunStatus.COMPLETED)
+        if created_lecture_id is not None:
+            await _attach_completed_blueprint_material(run_uuid, created_lecture_id)
         await emit("complete", {"total": total_persisted})
         return str(run_uuid)
 

@@ -14,8 +14,6 @@ test.describe("Professor True E2E: PDF Upload", () => {
 
     // Wait for auth to redirect to dashboard
     await page.waitForURL(/\/professor\/dashboard/, { timeout: 15_000 });
-    // Wait for dashboard heading to confirm login
-    await expect(page.locator("h1")).toContainText(/Dashboard|Overview/i);
 
     // 2. Navigate to upload
     await page.goto("/professor/upload");

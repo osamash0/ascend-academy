@@ -178,6 +178,9 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
             } else if (data.type === 'meta') {
               if (data.pdf_hash) setPdfHash(data.pdf_hash);
               if (data.lecture_id) setServerLectureId(data.lecture_id);
+              if (data.source_language === 'en' || data.source_language === 'de') {
+                setUploadStatus(`Detected ${data.source_language.toUpperCase()} source material...`);
+              }
             } else if (data.type === 'progress') {
               const pct = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
               setUploadProgress(pct);
@@ -251,6 +254,11 @@ export function usePDFUpload({ setSlides, setActiveSlideIndex, title, setTitle, 
                 })
                 .filter((q: DeckQuizItem | null): q is DeckQuizItem => q !== null && q.question.trim().length > 0);
               setDeckQuiz(items);
+            } else if (data.type === 'localization') {
+              if (data.status === 'ready') setUploadStatus('English and German study content is ready.');
+              // Translation runs as a background job now; the deck itself is
+              // already saved, so this is informational, not a failure.
+              else if (data.status === 'retrying') setUploadStatus('Translation is still finishing in the background.');
             } else if (data.type === 'complete') {
               setProcessedSlides(prev => {
                 const finalSlides = prev.filter(Boolean) as SlideData[];

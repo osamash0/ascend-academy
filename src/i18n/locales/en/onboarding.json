@@ -24,6 +24,8 @@
     "avatar": {
       "companionName": "luna",
       "companionTagline": "your study companion · night mode guardian",
+      "themeTitle": "Choose Luna's look",
+      "themeSubtitle": "Each theme pairs a suit and visor colour made for Luna.",
       "suitFinish": "Suit Finish",
       "visorTint": "Visor Tint",
       "insignia": "Insignia"
@@ -35,10 +37,10 @@
       "autoMatched": "Looks like you're at {{university}}. Pre-filled from your email.",
       "noCatalog": "We don't have {{university}}'s course catalog yet. You can still tell us your institution, and we'll personalize once it's available.",
       "institutionPlaceholder": "Your institution",
-      "facultyPlaceholder": "Select your faculty…",
+      "facultyPlaceholder": "Select your department…",
       "facultyPlaceholderLocked": "Pick a university first",
-      "programPlaceholder": "Select your degree program…",
-      "programPlaceholderLocked": "Pick a faculty first",
+      "programPlaceholder": "Select your field of study…",
+      "programPlaceholderLocked": "Pick a department first",
       "semesterLabel": "Current semester",
       "semesterPlaceholder": "Semester",
       "semesterOption": "Semester {{n}}"

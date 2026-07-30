@@ -206,6 +206,15 @@ async def chat_with_tutor_endpoint(request: Request, body: ChatRequest, user: An
         else (user.get("app_metadata", {}) or {}).get("role") if isinstance(user, dict) else None
     )
     history = [m.model_dump() for m in body.chat_history] if body.chat_history else None
+    # The profile is authoritative; the browser must not choose a different
+    # response language than the user's saved preference.
+    try:
+        profile = supabase_admin.table("profiles").select("preferred_language").eq("user_id", user_id).limit(1).execute()
+        preferred_language = (profile.data or [{}])[0].get("preferred_language")
+    except Exception:
+        preferred_language = "en"
+    if preferred_language not in {"en", "de"}:
+        preferred_language = "en"
     try:
         res = await chat_service.process_chat_request(
             user_id=user_id,
@@ -218,6 +227,7 @@ async def chat_with_tutor_endpoint(request: Request, body: ChatRequest, user: An
             pdf_hash=body.pdf_hash,
             current_slide_index=body.current_slide_index,
             session_id=body.session_id,
+            response_language=preferred_language,
         )
         return ChatResponse(**res)
     except FileNotFoundError as e:
@@ -316,6 +326,9 @@ async def regenerate_slide_content(
         analysis = await tutor_service.regenerate_slide(
             slide_id, user_id, body.ai_model, creds.credentials, instruction=body.instruction
         )
+        from uuid import UUID
+        from backend.services.localization_service import localize_lecture
+        await localize_lecture(UUID(analysis["slide"]["lecture_id"]), body.ai_model)
         # `slide` (title/content_text/summary/regen_instruction) is the
         # normalized shape the frontend patches its local state from; `analysis`
         # is kept for callers that want the raw vision payload.
@@ -340,6 +353,10 @@ async def undo_regenerate_slide_content(
     user_id = user.id if hasattr(user, "id") else user.get("id")
     try:
         slide = await tutor_service.undo_regenerate_slide(slide_id, user_id, creds.credentials)
+        from uuid import UUID
+        from backend.core.config import settings
+        from backend.services.localization_service import localize_lecture
+        await localize_lecture(UUID(slide["lecture_id"]), settings.parser_llm_model or "cerebras")
         return {"success": True, "slide": slide}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

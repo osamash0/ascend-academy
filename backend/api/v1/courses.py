@@ -68,7 +68,7 @@ class TitleSuggestionRequest(BaseModel):
 def _fetch_course(course_id: str) -> Optional[dict]:
     res = (
         supabase_admin.table("courses")
-        .select("id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at")
+        .select("id, professor_id, title, description, color, icon, is_archived, status, demo_slug, created_at, updated_at")
         .eq("id", course_id)
         .execute()
     )
@@ -97,6 +97,7 @@ def _serialize(course: dict, lecture_count: int = 0) -> dict:
         "icon": course.get("icon"),
         "is_archived": course.get("is_archived", False),
         "status": course.get("status", "published"),
+        "demo_slug": course.get("demo_slug"),
         "created_at": course.get("created_at"),
         "updated_at": course.get("updated_at"),
         "lecture_count": lecture_count,
@@ -193,7 +194,7 @@ async def list_courses(
 
     def _load() -> List[dict]:
         q = supabase_admin.table("courses").select(
-            "id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at"
+            "id, professor_id, title, description, color, icon, is_archived, status, demo_slug, created_at, updated_at"
         )
 
         if only_archived:
@@ -259,7 +260,7 @@ async def browse_courses(
 
         q = (
             supabase_admin.table("courses")
-            .select("id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at")
+            .select("id, professor_id, title, description, color, icon, is_archived, status, demo_slug, created_at, updated_at")
             .eq("is_archived", False)
             .eq("status", "published")
         )
@@ -319,7 +320,7 @@ async def generate_title_suggestion(req: TitleSuggestionRequest, user: Any = Dep
         client = AsyncOpenAI(api_key=settings.litellm_client_key, base_url=settings.litellm_base_url)
         resp = await client.chat.completions.create(
             # Using stage-text or default model mapped in litellm
-            model="gpt-4o-mini", 
+            model="stage-text", 
             messages=[{"role": "user", "content": prompt}],
             max_tokens=20,
             temperature=0.8
@@ -497,6 +498,62 @@ async def create_course(
     except Exception as e:
         logger.error("Course create failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to create course.")
+
+
+# ── Lecture-level mutations ───────────────────────────────────────────────────
+
+class LectureUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=500)
+
+
+@router.patch("/lecture/{lecture_id}")
+@limiter.limit("60/minute")
+async def update_lecture(
+    request: Request,
+    lecture_id: str,
+    body: LectureUpdate,
+    user: Any = Depends(require_creator),
+):
+    """Update mutable fields of a lecture (currently: title).
+
+    Registered before PATCH /{course_id} so FastAPI matches the literal
+    path segment 'lecture' before treating it as a {course_id} wildcard.
+
+    Accepts ownership via professor_id (professor-created or post-assignment
+    student lecture) or student_owner_id (private student upload not yet
+    assigned to a course).
+    """
+    uid = _user_id(user)
+
+    def _update():
+        lecture = _fetch_lecture(lecture_id)
+        if not lecture:
+            raise HTTPException(status_code=404, detail="Lecture not found.")
+        raw_owner = lecture.get("professor_id") or lecture.get("student_owner_id")
+        owner_id = str(raw_owner) if raw_owner is not None else None
+        uid_str = str(uid) if uid else ""
+        if not uid_str:
+            raise HTTPException(status_code=401, detail="Could not determine your user id.")
+        if owner_id != uid_str:
+            raise HTTPException(status_code=403, detail="You do not own this lecture.")
+
+        patch: dict[str, Any] = {}
+        if body.title is not None:
+            patch["title"] = body.title.strip()
+
+        if patch:
+            supabase_admin.table("lectures").update(patch).eq("id", lecture_id).execute()
+
+        return {"id": lecture_id, **patch}
+
+    try:
+        data = await run_in_threadpool(_update)
+        return {"success": True, "data": data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Lecture update failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update lecture.")
 
 
 @router.patch("/{course_id}")
@@ -851,6 +908,7 @@ async def delete_course(
         raise HTTPException(status_code=500, detail="Failed to delete course.")
 
 
+
 @router.post("/{course_id}/lectures/{lecture_id}")
 @limiter.limit("60/minute")
 async def assign_lecture(
@@ -863,13 +921,24 @@ async def assign_lecture(
 
     def _assign():
         course = _fetch_course(course_id)
-        if not course or course["professor_id"] != uid:
+        # Normalise to str() so UUID objects and UUID strings compare equal.
+        if not course or str(course["professor_id"]) != str(uid):
             raise HTTPException(status_code=404, detail="Course not found.")
         lecture = _fetch_lecture(lecture_id)
         if not lecture:
             raise HTTPException(status_code=404, detail="Lecture not found.")
-        owner_id = lecture.get("professor_id") or lecture.get("student_owner_id")
-        if owner_id != uid:
+        raw_owner = lecture.get("professor_id") or lecture.get("student_owner_id")
+        owner_id = str(raw_owner) if raw_owner is not None else None
+        uid_str = str(uid) if uid else ""
+        logger.info(
+            "assign_lecture: uid=%r owner_id=%r (prof=%r student=%r) lecture=%s",
+            uid_str, owner_id,
+            lecture.get("professor_id"), lecture.get("student_owner_id"),
+            lecture_id,
+        )
+        if not uid_str:
+            raise HTTPException(status_code=401, detail="Could not determine your user id.")
+        if owner_id != uid_str:
             raise HTTPException(status_code=403, detail="You do not own this lecture.")
         
         update_data = {"course_id": course_id}

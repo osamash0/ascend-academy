@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
     User, Mail, Camera, Save, Loader2, Trash2, Download,
     Lock, Eye, EyeOff, BrainCircuit, Shield, CheckCircle2, Languages,
-    Settings2, Database, Sliders, Globe, AlertTriangle
+    Settings2, Database, Sliders, Globe, AlertTriangle, Bell
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth, Profile } from '@/lib/auth';
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -446,19 +447,72 @@ function SecuritySettings({ user }: { user: { email?: string } | null }) {
     );
 }
 
-function PreferencesSettings() {
+function PreferencesSettings({ user }: { user: { id: string } | null }) {
     const { t } = useTranslation(['settings', 'common']);
     const { language, setLanguage } = useLanguagePreference();
     const { aiModel, setAiModel } = useAiModel();
     const { toast } = useToast();
 
     const [pendingModel, setPendingModel] = useState<AiModelOption>(aiModel as AiModelOption);
+    const [lifecycleNudgesEnabled, setLifecycleNudgesEnabled] = useState(true);
+    const [preferencesLoading, setPreferencesLoading] = useState(Boolean(user));
+    const [savingNudges, setSavingNudges] = useState(false);
     const hasAiChanges = pendingModel !== (aiModel as AiModelOption);
+
+    useEffect(() => {
+        if (!user) {
+            setPreferencesLoading(false);
+            return;
+        }
+        let cancelled = false;
+        setPreferencesLoading(true);
+        void supabase
+            .from('notification_preferences')
+            .select('lifecycle_nudges_enabled')
+            .eq('user_id', user.id)
+            .maybeSingle()
+            .then(({ data, error }) => {
+                if (cancelled) return;
+                if (error) {
+                    console.error('Unable to load notification preferences', error);
+                    toast({ title: t('settings:notifications.loadError'), variant: 'destructive' });
+                    return;
+                }
+                setLifecycleNudgesEnabled(data?.lifecycle_nudges_enabled ?? true);
+            })
+            .finally(() => {
+                if (!cancelled) setPreferencesLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [user, toast, t]);
 
     const handleSaveAi = useCallback(() => {
         setAiModel(pendingModel);
         toast({ title: t('settings:ai.savedTitle'), description: t('settings:ai.savedDescription', { name: t(`settings:ai.models.${pendingModel}.name`) }) });
     }, [pendingModel, setAiModel, toast, t]);
+
+    const updateLifecycleNudges = useCallback(async (enabled: boolean) => {
+        if (!user || savingNudges) return;
+        const previous = lifecycleNudgesEnabled;
+        setLifecycleNudgesEnabled(enabled);
+        setSavingNudges(true);
+        try {
+            const { error } = await supabase
+                .from('notification_preferences')
+                .upsert({ user_id: user.id, lifecycle_nudges_enabled: enabled }, { onConflict: 'user_id' });
+            if (error) throw error;
+            toast({
+                title: enabled ? t('settings:notifications.enabled') : t('settings:notifications.disabled'),
+                description: enabled ? t('settings:notifications.enabledDescription') : t('settings:notifications.disabledDescription'),
+            });
+        } catch (error) {
+            setLifecycleNudgesEnabled(previous);
+            console.error('Unable to update notification preferences', error);
+            toast({ title: t('settings:notifications.saveError'), variant: 'destructive' });
+        } finally {
+            setSavingNudges(false);
+        }
+    }, [lifecycleNudgesEnabled, savingNudges, t, toast, user]);
 
     return (
         <div className="space-y-10 animate-in fade-in duration-300">
@@ -524,6 +578,32 @@ function PreferencesSettings() {
                     </div>
                 )}
             </div>
+
+            <section className="pt-8 border-t border-border" aria-labelledby="lifecycle-notifications-heading">
+                <div className="flex items-start gap-3">
+                    <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                        <Bell className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h2 id="lifecycle-notifications-heading" className="text-xl font-medium text-foreground">{t('settings:notifications.title')}</h2>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">{t('settings:notifications.description')}</p>
+                    </div>
+                </div>
+                <div className="mt-5 flex min-h-14 items-center justify-between gap-5 rounded-xl border border-border bg-card p-4">
+                    <div>
+                        <label htmlFor="lifecycle-nudges" className="text-sm font-medium text-foreground">{t('settings:notifications.lifecycleLabel')}</label>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{t('settings:notifications.lifecycleHelp')}</p>
+                    </div>
+                    <Switch
+                        id="lifecycle-nudges"
+                        checked={lifecycleNudgesEnabled}
+                        disabled={!user || preferencesLoading || savingNudges}
+                        onCheckedChange={(enabled) => void updateLifecycleNudges(enabled)}
+                        aria-label={t('settings:notifications.lifecycleLabel')}
+                    />
+                </div>
+                <p className="mt-3 text-xs leading-5 text-muted-foreground">{t('settings:notifications.inAppOnly')}</p>
+            </section>
         </div>
     );
 }
@@ -594,7 +674,7 @@ function DataPrivacySettings({ user, signOut, navigate }: { user: { id: string }
                     const { error } = await supabase.from(table).delete().eq('user_id', user.id);
                     if (error) {
                         console.error(`Error deleting from ${table}:`, error);
-                        if (table === 'profiles') throw error;
+                        throw error;
                     }
                 }
             }
@@ -751,7 +831,7 @@ export default function Settings() {
                         <SecuritySettings user={user} />
                     )}
                     {activeTab === 'preferences' && (
-                        <PreferencesSettings />
+                        <PreferencesSettings user={user} />
                     )}
                     {activeTab === 'data' && (
                         <DataPrivacySettings user={user} signOut={signOut} navigate={navigate} />

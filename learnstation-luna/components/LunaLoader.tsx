@@ -1,7 +1,7 @@
 // LearnStation Luna — Loader Component
 // 9 variants, phase-aware, SVG SMIL animations
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { getLunaColors, phaseToNumber } from '../utils/colors';
 import type { LoaderProps } from '../types/luna';
 
@@ -14,6 +14,26 @@ export const LunaLoader: React.FC<LoaderProps> = ({
   const phaseNum = phaseToNumber(phase);
   const colors = useMemo(() => getLunaColors(phaseNum), [phaseNum]);
   const faceFill = colors.faceMid;
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // These SVGs rely on SMIL <animate>/<animateTransform> that loop forever
+  // and can't be gated per-tag without touching every variant above, so we
+  // freeze them at the SVG level via pauseAnimations() when the user has
+  // requested reduced motion.
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    const applyMotionPreference = () => {
+      const svg = containerRef.current?.querySelector('svg') as SVGSVGElement | null;
+      if (!svg) return;
+      if (mql.matches) svg.pauseAnimations?.();
+      else svg.unpauseAnimations?.();
+    };
+
+    applyMotionPreference();
+    mql.addEventListener('change', applyMotionPreference);
+    return () => mql.removeEventListener('change', applyMotionPreference);
+  }, [type]);
 
   const renderLoader = () => {
     switch (type) {
@@ -367,7 +387,7 @@ export const LunaLoader: React.FC<LoaderProps> = ({
   };
 
   return (
-    <div className={`inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+    <div ref={containerRef} className={`inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
       {renderLoader()}
     </div>
   );

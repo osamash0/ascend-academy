@@ -89,10 +89,27 @@ async def test_internal_refetch_without_batch_id_preserves_prior_value(wired_poo
         batch_id=batch, user_id=prof, course_id=course, filename="x.pdf", parsing_mode="ai",
     )
 
-    refetched = await repos.get_or_create_run("refetch-hash" + "0" * 52, None, "5")
+    refetched = await repos.get_or_create_run(
+        "refetch-hash" + "0" * 52, None, "5", user_id=prof,
+    )
 
     assert refetched.run_id == pre_created.run_id
     assert refetched.batch_id == batch
     assert refetched.course_id == course
     assert refetched.filename == "x.pdf"
     assert refetched.user_id == prof
+
+
+async def test_identical_hashes_from_different_users_get_independent_runs(wired_pool, make_user):
+    from backend.services.parser import repos
+
+    first_user = make_user(role="student")
+    second_user = make_user(role="student")
+    pdf_hash = "same-document" + "0" * 51
+
+    first = await repos.get_or_create_run(pdf_hash, None, "5", user_id=first_user)
+    second = await repos.get_or_create_run(pdf_hash, None, "5", user_id=second_user)
+
+    assert first.run_id != second.run_id
+    assert first.user_id == first_user
+    assert second.user_id == second_user

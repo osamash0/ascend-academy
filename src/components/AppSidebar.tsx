@@ -73,6 +73,7 @@ export function AppSidebar() {
       <SidebarHeader className="transition-all duration-300 p-6 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:pt-6">
         <button
           onClick={handleLogoClick}
+          aria-label={t('sidebar.goToDashboard')}
           className="flex items-center w-full transition-all cursor-pointer group gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
         >
           <div className="rounded-[18px] bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-glow-primary group-hover:scale-110 transition-all duration-500 w-12 h-12 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:rounded-xl">
@@ -128,9 +129,9 @@ export function AppSidebar() {
               <div className="space-y-2 relative z-10">
                 <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
                   <motion.div
-                    className="h-full bg-gradient-to-r from-xp via-warning to-xp rounded-full relative shadow-glow-xp/50"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(profile.total_xp % 100)}%` }}
+                    className="h-full w-full origin-left bg-gradient-to-r from-xp via-warning to-xp rounded-full relative shadow-glow-xp/50"
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: (profile.total_xp % 100) / 100 }}
                     transition={{ duration: 1.5, ease: [0.34, 1.56, 0.64, 1] }}
                   >
                     <div className="absolute top-0 right-0 bottom-0 w-4 bg-gradient-to-l from-white/30 to-transparent" />
@@ -221,7 +222,8 @@ export function AppSidebar() {
           )}
           <Button
             variant="ghost"
-            className="w-full h-12 justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-[14px] px-4 transition-all group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+            aria-label={t('sidebar.signOut')}
+            className="w-full h-12 justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-[14px] px-4 transition-all group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
             onClick={handleSignOut}
           >
             <LogOut className="w-5 h-5" />

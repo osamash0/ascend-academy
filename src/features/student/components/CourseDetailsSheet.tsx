@@ -9,7 +9,10 @@ import {
   MapPin,
   Clock,
   Repeat,
+  FileText,
+  ClipboardList,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sheet,
   SheetContent,
@@ -20,8 +23,10 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import type { Lecture } from '@/types/domain';
 import type { ScheduleEntry } from '@/features/student/courseSchedules';
+import { SharedRoutes, StudentRoutes } from '@/lib/routes';
 
 export interface CourseDetailsProps {
   isOpen: boolean;
@@ -35,12 +40,14 @@ export interface CourseDetailsProps {
   instructorName?: string;
   lectures: { lecture: Lecture; cleanTitle: string; progress: number; status: string }[];
   onStartLecture: (lectureId: string) => void;
+  onAddMaterial?: () => void;
   schedule?: ScheduleEntry[];
 }
 
 export function CourseDetailsSheet({
   isOpen,
   onClose,
+  courseId,
   title,
   description,
   whatYouWillLearn = [],
@@ -49,9 +56,11 @@ export function CourseDetailsSheet({
   instructorName = 'Instructor',
   lectures,
   onStartLecture,
+  onAddMaterial,
   schedule = [],
 }: CourseDetailsProps) {
   const { t } = useTranslation(['common']);
+  const navigate = useNavigate();
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl p-0 flex flex-col bg-background/95 backdrop-blur-xl border-l-white/10">
@@ -86,6 +95,7 @@ export function CourseDetailsSheet({
               <span className="font-medium text-foreground/80">{instructorName}</span>
             </div>
           </div>
+          {onAddMaterial ? <Button variant="secondary" size="sm" className="mt-5" onClick={onAddMaterial}>Add material</Button> : null}
         </SheetHeader>
 
         <ScrollArea className="flex-1 px-6">
@@ -165,6 +175,28 @@ export function CourseDetailsSheet({
             )}
 
             <Separator className="bg-white/5" />
+            <section className="space-y-3">
+              <h3 className="text-lg font-bold">Study tools</h3>
+              <p className="text-sm text-muted-foreground">Use the material in this course to review, test yourself, or prepare for an exam.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => navigate(StudentRoutes.STUDY_GUIDE(courseId))}>
+                  <FileText className="mr-1.5 h-4 w-4" /> Study guide
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={lectures.length === 0}
+                  onClick={() => lectures[0] && navigate(`${SharedRoutes.LECTURE(lectures[0].lecture.id)}#worksheets`)}
+                >
+                  <BookOpen className="mr-1.5 h-4 w-4" /> Worksheets
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => navigate(StudentRoutes.EXAM(courseId))}>
+                  <ClipboardList className="mr-1.5 h-4 w-4" /> Mock exam
+                </Button>
+              </div>
+            </section>
+
+            <Separator className="bg-white/5" />
 
             <section className="space-y-4">
               <div className="flex items-center justify-between">
@@ -180,12 +212,13 @@ export function CourseDetailsSheet({
                   const inProgress = item.status === 'progress';
                   
                   return (
-                    <div 
+                    <button
+                      type="button"
                       key={item.lecture.id}
                       onClick={() => onStartLecture(item.lecture.id)}
                       className={cn(
-                        "group flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer",
-                        "hover:bg-white/5 hover:border-white/10",
+                        "group flex w-full flex-col gap-4 rounded-2xl border p-4 text-left transition-all sm:flex-row sm:items-center",
+                        "hover:bg-white/5 hover:border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         isDone ? "border-emerald-500/20 bg-emerald-500/5" : 
                         inProgress ? "border-primary/20 bg-primary/5" : "border-white/5 bg-white/[0.02]"
                       )}
@@ -216,11 +249,11 @@ export function CourseDetailsSheet({
                         {item.progress > 0 && !isDone && (
                           <span className="text-[10px] font-bold text-primary uppercase tracking-wider">{item.progress}%</span>
                         )}
-                        <button className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                        <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                           <Play className="w-3.5 h-3.5 ml-0.5" />
-                        </button>
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
                 

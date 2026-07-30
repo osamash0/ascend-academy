@@ -6,6 +6,7 @@ import { listCourses, type Course } from '@/services/coursesService';
 import type { Lecture } from '@/types/domain';
 import { GardenLecturePicker } from '@/features/analytics/garden/GardenLecturePicker';
 import { toSlug } from '@/lib/utils';
+import { logLearningEvent } from '@/services/studentService';
 
 export default function ProfessorAnalytics() {
   const { user } = useAuth();
@@ -17,6 +18,11 @@ export default function ProfessorAnalytics() {
   const [loading, setLoading] = useState(true);
 
   const userId = user?.id;
+
+  useEffect(() => {
+    if (!userId) return;
+    void logLearningEvent(userId, 'analytics_dashboard_viewed', { surface: 'professor_analytics' });
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;

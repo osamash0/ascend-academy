@@ -18,6 +18,8 @@ export interface Course {
   icon: string | null;
   is_archived: boolean;
   status: CourseStatus;
+  /** Stable identifier for an optional, globally seeded starter course. */
+  demo_slug?: string | null;
   created_at: string | null;
   updated_at: string | null;
   lecture_count: number;

@@ -1064,15 +1064,14 @@ export default function AdvancedAnalytics() {
                 onToggle={() => handleMetricClick('confidence', 'Student Confidence', dashboardData.confidenceMap)}
               >
                 <div className="space-y-6">
-                  <div className="mastery-track w-full">
-                    <div className="flex h-full">
-                      <div style={{ width: `${(dashboardData.confidenceMap.got_it / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
-                        className="mastery-fill h-full transition-all duration-1000" />
-                      <div style={{ width: `${(dashboardData.confidenceMap.unsure / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
-                        className="bg-warning/50 h-full transition-all duration-1000" />
-                      <div style={{ width: `${(dashboardData.confidenceMap.confused / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)) * 100}%` }}
-                        className="bg-destructive/50 h-full transition-all duration-1000" />
-                    </div>
+                  <div className="mastery-track w-full relative">
+                    {/* Stacked cumulative layers animated via transform: scaleX (no layout reflow) instead of width */}
+                    <div style={{ transform: `scaleX(${(dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused) / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)})` }}
+                      className="bg-destructive/50 absolute inset-0 h-full w-full origin-left transition-transform duration-1000" />
+                    <div style={{ transform: `scaleX(${(dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure) / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)})` }}
+                      className="bg-warning/50 absolute inset-0 h-full w-full origin-left transition-transform duration-1000" />
+                    <div style={{ transform: `scaleX(${dashboardData.confidenceMap.got_it / (dashboardData.confidenceMap.got_it + dashboardData.confidenceMap.unsure + dashboardData.confidenceMap.confused || 1)})` }}
+                      className="mastery-fill absolute inset-0 h-full w-full origin-left transition-transform duration-1000" />
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     {[

@@ -60,6 +60,13 @@ def _last_execute_args(conn) -> tuple:
     raise AssertionError("no execute call recorded")
 
 
+def _execute_args_for(conn, snippet: str) -> tuple:
+    for kind, query, args in conn.calls:
+        if kind == "execute" and snippet in query:
+            return args
+    raise AssertionError(f"no execute call containing {snippet!r}")
+
+
 # ── create_lecture owner-shape validation ────────────────────────────────────
 
 async def test_create_lecture_private_student_requires_owner(conn):
@@ -88,10 +95,13 @@ async def test_create_lecture_professor_happy_path_inserts_and_returns_uuid(conn
         title="Graphs", pdf_hash="abc", professor_id=prof, course_id=uuid4()
     )
     assert isinstance(lid, UUID)
-    args = _last_execute_args(conn)
+    args = _execute_args_for(conn, "INSERT INTO lectures")
     assert "Graphs" in args           # title threaded
     assert "abc" in args              # pdf_hash threaded
     assert prof in args               # professor_id threaded
+    event_args = _execute_args_for(conn, "'lecture_uploaded'")
+    assert event_args[0] == prof
+    assert event_args[1] == lid
 
 
 async def test_create_lecture_private_student_happy_path(conn):

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { BrainCircuit, CheckCircle2, Share2, Target, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { useExamAttempt, useSendMissesToReview } from '@/features/student/hooks/useExamMode';
 import { DepthScene } from '@/components/console';
 
@@ -38,8 +39,9 @@ export function MockExamReport() {
     try {
       await sendMisses.mutateAsync();
       setSentToReview(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      toast.error(err?.message || t('report.sendToReviewFailed'));
     }
   };
 

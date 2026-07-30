@@ -131,6 +131,7 @@ async def chat_with_lecture(
     lecture_id: Optional[str] = None,
     pdf_hash: Optional[str] = None,
     current_slide_index: Optional[int] = None,
+    response_language: str = "en",
 ) -> Dict[str, Any]:
     """Grounded Socratic tutor.
 
@@ -177,9 +178,12 @@ async def chat_with_lecture(
             )
             history_str += f"{role}: {content}\n"
 
+    language_name = "German" if response_language == "de" else "English"
     prompt = f"""You are a Socratic AI Tutor for university students.
 
 HARD RULES:
+- Write every user-facing answer in {language_name}, the student's saved
+  preferred language, even if the source material or question uses another language.
 - Base your answers primarily on the RETRIEVED CONTEXT below.
 - If answering the question requires conceptual context outside of the
   RETRIEVED CONTEXT, you MAY provide it. However, you MUST wrap ANY

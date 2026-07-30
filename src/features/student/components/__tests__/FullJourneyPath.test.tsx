@@ -31,7 +31,7 @@ describe("FullJourneyPath", () => {
     renderWithProviders(<FullJourneyPath nodes={mockNodes} />);
     
     // Drawer should not be open yet
-    expect(screen.queryByText(/Welcome to the detailed view for/i)).toBeNull();
+    expect(screen.queryByText(/Open this lecture to continue/i)).toBeNull();
 
     // Click the visually hidden button for "Intro"
     fireEvent.click(screen.getByRole("button", { name: "Intro (completed)" }));
@@ -39,6 +39,6 @@ describe("FullJourneyPath", () => {
     // Drawer should open and display the details
     expect(screen.getAllByText("Intro").length).toBeGreaterThan(0);
     expect(screen.getByText("Status: completed")).toBeInTheDocument();
-    expect(screen.getByText(/Welcome to the detailed view for/i)).toBeInTheDocument();
+    expect(screen.getByText(/Open this lecture to continue/i)).toBeInTheDocument();
   });
 });

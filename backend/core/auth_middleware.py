@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 import httpx
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -69,6 +69,7 @@ class CachedUser:
         )
 
 async def verify_token(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> Any:
     """
@@ -83,6 +84,11 @@ async def verify_token(
       3. Cache MISS → call ``supabase_admin.auth.get_user(token)`` (~150ms),
          coerce the result to JSON-safe data, write it to the cache,
          and return the live Supabase User object.
+
+    Side effect: stashes the resolved user id on ``request.state.user_id``.
+    This lets backend.core.rate_limit key per-route limits on the
+    authenticated identity instead of the raw (spoofable) client IP for any
+    endpoint that depends on this function -- see rate_limit.get_real_client_ip.
     """
     if credentials is None:
         raise HTTPException(

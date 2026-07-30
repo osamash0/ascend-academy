@@ -7,6 +7,8 @@ import { useGenerateExam, useExamAttempt, useSaveExamAnswer, useSubmitExam } fro
 import { DepthScene } from '@/components/console';
 import { toast } from 'sonner';
 import { PixelSpark, LunaLoader } from '../../learnstation-luna';
+import { useAuth } from '@/lib/auth';
+import { recordOnboardingActivation, recordOnboardingEvent } from '@/services/onboardingService';
 
 // ── Configuration Screen ──────────────────────────────────────────────────
 export function MockExamConfig() {
@@ -22,10 +24,11 @@ export function MockExamConfig() {
   const handleStart = async () => {
     try {
       const res = await generateExam.mutateAsync({ num_questions: numQuestions });
+      void recordOnboardingActivation('mock_exam', courseId);
       navigate(`/exam/take/${res.exam_id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || t('generate.notEnoughQuestions'));
+      toast.error(err instanceof Error ? err.message : t('generate.notEnoughQuestions'));
     }
   };
 
@@ -95,6 +98,7 @@ export function MockExamTake() {
   const { t } = useTranslation('exam');
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: exam, isLoading } = useExamAttempt(examId);
   const saveAnswer = useSaveExamAnswer(examId || '');
   const submitExam = useSubmitExam(examId || '');
@@ -166,9 +170,17 @@ export function MockExamTake() {
     if (window.confirm(confirmMessage)) {
       try {
         await submitExam.mutateAsync({ answers });
+        if (user?.id) {
+          void recordOnboardingEvent(user.id, 'learning_activity_completed', {
+            activity_type: 'mock_exam',
+            course_id: exam.course_id,
+            exam_id: exam.exam_id,
+          });
+        }
         navigate(`/exam/report/${exam.exam_id}`);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Submit failed", err);
+        toast.error(err instanceof Error ? err.message : t('runner.submitFailed'));
       }
     }
   };
@@ -306,11 +318,20 @@ export function MockExamTake() {
               <button
                 key={q.id}
                 onClick={() => setCurrentIndex(i)}
-                className={`w-3 h-3 rounded-full transition-all ${
-                  isCurrent ? 'bg-primary scale-125' : isAnswered ? 'bg-primary/40 hover:bg-primary/60' : 'bg-white/10 hover:bg-white/20'
-                }`}
                 aria-label={t('runner.goToQuestion', { n: i + 1 })}
-              />
+                aria-current={isCurrent ? 'true' : undefined}
+                className="p-1.5 -m-1.5"
+              >
+                <span
+                  className={`block w-3 h-3 rounded-full transition-all ${
+                    isCurrent
+                      ? 'bg-primary scale-125 ring-2 ring-primary/40'
+                      : isAnswered
+                        ? 'bg-primary/50 hover:bg-primary/70'
+                        : 'bg-transparent ring-1 ring-inset ring-white/25 hover:ring-white/40'
+                  }`}
+                />
+              </button>
             );
           })}
         </div>

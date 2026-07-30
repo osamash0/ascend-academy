@@ -132,9 +132,9 @@ export const LectureCard = memo(function LectureCard({
             </div>
             <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
               <motion.div
-                className="h-full bg-gradient-to-r from-primary via-secondary to-xp rounded-full relative"
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
+                className="h-full w-full origin-left bg-gradient-to-r from-primary via-secondary to-xp rounded-full relative"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: progress / 100 }}
                 transition={{ duration: 1.5, ease: [0.34, 1.56, 0.64, 1], delay: index * 0.1 }}
               >
                 {progress > 0 && (
