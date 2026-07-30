@@ -293,6 +293,11 @@ class _QueryBuilder:
                             if str(r_val) == c_val:
                                 matched_any = True
                                 break
+                        elif c_op == "in" and c_val:
+                            ids = c_val.strip("()").split(",") if c_val.strip("()") else []
+                            if str(r_val) in ids:
+                                matched_any = True
+                                break
                     if matched_any:
                         new_matching.append(r)
                 matching = new_matching
@@ -373,6 +378,11 @@ class _QueryBuilder:
                             break
                     elif c_op == "eq" and c_val:
                         if str(r_val) == c_val:
+                            matched_any = True
+                            break
+                    elif c_op == "in" and c_val:
+                        ids = c_val.strip("()").split(",") if c_val.strip("()") else []
+                        if str(r_val) in ids:
                             matched_any = True
                             break
                 if not matched_any:
