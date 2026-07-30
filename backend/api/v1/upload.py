@@ -15,9 +15,10 @@ from backend.services import diagnostics_service
 from backend.services.slide_synth_service import synthesize_slide
 from backend.services.parser import repos as parser_repos
 from backend.domain.parse_models import RunStatus
-from backend.core.auth_middleware import require_creator, _app_metadata
+from backend.core.auth_middleware import require_creator, require_professor, _app_metadata
 from backend.core.rate_limit import limiter
 from backend.core.file_validation import sanitize_filename
+from starlette.concurrency import run_in_threadpool
 from backend.services.cache import (
     compute_pdf_hash,
     get_cached_parse,
@@ -98,7 +99,7 @@ async def parse_pdf_stream_endpoint(
     meta_role = _app_metadata(user).get("role", "")
     if not meta_role and user_id:
         from backend.core.auth_middleware import _lookup_role_from_db
-        db_roles = _lookup_role_from_db(str(user_id))
+        db_roles = await run_in_threadpool(_lookup_role_from_db, str(user_id))
         if db_roles and "student" in db_roles:
             meta_role = "student"
     visibility = "course" if course_id else ("private_student" if meta_role == "student" else "course")
@@ -481,7 +482,7 @@ async def diagnostics_endpoint(
 @limiter.limit("5/minute")
 async def cleanup_cache_endpoint(
     request: Request,
-    user: Any = Depends(require_creator),
+    user: Any = Depends(require_professor),
 ):
     deleted = await purge_expired_slide_checkpoints()
     return {"deleted": deleted, "message": f"Purged {deleted} expired checkpoint rows."}
@@ -549,7 +550,7 @@ async def upload_batch_endpoint(
     meta_role = _app_metadata(user).get("role", "")
     if not meta_role and user_id:
         from backend.core.auth_middleware import _lookup_role_from_db
-        db_roles = _lookup_role_from_db(str(user_id))
+        db_roles = await run_in_threadpool(_lookup_role_from_db, str(user_id))
         if db_roles and "student" in db_roles:
             meta_role = "student"
     visibility = "course" if course_id else ("private_student" if meta_role == "student" else "course")

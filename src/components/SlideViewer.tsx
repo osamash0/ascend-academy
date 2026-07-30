@@ -142,8 +142,8 @@ export function SlideViewer({
       }
 
       let isInsidePdf = false;
-      if (pdfContainerRef.current && selection.anchorNode) {
-        isInsidePdf = pdfContainerRef.current.contains(selection.anchorNode);
+      if (pdfContainerRef.current && selection.anchorNode && selection.focusNode) {
+        isInsidePdf = pdfContainerRef.current.contains(selection.anchorNode) && pdfContainerRef.current.contains(selection.focusNode);
       }
 
       if (!isInsidePdf) {
