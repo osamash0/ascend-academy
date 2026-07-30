@@ -127,14 +127,22 @@ def _is_professor(user: Any) -> bool:
 def _student_visible_course_ids(user_id: str) -> set[str]:
     """Course ids whose lectures the student can see via course enrollment or assignment enrollment.
 
-    P2-1 (RLS-as-API-boundary) note: `list_courses` and `browse_courses` below
-    no longer call this — they've been converted to the RLS-enforcing
-    per-user client, and the `courses` table's own SELECT policies
-    (20260611000000, 20260621000000, 20260719020000) already encode exactly
-    this "own course OR enrolled via course_enrollments OR enrolled via an
-    assignment's lectures" visibility, so Postgres enforces it directly.
+    P2-1 (RLS-as-API-boundary) note: `browse_courses` below does not call
+    this — it queries the RLS-enforcing per-user client and adds its own
+    explicit `status='published'` filter.
 
-    This function is still a live, hand-rolled authorization check used by
+    `list_courses` DOES still call this, deliberately. It was briefly
+    converted to "RLS alone decides visibility" on the assumption that the
+    `courses` SELECT policies (20260611000000, 20260621000000,
+    20260719020000) encode exactly "own course OR enrolled" — that
+    assumption was wrong and leaked every professor's published courses to
+    every caller, because 20260719020000 ("Authenticated users browse
+    published courses") is permissive and ORs together with the others.
+    RLS is the ceiling on what is *possible*; each endpoint still has to
+    narrow to what it specifically means by "visible". See the bug-fix note
+    in `list_courses`.
+
+    This function is also a live, hand-rolled authorization check used by
     `get_course` (this module), `backend/api/v1/exams.py::_student_visible_course_ids`
     import, and `backend/services/search_service.py` for cross-course search
     scoping — none of those were converted in this slice (get_course also
@@ -209,17 +217,27 @@ async def list_courses(
     for non-owned rows, any course visible via course/assignment enrollment.
     A creator who is also enrolled elsewhere as a student sees both.
 
-    P2-1 (RLS-as-API-boundary): this used to fetch every course with the
-    service-role `supabase_admin` client and re-implement student visibility
-    in Python (`_student_visible_course_ids`). It now queries with the
-    RLS-enforcing per-user client instead -- the `courses` table's SELECT
-    policies (professor owns the row; OR the caller is enrolled via
-    `course_enrollments`; OR the caller is enrolled in an assignment whose
-    lectures belong to the course) already encode exactly this visibility,
-    so Postgres enforces it directly and the manual post-filter is gone --
-    which also sidesteps the P4-2 filter-after-limit pagination bug (see
-    docs/ROADMAP_10X_FOUNDATION.md §9) for this endpoint specifically: there
-    is no post-filter left to apply after slicing to `limit`.
+    BUG FIX (this endpoint was leaking every professor's published courses
+    to every caller): the docstring here used to claim the `courses` table's
+    SELECT policies alone encode "own OR enrolled" visibility, so no
+    application-level filter was needed. That stopped being true once
+    migration 20260719020000 added "Authenticated users browse published
+    courses" -- a policy that grants ANY authenticated user SELECT on ANY
+    published, non-archived course, for the separate `/courses/browse`
+    catalog feature. Permissive RLS policies on the same table combine with
+    OR, so that policy alone was enough to make this endpoint return every
+    professor's published courses, not just the caller's own -- the RLS
+    "ceiling" was correct for `/courses/browse` but far too wide for "my
+    courses". A professor would then see other professors' courses in their
+    own list, click one, and get a 404 from get_course's separate ownership
+    check (which is correctly still scoped) -- surfacing as "courses fail
+    to open".
+    Fix: this endpoint now adds its own explicit filter (own courses OR the
+    specific ids _student_visible_course_ids returns), the same way
+    `browse_courses` adds its own explicit `status='published'` filter
+    rather than relying on RLS to narrow results to what that one endpoint
+    means by "visible". RLS still bounds what's possible; this restores the
+    business-logic scoping this endpoint actually needs.
     """
     uid = _user_id(user)
     if not uid:
@@ -227,8 +245,16 @@ async def list_courses(
 
     def _load() -> List[dict]:
         client = analytics_service.get_auth_client(creds.credentials)
-        q = client.table("courses").select(
-            "id, professor_id, title, description, color, icon, is_archived, status, demo_slug, created_at, updated_at"
+        visible_ids = _student_visible_course_ids(uid)
+        or_filter = f"professor_id.eq.{uid}"
+        if visible_ids:
+            or_filter += f",id.in.({','.join(visible_ids)})"
+        q = (
+            client.table("courses")
+            .select(
+                "id, professor_id, title, description, color, icon, is_archived, status, demo_slug, created_at, updated_at"
+            )
+            .or_(or_filter)
         )
 
         if only_archived:
