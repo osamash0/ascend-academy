@@ -207,6 +207,13 @@ def test_gemini_vision_falls_through_to_fallback_on_error(monkeypatch):
         vision_mod, "gemini_client",
         SimpleNamespace(models=_BoomGeminiModels()),
     )
+    # openai_vision is in the same fallback chain, so leaving its client real
+    # meant this test fired a live request at api.openai.com and only reached
+    # the fallback because that request happened to fail.
+    monkeypatch.setattr(
+        vision_mod, "openai_client",
+        SimpleNamespace(chat=SimpleNamespace(completions=_BoomCompletions())),
+    )
 
     b64 = base64.b64encode(b"\x00" * 16).decode()
     res = vision_mod._sync_analyze_vision(b64, raw_text="", ai_model="groq")
@@ -243,6 +250,13 @@ def test_generate_text_bulk_routes_through_first_available_provider(monkeypatch)
         return fn()
 
     monkeypatch.setattr(llm_client_mod, "call_llm", _direct_call)
+
+    # The post-call cost hook INSERTs into llm_calls over a real asyncpg pool;
+    # provider routing is what's under test here.
+    async def _no_accounting(*_a, **_kw):
+        return None
+
+    monkeypatch.setattr(orch, "_account_for_call", _no_accounting)
 
     out = asyncio.run(orch.generate_text_bulk("summarize this slide"))
     assert out == "OK"

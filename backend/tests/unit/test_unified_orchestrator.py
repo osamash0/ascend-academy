@@ -311,6 +311,15 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
         # pool (whatever DATABASE_URL happens to resolve to in this env).
         return {"prior_lectures": [], "instructor": None, "grading_scheme": None}
 
+    async def cross_lecture_default(*_args, **_kwargs):
+        # Safe "no cross-lecture questions" default. A test that overrides
+        # get_course_synthesis_context to return prior_lectures unlocks this
+        # branch as a side effect, and without a default it reaches the REAL
+        # provider chain (a live https://api.cerebras.ai call). Tests asserting
+        # on this call override it themselves, AFTER calling _patch_common.
+        rec.setdefault("cross_lecture", []).append(_kwargs)
+        return []
+
     async def fake_batch_analyze_text_slides(slides_input, ai_model="cerebras", blueprint=None, **_kw):
         # Roadmap P3-1: default fake for the batched text-synthesis path so
         # any test whose fixture pages happen to be >= _MIN_TEXT_FOR_SYNTH
@@ -337,6 +346,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(concept_graph, "ingest_lecture_concepts", ingest_concepts)
     monkeypatch.setattr(content_filter, "is_metadata_slide", is_metadata_default)
     monkeypatch.setattr(course_context_service, "get_course_synthesis_context", course_ctx_default)
+    monkeypatch.setattr(synthesis, "generate_cross_lecture_questions", cross_lecture_default)
     monkeypatch.setattr(ai_orchestrator, "batch_analyze_text_slides", fake_batch_analyze_text_slides)
     monkeypatch.setattr(ai_orchestrator, "get_rotator", lambda: _FakeRotator())
     return rec, run
