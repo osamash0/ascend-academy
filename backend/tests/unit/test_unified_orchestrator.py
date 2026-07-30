@@ -75,7 +75,7 @@ async def test_create_lecture_requires_owner(monkeypatch):
 async def test_synthesize_slide_uses_text_when_present(monkeypatch):
     import backend.services.parser.synthesis as synthesis
 
-    async def fake_analyze_slide(num, text, ctx, model):
+    async def fake_analyze_slide(num, text, ctx, model, source_language="en"):
         return {"title": "Real Title", "aiInsight": "A clear explanation.", "slideType": "text"}
 
     monkeypatch.setattr(synthesis, "analyze_slide", fake_analyze_slide)
@@ -208,16 +208,18 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def fetch_pdf(pdf_hash):
         return b"%PDF-fake"
 
-    async def synth(idx, text, ctx, model, pdf):
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
 
     async def store_pdf(lecture_id, filename, pdf_bytes):
         rec["pdf"].append(lecture_id)
         return f"lectures/{lecture_id}/x.pdf"
 
-    async def create_lecture(*, title, professor_id, pdf_hash, pdf_url=None, course_id=None):
+    async def create_lecture(*, title, professor_id=None, pdf_hash, pdf_url=None, course_id=None,
+                             visibility="course", student_owner_id=None, source_language="en"):
         lid = uuid4()
         rec["lectures"].append((title, professor_id, lid))
+        rec.setdefault("source_language", []).append(source_language)
         return lid
 
     async def set_run_lecture(rid, lid):
@@ -231,6 +233,9 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
 
     async def set_lecture_title(lid, title):
         rec["titled"].append((lid, title))
+
+    async def set_lecture_source_language(lid, source_language):
+        rec.setdefault("source_language", []).append(source_language)
 
     async def set_lecture_pdf_url(lid, url):
         rec["pdf"].append((lid, url))
@@ -262,6 +267,7 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(persist, "clear_lecture_content", clear_lecture_content)
     monkeypatch.setattr(persist, "fetch_regen_instructions", fetch_regen_instructions)
     monkeypatch.setattr(persist, "set_lecture_title", set_lecture_title)
+    monkeypatch.setattr(persist, "set_lecture_source_language", set_lecture_source_language)
     monkeypatch.setattr(persist, "set_lecture_pdf_url", set_lecture_pdf_url)
     monkeypatch.setattr(persist, "insert_slide", insert_slide)
     monkeypatch.setattr(persist, "insert_slide_quizzes", insert_slide_quizzes)
@@ -274,12 +280,26 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     import backend.services.concept_graph as concept_graph
     import backend.services.content_filter as content_filter
     import backend.services.course_context_service as course_context_service
+    import backend.services.localization_service as localization_service
 
-    async def meta(slides, model, course_context_hint=""):
+    async def meta(slides, model, course_context_hint="", source_language="en"):
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": ["Gradient Descent", "Loss Functions"]}
 
-    async def quiz(slides, title, model):
+    async def quiz(slides, title, model, source_language="en"):
         return [{"question": "dq", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "slideId": 1}]
+
+    async def localize_lecture(lecture_id, ai_model):
+        # Safe no-op default: the real one opens an asyncpg connection and
+        # calls the LLM. Without it every completing parse in this module
+        # would reach the REAL pool (and leak it across event loops).
+        rec.setdefault("localized_lectures", []).append(lecture_id)
+
+    async def localize_course(course_id, ai_model):
+        rec.setdefault("localized_courses", []).append(course_id)
+
+    async def attach_blueprint_material(run_id, lecture_id):
+        # Same reason: the real one talks to Supabase over HTTP.
+        rec.setdefault("blueprint_attach", []).append((run_id, lecture_id))
 
     async def embed(idx, slide, pdf_hash, q, sem):
         return None
@@ -317,6 +337,9 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(concept_graph, "ingest_lecture_concepts", ingest_concepts)
     monkeypatch.setattr(content_filter, "is_metadata_slide", is_metadata_default)
     monkeypatch.setattr(course_context_service, "get_course_synthesis_context", course_ctx_default)
+    monkeypatch.setattr(localization_service, "localize_lecture", localize_lecture)
+    monkeypatch.setattr(localization_service, "localize_course", localize_course)
+    monkeypatch.setattr(uo, "_attach_completed_blueprint_material", attach_blueprint_material)
     return rec, run
 
 
@@ -358,7 +381,7 @@ async def test_parse_pdf_unified_propagates_vision_routed_on_slide_event(monkeyp
     pages."""
     rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
 
-    async def synth(idx, text, ctx, model, pdf):
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
         if idx == 1:
             return {"title": "Scan", "content": text, "summary": "s", "slide_type": "image-only", "vision_routed": True}
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
@@ -379,7 +402,7 @@ async def test_parse_pdf_unified_marks_needs_review_on_synthesis_exception(monke
     left literally no trace anywhere. It must now be visibly flagged."""
     rec, run = _patch_common(monkeypatch, pages=["text 0", "text 1", "text 2"])
 
-    async def synth(idx, text, ctx, model, pdf):
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
         if idx == 1:
             raise RuntimeError("LLM timed out")
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
@@ -397,7 +420,7 @@ async def test_parse_pdf_unified_marks_needs_review_on_synthesis_exception(monke
 async def test_parse_pdf_unified_marks_needs_review_on_vision_rescue(monkeypatch):
     rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
 
-    async def synth(idx, text, ctx, model, pdf):
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
         if idx == 1:
             return {"title": "Scan", "content": text, "summary": "s", "slide_type": "image-only", "vision_routed": True}
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
@@ -427,7 +450,7 @@ async def test_parse_pdf_unified_passes_review_flags_to_persist_insert_slide(mon
     page reload, not just live in-flight for the current upload session."""
     rec, run = _patch_common(monkeypatch, pages=["text 0", "", "text 2"])
 
-    async def synth(idx, text, ctx, model, pdf):
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
         if idx == 1:
             return {"title": "Scan", "content": text, "summary": "s", "slide_type": "image-only", "vision_routed": True}
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text", "vision_routed": False}
@@ -657,7 +680,7 @@ async def test_course_context_hint_threaded_into_meta_and_per_slide_context(monk
 
     captured_hints = []
 
-    async def fake_meta(slides, model, course_context_hint=""):
+    async def fake_meta(slides, model, course_context_hint="", source_language="en"):
         captured_hints.append(course_context_hint)
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": []}
 
@@ -665,7 +688,7 @@ async def test_course_context_hint_threaded_into_meta_and_per_slide_context(monk
 
     captured_slide_ctx = []
 
-    async def fake_synth(idx, text, ctx, model, pdf):
+    async def fake_synth(idx, text, ctx, model, pdf, source_language="en"):
         captured_slide_ctx.append(ctx)
         return {"title": f"S{idx}", "content": text, "summary": "s", "slide_type": "text"}
 
@@ -702,7 +725,7 @@ async def test_course_context_hint_absent_without_course_id_is_byte_identical(mo
 
     captured_hints = []
 
-    async def fake_meta(slides, model, course_context_hint=""):
+    async def fake_meta(slides, model, course_context_hint="", source_language="en"):
         captured_hints.append(course_context_hint)
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": []}
 
@@ -710,7 +733,7 @@ async def test_course_context_hint_absent_without_course_id_is_byte_identical(mo
 
     captured_slide_ctx = []
 
-    async def fake_synth(idx, text, ctx, model, pdf):
+    async def fake_synth(idx, text, ctx, model, pdf, source_language="en"):
         captured_slide_ctx.append(ctx)
         return {"title": f"S{idx}", "content": text, "summary": "s", "slide_type": "text"}
 
@@ -897,7 +920,7 @@ async def test_parse_pdf_unified_reuses_persisted_regen_instruction_on_reparse(m
 
     captured_ctx: dict = {}
 
-    async def synth(idx, text, ctx, model, pdf):
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
         captured_ctx[idx] = ctx
         return {"title": f"S{idx}", "content": text, "summary": f"sum{idx}", "slide_type": "text"}
 
@@ -937,13 +960,13 @@ async def test_parse_pdf_unified_on_demand_skips_all_ai(monkeypatch):
 
     import backend.services.parser.synthesis as synthesis
 
-    async def boom_meta(slides, model):
+    async def boom_meta(slides, model, course_context_hint="", source_language="en"):
         raise AssertionError("analyze_lecture_meta must not run in on_demand")
 
-    async def boom_synth(idx, text, ctx, model, pdf):
+    async def boom_synth(idx, text, ctx, model, pdf, source_language="en"):
         raise AssertionError("_synthesize_slide must not run in on_demand")
 
-    async def boom_quiz(slides, title, model):
+    async def boom_quiz(slides, title, model, source_language="en"):
         raise AssertionError("generate_quiz_questions must not run in on_demand")
 
     monkeypatch.setattr(synthesis, "analyze_lecture_meta", boom_meta)

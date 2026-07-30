@@ -210,8 +210,11 @@ async def test_voice_fragment_present_and_hard_rules_untouched(stub_llm, stub_re
     assert voice_mod.VOICE_PROSE in prompt
     assert voice_mod.LANG_MATCH in prompt
 
-    hard_rules = """HARD RULES:
-- Base your answers primarily on the RETRIEVED CONTEXT below.
+    # The reply-language rule is prepended inside the block; everything below
+    # it — the grounding rules themselves — must survive verbatim.
+    assert "- Write every user-facing answer in English" in prompt
+
+    hard_rules = """- Base your answers primarily on the RETRIEVED CONTEXT below.
 - If answering the question requires conceptual context outside of the
   RETRIEVED CONTEXT, you MAY provide it. However, you MUST wrap ANY
   supplementary knowledge inside Markdown blockquotes (`> `) and explicitly
