@@ -2,14 +2,24 @@
 
 Design
 ------
-Simple, per-slide synthesis — the approach that produces the best learning
-content (one focused LLM call per slide → real title + a rich "professor"
-explanation), wrapped in a server-authoritative architecture:
+Content-generating synthesis, wrapped in a server-authoritative architecture:
 
-  - PER-SLIDE synthesis: each slide is analyzed on its own (v4-style
-    analyze_slide). A slide with extractable text is synthesized from text; a
-    slide with (almost) no text is image-only and goes to the vision model.
-    No batching — one slide failing never blanks the others.
+  - BATCHED-with-per-slide-fallback synthesis (Roadmap P3-1): text-bearing
+    slides in a chunk (``QUIZ_BATCH_CONFIG.batch_size`` slides, default 8) are
+    synthesized in ONE LLM call via
+    ``backend.services.ai.orchestrator.batch_analyze_text_slides`` — the
+    dominant cost driver on this pipeline, previously paid one call per slide.
+    If that batch call fails (or a slide carries a professor "regenerate"
+    instruction the batch schema can't express), synthesis falls back to
+    per-slide calls (v4-style ``analyze_slide``) for JUST that batch — a
+    failure never blanks the whole lecture. A slide with (almost) no text is
+    image-only and always goes to the vision model per-slide (vision isn't
+    batchable today).
+  - Budget pre-flight gate (Roadmap P3-1): before synthesis starts, the
+    pipeline checks the provider fleet's remaining daily request headroom
+    against a conservative per-slide floor and aborts fast (before creating
+    the lecture or spending a single LLM call) if the job clearly cannot
+    complete today, instead of failing mid-parse after already burning quota.
   - Server-authoritative persistence: the pipeline writes lectures / slides /
     quiz_questions itself (via `persist`); the DB is the single source of truth.
   - Lecture-level: a title + summary (analyze_lecture_meta) and a deck-level
@@ -37,9 +47,15 @@ import redis.asyncio as aioredis
 
 from backend.core.config import settings
 from backend.core.database import supabase_admin
+from backend.core.job_locks import acquire_job_lock, parse_lock_key, release_job_lock
 from backend.domain.parse_models import RunStatus
 from backend.services.parser import repos, persist
 from backend.services.parser.storage import _fetch_pdf_bytes
+
+# In-flight lock TTL (Roadmap P2-3): must comfortably outlast the worker's
+# job_timeout (900s, see arq_worker.py) so a lock never expires mid-parse and
+# lets a re-enqueued duplicate start clobbering an attempt that's still running.
+PARSE_LOCK_TTL_SECONDS = 1200
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +65,15 @@ PIPELINE_VERSION_UNIFIED = "5"
 # Below this many chars of extractable text, a slide is treated as image-only
 # and routed to the vision model instead of text synthesis.
 _MIN_TEXT_FOR_SYNTH = 25
+
+
+class InsufficientHeadroomError(RuntimeError):
+    """Raised pre-flight (Roadmap P3-1) when the provider fleet's remaining
+    daily request headroom cannot plausibly cover this job's slide count.
+    Caught by the same outer ``except Exception`` as any other pipeline
+    failure, so the run is still marked FAILED and an ``error`` SSE event is
+    still emitted — the only difference is *when*: before any LLM spend or
+    lecture creation, not mid-parse."""
 
 
 def _clean_title(filename: str) -> str:
@@ -136,6 +161,124 @@ async def _synthesize_slide(
     except Exception as exc:
         logger.warning("vision synth slide %d failed: %s", idx, exc)
         return {"title": "", "content": text, "summary": "", "slide_type": "image-only", "vision_routed": True}
+
+
+async def _synthesize_text_slides_individually(
+    text_items: List[tuple[int, str]],
+    lecture_context: str,
+    ai_model: str,
+    pdf_bytes: bytes,
+    carried_instructions: Dict[int, str],
+    source_language: str = "en",
+) -> Dict[int, Any]:
+    """Per-slide synthesis — the pre-P3-1 resilience path — scoped to just
+    the slides handed in (never the whole lecture). Values may be
+    ``Exception`` instances (never raised here); the caller's existing
+    per-slide error handling already treats an ``Exception`` result as
+    ``synthesis_failed``, so this keeps that contract unchanged.
+    """
+    def _ctx(idx: int) -> str:
+        instr = carried_instructions.get(idx)
+        if not instr:
+            return lecture_context
+        return f"{lecture_context}\n\nThe professor gave this instruction for this slide — honor it: {instr}"
+
+    results = await asyncio.gather(
+        *[_synthesize_slide(idx, text, _ctx(idx), ai_model, pdf_bytes, source_language)
+          for idx, text in text_items],
+        return_exceptions=True,
+    )
+    return {idx: res for (idx, _text), res in zip(text_items, results)}
+
+
+async def _synthesize_text_slide_batch(
+    text_items: List[tuple[int, str]],
+    lecture_context: str,
+    ai_model: str,
+    pdf_bytes: bytes,
+    carried_instructions: Dict[int, str],
+    source_language: str = "en",
+) -> Dict[int, Any]:
+    """Batch-synthesize a chunk's text-bearing slides in ONE LLM call via
+    ``batch_analyze_text_slides`` (Roadmap P3-1) instead of one call per
+    slide — the dominant cost driver on the live pipeline (~8x reduction at
+    the default batch size of 8).
+
+    Falls back to per-slide ``_synthesize_slide`` calls — scoped to JUST this
+    batch, not the whole lecture — when:
+      - any slide in the batch carries a professor "regenerate" instruction
+        (the batch prompt/schema has no per-slide hook for free-form
+        instructions, so it must be honored via the per-slide path), or
+      - the batch call itself raises. ``batch_analyze_text_slides`` is
+        documented to raise on an unusable LLM response specifically so
+        callers can retry per-slide (see its docstring) — this mirrors the
+        exact fallback contract ``file_parse_service._process_text_batch_safe``
+        already uses for the older pipeline.
+
+    Returns a dict keyed by slide index; values may be ``Exception``
+    instances (never raised here) so the caller's existing per-slide error
+    handling keeps working unchanged.
+    """
+    if not text_items:
+        return {}
+
+    if any(carried_instructions.get(idx) for idx, _ in text_items):
+        return await _synthesize_text_slides_individually(
+            text_items, lecture_context, ai_model, pdf_bytes, carried_instructions,
+            source_language,
+        )
+
+    from backend.services.ai.orchestrator import batch_analyze_text_slides
+
+    slides_input = [
+        {"index": idx, "page_number": idx + 1, "text": text or ""}
+        for idx, text in text_items
+    ]
+    blueprint = {"overall_summary": lecture_context[:1500]} if lecture_context else None
+    try:
+        raw_results = await batch_analyze_text_slides(
+            slides_input, ai_model=ai_model, blueprint=blueprint,
+            source_language=source_language,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Batch synthesis failed for %d slide(s) starting at index %s (%s) — "
+            "falling back to per-slide synthesis for this batch only",
+            len(text_items), text_items[0][0], exc,
+        )
+        return await _synthesize_text_slides_individually(
+            text_items, lecture_context, ai_model, pdf_bytes, carried_instructions,
+            source_language,
+        )
+
+    by_index = {r.get("index"): r for r in raw_results if isinstance(r, dict)}
+    out: Dict[int, Any] = {}
+    missing: List[tuple[int, str]] = []
+    for idx, text in text_items:
+        item = by_index.get(idx)
+        if not isinstance(item, dict):
+            missing.append((idx, text))
+            continue
+        out[idx] = {
+            "title": (item.get("title") or "").strip(),
+            "content": text,
+            "summary": (item.get("summary") or "").strip(),
+            "slide_type": item.get("slide_type") or "text",
+            "vision_routed": False,
+        }
+    if missing:
+        # The batch response omitted individual slides (rare) — per-slide
+        # retry just for those, not the whole batch.
+        logger.warning(
+            "Batch synthesis response missing %d of %d slide(s) — per-slide "
+            "retry for the missing ones only",
+            len(missing), len(text_items),
+        )
+        out.update(await _synthesize_text_slides_individually(
+            missing, lecture_context, ai_model, pdf_bytes, carried_instructions,
+            source_language,
+        ))
+    return out
 
 
 def _review_flag_for(
@@ -345,6 +488,17 @@ async def parse_pdf_unified(
     slide_db_ids: Dict[int, UUID] = {}
     deck_summary = ""
 
+    # In-flight dedupe lock (Roadmap P2-3). Prefer the worker's own Arq redis
+    # pool (`ctx["redis"]`, queue Redis) so a real job needs no extra
+    # connection; dev/test callers passing ctx={} fall back to a throwaway
+    # connection to the same queue Redis.
+    lock_key = parse_lock_key(pdf_hash)
+    lock_redis = ctx.get("redis") if isinstance(ctx, dict) else None
+    owns_lock_conn = lock_redis is None
+    if owns_lock_conn:
+        lock_redis = aioredis.from_url(settings.redis_queue_url, decode_responses=True)
+    got_lock = False
+
     try:
         await emit("info", {"parser": parser_used})
 
@@ -363,6 +517,16 @@ async def parse_pdf_unified(
         # rebuild the existing lecture in place (step 3 reuses existing_lecture_id).
         if run.status == RunStatus.COMPLETED and existing_lecture_id and not force_reparse:
             await _replay_from_db(existing_lecture_id, pdf_hash, emit)
+            return str(run_uuid)
+
+        # ── In-flight dedupe: skip if another attempt for this pdf_hash is
+        # already running (Roadmap P2-3 acceptance criterion) ───────────────
+        got_lock = await acquire_job_lock(lock_redis, lock_key, PARSE_LOCK_TTL_SECONDS)
+        if not got_lock:
+            logger.info(
+                "parse_pdf_unified: pdf_hash=%s already in flight, skipping duplicate run %s",
+                pdf_hash, run_uuid,
+            )
             return str(run_uuid)
 
         await repos.set_status(run_uuid, RunStatus.EXTRACTING)
@@ -386,6 +550,26 @@ async def parse_pdf_unified(
         # ``on_demand`` (Skip AI): persist raw extracted slides with no LLM
         # synthesis, quizzes, or deck summary; the editor enhances them later.
         ai_mode = parsing_mode != "on_demand"
+
+        # ── Budget pre-flight gate (Roadmap P3-1) ─────────────────────────────
+        # Abort BEFORE creating the lecture or spending a single LLM call if
+        # today's remaining provider headroom clearly cannot cover this job —
+        # a mid-parse quota exhaustion is far worse than a fast, clear failure.
+        # Deliberately conservative: floor of ~1 request per slide (the
+        # pre-batching cost) plus lecture-meta + deck-quiz, NOT the optimistic
+        # post-batching estimate — a batch-call failure storm falling back to
+        # per-slide still needs to fit inside today's budget.
+        if ai_mode and total > 0:
+            from backend.services.ai.orchestrator import BULK_CHAIN, get_rotator
+            estimated_calls = total + 2
+            headroom = get_rotator().remaining_headroom(BULK_CHAIN)
+            if headroom < estimated_calls:
+                raise InsufficientHeadroomError(
+                    f"Insufficient AI provider headroom for a {total}-slide parse "
+                    f"(need ~{estimated_calls} calls, only ~{headroom} remaining "
+                    f"today across configured providers). Please retry after "
+                    f"provider quotas reset (UTC midnight)."
+                )
         course_uuid = UUID(course_id) if course_id else None
 
         # Roadmap Phase 3.4 ("new-upload awareness"): fetch prior-lecture
@@ -497,12 +681,43 @@ async def parse_pdf_unified(
                         return ctx_for_chunk
                     return f"{ctx_for_chunk}\n\nThe professor gave this instruction for this slide — honor it: {instr}"
 
-                results = await asyncio.gather(*[
-                    _synthesize_slide(
-                        i, raw_slides[i], _ctx_with_instruction(i), ai_model, pdf_bytes, source_language,
-                    )
-                    for i in range(chunk_start, chunk_end)
-                ], return_exceptions=True)
+                # Roadmap P3-1: text-bearing slides go through ONE batched LLM
+                # call for the whole chunk (with automatic per-slide fallback,
+                # scoped to just this chunk, on batch failure). Image-only
+                # slides still go per-slide to the vision model — vision isn't
+                # batchable today, so this doesn't change vision's cost/shape.
+                chunk_idxs = list(range(chunk_start, chunk_end))
+                text_idxs = [
+                    i for i in chunk_idxs
+                    if len((raw_slides[i] or "").strip()) >= _MIN_TEXT_FOR_SYNTH
+                ]
+                vision_idxs = [i for i in chunk_idxs if i not in text_idxs]
+
+                results_map: Dict[int, Any] = {}
+                if text_idxs:
+                    text_items = [(i, raw_slides[i]) for i in text_idxs]
+                    # Note: any slide here carrying a regen instruction routes
+                    # itself to the per-slide fallback inside the helper (the
+                    # batch schema has no per-slide instruction hook), so
+                    # ``ctx_for_chunk`` (no instruction baked in) is correct
+                    # for the batch path; the fallback re-applies instructions
+                    # per slide via ``carried_instructions``.
+                    results_map.update(await _synthesize_text_slide_batch(
+                        text_items, ctx_for_chunk, ai_model, pdf_bytes, carried_instructions,
+                        source_language,
+                    ))
+                if vision_idxs:
+                    vision_results = await asyncio.gather(*[
+                        _synthesize_slide(
+                            i, raw_slides[i], _ctx_with_instruction(i), ai_model, pdf_bytes,
+                            source_language,
+                        )
+                        for i in vision_idxs
+                    ], return_exceptions=True)
+                    for i, r in zip(vision_idxs, vision_results):
+                        results_map[i] = r
+
+                results = [results_map.get(i, RuntimeError(f"no synthesis result for slide {i}")) for i in chunk_idxs]
             else:
                 # Skip AI: raw text only, no LLM. Title = first line / fallback.
                 results = [
@@ -720,19 +935,29 @@ async def parse_pdf_unified(
 
     except Exception as exc:
         logger.exception("Unified pipeline failed for pdf_hash=%s: %s", pdf_hash, exc)
+        # Full detail is in the server log above (logger.exception, with
+        # traceback). What reaches the DB row / SSE stream — and from there
+        # GET /upload/jobs, visible to the owning user — is a generic
+        # message: str(exc) here could surface internal details (service
+        # URLs, library internals) depending on what actually raised.
+        user_facing_error = "PDF parsing failed. Please try again or contact support if this keeps happening."
         try:
             if run_uuid is not None:
                 if created_lecture_id is not None and slide_db_ids:
                     await persist.finalize_lecture(created_lecture_id, deck_summary, len(slide_db_ids))
-                await repos.set_error(run_uuid, str(exc))
+                await repos.set_error(run_uuid, user_facing_error)
         except Exception:
             pass
         try:
-            await emit("error", {"message": str(exc)})
+            await emit("error", {"message": user_facing_error})
         except Exception:
             pass
         raise
     finally:
+        if got_lock:
+            await release_job_lock(lock_redis, lock_key)
+        if owns_lock_conn and lock_redis is not None:
+            await lock_redis.aclose()
         if redis_client:
             await redis_client.aclose()
 

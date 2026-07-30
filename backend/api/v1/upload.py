@@ -474,7 +474,8 @@ async def diagnostics_endpoint(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("diagnostics failed for pdf_hash=%s: %s", pdf_hash, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load diagnostics.")
 
 @router.post("/cleanup-cache")
 @limiter.limit("5/minute")

@@ -6,7 +6,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.core.auth_middleware import verify_token, require_professor
+from fastapi.security import HTTPAuthorizationCredentials
+
+from backend.core.auth_middleware import verify_token, require_professor, security
 
 
 @pytest.fixture
@@ -16,6 +18,13 @@ def client(app):
 
 def _auth_as(app, user: SimpleNamespace) -> None:
     app.dependency_overrides[verify_token] = lambda: user
+    # P2-1: list_courses/get_course/browse_courses now also depend on
+    # `security` (HTTPBearer) to build an RLS-enforcing per-user client via
+    # analytics_service.get_auth_client — override it same as verify_token so
+    # these tests (which send no real Authorization header) don't 500.
+    app.dependency_overrides[security] = lambda: HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="fake-token"
+    )
     role = (user.app_metadata or {}).get("role")
     if role == "professor":
         app.dependency_overrides[require_professor] = lambda: user
@@ -155,19 +164,33 @@ def test_student_course_detail_hides_unenrolled_lectures(
     assert ids == {"lec-enrolled"}, f"unexpected lectures leaked: {ids}"
 
 
-def test_student_sees_only_enrolled_courses(client, app, fake_supabase, professor_user, student_user):
+def test_list_courses_smoke_for_student(client, app, fake_supabase, professor_user, student_user):
+    """
+    P2-1 (RLS-as-API-boundary): `list_courses` used to filter visibility in
+    Python with `_student_visible_course_ids` against the service-role
+    `supabase_admin` client — that's what this test originally asserted
+    end-to-end here. It's now converted to query through the RLS-enforcing
+    per-user client (`analytics_service.get_auth_client`) and relies on the
+    `courses` table's own SELECT policies to do the filtering in Postgres.
+
+    `fake_supabase` (this test double) has no RLS engine — patch_supabase
+    hands both the "admin" and the "RLS-enforcing" client the exact same
+    in-memory fake, so it cannot distinguish an enrolled student from an
+    unenrolled one. Cross-tenant visibility for the new RLS-backed path is
+    covered instead by the real-Postgres regression test in
+    backend/tests/db/test_courses_rls_boundary.py (gated `-m db`), which
+    proves a non-enrolled student sees zero rows via the actual `courses`
+    RLS policies. This test remains only as an endpoint smoke check —
+    verifying the route returns 200 for a student and includes a course
+    they're enrolled in via assignment enrollment.
+    """
     # Professor creates two courses + lectures
     _auth_as(app, professor_user)
     _seed_user_role(fake_supabase, professor_user.id, "professor")
     c_visible = client.post("/api/courses", json={"title": "Visible"}).json()["data"]["id"]
-    c_hidden = client.post("/api/courses", json={"title": "Hidden"}).json()["data"]["id"]
     fake_supabase.table("lectures").insert({
         "id": "lec-v", "professor_id": professor_user.id,
         "title": "V", "description": None, "total_slides": 0, "course_id": c_visible,
-    }).execute()
-    fake_supabase.table("lectures").insert({
-        "id": "lec-h", "professor_id": professor_user.id,
-        "title": "H", "description": None, "total_slides": 0, "course_id": c_hidden,
     }).execute()
     # Enrol student in an assignment that covers lec-v
     fake_supabase.table("assignment_enrollments").insert({
@@ -178,8 +201,9 @@ def test_student_sees_only_enrolled_courses(client, app, fake_supabase, professo
     }).execute()
 
     _auth_as(app, student_user)
-    body = client.get("/api/courses").json()
+    r = client.get("/api/courses")
+    assert r.status_code == 200
+    body = r.json()
     assert body["success"] is True
     ids = {c["id"] for c in body["data"]}
     assert c_visible in ids
-    assert c_hidden not in ids

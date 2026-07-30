@@ -12,13 +12,15 @@ be able to reference it even when the rest of the lecture is more relevant.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from backend.core.database import supabase_admin
 from backend.services.ai.embeddings import generate_embeddings
 from backend.services.cache import (
-    get_similar_slides,
+    get_similar_slides_by_lecture,
     get_similar_slides_scoped,
     search_slides_keyword_scoped,
 )
@@ -28,6 +30,63 @@ logger = logging.getLogger(__name__)
 DEFAULT_K = 5
 DEFAULT_THRESHOLD = 0.65
 DEFAULT_COURSE_K = 6
+
+# Tutor query-embedding cache (P3-2, docs/ROADMAP_10X_FOUNDATION.md §8).
+# A student re-asking the same/near-identical question minutes apart (typo
+# fix, re-read, retry after a refusal) shouldn't re-pay the embedding call.
+# 10 minutes is long enough to absorb that same-session repetition without
+# meaningfully risking a stale vector — the embedding model itself doesn't
+# change within a session, so there is no correctness downside to reusing it
+# a few minutes later, only a cost/latency win.
+QUERY_EMBED_CACHE_TTL_SECONDS = 600
+
+
+def _query_embed_cache_key(query: str) -> str:
+    digest = hashlib.sha256(query.strip().encode("utf-8")).hexdigest()
+    return f"query_embed:{digest}"
+
+
+async def _get_cached_query_embedding(query: str) -> Optional[List[float]]:
+    """Best-effort Redis lookup for a previously embedded query.
+
+    Any Redis failure (not configured, connection error, bad payload) is
+    swallowed and treated as a cache miss — the caller falls back to calling
+    `generate_embeddings` normally, so a cache outage degrades to the
+    pre-P3-2 behavior rather than breaking retrieval.
+    """
+    try:
+        from backend.core.redis import get_redis_client
+        redis_client = get_redis_client()
+        cached = await redis_client.get(_query_embed_cache_key(query))
+        if cached:
+            return json.loads(cached)
+    except Exception as e:
+        logger.debug("Query-embedding cache read failed (will re-embed): %s", e)
+    return None
+
+
+async def _store_query_embedding(query: str, embedding: List[float]) -> None:
+    try:
+        from backend.core.redis import get_redis_client
+        redis_client = get_redis_client()
+        await redis_client.setex(
+            _query_embed_cache_key(query),
+            QUERY_EMBED_CACHE_TTL_SECONDS,
+            json.dumps(embedding),
+        )
+    except Exception as e:
+        logger.debug("Query-embedding cache write failed (non-fatal): %s", e)
+
+
+async def _embed_query_cached(query: str) -> List[float]:
+    """`generate_embeddings(query)` with a short-TTL Redis cache in front."""
+    cached = await _get_cached_query_embedding(query)
+    if cached is not None:
+        return cached
+    embedding = await generate_embeddings(query)
+    if embedding:
+        await _store_query_embedding(query, embedding)
+    return embedding
 
 
 async def retrieve_relevant_slides(
@@ -59,32 +118,29 @@ async def retrieve_relevant_slides(
         return await _current_only(current_slide_index, lecture_id, pdf_hash)
 
     try:
-        embedding = await generate_embeddings(query)
+        embedding = await _embed_query_cached(query)
     except Exception as e:
         logger.warning("Query embedding failed (degrading to current slide): %s", e)
         return await _current_only(current_slide_index, lecture_id, pdf_hash)
 
-    # Pull a generous candidate set; we'll trim after scoping.
+    # Scoped in SQL (Roadmap P1-4) — no over-fetch, no Python post-filter.
+    # match_slides_by_lecture applies the lecture_id/pdf_hash scope in the
+    # WHERE clause itself, so a relevant slide in this lecture is never
+    # dropped because a global candidate window filled up with other
+    # lectures' slides first (see migration 20260719020000's comment).
     raw_matches: List[Dict[str, Any]]
     try:
-        raw_matches = await get_similar_slides(
-            embedding, limit=max(k * 4, 8), threshold=threshold
+        raw_matches = await get_similar_slides_by_lecture(
+            embedding, lecture_id, pdf_hash, limit=k, threshold=threshold
         )
     except Exception as e:
-        logger.warning("match_slides RPC failed: %s", e)
+        logger.warning("match_slides_by_lecture RPC failed: %s", e)
         raw_matches = []
-
-    scoped: List[Dict[str, Any]] = []
-    for r in raw_matches:
-        if lecture_id and r.get("lecture_id") == lecture_id:
-            scoped.append(r)
-        elif pdf_hash and r.get("pdf_hash") == pdf_hash:
-            scoped.append(r)
 
     # Dedup by slide_index (most-similar wins because RPC orders by distance).
     seen: set[int] = set()
     deduped: List[Dict[str, Any]] = []
-    for r in scoped:
+    for r in raw_matches:
         idx = r.get("slide_index")
         if idx is None or idx in seen:
             continue
@@ -149,7 +205,7 @@ async def retrieve_relevant_slides_course_scoped(
 
     vector_hits: List[Dict[str, Any]] = []
     try:
-        embedding = await generate_embeddings(query)
+        embedding = await _embed_query_cached(query)
         vector_hits = await get_similar_slides_scoped(
             embedding, course_ids, limit=max(k * 2, 8), threshold=threshold
         )

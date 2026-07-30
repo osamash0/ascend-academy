@@ -138,6 +138,50 @@ class Settings(BaseSettings):
     # 20260711020000_study_guides.sql. Set FEATURE_STUDY_GUIDE=1 to enable.
     feature_study_guide: bool = Field(alias="FEATURE_STUDY_GUIDE", default=False)
 
+    # ─── learning_events retention (Roadmap Phase 5.4, "Retention & partitioning") ─
+    # Disabled by default (0 = never archive/drop anything). Set to a positive
+    # number of days to enable backend/scripts/learning_events_retention.py's
+    # archive step for partitions whose range ends more than this many days
+    # ago. Even when enabled, the script only *archives* (writes rollups) and
+    # reports drop candidates unless LEARNING_EVENTS_RETENTION_EXECUTE=1 is
+    # ALSO set — the two-flag design means a single stray env var can never
+    # cause a silent delete.
+    learning_events_retention_days: int = Field(
+        alias="LEARNING_EVENTS_RETENTION_DAYS", default=0
+    )
+    # Second gate: even with a retention window configured, the script only
+    # detaches/drops old partitions when this is explicitly true. Default
+    # false means the script always runs in dry-run/archive-only mode.
+    learning_events_retention_execute: bool = Field(
+        alias="LEARNING_EVENTS_RETENTION_EXECUTE", default=False
+    )
+
+    # ─── LLM cost accounting (Roadmap Foundation 10x, Phase 1 P1-1) ────────────
+    # Fleet-wide daily $ ceiling on the "openai" provider specifically — the
+    # only provider in orchestrator.PROVIDER_REGISTRY with daily_limit=0
+    # (unmetered) and a real per-token bill. Once the fleet's combined openai
+    # spend for today (tracked in Redis, shared across all worker processes)
+    # reaches this, ProviderRotator.available() drops "openai" from the chain
+    # regardless of which process asks. 0 disables the gate (unlimited).
+    llm_openai_daily_cost_ceiling_usd: float = Field(
+        alias="LLM_OPENAI_DAILY_COST_CEILING_USD", default=10.0
+    )
+    # Per-user monthly $ cap across all providers (Redis-tracked running total,
+    # keyed by user_id + calendar month). Only enforced for calls that pass a
+    # user_id — most orchestrator call sites don't yet (fast-follow to thread
+    # user_id through every feature). 0 disables the cap.
+    llm_monthly_user_cost_cap_usd: float = Field(
+        alias="LLM_MONTHLY_USER_COST_CAP_USD", default=5.0
+    )
+
+    # ─── AI eval harness / prompt logging (Roadmap Foundation 10x, P1-3) ───────
+    # Off by default — logging every prompt+response is a real storage/PII
+    # cost, so it's opt-in (e.g. enabled temporarily while chasing a
+    # specific bad-output report). Set FEATURE_LLM_PROMPT_LOGGING=1 to enable.
+    feature_llm_prompt_logging: bool = Field(alias="FEATURE_LLM_PROMPT_LOGGING", default=False)
+    # TTL for logged prompt/response pairs (backend/services/ai/prompt_log.py).
+    llm_prompt_log_ttl_seconds: int = Field(alias="LLM_PROMPT_LOG_TTL_SECONDS", default=7 * 86400)
+
     # ─── Computed ──────────────────────────────────────────────────────────────
     @model_validator(mode="after")
     def resolve_supabase_credentials(self) -> "Settings":

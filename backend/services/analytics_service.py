@@ -1,5 +1,6 @@
 import logging
 logger = logging.getLogger(__name__)
+import functools
 from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, get_db_connection, create_client
 from backend.services.utils.analytics_utils import calculate_student_typology, generate_anon_name
 from supabase import Client
@@ -7,6 +8,54 @@ from backend.services import analytics_cache
 import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta, date
+
+
+def cached_analytic(view_name: str):
+    """Decorator for the standard lecture-scoped cache-wrapper pattern.
+
+    Replaces the 11x-repeated boilerplate of:
+        def get_X(lecture_id, token=None, force_refresh=False):
+            return analytics_cache.get_or_compute(
+                lecture_id, "view", lambda: _compute_X(lecture_id, token),
+                force_refresh=force_refresh,
+            )
+
+    Apply directly to the function that computes the value; the decorated
+    function keeps the `(lecture_id, token=None, force_refresh=False)`
+    signature and transparently checks/populates the cache first.
+
+    Only use this for functions matching that exact shape. Some analytics
+    functions (e.g. ``get_professor_overview``) key the cache on different
+    params (a ``params=`` dict instead of ``force_refresh``) and are NOT
+    equivalent — do not force them through this decorator.
+    """
+    def decorator(compute_fn):
+        @functools.wraps(compute_fn)
+        def wrapper(lecture_id: str, token: str = None, force_refresh: bool = False):
+            return analytics_cache.get_or_compute(
+                lecture_id,
+                view_name,
+                lambda: compute_fn(lecture_id, token),
+                force_refresh=force_refresh,
+            )
+        return wrapper
+    return decorator
+
+
+def cached_analytic_async(view_name: str):
+    """Async counterpart of :func:`cached_analytic`, backed by
+    ``analytics_cache.get_or_compute_async``. Same shape/caveats apply."""
+    def decorator(compute_fn):
+        @functools.wraps(compute_fn)
+        async def wrapper(lecture_id: str, token: str = None, force_refresh: bool = False):
+            return await analytics_cache.get_or_compute_async(
+                lecture_id,
+                view_name,
+                lambda: compute_fn(lecture_id, token),
+                force_refresh=force_refresh,
+            )
+        return wrapper
+    return decorator
 
 def _fetch_all(query: Any, limit: int = 10000) -> List[Dict[str, Any]]:
     """Helper to fetch all records from a Supabase query using pagination."""
@@ -63,17 +112,9 @@ def get_auth_client(token: Optional[str]) -> Client:
     return client
 
 
-def get_lecture_overview(lecture_id: str, token: str = None, force_refresh: bool = False) -> Dict[str, Any]:
+@cached_analytic("overview")
+def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     """Get high-level metrics for a lecture (cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "overview",
-        lambda: _compute_lecture_overview(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     client = get_auth_client(token)
 
     progress_data = _fetch_all(client.table("student_progress")\
@@ -129,17 +170,9 @@ def _compute_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, A
     }
 
 
-def get_slide_analytics(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+@cached_analytic("slides")
+def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Get per-slide analytics (cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "slides",
-        lambda: _compute_slide_analytics(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     from backend.services.recommendations import compute_slide_recommendation
 
     client = get_auth_client(token)
@@ -245,17 +278,9 @@ def _compute_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[st
     return slide_analytics
 
 
-def get_quiz_analytics(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+@cached_analytic("quizzes")
+def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Get quiz difficulty analytics (cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "quizzes",
-        lambda: _compute_quiz_analytics(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
 
     quiz_data = _fetch_all(client.table("quiz_questions")\
@@ -295,17 +320,9 @@ def _compute_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str
     return sorted(quiz_analytics, key=lambda x: x["success_rate"])
 
 
-def get_student_performance(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+@cached_analytic("students")
+def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Get per-student performance breakdown (anonymized, cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "students",
-        lambda: _compute_student_performance(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_student_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
 
     progress_data = _fetch_all(client.table("student_progress")\
@@ -358,17 +375,9 @@ def _compute_student_performance(lecture_id: str, token: str = None) -> List[Dic
     return sorted(students_matrix, key=lambda x: x["quiz_score"], reverse=True)
 
 
-def get_distractor_analysis(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+@cached_analytic("distractors")
+def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Show which wrong answer options students pick most per question (cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "distractors",
-        lambda: _compute_distractor_analysis(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
 
     quiz_data = _fetch_all(client.table("quiz_questions")\
@@ -478,17 +487,9 @@ def _calculate_retry_performance(
     return rows
 
 
-def get_retry_performance(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+@cached_analytic("retry_performance")
+def get_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Per-question first-attempt vs second-attempt miss rates for a lecture (cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "retry_performance",
-        lambda: _compute_retry_performance(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
 
     quiz_data = _fetch_all(client.table("quiz_questions")
@@ -508,17 +509,9 @@ def _compute_retry_performance(lecture_id: str, token: str = None) -> List[Dict[
     return _calculate_retry_performance(quiz_data, first_events, retry_events)
 
 
-def get_dropoff_map(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+@cached_analytic("dropoff")
+def get_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Show which slide most students abandon the lecture on (cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "dropoff",
-        lambda: _compute_dropoff_map(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
 
     progress_data = _fetch_all(client.table("student_progress")\
@@ -557,17 +550,9 @@ def _compute_dropoff_map(lecture_id: str, token: str = None) -> List[Dict[str, A
     return result
 
 
-def get_confidence_by_slide(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+@cached_analytic("confidence_by_slide")
+def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Per-slide confidence breakdown (got_it / unsure / confused; cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "confidence_by_slide",
-        lambda: _compute_confidence_by_slide(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
 
     events_data = _fetch_all(client.table("learning_events")\
@@ -613,17 +598,9 @@ def _compute_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dic
     return sorted(result, key=lambda x: x["confusion_rate"], reverse=True)
 
 
-def get_ai_query_feed(lecture_id: str, token: str = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
+@cached_analytic("ai_queries")
+def get_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     """Return the latest student AI tutor queries for this lecture (cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "ai_queries",
-        lambda: _compute_ai_query_feed(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str, Any]]:
     client = get_auth_client(token)
 
     events_data = _fetch_all(client.table("learning_events")\
@@ -647,17 +624,9 @@ def _compute_ai_query_feed(lecture_id: str, token: str = None) -> List[Dict[str,
     return result
 
 
-def get_lecture_insights(lecture_id: str, token: str = None, force_refresh: bool = False) -> Dict[str, Any]:
+@cached_analytic("insights")
+def get_lecture_insights(lecture_id: str, token: str = None) -> Dict[str, Any]:
     """Ranked insight feed powering the Insight Garden (cached)."""
-    return analytics_cache.get_or_compute(
-        lecture_id,
-        "insights",
-        lambda: _compute_lecture_insights(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-def _compute_lecture_insights(lecture_id: str, token: str = None) -> Dict[str, Any]:
     # Lazy import: the insights package imports this module, so importing it at
     # module top would be circular.
     from backend.services.insights import build_insights
@@ -670,17 +639,9 @@ def _compute_lecture_insights(lecture_id: str, token: str = None) -> Dict[str, A
     }
 
 
-async def get_dashboard_data(lecture_id: str, token: str = None, force_refresh: bool = False):
+@cached_analytic_async("dashboard")
+async def get_dashboard_data(lecture_id: str, token: str = None):
     """Get comprehensive advanced dashboard analytics in a single call using high-performance SQL."""
-    return await analytics_cache.get_or_compute_async(
-        lecture_id,
-        "dashboard",
-        lambda: _compute_dashboard_data(lecture_id, token),
-        force_refresh=force_refresh,
-    )
-
-
-async def _compute_dashboard_data(lecture_id: str, token: str = None):
     try:
         async with await get_db_connection() as conn:
             # Overview Stats
@@ -1119,12 +1080,40 @@ async def _compute_professor_overview(
         .in_("lecture_id", lecture_ids)
     )
 
-    # 3. Recent learning events (last `days` days)
-    # Batch query using direct async database connection to prevent N+1 loop
+    # 3. Recent learning events (last `days` days).
+    #
+    # P5-2 (Foundation 10x roadmap §13, OLTP/OLAP split — staged lift (a)):
+    # active_students / median_time_minutes / activity_sparkline no longer
+    # scan every learning_events row for the course; they read
+    # `mv_course_daily_activity` (supabase/migrations/
+    # 20260720000001_professor_overview_daily_activity_mv.sql), a per
+    # (course_id, day) rollup refreshed on a schedule by an Arq cron job
+    # (backend/workers/arq_worker.py, every 10 minutes — see that file for
+    # the bounded-staleness rationale). weakest_concepts/weakest_slides still
+    # need item-level slide_id/question_id granularity the rollup doesn't
+    # carry, so they read a narrower *live* quiz_attempt-only query below
+    # (previously this fetched ALL event types for the window and filtered
+    # to quiz_attempt in Python; querying only quiz_attempt rows cuts the
+    # payload without changing the result).
     from datetime import timezone
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-    if client.__class__.__name__ == "FakeSupabaseClient":
+    def _row_to_dict(r):
+        d = dict(r)
+        ed = d.get("event_data")
+        if isinstance(ed, str):
+            try:
+                d["event_data"] = json.loads(ed)
+            except Exception:
+                d["event_data"] = {}
+        return d
+
+    use_mv = client.__class__.__name__ != "FakeSupabaseClient"
+
+    if not use_mv:
+        # Unit-test path (FakeSupabaseClient simulates PostgREST, not a real
+        # Postgres connection the MV could live in): compute everything from
+        # the raw event set exactly as before the P5-2 change.
         course_events = []
         for lid in lecture_ids:
             events_data = await asyncio.to_thread(
@@ -1147,28 +1136,63 @@ async def _compute_professor_overview(
 
                 if dt_val >= cutoff:
                     course_events.append(e)
+
+        active_students = len({
+            e["user_id"] for e in course_events if e.get("user_id")
+        })
+
+        durations: List[float] = []
+        for e in course_events:
+            if e.get("event_type") != "lecture_complete":
+                continue
+            d = (e.get("event_data") or {}).get("total_duration_seconds")
+            if isinstance(d, (int, float)) and d > 0:
+                durations.append(d / 60.0)
+        median_time = _median(durations)
+
+        # quiz_attempt subset for step 7 below.
+        quiz_attempt_events = [
+            e for e in course_events if e.get("event_type") == "quiz_attempt"
+        ]
+        by_day_events = course_events
     else:
+        today = datetime.now(timezone.utc).date()
+        window_start = today - timedelta(days=days - 1)
         async with await get_db_connection() as conn:
-            event_rows = await conn.fetch("""
-                SELECT user_id, event_type, event_data, created_at
+            mv_rows = await conn.fetch("""
+                SELECT activity_day, tracked_event_count, active_user_ids,
+                       lecture_complete_durations_seconds
+                FROM mv_course_daily_activity
+                WHERE course_id = $1::uuid
+                  AND activity_day BETWEEN $2::date AND $3::date
+                ORDER BY activity_day
+            """, course_id, window_start, today)
+
+            quiz_rows = await conn.fetch("""
+                SELECT event_data, created_at
                 FROM learning_events
-                WHERE created_at >= $1::timestamptz
+                WHERE event_type = 'quiz_attempt'
+                  AND created_at >= $1::timestamptz
                   AND (event_data->>'lectureId') = ANY($2::text[])
             """, cutoff, lecture_ids)
-        def _row_to_dict(r):
-            d = dict(r)
-            ed = d.get("event_data")
-            if isinstance(ed, str):
-                try:
-                    d["event_data"] = json.loads(ed)
-                except Exception:
-                    d["event_data"] = {}
-            return d
-        course_events = [_row_to_dict(r) for r in event_rows]
+        quiz_attempt_events = [_row_to_dict(r) for r in quiz_rows]
 
-    active_students = len({
-        e["user_id"] for e in course_events if e.get("user_id")
-    })
+        active_user_set: set = set()
+        durations: List[float] = []
+        tracked_by_day: Dict[date, int] = {}
+        for r in mv_rows:
+            day = r["activity_day"]
+            tracked_by_day[day] = int(r["tracked_event_count"] or 0)
+            for uid in (r["active_user_ids"] or []):
+                if uid:
+                    active_user_set.add(uid)
+            for secs in (r["lecture_complete_durations_seconds"] or []):
+                if secs and secs > 0:
+                    durations.append(float(secs) / 60.0)
+
+        active_students = len(active_user_set)
+        median_time = _median(durations)
+        by_day_events = None  # sparkline built directly from tracked_by_day below
 
     # 4. Average completion across progress rows
     completion_pcts: List[float] = []
@@ -1185,16 +1209,6 @@ async def _compute_professor_overview(
     total_q = sum(int(p.get("total_questions_answered") or 0) for p in progress)
     total_c = sum(int(p.get("correct_answers") or 0) for p in progress)
     avg_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0.0
-
-    # 6. Median lecture-completion time (minutes)
-    durations: List[float] = []
-    for e in course_events:
-        if e.get("event_type") != "lecture_complete":
-            continue
-        d = (e.get("event_data") or {}).get("total_duration_seconds")
-        if isinstance(d, (int, float)) and d > 0:
-            durations.append(d / 60.0)
-    median_time = _median(durations)
 
     # 7. Weakest concepts (degrades to weakest slides)
     slides = await asyncio.to_thread(
@@ -1224,9 +1238,7 @@ async def _compute_professor_overview(
     slide_stats: Dict[str, Dict[str, int]] = defaultdict(
         lambda: {"attempts": 0, "correct": 0}
     )
-    for e in course_events:
-        if e.get("event_type") != "quiz_attempt":
-            continue
+    for e in quiz_attempt_events:
         ed_raw = e.get("event_data") or {}
         import json
         ed = json.loads(ed_raw) if isinstance(ed_raw, str) else ed_raw
@@ -1286,20 +1298,26 @@ async def _compute_professor_overview(
         )[:5]
 
     # 8. 7-day activity sparkline (counts learning_events tied to course)
-    by_day: Dict[str, int] = defaultdict(int)
-    for e in course_events:
-        if e.get("event_type") not in (
-            "quiz_attempt", "slide_view", "ai_tutor_query",
-            "lecture_complete", "confidence_rating",
-        ):
-            continue
-        created = e.get("created_at")
-        if isinstance(created, (datetime, date)):
-            day = created.isoformat()[:10]
-        else:
-            day = (created or "")[:10]
-        if day:
-            by_day[day] += 1
+    if use_mv:
+        # tracked_by_day is already the exact per-day count of the same
+        # five event types the branch below filters for (see the
+        # `tracked_event_count` FILTER clause in the migration).
+        by_day: Dict[str, int] = {d.isoformat(): c for d, c in tracked_by_day.items()}
+    else:
+        by_day = defaultdict(int)
+        for e in by_day_events:
+            if e.get("event_type") not in (
+                "quiz_attempt", "slide_view", "ai_tutor_query",
+                "lecture_complete", "confidence_rating",
+            ):
+                continue
+            created = e.get("created_at")
+            if isinstance(created, (datetime, date)):
+                day = created.isoformat()[:10]
+            else:
+                day = (created or "")[:10]
+            if day:
+                by_day[day] += 1
     today = datetime.utcnow().date()
     sparkline = []
     for i in range(days - 1, -1, -1):
@@ -1661,141 +1679,7 @@ async def get_course_benchmarks(course_id: str, token: Optional[str]) -> Dict[st
     }
 
 
-def get_personal_optimal_schedule(user_id: str, token: str = None, timezone_offset_minutes: int = 0) -> Dict[str, Any]:
-    """
-    Calculate the best time to study for a specific student based on:
-    1. Circadian patterns (when they are active)
-    2. Performance metrics (accuracy and speed during different hours)
-    """
-    client = get_auth_client(token)
-    
-    # Fetch all learning events for this user
-    events_data = _fetch_all(client.table("learning_events")\
-        .select("event_type, event_data, created_at")\
-        .eq("user_id", user_id))
-    
-    events = events_data or []
-    if not events:
-        return {
-            "suggested_hours": [],
-            "message": "Not enough data yet. Keep learning to see your optimal schedule!",
-            "peak_hour": None
-        }
-
-    # Group by hour (0-23)
-    # Note: We should ideally handle timezone, but using UTC for now
-    hourly_stats = {h: {"count": 0, "correct": 0, "attempts": 0, "total_duration": 0, "view_count": 0} for h in range(24)}
-    
-    # Login events are not learning activity — exclude to avoid skewing circadian scores
-    _EXCLUDED_EVENT_TYPES = {"login"}
-
-    for ev in events:
-        if ev.get("event_type") in _EXCLUDED_EVENT_TYPES:
-            continue
-        try:
-            # created_at is like '2024-03-20T10:30:00+00:00'
-            dt = datetime.fromisoformat(ev["created_at"].replace('Z', '+00:00'))
-            # Shift UTC to client local time
-            local_dt = dt - timedelta(minutes=timezone_offset_minutes)
-            hour = local_dt.hour
-
-            hourly_stats[hour]["count"] += 1
-
-            ev_type = ev.get("event_type")
-            ev_data = ev.get("event_data", {})
-            
-            if ev_type == "quiz_attempt":
-                hourly_stats[hour]["attempts"] += 1
-                if ev_data.get("correct"):
-                    hourly_stats[hour]["correct"] += 1
-            elif ev_type == "slide_view":
-                hourly_stats[hour]["view_count"] += 1
-                hourly_stats[hour]["total_duration"] += ev_data.get("duration_seconds", 0)
-        except Exception:
-            continue
-
-    # Score each hour
-    scores = []
-    for h, s in hourly_stats.items():
-        if s["count"] == 0:
-            continue
-            
-        # Volume (20% weight) - normalized against max count
-        # Accuracy (50% weight) - correct/attempts
-        # Focus (30% weight) - avg duration per slide
-        
-        accuracy = (s["correct"] / s["attempts"]) if s["attempts"] > 0 else 0.5 # Neutral if no quizzes
-        avg_duration = (s["total_duration"] / s["view_count"]) if s["view_count"] > 0 else 30
-        
-        # Scale duration to a 0-1 score (assume 60s is ideal "deep focus" per slide)
-        focus_score = min(1.0, avg_duration / 60.0)
-        
-        # Volume score
-        intensity = min(1.0, s["count"] / 10.0) # Assume 10 events/hour is high intensity
-        
-        total_score = (intensity * 0.2) + (accuracy * 0.5) + (focus_score * 0.3)
-        
-        scores.append({
-            "hour": h,
-            "score": round(total_score, 3),
-            "accuracy": round(accuracy * 100, 1),
-            "intensity": s["count"]
-        })
-
-    # Sort by score
-    scores.sort(key=lambda x: x["score"], reverse=True)
-    
-    suggested = scores[:3]
-    if not suggested:
-        return {
-            "suggested_hours": [],
-            "message": "Not enough data yet. Keep learning!",
-            "peak_hour": None
-        }
-
-    peak = suggested[0]["hour"]
-    
-    # Simple advice logic
-    advice = ""
-    pattern = "Calibrating"
-    if peak is not None:
-        if 5 <= peak < 12:
-            advice = "You're a morning lark! Your focus and accuracy are highest in the AM."
-            pattern = "Morning Peak"
-        elif 12 <= peak < 17:
-            advice = "Afternoon power-user! You handle complex topics well in the middle of the day."
-            pattern = "Afternoon Surge"
-        elif 17 <= peak < 22:
-            advice = "Evening focus! You seem to reach your flow state as the day winds down."
-            pattern = "Evening Flow"
-        else:
-            advice = "Night owl detected! You show high cognitive clarity during late-night sessions."
-            pattern = "Night Owl"
-
-    # For the frontend timeline, we want ALL 24 hours.
-    # Hours without data will have a baseline score.
-    full_day_stats = []
-    for h in range(24):
-        # Find if we have real data for this hour
-        existing = next((s for s in scores if s["hour"] == h), None)
-        if existing:
-            full_day_stats.append(existing)
-        else:
-            full_day_stats.append({
-                "hour": h,
-                "score": 0.1, # Baseline
-                "accuracy": 0,
-                "intensity": 0
-            })
-
-    # Sort full_day_stats by hour for the timeline
-    full_day_stats.sort(key=lambda x: x["hour"])
-
-    return {
-        "suggested_hours": full_day_stats,
-        "peak_hour": peak,
-        "message": advice,
-        "accuracy_at_peak": suggested[0]["accuracy"] if suggested else 0,
-        "energy_pattern": pattern,
-        "circadian_score": int(suggested[0]["score"] * 100) if suggested else 0
-    }
+# NOTE: get_personal_optimal_schedule moved to
+# backend/services/personal_schedule_service.py (P4-1 god-object split —
+# it's per-user circadian/study-time analytics, unrelated to the per-lecture
+# analytics aggregates in this module).

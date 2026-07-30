@@ -97,37 +97,16 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated, service_role;
 
--- ── Out-of-band cache tables ────────────────────────────────────────────────
--- Several migrations only ALTER these tables (e.g. 20260501000001_fix_cache_rls
--- uses ALTER TABLE IF EXISTS / CREATE POLICY ON pdf_parse_cache). They were
--- created out-of-band on the live project, so we recreate the minimum schema
--- here so the migrations apply cleanly and we can assert on their RLS state.
-CREATE TABLE IF NOT EXISTS public.pdf_parse_cache (
-    pdf_hash    text PRIMARY KEY,
-    slides      jsonb NOT NULL DEFAULT '[]'::jsonb,
-    deck        jsonb DEFAULT '{}'::jsonb,
-    created_at  timestamptz DEFAULT now()
-);
-
-CREATE EXTENSION IF NOT EXISTS vector;
-
-CREATE TABLE IF NOT EXISTS public.slide_embeddings (
-    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    -- No FK to lectures: this bootstrap runs before supabase/migrations/
-    -- creates that table (out-of-band cache table, same rationale as
-    -- pdf_parse_cache above).
-    lecture_id   uuid,
-    pdf_hash     text,
-    slide_index  int NOT NULL,
-    embedding    vector(768),
-    metadata     jsonb DEFAULT '{}'::jsonb,
-    content_hash text,
-    created_at   timestamptz DEFAULT now()
-);
-
--- The cache tables exist on the live project with grants baked in. Mirror
--- those explicitly because ALTER DEFAULT PRIVILEGES only affects FUTURE
--- objects (and these were created in this same bootstrap).
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.pdf_parse_cache TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.slide_embeddings TO anon, authenticated;
-GRANT ALL ON public.pdf_parse_cache, public.slide_embeddings TO service_role;
+-- `pdf_parse_cache` and `slide_embeddings` used to be "out-of-band cache
+-- tables" stubbed manually right here, because their CREATE TABLE lived only
+-- in un-versioned backend/scripts/*.sql and every real migration only
+-- ALTERed them (e.g. 20260501000001_fix_cache_rls's `ALTER TABLE IF EXISTS`).
+-- That hand-maintained stand-in had already drifted from reality — it gave
+-- pdf_parse_cache `slides`/`deck` columns that no code anywhere reads or
+-- writes, instead of the `result` column backend/services/cache.py actually
+-- uses. Migration 20260430120000_promote_slide_embeddings_and_match_slides
+-- now creates both tables (and the vector extension) for real, verified
+-- against actual read/write call sites — this bootstrap no longer needs its
+-- own copy, and removing it means the test suite exercises the same schema
+-- migrations actually produce rather than a parallel definition that can
+-- silently drift again.

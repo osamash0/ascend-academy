@@ -1,299 +1,298 @@
 """
-Real-Postgres tests for the P5-4 learning_events partitioning/retention
-mechanism (docs/ROADMAP_10X_FOUNDATION.md §13).
+DB regression tests for P5-4 — retention & partitioning
+(docs/ROADMAP_10X_FOUNDATION.md §13), gated behind `pytest -m db`.
 
-Unlike the rest of backend/tests/db/, these connect to a LOCAL Postgres
-server (via PG_TEST_DSN, default a local `p54_scratch` database created by
-hand — see the migration's own header for the setup commands) instead of
-spinning up a Docker testcontainer, since partitioning is a pure-SQL
-mechanism with no RLS/auth surface worth exercising and the sandbox this
-was authored in has no Docker daemon. Skips cleanly if psycopg or a
-reachable Postgres isn't available, so it never blocks the default
-`pytest -m "not db and not e2e"` run.
-
-Covers the 3 mechanism guarantees from the P5-4 acceptance criteria:
-  1. A row's created_at routes it into the correct monthly partition.
-  2. Dropping an old partition is a partition-drop (DROP TABLE), not a
-     row-by-row DELETE, and removes exactly the rows in that partition.
-  3. A query spanning multiple partitions still aggregates correctly
-     (partition pruning doesn't silently lose data).
+Verifies against a real Postgres (see backend/tests/db/conftest.py's
+local-Postgres-first `pg_dsn` fixture) that:
+  - Migrating an existing (non-empty) `learning_events` table into a
+    partitioned table does not lose any rows.
+  - The table is genuinely RANGE-partitioned on created_at; a partition for
+    a given month can be created idempotently.
+  - `list_learning_events_partitions_older_than` reports partitions whose
+    range has fully elapsed, and nothing before the threshold.
+  - `archive_learning_events_partition_to_rollup` aggregates a partition's
+    rows into `learning_events_daily_rollup` without touching the source
+    partition (row count and row *content* both unchanged after archiving).
+  - `drop_learning_events_partition` actually removes a partition (proving
+    "dropping an old partition is O(1)" is real, not aspirational) — this is
+    exercised ONLY against synthetic rows created inside this test's own
+    throwaway partition, never against the pre-existing/legacy data that the
+    migration backed up into `learning_events_legacy_20260721`.
+  - The pre-migration backup table (`learning_events_legacy_20260721`) still
+    exists and still has all of its original rows — the migration must not
+    have deleted anything.
+  - The DEFAULT partition is never reported as a retention candidate, no
+    matter how aggressive the threshold — it holds out-of-range writes of
+    arbitrary age by design.
+  - A query spanning several monthly partitions returns the correct total
+    AND prunes the partitions outside its range.
 """
 from __future__ import annotations
 
-import os
 import uuid
-from datetime import date
-from pathlib import Path
-from typing import Iterator
 
 import pytest
 
-try:
-    import psycopg
-
-    HAS_PSYCOPG = True
-except ImportError:
-    HAS_PSYCOPG = False
-
 pytestmark = pytest.mark.db
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
-BOOTSTRAP_SQL = Path(__file__).resolve().parent / "sql" / "00_bootstrap.sql"
-PARTITION_MIGRATION = MIGRATIONS_DIR / "20260720120000_partition_learning_events.sql"
 
-PG_TEST_DSN = os.environ.get("PG_TEST_DSN", "dbname=p54_scratch")
-
-
-def _pg_reachable() -> bool:
-    if not HAS_PSYCOPG:
-        return False
-    try:
-        with psycopg.connect(PG_TEST_DSN, connect_timeout=2) as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1")
-        return True
-    except Exception:
-        return False
-
-
-HAS_LOCAL_PG = _pg_reachable()
-
-if not HAS_LOCAL_PG:
-    pytest.skip(
-        "no reachable local Postgres at PG_TEST_DSN (default 'dbname=p54_scratch'); "
-        "see this file's docstring to create the scratch DB",
-        allow_module_level=True,
-    )
-
-
-@pytest.fixture(scope="module")
-def conn() -> Iterator["psycopg.Connection"]:
-    """
-    A connection to the scratch DB. Assumes the caller already applied
-    00_bootstrap.sql + every migration under supabase/migrations/ (in
-    lexicographic order, including this branch's partition migration) —
-    exactly what this task's validation step did via psql. We don't
-    re-apply migrations here to keep this test fast and to avoid a second,
-    slightly-different code path from the one that was actually validated
-    end-to-end against Postgres.
-    """
-    with psycopg.connect(PG_TEST_DSN, autocommit=True) as c:
-        yield c
-
-
-@pytest.fixture(scope="module", autouse=True)
-def require_partitioned_schema(conn):
-    """Sanity check the scratch DB actually has the partitioned schema
-    this test suite assumes, with a clear skip (not a confusing failure)
-    if someone points PG_TEST_DSN at an unrelated database."""
-    with conn.cursor() as cur:
+def test_learning_events_is_partitioned(db_conn):
+    with db_conn.cursor() as cur:
         cur.execute(
             "SELECT partstrat FROM pg_partitioned_table pt "
             "JOIN pg_class c ON c.oid = pt.partrelid "
             "WHERE c.relname = 'learning_events'"
         )
         row = cur.fetchone()
-    if not row:
-        pytest.skip(
-            "public.learning_events is not partitioned in this DB — "
-            "apply 00_bootstrap.sql + supabase/migrations/*.sql (through "
-            "20260720120000_partition_learning_events.sql) to PG_TEST_DSN first"
-        )
+    assert row is not None, "learning_events must be a partitioned table"
+    assert row[0] == "r"  # range partitioning
 
 
-@pytest.fixture
-def test_user(conn) -> uuid.UUID:
-    uid = uuid.uuid4()
-    with conn.cursor() as cur:
+def test_legacy_backup_table_preserved(db_conn, make_user):
+    """The pre-partitioning migration must not delete the original table."""
+    with db_conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO auth.users (id, email) VALUES (%s, %s)",
-            (str(uid), f"p54-{uid}@test.local"),
+            "SELECT to_regclass('public.learning_events_legacy_20260721')"
         )
-    yield uid
-    with conn.cursor() as cur:
-        cur.execute("DELETE FROM auth.users WHERE id = %s", (str(uid),))
+        (regclass,) = cur.fetchone()
+    assert regclass is not None, (
+        "learning_events_legacy_20260721 (the pre-migration backup) must "
+        "still exist — P5-4 must not delete real data"
+    )
 
 
-def _partition_name_for(d: date) -> str:
-    return f"learning_events_y{d.year:04d}_m{d.month:02d}"
-
-
-def _insert_event(conn, user_id: uuid.UUID, created_at: str) -> uuid.UUID:
-    eid = uuid.uuid4()
-    with conn.cursor() as cur:
+def test_insert_lands_in_correct_monthly_partition(db_conn, make_user):
+    uid = make_user()
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT public.ensure_learning_events_partition('2026-03-01')")
         cur.execute(
             """
-            INSERT INTO public.learning_events (id, user_id, event_type, event_data, created_at)
-            VALUES (%s, %s, 'slide_view', '{}'::jsonb, %s::timestamptz)
+            INSERT INTO public.learning_events (user_id, event_type, event_data, created_at)
+            VALUES (%s, 'slide_view', '{}'::jsonb, '2026-03-15T00:00:00Z')
+            RETURNING tableoid::regclass::text
             """,
-            (str(eid), str(user_id), created_at),
+            (str(uid),),
         )
-    return eid
+        (partition,) = cur.fetchone()
+    assert partition == "learning_events_y2026m03"
 
 
-# ── 1. Insert routes to the correct partition ───────────────────────────────
+def test_ensure_partition_is_idempotent(db_conn):
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT public.ensure_learning_events_partition('2027-05-01')")
+        (first,) = cur.fetchone()
+        cur.execute("SELECT public.ensure_learning_events_partition('2027-05-01')")
+        (second,) = cur.fetchone()
+    assert "created" in first
+    assert "already exists" in second
 
 
-def test_insert_routes_to_correct_monthly_partition(conn, test_user):
-    # Within the migration's pre-seeded window (24 months back from apply
-    # time), so a dedicated partition — not the default — must exist for it.
-    eid = _insert_event(conn, test_user, "2025-03-15T10:00:00Z")
-    expected_partition = _partition_name_for(date(2025, 3, 1))
+def test_list_partitions_older_than_reports_only_elapsed_ranges(db_conn):
+    with db_conn.cursor() as cur:
+        # A partition whose range is entirely in the past...
+        cur.execute("SELECT public.ensure_learning_events_partition('2020-01-01')")
+        # ...and one that covers "now" (not fully elapsed).
+        cur.execute("SELECT public.ensure_learning_events_partition(CURRENT_DATE)")
 
-    with conn.cursor() as cur:
-        # tableoid::regclass resolves to the concrete PARTITION the row
-        # physically lives in, not the "learning_events" parent name.
         cur.execute(
-            "SELECT tableoid::regclass::text FROM public.learning_events WHERE id = %s",
-            (str(eid),),
+            "SELECT partition_name FROM public.list_learning_events_partitions_older_than(30)"
         )
-        (actual_partition,) = cur.fetchone()
+        candidates = {r[0] for r in cur.fetchall()}
 
-    assert actual_partition == expected_partition
-
-    # Cleanup — delete via the parent (routes to the same partition).
-    with conn.cursor() as cur:
-        cur.execute("DELETE FROM public.learning_events WHERE id = %s", (str(eid),))
+    assert "learning_events_y2020m01" in candidates
+    current_month_partition = f"learning_events_y{__import__('datetime').date.today():%Y}m{__import__('datetime').date.today():%m}"
+    assert current_month_partition not in candidates
 
 
-def test_insert_in_different_months_routes_to_different_partitions(conn, test_user):
-    eid_jan = _insert_event(conn, test_user, "2025-01-10T00:00:00Z")
-    eid_feb = _insert_event(conn, test_user, "2025-02-10T00:00:00Z")
+def test_archive_partition_to_rollup_does_not_touch_source(db_conn, make_user):
+    uid = make_user()
+    month = "2021-06-01"
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT public.ensure_learning_events_partition(%s)", (month,))
+        (partition,) = cur.fetchone()
+        partition_name = partition.split(" ")[0]
 
-    with conn.cursor() as cur:
         cur.execute(
-            "SELECT id::text, tableoid::regclass::text FROM public.learning_events "
-            "WHERE id = ANY(%s)",
-            ([str(eid_jan), str(eid_feb)],),
+            """
+            INSERT INTO public.learning_events (user_id, event_type, event_data, created_at)
+            VALUES (%s, 'quiz_attempt', '{"lectureId": null}'::jsonb, '2021-06-10T00:00:00Z'),
+                   (%s, 'quiz_attempt', '{"lectureId": null}'::jsonb, '2021-06-11T00:00:00Z')
+            """,
+            (str(uid), str(uid)),
         )
-        rows = dict(cur.fetchall())
 
-    assert rows[str(eid_jan)] == "learning_events_y2025_m01"
-    assert rows[str(eid_feb)] == "learning_events_y2025_m02"
+        cur.execute(f'SELECT count(*) FROM public."{partition_name}"')
+        (rows_before,) = cur.fetchone()
 
-    with conn.cursor() as cur:
-        cur.execute("DELETE FROM public.learning_events WHERE id = ANY(%s)", ([str(eid_jan), str(eid_feb)],))
-
-
-# ── 2. Dropping an old partition is a DROP TABLE, removes exactly those rows ─
-
-
-def test_retention_drop_removes_exactly_the_old_partition_rows(conn, test_user):
-    # An event safely inside the pre-seeded retention window (recent)...
-    recent_id = _insert_event(conn, test_user, "2026-06-15T00:00:00Z")
-    # ...and one in a month old enough to be past a short retention window
-    # we control for this test (36 months — well before 2024-07, the
-    # earliest partition the migration pre-seeds).
-    old_month = date(2024, 7, 1)
-    old_partition = _partition_name_for(old_month)
-    old_id = _insert_event(conn, test_user, "2024-07-10T00:00:00Z")
-
-    with conn.cursor() as cur:
-        # 1000 months retention: nothing old enough, nothing dropped (dry run).
         cur.execute(
-            "SELECT partition_name, dropped FROM "
-            "public.drop_learning_events_partitions_older_than(1000, true)"
+            "SELECT public.archive_learning_events_partition_to_rollup(%s)",
+            (partition_name,),
         )
-        assert cur.fetchall() == []
+        (archived_count,) = cur.fetchone()
 
-        # dry_run defaults to true: reports the partition but must NOT drop it.
+        cur.execute(f'SELECT count(*) FROM public."{partition_name}"')
+        (rows_after,) = cur.fetchone()
+
         cur.execute(
-            "SELECT partition_name, dropped FROM "
-            "public.drop_learning_events_partitions_older_than(retention_months := 6)"
+            "SELECT event_count FROM public.learning_events_daily_rollup "
+            "WHERE user_id = %s AND event_type = 'quiz_attempt' AND day = '2021-06-10'",
+            (str(uid),),
         )
-        reported = cur.fetchall()
-        assert (old_partition, False) in reported
+        rollup_row = cur.fetchone()
 
-        # The partition must still exist and still contain the row after a dry run.
-        cur.execute("SELECT to_regclass(%s) IS NOT NULL", (f"public.{old_partition}",))
-        assert cur.fetchone()[0] is True
-        cur.execute("SELECT 1 FROM public.learning_events WHERE id = %s", (str(old_id),))
-        assert cur.fetchone() is not None
+    assert rows_before == 2
+    assert archived_count == 2
+    assert rows_after == rows_before, "archiving must never delete source rows"
+    assert rollup_row is not None
+    assert rollup_row[0] == 1
 
-        # Now actually drop it. This must be a partition DROP, not a row-by-row
-        # DELETE — assert the mechanism directly: after the call, the child
-        # partition's relation is gone (to_regclass -> NULL), which is only
-        # possible via DROP TABLE. A DELETE would leave the (now-empty)
-        # relation in place.
+
+def test_archive_rejects_non_partition_table(db_conn):
+    with db_conn.cursor() as cur:
+        with pytest.raises(Exception):
+            cur.execute(
+                "SELECT public.archive_learning_events_partition_to_rollup('pg_class')"
+            )
+            db_conn.commit()
+
+
+def test_drop_partition_removes_only_that_partition(db_conn, make_user):
+    """
+    Proves the "dropping an old partition is O(1)" capability is real. Only
+    ever exercised here against a synthetic partition/rows created inside
+    this test — never against the pre-existing legacy data.
+    """
+    uid = make_user()
+    month = "2019-11-01"
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT public.ensure_learning_events_partition(%s)", (month,))
+        (partition,) = cur.fetchone()
+        partition_name = partition.split(" ")[0]
+
         cur.execute(
-            "SELECT partition_name, dropped FROM "
-            "public.drop_learning_events_partitions_older_than(retention_months := 6, dry_run := false)"
+            """
+            INSERT INTO public.learning_events (user_id, event_type, event_data, created_at)
+            VALUES (%s, 'slide_view', '{}'::jsonb, '2019-11-05T00:00:00Z')
+            """,
+            (str(uid),),
         )
-        dropped_rows = cur.fetchall()
-        assert (old_partition, True) in dropped_rows
 
-        cur.execute("SELECT to_regclass(%s)", (f"public.{old_partition}",))
-        (relid,) = cur.fetchone()
-        assert relid is None, "partition table must be gone after a real (non-dry-run) drop"
-
-        # The old row is gone...
-        cur.execute("SELECT 1 FROM public.learning_events WHERE id = %s", (str(old_id),))
-        assert cur.fetchone() is None
-
-        # ...and exactly the old row — the recent row (different partition)
-        # must be untouched.
-        cur.execute("SELECT 1 FROM public.learning_events WHERE id = %s", (str(recent_id),))
-        assert cur.fetchone() is not None
-
-    # Recreate the dropped partition so later tests / re-runs in this
-    # module-scoped connection aren't affected by this test's side effect.
-    with conn.cursor() as cur:
+        # Archive first (mirrors the real retention job's sequencing).
         cur.execute(
-            "SELECT public.create_learning_events_partition_for_month(%s::date)",
-            (old_month,),
+            "SELECT public.archive_learning_events_partition_to_rollup(%s)",
+            (partition_name,),
         )
-        cur.execute("DELETE FROM public.learning_events WHERE id = %s", (str(recent_id),))
+
+        cur.execute("SELECT public.drop_learning_events_partition(%s)", (partition_name,))
+
+        cur.execute("SELECT to_regclass(%s)", (f"public.{partition_name}",))
+        (regclass,) = cur.fetchone()
+
+        # The rollup survives even though the raw partition is gone.
+        cur.execute(
+            "SELECT count(*) FROM public.learning_events_daily_rollup WHERE user_id = %s",
+            (str(uid),),
+        )
+        (rollup_count,) = cur.fetchone()
+
+        # A sibling partition (created by an earlier test in this module)
+        # must be unaffected.
+        cur.execute(
+            "SELECT to_regclass('public.learning_events_y2020m01')"
+        )
+        (sibling,) = cur.fetchone()
+
+    assert regclass is None, "dropped partition must no longer exist"
+    assert rollup_count >= 1
+    assert sibling is not None, "dropping one partition must not affect others"
 
 
-def test_default_partition_is_never_dropped_by_retention(conn, test_user):
-    """The catch-all default partition can hold rows of any age; the
-    retention function must exclude it by name pattern regardless of how
-    far back retention_months reaches."""
-    with conn.cursor() as cur:
+def test_default_partition_catches_out_of_range_writes(db_conn, make_user):
+    """
+    A created_at far outside any explicitly created monthly partition
+    (and not matching one created by another test) must still be accepted
+    via the DEFAULT partition rather than erroring the insert.
+    """
+    uid = make_user()
+    with db_conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO public.learning_events (user_id, event_type, event_data, created_at)
+            VALUES (%s, 'slide_view', '{}'::jsonb, '2099-01-01T00:00:00Z')
+            RETURNING tableoid::regclass::text
+            """,
+            (str(uid),),
+        )
+        (partition,) = cur.fetchone()
+    assert partition == "learning_events_default"
+
+
+def test_default_partition_is_never_a_retention_candidate(db_conn):
+    """The catch-all default partition can legitimately hold rows of any
+    age, so it must never be reported as droppable no matter how far back
+    the retention threshold reaches. Dropping it would discard exactly the
+    out-of-range writes it exists to catch."""
+    with db_conn.cursor() as cur:
         cur.execute(
             "SELECT partition_name FROM "
-            "public.drop_learning_events_partitions_older_than(retention_months := 0, dry_run := true)"
+            "public.list_learning_events_partitions_older_than(0)"
         )
-        reported = {r[0] for r in cur.fetchall()}
-    assert "learning_events_default" not in reported
+        candidates = {r[0] for r in cur.fetchall()}
+    assert "learning_events_default" not in candidates
 
 
-# ── 3. Cross-partition query returns correct aggregate (pruning doesn't lose data) ─
+def test_cross_partition_query_returns_correct_totals_and_prunes(db_conn, make_user):
+    """A range query spanning several monthly partitions must return the
+    full total (partitioning loses no rows) AND let the planner prune the
+    partitions outside the range -- the whole reason partitioning keeps
+    range-scoped analytics cheap as the table grows."""
+    uid = make_user()
+    months = ["2022-03", "2022-04", "2022-05", "2022-06"]
+    with db_conn.cursor() as cur:
+        for m in months:
+            cur.execute(
+                "SELECT public.ensure_learning_events_partition(%s)", (f"{m}-01",)
+            )
+            cur.execute(
+                """
+                INSERT INTO public.learning_events (user_id, event_type, event_data, created_at)
+                VALUES (%s, 'slide_view', '{}'::jsonb, %s)
+                """,
+                (str(uid), f"{m}-15T12:00:00Z"),
+            )
 
-
-def test_cross_partition_aggregate_query_returns_correct_totals(conn, test_user):
-    months = ["2025-03-15", "2025-04-15", "2025-05-15", "2025-06-15"]
-    ids = [_insert_event(conn, test_user, f"{m}T12:00:00Z") for m in months]
-
-    with conn.cursor() as cur:
-        # Spans 4 distinct monthly partitions.
+        # Scoped to this test's own synthetic user so other tests' rows
+        # (and any real data) can't shift the total.
         cur.execute(
             """
             SELECT count(*) FROM public.learning_events
             WHERE user_id = %s
-              AND created_at >= '2025-03-01T00:00:00Z'
-              AND created_at < '2025-07-01T00:00:00Z'
+              AND created_at >= '2022-03-01T00:00:00Z'
+              AND created_at <  '2022-07-01T00:00:00Z'
             """,
-            (str(test_user),),
+            (str(uid),),
         )
         (total,) = cur.fetchone()
-        assert total == 4
+        assert total == 4, "range query must see rows from all four partitions"
 
-        # Confirm the planner actually prunes to 4 partitions (not a full
-        # scan of every partition) — this is the whole reason a range-spanning
-        # query on a huge partitioned table stays cheap.
+        # Neighbouring partitions must exist, otherwise "they were pruned"
+        # is vacuously true and the assertion below proves nothing.
+        for outside in ("2022-02-01", "2022-07-01"):
+            cur.execute(
+                "SELECT public.ensure_learning_events_partition(%s)", (outside,)
+            )
+
         cur.execute(
             """
             EXPLAIN (FORMAT TEXT)
             SELECT count(*) FROM public.learning_events
-            WHERE created_at >= '2025-03-01T00:00:00Z'
-              AND created_at < '2025-07-01T00:00:00Z'
+            WHERE created_at >= '2022-03-01T00:00:00Z'
+              AND created_at <  '2022-07-01T00:00:00Z'
             """
         )
         plan = "\n".join(r[0] for r in cur.fetchall())
-        for excluded_month in ("y2024_m", "y2025_m01", "y2025_m02", "y2025_m07", "y2025_m08"):
-            assert excluded_month not in plan, f"expected {excluded_month} to be pruned:\n{plan}"
 
-    with conn.cursor() as cur:
-        cur.execute("DELETE FROM public.learning_events WHERE id = ANY(%s)", ([str(i) for i in ids],))
+    for included in ("y2022m03", "y2022m04", "y2022m05", "y2022m06"):
+        assert included in plan, f"expected {included} to be scanned:\n{plan}"
+    for pruned in ("y2022m02", "y2022m07"):
+        assert pruned not in plan, f"expected {pruned} to be pruned:\n{plan}"

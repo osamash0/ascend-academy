@@ -19,6 +19,12 @@ class LLMRateLimitError(Exception):
     pass
 
 
+class LLMBudgetExceededError(Exception):
+    """Raised before any provider is called when a user has exceeded their
+    monthly LLM cost cap (settings.llm_monthly_user_cost_cap_usd)."""
+    pass
+
+
 def _is_retryable(exc: Exception) -> bool:
     """Return True for rate limits and transient errors, False for bad inputs."""
     msg = str(exc).lower()

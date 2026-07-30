@@ -41,6 +41,7 @@ from backend.services.ai_service import (
 from backend.services.cache import (
     get_cached_blueprint,
     get_cached_slide_results,
+    get_slide_embedding_content_hash,
     record_pipeline_run,
     store_cached_blueprint,
     store_slide_embedding,
@@ -813,18 +814,35 @@ async def _safe_embedding_task(
     carry teaching content so embedding them just adds noise to retrieval.
     On failure the (idx, result, pdf_hash) tuple is appended to
     `failed_queue` so deck-finalize can do one more attempt.
+
+    Content-hash dedupe (P3-2, docs/ROADMAP_10X_FOUNDATION.md §8): the
+    embedding text's sha256 is computed *before* any embedding-API call and
+    compared against whatever content_hash is already stored for this
+    (pdf_hash, slide_index, pipeline_version). A re-parse of an unchanged
+    deck (identical slide text) hits this match on every slide and never
+    calls `generate_embeddings` again — the previously stored vector is
+    already correct and is left in place. Only new slides or slides whose
+    text actually changed pay for a fresh embedding.
     """
     if result.get("is_metadata") or result.get("slide_type") == "metadata":
         return
     text = _build_embedding_text(result)
     if not text:
         return
+    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
     try:
+        existing_hash = await get_slide_embedding_content_hash(
+            pdf_hash, idx, PIPELINE_VERSION
+        )
+        if existing_hash is not None and existing_hash == content_hash:
+            logger.debug(
+                "Slide %d unchanged (content_hash match) — skipping re-embed", idx
+            )
+            return
         async with sem:
             embedding = await generate_embeddings(text)
         if not embedding:
             return
-        content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
         meta = result.get("_meta", {}) or {}
         metadata = {
             "slide_type": result.get("slide_type"),

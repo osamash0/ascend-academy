@@ -31,7 +31,7 @@ export function useMicroQuiz(lectureId: string | undefined, targetSlideNumber: n
       }
 
       // 2. Find a question for the target slide
-      let questionCandidates = questions.filter(q => q.slide_id === targetSlide?.id);
+      const questionCandidates = questions.filter(q => q.slide_id === targetSlide?.id);
 
       // Helper to reduce options to exactly 2 (1 correct, 1 incorrect)
       const reduceToTwoOptions = (q: QuizQuestion): QuizQuestion => {

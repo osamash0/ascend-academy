@@ -79,6 +79,67 @@ def test_title_suggestion_llm_failure_falls_back(app_client, monkeypatch):
     assert res.json()["title"] == "My AI Generated Course"  # graceful fallback
 
 
+def test_title_suggestion_rate_limit_kicks_in(app_client, monkeypatch):
+    # Sibling AI-content routes (ai_content.py's suggest-title) are all
+    # explicitly rate-limited; this endpoint previously had no @limiter.limit
+    # and relied solely on the 120/min global default.
+    _patch_openai(monkeypatch, content="Databases 101")
+    last_status = None
+    for _ in range(35):
+        res = app_client.post(
+            "/api/v1/courses/generate-title-suggestion",
+            json={"lectures": ["SQL basics"]},
+            headers={"Authorization": "Bearer x"},
+        )
+        last_status = res.status_code
+        if res.status_code == 429:
+            break
+    # Limit is 30/minute; 35 attempts must hit 429.
+    assert last_status == 429
+
+
+def test_title_suggestion_rejects_more_than_50_lectures(app_client):
+    res = app_client.post(
+        "/api/v1/courses/generate-title-suggestion",
+        json={"lectures": ["L"] * 51},
+    )
+    assert res.status_code == 422
+
+
+def test_title_suggestion_truncates_oversized_lecture_titles_before_prompting(app_client, monkeypatch):
+    captured = {}
+
+    class _Completions:
+        async def create(self, **kwargs):
+            captured["messages"] = kwargs["messages"]
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="Title"))]
+            )
+
+    class _Chat:
+        completions = _Completions()
+
+    class _FakeAsyncOpenAI:
+        def __init__(self, *a, **k):
+            self.chat = _Chat()
+
+    import openai
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", _FakeAsyncOpenAI)
+
+    huge_title = "A" * 5000
+    res = app_client.post(
+        "/api/v1/courses/generate-title-suggestion",
+        json={"lectures": [huge_title]},
+    )
+    assert res.status_code == 200
+    prompt = captured["messages"][0]["content"]
+    # The 5000-char title must not reach the LLM call verbatim — only the
+    # first 200 chars per lecture are interpolated into the prompt.
+    assert huge_title not in prompt
+    assert ("A" * 200) in prompt
+
+
 # ── create_course ─────────────────────────────────────────────────────────────
 
 def test_create_course_blank_description_stored_as_null(app_client, fake_supabase):

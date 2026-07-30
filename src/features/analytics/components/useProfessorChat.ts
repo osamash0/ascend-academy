@@ -61,7 +61,9 @@ export function useProfessorChat(opts?: { onAsk?: (text: string) => void }): Pro
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch (e) {}
+    } catch (e) {
+      // A malformed or inaccessible cached value should not block the chat.
+    }
     return [];
   };
 

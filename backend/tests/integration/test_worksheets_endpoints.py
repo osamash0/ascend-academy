@@ -8,6 +8,11 @@ from fastapi.testclient import TestClient
 
 from backend.core.auth_middleware import verify_token, require_professor
 
+# Real %PDF magic bytes — upload_worksheet now checks file content, not just
+# the Content-Type header, so fixtures claiming "application/pdf" need to
+# actually look like a PDF.
+MIN_PDF = b"%PDF-1.4\n%fake-worksheet-content\n"
+
 
 @pytest.fixture
 def client(app):
@@ -34,13 +39,13 @@ def test_upload_list_download_delete(client, app, fake_supabase, professor_user)
     _auth_as(app, professor_user)
     _seed_lecture(fake_supabase, "lec-1", professor_user.id)
 
-    files = {"file": ("notes.pdf", b"PDF DATA", "application/pdf")}
+    files = {"file": ("notes.pdf", MIN_PDF, "application/pdf")}
     r = client.post("/api/lectures/lec-1/worksheets", files=files)
     assert r.status_code == 201, r.text
     ws = r.json()["data"]
     assert ws["title"] == "notes.pdf"
     assert ws["file_url"].startswith("worksheets/lec-1/")
-    assert ws["size_bytes"] == len(b"PDF DATA")
+    assert ws["size_bytes"] == len(MIN_PDF)
 
     r = client.get("/api/lectures/lec-1/worksheets")
     assert r.status_code == 200
@@ -55,6 +60,28 @@ def test_upload_list_download_delete(client, app, fake_supabase, professor_user)
 
     r = client.get("/api/lectures/lec-1/worksheets")
     assert r.json()["data"] == []
+
+
+def test_download_url_forces_content_disposition_attachment(
+    client, app, fake_supabase, professor_user
+):
+    # upload_worksheet only checks the client-supplied Content-Type header
+    # (no magic-byte check, and text/plain / text/csv have no reliable
+    # magic bytes at all) and stores that same attacker-controlled value as
+    # the object's Content-Type. Forcing download=True on the signed URL is
+    # the actual mitigation — it closes the gap regardless of what
+    # Content-Type ends up being served.
+    _auth_as(app, professor_user)
+    _seed_lecture(fake_supabase, "lec-1", professor_user.id)
+    files = {"file": ("a.pdf", MIN_PDF, "application/pdf")}
+    ws = client.post("/api/lectures/lec-1/worksheets", files=files).json()["data"]
+
+    r = client.get(f"/api/worksheets/{ws['id']}/download_url")
+    assert r.status_code == 200, r.text
+
+    assert len(fake_supabase.storage.signed_urls) == 1
+    _bucket, _path, _expires_in, options = fake_supabase.storage.signed_urls[0]
+    assert options == {"download": True}
 
 
 def test_upload_rejects_oversize(client, app, fake_supabase, professor_user):
@@ -74,10 +101,31 @@ def test_upload_rejects_bad_mime(client, app, fake_supabase, professor_user):
     assert r.status_code == 400, r.text
 
 
+def test_upload_rejects_content_type_content_mismatch(client, app, fake_supabase, professor_user):
+    # Distinct from test_upload_rejects_bad_mime: the header itself is on
+    # the allowlist (image/png), but the actual bytes are HTML — the exact
+    # spoofing this magic-byte check exists to catch.
+    _auth_as(app, professor_user)
+    _seed_lecture(fake_supabase, "lec-1", professor_user.id)
+    files = {"file": ("evil.png", b"<script>alert(1)</script>", "image/png")}
+    r = client.post("/api/lectures/lec-1/worksheets", files=files)
+    assert r.status_code == 400, r.text
+
+
+def test_upload_accepts_text_csv_without_magic_byte_check(client, app, fake_supabase, professor_user):
+    # text/plain and text/csv have no reliable magic bytes — confirms they
+    # aren't accidentally rejected now that most other types are checked.
+    _auth_as(app, professor_user)
+    _seed_lecture(fake_supabase, "lec-1", professor_user.id)
+    files = {"file": ("grades.csv", b"name,score\nAlice,95\n", "text/csv")}
+    r = client.post("/api/lectures/lec-1/worksheets", files=files)
+    assert r.status_code == 201, r.text
+
+
 def test_other_professor_cannot_upload(client, app, fake_supabase, professor_user, other_professor_user):
     _seed_lecture(fake_supabase, "lec-1", professor_user.id)
     _auth_as(app, other_professor_user)
-    files = {"file": ("notes.pdf", b"PDF", "application/pdf")}
+    files = {"file": ("notes.pdf", MIN_PDF, "application/pdf")}
     r = client.post("/api/lectures/lec-1/worksheets", files=files)
     assert r.status_code == 403, r.text
 
@@ -85,7 +133,7 @@ def test_other_professor_cannot_upload(client, app, fake_supabase, professor_use
 def test_rename_worksheet(client, app, fake_supabase, professor_user):
     _auth_as(app, professor_user)
     _seed_lecture(fake_supabase, "lec-1", professor_user.id)
-    files = {"file": ("a.pdf", b"X", "application/pdf")}
+    files = {"file": ("a.pdf", MIN_PDF, "application/pdf")}
     ws = client.post("/api/lectures/lec-1/worksheets", files=files).json()["data"]
 
     r = client.patch(f"/api/worksheets/{ws['id']}", json={"title": "Better Name"})
@@ -98,7 +146,7 @@ def test_student_can_download_when_enrolled(
 ):
     _auth_as(app, professor_user)
     _seed_lecture(fake_supabase, "lec-1", professor_user.id)
-    files = {"file": ("a.pdf", b"X", "application/pdf")}
+    files = {"file": ("a.pdf", MIN_PDF, "application/pdf")}
     ws = client.post("/api/lectures/lec-1/worksheets", files=files).json()["data"]
 
     fake_supabase.table("assignment_enrollments").insert({
@@ -118,7 +166,7 @@ def test_student_blocked_when_not_enrolled(
 ):
     _auth_as(app, professor_user)
     _seed_lecture(fake_supabase, "lec-1", professor_user.id)
-    files = {"file": ("a.pdf", b"X", "application/pdf")}
+    files = {"file": ("a.pdf", MIN_PDF, "application/pdf")}
     ws = client.post("/api/lectures/lec-1/worksheets", files=files).json()["data"]
 
     _auth_as(app, student_user)

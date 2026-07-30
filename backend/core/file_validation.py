@@ -29,14 +29,20 @@ def sanitize_filename(filename: Optional[str]) -> str:
     """
     if not filename:
         return "upload.pdf"
-    
+
     # Remove null bytes
     safe_name = filename.replace("\x00", "")
-    
+
     # Extract the base name to strip out directory paths like ../ or /
     safe_name = os.path.basename(safe_name)
-    
+
+    # Strip HTML metacharacters. Currently inert defense-in-depth (nothing in
+    # the app renders raw HTML from a filename today), kept narrow so it
+    # doesn't touch legitimate non-ASCII names (umlauts, em dashes, etc.).
+    for ch in ("<", ">", '"'):
+        safe_name = safe_name.replace(ch, "")
+
     if not safe_name or safe_name in (".", ".."):
         return "upload.pdf"
-        
+
     return safe_name

@@ -45,14 +45,23 @@ async def get_arq_pool():
 async def queue_depth() -> int:
     """Number of jobs currently pending (enqueued, not yet started) on the
     default Arq queue. Used for upload backpressure. Returns 0 on any error so
-    a monitoring hiccup never blocks uploads."""
+    a monitoring hiccup never blocks uploads.
+
+    Also samples the arq_queue_depth Prometheus gauge (Roadmap P1-2) — this is
+    the single place both the upload backpressure check and the worker's
+    per-job metrics hook read depth from, so instrumenting here covers both
+    without a separate polling loop.
+    """
     try:
         from arq.constants import default_queue_name
         pool = await get_arq_pool()
-        return int(await pool.zcard(default_queue_name))
+        depth = int(await pool.zcard(default_queue_name))
     except Exception as e:
         logger.debug("queue_depth check failed: %s", e)
         return 0
+    from backend.core.metrics import ARQ_QUEUE_DEPTH
+    ARQ_QUEUE_DEPTH.set(depth)
+    return depth
 
 
 class QueueFullError(RuntimeError):
@@ -333,8 +342,8 @@ async def process_pdf_stream(
             except asyncio.TimeoutError:
                 if task.done():
                     if task.exception():
-                        logger.error("Sync unified parser failed: %s", task.exception())
-                        yield f"data: {json.dumps({'type': 'error', 'message': str(task.exception())})}\n\n"
+                        logger.error("Sync unified parser failed: %s", task.exception(), exc_info=task.exception())
+                        yield f"data: {json.dumps({'type': 'error', 'message': 'PDF parsing failed. Please try again or contact support if this keeps happening.'})}\n\n"
                     break
                 continue
         return
@@ -346,7 +355,7 @@ async def process_pdf_lazy(content: bytes, filename: str, ai_model: str) -> Asyn
             yield f"data: {json.dumps(update)}\n\n"
     except Exception as e:
         logger.error("Lazy import failed: %s", e, exc_info=True)
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'recoverable': False})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'message': 'PDF parsing failed. Please try again or contact support if this keeps happening.', 'recoverable': False})}\n\n"
 
 async def extract_raw_pages(content: bytes, filename: str, parser: str) -> Dict[str, Any]:
     pages_raw: Dict[int, dict] = {}

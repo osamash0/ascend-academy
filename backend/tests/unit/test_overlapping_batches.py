@@ -178,9 +178,9 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(prompt: str, _chain, preferred=None):
+        def fake_rotation(prompt: str, _chain, preferred=None, **_kw):
             captured["prompt"] = prompt
-            return _make_response(slides)
+            return _make_response(slides), "cerebras", "gpt-oss-120b", None
 
         monkeypatch.setattr(
             "backend.services.llm_client.call_llm", fake_call_llm,
@@ -211,9 +211,9 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(prompt: str, _chain, preferred=None):
+        def fake_rotation(prompt: str, _chain, preferred=None, **_kw):
             captured["prompt"] = prompt
-            return _make_response(slides)
+            return _make_response(slides), "cerebras", "gpt-oss-120b", None
 
         monkeypatch.setattr(
             "backend.services.llm_client.call_llm", fake_call_llm,
@@ -268,8 +268,8 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(_prompt: str, _chain, preferred=None):
-            return bad_response
+        def fake_rotation(_prompt: str, _chain, preferred=None, **_kw):
+            return bad_response, "cerebras", "gpt-oss-120b", None
 
         monkeypatch.setattr(
             "backend.services.llm_client.call_llm", fake_call_llm,
@@ -315,8 +315,8 @@ class TestBatchAnalyzeContextOnly:
         async def fake_call_llm(fn):
             return fn()
 
-        def fake_rotation(_prompt: str, _chain, preferred=None):
-            return "literally not json at all"
+        def fake_rotation(_prompt: str, _chain, preferred=None, **_kw):
+            return "literally not json at all", "cerebras", "gpt-oss-120b", None
 
         monkeypatch.setattr(
             "backend.services.llm_client.call_llm", fake_call_llm,
@@ -386,7 +386,7 @@ class TestCrossBatchContextRegression:
                 }],
             }
 
-        def fake_rotation(prompt: str, _chain, preferred=None):
+        def fake_rotation(prompt: str, _chain, preferred=None, **_kw):
             prompts.append(prompt)
             # Identify which window we're in by which page numbers appear
             # OUTSIDE <context_only> blocks.
@@ -401,7 +401,7 @@ class TestCrossBatchContextRegression:
                 )
                 if f"=== SLIDE {m.group(1)} (" not in ctx_text
             ]
-            return json.dumps([_good_q(pn) for pn in active_pns])
+            return json.dumps([_good_q(pn) for pn in active_pns]), "cerebras", "gpt-oss-120b", None
 
         async def passthrough(fn):
             return fn()
@@ -489,7 +489,7 @@ class TestPerSlideRegenWithOverlap:
 
         prompts: List[str] = []
 
-        def fake_rotation(prompt: str, _chain, preferred=None):
+        def fake_rotation(prompt: str, _chain, preferred=None, **_kw):
             prompts.append(prompt)
             import re
             is_regen = "regenerate" in prompt.lower()
@@ -506,7 +506,7 @@ class TestPerSlideRegenWithOverlap:
             # First-time batches return BAD MCQs (so regen will fire);
             # regen calls return GOOD ones.
             maker = _good_q if is_regen else _bad_q
-            return json.dumps([maker(pn) for pn in active_pns])
+            return json.dumps([maker(pn) for pn in active_pns]), "cerebras", "gpt-oss-120b", None
 
         async def passthrough(fn):
             return fn()

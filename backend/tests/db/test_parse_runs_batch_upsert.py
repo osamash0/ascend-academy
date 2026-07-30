@@ -1,5 +1,5 @@
 """Real-Postgres validation of repos.get_or_create_run's Phase-1 upsert
-behavior — the ON CONFLICT(pdf_hash, pipeline_version) DO UPDATE semantics
+behavior — the ON CONFLICT(pdf_hash, pipeline_version, user_id) DO UPDATE semantics
 can't be meaningfully asserted against a mocked pool, since the point is the
 actual SQL's COALESCE/overwrite behavior.
 
@@ -72,7 +72,17 @@ async def test_second_call_same_hash_overwrites_with_new_explicit_values(wired_p
 async def test_internal_refetch_without_batch_id_preserves_prior_value(wired_pool, make_user, db_conn):
     """The orchestrator's own internal re-fetch (e.g. mid-pipeline) doesn't
     know batch_id/course_id — it must NEVER wipe values an earlier call (the
-    batch endpoint's pre-create) already recorded."""
+    batch endpoint's pre-create) already recorded.
+
+    The refetch DOES still pass user_id — the unique constraint is now
+    (pdf_hash, pipeline_version, user_id) (migration 20260730000000), and
+    NULL is never equal to anything under a unique constraint, so a refetch
+    that omitted user_id would insert a brand-new row instead of matching
+    the existing one. This mirrors the only real call site
+    (unified_orchestrator.py's parse_pdf_unified), which always has user_id
+    available and always passes it — omitting it here would test a call
+    shape that doesn't occur in production.
+    """
     from backend.services.parser import repos
 
     prof = make_user(role="professor")
@@ -89,9 +99,7 @@ async def test_internal_refetch_without_batch_id_preserves_prior_value(wired_poo
         batch_id=batch, user_id=prof, course_id=course, filename="x.pdf", parsing_mode="ai",
     )
 
-    refetched = await repos.get_or_create_run(
-        "refetch-hash" + "0" * 52, None, "5", user_id=prof,
-    )
+    refetched = await repos.get_or_create_run("refetch-hash" + "0" * 52, None, "5", user_id=prof)
 
     assert refetched.run_id == pre_created.run_id
     assert refetched.batch_id == batch

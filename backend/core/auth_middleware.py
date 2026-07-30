@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 import httpx
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -69,7 +69,6 @@ class CachedUser:
         )
 
 async def verify_token(
-    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> Any:
     """
@@ -85,10 +84,11 @@ async def verify_token(
          coerce the result to JSON-safe data, write it to the cache,
          and return the live Supabase User object.
 
-    Side effect: stashes the resolved user id on ``request.state.user_id``.
-    This lets backend.core.rate_limit key per-route limits on the
-    authenticated identity instead of the raw (spoofable) client IP for any
-    endpoint that depends on this function -- see rate_limit.get_real_client_ip.
+    Takes no ``Request``: per-route rate limits are already keyed on the
+    caller's identity by ``rate_limit.rate_limit_key``, which hashes the
+    bearer token directly. SlowAPI runs its key function BEFORE route
+    dependencies, so it cannot see anything this dependency resolves --
+    stashing a user id on ``request.state`` here would never be read.
     """
     if credentials is None:
         raise HTTPException(
@@ -109,9 +109,14 @@ async def verify_token(
     # 1. Check shared database L2 cache first
     cached_user = await get_cached_token(token)
     if cached_user:
+        from backend.core.metrics import AUTH_CACHE_TOTAL
+        AUTH_CACHE_TOTAL.labels(result="hit").inc()
         if isinstance(cached_user, dict):
             return CachedUser.from_dict(cached_user)
         return cached_user
+
+    from backend.core.metrics import AUTH_CACHE_TOTAL
+    AUTH_CACHE_TOTAL.labels(result="miss").inc()
 
     # 2. Verify with Supabase Auth (slow path)
     try:

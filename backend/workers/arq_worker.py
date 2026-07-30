@@ -6,17 +6,41 @@ Start with:
 Or via docker-compose:
     worker:
       command: python -m arq backend.workers.arq_worker.WorkerSettings
+
+Roadmap P2-2: also hosts the daily nudge-engine cron job (moved off
+in-process APScheduler in backend/services/nudge_scheduler.py — see that
+module's docstring for why). ``cron(..., unique=True)`` is arq's default,
+so even if this worker is ever scaled to N processes, only one of them
+actually executes the job at each scheduled time (arq dedupes via a
+Redis-backed key), never N double-fires the way APScheduler would have.
 """
 import logging
+import time
 
 from arq.connections import RedisSettings
+from arq.cron import cron
 
 from backend.core.config import settings
+from backend.services.analytics_rollup import rollup_analytics_cache, rollup_concept_mastery
 from backend.services.localization_service import localize_lecture_job
+from backend.services.nudge_scheduler import (
+    NUDGE_CRON_ENABLED,
+    NUDGE_RUN_HOUR_UTC,
+    run_nudge_engine_cron,
+)
 from backend.services.parser.unified_orchestrator import parse_pdf_unified
 from backend.services.review.card_factory import generate_review_cards
+from backend.workers.dlq import capture_dlq_on_job_end
 
 logger = logging.getLogger(__name__)
+
+# Empty when ENABLE_NUDGE_SCHEDULER isn't set to "1" — same off-by-default
+# posture as the old APScheduler wiring (never fires in dev/tests).
+_cron_jobs = (
+    [cron(run_nudge_engine_cron, hour=NUDGE_RUN_HOUR_UTC, minute=0, unique=True)]
+    if NUDGE_CRON_ENABLED
+    else []
+)
 
 
 async def startup(ctx: dict) -> None:
@@ -33,10 +57,141 @@ async def shutdown(ctx: dict) -> None:
     logger.info("Arq worker shutdown complete")
 
 
+# ── P5-2: scheduled materialized-view refresh ────────────────────────────────
+#
+# `mv_course_daily_activity` (supabase/migrations/
+# 20260720000001_professor_overview_daily_activity_mv.sql) backs the
+# professor-overview dashboard aggregate (analytics_service.py::
+# _compute_professor_overview) instead of a live per-request scan over
+# learning_events. It needs a periodic refresh or the dashboard would show
+# the numbers from whenever the view was last built (i.e. never, if nothing
+# refreshes it).
+#
+# Interval: every 10 minutes. This is the "bounded staleness" window the
+# roadmap (docs/ROADMAP_10X_FOUNDATION.md §13, P5-2) asks to be documented:
+# professor-dashboard active_students / median_time_minutes /
+# activity_sparkline can lag up to ~10 minutes behind the latest student
+# activity. 10 minutes was picked as a middle ground — short enough that a
+# professor watching a live session still sees it move within the hour,
+# long enough that a REFRESH CONCURRENTLY (a full re-aggregation over the
+# window, see the migration) doesn't compete for I/O with OLTP traffic on
+# every request. There is no "give me live data now" fallback for this
+# specific view today; average_completion/average_quiz_accuracy (sourced
+# from `student_progress`, not this view) and weakest_concepts/weakest_slides
+# (a narrower live quiz_attempt-only query) are already always-live in the
+# same endpoint, so a professor never sees a fully stale dashboard — only
+# these three fields can lag.
+async def refresh_professor_overview_mv(ctx: dict) -> None:
+    """Arq cron job: REFRESH MATERIALIZED VIEW CONCURRENTLY the P5-2 rollup.
+
+    CONCURRENTLY requires the unique index the migration creates
+    (`uq_mv_course_daily_activity_course_day`) and means readers are never
+    blocked while the refresh runs (verified manually against a local
+    Postgres: a long-running SELECT against the view completed unaffected
+    while a concurrent REFRESH ran in another connection).
+    """
+    from backend.core.database import get_db_connection
+
+    import asyncpg
+    try:
+        async with await get_db_connection() as conn:
+            await conn.execute(
+                "REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_course_daily_activity"
+            )
+        logger.info("mv_course_daily_activity refreshed")
+    except asyncpg.UndefinedTableError:
+        # Migration 20260720000001_professor_overview_daily_activity_mv.sql has
+        # not been applied yet — skip silently so the worker starts cleanly in
+        # local dev before the schema is in sync.
+        logger.warning(
+            "mv_course_daily_activity does not exist yet — "
+            "run migration 20260720000001_professor_overview_daily_activity_mv.sql to create it"
+        )
+    except Exception as e:
+        logger.error("mv_course_daily_activity refresh failed: %s", e, exc_info=True)
+
+
+async def on_job_start(ctx: dict) -> None:
+    """Roadmap P1-2: stamp a start time on this job's ctx (Arq passes the
+    SAME ctx dict through on_job_start -> the job function -> after_job_end,
+    so this survives to the duration calculation below) and opportunistically
+    refresh the queue-depth gauge — free since a job just left the queue."""
+    ctx["_metrics_start_ts"] = time.monotonic()
+    try:
+        from backend.services.upload_service import queue_depth
+        await queue_depth()
+    except Exception:
+        logger.debug("arq metrics: queue_depth sample failed", exc_info=True)
+
+
+async def after_job_end(ctx: dict) -> None:
+    """Roadmap P1-2: records arq_job_duration_seconds / arq_job_outcome_total.
+
+    Runs after Arq has already persisted the job result, so
+    ``Job(job_id, redis).result_info()`` (the only place function name +
+    success/failure are available outside run_job's local closure) is safe
+    to read here. Best-effort — a metrics hiccup must never affect job
+    processing, which Arq awaits this hook for.
+    """
+    from backend.core.metrics import ARQ_JOB_DURATION_SECONDS, ARQ_JOB_OUTCOME_TOTAL
+
+    function_name = "unknown"
+    outcome = "unknown"
+    try:
+        from arq.jobs import Job
+        job_id = ctx.get("job_id")
+        redis = ctx.get("redis")
+        if job_id is not None and redis is not None:
+            info = await Job(job_id, redis).result_info()
+            if info is not None:
+                function_name = info.function or "unknown"
+                outcome = "success" if info.success else "failure"
+    except Exception:
+        logger.debug("arq metrics: result_info lookup failed", exc_info=True)
+
+    ARQ_JOB_OUTCOME_TOTAL.labels(function=function_name, outcome=outcome).inc()
+    start_ts = ctx.get("_metrics_start_ts")
+    if start_ts is not None:
+        ARQ_JOB_DURATION_SECONDS.labels(function=function_name).observe(time.monotonic() - start_ts)
+
+
+async def _after_job_end(ctx: dict) -> None:
+    """Composed ``after_job_end`` hook — Arq allows only one, but both P1-2
+    (metrics) and P2-3 (dead-letter capture) need to run after a job ends.
+    Each is independently best-effort; a failure in one must not skip the
+    other, so both are guarded."""
+    try:
+        await after_job_end(ctx)   # P1-2: arq_job_duration/outcome metrics
+    except Exception:
+        logger.debug("after_job_end: metrics hook failed", exc_info=True)
+    try:
+        await capture_dlq_on_job_end(ctx)   # P2-3: dead-letter capture
+    except Exception:
+        logger.debug("after_job_end: DLQ capture hook failed", exc_info=True)
+
+
 class WorkerSettings:
-    functions = [parse_pdf_unified, generate_review_cards, localize_lecture_job]
+    functions = [
+        parse_pdf_unified,
+        generate_review_cards,
+        localize_lecture_job,
+        rollup_analytics_cache,
+        rollup_concept_mastery,
+    ]
+    cron_jobs = [
+        cron(refresh_professor_overview_mv, minute={0, 10, 20, 30, 40, 50}, run_at_startup=True),
+        *_cron_jobs,
+    ]
     on_startup = startup
     on_shutdown = shutdown
+    # P1-2: stamps a start time + samples queue depth for the arq metrics.
+    on_job_start = on_job_start
+    # Composed hook running BOTH P1-2's metrics recording AND P2-3's
+    # best-effort dead-letter capture for permanently-failed jobs (Arq only
+    # supports a single after_job_end). See backend/workers/dlq.py for the
+    # DLQ lifecycle rationale (why after_job_end, and the one case — crash-
+    # loop past max_tries — it can't cover without patching arq internals).
+    after_job_end = _after_job_end
 
     # Broker + results live on the dedicated queue Redis (noeviction + AOF),
     # never the LRU app-cache Redis — otherwise queued jobs can be evicted.

@@ -68,11 +68,41 @@ app = FastAPI(
     openapi_url=openapi_url,
 )
 
+def _trusted_proxy_hosts() -> list[str]:
+    """Hosts/CIDRs allowed to set X-Forwarded-For / X-Forwarded-Proto.
+
+    S-3 (docs/ROADMAP_10X_FOUNDATION.md §14): this used to be ``["*"]``,
+    which tells ``ProxyHeadersMiddleware`` to trust EVERY peer's
+    X-Forwarded-For value, including a direct internet client's own
+    self-supplied header — i.e. any caller could set
+    ``X-Forwarded-For: 1.2.3.4`` and have it taken as their "real" IP,
+    trivially defeating per-IP rate limiting (rotate the header, dodge the
+    limit).
+
+    In the real deployment topology (docker-compose.prod.yml) the `api`
+    container is never reachable directly — only the `frontend` nginx
+    container talks to it, over the `ascend_net` bridge network, whose
+    default (unpinned) subnet falls in Docker's standard bridge range. We
+    trust only that range plus loopback (used by local dev / tests /
+    reverse-proxy-on-localhost setups), so ProxyHeadersMiddleware ignores
+    X-Forwarded-For from anything else — e.g. a request that reaches `api`
+    some other way can no longer inject a fake header.
+
+    Override with the comma-separated ``TRUSTED_PROXY_HOSTS`` env var if a
+    deployment's proxy sits somewhere else (e.g. a pinned bridge subnet, a
+    cloud LB's known egress range).
+    """
+    raw = os.environ.get("TRUSTED_PROXY_HOSTS", "").strip()
+    if raw:
+        return [h.strip() for h in raw.split(",") if h.strip()]
+    return ["127.0.0.1", "::1", "172.16.0.0/12"]
+
+
 # ── Rate limiting ────────────────────────────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_trusted_proxy_hosts())
 
 # ── Security & Logging Middleware ────────────────────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -194,6 +224,19 @@ if settings.feature_student_uploads:
 # Mount parent v1_router onto app
 app.include_router(v1_router)
 
+# ── Metrics (Roadmap Foundation 10x, Phase 1 P1-2) ──────────────────────────
+# RED metrics (request rate/error/duration by route) via
+# prometheus-fastapi-instrumentator; custom domain metrics (Arq queue depth,
+# LLM cost/latency, cache hit rates, ...) live in backend/core/metrics.py and
+# are recorded at their own call sites — they share this same default
+# prometheus_client registry, so they show up on the same /metrics scrape.
+# NOTE: this endpoint is unauthenticated, matching the standard Prometheus
+# self-hosted-scrape model — restrict it at the reverse proxy/firewall in
+# prod, don't expose it on the public internet.
+from prometheus_fastapi_instrumentator import Instrumentator
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=_docs_enabled)
+
 # Import and register DomainError global exception handlers
 from backend.core.exceptions import DomainError
 
@@ -250,15 +293,15 @@ async def startup_event():
     await init_redis()
     from backend.core.auth_middleware import get_auth_http_client
     get_auth_http_client()
-    # Start the daily nudge engine scheduler when explicitly enabled. Off by
-    # default (and during tests) so we don't fan out notifications from local
-    # dev shells. In production set ENABLE_NUDGE_SCHEDULER=1.
-    if os.environ.get("ENABLE_NUDGE_SCHEDULER") == "1":
-        try:
-            from backend.services.nudge_scheduler import start_scheduler
-            start_scheduler()
-        except Exception as e:
-            logger.error("Failed to start nudge scheduler: %s", e, exc_info=True)
+    # Roadmap P2-2: the daily nudge engine no longer runs here. It used to be
+    # an in-process APScheduler job (ENABLE_NUDGE_SCHEDULER=1), which is why
+    # docker-compose.prod.yml pinned uvicorn to --workers 1 — APScheduler has
+    # no leader election, so a second web replica would double-fire every
+    # nudge. It now runs as an Arq cron job in the worker process instead
+    # (backend/workers/arq_worker.py, backend/services/nudge_scheduler.py),
+    # which dedupes across worker processes via arq's cron(unique=True).
+    # Same ENABLE_NUDGE_SCHEDULER / NUDGE_RUN_HOUR_UTC env vars still control
+    # it — just read by the worker now, not the API process.
 
 @app.on_event("shutdown")
 async def shutdown_event():

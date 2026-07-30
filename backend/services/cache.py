@@ -201,6 +201,7 @@ def _scoped_cache_key(pdf_hash: str, parsing_mode: str = "ai") -> str:
 
 async def get_cached_parse(pdf_hash: str, parsing_mode: str = "ai") -> Optional[Dict[str, Any]]:
     """Retrieve full parse result from database using SUPABASE_ADMIN."""
+    from backend.core.metrics import CACHE_TOTAL
     key = _scoped_cache_key(pdf_hash, parsing_mode)
     try:
         # Use supabase_admin for background caching to bypass RLS if necessary.
@@ -210,9 +211,11 @@ async def get_cached_parse(pdf_hash: str, parsing_mode: str = "ai") -> Optional[
             lambda: supabase_admin.table("pdf_parse_cache").select("result").eq("pdf_hash", key).execute()
         )
         if res.data:
+            CACHE_TOTAL.labels(cache="pdf_parse", result="hit").inc()
             return res.data[0]["result"]
     except Exception as e:
         logger.error("Failed to get cached parse: %s", e)
+    CACHE_TOTAL.labels(cache="pdf_parse", result="miss").inc()
     return None
 
 
@@ -338,22 +341,44 @@ async def purge_old_blueprint_versions(keep_version: int) -> int:
 
 # --- pgvector Semantic Cache ---
 
-async def get_similar_slides(embedding: List[float], limit: int = 5, threshold: float = 0.8) -> List[Dict[str, Any]]:
+# NOTE: the old unscoped get_similar_slides() (called match_slides directly,
+# then relied on a Python post-filter in retrieval.py) was deleted here —
+# Roadmap P1-4 replaced its only caller with get_similar_slides_by_lecture()
+# below, which pushes the lecture_id/pdf_hash scope into SQL instead. The
+# match_slides RPC itself is left in place (P0-3's canonical function,
+# tested directly in backend/tests/db/test_slide_embeddings_migration.py) —
+# only this now-dead Python wrapper was removed.
+
+async def get_similar_slides_by_lecture(
+    embedding: List[float],
+    lecture_id: Optional[str],
+    pdf_hash: Optional[str],
+    limit: int = 5,
+    threshold: float = 0.65,
+) -> List[Dict[str, Any]]:
+    """Single-lecture-scoped ANN search via `match_slides_by_lecture` (Roadmap P1-4).
+
+    Unlike the old `get_similar_slides` + Python post-filter path, the
+    lecture_id/pdf_hash scope is applied in SQL, so a relevant slide in the
+    target lecture is never dropped because a global candidate window
+    filled up with other lectures' slides first (the same class of bug
+    `get_similar_slides_scoped` already fixed for the course-wide path).
     """
-    Search for similar slides in Supabase using cosine similarity.
-    Requires the match_slides RPC function in PostgreSQL.
-    """
+    if not lecture_id and not pdf_hash:
+        return []
     try:
         res = await run_in_threadpool(
-            lambda: supabase_admin.rpc("match_slides", {
+            lambda: supabase_admin.rpc("match_slides_by_lecture", {
                 "query_embedding": embedding,
+                "p_lecture_id": lecture_id,
+                "p_pdf_hash": pdf_hash,
                 "match_threshold": threshold,
-                "match_count": limit
+                "match_count": limit,
             }).execute()
         )
         return res.data or []
     except Exception as e:
-        logger.error("Failed to get similar slides: %s", e)
+        logger.error("Failed to get lecture-scoped similar slides: %s", e)
         return []
 
 
@@ -407,6 +432,49 @@ async def search_slides_keyword_scoped(
         return []
 
 
+async def get_slide_embedding_content_hash(
+    pdf_hash: str,
+    slide_index: int,
+    pipeline_version: str = "1",
+) -> Optional[str]:
+    """Look up the `content_hash` already stored for (pdf_hash, slide_index,
+    pipeline_version), if any.
+
+    Used by `_safe_embedding_task` (P3-2, docs/ROADMAP_10X_FOUNDATION.md §8)
+    to dedupe re-embedding on re-parse: the caller computes the candidate
+    slide's content_hash *before* calling the embedding API, compares it
+    against what's already stored, and only pays for a fresh embedding when
+    the hashes differ (content actually changed) or nothing is stored yet
+    (new slide).
+
+    Returns None both when no row exists and when the lookup itself fails —
+    either way the caller's safe default is to proceed with embedding rather
+    than silently skip it.
+    """
+    if not pdf_hash:
+        return None
+    try:
+        res = await run_in_threadpool(
+            lambda: supabase_admin.table("slide_embeddings")
+            .select("content_hash")
+            .eq("pdf_hash", pdf_hash)
+            .eq("slide_index", slide_index)
+            .eq("pipeline_version", pipeline_version)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if rows:
+            return rows[0].get("content_hash")
+        return None
+    except Exception as e:
+        logger.warning(
+            "content_hash lookup failed for %s/%d (will re-embed): %s",
+            pdf_hash, slide_index, e,
+        )
+        return None
+
+
 async def store_slide_embedding(
     lecture_id: Optional[str],
     slide_index: int,
@@ -418,33 +486,23 @@ async def store_slide_embedding(
 ) -> bool:
     """Store slide embedding and metadata in Supabase.
 
-    Idempotent on (pdf_hash, slide_index, pipeline_version): if a row already
-    exists for that key it is replaced.  The `slide_embeddings` table has no
-    unique constraint on this triple yet, so we emulate upsert with a
-    delete-then-insert.
+    Idempotent on (pdf_hash, slide_index, pipeline_version): a single
+    `INSERT ... ON CONFLICT DO UPDATE` upsert, backed by the
+    `slide_embeddings_pdf_hash_slide_index_pipeline_version_key` unique
+    constraint (migration 20260719000000, roadmap P3-3). This replaced an
+    earlier delete-then-insert emulation that was racy under concurrent
+    parses of the same PDF (two writers could both pass the delete and both
+    insert, leaving duplicate rows) and churned dead tuples under the vector
+    index on every re-parse.
 
-    Returns True on a successful insert, False if the embedding was missing
-    or the insert failed (failures are still logged here so existing
+    Returns True on a successful upsert, False if the embedding was missing
+    or the upsert failed (failures are still logged here so existing
     fire-and-forget callers can keep ignoring the return value).
     """
     if embedding is None:
         return False
 
     try:
-        if pdf_hash:
-            try:
-                supabase_admin.table("slide_embeddings") \
-                    .delete() \
-                    .eq("pdf_hash", pdf_hash) \
-                    .eq("slide_index", slide_index) \
-                    .eq("pipeline_version", pipeline_version) \
-                    .execute()
-            except Exception as e:
-                # Pre-delete failures are non-fatal; the insert below may
-                # produce a duplicate row but that's strictly better than
-                # losing the embedding entirely.
-                logger.warning("Pre-insert delete failed for slide %d: %s", slide_index, e)
-
         data = {
             "lecture_id": lecture_id,
             "pdf_hash": pdf_hash,
@@ -454,7 +512,9 @@ async def store_slide_embedding(
             "content_hash": content_hash,
             "pipeline_version": pipeline_version,
         }
-        supabase_admin.table("slide_embeddings").insert(data).execute()
+        supabase_admin.table("slide_embeddings").upsert(
+            data, on_conflict="pdf_hash,slide_index,pipeline_version"
+        ).execute()
         return True
     except Exception as e:
         logger.error("Failed to store slide embedding: %s", e)

@@ -33,6 +33,7 @@ from backend.core.auth_middleware import _user_id, require_student
 from backend.core.database import get_db_connection
 from backend.core.idempotency import check_idempotency
 from backend.core.rate_limit import limiter
+from backend.schemas.learning_events import ExamGenerated, ExamSubmitted
 from backend.services import exam_service
 
 logger = logging.getLogger(__name__)
@@ -118,9 +119,10 @@ async def generate_exam(
             """,
             user_id, course_uuid, question_ids, time_limit_s, seed,
         )
+        exam_generated_payload = ExamGenerated(exam_id=str(row["id"]), course_id=str(course_id))
         await conn.execute(
             "INSERT INTO learning_events (user_id, event_type, event_data) VALUES ($1, 'exam_generated', $2::jsonb)",
-            user_id, f'{{"exam_id": "{row["id"]}", "course_id": "{course_id}"}}',
+            user_id, exam_generated_payload.model_dump_json(),
         )
 
         by_id = {q["id"]: q for q in pool}
@@ -316,9 +318,12 @@ async def submit_exam(
             """,
             json.dumps(merged_answers), now, expired, report["score"], json.dumps(report), exam_uuid,
         )
+        exam_submitted_payload = ExamSubmitted(
+            exam_id=str(exam_id), score=float(report["score"]), expired=bool(expired)
+        )
         await conn.execute(
             "INSERT INTO learning_events (user_id, event_type, event_data) VALUES ($1, 'exam_submitted', $2::jsonb)",
-            user_id, f'{{"exam_id": "{exam_id}", "score": {report["score"]}, "expired": {str(expired).lower()}}}',
+            user_id, exam_submitted_payload.model_dump_json(),
         )
 
     return _report_response(updated)

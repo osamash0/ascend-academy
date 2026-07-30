@@ -36,6 +36,31 @@ def test_find_soffice_honors_env_override(monkeypatch, tmp_path):
     assert office_convert._find_soffice() == str(fake)
 
 
+def test_soffice_command_uses_launchservices_for_macos_app(monkeypatch):
+    monkeypatch.setattr(office_convert.sys, "platform", "darwin")
+
+    command = office_convert._soffice_command(
+        "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+        profile_dir="/tmp/profile", output_dir="/tmp/output", input_path="/tmp/deck.pptx",
+    )
+
+    assert command[:5] == ["open", "-W", "-a", "/Applications/LibreOffice.app", "--args"]
+    assert "--headless" in command
+    assert "/tmp/deck.pptx" in command
+
+
+def test_soffice_command_stays_direct_off_macos(monkeypatch):
+    monkeypatch.setattr(office_convert.sys, "platform", "linux")
+
+    command = office_convert._soffice_command(
+        "/usr/bin/soffice",
+        profile_dir="/tmp/profile", output_dir="/tmp/output", input_path="/tmp/deck.pptx",
+    )
+
+    assert command[0] == "/usr/bin/soffice"
+    assert command[1] == "--headless"
+
+
 async def test_to_pdf_raises_without_soffice(monkeypatch):
     monkeypatch.setattr(office_convert, "_find_soffice", lambda: None)
     with pytest.raises(RuntimeError, match="LibreOffice"):

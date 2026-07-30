@@ -227,10 +227,12 @@ def test_generate_text_bulk_routes_through_first_available_provider(monkeypatch)
 
     served: dict = {}
 
-    def _fake_call(pid, prompt):
+    def _fake_call(pid, prompt, **_kw):
         served["provider"] = pid
         served["prompt"] = prompt
-        return "OK"
+        # _call_provider's contract is (text, usage) since P1-1; usage is
+        # None for a stub with no token counts.
+        return "OK", None
 
     monkeypatch.setattr(orch, "_call_provider", _fake_call)
     # Force only one provider to look "available" to the rotator.

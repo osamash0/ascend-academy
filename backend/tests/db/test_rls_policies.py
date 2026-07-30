@@ -368,7 +368,7 @@ def test_pdf_parse_cache_blocked_for_anon(db_conn):
         try:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 cur.execute(
-                    "INSERT INTO public.pdf_parse_cache (pdf_hash, slides) "
+                    "INSERT INTO public.pdf_parse_cache (pdf_hash, result) "
                     "VALUES (%s, %s::jsonb)",
                     ("test-hash", "[]"),
                 )

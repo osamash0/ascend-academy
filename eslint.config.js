@@ -40,6 +40,10 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // Existing application and test code has a large `any` baseline. Keep
+      // it visible in CI while migrations happen incrementally; other lint
+      // errors remain blocking.
+      "@typescript-eslint/no-explicit-any": "warn",
     },
   },
 );

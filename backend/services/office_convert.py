@@ -12,6 +12,7 @@ import asyncio
 import logging
 import tempfile
 import subprocess
+import sys
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,35 @@ def _find_soffice() -> Optional[str]:
         if c and os.path.exists(c):
             return c
     return None
+
+
+def _soffice_command(
+    soffice: str,
+    *,
+    profile_dir: str,
+    output_dir: str,
+    input_path: str,
+) -> list[str]:
+    """Build a conversion command, using LaunchServices for macOS app bundles.
+
+    Current macOS releases can abort a direct ``soffice`` subprocess while it
+    registers with AppKit, even with ``--headless``. Launching the enclosing
+    LibreOffice app through ``open`` gives it the expected LaunchServices
+    context. Linux and non-app installations keep the direct server-safe path.
+    """
+    args = [
+        "--headless",
+        "--norestore",
+        f"-env:UserInstallation=file://{profile_dir}",
+        "--convert-to", "pdf",
+        "--outdir", output_dir,
+        input_path,
+    ]
+    macos_app_marker = ".app/Contents/MacOS/"
+    if sys.platform == "darwin" and macos_app_marker in soffice:
+        app_path = soffice.split(macos_app_marker, 1)[0] + ".app"
+        return ["open", "-W", "-a", app_path, "--args", *args]
+    return [soffice, *args]
 
 
 def _convert_sync(file_bytes: bytes, filename: str) -> bytes:
@@ -63,16 +93,14 @@ def _convert_sync(file_bytes: bytes, filename: str) -> bytes:
         # Isolate the user profile per-conversion: a shared default profile
         # serializes concurrent soffice invocations (and can deadlock).
         profile_dir = os.path.join(tmp, "profile")
+        os.makedirs(profile_dir)
         proc = subprocess.run(
-            [
+            _soffice_command(
                 soffice,
-                "--headless",
-                "--norestore",
-                f"-env:UserInstallation=file://{profile_dir}",
-                "--convert-to", "pdf",
-                "--outdir", tmp,
-                in_path,
-            ],
+                profile_dir=profile_dir,
+                output_dir=tmp,
+                input_path=in_path,
+            ),
             capture_output=True,
             timeout=_CONVERT_TIMEOUT_SECONDS,
         )

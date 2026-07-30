@@ -31,7 +31,7 @@ from backend.core.auth_middleware import (
     require_professor,
     verify_token,
 )
-from backend.core.pagination import PaginationParams, PaginatedResponse
+from backend.core.pagination import PaginationParams, PaginatedResponse, paginate_with_predicate
 from backend.core.database import supabase_admin  # ADMIN: cross-table progress and roster queries
 from backend.core.rate_limit import limiter
 
@@ -273,24 +273,35 @@ async def list_assignments(
     is_prof = await run_in_threadpool(_is_professor, user)
 
     def _load() -> List[dict]:
-        q = supabase_admin.table("assignments").select(
-            "id, professor_id, course_id, title, description, due_at, min_quiz_score, created_at"
+        enrolled = None if is_prof else _enrolled_assignment_ids(uid)
+
+        def _fetch_batch(cursor: Optional[str], batch_limit: int) -> List[dict]:
+            q = supabase_admin.table("assignments").select(
+                "id, professor_id, course_id, title, description, due_at, min_quiz_score, created_at"
+            )
+            if is_prof:
+                q = q.eq("professor_id", uid)
+            if cursor:
+                q = q.gt("due_at", cursor)
+            return q.order("due_at").limit(batch_limit).execute().data or []
+
+        def _is_visible(row: dict) -> bool:
+            # Professors see everything of their own (already filtered in
+            # the query); students only see assignments they're enrolled in.
+            # Same P4-2 pagination bug as courses.py's list_courses: this
+            # predicate can't be pushed into SQL (enrolled ids come from a
+            # separate table), so it must run per-row BEFORE has_more/cursor
+            # are decided — `paginate_with_predicate` guarantees that.
+            return is_prof or row["id"] in enrolled
+
+        page = paginate_with_predicate(
+            fetch_batch=_fetch_batch,
+            predicate=_is_visible,
+            cursor_field="due_at",
+            limit=params.limit,
+            initial_cursor=params.cursor,
         )
-        if is_prof:
-            q = q.eq("professor_id", uid)
-            
-        if params.cursor:
-            q = q.gt("due_at", params.cursor)
-
-        rows = q.order("due_at").limit(params.limit + 1).execute().data or []
-        has_more = len(rows) > params.limit
-        if has_more:
-            rows = rows[:-1]
-
-        # Students only see assignments they are explicitly enrolled in.
-        if not is_prof:
-            enrolled = _enrolled_assignment_ids(uid)
-            rows = [r for r in rows if r["id"] in enrolled]
+        rows = page.rows
 
         # Batch-load join rows.
         by_id: dict[str, List[str]] = {r["id"]: [] for r in rows}
@@ -335,8 +346,7 @@ async def list_assignments(
                 base["student_ids"] = roster_by_id.get(r["id"], [])
             out.append(base)
             
-        next_cursor = rows[-1]["due_at"] if rows else None
-        return PaginatedResponse(data=out, cursor=next_cursor, has_more=has_more)
+        return PaginatedResponse(data=out, cursor=page.cursor, has_more=page.has_more)
 
     try:
         data = await run_in_threadpool(_load)

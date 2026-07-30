@@ -111,6 +111,18 @@ services:
     # Single uvicorn worker in prod: two workers each load FastAPI + PyMuPDF +
     # Pillow + LLM clients and can jointly breach the 512M cap → OOM kill on the
     # 4 GB box. On 2 vCPU a 2nd worker adds little throughput anyway.
+    #
+    # Roadmap P2-2 update: this is no longer ALSO propping up the nudge
+    # scheduler's lack of leader election — that job moved off in-process
+    # APScheduler onto an Arq cron job in the `worker` service below (which
+    # dedupes across replicas natively), so it's no longer a reason this
+    # can't be 2. The memory/OOM rationale above is still real and still the
+    # reason it's pinned — this is a memory-budget call, not automated here.
+    # TODO(deploy-risk): raising --workers still needs its own headroom/OOM
+    # sign-off; ~359 call sites across the API remain on sync Supabase REST
+    # calls run in the threadpool (see docs/ROADMAP_10X_FOUNDATION.md §7), so
+    # a 2nd worker roughly doubles the thread-pool ceiling but does not by
+    # itself fix the underlying sync-I/O-in-threadpool architecture.
     command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
     restart: unless-stopped
     deploy:

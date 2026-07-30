@@ -27,9 +27,16 @@ import logging
 from typing import Any, Dict, Optional
 from uuid import UUID
 
+from backend.core.config import settings
 from backend.core.database import get_db_connection
+from backend.core.job_locks import acquire_job_lock, release_job_lock, review_cards_lock_key
 
 logger = logging.getLogger(__name__)
+
+# In-flight lock TTL (Roadmap P2-3) — generous relative to how long a single
+# lecture's quiz-question set takes to transform into review cards (a pure
+# DB transform, seconds not minutes), but bounded so a leaked lock self-heals.
+REVIEW_CARDS_LOCK_TTL_SECONDS = 300
 
 
 def _content_hash(*parts: str) -> str:
@@ -84,9 +91,35 @@ async def _generate_quiz_cards(conn, lecture_id: UUID) -> int:
 
 async def generate_review_cards(ctx: dict, lecture_id: str) -> Dict[str, int]:
     """Arq job entry point. Idempotent — safe to re-run for the same lecture
-    (re-parse, or scripts/backfill_review_cards.py) without duplicating cards."""
+    (re-parse, or scripts/backfill_review_cards.py) without duplicating cards.
+
+    Also dedupes *in-flight* by lecture_id (Roadmap P2-3): if another attempt
+    for this lecture is currently running, this call is a cheap no-op instead
+    of racing the same INSERT ... ON CONFLICT DO NOTHING transform twice.
+    """
     lid = UUID(lecture_id)
-    async with await get_db_connection() as conn:
-        quiz_count = await _generate_quiz_cards(conn, lid)
-    logger.info("review cards generated for lecture %s: %d quiz cards", lid, quiz_count)
-    return {"quiz_cards": quiz_count}
+
+    lock_key = review_cards_lock_key(lecture_id)
+    lock_redis = ctx.get("redis") if isinstance(ctx, dict) else None
+    owns_lock_conn = lock_redis is None
+    if owns_lock_conn:
+        import redis.asyncio as aioredis
+        lock_redis = aioredis.from_url(settings.redis_queue_url, decode_responses=True)
+
+    got_lock = await acquire_job_lock(lock_redis, lock_key, REVIEW_CARDS_LOCK_TTL_SECONDS)
+    try:
+        if not got_lock:
+            logger.info(
+                "generate_review_cards: lecture %s already in flight, skipping duplicate run", lid,
+            )
+            return {"quiz_cards": 0}
+
+        async with await get_db_connection() as conn:
+            quiz_count = await _generate_quiz_cards(conn, lid)
+        logger.info("review cards generated for lecture %s: %d quiz cards", lid, quiz_count)
+        return {"quiz_cards": quiz_count}
+    finally:
+        if got_lock:
+            await release_job_lock(lock_redis, lock_key)
+        if owns_lock_conn and lock_redis is not None:
+            await lock_redis.aclose()

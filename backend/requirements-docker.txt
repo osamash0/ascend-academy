@@ -33,7 +33,7 @@ groq>=0.9,<1.0
 edge-tts>=6.1,<8.0
 slowapi>=0.1.9,<0.2
 tenacity==8.2.3
-tiktoken==0.7.0
+tiktoken==0.8.0
 pytesseract==0.3.10
 arq>=0.26,<0.27
 litellm>=1.40,<2.0
@@ -47,3 +47,4 @@ python-json-logger>=3.0  # required by backend/core/logging_config.py
 #   docker run --rm learnstation-api pip freeze > backend/requirements.lock
 # then in the Dockerfile install from the lock:  pip install -r requirements.lock
 # Regenerate the lock deliberately when you intend to upgrade.
+prometheus-fastapi-instrumentator==8.0.2

@@ -12,6 +12,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from backend.core.auth_middleware import require_professor, verify_token
+from backend.services import diagnostics_service
 
 
 def _seed_owned_lecture(patch_supabase, professor_user, pdf_hash: str = "h-owned"):
@@ -185,3 +186,24 @@ class TestDiagnosticsEndpoint:
         client = TestClient(app)
         r = client.get("/api/upload/diagnostics/anything")
         assert r.status_code in (401, 403)
+
+    def test_500_does_not_leak_raw_exception_text(
+        self, app, patch_supabase, professor_user, monkeypatch
+    ):
+        # Unlike the 404/403 branches (genuinely useful, kept as-is), an
+        # unexpected exception must not reach the client verbatim — it
+        # could contain internal details (service URLs, library internals).
+        _seed_owned_lecture(patch_supabase, professor_user, "h-owned")
+
+        async def _boom(user_id, pdf_hash, pipeline_version):
+            raise RuntimeError("connection to internal-metrics-db.svc.cluster.local failed")
+
+        monkeypatch.setattr(diagnostics_service, "get_pdf_diagnostics", _boom)
+
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        app.dependency_overrides[require_professor] = lambda: professor_user
+        client = TestClient(app)
+        r = client.get("/api/upload/diagnostics/h-owned", headers={"Authorization": "Bearer x"})
+        assert r.status_code == 500
+        assert "internal-metrics-db" not in r.text
+        assert r.json()["detail"] == "Failed to load diagnostics."

@@ -16,10 +16,18 @@ class MockConnection:
         self.backups_data = backups_data or []
 
     async def fetch(self, query, *args):
-        if "public.learning_events" in query:
+        # list_users's query selects from public.profiles but also embeds a
+        # `FROM public.learning_events e` scalar subquery (for last_seen), so
+        # a naive "public.learning_events" substring check matches BOTH the
+        # events query and the users query. "LEFT JOIN public.profiles" is
+        # unique to the events query (it joins profiles onto events; the
+        # users query never joins profiles to itself), so check that first.
+        if "LEFT JOIN public.profiles" in query:
             return self.events_data
         if "public.profiles" in query:
             return self.users_data
+        if "public.learning_events" in query:
+            return self.events_data
         if "public.analytics_backups" in query:
             return self.backups_data
         return []
@@ -79,7 +87,11 @@ def patch_admin_deps(monkeypatch, fake_supabase, patch_supabase, admin_user):
             "total_xp": 100,
             "current_level": 2,
             "created_at": None,
-            "roles": ["student"]
+            "last_seen": None,
+            # asyncpg returns json/jsonb columns as raw JSON text, not a
+            # parsed Python object — admin.py's list_users does
+            # json.loads(r["roles"]), so the fixture must match that shape.
+            "roles": '["student"]',
         }
     ]
     events_mock = [

@@ -1,0 +1,14 @@
+# Scrape config for the local dev stack (Roadmap Foundation 10x, P1-2).
+# Points at the FastAPI api container's /metrics (RED metrics via
+# prometheus-fastapi-instrumentator + the custom series in
+# backend/core/metrics.py). Not used in prod as-is — the prod compose file
+# doesn't run this service; add a prod-scoped scrape target/auth if/when
+# this graduates beyond local dev.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: learnstation-api
+    static_configs:
+      - targets: ["api:8000"]
+    metrics_path: /metrics

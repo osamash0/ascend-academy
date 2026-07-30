@@ -29,11 +29,19 @@ def _parse_response(data) -> Dict[int, dict]:
 async def extract_pages(pdf_bytes: bytes, filename: str) -> Dict[int, dict]:
     """Raises RuntimeError on connection failure, ValueError on bad JSON."""
     api_url = _get_api_url()
+    # mineru_server.py (repo root) is a standalone service, not wired into
+    # any docker-compose — its /file_parse endpoint had no auth at all,
+    # bound to 0.0.0.0. It now enforces this header only if
+    # MINERU_SHARED_SECRET is configured server-side (see its own comment
+    # for why it isn't mandatory); send it unconditionally so a configured
+    # deployment works, an unconfigured one behaves exactly as before.
+    headers = {"X-Mineru-Run-Secret": os.environ.get("MINERU_SHARED_SECRET", "")}
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(
                 f"{api_url}/file_parse",
                 files={"file": (filename, io.BytesIO(pdf_bytes), "application/pdf")},
+                headers=headers,
             )
     except httpx.ConnectError as exc:
         raise RuntimeError(

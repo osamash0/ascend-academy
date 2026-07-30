@@ -413,6 +413,16 @@ class ProviderRotator:
     Thread-safe tracker of daily request counts and temporary 429 backoffs.
     Skips providers that have hit their daily limit or are in backoff window.
     Resets counts at UTC midnight.
+
+    Counts are per-process in-memory (fast, lock-protected) but mirrored to
+    Redis (Roadmap P1-1) so the fleet as a whole shares one daily budget
+    instead of each worker independently thinking it has the full quota:
+      - `refresh_from_redis()` pulls other processes' counts + openai's
+        fleet-wide daily cost into this process's view before a call.
+      - `flush_success_to_redis()` / `flush_openai_cost_to_redis()` push this
+        process's increments back after a call.
+    Both are best-effort — a Redis outage degrades to the pre-P1-1
+    per-process behavior rather than breaking LLM calls.
     """
 
     def __init__(self) -> None:
@@ -421,6 +431,7 @@ class ProviderRotator:
         self._backoff: Dict[str, float] = {}
         self._streak:  Dict[str, int]   = {}
         self._day:     str              = datetime.date.today().isoformat()
+        self._openai_daily_cost_usd: float = 0.0
 
     def _reset_if_new_day(self) -> None:
         today = datetime.date.today().isoformat()
@@ -429,6 +440,7 @@ class ProviderRotator:
             self._counts  = {}
             self._backoff = {}
             self._streak  = {}
+            self._openai_daily_cost_usd = 0.0
 
     def record_success(self, provider_id: str) -> None:
         with self._lock:
@@ -468,6 +480,14 @@ class ProviderRotator:
                 if _clients.get(pid) is None and not (pid == "groq" and groq_client):
                     skipped.append(f"{pid}=no_client")
                     continue
+                if pid == "openai":
+                    from backend.core.config import settings
+                    ceiling = settings.llm_openai_daily_cost_ceiling_usd
+                    if ceiling > 0 and self._openai_daily_cost_usd >= ceiling:
+                        skipped.append(
+                            f"openai=daily_cost_ceiling(${self._openai_daily_cost_usd:.4f}/${ceiling:.2f})"
+                        )
+                        continue
                 limit = cfg.daily_limit
                 used  = self._counts.get(pid, 0)
                 if limit > 0 and used >= limit:
@@ -508,6 +528,59 @@ class ProviderRotator:
                     total += max(0, cfg.daily_limit - self._counts.get(pid, 0))
         return total
 
+    async def refresh_from_redis(self, chain: List[str]) -> None:
+        """Pull today's fleet-wide provider counts + openai's fleet-wide
+        daily cost from Redis into this process's in-memory view. Best-
+        effort: any Redis failure just leaves the in-memory state as-is."""
+        from backend.services.ai.cost import (
+            get_redis_or_none, provider_daily_count_key, openai_daily_cost_key,
+        )
+        redis = get_redis_or_none()
+        if redis is None:
+            return
+        with self._lock:
+            self._reset_if_new_day()
+        try:
+            for pid in chain:
+                raw = await redis.get(provider_daily_count_key(pid))
+                if raw is not None:
+                    with self._lock:
+                        self._counts[pid] = max(self._counts.get(pid, 0), int(raw))
+            raw_cost = await redis.get(openai_daily_cost_key())
+            if raw_cost is not None:
+                with self._lock:
+                    self._openai_daily_cost_usd = max(self._openai_daily_cost_usd, float(raw_cost))
+        except Exception as exc:
+            logger.debug("ProviderRotator.refresh_from_redis degraded to local state: %s", exc)
+
+    async def flush_success_to_redis(self, provider_id: str) -> None:
+        """Atomically increments this provider's fleet-wide daily count."""
+        from backend.services.ai.cost import get_redis_or_none, provider_daily_count_key
+        redis = get_redis_or_none()
+        if redis is None:
+            return
+        try:
+            key = provider_daily_count_key(provider_id)
+            await redis.incr(key)
+            await redis.expire(key, 2 * 86400)
+        except Exception as exc:
+            logger.debug("ProviderRotator.flush_success_to_redis failed for %s: %s", provider_id, exc)
+
+    async def flush_openai_cost_to_redis(self, cost_usd: float) -> None:
+        """Atomically adds to openai's fleet-wide daily cost total."""
+        from backend.services.ai.cost import get_redis_or_none, openai_daily_cost_key
+        redis = get_redis_or_none()
+        if redis is None:
+            return
+        try:
+            key = openai_daily_cost_key()
+            await redis.incrbyfloat(key, cost_usd)
+            await redis.expire(key, 2 * 86400)
+            with self._lock:
+                self._openai_daily_cost_usd += cost_usd
+        except Exception as exc:
+            logger.debug("ProviderRotator.flush_openai_cost_to_redis failed: %s", exc)
+
 
 _rotator = ProviderRotator()
 
@@ -522,26 +595,122 @@ _ProviderRotator = ProviderRotator
 # Per-provider call implementations
 # ---------------------------------------------------------------------------
 
-def _call_openai_compat(client: Any, model: str, prompt: str) -> str:
-    """Unified caller for all OpenAI-compatible providers."""
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
+# Providers that have, at some point in this process's life, rejected the
+# `response_format={"type": "json_object"}` parameter (400/"unsupported" type
+# errors). Once a provider lands here we stop asking it for JSON mode for the
+# rest of the process — cheaper than re-discovering the failure every call,
+# and safe because provider capability doesn't change mid-process.
+_JSON_MODE_UNSUPPORTED: set = set()
+
+
+def _usage_from_openai_compat(resp: Any) -> Optional["LLMUsage"]:
+    """Extracts prompt/completion token counts from an OpenAI-compatible
+    (and Groq-native, which mirrors the same schema) chat-completion
+    response's ``.usage``. Returns None if the SDK didn't populate it."""
+    from backend.services.ai.cost import LLMUsage
+    u = getattr(resp, "usage", None)
+    if u is None:
+        return None
+    return LLMUsage(
+        prompt_tokens=getattr(u, "prompt_tokens", 0) or 0,
+        completion_tokens=getattr(u, "completion_tokens", 0) or 0,
     )
-    return resp.choices[0].message.content or ""
 
 
-def _call_google(model: str, prompt: str) -> str:
+def _call_openai_compat(
+    client: Any,
+    model: str,
+    prompt: str,
+    *,
+    provider_id: Optional[str] = None,
+    json_mode: bool = False,
+) -> Tuple[str, Optional["LLMUsage"]]:
+    """Unified caller for all OpenAI-compatible providers.
+
+    Returns ``(text, usage)`` — usage is the token counts for cost
+    accounting (Roadmap P1-1), or None if the SDK didn't report them.
+
+    Foundation Roadmap P4-3: bulk/quality chains that parse the reply as JSON
+    (`parse_json_response`) can pass ``json_mode=True`` to request the
+    provider's native JSON-object response format, which removes a whole
+    class of "model wrapped it in prose" / truncation-adjacent parse
+    failures for free on providers that support it.
+
+    Not every OpenAI-compatible free-tier endpoint honors `response_format`
+    (some free-tier proxies 400 on unrecognized params). We optimistically
+    ask for it, and if the provider rejects it we retry once WITHOUT the
+    parameter and remember not to ask that provider again this process
+    lifetime — see ``_JSON_MODE_UNSUPPORTED``. Errors unrelated to the param
+    (auth, rate limit, network) are NOT swallowed here; they propagate so the
+    existing rotation/backoff logic in ``_generate_with_rotation`` handles
+    them as it always has.
+    """
+    use_json_mode = json_mode and provider_id not in _JSON_MODE_UNSUPPORTED
+    kwargs: Dict[str, Any] = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if use_json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+    try:
+        resp = client.chat.completions.create(**kwargs)
+    except Exception as exc:
+        if not use_json_mode:
+            raise
+        msg = str(exc).lower()
+        looks_like_param_rejection = any(
+            k in msg for k in (
+                "response_format", "json_object", "json_schema",
+                "unsupported", "not support", "unknown parameter",
+                "unrecognized",
+            )
+        )
+        if not looks_like_param_rejection:
+            raise
+        logger.warning(
+            "Provider '%s' rejected response_format=json_object; retrying "
+            "without JSON mode and disabling it for this provider for the "
+            "rest of the process: %s",
+            provider_id, exc,
+        )
+        if provider_id:
+            _JSON_MODE_UNSUPPORTED.add(provider_id)
+        kwargs.pop("response_format", None)
+        resp = client.chat.completions.create(**kwargs)
+    return resp.choices[0].message.content or "", _usage_from_openai_compat(resp)
+
+
+def _call_google(model: str, prompt: str) -> Tuple[str, Optional["LLMUsage"]]:
     """Caller for Google AI Studio (Gemini + Gemma models)."""
+    from backend.services.ai.cost import LLMUsage
     if _google_client is None:
         raise RuntimeError("Google AI client not initialised (GEMINI_API_KEY missing)")
-    return _google_client.models.generate_content(model=model, contents=prompt).text
+    resp = _google_client.models.generate_content(model=model, contents=prompt)
+    u = getattr(resp, "usage_metadata", None)
+    usage = None
+    if u is not None:
+        usage = LLMUsage(
+            prompt_tokens=getattr(u, "prompt_token_count", 0) or 0,
+            completion_tokens=getattr(u, "candidates_token_count", 0) or 0,
+        )
+    return resp.text, usage
 
 
-def _call_provider(provider_id: str, prompt: str) -> str:
+def _call_provider(
+    provider_id: str, prompt: str, *, json_mode: bool = False
+) -> Tuple[str, Optional["LLMUsage"]]:
     """
-    Dispatches a prompt to the named provider.
+    Dispatches a prompt to the named provider. Returns (text, usage) — usage
+    is None for providers/SDKs that don't report token counts (Ollama).
     Raises RuntimeError if the provider is not configured.
+
+    ``json_mode`` (Foundation Roadmap P4-3) is only wired through to the
+    OpenAI-compatible client path below (``_call_openai_compat``), which is
+    where `response_format` lives. The Ollama/Google-SDK/native-Groq-SDK
+    branches don't take this parameter today — follow-up if we want JSON
+    mode there too (Google's SDK has an equivalent via
+    ``response_mime_type``, already used by vision.py, but wiring it into
+    this text path is out of scope for this pass).
     """
     cfg = PROVIDER_REGISTRY.get(provider_id)
     if cfg is None:
@@ -552,7 +721,7 @@ def _call_provider(provider_id: str, prompt: str) -> str:
         if _ollama_lib is None:
             raise RuntimeError("Ollama not installed")
         res = _ollama_lib.chat(model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}])
-        return res["message"]["content"]
+        return res["message"]["content"], None
 
     # Google SDK path (Gemini + Gemma)
     if cfg.uses_google_sdk:
@@ -566,13 +735,15 @@ def _call_provider(provider_id: str, prompt: str) -> str:
             model=cfg.model,
             messages=[{"role": "user", "content": prompt}],
         )
-        return resp.choices[0].message.content or ""
+        return resp.choices[0].message.content or "", _usage_from_openai_compat(resp)
 
     # All other OpenAI-compat providers
     client = _clients.get(provider_id)
     if client is None:
         raise RuntimeError(f"Provider '{provider_id}' client not initialised ({cfg.env_var} missing)")
-    return _call_openai_compat(client, cfg.model, prompt)
+    return _call_openai_compat(
+        client, cfg.model, prompt, provider_id=provider_id, json_mode=json_mode,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -583,12 +754,30 @@ def _generate_with_rotation(
     prompt: str,
     chain: List[str],
     preferred: Optional[str] = None,
-) -> str:
+    *,
+    json_mode: bool = False,
+    prompt_name: Optional[str] = None,
+) -> Tuple[str, str, str, Optional["LLMUsage"]]:
     """
     Tries each provider in `chain` (skipping unavailable ones), rotates on 429.
     If ``preferred`` is a known provider id it is moved to the head of the
     chain so the user's selection is honored first when available.
     Raises the last exception if every provider fails.
+
+    Returns ``(text, provider_id, model, usage)`` — the last three identify
+    which provider actually served the request, for cost accounting (P1-1)
+    by the async wrappers (``generate_text``/``generate_text_bulk``).
+
+    ``json_mode`` is passed to ``_call_provider`` ONLY when truthy — this
+    keeps the call signature backward-compatible with test doubles that
+    monkeypatch ``_call_provider`` with the pre-P4-3 positional signature.
+
+    ``prompt_name`` (optional) is a ``prompts.PROMPT_VERSIONS`` key, logged
+    alongside the serving provider as a breadcrumb correlating a provider
+    choice to the prompt/version that produced it. Now that P1-1's
+    ``llm_calls`` table exists, this is still only logged (not written as a
+    column) — wiring ``prompt_name`` into ``_account_for_call``/``log_llm_call``
+    is a documented fast-follow, not done here.
     """
     chain = _chain_with_preferred(chain, preferred)
     available = _rotator.available(chain)
@@ -599,10 +788,21 @@ def _generate_with_rotation(
 
     for pid in available:
         try:
-            result = _call_provider(pid, prompt)
+            result, usage = (
+                _call_provider(pid, prompt, json_mode=True)
+                if json_mode
+                else _call_provider(pid, prompt)
+            )
             _rotator.record_success(pid)
-            logger.info("✅ Provider '%s' served request", pid)
-            return result
+            if prompt_name:
+                from backend.services.ai.prompts import get_prompt_version
+                logger.info(
+                    "✅ Provider '%s' served request (prompt=%s version=%s)",
+                    pid, prompt_name, get_prompt_version(prompt_name),
+                )
+            else:
+                logger.info("✅ Provider '%s' served request", pid)
+            return result, pid, PROVIDER_REGISTRY[pid].model, usage
         except Exception as exc:
             msg = str(exc).lower()
             is_rate_limit = any(k in msg for k in ("429", "rate limit", "quota", "too many requests", "rate_limit"))
@@ -791,33 +991,164 @@ def _llm_generate_text_sync(prompt: str, ai_model: str = "cerebras") -> str:
     Routes to the appropriate chain based on ai_model hint.
     """
     if ai_model == "llama3":
-        return _call_provider("llama3", prompt)
-    return _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=_resolve_preferred(ai_model))
+        text, _usage = _call_provider("llama3", prompt)
+        return text
+    text, _pid, _model, _usage = _generate_with_rotation(
+        prompt, QUALITY_CHAIN, preferred=_resolve_preferred(ai_model)
+    )
+    return text
 
 
-async def generate_text(prompt: str, ai_model: str = "cerebras") -> str:
+async def _account_for_call(
+    provider_id: str,
+    model: str,
+    usage: Optional["LLMUsage"],
+    *,
+    user_id: Optional[str],
+    course_id: Optional[str],
+    feature: str,
+    duration_seconds: float,
+) -> None:
+    """Shared cost-accounting tail for generate_text/generate_text_bulk
+    (Roadmap P1-1): mirrors this call's provider count (and openai's cost, if
+    any) to Redis for fleet-wide budget tracking, logs the completion to
+    ``public.llm_calls``, and — when ``user_id`` is given — adds to that
+    user's running monthly spend. It also emits the completed call's latency,
+    cost, and token usage to Prometheus. Entirely best-effort; never raises."""
+    from backend.services.ai.cost import estimate_cost, log_llm_call, record_user_llm_spend
+    from backend.core.metrics import (
+        LLM_CALL_COST_USD_TOTAL,
+        LLM_CALL_DURATION_SECONDS,
+        LLM_CALL_TOKENS_TOTAL,
+    )
+
+    await _rotator.flush_success_to_redis(provider_id)
+    cost = estimate_cost(provider_id, model, usage)
+    if provider_id == "openai" and cost > 0:
+        await _rotator.flush_openai_cost_to_redis(cost)
+    await log_llm_call(
+        user_id=user_id, course_id=course_id, feature=feature,
+        provider_id=provider_id, model=model, usage=usage, cost_usd=cost,
+    )
+    if user_id and cost > 0:
+        await record_user_llm_spend(user_id, cost)
+
+    labels = {"provider": provider_id, "model": model, "feature": feature}
+    LLM_CALL_DURATION_SECONDS.labels(**labels).observe(duration_seconds)
+    LLM_CALL_COST_USD_TOTAL.labels(**labels).inc(cost)
+    if usage:
+        LLM_CALL_TOKENS_TOTAL.labels(**labels, kind="prompt").inc(usage.prompt_tokens)
+        LLM_CALL_TOKENS_TOTAL.labels(**labels, kind="completion").inc(usage.completion_tokens)
+
+
+async def generate_text(
+    prompt: str,
+    ai_model: str = "cerebras",
+    *,
+    json_mode: bool = False,
+    prompt_name: Optional[str] = None,
+    user_id: Optional[str] = None,
+    course_id: Optional[str] = None,
+    feature: Optional[str] = None,
+) -> str:
     """
     Quality chain: Cerebras → Groq 70B → OpenRouter → Cloudflare → Gemini → …
     Use for blueprints, planning, deck summaries.
     The user-selected ``ai_model`` is moved to the head of the chain when
     it maps to a known provider (cerebras, groq, openrouter, cloudflare, gemini, ...).
+
+    Pass ``json_mode=True`` when the caller will run ``parse_json_response``
+    on the reply (Foundation Roadmap P4-3) — this requests provider-native
+    JSON-object mode where supported, with an automatic per-provider
+    fallback (see ``_call_openai_compat``). ``prompt_name`` optionally tags
+    the request with a ``prompts.PROMPT_VERSIONS`` key for the success log.
+
+    ``user_id``/``course_id``/``feature`` are optional cost-accounting
+    context (Roadmap P1-1). When ``user_id`` is given, the caller's monthly
+    LLM spend cap is checked BEFORE any provider is invoked — raises
+    ``LLMBudgetExceededError`` if already over cap — and the completion's
+    cost is added to their running monthly total afterward. Every call is
+    best-effort logged to ``public.llm_calls`` regardless (``feature``
+    defaults to "generate_text" for call sites that haven't threaded a more
+    specific feature name through yet).
     """
     from backend.services.llm_client import call_llm
+    from backend.services.ai.cost import check_user_llm_budget
+    from backend.services.ai.prompt_log import log_prompt_response
+
+    if user_id:
+        await check_user_llm_budget(user_id)
+
     if ai_model == "llama3":
-        return await call_llm(lambda: _call_provider("llama3", prompt))
+        call_started = time.perf_counter()
+        text, usage = await call_llm(lambda: _call_provider("llama3", prompt))
+        await _account_for_call(
+            "llama3", OLLAMA_MODEL, usage,
+            user_id=user_id, course_id=course_id, feature=feature or "generate_text",
+            duration_seconds=time.perf_counter() - call_started,
+        )
+        await log_prompt_response("generate_text", prompt, text)
+        return text
+
     preferred = _resolve_preferred(ai_model)
-    return await call_llm(lambda: _generate_with_rotation(prompt, QUALITY_CHAIN, preferred=preferred))
+    await _rotator.refresh_from_redis(QUALITY_CHAIN)
+    call_started = time.perf_counter()
+    text, provider_id, model, usage = await call_llm(
+        lambda: _generate_with_rotation(
+            prompt, QUALITY_CHAIN, preferred=preferred,
+            json_mode=json_mode, prompt_name=prompt_name,
+        )
+    )
+    await _account_for_call(
+        provider_id, model, usage,
+        user_id=user_id, course_id=course_id, feature=feature or "generate_text",
+        duration_seconds=time.perf_counter() - call_started,
+    )
+    await log_prompt_response("generate_text", prompt, text)
+    return text
 
 
-async def generate_text_bulk(prompt: str, ai_model: str = "cerebras") -> str:
+async def generate_text_bulk(
+    prompt: str,
+    ai_model: str = "cerebras",
+    *,
+    json_mode: bool = False,
+    prompt_name: Optional[str] = None,
+    user_id: Optional[str] = None,
+    course_id: Optional[str] = None,
+    feature: Optional[str] = None,
+) -> str:
     """
     Bulk chain: Cerebras → Groq 8B → Cloudflare → Gemma → Mistral → OpenRouter → …
     Use for slide-by-slide processing to preserve the scarce Groq 70B quota.
     User-selected ``ai_model`` is honored at the head of the chain when known.
+
+    See ``generate_text`` for the ``user_id``/``course_id``/``feature``
+    cost-accounting contract (Roadmap P1-1) — identical here.
     """
     from backend.services.llm_client import call_llm
+    from backend.services.ai.cost import check_user_llm_budget
+    from backend.services.ai.prompt_log import log_prompt_response
+
+    if user_id:
+        await check_user_llm_budget(user_id)
+
     preferred = _resolve_preferred(ai_model)
-    return await call_llm(lambda: _generate_with_rotation(prompt, BULK_CHAIN, preferred=preferred))
+    await _rotator.refresh_from_redis(BULK_CHAIN)
+    call_started = time.perf_counter()
+    text, provider_id, model, usage = await call_llm(
+        lambda: _generate_with_rotation(
+            prompt, BULK_CHAIN, preferred=preferred,
+            json_mode=json_mode, prompt_name=prompt_name,
+        )
+    )
+    await _account_for_call(
+        provider_id, model, usage,
+        user_id=user_id, course_id=course_id, feature=feature or "generate_text_bulk",
+        duration_seconds=time.perf_counter() - call_started,
+    )
+    await log_prompt_response("generate_text_bulk", prompt, text)
+    return text
 
 
 def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
@@ -826,14 +1157,20 @@ def process_slide_batch(text: str, ai_model: str = "cerebras") -> Dict[str, Any]
         "Analyze this lecture slide and return JSON with "
         "{title, content, summary, questions, slide_type, is_metadata}:\n\n" + text
     )
-    raw = _generate_with_rotation(prompt, BULK_CHAIN, preferred=_resolve_preferred(ai_model))
+    raw, _pid, _model, _usage = _generate_with_rotation(
+        prompt, BULK_CHAIN, preferred=_resolve_preferred(ai_model), json_mode=True,
+        prompt_name="process_slide_batch_inline",
+    )
     return parse_json_response(raw)
 
 
 async def enhance_slide_content(text: str, ai_model: str = "cerebras") -> Dict[str, Any]:
     from backend.services.ai.prompts import ENHANCE_PROMPT
     from backend.services.ai.voice import with_voice
-    raw = await generate_text(with_voice(ENHANCE_PROMPT.format(text=text), structured=True), ai_model=ai_model)
+    raw = await generate_text(
+        with_voice(ENHANCE_PROMPT.format(text=text), structured=True),
+        ai_model=ai_model, json_mode=True, prompt_name="ENHANCE_PROMPT",
+    )
     return parse_json_response(raw)
 
 
@@ -953,7 +1290,10 @@ async def generate_deck_quiz(
     else:
         prompt = DECK_QUIZ_PROMPT + (summary or "")
 
-    raw = await generate_text(with_voice(prompt, structured=True), ai_model=ai_model)
+    raw = await generate_text(
+        with_voice(prompt, structured=True), ai_model=ai_model,
+        json_mode=True, prompt_name="deck_quiz_prompt",
+    )
     parsed = parse_json_response(raw)
     if not isinstance(parsed, list):
         return []
@@ -983,7 +1323,10 @@ async def generate_deck_quiz(
         if not regen_cache["called"]:
             regen_cache["called"] = True
             try:
-                raw2 = await generate_text(prompt, ai_model=ai_model)
+                raw2 = await generate_text(
+                    prompt, ai_model=ai_model,
+                    json_mode=True, prompt_name="deck_quiz_prompt",
+                )
                 items = parse_json_response(raw2)
                 regen_cache["items"] = items if isinstance(items, list) else []
             except Exception as exc:
@@ -1080,6 +1423,7 @@ async def batch_analyze_text_slides(
     *,
     batch_size: Optional[int] = None,
     context_overlap: Optional[int] = None,
+    source_language: str = "en",
 ) -> List[Dict[str, Any]]:
     """Analyze a batch of slides in (typically) ONE LLM call.
 
@@ -1102,8 +1446,15 @@ async def batch_analyze_text_slides(
     Defaults for ``batch_size`` / ``context_overlap`` come from
     ``QUIZ_BATCH_CONFIG`` (env-tunable via ``QUIZ_BATCH_SIZE`` /
     ``QUIZ_BATCH_OVERLAP``).
+
+    ``source_language`` mirrors the ``{output_language}`` rule the per-slide
+    synthesis prompts already carry: generated titles/summaries stay in the
+    deck's own language instead of drifting to English. The rule is appended
+    ONLY for non-English decks, so at the ``"en"`` default the prompt is
+    BYTE-IDENTICAL to before this parameter existed (regression guard for the
+    other callers -- file_parse_service, slide_synth_service).
     """
-    from backend.services.ai.prompts import BATCH_SLIDE_PROMPT
+    from backend.services.ai.prompts import BATCH_SLIDE_PROMPT, output_language as _output_language
     from backend.services.ai.voice import with_voice
 
     if not slides:
@@ -1133,6 +1484,7 @@ async def batch_analyze_text_slides(
                 blueprint=blueprint,
                 batch_size=bs,
                 context_overlap=ov,
+                source_language=source_language,
             )
             merged.extend(window_results)
         return merged
@@ -1179,8 +1531,17 @@ async def batch_analyze_text_slides(
             "<context_only> block; omit them from your JSON array entirely.\n"
         )
 
+    # Empty for English decks so the default-path prompt is unchanged.
+    lang_header = ""
+    if source_language and source_language != "en":
+        lang_header = (
+            f"\n\nIMPORTANT: Write every title and summary in "
+            f"{_output_language(source_language)}, the language of the slides, "
+            f"even if parts of the source text use another language.\n"
+        )
+
     full_prompt = with_voice(
-        BATCH_SLIDE_PROMPT + bp_header + context_header + "\n\n"
+        BATCH_SLIDE_PROMPT + bp_header + context_header + lang_header + "\n\n"
         + "\n\n".join(slide_sections),
         structured=True,
     )
@@ -1189,8 +1550,18 @@ async def batch_analyze_text_slides(
     try:
         from backend.services.llm_client import call_llm
         preferred = _resolve_preferred(ai_model)
-        raw = await call_llm(
-            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN, preferred=preferred)
+        await _rotator.refresh_from_redis(BULK_CHAIN)
+        call_started = time.perf_counter()
+        raw, provider_id, model, usage = await call_llm(
+            lambda: _generate_with_rotation(
+                full_prompt, BULK_CHAIN, preferred=preferred,
+                json_mode=True, prompt_name="BATCH_SLIDE_PROMPT",
+            )
+        )
+        await _account_for_call(
+            provider_id, model, usage,
+            user_id=None, course_id=None, feature="batch_analyze_text_slides",
+            duration_seconds=time.perf_counter() - call_started,
         )
     except Exception as exc:
         # Re-raise so the outer per-slide retry path (e.g.
@@ -1349,8 +1720,18 @@ async def _regenerate_failing_slide_quizzes(
     try:
         from backend.services.llm_client import call_llm
         preferred = _resolve_preferred(ai_model)
-        raw = await call_llm(
-            lambda: _generate_with_rotation(full_prompt, BULK_CHAIN, preferred=preferred)
+        await _rotator.refresh_from_redis(BULK_CHAIN)
+        call_started = time.perf_counter()
+        raw, provider_id, model, usage = await call_llm(
+            lambda: _generate_with_rotation(
+                full_prompt, BULK_CHAIN, preferred=preferred,
+                json_mode=True, prompt_name="BATCH_SLIDE_QUIZ_REGEN_PROMPT",
+            )
+        )
+        await _account_for_call(
+            provider_id, model, usage,
+            user_id=None, course_id=None, feature="regenerate_failing_slide_quizzes",
+            duration_seconds=time.perf_counter() - call_started,
         )
     except Exception as exc:
         logger.warning(
@@ -1428,7 +1809,10 @@ async def generate_slide_quiz(text: str, ai_model: str = "cerebras") -> Dict[str
         if not regen_cache["called"]:
             regen_cache["called"] = True
             try:
-                raw2 = await generate_text(prompt, ai_model=ai_model)
+                raw2 = await generate_text(
+                    prompt, ai_model=ai_model,
+                    json_mode=True, prompt_name="SINGLE_SLIDE_QUIZ_PROMPT",
+                )
                 item = parse_json_response(raw2)
                 if isinstance(item, list) and item:
                     item = item[0]
@@ -1438,7 +1822,10 @@ async def generate_slide_quiz(text: str, ai_model: str = "cerebras") -> Dict[str
                 regen_cache["item"] = {}
         return regen_cache["item"]
 
-    raw = await generate_text(prompt, ai_model=ai_model)
+    raw = await generate_text(
+        prompt, ai_model=ai_model,
+        json_mode=True, prompt_name="SINGLE_SLIDE_QUIZ_PROMPT",
+    )
     parsed = parse_json_response(raw)
     
     if isinstance(parsed, list) and parsed:

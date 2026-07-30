@@ -3,6 +3,18 @@
 The parser remains the authoritative producer of immutable lectures. A
 blueprint is the student-editable proposal that decides which parsed materials
 become a course and in what order.
+
+Why `supabase_admin` here (the `# ADMIN:` sign-off on the import below)
+--------------------------------------------------------------------
+Blueprint orchestration is server-authoritative: it stitches together
+`parse_runs`, `material_sources`, `lectures`/`slides` and
+`course_blueprint_items`, and clones/re-parents lecture rows during item
+splits and merges. Every query in this module is nonetheless scoped by the
+authenticated caller's id (`owner_id`/`uid`, behind `require_creator`), so the
+visibility rule is the same one RLS would apply -- it is just enforced in
+Python rather than by Postgres, which is strictly weaker. Follow-up: revisit
+under the P2-1 RLS-as-API-boundary pass (docs/ROADMAP_10X_FOUNDATION.md §4)
+once the blueprint tables carry per-user SELECT/UPDATE policies.
 """
 from __future__ import annotations
 
@@ -16,7 +28,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from backend.core.auth_middleware import _user_id, require_creator
-from backend.core.database import supabase_admin
+from backend.core.database import supabase_admin  # ADMIN: server-authoritative blueprint orchestration -- see note below
 from backend.core.rate_limit import limiter
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
