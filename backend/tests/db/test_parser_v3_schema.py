@@ -135,28 +135,61 @@ def test_slide_chunks_ivfflat_index_present(db_conn):
 
 def test_parse_runs_unique_pdf_hash_pipeline_version(db_conn, make_user, make_lecture):
     """
-    UNIQUE (pdf_hash, pipeline_version) is what makes a pipeline_version bump
-    invalidate every cached run for free. A duplicate insert at the same
-    version must raise UniqueViolation.
+    UNIQUE (pdf_hash, pipeline_version, user_id) (migration 20260730000000)
+    is what makes a pipeline_version bump invalidate every cached run for
+    free, scoped per user. A duplicate insert at the same version for the
+    same user must raise UniqueViolation.
     """
     professor = make_user(role="professor")
     lecture = make_lecture(professor)
     with db_conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO public.parse_runs (pdf_hash, lecture_id, pipeline_version, status)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO public.parse_runs (pdf_hash, lecture_id, pipeline_version, status, user_id)
+            VALUES (%s, %s, %s, %s, %s)
             """,
-            ("abc123", str(lecture), "3", "queued"),
+            ("abc123", str(lecture), "3", "queued", str(professor)),
         )
         with pytest.raises(psycopg.errors.UniqueViolation):
             cur.execute(
                 """
-                INSERT INTO public.parse_runs (pdf_hash, lecture_id, pipeline_version, status)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO public.parse_runs (pdf_hash, lecture_id, pipeline_version, status, user_id)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
-                ("abc123", str(lecture), "3", "queued"),
+                ("abc123", str(lecture), "3", "queued", str(professor)),
             )
+
+
+def test_parse_runs_allows_same_hash_and_version_for_different_users(
+    db_conn, make_user, make_lecture
+):
+    """Two different users uploading byte-identical PDF content get separate
+    rows — the sharp edge (they used to share one row) the constraint change
+    in migration 20260730000000 closed."""
+    professor_a = make_user(role="professor")
+    professor_b = make_user(role="professor")
+    lecture = make_lecture(professor_a)
+    with db_conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO public.parse_runs (pdf_hash, lecture_id, pipeline_version, status, user_id)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            ("shared-hash", str(lecture), "3", "queued", str(professor_a)),
+        )
+        # Same pdf_hash + pipeline_version, different user_id → must succeed.
+        cur.execute(
+            """
+            INSERT INTO public.parse_runs (pdf_hash, lecture_id, pipeline_version, status, user_id)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            ("shared-hash", str(lecture), "3", "queued", str(professor_b)),
+        )
+        cur.execute(
+            "SELECT count(*) FROM public.parse_runs WHERE pdf_hash = %s",
+            ("shared-hash",),
+        )
+        assert cur.fetchone()[0] == 2
 
 
 def test_parse_runs_allows_new_row_on_pipeline_version_bump(

@@ -52,19 +52,25 @@ async def get_or_create_run(
     filename: Optional[str] = None,
     parsing_mode: Optional[str] = None,
 ) -> ParseRun:
-    """Return the run for (pdf_hash, pipeline_version), creating it if needed.
+    """Return the run for (pdf_hash, pipeline_version, user_id), creating it
+    if needed.
 
-    Upserts on the existing UNIQUE(pdf_hash, pipeline_version) constraint:
-    re-enqueuing byte-identical PDF content (e.g. the same file uploaded in a
-    later batch) updates batch_id/user_id/course_id/filename/parsing_mode to
-    the new values rather than silently keeping the first caller's — "last
-    batch touching this hash wins" is made explicit instead of a latent
-    surprise. All five use COALESCE so a call that doesn't know a value (e.g.
-    the orchestrator's own internal re-fetch, which doesn't pass batch_id)
-    never clobbers a value an earlier call already recorded — only an
-    explicit new value overwrites. Known v1 sharp edge: this is not scoped by
-    user_id, so two different professors uploading the same PDF share one run
-    row — accepted for now, a candidate to scope by user_id in a fast-follow.
+    Upserts on UNIQUE(pdf_hash, pipeline_version, user_id) (migration
+    20260730000000) — re-enqueuing byte-identical PDF content under the same
+    user (e.g. the same file uploaded in a later batch) updates
+    batch_id/user_id/course_id/filename/parsing_mode to the new values
+    rather than silently keeping the first caller's — "last batch touching
+    this hash wins" is made explicit instead of a latent surprise. All five
+    use COALESCE so a call that doesn't know a value (e.g. the orchestrator's
+    own internal re-fetch, which doesn't pass batch_id/course_id) never
+    clobbers a value an earlier call already recorded — only an explicit new
+    value overwrites. Scoping by user_id means two different users uploading
+    the same PDF now get separate rows, closing the v1 sharp edge this
+    docstring used to describe as accepted-for-now. A refetch that omits
+    user_id (passes None) will NOT match an existing row scoped to a real
+    user_id — NULL is never equal to anything under the unique constraint —
+    so every real caller must pass the same user_id it used to create the
+    row.
     """
     pool = await _pool()
     async with pool.acquire() as conn:
