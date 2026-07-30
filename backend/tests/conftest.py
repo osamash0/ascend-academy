@@ -39,7 +39,138 @@ if str(ROOT) not in sys.path:
 
 import pytest
 
+from backend.tests.fake_redis import FakeRedis  # noqa: E402
 from backend.tests.fake_supabase import FakeSupabaseClient  # noqa: E402
+from backend.tests.network_guard import blocked as _blocked  # noqa: E402
+
+
+# ── Outbound-access guard (unit tests only) ───────────────────────────────────
+# Unit tests must never open a real socket, and in particular must never build a
+# real asyncpg pool: `backend.core.database` caches `db_pool` at module level
+# while pytest-asyncio hands every test its own event loop, so one leaked pool
+# resurfaces as a *different* test failing with
+#   InterfaceError: cannot perform operation: another operation is in progress
+#   RuntimeError: ... got Future attached to a different loop
+# The whole point of this guard is to turn that class of intermittent, hard-to-
+# attribute breakage into an immediate failure in the test that caused it.
+# See backend/tests/network_guard.py for the error type, and
+# backend/tests/unit/test_outbound_guard.py for its coverage.
+
+def _is_guarded_unit_test(request: pytest.FixtureRequest) -> bool:
+    """True for tests under backend/tests/unit that haven't opted out.
+
+    db/ integration/ contract/ tests manage their own access and are left alone.
+    """
+    test_file = Path(str(getattr(request.node, "path", None) or request.node.fspath))
+    if "unit" not in test_file.parts:
+        return False
+    return request.node.get_closest_marker("allow_network") is None
+
+
+@pytest.fixture(autouse=True)
+def block_outbound_access(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+    """Make every real DB connection / network request from a unit test raise."""
+    if not _is_guarded_unit_test(request):
+        yield
+        return
+
+    import socket
+
+    # 1. asyncpg — the pool-leak source. Patch the entry points rather than the
+    #    caller so the message names the real culprit wherever it is reached from.
+    import asyncpg
+
+    def _no_asyncpg(*_args, **_kwargs):
+        raise _blocked("Postgres (asyncpg)")
+
+    monkeypatch.setattr(asyncpg, "create_pool", _no_asyncpg)
+    monkeypatch.setattr(asyncpg, "connect", _no_asyncpg)
+
+    # A pool leaked by an earlier test would bypass create_pool entirely, so
+    # drop the cached one for the duration of this test.
+    from backend.core import database as _database
+
+    monkeypatch.setattr(_database, "db_pool", None, raising=False)
+
+    # 2. httpx real transports (Supabase/PostgREST, storage, LLM providers).
+    #    Only the network transports are patched — Starlette's TestClient uses
+    #    ASGITransport, which stays fully functional.
+    import httpx
+
+    def _no_httpx_sync(_self, request_, *args, **kwargs):
+        raise _blocked("HTTP", request_.url)
+
+    async def _no_httpx_async(_self, request_, *args, **kwargs):
+        raise _blocked("HTTP", request_.url)
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _no_httpx_sync)
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", _no_httpx_async)
+
+    # 3. requests, if anything still uses it.
+    try:
+        import requests.adapters
+
+        def _no_requests(_self, request_, *args, **kwargs):
+            raise _blocked("HTTP", getattr(request_, "url", ""))
+
+        monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", _no_requests)
+    except Exception:
+        pass
+
+    # 4. Backstop at the socket layer, so a client library we do not know about
+    #    (or a raw urllib call) cannot slip past the three checks above.
+    def _no_connect(_self, address, *args, **kwargs):
+        raise _blocked("socket", address)
+
+    def _no_create_connection(address, *args, **kwargs):
+        raise _blocked("socket", address)
+
+    monkeypatch.setattr(socket.socket, "connect", _no_connect)
+    monkeypatch.setattr(socket.socket, "connect_ex", _no_connect)
+    monkeypatch.setattr(socket, "create_connection", _no_create_connection)
+
+    yield
+
+
+@pytest.fixture(autouse=True)
+def fake_redis(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+    """Give unit tests an in-memory Redis instead of a real one.
+
+    Unlike Supabase (which tests opt into via `patch_supabase`), Redis
+    connections are opened *inside* the code under test — `unified_orchestrator`
+    and `card_factory` build a throwaway `aioredis.from_url` connection for
+    their in-flight locks, and `upload_service.get_arq_pool` builds an Arq pool
+    — so there is no collaborator a test could stub instead. Without this,
+    every such test silently talks to whatever Redis the dev machine happens to
+    be running (and the guard above now turns that into a failure).
+
+    `upload_service._arq_pool` is also reset per test: like
+    `database.db_pool`, it is a module-level cache holding connections bound to
+    one test's event loop.
+    """
+    if not _is_guarded_unit_test(request):
+        yield None
+        return
+
+    shared = FakeRedis()
+
+    import redis.asyncio as aioredis
+
+    monkeypatch.setattr(aioredis, "from_url", lambda *a, **k: shared)
+    monkeypatch.setattr(aioredis.Redis, "from_url", classmethod(lambda cls, *a, **k: shared))
+
+    import arq.connections
+
+    async def _fake_arq_pool(*_args, **_kwargs):
+        return shared
+
+    monkeypatch.setattr(arq.connections, "create_pool", _fake_arq_pool)
+
+    from backend.services import upload_service
+
+    monkeypatch.setattr(upload_service, "_arq_pool", None, raising=False)
+
+    yield shared
 
 
 # ── Fake Supabase ─────────────────────────────────────────────────────────────
