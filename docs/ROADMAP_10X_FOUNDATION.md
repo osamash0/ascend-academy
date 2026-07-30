@@ -773,8 +773,11 @@ per-IP limits.
 authenticated user where available.
 
 **Acceptance criteria.**
-- [ ] A spoofed `X-Forwarded-For` cannot bypass rate limits (test); limits hold behind the
-      real proxy for legitimate traffic.
+- [x] A spoofed `X-Forwarded-For` cannot bypass rate limits (test); limits hold behind the
+      real proxy for legitimate traffic. Verified fixed in code (`backend/main.py`'s
+      `_trusted_proxy_hosts()`, `backend/core/rate_limit.py`'s `rate_limit_key()`) and by
+      `backend/tests/unit/test_rate_limit_proxy_trust.py` (11 tests, all passing) — this
+      checkbox was simply stale; see `docs/STORAGE_UPLOAD_SECURITY_AUDIT.md`.
 
 ### S-4 · Storage & upload security
 
