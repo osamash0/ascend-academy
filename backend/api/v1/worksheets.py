@@ -53,6 +53,36 @@ def _sanitize_filename(name: str) -> str:
     return base or "worksheet"
 
 
+# Magic-byte signatures for ALLOWED_MIME. Unlike the main PDF/PPTX upload
+# pipeline (backend/core/file_validation.py, backend/services/upload_service.py
+# _validate_pptx), this endpoint historically only checked the client-supplied
+# Content-Type header — trivially spoofable. text/plain and text/csv have no
+# reliable magic bytes (any UTF-8 text is "valid"), so they're intentionally
+# not in this map; the download-disposition fix (create_signed_url's
+# download=True) is their real mitigation, not a byte check that can't exist.
+_OOXML_MAGIC = b"PK\x03\x04"  # .docx / .xlsx (ZIP container)
+_OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"  # legacy .doc / .xls
+_MAGIC_BYTES: dict[str, tuple[bytes, ...]] = {
+    "application/pdf": (b"%PDF",),
+    "application/msword": (_OLE2_MAGIC,),
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": (_OOXML_MAGIC,),
+    "application/vnd.ms-excel": (_OLE2_MAGIC,),
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": (_OOXML_MAGIC,),
+    "image/png": (b"\x89PNG\r\n\x1a\n",),
+    "image/jpeg": (b"\xff\xd8\xff",),
+}
+
+
+def _content_matches_declared_mime(content: bytes, content_type: str) -> bool:
+    """True if `content` starts with the expected signature for `content_type`,
+    or if `content_type` has no reliable signature (text/plain, text/csv —
+    skipped deliberately, not silently trusted as "safe")."""
+    signatures = _MAGIC_BYTES.get(content_type)
+    if signatures is None:
+        return True
+    return any(content.startswith(sig) for sig in signatures)
+
+
 def _fetch_lecture(lecture_id: str) -> Optional[dict]:
     res = (
         supabase_admin.table("lectures")
@@ -207,6 +237,13 @@ async def upload_worksheet(
     raw = b"".join(chunks)
     if not raw:
         raise HTTPException(status_code=400, detail="Empty file.")
+
+    declared_type = file.content_type or "application/octet-stream"
+    if not _content_matches_declared_mime(raw, declared_type):
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match its declared type.",
+        )
 
     safe_name = _sanitize_filename(file.filename or "worksheet")
     final_title = (title or safe_name).strip() or safe_name
