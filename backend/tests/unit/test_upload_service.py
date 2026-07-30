@@ -602,5 +602,9 @@ async def test_process_pdf_lazy_emits_error_on_failure(monkeypatch):
     monkeypatch.setattr(upload_service, "import_pdf_lazy", _fake_lazy)
 
     chunks = await _drain(upload_service.process_pdf_lazy(b"%PDF data", "lecture.pdf", "cerebras"))
-    assert any('"error"' in c and "lazy exploded" in c for c in chunks)
+    # The raw exception text ("lazy exploded") must NOT reach the client —
+    # only a generic message. Full detail still goes to the server log
+    # (logger.error(..., exc_info=True) above this yield).
+    assert any('"error"' in c and "PDF parsing failed" in c for c in chunks)
+    assert not any("lazy exploded" in c for c in chunks)
     assert any('"recoverable": false' in c for c in chunks)

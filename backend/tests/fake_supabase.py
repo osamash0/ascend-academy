@@ -77,6 +77,7 @@ class _Storage:
     def __init__(self) -> None:
         self.uploaded: list[tuple[str, str]] = []
         self.removed: list[tuple[str, list[str]]] = []
+        self.signed_urls: list[tuple[str, str, int, Any]] = []
 
     def from_(self, bucket: str):  # supabase-py uses .from_
         return _Bucket(self, bucket)
@@ -100,6 +101,10 @@ class _Bucket:
 
     def get_public_url(self, path: str) -> str:
         return f"https://fake-supabase/storage/{self.bucket}/{path}"
+
+    def create_signed_url(self, path: str, expires_in: int, options: Any = None) -> dict:
+        self.store.signed_urls.append((self.bucket, path, expires_in, options))
+        return {"signedURL": f"https://fake-supabase/storage/{self.bucket}/{path}?token=fake"}
 
 
 class _QueryBuilder:

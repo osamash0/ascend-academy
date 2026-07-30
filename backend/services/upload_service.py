@@ -342,8 +342,8 @@ async def process_pdf_stream(
             except asyncio.TimeoutError:
                 if task.done():
                     if task.exception():
-                        logger.error("Sync unified parser failed: %s", task.exception())
-                        yield f"data: {json.dumps({'type': 'error', 'message': str(task.exception())})}\n\n"
+                        logger.error("Sync unified parser failed: %s", task.exception(), exc_info=task.exception())
+                        yield f"data: {json.dumps({'type': 'error', 'message': 'PDF parsing failed. Please try again or contact support if this keeps happening.'})}\n\n"
                     break
                 continue
         return
@@ -355,7 +355,7 @@ async def process_pdf_lazy(content: bytes, filename: str, ai_model: str) -> Asyn
             yield f"data: {json.dumps(update)}\n\n"
     except Exception as e:
         logger.error("Lazy import failed: %s", e, exc_info=True)
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e), 'recoverable': False})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'message': 'PDF parsing failed. Please try again or contact support if this keeps happening.', 'recoverable': False})}\n\n"
 
 async def extract_raw_pages(content: bytes, filename: str, parser: str) -> Dict[str, Any]:
     pages_raw: Dict[int, dict] = {}

@@ -6,18 +6,37 @@ Start with:
     source mineru-env/bin/activate
     python mineru_server.py
 """
+import hmac
+import logging
 import os
 import re
 import json
 import tempfile
 import pathlib
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, Header, UploadFile, File, HTTPException
 from magic_pdf.tools.common import do_parse
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+_SHARED_SECRET = os.environ.get("MINERU_SHARED_SECRET", "")
+if not _SHARED_SECRET:
+    logger.warning(
+        "MINERU_SHARED_SECRET is not set — /file_parse is unauthenticated. "
+        "This is the documented default for local dev (see module docstring), "
+        "but this process binds 0.0.0.0:8888: never run it on a host reachable "
+        "from outside a trusted network without setting this."
+    )
+
+
 @app.post("/file_parse")
-async def file_parse(file: UploadFile = File(...)):
+async def file_parse(
+    file: UploadFile = File(...),
+    x_mineru_run_secret: str = Header(default=""),
+):
+    if _SHARED_SECRET and not hmac.compare_digest(x_mineru_run_secret, _SHARED_SECRET):
+        raise HTTPException(status_code=401, detail="Unauthorized.")
     pdf_bytes = await file.read()
     stem = pathlib.Path(file.filename or "upload").stem
 

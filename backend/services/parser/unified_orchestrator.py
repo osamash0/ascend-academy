@@ -780,15 +780,21 @@ async def parse_pdf_unified(
 
     except Exception as exc:
         logger.exception("Unified pipeline failed for pdf_hash=%s: %s", pdf_hash, exc)
+        # Full detail is in the server log above (logger.exception, with
+        # traceback). What reaches the DB row / SSE stream — and from there
+        # GET /upload/jobs, visible to the owning user — is a generic
+        # message: str(exc) here could surface internal details (service
+        # URLs, library internals) depending on what actually raised.
+        user_facing_error = "PDF parsing failed. Please try again or contact support if this keeps happening."
         try:
             if run_uuid is not None:
                 if created_lecture_id is not None and slide_db_ids:
                     await persist.finalize_lecture(created_lecture_id, deck_summary, len(slide_db_ids))
-                await repos.set_error(run_uuid, str(exc))
+                await repos.set_error(run_uuid, user_facing_error)
         except Exception:
             pass
         try:
-            await emit("error", {"message": str(exc)})
+            await emit("error", {"message": user_facing_error})
         except Exception:
             pass
         raise

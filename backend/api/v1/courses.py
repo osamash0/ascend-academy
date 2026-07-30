@@ -64,7 +64,7 @@ class CourseUpdate(BaseModel):
 
 
 class TitleSuggestionRequest(BaseModel):
-    lectures: List[str]
+    lectures: List[str] = Field(..., max_length=50)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -348,15 +348,21 @@ async def browse_courses(
 
 
 @router.post("/generate-title-suggestion")
-async def generate_title_suggestion(req: TitleSuggestionRequest, user: Any = Depends(verify_token)):
+@limiter.limit("30/minute")
+async def generate_title_suggestion(request: Request, req: TitleSuggestionRequest, user: Any = Depends(verify_token)):
     from openai import AsyncOpenAI
     from backend.core.config import settings
 
     if not req.lectures:
         return {"title": "My New Course"}
 
+    # Defensive per-item cap before interpolation into the LLM prompt — real
+    # course lecture titles are never anywhere near this long; this only
+    # bounds a client that sends oversized/adversarial strings.
+    lectures = [l[:200] for l in req.lectures]
+
     # Use a small temperature to get a bit of variation on retry
-    prompt = f"Suggest a short, catchy, professional course title (max 6 words) for a course that covers these lectures: {', '.join(req.lectures)}. Output ONLY the title, no quotes or prefix."
+    prompt = f"Suggest a short, catchy, professional course title (max 6 words) for a course that covers these lectures: {', '.join(lectures)}. Output ONLY the title, no quotes or prefix."
 
     try:
         client = AsyncOpenAI(api_key=settings.litellm_client_key, base_url=settings.litellm_base_url)
