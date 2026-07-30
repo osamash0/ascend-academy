@@ -22,9 +22,31 @@
 -- are not mutually constrained by this — standard SQL NULL-is-distinct
 -- semantics, consistent with that migration's own "fine to leave existing
 -- rows with NULL" note.
+-- MERGE NOTE: the claim above that "no such migration actually exists" was
+-- true on the branch this was written on, but 20260720200000_scope_parse_
+-- runs_by_user.sql (developed in parallel on fix/s6-continuous-security-ci)
+-- creates the very same constraint, and sorts earlier. On any database that
+-- ran that one, the bare ADD CONSTRAINT below aborted the migration with
+-- "relation parse_runs_pdf_hash_pipeline_version_user_id_key already
+-- exists". Both migrations converge on an identical end state, so this one
+-- is now written to be a no-op when the constraint is already present
+-- rather than an error. (Postgres has no ADD CONSTRAINT IF NOT EXISTS.)
 ALTER TABLE public.parse_runs
     DROP CONSTRAINT IF EXISTS parse_runs_pdf_hash_pipeline_version_key;
 
-ALTER TABLE public.parse_runs
-    ADD CONSTRAINT parse_runs_pdf_hash_pipeline_version_user_id_key
-    UNIQUE (pdf_hash, pipeline_version, user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint AS c
+        JOIN pg_class AS r ON r.oid = c.conrelid
+        JOIN pg_namespace AS n ON n.oid = r.relnamespace
+        WHERE n.nspname = 'public'
+          AND r.relname = 'parse_runs'
+          AND c.conname = 'parse_runs_pdf_hash_pipeline_version_user_id_key'
+    ) THEN
+        ALTER TABLE public.parse_runs
+            ADD CONSTRAINT parse_runs_pdf_hash_pipeline_version_user_id_key
+            UNIQUE (pdf_hash, pipeline_version, user_id);
+    END IF;
+END $$;

@@ -258,17 +258,25 @@ def test_cross_partition_query_returns_correct_totals_and_prunes(db_conn, make_u
                 INSERT INTO public.learning_events (user_id, event_type, event_data, created_at)
                 VALUES (%s, 'slide_view', '{}'::jsonb, %s)
                 """,
-                (str(uid), f"{m}-15T12:00:00Z"),
+                (str(uid), f"{m}-15 12:00:00"),
             )
 
+        # Bare (timezone-less) literals on purpose: `ensure_learning_events_
+        # partition` builds its FROM/TO bounds the same way, so both are
+        # resolved in the session timezone and the range lines up EXACTLY
+        # with the partition boundaries. Pinning the query to UTC instead
+        # would straddle a boundary under any non-UTC session timezone --
+        # e.g. under Europe/Berlin '2022-07-01T00:00:00Z' is 02:00 local,
+        # two hours INTO the July partition, so July could not be pruned.
+        #
         # Scoped to this test's own synthetic user so other tests' rows
         # (and any real data) can't shift the total.
         cur.execute(
             """
             SELECT count(*) FROM public.learning_events
             WHERE user_id = %s
-              AND created_at >= '2022-03-01T00:00:00Z'
-              AND created_at <  '2022-07-01T00:00:00Z'
+              AND created_at >= '2022-03-01'
+              AND created_at <  '2022-07-01'
             """,
             (str(uid),),
         )
@@ -286,8 +294,8 @@ def test_cross_partition_query_returns_correct_totals_and_prunes(db_conn, make_u
             """
             EXPLAIN (FORMAT TEXT)
             SELECT count(*) FROM public.learning_events
-            WHERE created_at >= '2022-03-01T00:00:00Z'
-              AND created_at <  '2022-07-01T00:00:00Z'
+            WHERE created_at >= '2022-03-01'
+              AND created_at <  '2022-07-01'
             """
         )
         plan = "\n".join(r[0] for r in cur.fetchall())

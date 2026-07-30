@@ -463,9 +463,15 @@ async def parse_pdf_unified(
     embeddings to whichever owner parsed last. Fixing that is a prerequisite
     for cross-owner dedupe and is out of scope here.
     """
-    owner_str = user_id if user_id else "unknown"
+    # Per-user scoping comes from the `user_id` COLUMN in
+    # UNIQUE (pdf_hash, pipeline_version, user_id), not from namespacing the
+    # version string. An earlier revision of this branch appended the owner id
+    # here as a stand-in for that constraint; keeping it now would double-scope
+    # the key, bake identity data into a version field, and -- because
+    # materials_service creates student runs as plain "5-student" -- make the
+    # orchestrator's re-fetch miss the very row that service just created.
     pipeline_version = (
-        f"{PIPELINE_VERSION_UNIFIED}-student-{owner_str}" if visibility == "private_student" else f"{PIPELINE_VERSION_UNIFIED}-{owner_str}"
+        f"{PIPELINE_VERSION_UNIFIED}-student" if visibility == "private_student" else PIPELINE_VERSION_UNIFIED
     )
     redis_client = None
     if not emit_fn:

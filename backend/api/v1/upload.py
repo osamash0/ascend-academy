@@ -629,8 +629,12 @@ async def upload_batch_endpoint(
         )
         try:
             await upload_service.upload_pdf_to_storage(pdf_hash, content)
+            # Must match what unified_orchestrator computes for the same
+            # upload, or its re-fetch creates a second parse_runs row instead
+            # of resuming this one. Per-user scoping is the `user_id` column
+            # in UNIQUE (pdf_hash, pipeline_version, user_id), not a suffix.
             pipeline_version = (
-                f"{PIPELINE_VERSION_UNIFIED}-student-{user_uuid}" if visibility == "private_student" else f"{PIPELINE_VERSION_UNIFIED}-{user_uuid}"
+                f"{PIPELINE_VERSION_UNIFIED}-student" if visibility == "private_student" else PIPELINE_VERSION_UNIFIED
             )
             run = await parser_repos.get_or_create_run(
                 pdf_hash, None, pipeline_version,

@@ -95,8 +95,14 @@ async def create_lecture(
     if professor_id is not None:
         await _execute(
             """
+            -- The ::uuid/::text casts are load-bearing: inside
+            -- jsonb_build_object() Postgres has no context to infer a
+            -- placeholder's type, and asyncpg's prepare step fails with
+            -- "could not determine data type of parameter $2" without them.
+            -- `lectureId` (camelCase) is the canonical payload spelling for
+            -- new writes -- see backend/schemas/learning_events.py.
             INSERT INTO learning_events (user_id, event_type, event_data)
-            VALUES ($1, 'lecture_uploaded', jsonb_build_object('lecture_id', $2, 'course_id', $3))
+            VALUES ($1, 'lecture_uploaded', jsonb_build_object('lectureId', $2::uuid, 'course_id', $3::uuid))
             """,
             professor_id,
             lecture_id,

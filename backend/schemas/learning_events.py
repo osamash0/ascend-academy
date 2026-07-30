@@ -186,6 +186,36 @@ class ReviewGraded(_EventPayload):
     rating: int
 
 
+class LectureUploaded(_EventPayload):
+    """Emitted once by the parser (`services/parser/persist.py:create_lecture`)
+    the first time a professor upload produces a lecture. Re-parses reuse the
+    existing lecture and deliberately do not re-emit.
+
+    `course_id` is null for a detached upload not assigned to a course at
+    parse time. Uses the canonical camelCase `lectureId` spelling documented
+    in this module's header.
+    """
+
+    lectureId: str
+    course_id: str | None = None
+
+
+class OnboardingCompleted(_EventPayload):
+    """Emitted by the `complete_onboarding` RPC
+    (20260721100000_activation_completion_and_demo_course.sql), not by Python.
+    Guarded inside the RPC so a repeat call cannot emit a second row.
+
+    Listed here for catalog completeness and for the DB CHECK constraint --
+    `validate_event()` is never called for it, since the write happens
+    entirely inside Postgres.
+    """
+
+    role: str
+    path: str | None = None
+    study_goal: str | None = None
+    onboarding_version: int | None = None
+
+
 # ── Registry ──────────────────────────────────────────────────────────────────
 # Single source of truth: every valid `event_type` value + its payload model.
 # MUST stay in lockstep with the CHECK constraint added by
@@ -208,6 +238,8 @@ EVENT_REGISTRY: dict[str, type[_EventPayload]] = {
     "exam_generated": ExamGenerated,
     "exam_submitted": ExamSubmitted,
     "review_graded": ReviewGraded,
+    "lecture_uploaded": LectureUploaded,
+    "onboarding_completed": OnboardingCompleted,
 }
 
 KNOWN_EVENT_TYPES: frozenset[str] = frozenset(EVENT_REGISTRY)
