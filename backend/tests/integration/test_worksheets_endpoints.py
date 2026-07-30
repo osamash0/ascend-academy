@@ -57,6 +57,28 @@ def test_upload_list_download_delete(client, app, fake_supabase, professor_user)
     assert r.json()["data"] == []
 
 
+def test_download_url_forces_content_disposition_attachment(
+    client, app, fake_supabase, professor_user
+):
+    # upload_worksheet only checks the client-supplied Content-Type header
+    # (no magic-byte check, and text/plain / text/csv have no reliable
+    # magic bytes at all) and stores that same attacker-controlled value as
+    # the object's Content-Type. Forcing download=True on the signed URL is
+    # the actual mitigation — it closes the gap regardless of what
+    # Content-Type ends up being served.
+    _auth_as(app, professor_user)
+    _seed_lecture(fake_supabase, "lec-1", professor_user.id)
+    files = {"file": ("a.pdf", b"X", "application/pdf")}
+    ws = client.post("/api/lectures/lec-1/worksheets", files=files).json()["data"]
+
+    r = client.get(f"/api/worksheets/{ws['id']}/download_url")
+    assert r.status_code == 200, r.text
+
+    assert len(fake_supabase.storage.signed_urls) == 1
+    _bucket, _path, _expires_in, options = fake_supabase.storage.signed_urls[0]
+    assert options == {"download": True}
+
+
 def test_upload_rejects_oversize(client, app, fake_supabase, professor_user):
     _auth_as(app, professor_user)
     _seed_lecture(fake_supabase, "lec-1", professor_user.id)

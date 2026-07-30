@@ -371,7 +371,16 @@ async def get_worksheet_download_url(
         url: Optional[str] = None
         if hasattr(bucket, "create_signed_url"):
             try:
-                signed = bucket.create_signed_url(path, 3600)  # 1 hour
+                # download=True forces Content-Disposition: attachment.
+                # upload_worksheet() only checks the client-supplied
+                # Content-Type header (no magic-byte check for every allowed
+                # type — text/plain and text/csv have no reliable magic
+                # bytes at all), and that same attacker-controlled value is
+                # what gets stored as the object's Content-Type. Forcing a
+                # download disposition here closes the gap regardless of
+                # what Content-Type ends up being served, rather than
+                # relying on the browser never sniffing/rendering it inline.
+                signed = bucket.create_signed_url(path, 3600, {"download": True})  # 1 hour
                 if isinstance(signed, dict):
                     url = signed.get("signedURL") or signed.get("signed_url") or signed.get("signedUrl")
                 else:
