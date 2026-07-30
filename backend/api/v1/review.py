@@ -277,18 +277,29 @@ async def get_stats(request: Request, user: Any = Depends(require_student)):
         retention_pct = round(100 * correct / total, 1) if total else None
 
         # Streak: consecutive days (ending today or yesterday) with >=1 graded review.
+        # Bucket by UTC day explicitly: a bare `reviewed_at::date` resolves the
+        # timestamptz in the SESSION time zone, which silently disagrees with
+        # `now.date()` (UTC) on any server not set to UTC — zeroing out real
+        # streaks for reviews made late in the UTC day.
         day_rows = await conn.fetch(
-            "SELECT DISTINCT reviewed_at::date AS d FROM review_log WHERE user_id = $1 ORDER BY d DESC",
+            "SELECT DISTINCT (reviewed_at AT TIME ZONE 'UTC')::date AS d "
+            "FROM review_log WHERE user_id = $1 ORDER BY d DESC",
             user_id,
         )
         streak = 0
-        expected = now.date()
+        today = now.date()
+        expected = today
         for r in day_rows:
-            if r["d"] == expected:
+            d = r["d"]
+            if d > today:
+                continue  # defensive: future-dated row from clock skew
+            if d == expected:
                 streak += 1
                 expected = expected - timedelta(days=1)
-            elif r["d"] == expected + timedelta(days=1):
-                continue  # tolerate not-yet-reviewed-today
+            elif streak == 0 and d == today - timedelta(days=1):
+                # Nothing reviewed yet today — a streak ending yesterday still counts.
+                streak = 1
+                expected = d - timedelta(days=1)
             else:
                 break
 

@@ -8,95 +8,33 @@ schema, and separately verifies the two things a DB cascade *cannot* reach
 (``slide_embeddings`` and Supabase Storage objects) via
 ``backend/services/account_service.erase_user_storage_and_derived_data``.
 
-Runs against a real local Postgres (Homebrew Postgres 18 in this sandbox —
-no Docker), reusing the same bootstrap + migration-application approach as
-``backend/tests/db/conftest.py`` (``applied_migrations``/``pg_container``
-there are testcontainers-gated; this file provides a local-DSN equivalent so
-it also runs in environments without Docker). Gated behind the same ``db``
-marker as the rest of the nightly DB suite.
+Runs against a real Postgres via the shared ``backend/tests/db/conftest.py``
+fixtures (``pg_dsn``/``applied_migrations``/``db_conn``), which create a
+throwaway, uniquely-named database per session — preferring a local Homebrew
+Postgres and falling back to testcontainers/Docker. Gated behind the same
+``db`` marker as the rest of the nightly DB suite.
 """
 from __future__ import annotations
 
-import os
 import uuid
-from pathlib import Path
 from typing import Iterator
 
 import pytest
 
-try:
-    import psycopg
-
-    HAS_PSYCOPG = True
-except ImportError:
-    HAS_PSYCOPG = False
-
-from backend.tests.db.conftest import _split_sql_statements  # reuse the SQL splitter
-
 pytestmark = pytest.mark.db
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
-BOOTSTRAP_SQL = Path(__file__).resolve().parent / "sql" / "00_bootstrap.sql"
-
-LOCAL_PG_DSN = os.environ.get(
-    "GDPR_TEST_PG_DSN", "postgresql://localhost/ascend_gdpr_test"
-)
-
-
-def _local_postgres_available() -> bool:
-    if not HAS_PSYCOPG:
-        return False
-    try:
-        with psycopg.connect(LOCAL_PG_DSN, connect_timeout=2) as conn:
-            conn.execute("SELECT 1")
-        return True
-    except Exception:
-        return False
-
-
-@pytest.fixture(scope="module")
-def local_pg_dsn() -> str:
-    if not _local_postgres_available():
-        pytest.skip(
-            f"No local Postgres reachable at {LOCAL_PG_DSN} — "
-            "create it with `createdb ascend_gdpr_test` (Homebrew Postgres) "
-            "or set GDPR_TEST_PG_DSN."
-        )
-    return LOCAL_PG_DSN
-
-
-@pytest.fixture(scope="module")
-def applied_migrations_local(local_pg_dsn) -> Iterator[str]:
-    """Applies bootstrap + every migration to the local test DB, once per
-    module run, then truncates all touched tables between tests via the
-    per-test fixture below (cheaper than re-running 83 migrations per test)."""
-    bootstrap = BOOTSTRAP_SQL.read_text()
-    files = sorted(MIGRATIONS_DIR.glob("*.sql"))
-    assert files, f"No migrations found at {MIGRATIONS_DIR}"
-
-    with psycopg.connect(local_pg_dsn, autocommit=True) as conn:
-        with conn.cursor() as cur:
-            cur.execute(bootstrap)
-            for f in files:
-                sql = f.read_text()
-                try:
-                    cur.execute(sql)
-                except Exception:
-                    for stmt in _split_sql_statements(sql):
-                        try:
-                            cur.execute(stmt)
-                        except Exception as exc:
-                            raise RuntimeError(
-                                f"Migration {f.name} failed at statement:\n{stmt[:400]}"
-                            ) from exc
-    yield local_pg_dsn
 
 
 @pytest.fixture
-def conn(applied_migrations_local) -> Iterator["psycopg.Connection"]:
-    with psycopg.connect(applied_migrations_local, autocommit=True) as c:
-        yield c
+def conn(db_conn) -> Iterator["psycopg.Connection"]:
+    """Alias onto the shared session-scoped throwaway DB.
+
+    This file previously bootstrapped its own PERSISTENT database
+    (``ascend_gdpr_test``) and re-applied every migration to it on each run,
+    which failed on the second run onward with ``type "app_role" already
+    exists``. The shared ``pg_dsn`` fixture grew a local-Postgres branch that
+    makes that workaround obsolete.
+    """
+    yield db_conn
 
 
 # Every PII-bearing table this test seeds a row into, and how to check it's
@@ -124,10 +62,25 @@ def test_cascade_removes_every_direct_pii_table(conn):
     """Deleting auth.users removes every row in every table with a direct
     user_id -> auth.users(id) ON DELETE CASCADE FK."""
     uid = str(uuid.uuid4())
+    prof_id = str(uuid.uuid4())
+    lecture_id = str(uuid.uuid4())
+    card_id = str(uuid.uuid4())
     with conn.cursor() as cur:
         cur.execute(
             "INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES (%s, %s, '{\"role\": \"student\"}'::jsonb)",
             (uid, f"{uid}@test.local"),
+        )
+        # student_progress and review_cards both hang off a lecture, which
+        # needs an owning professor — a SECOND account that must survive the
+        # student's erasure (otherwise this test couldn't tell a correct
+        # cascade apart from one that over-deletes).
+        cur.execute(
+            "INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES (%s, %s, '{\"role\": \"professor\"}'::jsonb)",
+            (prof_id, f"{prof_id}@test.local"),
+        )
+        cur.execute(
+            "INSERT INTO lectures (id, title, professor_id, pdf_hash) VALUES (%s, 'L', %s, 'hash-direct')",
+            (lecture_id, prof_id),
         )
         # profiles row already auto-created by the 20260501000000-era trigger
         # for some schema versions; upsert to be safe either way.
@@ -140,8 +93,19 @@ def test_cascade_removes_every_direct_pii_table(conn):
             (uid,),
         )
         cur.execute(
-            "INSERT INTO student_progress (user_id, xp, level) VALUES (%s, 10, 1) ON CONFLICT (user_id) DO NOTHING",
-            (uid,),
+            "INSERT INTO student_progress (user_id, lecture_id, xp_earned) VALUES (%s, %s, 10)",
+            (uid, lecture_id),
+        )
+        cur.execute(
+            """
+            INSERT INTO review_cards (id, lecture_id, source_type, front, back, content_hash)
+            VALUES (%s, %s, 'quiz_question', '{}'::jsonb, '{}'::jsonb, 'hash-direct-card')
+            """,
+            (card_id, lecture_id),
+        )
+        cur.execute(
+            "INSERT INTO review_schedule (user_id, card_id) VALUES (%s, %s)",
+            (uid, card_id),
         )
         cur.execute(
             "INSERT INTO learning_events (user_id, event_type, event_data) VALUES (%s, 'slide_view', '{}'::jsonb)",
@@ -180,6 +144,13 @@ def test_cascade_removes_every_direct_pii_table(conn):
                 leftover[table] = n
 
         assert not leftover, f"Rows survived account deletion (cascade gap): {leftover}"
+
+        # ...and the cascade stops at the student: the professor's account and
+        # lecture are untouched (guards against an over-broad cascade).
+        cur.execute("SELECT count(*) FROM auth.users WHERE id = %s", (prof_id,))
+        assert cur.fetchone()[0] == 1, "professor account was deleted by the student's erasure"
+        cur.execute("SELECT count(*) FROM lectures WHERE id = %s", (lecture_id,))
+        assert cur.fetchone()[0] == 1, "professor's lecture was deleted by the student's erasure"
 
 
 def test_cascade_removes_lecture_owned_data_for_professor(conn):
