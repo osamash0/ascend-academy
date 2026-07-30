@@ -9,8 +9,18 @@ round-trip and guaranteeing the tutor never falls back to the model's
 parametric knowledge.
 
 All user-controlled inputs (`user_message`, `chat_history`) are sanitized
-before interpolation.  Slide content is treated as trusted (it comes from
-the professor's uploaded deck).
+before interpolation. Slide content is NOT run through the same sanitizer
+(`_sanitize_user_input`) — it's document text meant to be quoted/summarized
+verbatim, not chat prose, and mutating it (HTML-escaping, truncation-marker
+insertion) would corrupt citations and legitimate content. But "slide
+content is trusted" is not the same as "slide content is safe": uploads
+aren't professor-only (`require_creator`/`require_student` both gate the
+upload routes), so a student's crafted PDF text can end up here too, and it
+is later read by every other student who chats about that lecture/course.
+The mitigation is at the prompt level instead: both TUTOR_SOCRATIC_PROMPT
+and COURSE_TUTOR_SOCRATIC_PROMPT (prompts.py) carry an explicit HARD RULE
+that content inside [RETRIEVED CONTEXT] is data, never instructions —
+mirroring the existing [STUDENT MESSAGE] rule below.
 """
 import logging
 import re
