@@ -304,3 +304,73 @@ def test_cross_partition_query_returns_correct_totals_and_prunes(db_conn, make_u
         assert included in plan, f"expected {included} to be scanned:\n{plan}"
     for pruned in ("y2022m02", "y2022m07"):
         assert pruned not in plan, f"expected {pruned} to be pruned:\n{plan}"
+
+
+# ── What the rename-and-rebuild must NOT silently lose ───────────────────────
+# The partitioning migration rebuilds learning_events from scratch. These three
+# guard the things that do not survive a rebuild on their own and had to be
+# restored explicitly by
+# 20260731010000_repair_learning_events_partitioning_gaps.sql.
+
+
+def test_all_six_rls_policies_survive_the_rebuild(db_conn):
+    """The pre-partitioning table carried 6 policies; the partitioning
+    migration recreates only 3. Losing the other 3 would silently strip
+    admin read/delete on the event log and users' ability to delete their
+    own events (which GDPR erasure depends on)."""
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "SELECT polname FROM pg_policy p JOIN pg_class r ON r.oid = p.polrelid "
+            "WHERE r.relname = 'learning_events'"
+        )
+        policies = {r[0] for r in cur.fetchall()}
+
+    assert {
+        "Users can view their own events",
+        "Users can insert their own events",
+        "Professors view events for their enrolled students",
+        "Admins view learning events",
+        "Admins delete learning events",
+        "Users can delete own events",
+    } <= policies, f"missing policies after rebuild: {policies}"
+
+
+def test_matview_is_bound_to_the_partitioned_table_not_the_legacy_backup(db_conn):
+    """A matview binds to a table OID, so the migration's
+    `ALTER TABLE learning_events RENAME TO learning_events_legacy_20260721`
+    silently repoints mv_course_daily_activity at the frozen backup instead
+    of erroring. REFRESH would keep succeeding while serving data that can
+    never change -- and analytics_service's `use_mv` path reads this view."""
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "SELECT definition FROM pg_matviews WHERE matviewname = 'mv_course_daily_activity'"
+        )
+        row = cur.fetchone()
+    assert row is not None, "mv_course_daily_activity must exist"
+    definition = row[0]
+    assert "learning_events_legacy" not in definition, (
+        "mv_course_daily_activity is still bound to the pre-partitioning backup "
+        "table; it would serve permanently frozen analytics:\n" + definition
+    )
+    assert "learning_events" in definition
+
+
+def test_every_partition_has_rls_enabled(db_conn):
+    """Postgres does NOT inherit relrowsecurity from a partitioned parent --
+    each partition must enable it itself, or rows in that month are readable
+    without policy enforcement."""
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT public.ensure_learning_events_partition('2029-02-01')")
+        cur.execute(
+            """
+            SELECT c.relname, c.relrowsecurity
+            FROM pg_class c
+            JOIN pg_inherits i ON i.inhrelid = c.oid
+            WHERE i.inhparent = 'public.learning_events'::regclass
+            """
+        )
+        partitions = cur.fetchall()
+
+    assert partitions, "expected at least one partition"
+    unprotected = [name for name, rls in partitions if not rls]
+    assert not unprotected, f"partitions without RLS enabled: {unprotected}"
