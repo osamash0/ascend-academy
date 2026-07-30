@@ -55,6 +55,12 @@ services:
   # ── LLM gateway ────────────────────────────────────────────────────────────
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
+    # litellm's entrypoint treats an empty-but-present DATABASE_URL (the
+    # `environment:` override below) as a fatal config error and exits
+    # before serving — it needs the var fully unset, not blanked. Mirrors
+    # docker-compose.prod.yml's entrypoint, which already does this
+    # correctly.
+    entrypoint: ["sh", "-c", "unset DATABASE_URL && exec docker/prod_entrypoint.sh \"$$@\"", "--"]
     ports:
       - "127.0.0.1:4000:4000"
     volumes:
@@ -71,7 +77,9 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health')\" || exit 1"]
+      # /health requires auth in this litellm version (401 -> healthcheck
+      # always fails); /health/liveliness doesn't, matching prod's compose.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\" || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
