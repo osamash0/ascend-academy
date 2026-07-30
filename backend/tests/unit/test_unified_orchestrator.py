@@ -1006,6 +1006,14 @@ async def test_parse_pdf_unified_pdf_missing_errors(monkeypatch):
     assert rec["errors"]  # run marked failed
     assert "complete" not in [t for t, _ in events]
 
+    # The raw exception (whatever "PDF not found" internally raises) must
+    # not reach the DB error column or the SSE stream verbatim — both get
+    # the same generic message. Full detail is in the server log
+    # (logger.exception in the except block) instead.
+    error_event = next(d for t, d in events if t == "error")
+    assert error_event["message"] == "PDF parsing failed. Please try again or contact support if this keeps happening."
+    assert rec["errors"][0] == error_event["message"]
+
 
 # ── Roadmap P3-1: batch synthesis + budget pre-flight gate ───────────────────
 
