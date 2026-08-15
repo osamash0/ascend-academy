@@ -26,10 +26,6 @@ from backend.services.cache import (
     invalidate_cached_token,
     purge_expired_backend_cache,
 )
-from backend.services.account_service import (
-    erase_user_storage_and_derived_data,
-    export_user_data,
-)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -73,10 +69,17 @@ async def export_data_endpoint(
     """Export every PII / derived-from-PII row belonging to the caller
     (GDPR Art. 20 right to data portability).
 
-    Returns a single JSON document — one key per source table (profile,
-    progress, events, uploads/lectures, exams, review schedule, etc.) plus
-    ``exported_at``. This is the full server-side counterpart to the
-    previously partial client-side-only export in ``src/pages/Settings.tsx``.
+    Returns a single JSON document — one key per source table — covering
+    every table the account touches: profile, progress, achievements,
+    learning events, XP, notifications, feedback, enrollments/visits,
+    nudges, schedule, review/SRS state, exam attempts, practice attempts,
+    catalog selections, social/friend data, roles, and any owned
+    lectures/private uploads — plus ``exported_at``.
+    ``account_service.EXPORT_TABLES`` is the single source of truth.
+
+    This is the full server-side counterpart to the old client-side export
+    in ``src/pages/Settings.tsx``, which only ever read four tables through
+    the RLS-scoped Supabase client.
     """
     uid = _user_id(user)
     if not uid:
@@ -145,29 +148,6 @@ async def delete_account_endpoint(
             detail="Could not delete the account. Please contact support.",
         )
     return {"message": "Account deleted.", "storage_cleanup": storage_summary}
-
-
-@router.get("/export-data")
-@limiter.limit("5/minute")
-async def export_data_endpoint(
-    request: Request,
-    user: Any = Depends(verify_token),
-):
-    """Export every PII / derived-from-PII row belonging to the caller
-    (GDPR Art. 20 — right to data portability).
-
-    Returns a plain JSON document covering every table the account touches
-    (profile, progress, achievements, learning events, XP, notifications,
-    feedback, enrollments/visits, nudges, schedule, review/SRS state, exam
-    attempts, practice attempts, catalog selections, social/friend data,
-    roles, and any owned lectures/private uploads). This replaces the
-    previous client-side export in Settings, which only ever read four
-    tables directly via the RLS-scoped Supabase client.
-    """
-    uid = _user_id(user)
-    if not uid:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user context.")
-    return await export_user_data(uid)
 
 
 @router.post("/cleanup-token-cache")

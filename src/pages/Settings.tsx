@@ -21,12 +21,12 @@ import { Switch } from '@/components/ui/switch';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface ExportData {
+/** Shape of `GET /api/auth/export-data`: one key per source table, plus
+ *  `exported_at`. The table set is owned server-side by
+ *  `account_service.EXPORT_TABLES`, so this stays deliberately open —
+ *  enumerating it here would silently drop tables added on the backend. */
+interface ExportData extends Record<string, unknown> {
     exported_at: string;
-    profile: Profile | null;
-    progress: unknown[] | null;
-    achievements: unknown[] | null;
-    learning_events: unknown[] | null;
 }
 
 type AiModelOption = 'auto' | 'cerebras' | 'groq' | 'openrouter' | 'cloudflare' | 'openai';
@@ -466,12 +466,17 @@ function PreferencesSettings({ user }: { user: { id: string } | null }) {
         }
         let cancelled = false;
         setPreferencesLoading(true);
-        void supabase
-            .from('notification_preferences')
-            .select('lifecycle_nudges_enabled')
-            .eq('user_id', user.id)
-            .maybeSingle()
-            .then(({ data, error }) => {
+        // await + try/finally rather than .then().finally(): the Supabase query
+        // builder is a PromiseLike, not a Promise, so it has no `.finally` —
+        // tsc flagged this, and when the method is genuinely absent the loading
+        // flag never clears and the toggle stays disabled forever.
+        void (async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('notification_preferences')
+                    .select('lifecycle_nudges_enabled')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
                 if (cancelled) return;
                 if (error) {
                     console.error('Unable to load notification preferences', error);
@@ -479,10 +484,10 @@ function PreferencesSettings({ user }: { user: { id: string } | null }) {
                     return;
                 }
                 setLifecycleNudgesEnabled(data?.lifecycle_nudges_enabled ?? true);
-            })
-            .finally(() => {
+            } finally {
                 if (!cancelled) setPreferencesLoading(false);
-            });
+            }
+        })();
         return () => { cancelled = true; };
     }, [user, toast, t]);
 
@@ -622,20 +627,12 @@ function DataPrivacySettings({ user, signOut, navigate }: { user: { id: string }
         safeSetState(setIsExporting, true);
 
         try {
-            const [profileRes, progressRes, achievementsRes, eventsRes] = await Promise.all([
-                supabase.from('profiles').select('*').eq('user_id', user.id).single(),
-                supabase.from('student_progress').select('*').eq('user_id', user.id),
-                supabase.from('achievements').select('*').eq('user_id', user.id),
-                supabase.from('learning_events').select('*').eq('user_id', user.id),
-            ]);
-
-            const exportData: ExportData = {
-                exported_at: new Date().toISOString(),
-                profile: profileRes.data as Profile | null,
-                progress: progressRes.data,
-                achievements: achievementsRes.data,
-                learning_events: eventsRes.data,
-            };
+            // GDPR Art. 20 requires the *complete* record. Building this in the
+            // browser only ever reached the four tables the RLS-scoped client
+            // could read directly; the server endpoint covers all ~22 in
+            // account_service.EXPORT_TABLES, including storage-derived rows the
+            // client cannot see at all.
+            const exportData = await apiClient.get<ExportData>('/api/auth/export-data');
 
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -660,24 +657,12 @@ function DataPrivacySettings({ user, signOut, navigate }: { user: { id: string }
         safeSetState(setIsDeleting, true);
 
         try {
-            let serverDeleted = false;
-            try {
-                await apiClient.post('/api/auth/delete-account', {});
-                serverDeleted = true;
-            } catch (e) {
-                console.warn('Server-side account deletion unavailable; falling back to client-side row deletion', e);
-            }
-
-            if (!serverDeleted) {
-                const tables = ['learning_events', 'student_progress', 'achievements', 'user_roles', 'profiles'] as const;
-                for (const table of tables) {
-                    const { error } = await supabase.from(table).delete().eq('user_id', user.id);
-                    if (error) {
-                        console.error(`Error deleting from ${table}:`, error);
-                        throw error;
-                    }
-                }
-            }
+            // Deletion is server-only and must stay that way. The old fallback
+            // deleted five tables from the browser when this call failed, then
+            // reported success — leaving auth.users, storage objects and every
+            // other table behind while telling the user their account was gone.
+            // A failure here has to surface as a failure.
+            await apiClient.post('/api/auth/delete-account', {});
 
             await signOut();
             navigate('/');
