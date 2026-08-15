@@ -115,6 +115,16 @@ export async function deleteCourse(id: string, reassignTo?: string): Promise<voi
   await apiClient.delete<void>(`/api/courses/${id}${qs}`);
 }
 
+/**
+ * Rename a lecture you own. Goes through the API rather than supabase-js
+ * because the endpoint accepts ownership via either `professor_id` or
+ * `student_owner_id`, so it covers a private upload that has not been placed
+ * in a course yet as well as one that has.
+ */
+export async function updateLectureTitle(lectureId: string, title: string): Promise<void> {
+  await apiClient.patch<Envelope<unknown>>(`/api/courses/lecture/${lectureId}`, { title });
+}
+
 export async function assignLectureToCourse(courseId: string, lectureId: string): Promise<void> {
   await apiClient.post<Envelope<unknown>>(
     `/api/courses/${courseId}/lectures/${lectureId}`,

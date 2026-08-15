@@ -16,6 +16,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import {
   listCourses,
+  updateCourse,
   deleteCourse,
   type Course,
 } from '@/services/coursesService';

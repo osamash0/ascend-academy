@@ -192,6 +192,16 @@ async def list_my_materials(user_id: str) -> List[Dict[str, Any]]:
     out = []
     for r in run_rows:
         lec = lectures.get(r["lecture_id"])
+        # A run that produced a lecture which is no longer one of this user's
+        # private materials has left this screen for good: either it was
+        # promoted into a course (the Library owns it now, and promotion clears
+        # student_owner_id) or it was deleted. Listing it anyway rendered a
+        # phantom row — original filename, zero slides, an Open button pointing
+        # at a lecture this page can no longer read. A run with no lecture_id at
+        # all is different: that one is still parsing or failed, and its status
+        # is exactly what this list is for.
+        if r["lecture_id"] and lec is None:
+            continue
         c = counts.get(r["lecture_id"], {})
         out.append({
             "run_id": str(r["run_id"]),

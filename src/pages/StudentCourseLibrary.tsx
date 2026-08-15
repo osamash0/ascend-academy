@@ -11,6 +11,7 @@ import type { Lecture, StudentProgress, CourseSummary } from '@/types/domain';
 import { CourseDetailsSheet } from '@/features/student/components/CourseDetailsSheet';
 import { CourseCatalogSheet } from '@/features/student/components/CourseCatalogSheet';
 import { getCourseSchedule } from '@/features/student/courseSchedules';
+import { groupCoursesBySemester } from '@/features/student/semesterGroups';
 import { InlineLecturePlayer } from '@/features/student/components/InlineLecturePlayer';
 import { Button } from '@/components/ui/button';
 import {
@@ -72,6 +73,7 @@ const shelfCard = {
 
 import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
 import { useAuth } from '@/lib/auth';
+import { StudentRoutes } from '@/lib/routes';
 import { recordOnboardingEvent, saveOnboardingProgress } from '@/services/onboardingService';
 import { supabase } from '@/integrations/supabase/client';
 import { getInstitutionMatchSuggestion, getMyVerification, verifyMyInstitution } from '@/services/academicService';
@@ -321,50 +323,17 @@ export default function StudentCourseLibrary() {
   // Set of already enrolled course IDs so the catalog can mark them.
   const enrolledCourseIds = useMemo(() => new Set(courseList.map(c => c.id)), [courseList]);
 
-  // Parse the semester from a course's description/title — same rule the skill
-  // tree uses (e.g. "… 4. Semester" → 4). null when none is stated.
-  const semesterOf = useCallback((c: DerivedCourse) => {
-    const text = `${c.description || ''} ${c.title}`;
-    const m = text.match(/(\d+)\.\s*Semester/i) || text.match(/Semester\s*(\d+)/i);
-    return m ? parseInt(m[1], 10) : null;
-  }, []);
-
-  // The semester that leads the rail = the semester of the highest-priority
-  // course in the sorted courseList (has-lectures, then last-opened, then
-  // progress). This keeps the lead semester in sync with the sort order.
-  const leadSemester = useMemo(() => {
-    const first = courseList.find((c) => semesterOf(c) != null);
-    return first ? semesterOf(first) : null;
-  }, [courseList, semesterOf]);
-
-  // Courses grouped by semester: the lead (current) semester first, the rest
+  // Courses grouped by semester: the lead group first, remaining semesters
   // ascending, and any without a stated semester last. courseList is already
   // sorted last-opened → highest-progress, so order holds inside each group.
-  const semesterGroups = useMemo(() => {
-    const byKey = new Map<number | 'none', DerivedCourse[]>();
-    courseList.forEach((c) => {
-      const s = semesterOf(c);
-      const key: number | 'none' = s == null ? 'none' : s;
-      if (!byKey.has(key)) byKey.set(key, []);
-      byKey.get(key)!.push(c);
-    });
-    const sems = [...byKey.keys()]
-      .filter((k): k is number => k !== 'none')
-      .sort((a, b) => {
-        if (a === leadSemester) return -1;
-        if (b === leadSemester) return 1;
-        return a - b;
-      });
-    const groups = sems.map((s) => ({
-      key: String(s),
-      label: t('dashboard:semesterN', '{{n}}. Semester', { n: s }),
-      courses: byKey.get(s)!,
-    }));
-    if (byKey.has('none')) {
-      groups.push({ key: 'none', label: t('dashboard:otherCourses', 'Other'), courses: byKey.get('none')! });
-    }
-    return groups;
-  }, [courseList, semesterOf, leadSemester, t]);
+  const semesterGroups = useMemo(
+    () => groupCoursesBySemester(courseList, (key) => (
+      key === 'none'
+        ? t('dashboard:otherCourses', 'Other')
+        : t('dashboard:semesterN', '{{n}}. Semester', { n: key })
+    )),
+    [courseList, t],
+  );
 
   // Collapsed, the rail shows only the lead semester; "Show all" reveals the
   // rest. railCourses is the flat list the focus index and keyboard nav use.
@@ -417,7 +386,7 @@ export default function StudentCourseLibrary() {
   }, [courseId, courseList.length, onboardTarget]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const focusedCourse = railCourses[courseFocus];
-  const canAddMaterialToFocusedCourse = Boolean(
+  const ownsFocusedCourse = Boolean(
     user?.id
     && focusedCourse
     && data?.courses?.some((course) => course.id === focusedCourse.id && course.professor_id === user.id),
@@ -968,7 +937,7 @@ export default function StudentCourseLibrary() {
               <p className="mt-1 text-sm text-muted-foreground">This experience was built from ordinary lecture files like yours.</p>
             </div>
             <div className="flex items-center gap-3">
-              <Button size="sm" onClick={() => navigate(StudentRoutes.ONBOARDING)}>Build my course</Button>
+              <Button size="sm" onClick={() => navigate(StudentRoutes.ONBOARDING_START)}>Build my course</Button>
               <button type="button" onClick={() => setDemoMissionComplete(false)} className="text-sm font-medium text-muted-foreground hover:text-foreground">Keep exploring</button>
             </div>
           </aside>
@@ -1052,9 +1021,11 @@ export default function StudentCourseLibrary() {
             setIsDetailsOpen(false);
             openInline(lectureId, focusedCourse.id);
           }}
-          onAddMaterial={canAddMaterialToFocusedCourse ? () => navigate(StudentRoutes.ONBOARDING_UPLOAD, {
+          onAddMaterial={ownsFocusedCourse ? () => navigate(StudentRoutes.ONBOARDING_UPLOAD, {
             state: { existingCourseId: focusedCourse.id, existingCourseTitle: focusedCourse.title },
           }) : undefined}
+          canEdit={ownsFocusedCourse}
+          onCourseChanged={() => void refetch()}
         />
       )}
 

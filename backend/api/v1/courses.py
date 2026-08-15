@@ -19,6 +19,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -68,6 +69,26 @@ class TitleSuggestionRequest(BaseModel):
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
+
+def _clean_suggested_title(raw: Optional[str]) -> str:
+    """Reduce a raw LLM reply to a single bare course title.
+
+    The orchestrator's chain spans several free-tier models, and the weaker
+    ones ignore "output ONLY the title": they answer with a `Title: ...`
+    prefix, markdown emphasis, or the title followed by a paragraph of
+    justification. Take the first non-empty line and strip the usual wrappers.
+    """
+    line = next((l.strip() for l in (raw or "").splitlines() if l.strip()), "")
+    # Peel repeatedly: the wrappers nest in either order, e.g. **Title: "X"**.
+    for _ in range(3):
+        before = line
+        line = line.strip().strip("*_#`").strip()
+        line = re.sub(r"^(?:course\s+)?title\s*[:\-]\s*", "", line, flags=re.I)
+        line = line.strip().strip('"').strip("'").strip()
+        if line == before:
+            break
+    return line[:200]
+
 
 def _fetch_course(course_id: str) -> Optional[dict]:
     res = (
@@ -377,8 +398,18 @@ async def browse_courses(
 @router.post("/generate-title-suggestion")
 @limiter.limit("30/minute")
 async def generate_title_suggestion(request: Request, req: TitleSuggestionRequest, user: Any = Depends(verify_token)):
-    from openai import AsyncOpenAI
-    from backend.core.config import settings
+    """Suggest a course title from the lecture titles in an upload batch.
+
+    Goes through the shared multi-provider orchestrator — the same failover
+    chain every other AI feature uses — rather than the LiteLLM gateway. The
+    gateway path was the last live caller of ``LITELLM_BASE_URL``, so it was
+    unreachable in any environment that runs the backend outside the compose
+    network, and the broad ``except`` turned that into a *successful* response
+    carrying the constant "My AI Generated Course". "Suggest again" therefore
+    looked like a no-op instead of an outage. Failures now surface as 502 so
+    the client can tell the user something actually went wrong.
+    """
+    from backend.services.ai.orchestrator import generate_text
 
     if not req.lectures:
         return {"title": "My New Course"}
@@ -388,23 +419,23 @@ async def generate_title_suggestion(request: Request, req: TitleSuggestionReques
     # bounds a client that sends oversized/adversarial strings.
     lectures = [l[:200] for l in req.lectures]
 
-    # Use a small temperature to get a bit of variation on retry
     prompt = f"Suggest a short, catchy, professional course title (max 6 words) for a course that covers these lectures: {', '.join(lectures)}. Output ONLY the title, no quotes or prefix."
 
     try:
-        client = AsyncOpenAI(api_key=settings.litellm_client_key, base_url=settings.litellm_base_url)
-        resp = await client.chat.completions.create(
-            # Using stage-text or default model mapped in litellm
-            model="stage-text", 
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=20,
-            temperature=0.8
+        raw = await generate_text(
+            prompt,
+            feature="course_title_suggestion",
+            user_id=_user_id(user),
         )
-        title = resp.choices[0].message.content.strip().strip('"').strip("'")
-        return {"title": title}
     except Exception as e:
-        logger.error(f"Failed to generate title suggestion: {e}")
-        return {"title": "My AI Generated Course"}
+        logger.error("Failed to generate title suggestion: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Could not suggest a title right now. Please try again.")
+
+    title = _clean_suggested_title(raw)
+    if not title:
+        logger.warning("Title suggestion came back empty (raw=%r)", raw)
+        raise HTTPException(status_code=502, detail="Could not suggest a title right now. Please try again.")
+    return {"title": title}
 
 
 @router.post("/{course_id}/enroll")
@@ -1061,7 +1092,22 @@ async def unassign_lecture(
                 status_code=400,
                 detail="Lecture is not assigned to this course.",
             )
-        supabase_admin.table("lectures").update({"course_id": None}).eq(
+
+        # A professor's uncategorised lectures still have a home: the course
+        # list surfaces them so they can be reassigned. A student has no such
+        # view — their only lecture surfaces are a course rail (keyed on
+        # course_id) and My Materials (keyed on student_owner_id). Leaving the
+        # row with neither would strand the material in a place no screen
+        # lists. So for a student this reverses the promotion `assign_lecture`
+        # performs, handing the upload back as a private material.
+        update: dict[str, Any] = {"course_id": None}
+        if not _is_professor(user):
+            update.update({
+                "visibility": "private_student",
+                "student_owner_id": uid,
+                "professor_id": None,
+            })
+        supabase_admin.table("lectures").update(update).eq(
             "id", lecture_id
         ).execute()
 

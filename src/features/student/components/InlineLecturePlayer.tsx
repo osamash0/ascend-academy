@@ -40,6 +40,7 @@ import {
   SlidersHorizontal,
   Copy,
   Sparkles,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { apiClient } from '@/lib/apiClient';
@@ -1477,6 +1478,11 @@ export function InlineLecturePlayer({
                               {m.content}
                             </ReactMarkdown>
                           </div>
+                          {m.sourceLabel ? (
+                            <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+                              <BookOpen className="h-3 w-3" /> Grounded in {m.sourceLabel}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     ),
@@ -1490,11 +1496,6 @@ export function InlineLecturePlayer({
                             {streaming}
                           </ReactMarkdown>
                         </div>
-                        {m.sourceLabel ? (
-                          <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
-                            <BookOpen className="h-3 w-3" /> Grounded in {m.sourceLabel}
-                          </p>
-                        ) : null}
                       </div>
                     </div>
                   )}

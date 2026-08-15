@@ -31,7 +31,7 @@ import { useAiModel } from '@/hooks/use-ai-model';
 import { useAuth } from '@/lib/auth';
 import type { BatchSummaryRow } from '@/types/upload';
 import { cn } from '@/lib/utils';
-import { recordOnboardingEvent, saveOnboardingProgress, type StudyGoal } from '@/services/onboardingService';
+import { fetchActiveBatchId, recordOnboardingEvent, saveOnboardingProgress, type StudyGoal } from '@/services/onboardingService';
 import {
   createCourseFromBlueprint,
   fetchCourseBlueprint,
@@ -73,15 +73,37 @@ export default function StudentUploadWizard() {
   const hasLoggedBlueprintView = useRef(false);
   const hasLoggedProcessingComplete = useRef(false);
   const isPollingBatch = useRef(false);
+  const hasEditedDescription = useRef(false);
   const resumedBatchId = searchParams.get('batch') ?? ((location.state as { batchId?: string } | null)?.batchId) ?? null;
   const hasResumedBatch = useRef(false);
 
   useEffect(() => {
-    if (!resumedBatchId || hasResumedBatch.current || batchId) return;
+    if (hasResumedBatch.current || batchId) return;
+
+    if (resumedBatchId) {
+      hasResumedBatch.current = true;
+      resumeBatch(resumedBatchId);
+      setStep(2);
+      return;
+    }
+
+    // Step 2 tells the student they can leave while parsing runs, so arriving
+    // back here without a batch in the URL has to pick up the batch they left
+    // behind rather than showing an empty dropzone. Their files are already
+    // stored and hash-deduped server-side, so re-uploading them would only be
+    // rejected as duplicates — losing the batch loses the course.
+    // `active_batch_id` is cleared once the course is created, so a resumed id
+    // is always still in flight. Skip when adding to an existing course: that
+    // visit is deliberately a new batch for a different course.
+    if (!user?.id || isAddingToExistingCourse) return;
     hasResumedBatch.current = true;
-    resumeBatch(resumedBatchId);
-    setStep(2);
-  }, [batchId, resumeBatch, resumedBatchId]);
+    void (async () => {
+      const activeBatchId = await fetchActiveBatchId(user.id);
+      if (!activeBatchId) return;
+      resumeBatch(activeBatchId);
+      setStep(2);
+    })();
+  }, [batchId, isAddingToExistingCourse, resumeBatch, resumedBatchId, user?.id]);
 
   // Keep the course proposal in sync while parsing continues. A student can
   // create a useful course as soon as one grounded lecture is ready; the
@@ -98,7 +120,14 @@ export default function StudentUploadWizard() {
           const allDone = summary.length > 0 && summary.every(l => l.status === 'completed' || l.status === 'failed');
           if (hasReadyMaterial || allDone) {
             const nextBlueprint = await fetchCourseBlueprint(batchUpload.batchId!);
-            setBlueprint(nextBlueprint);
+            // The server fills the description in asynchronously once parsing
+            // settles, so the poll has to keep applying it — but never on top
+            // of what the student typed into the description box.
+            setBlueprint((current) =>
+              hasEditedDescription.current && current
+                ? { ...nextBlueprint, description: current.description }
+                : nextBlueprint,
+            );
             setCourseTitle((current) => current || nextBlueprint.title);
             if (step === 2) setStep(3);
             if (user?.id && !hasLoggedBlueprintView.current) {
@@ -563,7 +592,11 @@ export default function StudentUploadWizard() {
                 <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">Edit course description</summary>
                 <Textarea
                   value={blueprint?.description ?? ''}
-                  onChange={(event) => setBlueprint((current) => current ? { ...current, description: event.target.value } : current)}
+                  placeholder="Luna writes this from your slides once they finish processing."
+                  onChange={(event) => {
+                    hasEditedDescription.current = true;
+                    setBlueprint((current) => current ? { ...current, description: event.target.value } : current);
+                  }}
                   onBlur={() => void persistBlueprint({ description: blueprint?.description ?? '' })}
                   className="mt-3 min-h-20 resize-y"
                   maxLength={4000}

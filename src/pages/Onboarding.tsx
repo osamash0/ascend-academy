@@ -17,6 +17,7 @@ import {
 } from '@/services/academicService';
 import { setMySocialProfile, fetchFriendSuggestions } from '@/features/social/api';
 import { rankForXp, rankProgress } from '@/lib/rank';
+import { StudentRoutes } from '@/lib/routes';
 import { useSound } from '@/lib/useSound';
 import { OnboardingJourneyMap } from '@/features/onboarding/pixi/OnboardingJourneyMap';
 import type {
@@ -483,9 +484,10 @@ function OnboardingInner() {
       setTimeout(() => play('complete'), 3600);
 
       setTimeout(() => {
-        // Hard navigate so the dashboard mounts with a freshly-refreshed profile
-        // (name, avatar, rank ring) instead of stale onboarding-time state.
-        window.location.href = '/dashboard';
+        // Identity is set, so the last first-run decision is which study path to
+        // start on. Hard navigate so that screen mounts with a freshly-refreshed
+        // profile and greets the student by the name they just chose.
+        window.location.href = StudentRoutes.ONBOARDING_START;
       }, 5400);
     } catch (error: unknown) {
       toast({

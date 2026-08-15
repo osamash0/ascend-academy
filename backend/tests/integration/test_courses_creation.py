@@ -16,34 +16,34 @@ def _cid() -> str:
     return str(uuid.uuid4())
 
 
-# ── generate_title_suggestion (LLM mocked at the OpenAI boundary) ─────────────
+# ── generate_title_suggestion (LLM mocked at the orchestrator boundary) ───────
 
-def _patch_openai(monkeypatch, *, content=None, raises=False):
-    import openai
+def _patch_llm(monkeypatch, *, content=None, raises=False, capture=None):
+    """Stub the shared orchestrator the endpoint calls.
 
-    class _Completions:
-        async def create(self, **kwargs):
-            if raises:
-                raise RuntimeError("litellm unavailable")
-            return SimpleNamespace(
-                choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-            )
+    The endpoint used to talk to the LiteLLM gateway directly (mocked here at
+    the `openai.AsyncOpenAI` boundary). It now goes through
+    `orchestrator.generate_text` like every other AI feature, because the
+    gateway is unreachable outside the compose network and the endpoint's
+    broad `except` turned that outage into a 200 carrying a constant title.
+    """
+    from backend.services.ai import orchestrator
 
-    class _Chat:
-        completions = _Completions()
+    async def _fake_generate_text(prompt, *a, **k):
+        if capture is not None:
+            capture["prompt"] = prompt
+        if raises:
+            raise RuntimeError("all providers exhausted")
+        return content
 
-    class _FakeAsyncOpenAI:
-        def __init__(self, *a, **k):
-            self.chat = _Chat()
-
-    monkeypatch.setattr(openai, "AsyncOpenAI", _FakeAsyncOpenAI)
+    monkeypatch.setattr(orchestrator, "generate_text", _fake_generate_text)
 
 
 def test_title_suggestion_reachable_by_normal_authed_call(app_client, monkeypatch):
     # Regression guard for BUG B2 (fixed): the endpoint used Depends(_user_id) — a
     # plain helper — which made `user` a required query param, 422-ing every real
     # call. It now uses Depends(verify_token) and is reachable with no query param.
-    _patch_openai(monkeypatch, content="Databases 101")
+    _patch_llm(monkeypatch, content="Databases 101")
     res = app_client.post(
         "/api/v1/courses/generate-title-suggestion", json={"lectures": ["SQL basics"]}
     )
@@ -60,7 +60,7 @@ def test_title_suggestion_empty_lectures_returns_default(app_client):
 
 
 def test_title_suggestion_success_strips_quotes(app_client, monkeypatch):
-    _patch_openai(monkeypatch, content='  "Intro to Databases"  ')
+    _patch_llm(monkeypatch, content='  "Intro to Databases"  ')
     res = app_client.post(
         "/api/v1/courses/generate-title-suggestion",
         json={"lectures": ["SQL basics", "Normalization"]},
@@ -69,21 +69,46 @@ def test_title_suggestion_success_strips_quotes(app_client, monkeypatch):
     assert res.json()["title"] == "Intro to Databases"  # whitespace + quotes stripped
 
 
-def test_title_suggestion_llm_failure_falls_back(app_client, monkeypatch):
-    _patch_openai(monkeypatch, raises=True)
+def test_title_suggestion_strips_preamble_and_trailing_prose(app_client, monkeypatch):
+    # The orchestrator's chain includes small free-tier models that ignore
+    # "output ONLY the title" and answer with a label and an explanation.
+    _patch_llm(
+        monkeypatch,
+        content='**Title: "Intro to Databases"**\n\nThis name works because it is short.',
+    )
+    res = app_client.post(
+        "/api/v1/courses/generate-title-suggestion",
+        json={"lectures": ["SQL basics"]},
+    )
+    assert res.status_code == 200
+    assert res.json()["title"] == "Intro to Databases"
+
+
+def test_title_suggestion_llm_failure_surfaces_as_502(app_client, monkeypatch):
+    # Must NOT be a 200 carrying a canned title: that made a total LLM outage
+    # look to the student like "Suggest again" silently doing nothing.
+    _patch_llm(monkeypatch, raises=True)
     res = app_client.post(
         "/api/v1/courses/generate-title-suggestion",
         json={"lectures": ["A", "B"]},
     )
-    assert res.status_code == 200
-    assert res.json()["title"] == "My AI Generated Course"  # graceful fallback
+    assert res.status_code == 502
+
+
+def test_title_suggestion_empty_completion_surfaces_as_502(app_client, monkeypatch):
+    _patch_llm(monkeypatch, content="   \n  ")
+    res = app_client.post(
+        "/api/v1/courses/generate-title-suggestion",
+        json={"lectures": ["A"]},
+    )
+    assert res.status_code == 502
 
 
 def test_title_suggestion_rate_limit_kicks_in(app_client, monkeypatch):
     # Sibling AI-content routes (ai_content.py's suggest-title) are all
     # explicitly rate-limited; this endpoint previously had no @limiter.limit
     # and relied solely on the 120/min global default.
-    _patch_openai(monkeypatch, content="Databases 101")
+    _patch_llm(monkeypatch, content="Databases 101")
     last_status = None
     for _ in range(35):
         res = app_client.post(
@@ -108,24 +133,7 @@ def test_title_suggestion_rejects_more_than_50_lectures(app_client):
 
 def test_title_suggestion_truncates_oversized_lecture_titles_before_prompting(app_client, monkeypatch):
     captured = {}
-
-    class _Completions:
-        async def create(self, **kwargs):
-            captured["messages"] = kwargs["messages"]
-            return SimpleNamespace(
-                choices=[SimpleNamespace(message=SimpleNamespace(content="Title"))]
-            )
-
-    class _Chat:
-        completions = _Completions()
-
-    class _FakeAsyncOpenAI:
-        def __init__(self, *a, **k):
-            self.chat = _Chat()
-
-    import openai
-
-    monkeypatch.setattr(openai, "AsyncOpenAI", _FakeAsyncOpenAI)
+    _patch_llm(monkeypatch, content="Title", capture=captured)
 
     huge_title = "A" * 5000
     res = app_client.post(
@@ -133,7 +141,7 @@ def test_title_suggestion_truncates_oversized_lecture_titles_before_prompting(ap
         json={"lectures": [huge_title]},
     )
     assert res.status_code == 200
-    prompt = captured["messages"][0]["content"]
+    prompt = captured["prompt"]
     # The 5000-char title must not reach the LLM call verbatim — only the
     # first 200 chars per lecture are interpolated into the prompt.
     assert huge_title not in prompt

@@ -112,9 +112,12 @@ export default async function globalSetup() {
         .eq('user_id', studentUser.id);
       if (activationError) throw activationError;
 
+      // This spec covers the activation step only. A name marks the preceding
+      // identity cinematic as already done, so the run starts at the study-path
+      // screen rather than replaying five setup steps.
       const { error: onboardingProfileError } = await supabaseAdmin
         .from('profiles')
-        .update({ has_completed_activation_onboarding: false })
+        .update({ has_completed_activation_onboarding: false, full_name: 'Onboarding E2E' })
         .eq('user_id', onboardingUser.id);
       if (onboardingProfileError) throw onboardingProfileError;
 

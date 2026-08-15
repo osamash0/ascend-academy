@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { safeGetUUID } from '@/lib/utils';
 import { apiClient } from '@/lib/apiClient';
+import { StudentRoutes } from '@/lib/routes';
 import type { SlideData, DeckQuizItem } from '@/types/lectureUpload';
 
 interface UseLectureSubmitOptions {
@@ -53,10 +54,16 @@ interface UseLectureSubmitOptions {
 
 
 export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode = 'ai', serverLectureId, editLectureId, existingPdfUrl }: UseLectureSubmitOptions) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+
+  // The editor is shared with students, who own lectures of their own courses
+  // (see migration 20260713000000_creator_uploads). Sending them to the
+  // professor dashboard would bounce off its role gate, so a save has to land
+  // each role somewhere it is actually allowed to be.
+  const doneDestination = role === 'student' ? StudentRoutes.LIBRARY : '/professor/dashboard';
 
   const handleSubmit = useCallback(
     async () => {
@@ -84,7 +91,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
             console.warn('Failed to schedule concept ingestion (non-fatal):', e);
           }
           toast({ title: 'Saved!', description: 'Lecture updated successfully.' });
-          navigate('/professor/dashboard');
+          navigate(doneDestination);
         } catch (error) {
           console.error('Error saving lecture:', error);
           toast({ title: 'Error', description: 'Failed to save lecture. Please try again.', variant: 'destructive' });
@@ -129,7 +136,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
             console.warn('Failed to schedule concept ingestion (non-fatal):', e);
           }
           toast({ title: 'Success!', description: 'Lecture created successfully.' });
-          navigate('/professor/dashboard');
+          navigate(doneDestination);
         } catch (error) {
           console.error('Error saving lecture:', error);
           toast({ title: 'Error', description: 'Failed to save lecture. Please try again.', variant: 'destructive' });
@@ -291,7 +298,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         }
 
         toast({ title: 'Success!', description: 'Lecture created successfully.' });
-        navigate('/professor/dashboard');
+        navigate(doneDestination);
       } catch (error) {
         console.error('Error creating lecture:', error);
         toast({ title: 'Error', description: 'Failed to create lecture. Please try again.', variant: 'destructive' });
@@ -299,7 +306,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         setLoading(false);
       }
     },
-    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, serverLectureId, editLectureId, existingPdfUrl, user, navigate, toast]
+    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, serverLectureId, editLectureId, existingPdfUrl, user, navigate, toast, doneDestination]
   );
 
   return { loading, handleSubmit };

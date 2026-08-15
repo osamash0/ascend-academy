@@ -30,6 +30,18 @@ export async function saveOnboardingProgress(userId: string, patch: ProgressPatc
   if (error) throw error;
 }
 
+/** The upload batch this student left in flight, or null once it produced a
+ * course. Lets the upload wizard resume instead of restarting. */
+export async function fetchActiveBatchId(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('onboarding_progress')
+    .select('active_batch_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) return null;
+  return data?.active_batch_id ?? null;
+}
+
 export async function recordOnboardingEvent(
   userId: string,
   eventType: string,

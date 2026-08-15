@@ -9,7 +9,7 @@ Provider chain (rate-limit data: github.com/cheahjs/free-llm-api-resources):
   groq_fast     llama-3.1-8b-instant        14,400       6,000   Fast fallback
   gemma         gemma-3-27b-it              14,400      15,000   Google SDK
   mistral       mistral-small-latest        ~unlimited  500,000  Needs phone verify
-  openrouter    llama-3.3-70b:free              50          —    50/day free; 1K/day w/ $10
+  openrouter    gpt-oss-20b:free                50          —    50/day free; 1K/day w/ $10
   cloudflare    llama-3.3-70b               10,000          —    Workers AI free tier
   gemini        gemini-2.0-flash             ~1,500     250,000  Google SDK
   groq          llama-3.3-70b-versatile      1,000      12,000   Quality; conserved for blueprints
@@ -182,8 +182,17 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             base_url="https://api.mistral.ai/v1",
         ),
         ProviderConfig(
+            # OpenRouter retires `:free` variants without notice — the previous
+            # default (`meta-llama/llama-3.3-70b-instruct:free`) started 404ing
+            # with "This model is unavailable for free. The paid version is
+            # available now". `openai/gpt-oss-20b:free` is the current free slug
+            # (131k context, honors response_format=json_object, same family as
+            # the cerebras primary). Env-overridable so the next retirement is a
+            # config change, not a code change.
             id="openrouter",
-            model="meta-llama/llama-3.3-70b-instruct:free",
+            # `or` not a get() default: .env.example ships the key blank, and an
+            # empty string would otherwise be sent to the API as the model id.
+            model=os.environ.get("OPENROUTER_MODEL") or "openai/gpt-oss-20b:free",
             daily_limit=50, rpm=20, tpm=0,
             env_var="OPENROUTER_API_KEY",
             base_url="https://openrouter.ai/api/v1",
@@ -218,10 +227,12 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # so the same path serves OpenAI now and a self-hosted university
             # LLM later (any OpenAI-compatible endpoint) by changing env only.
             id="openai",
-            model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+            # `or` rather than a get() default, so a key that is present but
+            # blank in .env falls back instead of being sent to the API.
+            model=os.environ.get("OPENAI_MODEL") or "gpt-4o-mini",
             daily_limit=0, rpm=60, tpm=100000,
             env_var="OPENAI_API_KEY",
-            base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            base_url=os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1",
         ),
     ]
 }
@@ -430,6 +441,7 @@ class ProviderRotator:
         self._counts:  Dict[str, int]   = {}
         self._backoff: Dict[str, float] = {}
         self._streak:  Dict[str, int]   = {}
+        self._disabled: Dict[str, str]  = {}   # provider_id -> reason
         self._day:     str              = datetime.date.today().isoformat()
         self._openai_daily_cost_usd: float = 0.0
 
@@ -441,6 +453,10 @@ class ProviderRotator:
             self._backoff = {}
             self._streak  = {}
             self._openai_daily_cost_usd = 0.0
+            # `_disabled` is deliberately NOT cleared: it holds providers whose
+            # configured model no longer exists upstream, which midnight does
+            # not fix. Only a process restart (picking up a corrected model id)
+            # clears it.
 
     def record_success(self, provider_id: str) -> None:
         with self._lock:
@@ -460,12 +476,32 @@ class ProviderRotator:
             provider_id, scaled, streak,
         )
 
+    def record_unavailable(self, provider_id: str, reason: str) -> None:
+        """Permanently disable a provider for this process.
+
+        Unlike `record_rate_limit`'s timed backoff, this is for failures that
+        no amount of waiting fixes — chiefly a 404 saying the configured model
+        id no longer exists at that provider. Without it, a retired model slug
+        re-fires a doomed HTTP request on every single call once the ≤600s
+        backoff lapses (and again after every UTC-midnight reset).
+        """
+        with self._lock:
+            already = provider_id in self._disabled
+            self._disabled[provider_id] = reason
+        if not already:
+            logger.error(
+                "⛔ Provider '%s' disabled for this process: %s", provider_id, reason
+            )
+
     def available(self, chain: List[str]) -> List[str]:
         """
         Returns the subset of `chain` that is currently usable, in order.
         Skips providers whose daily limit is hit or are in a 429 backoff window.
-        Skips providers without a configured client (no API key).
-        Falls back to the full chain if everything is technically exhausted.
+        Skips providers without a configured client (no API key), and providers
+        permanently disabled by `record_unavailable`.
+        Falls back to the rest of the chain if everything is technically
+        exhausted — but never to a permanently-disabled provider, which by
+        construction cannot succeed.
         """
         now = time.monotonic()
         with self._lock:
@@ -476,6 +512,9 @@ class ProviderRotator:
                 cfg = PROVIDER_REGISTRY.get(pid)
                 if cfg is None:
                     skipped.append(f"{pid}=unknown")
+                    continue
+                if pid in self._disabled:
+                    skipped.append(f"{pid}=disabled({self._disabled[pid]})")
                     continue
                 if _clients.get(pid) is None and not (pid == "groq" and groq_client):
                     skipped.append(f"{pid}=no_client")
@@ -498,12 +537,15 @@ class ProviderRotator:
                     skipped.append(f"{pid}=backoff({remaining:.0f}s)")
                     continue
                 ok.append(pid)
+            last_ditch = [pid for pid in chain if pid not in self._disabled]
         if skipped:
             logger.info(
                 "Provider availability: ok=%s skipped=[%s]",
                 ok or "(none)", ", ".join(skipped),
             )
-        return ok or chain   # if everything exhausted, try anyway (may still work)
+        # If everything is exhausted, try the non-disabled providers anyway
+        # (a daily-limit or backoff estimate may be stale; a dead model is not).
+        return ok or last_ditch or chain
 
     def remaining_headroom(self, chain: List[str]) -> int:
         """Sum of remaining daily quota across configured providers in `chain`.
@@ -806,18 +848,34 @@ def _generate_with_rotation(
         except Exception as exc:
             msg = str(exc).lower()
             is_rate_limit = any(k in msg for k in ("429", "rate limit", "quota", "too many requests", "rate_limit"))
-            # A 404 model_not_found means the configured model ID no longer
-            # exists on that provider. Treat it like a rate-limit ban so this
-            # provider is skipped for the rest of the session and the chain
-            # immediately falls through to the next available provider.
-            is_model_not_found = "404" in msg and ("model_not_found" in msg or "does not exist" in msg)
-            if is_rate_limit or is_model_not_found:
+            # A 404 from a chat-completions endpoint means the route or the
+            # configured model id does not exist at that provider — never a
+            # transient condition, so retrying it is pure waste. Key off the
+            # HTTP status rather than message wording: the previous
+            # `model_not_found`/`does not exist` sniff missed OpenRouter's
+            # "This model is unavailable for free. The paid version is
+            # available now — use this slug instead: …", which then fell into
+            # the generic branch below and re-fired on every subsequent call.
+            # Rate-limits are checked first, and the string fallback matches the
+            # SDK's "Error code: 404" preamble rather than a bare "404", so a
+            # request id that happens to contain those digits can't disable a
+            # working provider.
+            is_model_not_found = (
+                getattr(exc, "status_code", None) == 404
+                or "error code: 404" in msg
+                or "status 404" in msg
+            )
+            if is_rate_limit:
                 _rotator.record_rate_limit(pid)
                 last_exc = exc
-                if is_model_not_found:
-                    logger.error("❌ Provider '%s' model not found — disabling for this session: %s", pid, exc)
-                else:
-                    logger.warning("⚠️  Provider '%s' rate-limited, trying next", pid)
+                logger.warning("⚠️  Provider '%s' rate-limited, trying next", pid)
+            elif is_model_not_found:
+                _rotator.record_unavailable(pid, "404 from provider (model or route gone)")
+                last_exc = exc
+                logger.error(
+                    "❌ Provider '%s' returned 404 — skipping for the rest of this process: %s",
+                    pid, exc,
+                )
             else:
                 logger.warning("Provider '%s' error (non-rate-limit): %s", pid, exc)
                 last_exc = exc

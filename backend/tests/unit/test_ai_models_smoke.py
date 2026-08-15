@@ -258,7 +258,109 @@ def test_provider_registry_has_no_decommissioned_models():
     DEAD = {
         "llama-3.2-11b-vision-preview",  # Groq, decommissioned Apr 2026
         "text-embedding-004",            # Google, 404 on v1
+        # OpenRouter withdrew the free tier: "This model is unavailable for
+        # free. The paid version is available now - use this slug instead:
+        # meta-llama/llama-3.3-70b-instruct".
+        "meta-llama/llama-3.3-70b-instruct:free",
     }
     for cfg in orch.PROVIDER_REGISTRY.values():
         assert cfg.model not in DEAD, f"provider {cfg.id} uses dead model {cfg.model}"
     assert orch.GROQ_VISION_MODEL not in DEAD
+
+
+# ── Failover: a retired model id must not be retried forever ─────────────────
+
+
+def _fresh_rotator(monkeypatch):
+    """A clean ProviderRotator so disable state can't leak across tests."""
+    from backend.services.ai import orchestrator as orch
+
+    rot = orch.ProviderRotator()
+    monkeypatch.setattr(orch, "_rotator", rot)
+    return rot
+
+
+def test_provider_404_disables_provider_and_falls_through(monkeypatch):
+    """A 404 means the model id or route is gone upstream — no wait fixes it.
+    The chain must fall through to the next provider AND stop calling the dead
+    one, instead of re-firing a doomed request on every subsequent call.
+
+    Regression: OpenRouter's retirement message ("This model is unavailable for
+    free…") carries a 404 but none of the wording the old check sniffed for
+    (`model_not_found` / `does not exist`), so it was classified as a generic
+    transient error and retried on every call.
+    """
+    from backend.services.ai import orchestrator as orch
+
+    rot = _fresh_rotator(monkeypatch)
+    calls: list = []
+
+    OPENROUTER_404 = (
+        "Error code: 404 - {'error': {'message': 'This model is unavailable "
+        "for free. The paid version is available now - use this slug instead: "
+        "meta-llama/llama-3.3-70b-instruct', 'code': 404}}"
+    )
+
+    def _fake_call(pid, prompt, **_kw):
+        calls.append(pid)
+        if pid == "openrouter":
+            raise RuntimeError(OPENROUTER_404)
+        return "OK", None
+
+    monkeypatch.setattr(orch, "_call_provider", _fake_call)
+    monkeypatch.setattr(orch, "_clients", dict.fromkeys(["openrouter", "groq_fast"], object()))
+
+    chain = ["openrouter", "groq_fast"]
+
+    text, pid, _model, _usage = orch._generate_with_rotation("prompt one", chain)
+    assert text == "OK"
+    assert pid == "groq_fast"          # fell through
+    assert calls == ["openrouter", "groq_fast"]
+
+    # Second call must not touch openrouter at all.
+    orch._generate_with_rotation("prompt two", chain)
+    assert calls == ["openrouter", "groq_fast", "groq_fast"]
+    assert "openrouter" in rot._disabled
+
+
+def test_disabled_provider_survives_utc_midnight_reset(monkeypatch):
+    """Daily counters reset at midnight; a retired model does not come back."""
+    rot = _fresh_rotator(monkeypatch)
+    rot.record_unavailable("openrouter", "404")
+    rot._day = "1999-01-01"          # force the next call to see a new day
+    rot._reset_if_new_day()
+    assert "openrouter" in rot._disabled
+
+
+def test_disabled_provider_excluded_from_last_ditch_fallback(monkeypatch):
+    """`available()` falls back to the whole chain when everything looks
+    exhausted. That fallback must still skip a provider that can only 404."""
+    from backend.services.ai import orchestrator as orch
+
+    rot = _fresh_rotator(monkeypatch)
+    monkeypatch.setattr(orch, "_clients", {"openrouter": None, "groq_fast": None})
+    rot.record_unavailable("openrouter", "404")
+
+    # Neither has a client, so `ok` is empty and the fallback path is taken.
+    assert rot.available(["openrouter", "groq_fast"]) == ["groq_fast"]
+
+
+def test_rate_limit_still_uses_timed_backoff_not_permanent_disable(monkeypatch):
+    """429s are transient — they must keep the old backoff path, or a busy
+    minute would permanently retire a healthy provider."""
+    from backend.services.ai import orchestrator as orch
+
+    rot = _fresh_rotator(monkeypatch)
+
+    def _fake_call(pid, prompt, **_kw):
+        if pid == "openrouter":
+            raise RuntimeError("Error code: 429 - rate limit exceeded")
+        return "OK", None
+
+    monkeypatch.setattr(orch, "_call_provider", _fake_call)
+    monkeypatch.setattr(orch, "_clients", dict.fromkeys(["openrouter", "groq_fast"], object()))
+
+    _text, pid, _m, _u = orch._generate_with_rotation("p", ["openrouter", "groq_fast"])
+    assert pid == "groq_fast"
+    assert "openrouter" not in rot._disabled
+    assert rot._backoff.get("openrouter", 0) > 0

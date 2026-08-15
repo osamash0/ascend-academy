@@ -18,6 +18,7 @@ once the blueprint tables carry per-user SELECT/UPDATE policies.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import Any, Optional
@@ -31,6 +32,7 @@ from backend.core.auth_middleware import _user_id, require_creator
 from backend.core.database import supabase_admin  # ADMIN: server-authoritative blueprint orchestration -- see note below
 from backend.core.rate_limit import limiter
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
 _LECTURE_NUMBER = re.compile(r"(?:lecture|lec|chapter|week|unit)\s*[-_ ]?(\d+)", re.I)
@@ -324,7 +326,12 @@ def _ensure_blueprint(batch_id: UUID, owner_id: str) -> dict[str, Any]:
         "batch_id": str(batch_id),
         "course_id": existing_course["id"] if existing_course else None,
         "title": existing_course.get("title") if existing_course else first_title or _title_from_filename(runs[0].get("filename") or "My course"),
-        "description": existing_course.get("description") if existing_course else f"Study material organized from {len(runs)} uploaded file{'s' if len(runs) != 1 else ''}.",
+        # Deliberately left empty for a new course: nothing has finished
+        # parsing at this point, so there is no content to describe yet.
+        # `_ensure_description` fills it in from the parsed decks once the
+        # batch settles. It used to be a file-count placeholder, which read as
+        # a real (and identical, every time) description to every student.
+        "description": existing_course.get("description") if existing_course else None,
         "status": "ready" if ready_runs else "draft",
     }).execute()
     if not blueprint_res.data:
@@ -335,6 +342,122 @@ def _ensure_blueprint(batch_id: UUID, owner_id: str) -> dict[str, Any]:
     return _serialize_blueprint(_fetch_blueprint(blueprint["id"], owner_id) or blueprint)
 
 
+# Descriptions written by the pre-AI blueprint code. They carry no information
+# about the actual material, so they are treated as "not described yet" and get
+# replaced the first time a real description can be generated.
+_LEGACY_DESCRIPTION = re.compile(r"^study material organized from \d+ uploaded files?\.$", re.I)
+
+# Slide summaries fed to the description prompt per lecture. Enough to convey
+# what a deck is about without spending the whole context on one long lecture.
+_DESCRIPTION_SLIDES_PER_LECTURE = 4
+
+# Blueprint ids with a description generation in flight. The wizard polls the
+# blueprint every 2.5s while parsing finishes, so without this every poll
+# during the ~seconds-long LLM call would start another one.
+_describing: set[str] = set()
+
+
+def _description_outline(blueprint_id: str) -> str | None:
+    """Lecture titles + a few slide summaries each, as prompt input."""
+    item_res = (
+        supabase_admin.table("course_blueprint_items")
+        .select("title, lecture_id, position")
+        .eq("blueprint_id", blueprint_id)
+        .eq("include_in_course", True)
+        .order("position")
+        .execute()
+    )
+    items = [item for item in (item_res.data or []) if item.get("lecture_id")]
+    if not items:
+        return None
+
+    slide_res = (
+        supabase_admin.table("slides")
+        .select("lecture_id, title, summary, content_text, slide_number")
+        .in_("lecture_id", [item["lecture_id"] for item in items])
+        .order("slide_number")
+        .execute()
+    )
+    summaries: dict[str, list[str]] = {}
+    for slide in slide_res.data or []:
+        bucket = summaries.setdefault(slide.get("lecture_id"), [])
+        if len(bucket) >= _DESCRIPTION_SLIDES_PER_LECTURE:
+            continue
+        chunk = (slide.get("summary") or slide.get("content_text") or slide.get("title") or "").strip()
+        if chunk:
+            bucket.append(chunk[:400])
+
+    lines: list[str] = []
+    for item in items:
+        lines.append(f"- {item.get('title') or 'Untitled lecture'}")
+        lines.extend(f"    • {chunk}" for chunk in summaries.get(item["lecture_id"], []))
+    outline = "\n".join(lines)[:4000].strip()
+    return outline or None
+
+
+async def _ensure_description(blueprint: dict[str, Any], owner_id: str) -> dict[str, Any]:
+    """Generate the course description from the parsed decks, once.
+
+    Runs on the blueprint poll rather than at creation time because at
+    creation nothing has been parsed yet. It waits for every source in the
+    batch to reach a terminal state so the description covers the whole
+    course, and only ever writes over an empty or legacy placeholder
+    description — a student edit is never clobbered. On failure the
+    description stays empty; a wrong-but-confident blurb is worse than none.
+    """
+    if blueprint.get("status") == "created":
+        return blueprint
+    current = (blueprint.get("description") or "").strip()
+    if current and not _LEGACY_DESCRIPTION.match(current):
+        return blueprint
+
+    items = blueprint.get("items") or []
+    if any((item.get("material_source") or {}).get("processing_state") == "processing" for item in items):
+        return blueprint
+    if not any(item.get("lecture_id") and item.get("include_in_course") for item in items):
+        return blueprint
+
+    blueprint_id = blueprint["id"]
+    if blueprint_id in _describing:
+        return blueprint
+    _describing.add(blueprint_id)
+    try:
+        outline = await run_in_threadpool(_description_outline, blueprint_id)
+        if not outline:
+            return blueprint
+
+        from backend.services.ai.orchestrator import generate_text
+        from backend.services.ai.prompts import COURSE_DESCRIPTION_PROMPT
+        from backend.services.ai.voice import with_voice
+
+        prompt = with_voice(COURSE_DESCRIPTION_PROMPT.format(
+            title=blueprint.get("title") or "Course",
+            outline=outline,
+        ))
+        raw = await generate_text(
+            prompt,
+            prompt_name="COURSE_DESCRIPTION_PROMPT",
+            user_id=owner_id,
+            feature="blueprint_course_description",
+        )
+        description = (raw or "").strip().strip('"')[:4000]
+        if not description:
+            return blueprint
+
+        await run_in_threadpool(
+            lambda: supabase_admin.table("course_blueprints")
+            .update({"description": description})
+            .eq("id", blueprint_id)
+            .execute()
+        )
+        return {**blueprint, "description": description}
+    except Exception:
+        logger.warning("Could not generate a description for blueprint %s", blueprint_id, exc_info=True)
+        return blueprint
+    finally:
+        _describing.discard(blueprint_id)
+
+
 @router.get("/batches/{batch_id}/blueprint")
 @limiter.limit("60/minute")
 async def get_blueprint(request: Request, batch_id: str, user: Any = Depends(require_creator)):
@@ -342,6 +465,7 @@ async def get_blueprint(request: Request, batch_id: str, user: Any = Depends(req
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
     blueprint = await run_in_threadpool(_ensure_blueprint, _require_uuid(batch_id, "batch id"), uid)
+    blueprint = await _ensure_description(blueprint, uid)
     return {"success": True, "data": blueprint}
 
 
