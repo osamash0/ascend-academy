@@ -22,9 +22,12 @@ mineru-env
 **/.ruff_cache
 
 # Local env files (never copy secrets into image)
-.env
-.env.local
-.env.*.local
+# Same root-relative caveat as the venv block above: `Dockerfile` does
+# `COPY backend/ ./backend/`, so a bare `.env` would leave `backend/.env` —
+# which holds the live provider keys — baked into the image.
+**/.env
+**/.env.local
+**/.env.*.local
 
 # Dev/scratch artifacts
 scratch/
