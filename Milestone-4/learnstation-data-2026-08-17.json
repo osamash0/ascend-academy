@@ -1,0 +1,1149 @@
+{
+  "exported_at": "2026-08-17T21:11:17.246Z",
+  "profile": {
+    "id": "bed56773-7c16-45ce-b9f8-0de36afa76aa",
+    "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+    "email": "abdul@test.com",
+    "full_name": "Abdulah",
+    "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Felix&backgroundColor=b6e3f4",
+    "total_xp": 50,
+    "current_level": 1,
+    "current_streak": 1,
+    "best_streak": 1,
+    "created_at": "2026-07-13T12:41:25.959974+00:00",
+    "display_name": "Abdulah",
+    "preferred_language": "en",
+    "last_active_date": "2026-08-17",
+    "institution": "University of Marburg",
+    "social_roles": [],
+    "university_id": "a638bf5c-d1f8-4d69-932b-3425611d24d4",
+    "faculty_id": "d344c901-9097-497f-9890-065213056db1",
+    "degree_program_id": "508d8389-8873-4061-9790-7d3e7aa3eb46",
+    "current_semester": 1,
+    "institution_verified": false,
+    "university_email": null,
+    "luna_suit_color": null,
+    "luna_visor_tint": null,
+    "luna_patch": null,
+    "has_seen_dashboard_tour": true,
+    "has_completed_activation_onboarding": true
+  },
+  "progress": [
+    {
+      "id": "ccb2618e-f2b2-4b68-836d-5ba00338d533",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "lecture_id": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+      "xp_earned": 0,
+      "completed_slides": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "quiz_score": 0,
+      "total_questions_answered": 1,
+      "correct_answers": 0,
+      "last_slide_viewed": 6,
+      "completed_at": null,
+      "created_at": "2026-08-17T14:05:43.958229+00:00",
+      "slide_states": {
+        "1": "visited",
+        "2": "visited",
+        "3": "visited",
+        "4": "visited",
+        "5": "visited",
+        "6": "visited",
+        "7": "current"
+      },
+      "updated_at": "2026-08-17T20:58:22.33083+00:00"
+    },
+    {
+      "id": "44543804-14ba-475a-ada5-df45297c6b3f",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "lecture_id": "1f7113e4-de82-4095-9538-6fc0871aa56e",
+      "xp_earned": 0,
+      "completed_slides": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "quiz_score": 0,
+      "total_questions_answered": 0,
+      "correct_answers": 0,
+      "last_slide_viewed": 4,
+      "completed_at": null,
+      "created_at": "2026-08-17T16:24:28.208115+00:00",
+      "slide_states": {
+        "1": "visited",
+        "2": "visited",
+        "3": "visited",
+        "4": "visited",
+        "5": "current"
+      },
+      "updated_at": "2026-08-17T16:27:18.319708+00:00"
+    },
+    {
+      "id": "ce75cc80-1c70-4c5c-ae2b-fb9027e9a58a",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "lecture_id": "7289e694-7ad3-4666-8cc1-c72bd2e9d236",
+      "xp_earned": 0,
+      "completed_slides": [
+        1,
+        2
+      ],
+      "quiz_score": 0,
+      "total_questions_answered": 0,
+      "correct_answers": 0,
+      "last_slide_viewed": 2,
+      "completed_at": null,
+      "created_at": "2026-08-17T16:23:35.400835+00:00",
+      "slide_states": {
+        "1": "visited",
+        "2": "visited",
+        "3": "current"
+      },
+      "updated_at": "2026-08-17T16:23:38.075235+00:00"
+    },
+    {
+      "id": "ae5cdd49-7790-4de8-874f-bd0ecd7f98c1",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "lecture_id": "6d2b028b-e4a7-4b95-9627-a8a06f533387",
+      "xp_earned": 0,
+      "completed_slides": [
+        1
+      ],
+      "quiz_score": 0,
+      "total_questions_answered": 0,
+      "correct_answers": 0,
+      "last_slide_viewed": 1,
+      "completed_at": null,
+      "created_at": "2026-08-02T17:59:05.709691+00:00",
+      "slide_states": {
+        "1": "visited",
+        "2": "current"
+      },
+      "updated_at": "2026-08-02T17:59:05.709691+00:00"
+    }
+  ],
+  "achievements": [
+    {
+      "id": "99e51f16-85e1-4cb7-9e6c-f2c46208fb6b",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "badge_name": "Identity Set",
+      "badge_description": "Chose a display name and a profile photo.",
+      "badge_icon": "/gamification/identity.jpg",
+      "earned_at": "2026-07-13T12:43:37.774257+00:00"
+    },
+    {
+      "id": "efb8bfd4-8bcf-438b-b161-16a3929cceb7",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "badge_name": "Curious Mind",
+      "badge_description": "Asked the AI tutor your first question.",
+      "badge_icon": "/gamification/identity.jpg",
+      "earned_at": "2026-07-13T12:55:04.575722+00:00"
+    },
+    {
+      "id": "2965f5a6-627d-4620-b033-8ad2b1f857f7",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "badge_name": "Quick Thinker",
+      "badge_description": "Did your first comprehension check.",
+      "badge_icon": "/gamification/unstoppable.jpg",
+      "earned_at": "2026-08-17T14:07:38.043529+00:00"
+    }
+  ],
+  "learning_events": [
+    {
+      "id": "1bc3da3c-1801-4b62-92b5-bf26d1d5b339",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "login",
+      "event_data": {
+        "method": "email_password",
+        "timestamp": "2026-08-02T14:08:11.540Z"
+      },
+      "created_at": "2026-08-02T14:08:11.794778+00:00"
+    },
+    {
+      "id": "e86f5deb-c566-4d72-9d33-6d2ebf3e789e",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "file_processing_started",
+      "event_data": {
+        "batch_id": "9771673c-0b5d-47c8-a03c-28bbb0880bb2",
+        "file_count": 1,
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:10:08.365016+00:00"
+    },
+    {
+      "id": "63e8aa7a-97a5-47d3-9bb8-b4b16b76771d",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "upload_completed",
+      "event_data": {
+        "batch_id": "9771673c-0b5d-47c8-a03c-28bbb0880bb2",
+        "file_count": 1,
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:10:08.369573+00:00"
+    },
+    {
+      "id": "4a7dbeed-41c4-4aa7-b89d-251f0b52943e",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "upload_started",
+      "event_data": {
+        "batch_id": "9771673c-0b5d-47c8-a03c-28bbb0880bb2",
+        "file_count": 1,
+        "study_goal": "weekly_study",
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:10:08.365607+00:00"
+    },
+    {
+      "id": "66835b68-255b-48db-a186-aafb77a40c4f",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "upload_started",
+      "event_data": {
+        "batch_id": "e2f92861-59ac-4244-bd1d-d5809d023a0f",
+        "file_count": 1,
+        "study_goal": "weekly_study",
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:21:37.767701+00:00"
+    },
+    {
+      "id": "93df1a45-7393-4868-9dd5-851b240711d8",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "upload_completed",
+      "event_data": {
+        "batch_id": "e2f92861-59ac-4244-bd1d-d5809d023a0f",
+        "file_count": 1,
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:21:37.730173+00:00"
+    },
+    {
+      "id": "4e9a1704-38c3-4fb3-980d-b8d42c3f4ad7",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "second_session_started",
+      "event_data": {
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:08:12.022839+00:00"
+    },
+    {
+      "id": "6647fd0c-d625-4e86-b718-1b42a0a87c34",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "file_processing_started",
+      "event_data": {
+        "batch_id": "e2f92861-59ac-4244-bd1d-d5809d023a0f",
+        "file_count": 1,
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:21:37.771571+00:00"
+    },
+    {
+      "id": "a2bc3efb-388f-42bb-b49f-8b9445f5cf06",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "89c7371e-f949-4357-b2b8-bd2a8e6d142c",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:34:45.778Z",
+        "slideTitle": "Lecture Roadmap",
+        "duration_seconds": 4
+      },
+      "created_at": "2026-08-02T14:34:45.942473+00:00"
+    },
+    {
+      "id": "141a67c3-fced-4991-890c-6a24ddcf1682",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "16064c9d-0311-4453-ad2e-031a5d9a4759",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:35:14.269Z",
+        "slideTitle": "Understanding Differential Cryptanalysis",
+        "duration_seconds": 28
+      },
+      "created_at": "2026-08-02T14:35:14.484893+00:00"
+    },
+    {
+      "id": "4290c6b0-9e05-4496-a21c-39bde7312a0b",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "4046e01d-a392-4dd7-8d20-4fa8b89e5378",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:35:42.582Z",
+        "slideTitle": "Understanding Block Ciphers",
+        "duration_seconds": 28
+      },
+      "created_at": "2026-08-02T14:35:42.744118+00:00"
+    },
+    {
+      "id": "a5c90426-1f96-4961-a863-fa487de0ee48",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "4046e01d-a392-4dd7-8d20-4fa8b89e5378",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:35:52.103Z",
+        "slideTitle": "Understanding Block Ciphers",
+        "duration_seconds": 7
+      },
+      "created_at": "2026-08-02T14:35:52.249343+00:00"
+    },
+    {
+      "id": "b821367a-d97d-4407-8fa6-f21237990a2f",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "quiz_attempt",
+      "event_data": {
+        "correct": false,
+        "slideId": "4046e01d-a392-4dd7-8d20-4fa8b89e5378",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:36:01.820Z",
+        "questionId": "01a6ea09-0516-4cb1-a613-a4c2c6c35890",
+        "slideTitle": "Understanding Block Ciphers",
+        "selectedAnswer": 0,
+        "time_to_answer_seconds": 4
+      },
+      "created_at": "2026-08-02T14:36:01.970353+00:00"
+    },
+    {
+      "id": "abe60b0a-760c-4fa1-82d7-0be7d7f3a9be",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_back_navigation",
+      "event_data": {
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:35:42.573Z",
+        "toSlideId": "16064c9d-0311-4453-ad2e-031a5d9a4759",
+        "fromSlideId": "4046e01d-a392-4dd7-8d20-4fa8b89e5378"
+      },
+      "created_at": "2026-08-02T14:35:42.735828+00:00"
+    },
+    {
+      "id": "ab02a84f-1e5e-4239-8e6c-ebfcbc8f8c07",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "course_blueprint_viewed",
+      "event_data": {
+        "batch_id": "e2f92861-59ac-4244-bd1d-d5809d023a0f",
+        "item_count": 1,
+        "blueprint_id": "dc8f67df-e753-4ec8-b1a0-03f64fa316b5",
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:36:27.343008+00:00"
+    },
+    {
+      "id": "e4e2fa62-2fb7-471c-b9aa-310720cf1a09",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc"
+      },
+      "created_at": "2026-08-02T14:34:25.634951+00:00"
+    },
+    {
+      "id": "f1fbf58f-5dba-4c85-9aea-6cff206e56c7",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "7141d550-0c34-4cee-b2b3-46fddee66233",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:34:41.316Z",
+        "slideTitle": "Introduction to Differential Cryptanalysis",
+        "duration_seconds": 16
+      },
+      "created_at": "2026-08-02T14:34:41.498814+00:00"
+    },
+    {
+      "id": "1917d7e8-2199-4e94-9b02-07667f7f8799",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "quiz_attempt",
+      "event_data": {
+        "correct": false,
+        "slideId": "16064c9d-0311-4453-ad2e-031a5d9a4759",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:35:12.703Z",
+        "questionId": "c5951ca3-baa6-499c-a048-7e11c8863e37",
+        "slideTitle": "Understanding Differential Cryptanalysis",
+        "selectedAnswer": 0,
+        "time_to_answer_seconds": 27
+      },
+      "created_at": "2026-08-02T14:35:12.896136+00:00"
+    },
+    {
+      "id": "21e26cd0-2830-4564-9b98-c38ab5164797",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "16064c9d-0311-4453-ad2e-031a5d9a4759",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:35:45.455Z",
+        "slideTitle": "Understanding Differential Cryptanalysis",
+        "duration_seconds": 3
+      },
+      "created_at": "2026-08-02T14:35:45.618929+00:00"
+    },
+    {
+      "id": "87eca22b-fb14-4e17-95bc-43b06a443834",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "99c5b740-94ab-45a4-a012-5d8cd94fca8d",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:35:57.734Z",
+        "slideTitle": "Introduction to Differential Cryptanalysis",
+        "duration_seconds": 6
+      },
+      "created_at": "2026-08-02T14:35:57.899605+00:00"
+    },
+    {
+      "id": "86d168ac-4a2a-4a60-a9a6-b87d0b31bfc9",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "4046e01d-a392-4dd7-8d20-4fa8b89e5378",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:36:03.430Z",
+        "slideTitle": "Understanding Block Ciphers",
+        "duration_seconds": 6
+      },
+      "created_at": "2026-08-02T14:36:03.591844+00:00"
+    },
+    {
+      "id": "42e33179-c08e-45ce-adc2-96a651ee4ba2",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "99c5b740-94ab-45a4-a012-5d8cd94fca8d",
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:36:22.696Z",
+        "slideTitle": "Introduction to Differential Cryptanalysis",
+        "duration_seconds": 19
+      },
+      "created_at": "2026-08-02T14:36:22.978152+00:00"
+    },
+    {
+      "id": "85d166a6-e8a8-479f-9f8b-222bf6c4caca",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "course_blueprint_edited",
+      "event_data": {
+        "fields": [
+          "description"
+        ],
+        "blueprint_id": "dc8f67df-e753-4ec8-b1a0-03f64fa316b5",
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:37:14.662791+00:00"
+    },
+    {
+      "id": "90a3bff0-0ddc-4340-9c71-2183f0ac8324",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_back_navigation",
+      "event_data": {
+        "lectureId": "f320c58f-de89-481e-8a20-03b87e05dbd1",
+        "sessionId": "044df910-19e1-4487-9a9a-93ea3eddb7cc",
+        "timestamp": "2026-08-02T14:35:57.708Z",
+        "toSlideId": "4046e01d-a392-4dd7-8d20-4fa8b89e5378",
+        "fromSlideId": "99c5b740-94ab-45a4-a012-5d8cd94fca8d"
+      },
+      "created_at": "2026-08-02T14:35:57.895273+00:00"
+    },
+    {
+      "id": "461f79f1-7c94-4b84-9482-ccd1d941c2df",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "course_blueprint_edited",
+      "event_data": {
+        "fields": [
+          "title"
+        ],
+        "blueprint_id": "dc8f67df-e753-4ec8-b1a0-03f64fa316b5",
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:37:31.196088+00:00"
+    },
+    {
+      "id": "c5dcec36-e378-4376-98bc-a8eb8d28c379",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "course_blueprint_viewed",
+      "event_data": {
+        "batch_id": "e2f92861-59ac-4244-bd1d-d5809d023a0f",
+        "item_count": 1,
+        "blueprint_id": "dc8f67df-e753-4ec8-b1a0-03f64fa316b5",
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:43:48.514292+00:00"
+    },
+    {
+      "id": "df7389f8-4169-4295-9753-c44403012927",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "file_processing_completed",
+      "event_data": {
+        "batch_id": "e2f92861-59ac-4244-bd1d-d5809d023a0f",
+        "failed_files": 0,
+        "completed_files": 1,
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:36:27.371132+00:00"
+    },
+    {
+      "id": "bc2f7ff7-013a-4c18-bb09-3bbec6622a20",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "file_processing_completed",
+      "event_data": {
+        "batch_id": "e2f92861-59ac-4244-bd1d-d5809d023a0f",
+        "failed_files": 0,
+        "completed_files": 1,
+        "onboarding_version": 2
+      },
+      "created_at": "2026-08-02T14:43:48.510041+00:00"
+    },
+    {
+      "id": "4c311073-9f2e-4780-8c66-74123d6091e5",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "6d2b028b-e4a7-4b95-9627-a8a06f533387",
+        "sessionId": "d3d2f13f-8507-48ce-820d-6e882a21e738"
+      },
+      "created_at": "2026-08-02T17:59:02.81831+00:00"
+    },
+    {
+      "id": "a5ec1fb5-3f86-4d47-bbd4-8d16283227a8",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "login",
+      "event_data": {
+        "method": "email_password",
+        "timestamp": "2026-08-17T13:53:22.863Z"
+      },
+      "created_at": "2026-08-17T13:53:23.006896+00:00"
+    },
+    {
+      "id": "c358e8f6-79c0-498e-a194-2a9af6339a9a",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "6d2b028b-e4a7-4b95-9627-a8a06f533387",
+        "sessionId": "a1f1edb8-f6e7-4145-8fc1-ea693610527a"
+      },
+      "created_at": "2026-08-17T13:53:33.198642+00:00"
+    },
+    {
+      "id": "e14d5a94-6edf-4c5f-b0e2-3f47e66b66dc",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "login",
+      "event_data": {
+        "method": "email_password",
+        "timestamp": "2026-08-17T13:56:10.526Z"
+      },
+      "created_at": "2026-08-17T13:56:10.837015+00:00"
+    },
+    {
+      "id": "c81baa8d-af1a-49fb-9d5d-0159264f83fe",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "6d2b028b-e4a7-4b95-9627-a8a06f533387",
+        "sessionId": "833c9757-9ba3-4d73-aa96-60f9c438ad80"
+      },
+      "created_at": "2026-08-17T13:56:20.815171+00:00"
+    },
+    {
+      "id": "cfed70d2-40ec-4102-8ac3-006a0016533c",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "17bd0c45-30d3-4cbb-aed1-4a499cd966b8"
+      },
+      "created_at": "2026-08-17T14:04:47.116768+00:00"
+    },
+    {
+      "id": "62e1994a-ebac-46a0-b6c1-610269e43c91",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "6a5d4fe7-3a12-4fb7-9beb-3b3e75dda9dd"
+      },
+      "created_at": "2026-08-17T14:04:56.662761+00:00"
+    },
+    {
+      "id": "118e83a0-fcb8-42da-b6d6-71ea6eb927bd",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "c325f618-ec6c-4a1a-ab3b-e3fc8baf533e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "83872f0b-37d3-4b68-a911-504a9238f243",
+        "timestamp": "2026-08-17T14:05:45.779Z",
+        "slideTitle": "Early Automated Storage Technologies",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T14:05:45.93963+00:00"
+    },
+    {
+      "id": "b307a47c-4faf-47fc-8d57-fb5545e9ba94",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "3711cb1a-1ec3-40a6-bc6f-81c041202059",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "83872f0b-37d3-4b68-a911-504a9238f243",
+        "timestamp": "2026-08-17T14:06:00.425Z",
+        "slideTitle": "Development of Hard Disks",
+        "duration_seconds": 5
+      },
+      "created_at": "2026-08-17T14:06:00.769669+00:00"
+    },
+    {
+      "id": "ef44831a-6e31-4849-905d-cd3ad0bfe58a",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "6a5d4fe7-3a12-4fb7-9beb-3b3e75dda9dd",
+        "timestamp": "2026-08-17T14:05:02.878Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 8
+      },
+      "created_at": "2026-08-17T14:05:03.079588+00:00"
+    },
+    {
+      "id": "7d791a1f-d159-4fff-b393-2dd7da9221fc",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "83872f0b-37d3-4b68-a911-504a9238f243",
+        "timestamp": "2026-08-17T14:05:42.978Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 20
+      },
+      "created_at": "2026-08-17T14:05:43.203035+00:00"
+    },
+    {
+      "id": "6da782ac-f73e-4687-bf4b-0dcd93bfe54f",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "945cb990-add8-4d25-b1b2-f885443b824e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "83872f0b-37d3-4b68-a911-504a9238f243",
+        "timestamp": "2026-08-17T14:05:55.837Z",
+        "slideTitle": "History of Hard Disk Drives",
+        "duration_seconds": 9
+      },
+      "created_at": "2026-08-17T14:05:55.97714+00:00"
+    },
+    {
+      "id": "1d0c5fc2-2a61-4181-93e4-3843d4a27aab",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "7a5f5cf6-2aca-47f8-b7f2-630285ec2b76"
+      },
+      "created_at": "2026-08-17T14:05:18.706764+00:00"
+    },
+    {
+      "id": "9536a0af-c9a3-43d4-9fde-d5cf5da005d6",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "83872f0b-37d3-4b68-a911-504a9238f243"
+      },
+      "created_at": "2026-08-17T14:05:23.839781+00:00"
+    },
+    {
+      "id": "2f3cde19-d576-4fa8-9178-2232aba38676",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "83f46fd8-3aaf-46e9-aed2-94c86c4ad1e8",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "83872f0b-37d3-4b68-a911-504a9238f243",
+        "timestamp": "2026-08-17T14:05:44.675Z",
+        "slideTitle": "Outline of Key Topics in Database Systems",
+        "duration_seconds": 2
+      },
+      "created_at": "2026-08-17T14:05:44.821542+00:00"
+    },
+    {
+      "id": "efa84c18-ba62-4db2-9191-741d28dd2376",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "6f6f7441-9a04-4f33-bda5-643c10d32152",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "83872f0b-37d3-4b68-a911-504a9238f243",
+        "timestamp": "2026-08-17T14:05:46.835Z",
+        "slideTitle": "Introduction of the First Hard Disk",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T14:05:46.975974+00:00"
+    },
+    {
+      "id": "f64948f9-4819-4975-91a0-52ca3b54c2d0",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "quiz_attempt",
+      "event_data": {
+        "correct": false,
+        "slideId": "945cb990-add8-4d25-b1b2-f885443b824e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "83872f0b-37d3-4b68-a911-504a9238f243",
+        "timestamp": "2026-08-17T14:05:54.427Z",
+        "questionId": "8cb29b40-16a4-4c76-a6c3-f103c9405f7f",
+        "slideTitle": "History of Hard Disk Drives",
+        "selectedAnswer": 0,
+        "time_to_answer_seconds": 8
+      },
+      "created_at": "2026-08-17T14:05:54.629264+00:00"
+    },
+    {
+      "id": "4a5fb1a0-689d-4e6b-bbed-4ed822451871",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "micro_quiz_attempt",
+      "event_data": {
+        "correct": false,
+        "slideId": "5f52a0f3-ae83-4e5e-be6d-edc0bc883c86",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "timestamp": "2026-08-17T14:07:37.416Z",
+        "questionId": "8e22a832-5b9d-4f59-b710-2fec42e8e8f7",
+        "selectedAnswer": 0
+      },
+      "created_at": "2026-08-17T14:07:37.557506+00:00"
+    },
+    {
+      "id": "acbee087-fede-4d25-8eae-68652c886130",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "7289e694-7ad3-4666-8cc1-c72bd2e9d236",
+        "sessionId": "e3a1d1e2-c9ea-487c-818c-509da20e114f"
+      },
+      "created_at": "2026-08-17T16:23:31.731119+00:00"
+    },
+    {
+      "id": "ad206f6a-49b3-4ffb-9727-800bde787dec",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "1f7113e4-de82-4095-9538-6fc0871aa56e",
+        "sessionId": "d6231322-5fee-42b4-9f9b-2c602887401a"
+      },
+      "created_at": "2026-08-17T16:24:23.742694+00:00"
+    },
+    {
+      "id": "aac69793-c5fe-4368-bf26-ac5f50ef663a",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "1f7113e4-de82-4095-9538-6fc0871aa56e",
+        "sessionId": "c307e3fb-86e5-4c1c-9dfe-d6c8f4acecce"
+      },
+      "created_at": "2026-08-17T16:27:08.57961+00:00"
+    },
+    {
+      "id": "31c9ee5a-52f8-42c6-a3b5-de8483541e9f",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "d7e31a9f-d684-4252-af1d-e44ebdfdd51e",
+        "timestamp": "2026-08-17T20:56:40.952Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 2
+      },
+      "created_at": "2026-08-17T20:56:41.410081+00:00"
+    },
+    {
+      "id": "206cc572-e54b-4514-b38d-23162c040914",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "login",
+      "event_data": {
+        "method": "email_password",
+        "timestamp": "2026-08-17T20:38:23.158Z"
+      },
+      "created_at": "2026-08-17T20:38:23.501599+00:00"
+    },
+    {
+      "id": "06a58d7d-258a-4524-9e61-af17af3853ec",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "d7e31a9f-d684-4252-af1d-e44ebdfdd51e"
+      },
+      "created_at": "2026-08-17T20:56:41.40977+00:00"
+    },
+    {
+      "id": "6e0eef6e-9a23-491f-bd36-7f0a2d1133dd",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "f52bfc4b-22a2-468b-b4ac-81d5d65b175b",
+        "timestamp": "2026-08-17T20:58:52.989Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T20:58:53.233669+00:00"
+    },
+    {
+      "id": "e453ca5c-ce27-4327-9c4a-9c67280aa5bc",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "3ac611a6-50f0-44fa-8fd8-a55af5213c26",
+        "timestamp": "2026-08-17T21:01:52.929Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T21:01:53.090147+00:00"
+    },
+    {
+      "id": "9abe242f-3ec4-49c8-a147-9874a4dfffe1",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "b5c7e884-6daf-4f21-9655-92be0b7d9b6a"
+      },
+      "created_at": "2026-08-17T21:03:35.684299+00:00"
+    },
+    {
+      "id": "e8e9f38b-cd7c-4438-a77a-af6789d8aafc",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "login",
+      "event_data": {
+        "method": "email_password",
+        "timestamp": "2026-08-17T20:49:59.607Z"
+      },
+      "created_at": "2026-08-17T20:49:59.802465+00:00"
+    },
+    {
+      "id": "8f4b36fb-17fd-46da-b12b-20ba435b31af",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "3ac611a6-50f0-44fa-8fd8-a55af5213c26",
+        "timestamp": "2026-08-17T21:01:55.063Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T21:01:55.467248+00:00"
+    },
+    {
+      "id": "0998e984-7bfe-48b4-a227-935d341106e9",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "3711cb1a-1ec3-40a6-bc6f-81c041202059",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "d7e31a9f-d684-4252-af1d-e44ebdfdd51e",
+        "timestamp": "2026-08-17T20:58:21.337Z",
+        "slideTitle": "Development of Hard Disks",
+        "duration_seconds": 100
+      },
+      "created_at": "2026-08-17T20:58:21.617299+00:00"
+    },
+    {
+      "id": "92c8ffde-94df-46ed-84b3-b6a3d408739a",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "f52bfc4b-22a2-468b-b4ac-81d5d65b175b"
+      },
+      "created_at": "2026-08-17T20:58:53.187282+00:00"
+    },
+    {
+      "id": "523a383a-3a5c-4610-80cd-b163ed84d70d",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "3ac611a6-50f0-44fa-8fd8-a55af5213c26",
+        "timestamp": "2026-08-17T21:01:53.623Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T21:01:53.755515+00:00"
+    },
+    {
+      "id": "35ba1a14-55f2-4bd4-aaaf-7da42a9a2f85",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "72e457d2-3a2d-40e7-8818-1b016e876ad1"
+      },
+      "created_at": "2026-08-17T21:02:02.278762+00:00"
+    },
+    {
+      "id": "5bf0fb2d-9bef-49da-9b05-5becd59b823f",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "d7723c44-6b03-423f-9d34-af318f32d61f"
+      },
+      "created_at": "2026-08-17T20:59:22.167285+00:00"
+    },
+    {
+      "id": "a42903a0-a80c-4b0b-85c8-11a7fb6d57be",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "249f38f7-398a-4721-be93-29363df836b5",
+        "timestamp": "2026-08-17T20:59:31.479Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T20:59:31.684877+00:00"
+    },
+    {
+      "id": "0aeb330c-d3ee-45e7-8da7-15650a3427a2",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "72e457d2-3a2d-40e7-8818-1b016e876ad1",
+        "timestamp": "2026-08-17T21:02:02.111Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T21:02:02.281929+00:00"
+    },
+    {
+      "id": "e575c0b0-8669-4312-b086-f2d82afb7f05",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "b5c7e884-6daf-4f21-9655-92be0b7d9b6a"
+      },
+      "created_at": "2026-08-17T21:03:15.984619+00:00"
+    },
+    {
+      "id": "0f8baff2-2e71-4df3-878f-53c1e560f72a",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "d7723c44-6b03-423f-9d34-af318f32d61f",
+        "timestamp": "2026-08-17T20:59:21.996Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T20:59:22.191493+00:00"
+    },
+    {
+      "id": "9c9f7f83-37b6-4a81-99cf-8d7cc40442ff",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "249f38f7-398a-4721-be93-29363df836b5"
+      },
+      "created_at": "2026-08-17T20:59:56.791271+00:00"
+    },
+    {
+      "id": "1763045b-509a-48d2-b56a-650bc709c1ae",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "3ac611a6-50f0-44fa-8fd8-a55af5213c26"
+      },
+      "created_at": "2026-08-17T21:01:55.463609+00:00"
+    },
+    {
+      "id": "3e8694ad-dd3f-4e95-8ada-0600cc99ed4b",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "37b38d63-a42f-44ea-bad7-6cc953226082",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "b5c7e884-6daf-4f21-9655-92be0b7d9b6a",
+        "timestamp": "2026-08-17T21:03:34.065Z",
+        "slideTitle": "Overview of Storage Technologies",
+        "duration_seconds": 18
+      },
+      "created_at": "2026-08-17T21:03:34.321469+00:00"
+    },
+    {
+      "id": "46174257-1298-4ec8-9e8c-ae548fb01b35",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "249f38f7-398a-4721-be93-29363df836b5"
+      },
+      "created_at": "2026-08-17T20:59:31.675719+00:00"
+    },
+    {
+      "id": "e9d984d9-624a-4da6-84a9-86f50fca8e35",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "37b38d63-a42f-44ea-bad7-6cc953226082",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "249f38f7-398a-4721-be93-29363df836b5",
+        "timestamp": "2026-08-17T20:59:55.167Z",
+        "slideTitle": "Overview of Storage Technologies",
+        "duration_seconds": 24
+      },
+      "created_at": "2026-08-17T20:59:55.328104+00:00"
+    },
+    {
+      "id": "6c0e7a88-1380-4afe-af99-328f4a2a0fe8",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "3207e807-83b4-421d-a433-1ac0526205b4"
+      },
+      "created_at": "2026-08-17T21:00:58.627139+00:00"
+    },
+    {
+      "id": "c3ee94a6-1b3b-4eb0-871d-8d59dbbecb10",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "37b38d63-a42f-44ea-bad7-6cc953226082",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "249f38f7-398a-4721-be93-29363df836b5",
+        "timestamp": "2026-08-17T20:59:55.810Z",
+        "slideTitle": "Overview of Storage Technologies",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T20:59:55.929469+00:00"
+    },
+    {
+      "id": "d5c4eb7e-4ccf-4627-908c-c2188f831487",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "3207e807-83b4-421d-a433-1ac0526205b4",
+        "timestamp": "2026-08-17T21:00:58.254Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 2
+      },
+      "created_at": "2026-08-17T21:00:58.632527+00:00"
+    },
+    {
+      "id": "5cb6e618-52a2-425a-9e0b-de8695d86650",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "3ac611a6-50f0-44fa-8fd8-a55af5213c26"
+      },
+      "created_at": "2026-08-17T21:01:55.463371+00:00"
+    },
+    {
+      "id": "46fadb95-85b6-4ea2-b2a5-a52faf0c0bf3",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "19798a07-acda-4104-8ad0-8d5915a3549e",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "b5c7e884-6daf-4f21-9655-92be0b7d9b6a",
+        "timestamp": "2026-08-17T21:03:15.611Z",
+        "slideTitle": "Database Systems Basics",
+        "duration_seconds": 2
+      },
+      "created_at": "2026-08-17T21:03:15.984612+00:00"
+    },
+    {
+      "id": "89592c62-4d99-40ed-b23a-6c165f10adc2",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "slide_view",
+      "event_data": {
+        "slideId": "37b38d63-a42f-44ea-bad7-6cc953226082",
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "b5c7e884-6daf-4f21-9655-92be0b7d9b6a",
+        "timestamp": "2026-08-17T21:03:34.620Z",
+        "slideTitle": "Overview of Storage Technologies",
+        "duration_seconds": 1
+      },
+      "created_at": "2026-08-17T21:03:34.748706+00:00"
+    },
+    {
+      "id": "bc8739cd-d349-4b28-8076-55bb21db8a0e",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "6d2b028b-e4a7-4b95-9627-a8a06f533387",
+        "sessionId": "f4cd91af-f01d-49b0-87e8-5fdd9cb96b7a"
+      },
+      "created_at": "2026-07-13T12:44:37.533727+00:00"
+    },
+    {
+      "id": "40d89b05-d421-4bee-9f94-4197b0d02f8d",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "6d2b028b-e4a7-4b95-9627-a8a06f533387",
+        "sessionId": "248a9171-75ad-48d0-87b3-bea231a9d66b"
+      },
+      "created_at": "2026-07-13T12:50:07.964951+00:00"
+    },
+    {
+      "id": "2e9a004f-709c-4696-b2ad-b09f4d95e536",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "ai_tutor_query",
+      "event_data": {
+        "query": "hi",
+        "slideId": "053c44c5-f70c-48a1-8b3a-ea0ec779330a",
+        "lectureId": "6d2b028b-e4a7-4b95-9627-a8a06f533387",
+        "sessionId": "248a9171-75ad-48d0-87b3-bea231a9d66b",
+        "timestamp": "2026-07-13T12:50:14.010Z",
+        "slideTitle": "Introduction to Database Systems"
+      },
+      "created_at": "2026-07-13T12:50:14.243404+00:00"
+    },
+    {
+      "id": "4cc54b70-7bfa-4fe4-860c-d9c33a4a3d5c",
+      "user_id": "a3261aae-41c0-4e26-890b-8906a17a33f1",
+      "event_type": "lecture_start",
+      "event_data": {
+        "lectureId": "126bb3c8-6f69-4184-9ceb-9ccbfd4b3609",
+        "sessionId": "ffaf72dd-c5ca-4567-9579-e5e2ae802447"
+      },
+      "created_at": "2026-07-13T13:03:19.730532+00:00"
+    }
+  ]
+}
