@@ -260,8 +260,42 @@ that endpoint. Same bug class, different code path.
 
 **This is the `list_courses` leak's twin.** Identical mechanism — a permissive
 browse policy OR-ing away the enrollment scope — fixed on the backend endpoint by
-`7c3af43` and still live on the client path. Worth checking whether any other
-direct-from-client `courses` read has the same shape.
+`7c3af43` and still live on the client path.
+
+**The class is bounded — this was checked, not left open.** Two sweeps, both
+independently reproduced:
+
+*Callers.* Exactly two client-side reads of `courses` exist outside tests:
+`studentService.ts:63` (this bug) and `AdminDashboard.tsx:115`. The second is
+legitimate — an admin listing every course is the intent, and the route is
+wrapped in `<ProtectedRoute allowedRoles={['admin']}>` (`App.tsx:540`). There is
+no third instance.
+
+*The policy shape itself*, swept across all of `public` rather than just this
+table — permissive SELECT policies with no caller condition, sitting beside at
+least one that has one:
+
+```sql
+WITH sel AS (
+  SELECT tablename, COALESCE(qual,'') AS q, permissive
+  FROM pg_policies WHERE schemaname='public' AND cmd='SELECT'
+)
+SELECT tablename,
+       count(*) FILTER (WHERE q !~* 'auth\.uid|has_role|current_setting') AS unscoped,
+       count(*) FILTER (WHERE q  ~* 'auth\.uid|has_role|current_setting') AS scoped
+FROM sel WHERE permissive='PERMISSIVE'
+GROUP BY tablename
+HAVING count(*) FILTER (WHERE q !~* 'auth\.uid|has_role|current_setting') > 0
+   AND count(*) FILTER (WHERE q  ~* 'auth\.uid|has_role|current_setting') > 0;
+```
+
+Returns exactly one row: `courses | unscoped=1 | scoped=2`. **No other table in
+the schema has this shape**, so the fix is genuinely local rather than the start
+of a sweep.
+
+Keep that query. It proves the negative in one statement and would catch a
+regression the moment a second unscoped permissive policy lands anywhere — a much
+cheaper standing check than auditing callers by hand.
 
 The fix is not a filter tweak: **there is no client-side enrolled-course accessor
 at all.** Grep confirms zero `course_enrollments` reads anywhere under
