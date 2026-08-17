@@ -221,6 +221,12 @@ function OnboardingInner() {
     if (stage !== 'intro') return;
     play('advance');
     setDir(1);
+    // Always re-enter the form at step 1. handleBack parks `step` at 0 so the
+    // journey map shows no active node on the intro, but nothing renders for
+    // step 0 — without this reset, intro → step 1 → Back → continue left the
+    // form stage mounted with every `step === n` branch false, i.e. a blank
+    // screen with no way out but a reload.
+    setStep(1);
     setStage('form');
   };
 

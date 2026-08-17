@@ -202,4 +202,31 @@ describe('Onboarding', () => {
     await waitFor(() => expect(screen.getByText(/Add extra topics/i)).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('Database Systems')).toBeInTheDocument());
   });
+
+  // Regression: backing out of step 1 used to strand the user on a blank screen.
+  // handleBack parks `step` at 0 so the journey map shows no active node on the
+  // intro, but no branch renders for step 0 — and beginJourney only set the
+  // stage, never restored the step. Re-entering the form therefore mounted it
+  // with every `step === n` guard false, leaving no controls and no way out but
+  // a browser reload. Walking forward only never catches this.
+  it('re-enters step 1 after backing out to the intro', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/Welcome to Learnstation/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Click to continue/i }));
+
+    await waitFor(() => expect(screen.getByPlaceholderText(/Enter your name/i)).toBeInTheDocument());
+
+    // Back out to the intro…
+    await user.click(screen.getByRole('button', { name: /Back/i }));
+    await waitFor(() => expect(screen.getByText(/Welcome to Learnstation/i)).toBeInTheDocument());
+    expect(screen.queryByPlaceholderText(/Enter your name/i)).not.toBeInTheDocument();
+
+    // …and back in. Step 1 must render again, with its controls.
+    await user.click(screen.getByRole('button', { name: /Click to continue/i }));
+    await waitFor(() => expect(screen.getByPlaceholderText(/Enter your name/i)).toBeInTheDocument());
+    expect(screen.getByText(/What should we call you/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Next/i })).toBeInTheDocument();
+  });
 });
