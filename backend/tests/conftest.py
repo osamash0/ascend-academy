@@ -37,11 +37,28 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import freezegun
 import pytest
 
 from backend.tests.fake_redis import FakeRedis  # noqa: E402
 from backend.tests.fake_supabase import FakeSupabaseClient  # noqa: E402
 from backend.tests.network_guard import blocked as _blocked  # noqa: E402
+
+# ── freezegun / outbound-guard interaction ────────────────────────────────────
+# freezegun walks sys.modules to repoint time references, and touching a
+# module's attributes can run that module's lazy initialisation. `docker` (pulled
+# in transitively by backend/tests/db/conftest.py's module-level
+# `testcontainers.postgres` import, which pytest executes during *collection*
+# even for `-m "not db"` runs) opens a socket to the daemon when probed. The
+# outbound guard then raises, and because the exception surfaces inside
+# `freeze_time.start()`, the corresponding `__exit__` never runs -- so the clock
+# stays frozen for the remainder of the session. That is not a theoretical
+# concern: it made test_cache_token::test_ttl_expiry fail 500 tests later and
+# reported the suite duration as 20,569 days.
+#
+# freezegun ships this escape hatch for exactly this class of module (its
+# defaults already exclude selenium, gi, prompt_toolkit).
+freezegun.configure(extend_ignore_list=["docker", "testcontainers"])
 
 
 # ── Outbound-access guard (unit tests only) ───────────────────────────────────
