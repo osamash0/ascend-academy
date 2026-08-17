@@ -257,9 +257,23 @@ def test_invalidate_course_overview_for_lecture_resolves_parent(patch_supabase):
     assert analytics_cache.invalidate_course_overview_for_lecture(None) == 0
 
 
-def test_refresh_endpoint_invalidates_and_responds(app, patch_supabase, professor_user):
+def test_refresh_endpoint_invalidates_and_responds(app, patch_supabase, professor_user, monkeypatch):
     from fastapi.testclient import TestClient
     from backend.core.auth_middleware import verify_token
+    from backend.services import analytics_service
+
+    # The endpoint force-recomputes the dashboard after invalidating, and
+    # get_dashboard_data runs its aggregates over a real asyncpg pool. The
+    # endpoint swallows failures there ("will lazy-fill"), so without this stub
+    # the test quietly queried whatever DATABASE_URL pointed at — and never
+    # checked that the recompute happened at all.
+    recomputes: list[tuple[str, bool]] = []
+
+    async def fake_dashboard(lecture_id, token=None, force_refresh=False):
+        recomputes.append((lecture_id, force_refresh))
+        return {"overview": {}}
+
+    monkeypatch.setattr(analytics_service, "get_dashboard_data", fake_dashboard)
 
     patch_supabase.seed("lectures", [
         {"id": "L1", "professor_id": professor_user.id, "title": "T",
@@ -278,3 +292,5 @@ def test_refresh_endpoint_invalidates_and_responds(app, patch_supabase, professo
     body = r.json()
     assert body["success"] is True
     assert body["data"]["invalidated_rows"] == 2
+    assert body["data"]["recomputed"] is True
+    assert recomputes == [("L1", True)]

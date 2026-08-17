@@ -3,13 +3,13 @@ uvicorn==0.46.0
 sqlmodel==0.0.39
 supabase==2.30.0
 pydantic==2.13.3
-pydantic-settings==2.14.0
+pydantic-settings==2.14.2
 python-dotenv==1.2.2
 asyncpg==0.31.0
-pypdf==6.14.2
+pypdf==6.15.0
 PyMuPDF==1.24.0
-Pillow==12.2.0
-python-multipart==0.0.27
+Pillow==12.3.0
+python-multipart==0.0.31
 ollama==0.6.2
 google-genai==2.12.1
 groq==1.2.0
@@ -29,7 +29,7 @@ llama-cloud-services==0.6.35
 markitdown[pptx]==0.1.6   # native PPTX → per-slide markdown import (markitdown_service.py)
 
 # ── Parser v3 ─────────────────────────────────────────────────────────────────
-docling==2.92.0
+docling==2.94.0
 arq==0.28.0
 fastembed==0.8.0
 litellm==1.85.0  # S-5: bumped past PYSEC-2026-388/2598-2602 (proxy-mode CVEs).
