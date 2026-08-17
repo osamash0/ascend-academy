@@ -225,3 +225,64 @@ describe('AuthProvider — signIn / signUp', () => {
     expect(supabaseMock.data['user_roles']?.rows ?? []).toHaveLength(0);
   });
 });
+
+describe('AuthProvider — referential stability', () => {
+  /**
+   * Regression: `refreshProfile` used to be a fresh closure on every render,
+   * and it is an effect dependency in useStudentDashboard and
+   * StudentCourseLibrary. That closed a self-driving loop —
+   *   refreshProfile -> fetchProfile -> setProfile(<new object>)
+   *   -> AuthProvider re-renders -> new refreshProfile identity
+   *   -> dependent effect re-fires -> refreshProfile ...
+   * Measured on an idle /dashboard before the fix: 60 requests/second to
+   * /rest/v1/profiles, ~216k/hour per open tab. It span on SUCCESS, because
+   * the trigger is object identity, not failure.
+   *
+   * The profiles read below deliberately returns a NEW object literal per
+   * call, exactly as a real network read does. Without that, the shared mock
+   * hands back the same row reference, React bails out of the re-render, and
+   * this test would pass against the broken implementation too.
+   */
+  it('keeps refreshProfile identity stable across profile refetches', async () => {
+    supabaseMock.seed('user_roles', [{ user_id: 'u1', role: 'student' }]);
+    let reads = 0;
+    const realFrom = supabaseMock.from.bind(supabaseMock);
+    vi.spyOn(supabaseMock, 'from')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mockImplementation((table: string): any => {
+        if (table === 'profiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () => {
+                  reads += 1;
+                  return Promise.resolve({
+                    data: { id: 'p1', user_id: 'u1', email: 'stu@test.edu' },
+                    error: null,
+                  });
+                },
+              }),
+            }),
+          };
+        }
+        return realFrom(table);
+      });
+
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await fireAuth('INITIAL_SESSION', { user: { id: 'u1' } });
+    await waitFor(() =>
+      expect(screen.getByTestId('profile')).toHaveTextContent('stu@test.edu'),
+    );
+
+    const firstIdentity = ctx.refreshProfile;
+    const readsAfterMount = reads;
+
+    await act(async () => { await ctx.refreshProfile(); });
+    await act(async () => { await ctx.refreshProfile(); });
+
+    // Each refresh really did hit the table and set a distinct object, so the
+    // provider genuinely re-rendered — the identity check below is meaningful.
+    expect(reads).toBe(readsAfterMount + 2);
+    expect(ctx.refreshProfile).toBe(firstIdentity);
+  });
+});
