@@ -928,7 +928,7 @@ async def get_study_guide_endpoint(
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
-    def _check_visibility() -> None:
+    def _check_visibility() -> bool:
         c = _fetch_course(course_id)
         if not c:
             raise HTTPException(status_code=404, detail="Course not found.")
@@ -937,8 +937,17 @@ async def get_study_guide_endpoint(
             c.get("status") != "published" or course_id not in _student_visible_course_ids(uid)
         ):
             raise HTTPException(status_code=403, detail="You do not have access to this course.")
+        return is_owner
 
-    await run_in_threadpool(_check_visibility)
+    is_owner = await run_in_threadpool(_check_visibility)
+
+    # Reading is open to anyone who can see the course; regenerating is not.
+    # force_regenerate bypasses the cache, spends an LLM call, and overwrites the
+    # single shared study_guides row every other student on the course reads — so
+    # it is gated on ownership, not merely on role (a *different* professor must
+    # not be able to regenerate this course's guide either).
+    if regenerate and not is_owner:
+        raise HTTPException(status_code=403, detail="You do not own this course.")
 
     from backend.services.study_guide_service import get_or_generate_study_guide
     try:
