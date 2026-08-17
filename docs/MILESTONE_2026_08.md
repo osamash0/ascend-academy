@@ -229,16 +229,43 @@ order-dependent hypothesis sends you hunting for test pollution that isn't
 there. It predates all of this milestone's branches and imports none of their
 modules.
 
-**F8 — Student self-enrollment may be broken.**
-`src/pages/StudentCourseLibrary.tsx:324` derives `enrolledCourseIds` from
-`courseList`, which is then used by `CourseCatalogSheet.tsx` to filter
-recommendations (`:44`) and to set `isEnrolled` (`:168`). If `courseList` ever
-contains a course the student can merely *see* rather than one they are enrolled
-in, every catalog entry is marked enrolled and the enroll affordance never
-appears. Reported as a live user-facing break; not independently confirmed here,
-and its status may have changed with `7c3af43`, which narrowed what
-`list_courses` returns. Verify against a real student account before assuming
-either way.
+**F8 — Student self-enrollment is broken. CONFIRMED, live on `main`.**
+A new student cannot enroll in anything: every catalog entry renders disabled and
+labelled "Enrolled". Highest-priority open item here.
+
+The chain, each link verified:
+
+1. `src/services/studentService.ts:61` — `fetchStudentCourses` selects from
+   `courses` with **no enrollment filter and no user filter at all**, just
+   `.order('created_at')` and `.limit(100)`.
+2. RLS does not scope it either. The `courses` SELECT policies on production are
+   permissive and therefore **OR** together, and one of them —
+   `"Authenticated users browse published courses"` —
+   is `USING (status = 'published' AND is_archived = false)` with no enrollment
+   condition. So any authenticated student reads every published course,
+   regardless of the two enrollment-scoped policies sitting beside it.
+3. `StudentCourseLibrary.tsx:222` pre-seeds from that result under the comment
+   *"Pre-seed courseMeta with explicitly enrolled courses"*. **That comment is
+   false** — it is every published course.
+4. `:324` then wraps it as `enrolledCourseIds`, and
+   `CourseCatalogSheet.tsx:168/:207` disables the enroll control on membership.
+
+Reproduced against the live app with a real account holding **zero**
+`course_enrollments` rows: all 20 catalog buttons `disabled: true` reading
+"Enrolled", with 24+ courses in the rail. That run was against a tree that
+already contained `7c3af43`, so the fix does not resolve it — and cannot:
+`7c3af43` patched `backend/api/v1/courses.py` (the `list_courses` endpoint),
+while `fetchStudentCourses` is a direct PostgREST table select that never reaches
+that endpoint. Same bug class, different code path.
+
+**This is the `list_courses` leak's twin.** Identical mechanism — a permissive
+browse policy OR-ing away the enrollment scope — fixed on the backend endpoint by
+`7c3af43` and still live on the client path. Worth checking whether any other
+direct-from-client `courses` read has the same shape.
+
+The fix is not a filter tweak: **there is no client-side enrolled-course accessor
+at all.** Grep confirms zero `course_enrollments` reads anywhere under
+`src/services/`, `src/features/`, or `src/pages/`. One has to be added.
 
 **F9 — Duplicate PDFs in storage.** ~113 MB of duplicate objects inside the
 `lecture-pdfs` bucket. Relevant to the egress budget that PR #12 addressed from
@@ -289,6 +316,21 @@ completely silent second half. So:
 - when something is **green**, ask what wasn't covered — widen coverage;
 - when something is **red for a known reason**, ask what never *ran* — a
   multi-step job's later steps may never have executed at all.
+
+### A fourth shape: the comment that lies
+
+F8's root cause is not any of the above. `StudentCourseLibrary.tsx:222` carries
+the comment *"Pre-seed courseMeta with explicitly enrolled courses"* over a query
+that fetches every published course. Two lines later, `:324` names the result
+`enrolledCourseIds` and downstream code disables the enroll button on it.
+
+Nothing was unreachable and nothing failed to execute — the code did exactly what
+it said, and what it *said* was wrong. A reader auditing that file sees a comment
+asserting the guarantee they were about to check for, and moves on. That is how
+this survived a leak fix aimed at the very same mechanism.
+
+Worth treating a comment asserting a data guarantee as a claim to verify, not a
+premise to build on.
 
 ---
 
