@@ -43,7 +43,7 @@ The single most serious finding in this audit is #1.1. This is genuine legal exp
 
 | # | Sev | What it is now | What it should be | Evidence |
 |---|---|---|---|---|
-| 2.1 | 🟠 | **2 of 6 feature cards are invisible to users.** "Secure Vault" and "Universal Access" sit at `opacity: 0` / `0.068` while fully inside the viewport (measured `top: 13px`, `height: 314px`). On screen this reads as a full blank scroll-screen between "Everything You Need to Succeed" and "Four Steps to Mastery". The scroll-reveal animation never fires for the last row. | All six cards reveal. Almost certainly the same root cause as 2.2 — fix that first, then re-measure. | `getComputedStyle` sweep of in-viewport elements; confirmed by screenshot of the blank region |
+| 2.1 | ⚠️ **RETRACTED — unverified, probably an artifact** | I originally reported "2 of 6 feature cards are invisible": "Secure Vault" and "Universal Access" measured `opacity: 0` / `0.068` while fully in the viewport, and a screenshot showed a blank scroll-screen. **That measurement is not trustworthy.** Later in the audit I probed `requestAnimationFrame` in the same browser context and got **0 frames in 15 seconds** — rAF was fully throttled because the driving tab was backgrounded (in fact eventually closed). framer-motion drives reveal animations with rAF, so *any* reveal-animated element measures `opacity: 0` in that state, and a screenshot captures the same pre-animation paint. The blank region I photographed is consistent with the artifact, not evidence of a bug. | **Re-measure in a genuinely foreground tab** (`document.visibilityState === 'visible'` and a rAF probe returning >20 frames/800 ms) before doing any work on this. Do not "fix" it until reproduced under those conditions. | rAF probe: 0 frames/15 s; `document.hidden === true` |
 | 2.2 | 🟠 | Console warning on every load: *"Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly."* — framer-motion's `useScroll` in [`Landing.tsx`](src/pages/Landing.tsx) is measuring against a `position: static` container, so its scroll offsets are wrong. | Add `relative` to the scroll container passed to `useScroll`. This is the likely cause of 2.1. | Console, `localhost:5173` |
 | 2.3 | 🟠 | **All 13 footer links are dead** (`href="#"`): Features, Security, Enterprise, Documentation, API Reference, Community, Blog, About, Careers, Contact, Privacy, Twitter, GitHub. | Wire the ones that exist (Privacy → `/datenschutz`, + add Impressum). **Remove** the ones that don't exist rather than shipping dead links — Enterprise/Careers/Blog/API Reference/Community signal a bigger company than there is, and dead links read as abandonment. | DOM query of `footer a` |
 | 2.4 | 🔵 | Three different brand marks across three pages: landing header uses a cyan/blue layers glyph, `/auth` uses the layers glyph in a **purple** circle, `/impressum` uses a **graduation-cap** glyph. The EN/DE toggle is also styled differently on `/impressum`. | One logo component, one toggle component. | Screenshots of `/`, `/auth`, `/impressum` |
@@ -248,7 +248,21 @@ Not product bugs. Recorded because both looked exactly like real blockers and wo
 1. **Background-tab wedge.** Driving onboarding with synthetic `element.click()` while the Chrome tab is `document.visibilityState === 'hidden'` makes the wizard look permanently stuck: `step` advances (the PIXI journey map moves on) but the DOM keeps the *previous* step's markup and the new step never mounts. Cause: Chrome throttles `requestAnimationFrame` to ~zero in hidden tabs, framer-motion drives its animations with rAF, and the step wrapper uses `<AnimatePresence mode="wait">` ([`Onboarding.tsx:717`](src/pages/Onboarding.tsx:717)) — so the exit animation never completes and the enter never starts. **It self-heals the instant the tab becomes visible.** Verified: wedged at `radios: 0`; one real click later `visibility: visible` → `radios: 5`.
 2. **"Double-clicking Next wedges the wizard."** I formed this from the symptom above and it was wrong — a single-click control run wedged identically. The variable was tab visibility, not click count.
 
-**Rules this implies for the rest of the audit:** drive the app with real clicks via the `computer` tool (they activate the tab), keep the tab foregrounded, and **always run a single-variable control before filing an interaction bug**. Also note `useSound` is *not* a suspect — it wraps every AudioContext call in try/catch, so `play()` cannot throw and abort a handler.
+**Rules this implies for the rest of the audit:** drive the app with real clicks via the `computer` tool, keep the tab foregrounded, and **always run a single-variable control before filing an interaction bug**.
+
+**Mandatory pre-flight — run this before trusting ANY visual or opacity measurement.** A backgrounded tab silently invalidates all of it, and it cost this audit one retracted finding (2.1) plus two phantom blockers:
+
+```js
+// Must print visible / true / >20 frames. Anything less → measurements are worthless.
+(() => { window.__p={f:0,t:performance.now()};
+  const l=()=>{window.__p.f++; if(performance.now()-window.__p.t<800) requestAnimationFrame(l);};
+  requestAnimationFrame(l);
+  return {vis:document.visibilityState, focus:document.hasFocus()}; })()
+// ...wait ~1s, then:
+window.__p.f
+```
+
+Note that **screenshots do not protect you**: a throttled tab paints its pre-animation state, so a screenshot of "missing" content looks exactly like a genuine rendering bug. Neither `osascript ... activate` nor clicking inside the page reliably fixes it — the Chrome window itself has to be visible and the tab selected. Also note `useSound` is *not* a suspect — it wraps every AudioContext call in try/catch, so `play()` cannot throw and abort a handler.
 
 Why 8.1 is unaffected: it was found with real clicks in a visible tab, and its proof is a deterministic jsdom test that fails/passes on the one-line change with no rAF or visibility involved.
 
@@ -407,7 +421,63 @@ The browser walkthrough of the wizard is blocked (the audit harness only permits
 
 ---
 
-## 9. Still to audit (Parts 2 cont. & 3)
+## 9. Data-layer audit (no browser required)
+
+Run directly against the database while the browser was unavailable. **All findings here are query-verified**, so unlike §2.1 they don't depend on animation state. Note this is the *same* Supabase project production uses (`lkiiideqjoiksnycgplc`).
+
+### 9.1 🟠 Course discovery is 83% noise — and it's live
+
+Every authenticated student sees the same `DISCOVER` catalog: `courses` with `status='published' AND is_archived=false`. The endpoint is implemented correctly (RLS-as-boundary, explicit filter, rate-limited) — **this is a data problem, not a code one.**
+
+| Measured | Count |
+|---|---|
+| Published, non-archived courses visible to every student | **36** |
+| …with **zero lectures** (empty shells) | **20** (56%) |
+| …that are obvious dev/test fixtures | **16** (44%) |
+| …duplicated titles | **3** |
+| **…genuinely named *and* containing content** | **6** (17%) |
+
+Fixtures currently public include `testcourse`, `E2E Integration Course`, `Cache Invalidation Proof` **1 & 2**, `Clean Verification Course` **1 & 2**, `My Uploaded Biology 101`, `My Uploaded Database Course`, `Last Testing upload`, `Test`, and **five** copies of `My AI Generated Course` plus a truncated `My AI Gener`. `Systemsoftware und Rechnerkommunikation` appears **three times** (16 lectures, 1 lecture, 0 lectures).
+
+**What it should be:** unpublish the fixtures and the empty shells before launch, and de-duplicate. A first-time student's discovery experience is currently 30 pieces of noise around 6 real courses — that is the first impression of the product's content library. Longer term, `status='published'` should require at least one lecture, so an empty course cannot reach the catalog at all.
+
+**Evidence:** `select … from courses where status='published' and is_archived=false` (36 rows, listed in full during the audit); `backend/api/v1/courses.py:329` for the filter.
+
+### 9.2 🟠 Review cards are missing for 38% of lectures — the SRS loop silently has nothing to serve
+
+`review_cards` is keyed per **lecture** (`lecture_id`, `concept_id`, `source_type`, `source_id`, `content_hash`) with **no `user_id`** — per-user state lives in `review_schedule`. So any lecture with quiz questions should have cards regardless of who is enrolled.
+
+| Measured | Count |
+|---|---|
+| Lectures with quiz questions | 114 |
+| …that have review cards | 71 |
+| **…that have ZERO review cards** | **43 (38%)** |
+| Of those 43: in a course a student is enrolled in | 9 |
+| Of those 43: owned by a student | 5 |
+
+**Not explained by age.** Both buckets span the same window and reach today — e.g. `Differential Cryptanalysis` was created **2026-08-17** with 7 quiz questions and 0 cards.
+
+**The generator code is fine.** I ran its exact query read-only against the newest affected lecture and it returns **7 rows** — so `_generate_quiz_cards` ([`card_factory.py:63`](backend/services/review/card_factory.py:63)) would happily create cards. The job simply never completed for these lectures. Also note `quiz_cards: 0` in the worker log is *not* evidence of failure: `_insert_card` dedupes on `content_hash`, so 0 is the correct idempotent answer for an already-carded lecture.
+
+**Contributing design weakness:** on a missed Redis lock, [`card_factory.py:115`](backend/services/review/card_factory.py:115) returns `{"quiz_cards": 0}` and never reschedules — so a duplicate enqueue can consume the only attempt and the lecture is left permanently cardless with no error anywhere.
+
+**What it should be:**
+1. Run the existing `backend/scripts/backfill_review_cards.py` to close the current 43.
+2. Reschedule instead of no-op'ing when the lock is missed.
+3. Add a reconciliation invariant — *"every lecture with quiz questions has ≥1 review card"* — as a monitored check. This drifted to 38% with no signal, which is the actual problem; without the check it will drift again.
+
+**Why it matters:** the review engine is the product's retention loop. For 38% of the library it has nothing to serve, and the student just sees an empty queue with no explanation that anything is wrong.
+
+### 9.3 Verified working (data layer)
+
+- **Ingestion output is real and correct.** My end-to-end upload produced `total_slides=10`, **10 slides**, **8 quiz questions**, and **8 review cards** — a complete, studiable lecture from one 487 KB PDF. (8 questions for 10 slides is expected: title/metadata slides are correctly skipped.)
+- `visibility='course'` and `source_language='en'` were set correctly on the new lecture.
+- `/courses/browse` is properly authenticated, rate-limited (`60/minute`), paginated by cursor, and uses the RLS-enforcing per-user client rather than `supabase_admin`.
+- Review-card generation is **idempotent** via `content_hash`, and holds a Redis lock to avoid concurrent duplicate runs.
+
+---
+
+## 10. Still to audit (Parts 2 cont. & 3)
 
 Blocked on an authenticated session.
 
