@@ -958,7 +958,7 @@ export default function LectureView() {
       status={lectureCompleted ? 'done' : 'progress'}
       gradientIndex={currentSlideIndex}
       motionKey={lectureId!}
-      backdrop={<LectureBackdrop lectureId={lectureId!} pdfUrl={resolvedPdfUrl} />}
+      backdrop={<LectureBackdrop lectureId={lectureId!} posterUrl={lecture?.poster_url} />}
     >
       <div className="flex flex-col h-[100svh] relative z-10 max-w-7xl mx-auto w-full overflow-hidden">
         {/* Header */}

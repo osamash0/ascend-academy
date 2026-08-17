@@ -56,6 +56,12 @@ export interface Lecture {
   total_slides: number;
   created_at: string;
   pdf_url?: string | null;
+  /**
+   * Storage path of the hero key-art poster (a WebP of page 1), or null when the
+   * lecture has none yet. Consumers must render an ambient gradient in that case
+   * rather than falling back to pdf_url -- see LectureBackdrop.
+   */
+  poster_url?: string | null;
   is_archived?: boolean;
   /** Optional course grouping (null = Uncategorized). */
   course_id?: string | null;

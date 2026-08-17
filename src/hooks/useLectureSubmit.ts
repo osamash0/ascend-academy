@@ -149,7 +149,14 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
           const filePath = `lectures/${lectureId}/${pdfFile.name}`;
           const { error: uploadError } = await supabase.storage
             .from('lecture-pdfs')
-            .upload(filePath, pdfFile, { contentType: 'application/pdf', upsert: true });
+            .upload(filePath, pdfFile, {
+              contentType: 'application/pdf',
+              upsert: true,
+              // Source PDFs are immutable at a given path (a replacement upserts
+              // in place). The default of 3600s sent repeat viewers back to
+              // origin every hour, which inflated egress.
+              cacheControl: '31536000',
+            });
 
           if (uploadError) {
             toast({

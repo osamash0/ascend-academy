@@ -18,7 +18,7 @@ export interface StudentDashboardData {
 export async function fetchStudentLectures() {
   const { data, error } = await (supabase as any)
     .from('lectures')
-    .select('id, title, description, total_slides, created_at, pdf_url, course_id, course:courses(id, title, color, description)')
+    .select('id, title, description, total_slides, created_at, pdf_url, poster_url, course_id, course:courses(id, title, color, description)')
     .eq('is_archived', false)
     .order('created_at', { ascending: false })
     .limit(200);

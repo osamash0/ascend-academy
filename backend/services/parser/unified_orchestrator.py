@@ -48,7 +48,7 @@ import redis.asyncio as aioredis
 from backend.core.config import settings
 from backend.core.job_locks import acquire_job_lock, parse_lock_key, release_job_lock
 from backend.domain.parse_models import RunStatus
-from backend.services.parser import repos, persist
+from backend.services.parser import repos, persist, poster
 from backend.services.parser.storage import _fetch_pdf_bytes
 
 # In-flight lock TTL (Roadmap P2-3): must comfortably outlast the worker's
@@ -307,7 +307,16 @@ async def _store_lecture_pdf(lecture_id: UUID, filename: str, pdf_bytes: bytes) 
         sb = get_client(use_admin=True)
         sb.storage.from_("lecture-pdfs").upload(
             path, pdf_bytes,
-            file_options={"content-type": "application/pdf", "upsert": "true"},
+            # `cache-control` is hyphenated for the Python client (the JS client
+            # spells it `cacheControl`). Omitting it entirely -- as this call used
+            # to -- stores the object as `no-cache`, so the CDN never caches it and
+            # every lecture view is a full origin read. That was a major share of
+            # the egress overage: 85 of 150 PDFs (134 MB) landed `no-cache`.
+            file_options={
+                "content-type": "application/pdf",
+                "upsert": "true",
+                "cache-control": "31536000",
+            },
         )
 
     try:
@@ -532,7 +541,22 @@ async def parse_pdf_unified(
         pdf_path = await _store_lecture_pdf(created_lecture_id, filename, pdf_bytes)
         if pdf_path:
             await persist.set_lecture_pdf_url(created_lecture_id, pdf_path)
+<<<<<<< HEAD
         await emit("meta", {"pdf_hash": pdf_hash, "lecture_id": str(created_lecture_id)})
+=======
+        # Render the hero key art now, while the PDF bytes are already in memory.
+        # Doing it here costs no egress; the alternative (the frontend rendering
+        # page 1 out of the source PDF) cost ~98% more bytes per view.
+        poster_path_ = await poster.store_lecture_poster(created_lecture_id, pdf_bytes)
+        if poster_path_:
+            await persist.set_lecture_poster_url(created_lecture_id, poster_path_)
+        await emit("meta", {
+            "pdf_hash": pdf_hash,
+            "lecture_id": str(created_lecture_id),
+            "source_language": source_language,
+            "localization_status": "pending",
+        })
+>>>>>>> f313a6c (fix(egress): serve hero key art from WebP posters, not source PDFs)
 
         # ── 4. Per-slide synthesis (chunked-parallel; narrative carries over) ─
         from backend.services.ai.orchestrator import QUIZ_BATCH_CONFIG

@@ -494,7 +494,7 @@ export default function StudentCourseLibrary() {
       backdrop={
         <LectureBackdrop
           lectureId={heroIsLecture ? focusedLecture!.lecture.id : undefined}
-          pdfUrl={heroIsLecture ? focusedLecture!.lecture.pdf_url : undefined}
+          posterUrl={heroIsLecture ? focusedLecture!.lecture.poster_url : undefined}
         />
       }
     >

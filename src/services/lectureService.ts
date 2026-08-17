@@ -38,24 +38,114 @@ function extractStoragePath(rawPdfUrl: string): string {
 }
 
 /**
- * Resolves a stored pdf_url value to a short-lived signed URL suitable for
- * browser rendering or download.  The bucket is private, so public URLs no
- * longer work; this function creates an authenticated signed URL with a
- * 1-hour expiry for the current session.
+ * Extracts the storage object path from a raw poster_url value, which is always
+ * stored path-only ("lectures/uuid/poster.webp") but is tolerated as a full URL
+ * for symmetry with pdf_url.
+ */
+function extractPosterPath(rawPosterUrl: string): string {
+  const urlMatch = rawPosterUrl.match(/lecture-posters\/(.+)$/);
+  return urlMatch ? urlMatch[1] : rawPosterUrl;
+}
+
+/**
+ * Signed-URL cache, persisted in sessionStorage.
+ *
+ * `createSignedUrl` mints a fresh token on every call, and the storage CDN keys
+ * its cache on the full URL including that token. Signing per component mount
+ * therefore guaranteed a cache miss and a full origin read every time -- the
+ * measured result was 2.96 GB of uncached egress against 0.06 GB cached.
+ *
+ * Verified against this project's storage on 2026-08-17: re-requesting a
+ * byte-identical signed URL returns `CF-Cache-Status: HIT`, and the response's
+ * `Expires` is set from the token's own lifetime (a 600s token yields Expires
+ * 600s out; a 28800s token yields 28800s). URL stability is therefore the whole
+ * mechanism -- the object's stored `cache-control` is not surfaced on this path,
+ * so reusing the URL is what converts uncached egress into cached.
+ *
+ * Reusing one signed URL per object for its whole lifetime lets repeat views hit
+ * the CDN instead. Tokens are scoped to the signing user's session, so caching
+ * them in sessionStorage (cleared on tab close, never shared across users) does
+ * not widen access beyond what the RLS SELECT policy already grants.
+ */
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 8; // 8h; refreshed at 80% of lifetime
+const SIGNED_URL_CACHE_PREFIX = 'sb-signed-url:';
+
+interface CachedSignedUrl {
+  url: string;
+  /** Epoch ms after which we re-sign rather than risk a 400 from an expired token. */
+  refreshAfter: number;
+}
+
+function readCachedSignedUrl(cacheKey: string): string | null {
+  try {
+    const raw = sessionStorage.getItem(SIGNED_URL_CACHE_PREFIX + cacheKey);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as CachedSignedUrl;
+    if (!entry?.url || typeof entry.refreshAfter !== 'number') return null;
+    if (Date.now() >= entry.refreshAfter) return null;
+    return entry.url;
+  } catch {
+    // Private-mode / quota-exceeded / malformed entry -- fall through to signing.
+    return null;
+  }
+}
+
+function writeCachedSignedUrl(cacheKey: string, url: string): void {
+  try {
+    const entry: CachedSignedUrl = {
+      url,
+      refreshAfter: Date.now() + SIGNED_URL_TTL_SECONDS * 1000 * 0.8,
+    };
+    sessionStorage.setItem(SIGNED_URL_CACHE_PREFIX + cacheKey, JSON.stringify(entry));
+  } catch {
+    // Caching is an optimisation; never let a storage failure break rendering.
+  }
+}
+
+async function resolveSignedUrl(bucket: string, storagePath: string): Promise<string | null> {
+  const cacheKey = `${bucket}/${storagePath}`;
+  const cached = readCachedSignedUrl(cacheKey);
+  if (cached) return cached;
+
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+  if (error || !data?.signedUrl) {
+    console.warn(`Failed to create signed URL for ${cacheKey}:`, error?.message);
+    return null;
+  }
+  writeCachedSignedUrl(cacheKey, data.signedUrl);
+  return data.signedUrl;
+}
+
+/**
+ * Resolves a stored pdf_url value to a signed URL suitable for browser rendering
+ * or download. The bucket is private, so public URLs do not work.
+ *
+ * The URL is cached per object for the session so that repeat views are served
+ * from the storage CDN rather than re-read from origin.
  *
  * Returns null if the input is null/empty or if signing fails.
  */
 export async function resolvePdfUrl(rawPdfUrl: string | null | undefined): Promise<string | null> {
   if (!rawPdfUrl) return null;
-  const storagePath = extractStoragePath(rawPdfUrl);
-  const { data, error } = await supabase.storage
-    .from('lecture-pdfs')
-    .createSignedUrl(storagePath, 3600); // 1-hour expiry
-  if (error || !data?.signedUrl) {
-    console.warn('Failed to create signed URL for PDF:', error?.message);
-    return null;
-  }
-  return data.signedUrl;
+  return resolveSignedUrl('lecture-pdfs', extractStoragePath(rawPdfUrl));
+}
+
+/**
+ * Resolves a stored poster_url value to a signed URL for the console hero's key
+ * art.
+ *
+ * A poster is a ~30-120 KB WebP render of page 1, produced at ingest. It exists
+ * so the hero never has to download the multi-megabyte source PDF just to paint
+ * a background: see backend/services/parser/poster.py.
+ *
+ * Returns null when the lecture has no poster yet, in which case the caller
+ * should fall back to the ambient gradient -- never to the source PDF.
+ */
+export async function resolvePosterUrl(rawPosterUrl: string | null | undefined): Promise<string | null> {
+  if (!rawPosterUrl) return null;
+  return resolveSignedUrl('lecture-posters', extractPosterPath(rawPosterUrl));
 }
 
 export async function fetchLecture(idOrSlug: string): Promise<Lecture | null> {
@@ -396,7 +486,12 @@ export async function saveExistingLecture(
     const filePath = `lectures/${lectureId}/${pdfFile.name}`;
     const { error: uploadError } = await supabase.storage
       .from('lecture-pdfs')
-      .upload(filePath, pdfFile, { contentType: 'application/pdf', upsert: true });
+      .upload(filePath, pdfFile, {
+        contentType: 'application/pdf',
+        upsert: true,
+        // Immutable at this path; see the cacheControl note in useLectureSubmit.
+        cacheControl: '31536000',
+      });
     if (uploadError) throw uploadError;
     // Store only the storage path — the bucket is private; signed URLs are
     // generated on demand.

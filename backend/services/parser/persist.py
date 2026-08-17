@@ -95,6 +95,14 @@ async def set_lecture_pdf_url(lecture_id: UUID, pdf_url: str) -> None:
     await _execute("UPDATE lectures SET pdf_url = $1 WHERE id = $2", pdf_url, lecture_id)
 
 
+async def set_lecture_poster_url(lecture_id: UUID, poster_url: str) -> None:
+    """Set the lecture's poster storage path (the console hero's key art).
+
+    NULL means no poster, which the frontend degrades to an ambient gradient
+    rather than falling back to downloading the source PDF."""
+    await _execute("UPDATE lectures SET poster_url = $1 WHERE id = $2", poster_url, lecture_id)
+
+
 async def set_course_id(lecture_id: UUID, course_id: Optional[UUID]) -> None:
     """Assign/reassign a lecture's course. Only called when course_id was
     explicitly provided by the caller — a re-parse must never clobber an
