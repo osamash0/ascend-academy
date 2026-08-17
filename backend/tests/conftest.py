@@ -32,6 +32,25 @@ os.environ.setdefault("GEMINI_API_KEY", "fake-gemini")
 os.environ.setdefault("FEATURE_REVIEW_ENGINE", "1")
 os.environ.setdefault("FEATURE_EXAM_MODE", "1")
 
+# Assigned, not setdefault: whatever DATABASE_URL the developer's shell exports
+# must NOT leak into a unit-test run. `backend.core.database` binds
+# `DB_URL = os.environ.get("DATABASE_URL")` once at import, and `init_db_pool`
+# returns early when it is empty (database.py:156) -- leaving `db_pool` unset, so
+# `get_db_connection` raises RuntimeError("Database pool not initialized") on the
+# next line and no socket is ever attempted.
+#
+# That made the outbound guard's coverage depend on the environment: with a
+# DATABASE_URL present the pool attempt reached the socket and the guard fired;
+# with it absent the RuntimeError won and the guard was never exercised. Same
+# assertion, different meaning locally vs in CI.
+#
+# A syntactically valid but unroutable DSN (.invalid is reserved by RFC 2606)
+# makes init_db_pool always attempt a connection, so the guard is what stops it,
+# deterministically and in every environment. The db/ suite is unaffected: it
+# takes its DSN from DB_TEST_LOCAL_ADMIN_DSN or testcontainers and never reads
+# DATABASE_URL.
+os.environ["DATABASE_URL"] = "postgresql://guard:guard@db.invalid:5432/unit_tests"
+
 # Make repo root importable as `backend.*`
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
