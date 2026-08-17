@@ -75,9 +75,9 @@ export const XPProgress = memo(function XPProgress({ currentXP, currentLevel, st
 
         <div className="h-4 bg-white/5 rounded-2xl p-1 overflow-hidden border border-white/5">
           <motion.div
-            className="h-full bg-gradient-to-r from-primary via-secondary to-xp rounded-xl relative shadow-glow-primary/50"
-            initial={{ width: 0 }}
-            animate={isInView ? { width: `${progressPercent}%` } : {}}
+            className="h-full w-full origin-left bg-gradient-to-r from-primary via-secondary to-xp rounded-xl relative shadow-glow-primary/50"
+            initial={{ scaleX: 0 }}
+            animate={isInView ? { scaleX: progressPercent / 100 } : {}}
             transition={{ duration: 1.2, ease: [0.34, 1.56, 0.64, 1] }}
           >
             <div className="absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-white/20 to-transparent" />

@@ -240,3 +240,75 @@ def test_archived_published_course_not_in_public_catalog_for_bystander(
             _reset_user(cur)
 
     assert str(course) not in visible
+
+
+# ── list_courses's own explicit filter (distinct from the raw RLS ceiling) ──
+#
+# The two tests above (test_any_authenticated_user_sees_published_non_
+# archived_course, test_draft_course_not_in_public_catalog_for_bystander)
+# correctly assert what browse_courses relies on: RLS alone makes every
+# published course visible to any authenticated user. That is intentional
+# for the /courses/browse catalog. But list_courses ("my courses") used to
+# assume the SAME raw RLS visibility was already scoped to "own or
+# enrolled" -- it wasn't; migration 20260719020000's catalog policy made
+# every published course visible table-wide, and nothing in this file (or
+# anywhere else) asserted that list_courses's own query narrows back down
+# to just the caller's courses. This is that missing assertion: it
+# reproduces list_courses's actual filter (own OR
+# _student_visible_course_ids) as the equivalent SQL WHERE clause and
+# proves a bystander professor's unrelated published course is excluded,
+# even though the unfiltered SELECT above proves it WOULD be RLS-visible.
+
+
+def _list_courses_filtered_ids(cur, uid: uuid.UUID, visible_ids: set[str]) -> set[str]:
+    """Mirrors list_courses's `.or_(f"professor_id.eq.{uid},id.in.(...)")`
+    filter as raw SQL, executed under the same RLS role/claims _as_user
+    sets up -- i.e. "what would list_courses's query return for this
+    caller," not just "what does RLS allow at all" (that's
+    _visible_course_ids above)."""
+    if visible_ids:
+        placeholders = ",".join(["%s"] * len(visible_ids))
+        cur.execute(
+            f"SELECT id FROM public.courses WHERE professor_id = %s OR id IN ({placeholders})",
+            (str(uid), *[str(v) for v in visible_ids]),
+        )
+    else:
+        cur.execute("SELECT id FROM public.courses WHERE professor_id = %s", (str(uid),))
+    return {str(row[0]) for row in cur.fetchall()}
+
+
+def test_list_courses_filter_excludes_other_professors_published_course(
+    db_conn, make_user, make_course
+):
+    """The actual bug this fix closes: professor A's "my courses" list must
+    NOT include professor B's published course just because it's RLS-
+    visible for the catalog -- even though professor A has zero ownership
+    or enrollment relationship to it."""
+    professor_a = make_user(role="professor")
+    professor_b = make_user(role="professor")
+    own_course = make_course(professor_a, title="Professor A's own course")
+    other_course = make_course(professor_b, title="Professor B's published course")
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "UPDATE public.courses SET status = 'published' WHERE id = %s",
+            (str(other_course),),
+        )
+
+    with db_conn.cursor() as cur:
+        _as_user(cur, professor_a)
+        try:
+            # Sanity check: the raw RLS ceiling DOES include professor B's
+            # published course (proves the catalog policy is in play here).
+            raw_visible = _visible_course_ids(cur)
+            assert str(other_course) in raw_visible
+
+            # But list_courses's own filter must narrow it back out.
+            filtered = _list_courses_filtered_ids(cur, professor_a, visible_ids=set())
+        finally:
+            _reset_user(cur)
+
+    assert str(own_course) in filtered
+    assert str(other_course) not in filtered, (
+        f"list_courses leak: professor {professor_a}'s course list includes "
+        f"professor {professor_b}'s unrelated published course {other_course}"
+    )

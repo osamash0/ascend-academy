@@ -41,13 +41,14 @@ export interface BatchSummaryRow {
 }
 
 /** Client-side queue entry, one per picked file, before/while it's submitted. */
-export type QueueFileStatus = 'queued' | 'uploading' | 'parsing' | 'done' | 'failed';
+export type QueueFileStatus = 'queued' | 'uploading' | 'parsing' | 'done' | 'failed' | 'duplicate';
 
 export interface BatchFileEntry {
   fileId: string;
   file: File;
   status: QueueFileStatus;
   error?: string | null;
+  warning?: string | null;
   runId?: string | null;
   lectureId?: string | null;
   pdfHash?: string | null;

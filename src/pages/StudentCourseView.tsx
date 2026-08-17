@@ -81,19 +81,10 @@ export default function StudentCourseView() {
             </motion.button>
 
             <div className="flex items-center gap-2">
-              {FEATURES.globalSearch && courseId && courseId !== '__uncat__' && (
-                <button
-                  onClick={() => setAskOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  {t('search:entry.askThisCourse')}
-                </button>
-              )}
               {courseId && courseId !== '__uncat__' && (
                 <button
                   onClick={() => navigate(StudentRoutes.EXAM(courseId))}
-                  className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
+                  className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
                 >
                   <GraduationCap className="w-3.5 h-3.5" />
                   {t('exam:generate.title')}
@@ -102,7 +93,7 @@ export default function StudentCourseView() {
               {courseId && courseId !== '__uncat__' && (
                 <button
                   onClick={() => navigate(StudentRoutes.STUDY_GUIDE(courseId))}
-                  className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
+                  className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
                   id="course-study-guide-btn"
                 >
                   <NotebookText className="w-3.5 h-3.5" />
@@ -112,10 +103,19 @@ export default function StudentCourseView() {
               {/* Temporary toggle to preview the experimental PS5-style library */}
               <button
                 onClick={() => navigate(`/course-v3/${courseId}`)}
-                className="rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
               >
                 Try new view →
               </button>
+              {FEATURES.globalSearch && courseId && courseId !== '__uncat__' && (
+                <button
+                  onClick={() => setAskOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-primary bg-primary px-4 py-1.5 text-xs font-black uppercase tracking-wider text-primary-foreground hover:bg-primary/90 transition-colors shadow-glow-primary/20"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {t('search:entry.askThisCourse')}
+                </button>
+              )}
             </div>
           </div>
 

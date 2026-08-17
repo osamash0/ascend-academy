@@ -17,6 +17,7 @@ async def process_chat_request(
     pdf_hash: Optional[str] = None,
     current_slide_index: Optional[int] = None,
     session_id: Optional[str] = None,
+    response_language: str = "en",
 ) -> Dict[str, Any]:
     safe_lecture_id = None
     safe_pdf_hash = None
@@ -83,6 +84,7 @@ async def process_chat_request(
             lecture_id=safe_lecture_id,
             pdf_hash=safe_pdf_hash,
             current_slide_index=current_slide_index,
+            response_language=response_language,
         )
         reply_text = result if isinstance(result, str) else result.get("reply", "")
         

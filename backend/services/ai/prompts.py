@@ -36,7 +36,7 @@ PROMPT_VERSIONS: Dict[str, str] = {
     # v1 -> v2 (S-4 follow-up, prompt-injection hardening pass): added an
     # explicit rule that retrieved/extracted document text is data, not
     # instructions, since uploads aren't professor-only.
-    "BATCH_SLIDE_PROMPT": "v2",
+    "BATCH_SLIDE_PROMPT": "v3",  # v3: optional output-language rule appended for non-English decks (source_language plumbing)
     "SINGLE_SLIDE_QUIZ_PROMPT": "v1",
     "DECK_QUIZ_PROMPT": "v1",
     "CROSS_SLIDE_DECK_QUIZ_PROMPT": "v1",
@@ -46,12 +46,15 @@ PROMPT_VERSIONS: Dict[str, str] = {
     "LECTURE_DESCRIPTION_PROMPT": "v1",
     "COURSE_DESCRIPTION_PROMPT": "v1",
     # -- centralized in this pass (previously inline f-strings) --
-    "LECTURE_META_ANALYSIS_PROMPT": "v1",       # was parser/synthesis.py:analyze_lecture_meta
-    "SLIDE_ANALYSIS_PROMPT": "v1",              # was parser/synthesis.py:analyze_slide
-    "SYNTHESIS_DECK_QUIZ_PROMPT": "v1",         # was parser/synthesis.py:generate_quiz_questions
+    # v1 -> v2 on the three synthesis prompts: added the {output_language}
+    # rule so generated content stays in the deck's own source language
+    # instead of drifting to English (source_language plumbing).
+    "LECTURE_META_ANALYSIS_PROMPT": "v2",       # was parser/synthesis.py:analyze_lecture_meta
+    "SLIDE_ANALYSIS_PROMPT": "v2",              # was parser/synthesis.py:analyze_slide
+    "SYNTHESIS_DECK_QUIZ_PROMPT": "v2",         # was parser/synthesis.py:generate_quiz_questions
     "CROSS_LECTURE_QUIZ_PROMPT": "v1",          # was parser/synthesis.py:generate_cross_lecture_questions
     "SYLLABUS_FACTS_EXTRACTION_PROMPT": "v1",   # was parser/synthesis.py:extract_syllabus_facts
-    "TUTOR_SOCRATIC_PROMPT": "v2",              # was ai/tutor.py:chat_with_lecture — v2: same injection-hardening rule as BATCH_SLIDE_PROMPT
+    "TUTOR_SOCRATIC_PROMPT": "v3",              # was ai/tutor.py:chat_with_lecture — v2: same injection-hardening rule as BATCH_SLIDE_PROMPT; v3: {language_name} rule so replies follow the student's saved language
     "COURSE_TUTOR_SOCRATIC_PROMPT": "v2",       # was ai/tutor.py:chat_with_course — v2: same
     "INTENT_CLASSIFIER_PROMPT": "v1",           # was ai/ask_data.py + ai/ask_professor.py (duplicated)
     "PROFESSOR_CHAT_SYSTEM_PROMPT": "v1",       # was ai/ask_professor.py:_build_chat_prompt
@@ -63,6 +66,18 @@ def get_prompt_version(prompt_name: str) -> str:
     ``"unversioned"`` for anything not yet registered above (keeps this
     lookup safe to call speculatively from logging code)."""
     return PROMPT_VERSIONS.get(prompt_name, "unversioned")
+
+
+def output_language(source_language: str) -> str:
+    """Map a deck's detected source language onto the human-readable name the
+    synthesis prompts interpolate, so generated titles/insights/quizzes stay in
+    the language of the slides instead of drifting to English.
+
+    Lives here rather than in ``parser/synthesis.py`` so both the per-slide
+    synthesis path and ``ai/orchestrator.batch_analyze_text_slides`` can share
+    one mapping without the parser->ai->parser import cycle.
+    """
+    return "German" if source_language == "de" else "English"
 
 
 BATCH_SLIDE_PROMPT = """\
@@ -330,6 +345,9 @@ Return ONLY valid JSON, no markdown. Keys:
 - summary: string (3-4 sentence summary of what this entire lecture covers)
 - keyTopics: array of strings (5-8 key topics/concepts covered)
 
+Write every user-facing string in {output_language}, the source language of
+this lecture. Do not translate it into another language.
+
 Analyze these lecture slides:
 
 {combined_text}"""
@@ -342,6 +360,9 @@ Return ONLY valid JSON, no markdown, no code blocks. Keys:
 - slideType: one of "text", "image-only", "math-diagram", "graph", "mixed", "title-slide", "table-of-contents"
 - aiInsight: string (A concise narrative explanation (1-3 sentences) of this slide as if you are a professor teaching a class. If this slide covers the same topic as the previous slide, DO NOT repeat the explanation; focus ONLY on what is new or briefly summarize the continuation. Maintain a logical flow and avoid giving the impression that each slide is being explained in isolation. Do NOT use phrases like "This slide", "In this slide", or "This image". Connect it to the previous slide if mentioned in the context.)
 - contextNote: string (1 sentence about where this slide fits in the lecture narrative)
+
+Write title, aiInsight, and contextNote in {output_language}, the source
+language of this lecture. Do not translate them into another language.
 
 Lecture context: {lecture_context}
 
@@ -361,6 +382,9 @@ Each object has:
 - concept: string (the specific concept being tested — a short name, not a sentence)
 - difficulty: "easy" | "medium" | "hard"
 - slideId: number (1-based slide number the question is drawn from)
+
+Write all user-facing strings in {output_language}, the source language of
+this lecture. Do not translate them into another language.
 
 Lecture: "{lecture_title}"
 
@@ -406,6 +430,8 @@ TUTOR_SOCRATIC_PROMPT = """\
 You are a Socratic AI Tutor for university students.
 
 HARD RULES:
+- Write every user-facing answer in {language_name}, the student's saved
+  preferred language, even if the source material or question uses another language.
 - Base your answers primarily on the RETRIEVED CONTEXT below.
 - If answering the question requires conceptual context outside of the
   RETRIEVED CONTEXT, you MAY provide it. However, you MUST wrap ANY

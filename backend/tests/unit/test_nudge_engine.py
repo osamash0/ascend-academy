@@ -10,9 +10,15 @@ from datetime import datetime, timedelta, timezone
 
 from backend.services.nudge_engine import (
     AssignmentDueSoonRule,
+    ProfessorInactiveDayFourteenRule,
+    ProfessorNoAnalyticsDayFiveRule,
+    ProfessorNoUploadDayTwoRule,
     REVIEWS_PILING_UP_THRESHOLD,
     ReviewsPilingUpRule,
     StreakAtRiskRule,
+    StudentInactiveDaySevenRule,
+    StudentNoAvatarDayThreeRule,
+    StudentNoQuizDayOneRule,
     UserContext,
     WeakConceptStaleRule,
     evaluate_user,
@@ -206,6 +212,53 @@ class TestWeakConceptStale:
             dismissals={("weak_concept_stale", "c1"): NOW + timedelta(days=3)},
         )
         assert evaluate_user(ctx, [WeakConceptStaleRule()]) == []
+
+
+class TestActivationLifecycleRules:
+    def test_student_day_one_quiz_prompt_only_fires_without_quiz(self):
+        ctx = _ctx(account_created_at=NOW - timedelta(days=1))
+        nudges = StudentNoQuizDayOneRule().should_fire(ctx)
+        assert [n.rule_key for n in nudges] == ["student_no_quiz_day_1"]
+        assert StudentNoQuizDayOneRule().should_fire(
+            _ctx(account_created_at=NOW - timedelta(days=1), quiz_attempt_count=1)
+        ) == []
+
+    def test_student_avatar_and_inactive_rules_use_their_own_days(self):
+        avatar_nudges = StudentNoAvatarDayThreeRule().should_fire(
+            _ctx(account_created_at=NOW - timedelta(days=3), has_avatar=False)
+        )
+        assert avatar_nudges[0].deep_link == "/settings"
+        assert StudentNoAvatarDayThreeRule().should_fire(
+            _ctx(account_created_at=NOW - timedelta(days=3), has_avatar=True)
+        ) == []
+
+        inactive_nudges = StudentInactiveDaySevenRule().should_fire(
+            _ctx(account_created_at=NOW - timedelta(days=7), last_activity_at=NOW - timedelta(days=7))
+        )
+        assert inactive_nudges[0].rule_key == "student_inactive_day_7"
+
+    def test_professor_upload_analytics_and_return_prompts_are_role_safe(self):
+        no_upload = ProfessorNoUploadDayTwoRule().should_fire(
+            _ctx(role="professor", account_created_at=NOW - timedelta(days=2))
+        )
+        assert no_upload[0].deep_link == "/professor/upload"
+
+        no_analytics = ProfessorNoAnalyticsDayFiveRule().should_fire(
+            _ctx(role="professor", first_upload_at=NOW - timedelta(days=5), lecture_upload_count=1)
+        )
+        assert no_analytics[0].deep_link == "/professor/analytics"
+        assert ProfessorNoAnalyticsDayFiveRule().should_fire(
+            _ctx(
+                role="professor",
+                first_upload_at=NOW - timedelta(days=5),
+                analytics_viewed_at=NOW - timedelta(days=1),
+            )
+        ) == []
+
+        inactive = ProfessorInactiveDayFourteenRule().should_fire(
+            _ctx(role="professor", account_created_at=NOW - timedelta(days=14), last_activity_at=NOW - timedelta(days=14))
+        )
+        assert inactive[0].deep_link == "/professor/dashboard"
 
 
 # ── Evaluator ordering / safety ─────────────────────────────────────────────

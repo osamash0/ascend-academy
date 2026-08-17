@@ -1,7 +1,7 @@
 import hashlib
 import json
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional, List, Dict
@@ -223,7 +223,7 @@ async def store_cached_parse(pdf_hash: str, data: Dict[str, Any], parsing_mode: 
     """Store full parse result in database."""
     key = _scoped_cache_key(pdf_hash, parsing_mode)
     try:
-        payload = {"pdf_hash": key, "result": data, "created_at": "now()"}
+        payload = {"pdf_hash": key, "result": data, "created_at": datetime.now(timezone.utc).isoformat()}
         supabase_admin.table("pdf_parse_cache").upsert(payload, on_conflict="pdf_hash").execute()
     except Exception as e:
         logger.error("Failed to store cached parse: %s", e)
@@ -301,7 +301,7 @@ async def store_cached_blueprint(
             "pdf_hash": pdf_hash,
             "blueprint_json": blueprint,
             "version": version,
-            "created_at": "now()",
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         # on_conflict MUST reference the composite unique constraint
         # (pdf_hash, version) — NOT just pdf_hash.  Using only pdf_hash
@@ -512,6 +512,11 @@ async def store_slide_embedding(
             "content_hash": content_hash,
             "pipeline_version": pipeline_version,
         }
+        # `pdf_hash` is nullable, and a UNIQUE over it does not dedupe NULLs,
+        # so for a NULL hash this upsert simply never conflicts and behaves as
+        # a plain insert -- no separate branch needed. The conflict target is
+        # backed by slide_embeddings_pdf_hash_slide_index_pipeline_version_key
+        # (20260719000002).
         supabase_admin.table("slide_embeddings").upsert(
             data, on_conflict="pdf_hash,slide_index,pipeline_version"
         ).execute()
@@ -573,7 +578,7 @@ async def store_slide_parse_result(
     """
     try:
         expires_at = (
-            datetime.utcnow() + timedelta(days=_CHECKPOINT_TTL_DAYS)
+            datetime.now(timezone.utc) + timedelta(days=_CHECKPOINT_TTL_DAYS)
         ).isoformat()
         payload = {
             "pdf_hash": pdf_hash,
@@ -655,7 +660,7 @@ async def get_cached_slide_results(
     checkpoints never surface as valid results after their TTL window.
     """
     try:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         res = (
             supabase_admin.table("slide_parse_cache")
             .select("slide_index,slide_data")
@@ -712,7 +717,7 @@ async def get_cache(key: str) -> Optional[Any]:
                     return json.loads(data) if isinstance(data, str) else data
         else:
             def _sync_get():
-                now = datetime.utcnow().isoformat()
+                now = datetime.now(timezone.utc).isoformat()
                 res = supabase_admin.table("backend_cache") \
                     .select("data") \
                     .eq("cache_key", key) \
@@ -739,7 +744,7 @@ async def set_cache(key: str, data: Any, ttl_seconds: int = 300) -> None:
             logger.error("Cache payload not JSON-serializable for key %s: %s", key, enc_exc)
             return
 
-        from datetime import timezone
+        from datetime import timedelta, datetime, timezone
         expires_at_dt = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
 
         if db_pool:

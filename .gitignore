@@ -39,6 +39,11 @@ __pycache__/
 # Scratch & Env
 .agent_scratch/
 scratch/
+# One-off probes written at the repo root during debugging. These connect to a
+# live database and some run work at import time, so they must never be
+# collected by pytest or committed.
+/scratch_*.py
+/test_rls.py
 .claude/
 Document-Insight-Engine/
 mineru-env/
@@ -58,3 +63,13 @@ htmlcov/
 
 # Large generated dataset (not source; regenerated from scrapers)
 Dataset/
+
+# Playwright run output. A failing e2e run drops screenshots and .webm video
+# here; ~760KB of those had been committed. Regenerated on every run.
+test-results/
+playwright-report/
+
+# Supabase CLI machine-local state (linked project ref, server versions).
+# The project id that actually matters is tracked in supabase/config.toml;
+# this directory is per-machine and is recreated by `supabase link`.
+supabase/.temp/

@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
     User, Mail, Camera, Save, Loader2, Trash2, Download,
     Lock, Eye, EyeOff, BrainCircuit, Shield, CheckCircle2, Languages,
-    Settings2, Database, Sliders, Globe, AlertTriangle
+    Settings2, Database, Sliders, Globe, AlertTriangle, Bell
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth, Profile } from '@/lib/auth';
@@ -17,15 +17,16 @@ import { Input } from '@/components/ui/input';
 import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface ExportData {
+/** Shape of `GET /api/auth/export-data`: one key per source table, plus
+ *  `exported_at`. The table set is owned server-side by
+ *  `account_service.EXPORT_TABLES`, so this stays deliberately open —
+ *  enumerating it here would silently drop tables added on the backend. */
+interface ExportData extends Record<string, unknown> {
     exported_at: string;
-    profile: Profile | null;
-    progress: unknown[] | null;
-    achievements: unknown[] | null;
-    learning_events: unknown[] | null;
 }
 
 type AiModelOption = 'auto' | 'cerebras' | 'groq' | 'openrouter' | 'cloudflare' | 'openai';
@@ -446,19 +447,77 @@ function SecuritySettings({ user }: { user: { email?: string } | null }) {
     );
 }
 
-function PreferencesSettings() {
+function PreferencesSettings({ user }: { user: { id: string } | null }) {
     const { t } = useTranslation(['settings', 'common']);
     const { language, setLanguage } = useLanguagePreference();
     const { aiModel, setAiModel } = useAiModel();
     const { toast } = useToast();
 
     const [pendingModel, setPendingModel] = useState<AiModelOption>(aiModel as AiModelOption);
+    const [lifecycleNudgesEnabled, setLifecycleNudgesEnabled] = useState(true);
+    const [preferencesLoading, setPreferencesLoading] = useState(Boolean(user));
+    const [savingNudges, setSavingNudges] = useState(false);
     const hasAiChanges = pendingModel !== (aiModel as AiModelOption);
+
+    useEffect(() => {
+        if (!user) {
+            setPreferencesLoading(false);
+            return;
+        }
+        let cancelled = false;
+        setPreferencesLoading(true);
+        // await + try/finally rather than .then().finally(): the Supabase query
+        // builder is a PromiseLike, not a Promise, so it has no `.finally` —
+        // tsc flagged this, and when the method is genuinely absent the loading
+        // flag never clears and the toggle stays disabled forever.
+        void (async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('notification_preferences')
+                    .select('lifecycle_nudges_enabled')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+                if (cancelled) return;
+                if (error) {
+                    console.error('Unable to load notification preferences', error);
+                    toast({ title: t('settings:notifications.loadError'), variant: 'destructive' });
+                    return;
+                }
+                setLifecycleNudgesEnabled(data?.lifecycle_nudges_enabled ?? true);
+            } finally {
+                if (!cancelled) setPreferencesLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [user, toast, t]);
 
     const handleSaveAi = useCallback(() => {
         setAiModel(pendingModel);
         toast({ title: t('settings:ai.savedTitle'), description: t('settings:ai.savedDescription', { name: t(`settings:ai.models.${pendingModel}.name`) }) });
     }, [pendingModel, setAiModel, toast, t]);
+
+    const updateLifecycleNudges = useCallback(async (enabled: boolean) => {
+        if (!user || savingNudges) return;
+        const previous = lifecycleNudgesEnabled;
+        setLifecycleNudgesEnabled(enabled);
+        setSavingNudges(true);
+        try {
+            const { error } = await supabase
+                .from('notification_preferences')
+                .upsert({ user_id: user.id, lifecycle_nudges_enabled: enabled }, { onConflict: 'user_id' });
+            if (error) throw error;
+            toast({
+                title: enabled ? t('settings:notifications.enabled') : t('settings:notifications.disabled'),
+                description: enabled ? t('settings:notifications.enabledDescription') : t('settings:notifications.disabledDescription'),
+            });
+        } catch (error) {
+            setLifecycleNudgesEnabled(previous);
+            console.error('Unable to update notification preferences', error);
+            toast({ title: t('settings:notifications.saveError'), variant: 'destructive' });
+        } finally {
+            setSavingNudges(false);
+        }
+    }, [lifecycleNudgesEnabled, savingNudges, t, toast, user]);
 
     return (
         <div className="space-y-10 animate-in fade-in duration-300">
@@ -524,6 +583,32 @@ function PreferencesSettings() {
                     </div>
                 )}
             </div>
+
+            <section className="pt-8 border-t border-border" aria-labelledby="lifecycle-notifications-heading">
+                <div className="flex items-start gap-3">
+                    <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                        <Bell className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h2 id="lifecycle-notifications-heading" className="text-xl font-medium text-foreground">{t('settings:notifications.title')}</h2>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">{t('settings:notifications.description')}</p>
+                    </div>
+                </div>
+                <div className="mt-5 flex min-h-14 items-center justify-between gap-5 rounded-xl border border-border bg-card p-4">
+                    <div>
+                        <label htmlFor="lifecycle-nudges" className="text-sm font-medium text-foreground">{t('settings:notifications.lifecycleLabel')}</label>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{t('settings:notifications.lifecycleHelp')}</p>
+                    </div>
+                    <Switch
+                        id="lifecycle-nudges"
+                        checked={lifecycleNudgesEnabled}
+                        disabled={!user || preferencesLoading || savingNudges}
+                        onCheckedChange={(enabled) => void updateLifecycleNudges(enabled)}
+                        aria-label={t('settings:notifications.lifecycleLabel')}
+                    />
+                </div>
+                <p className="mt-3 text-xs leading-5 text-muted-foreground">{t('settings:notifications.inAppOnly')}</p>
+            </section>
         </div>
     );
 }
@@ -542,20 +627,12 @@ function DataPrivacySettings({ user, signOut, navigate }: { user: { id: string }
         safeSetState(setIsExporting, true);
 
         try {
-            const [profileRes, progressRes, achievementsRes, eventsRes] = await Promise.all([
-                supabase.from('profiles').select('*').eq('user_id', user.id).single(),
-                supabase.from('student_progress').select('*').eq('user_id', user.id),
-                supabase.from('achievements').select('*').eq('user_id', user.id),
-                supabase.from('learning_events').select('*').eq('user_id', user.id),
-            ]);
-
-            const exportData: ExportData = {
-                exported_at: new Date().toISOString(),
-                profile: profileRes.data as Profile | null,
-                progress: progressRes.data,
-                achievements: achievementsRes.data,
-                learning_events: eventsRes.data,
-            };
+            // GDPR Art. 20 requires the *complete* record. Building this in the
+            // browser only ever reached the four tables the RLS-scoped client
+            // could read directly; the server endpoint covers all ~22 in
+            // account_service.EXPORT_TABLES, including storage-derived rows the
+            // client cannot see at all.
+            const exportData = await apiClient.get<ExportData>('/api/auth/export-data');
 
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -580,24 +657,12 @@ function DataPrivacySettings({ user, signOut, navigate }: { user: { id: string }
         safeSetState(setIsDeleting, true);
 
         try {
-            let serverDeleted = false;
-            try {
-                await apiClient.post('/api/auth/delete-account', {});
-                serverDeleted = true;
-            } catch (e) {
-                console.warn('Server-side account deletion unavailable; falling back to client-side row deletion', e);
-            }
-
-            if (!serverDeleted) {
-                const tables = ['learning_events', 'student_progress', 'achievements', 'user_roles', 'profiles'] as const;
-                for (const table of tables) {
-                    const { error } = await supabase.from(table).delete().eq('user_id', user.id);
-                    if (error) {
-                        console.error(`Error deleting from ${table}:`, error);
-                        if (table === 'profiles') throw error;
-                    }
-                }
-            }
+            // Deletion is server-only and must stay that way. The old fallback
+            // deleted five tables from the browser when this call failed, then
+            // reported success — leaving auth.users, storage objects and every
+            // other table behind while telling the user their account was gone.
+            // A failure here has to surface as a failure.
+            await apiClient.post('/api/auth/delete-account', {});
 
             await signOut();
             navigate('/');
@@ -751,7 +816,7 @@ export default function Settings() {
                         <SecuritySettings user={user} />
                     )}
                     {activeTab === 'preferences' && (
-                        <PreferencesSettings />
+                        <PreferencesSettings user={user} />
                     )}
                     {activeTab === 'data' && (
                         <DataPrivacySettings user={user} signOut={signOut} navigate={navigate} />

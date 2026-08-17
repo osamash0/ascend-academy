@@ -114,9 +114,18 @@ export function LectureChat({
         setStreamingContent('');
     }, [slideTitle, slideText]);
 
-    // Auto-scroll to bottom
+    // Auto-scroll to bottom if already near bottom
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (!messagesEndRef.current) return;
+        const container = messagesEndRef.current.parentElement;
+        if (container) {
+            const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+            if (isNearBottom) {
+                messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            }
+        } else {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
     }, [messages, streamingContent, isLoading]);
 
     // Focus input when opened
@@ -330,6 +339,7 @@ export function LectureChat({
                                         variant="ghost"
                                         size="icon"
                                         onClick={onClose}
+                                        aria-label={t('lecture:chat.close')}
                                         className="rounded-full text-muted-foreground hover:text-foreground hover:bg-white/5"
                                     >
                                         <X className="w-5 h-5" />

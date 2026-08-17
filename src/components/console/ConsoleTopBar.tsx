@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, Search, type LucideIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, FolderOpen, Search, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import { FEATURES } from '@/lib/featureFlags';
 import { NotificationBell } from '@/components/NotificationBell';
 import { UploadsIndicator } from '@/components/UploadsIndicator';
 import { ProfileChip } from './ProfileChip';
@@ -11,6 +13,7 @@ import { StudentRoutes, PublicRoutes, SharedRoutes, ProfessorRoutes, AdminRoutes
 
 interface NavTab {
   label: string;
+  labelKey?: string;
   to: string;
   icon: LucideIcon;
 }
@@ -18,10 +21,10 @@ interface NavTab {
 const STUDENT_TABS: NavTab[] = [
   { label: 'Home', to: StudentRoutes.HOME, icon: Home },
   { label: 'Library', to: StudentRoutes.LIBRARY, icon: BookOpen },
+  { label: 'My Materials', labelKey: 'student.materials', to: StudentRoutes.MY_MATERIALS, icon: FolderOpen },
   { label: 'Ascent', to: StudentRoutes.ASCENT, icon: TrendingUp },
   { label: 'Ranking', to: StudentRoutes.LEADERBOARD, icon: Crown },
   { label: 'Friends', to: StudentRoutes.FRIENDS, icon: Users },
-  { label: 'Create', to: ProfessorRoutes.COURSES, icon: Upload },
 ];
 
 const PROFESSOR_TABS: NavTab[] = [
@@ -59,6 +62,7 @@ interface ConsoleTopBarProps {
 
 export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
   const { signOut, role } = useAuth();
+  const { t } = useTranslation(['nav']);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -67,7 +71,10 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
     navigate(PublicRoutes.LANDING);
   };
 
-  const tabs = role === 'admin' ? ADMIN_TABS : (role === 'professor' ? PROFESSOR_TABS : STUDENT_TABS);
+  const studentTabs = FEATURES.studentUploads
+    ? STUDENT_TABS
+    : STUDENT_TABS.filter((tab) => tab.to !== StudentRoutes.MY_MATERIALS);
+  const tabs = role === 'admin' ? ADMIN_TABS : (role === 'professor' ? PROFESSOR_TABS : studentTabs);
   const homeRoute = role === 'admin' ? AdminRoutes.DASHBOARD : (role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME);
 
   return (
@@ -88,10 +95,13 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
       <nav className="flex items-center gap-1">
         {tabs.map((tab) => {
           const isActive = location.pathname.startsWith(tab.to);
+          const label = tab.labelKey ? t(tab.labelKey) : tab.label;
           return (
             <Link
               key={tab.to}
               to={tab.to}
+              aria-label={label}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'console-focusable relative flex items-center gap-2 rounded-full px-3 lg:px-4 py-2 text-sm font-bold transition-colors',
                 isActive ? 'text-white' : 'text-muted-foreground hover:text-foreground'
@@ -105,7 +115,7 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
                 />
               )}
               <tab.icon className="relative z-10 h-4 w-4" />
-              <span className="relative z-10 hidden lg:inline">{tab.label}</span>
+              <span className="relative z-10 hidden lg:inline">{label}</span>
             </Link>
           );
         })}

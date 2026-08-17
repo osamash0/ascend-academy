@@ -16,19 +16,23 @@ vi.mock("framer-motion", () => {
         "initial", "animate", "exit", "transition", "variants",
         "whileHover", "whileTap", "whileInView", "layout", "layoutId",
     ]);
-    const make = (tag: string) => {
+    const make = (tag: keyof React.JSX.IntrinsicElements) => {
         const Cmp = React.forwardRef<HTMLElement, Record<string, unknown> & { children?: React.ReactNode }>(
             ({ children, ...rest }, ref) => {
                 const safe: Record<string, unknown> = {};
                 for (const k of Object.keys(rest)) if (!ANIM.has(k)) safe[k] = rest[k];
-                return React.createElement(tag, { ref, ...safe } as any, children as any);
+                return React.createElement(
+                    tag,
+                    { ref, ...safe } as React.HTMLAttributes<HTMLElement> & React.RefAttributes<HTMLElement>,
+                    children,
+                );
             },
         );
         return Cmp;
     };
     return {
         AnimatePresence: ({ children }: { children: React.ReactNode }) => React.createElement(React.Fragment, null, children),
-        motion: new Proxy({} as Record<string, unknown>, { get: (_t, prop) => make(String(prop)) }),
+        motion: new Proxy({} as Record<string, unknown>, { get: (_t, prop) => make(String(prop) as keyof React.JSX.IntrinsicElements) }),
     };
 });
 
@@ -127,6 +131,27 @@ describe("NudgeBanner", () => {
         const btn = await screen.findByTestId("nudge-open");
         btn.click();
         expect(mockNavigate).toHaveBeenCalledWith("/assignments/a1");
+    });
+
+    it("surfaces an activation nudge and honours its deep link", async () => {
+        seed([
+            {
+                id: "n_activation",
+                user_id: "u1",
+                title: "Turn your first lecture into a course",
+                message: "Upload a PDF to get started.",
+                type: "activation",
+                read: false,
+                created_at: "2026-05-02T12:00:00Z",
+                priority: 60,
+                deep_link: "/professor/upload",
+            },
+        ]);
+        renderWithProviders(<NudgeBanner />);
+
+        expect(await screen.findByText("Turn your first lecture into a course")).toBeInTheDocument();
+        screen.getByTestId("nudge-open").click();
+        expect(mockNavigate).toHaveBeenCalledWith("/professor/upload");
     });
 
     it("Dismiss hits the API and reveals the next-highest nudge", async () => {

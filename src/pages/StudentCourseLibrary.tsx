@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, ChevronLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, ChevronLeft, CheckCircle2, AlertTriangle, Building2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
@@ -11,7 +11,9 @@ import type { Lecture, StudentProgress, CourseSummary } from '@/types/domain';
 import { CourseDetailsSheet } from '@/features/student/components/CourseDetailsSheet';
 import { CourseCatalogSheet } from '@/features/student/components/CourseCatalogSheet';
 import { getCourseSchedule } from '@/features/student/courseSchedules';
+import { groupCoursesBySemester } from '@/features/student/semesterGroups';
 import { InlineLecturePlayer } from '@/features/student/components/InlineLecturePlayer';
+import { Button } from '@/components/ui/button';
 import {
   DepthScene,
   ConsoleTile,
@@ -70,15 +72,136 @@ const shelfCard = {
 };
 
 import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
+import { useAuth } from '@/lib/auth';
+import { StudentRoutes } from '@/lib/routes';
+import { recordOnboardingEvent, saveOnboardingProgress } from '@/services/onboardingService';
+import { supabase } from '@/integrations/supabase/client';
+import { getInstitutionMatchSuggestion, getMyVerification, verifyMyInstitution } from '@/services/academicService';
 
 export default function StudentCourseLibrary() {
   const { courseId } = useParams<{ courseId?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const onboardTarget = location.state?.onboardTarget as string | undefined;
+  const demoMission = Boolean(location.state?.demoMission);
+  const onboardingStart = Boolean(location.state?.onboardingStart);
+  const studyGoal = location.state?.studyGoal as string | undefined;
+  const initialActivity = location.state?.initialActivity as 'lecture' | 'quiz' | 'grounded_ai' | undefined;
+  const { user, refreshProfile } = useAuth();
+  const [demoMissionComplete, setDemoMissionComplete] = useState(false);
+  const [demoQuestionAsked, setDemoQuestionAsked] = useState(false);
+  const [demoQuizAnswered, setDemoQuizAnswered] = useState(false);
+  const [showLunaCustomization, setShowLunaCustomization] = useState(false);
+  const [matchedUniversity, setMatchedUniversity] = useState<string | null>(null);
+  const [savingLunaTheme, setSavingLunaTheme] = useState(false);
+  const [initialRecommendationConsumed, setInitialRecommendationConsumed] = useState(false);
+  const [diagnosticUnavailable, setDiagnosticUnavailable] = useState(false);
+  const checkedLunaPrompt = useRef(false);
+  const checkedUniversityMatch = useRef(false);
   const { t } = useTranslation(['dashboard', 'common']);
   const translateCurriculum = useCurriculumTranslation();
   const { data, isLoading, isError, refetch } = useStudentDashboard();
+
+  const maybeOfferLunaCustomization = useCallback(async () => {
+    if (!user?.id || checkedLunaPrompt.current) return;
+    checkedLunaPrompt.current = true;
+    const { data: progress, error } = await supabase
+      .from('onboarding_progress')
+      .select('selected_path, luna_customization_seen_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (error || !progress?.selected_path || progress.luna_customization_seen_at) return;
+    setShowLunaCustomization(true);
+    void recordOnboardingEvent(user.id, 'personalization_prompt_viewed', { prompt: 'luna_theme' });
+  }, [user?.id]);
+
+  const maybeOfferUniversityMatch = useCallback(async () => {
+    if (!user?.id || checkedUniversityMatch.current) return;
+    checkedUniversityMatch.current = true;
+    try {
+      const { data: progress, error } = await supabase
+        .from('onboarding_progress')
+        .select('university_match_dismissed_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error || progress?.university_match_dismissed_at) return;
+      const university = await getInstitutionMatchSuggestion();
+      if (!university) return;
+      setMatchedUniversity(university);
+      void recordOnboardingEvent(user.id, 'personalization_prompt_viewed', { prompt: 'university_match' });
+    } catch {
+      // Academic context is an enhancement, never an interruption.
+    }
+  }, [user?.id]);
+
+  const acceptUniversityMatch = useCallback(async () => {
+    if (!user?.id || !matchedUniversity) return;
+    try {
+      if (!await verifyMyInstitution()) return;
+      const verification = await getMyVerification();
+      void recordOnboardingEvent(user.id, 'academic_profile_updated', {
+        source: 'confirmed_email_domain', university: verification.institution ?? matchedUniversity,
+      });
+      setMatchedUniversity(null);
+      await refreshProfile();
+    } catch {
+      // Keep the prompt available if confirmation could not be saved.
+    }
+  }, [matchedUniversity, refreshProfile, user?.id]);
+
+  const dismissUniversityMatch = useCallback(() => {
+    if (!user?.id) return;
+    setMatchedUniversity(null);
+    void saveOnboardingProgress(user.id, { university_match_dismissed_at: new Date().toISOString() });
+  }, [user?.id]);
+
+  const saveLunaTheme = useCallback(async (theme: 'nebula' | 'moonlight') => {
+    if (!user?.id) return;
+    setSavingLunaTheme(true);
+    try {
+      const palette = theme === 'nebula'
+        ? { luna_suit_color: '#E8E4F0', luna_visor_tint: '#6B5B95' }
+        : { luna_suit_color: '#FFF8E7', luna_visor_tint: '#88B0B5' };
+      const { error } = await supabase.from('profiles').update(palette).eq('user_id', user.id);
+      if (error) throw error;
+      await saveOnboardingProgress(user.id, { luna_customization_seen_at: new Date().toISOString() });
+      void recordOnboardingEvent(user.id, 'luna_customized', { theme });
+      await refreshProfile();
+      setShowLunaCustomization(false);
+    } catch (error) {
+      console.error('Could not save Luna theme', error);
+    } finally {
+      setSavingLunaTheme(false);
+    }
+  }, [refreshProfile, user?.id]);
+
+  const completeDemoMission = useCallback(() => {
+    if (!demoMission || demoMissionComplete) return;
+    setDemoMissionComplete(true);
+    if (user && courseId) {
+      void saveOnboardingProgress(user.id, { demo_mission_step: 3 });
+      void recordOnboardingEvent(user.id, 'demo_mission_completed', { course_id: courseId });
+      void recordOnboardingEvent(user.id, 'learning_activity_completed', { activity_type: 'quiz', course_id: courseId, source: 'demo_mission' });
+    }
+    void maybeOfferUniversityMatch();
+  }, [courseId, demoMission, demoMissionComplete, maybeOfferUniversityMatch, user]);
+
+  const handleInlineLectureComplete = useCallback(() => {
+    void maybeOfferLunaCustomization();
+    void maybeOfferUniversityMatch();
+  }, [maybeOfferLunaCustomization, maybeOfferUniversityMatch]);
+
+  const handleDemoQuestionAsked = useCallback(() => {
+    if (!demoMission || demoMissionComplete) return;
+    setDemoQuestionAsked(true);
+    if (demoQuizAnswered) completeDemoMission();
+  }, [completeDemoMission, demoMission, demoMissionComplete, demoQuizAnswered]);
+
+  const handleDemoQuizAnswered = useCallback(() => {
+    if (!demoMission || demoMissionComplete) return;
+    setDemoQuizAnswered(true);
+    if (demoQuestionAsked) completeDemoMission();
+  }, [completeDemoMission, demoMission, demoMissionComplete, demoQuestionAsked]);
 
   // Must be declared before the useMemo that uses it.
   const [lastOpenedCourseId, setLastOpenedCourseId] = useState<string | null>(() =>
@@ -195,54 +318,22 @@ export default function StudentCourseLibrary() {
   // Active slide index inside the inline player — drives the wallpaper.
   const [inlineSlideIndex, setInlineSlideIndex] = useState(0);
   const inlineRef = useRef<HTMLDivElement>(null);
+  const hasAutoStartedOnboarding = useRef(false);
 
   // Set of already enrolled course IDs so the catalog can mark them.
   const enrolledCourseIds = useMemo(() => new Set(courseList.map(c => c.id)), [courseList]);
 
-  // Parse the semester from a course's description/title — same rule the skill
-  // tree uses (e.g. "… 4. Semester" → 4). null when none is stated.
-  const semesterOf = useCallback((c: DerivedCourse) => {
-    const text = `${c.description || ''} ${c.title}`;
-    const m = text.match(/(\d+)\.\s*Semester/i) || text.match(/Semester\s*(\d+)/i);
-    return m ? parseInt(m[1], 10) : null;
-  }, []);
-
-  // The semester that leads the rail = the semester of the highest-priority
-  // course in the sorted courseList (has-lectures, then last-opened, then
-  // progress). This keeps the lead semester in sync with the sort order.
-  const leadSemester = useMemo(() => {
-    const first = courseList.find((c) => semesterOf(c) != null);
-    return first ? semesterOf(first) : null;
-  }, [courseList, semesterOf]);
-
-  // Courses grouped by semester: the lead (current) semester first, the rest
+  // Courses grouped by semester: the lead group first, remaining semesters
   // ascending, and any without a stated semester last. courseList is already
   // sorted last-opened → highest-progress, so order holds inside each group.
-  const semesterGroups = useMemo(() => {
-    const byKey = new Map<number | 'none', DerivedCourse[]>();
-    courseList.forEach((c) => {
-      const s = semesterOf(c);
-      const key: number | 'none' = s == null ? 'none' : s;
-      if (!byKey.has(key)) byKey.set(key, []);
-      byKey.get(key)!.push(c);
-    });
-    const sems = [...byKey.keys()]
-      .filter((k): k is number => k !== 'none')
-      .sort((a, b) => {
-        if (a === leadSemester) return -1;
-        if (b === leadSemester) return 1;
-        return a - b;
-      });
-    const groups = sems.map((s) => ({
-      key: String(s),
-      label: t('dashboard:semesterN', '{{n}}. Semester', { n: s }),
-      courses: byKey.get(s)!,
-    }));
-    if (byKey.has('none')) {
-      groups.push({ key: 'none', label: t('dashboard:otherCourses', 'Other'), courses: byKey.get('none')! });
-    }
-    return groups;
-  }, [courseList, semesterOf, leadSemester, t]);
+  const semesterGroups = useMemo(
+    () => groupCoursesBySemester(courseList, (key) => (
+      key === 'none'
+        ? t('dashboard:otherCourses', 'Other')
+        : t('dashboard:semesterN', '{{n}}. Semester', { n: key })
+    )),
+    [courseList, t],
+  );
 
   // Collapsed, the rail shows only the lead semester; "Show all" reveals the
   // rest. railCourses is the flat list the focus index and keyboard nav use.
@@ -295,6 +386,11 @@ export default function StudentCourseLibrary() {
   }, [courseId, courseList.length, onboardTarget]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const focusedCourse = railCourses[courseFocus];
+  const ownsFocusedCourse = Boolean(
+    user?.id
+    && focusedCourse
+    && data?.courses?.some((course) => course.id === focusedCourse.id && course.professor_id === user.id),
+  );
   const courseLectures = useMemo(
     () => (focusedCourse ? lecturesByCourse.get(focusedCourse.id) ?? [] : []),
     [focusedCourse, lecturesByCourse],
@@ -335,6 +431,23 @@ export default function StudentCourseLibrary() {
     setInlineSlideIndex(0);
     setInlineLectureId(id);
   }, []);
+
+  // A first course should never strand a learner in the library. Once its
+  // lecture data arrives, open the first lesson directly; the ref keeps React
+  // Query revalidation from restarting the session.
+  useEffect(() => {
+    if (!courseId || (!demoMission && !onboardingStart) || hasAutoStartedOnboarding.current) return;
+    if (focusedCourse?.id !== courseId || !courseLectures.length) return;
+    hasAutoStartedOnboarding.current = true;
+    openInline(courseLectures[0].lecture.id, courseId);
+    if (user) {
+      void recordOnboardingEvent(user.id, 'course_opened', { course_id: courseId, source: demoMission ? 'example' : 'uploaded' });
+      if (demoMission) {
+        void saveOnboardingProgress(user.id, { demo_mission_step: 2 });
+        void recordOnboardingEvent(user.id, 'demo_mission_started', { course_id: courseId });
+      }
+    }
+  }, [courseId, courseLectures, demoMission, focusedCourse?.id, onboardingStart, openInline, user]);
 
   // Smooth-scroll all the way down to the inline player once it opens. Run a
   // second pass after the player has loaded (its PDF makes the panel grow), so
@@ -810,6 +923,55 @@ export default function StudentCourseLibrary() {
           )}
         </div>
 
+        {(demoMission || onboardingStart) && inlineLectureId && (
+          <aside className="mx-6 mb-5 rounded-2xl border border-primary/25 bg-primary/10 px-5 py-4 lg:mx-12" aria-label="First study session">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{demoMission ? 'Two-minute study session' : 'Your recommended first step'}</p>
+            <p className="mt-1 text-sm text-foreground">{demoMission ? !demoQuestionAsked ? 'Ask Luna one question about this lecture to see a grounded answer.' : !demoQuizAnswered ? 'Great question. Now answer one quiz question to complete the mini-session.' : 'Nice work — your study progress is updated below.' : initialActivity === 'quiz' && !diagnosticUnavailable ? 'We found the first available diagnostic question and opened it for you.' : initialActivity === 'quiz' ? 'Your diagnostic is still being prepared, so we opened the first lecture instead.' : initialActivity === 'grounded_ai' ? 'Luna is ready with a grounded question to help you find the relevant material.' : 'Start with the first incomplete lecture. You can reorganize material whenever you need.'}</p>
+          </aside>
+        )}
+
+        {demoMission && demoMissionComplete && (
+          <aside className="mx-6 mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-4 lg:mx-12" aria-label="Example course completion">
+            <div>
+              <p className="text-sm font-semibold text-foreground">You completed your first study session.</p>
+              <p className="mt-1 text-sm text-muted-foreground">This experience was built from ordinary lecture files like yours.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button size="sm" onClick={() => navigate(StudentRoutes.ONBOARDING_START)}>Build my course</Button>
+              <button type="button" onClick={() => setDemoMissionComplete(false)} className="text-sm font-medium text-muted-foreground hover:text-foreground">Keep exploring</button>
+            </div>
+          </aside>
+        )}
+
+        {showLunaCustomization && (
+          <aside className="mx-6 mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-violet-400/30 bg-violet-400/10 px-5 py-4 lg:mx-12" aria-label="Optional Luna personalization">
+            <div>
+              <p className="text-sm font-semibold text-foreground">A small reward for finishing your first activity</p>
+              <p className="mt-1 text-sm text-muted-foreground">Give Luna a Nebula look now, or keep the familiar Moonlight theme.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button size="sm" disabled={savingLunaTheme} onClick={() => void saveLunaTheme('nebula')}>Try Nebula</Button>
+              <button type="button" disabled={savingLunaTheme} onClick={() => void saveLunaTheme('moonlight')} className="text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50">Keep Moonlight</button>
+            </div>
+          </aside>
+        )}
+
+        {matchedUniversity && (
+          <aside className="mx-6 mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-sky-400/30 bg-sky-400/10 px-5 py-4 lg:mx-12" aria-label="University match">
+            <div className="flex items-start gap-3">
+              <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-sky-300" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">We matched your account with {matchedUniversity}.</p>
+                <p className="mt-1 text-sm text-muted-foreground">We’ll use it only when it improves recommendations or study planning.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button size="sm" onClick={() => void acceptUniversityMatch()}>Use this university</Button>
+              <button type="button" onClick={dismissUniversityMatch} className="text-sm font-medium text-muted-foreground hover:text-foreground">Dismiss</button>
+            </div>
+          </aside>
+        )}
+
         {/* ── Inline lecture player: revealed below the rails on lecture open ── */}
         <AnimatePresence>
           {inlineLectureId && (
@@ -828,7 +990,15 @@ export default function StudentCourseLibrary() {
                 onClose={() => setInlineLectureId(null)}
                 onExpand={() => open(inlineLectureId, focusedCourse?.id)}
                 onSlideChange={setInlineSlideIndex}
-                isOnboarding={!!onboardTarget}
+                onLectureComplete={handleInlineLectureComplete}
+                onGroundedQuestionAsked={demoMission ? handleDemoQuestionAsked : undefined}
+                onQuizAnswered={demoMission ? handleDemoQuizAnswered : undefined}
+                startWithQuiz={initialActivity === 'quiz' && !initialRecommendationConsumed}
+                onStartWithQuizConsumed={() => setInitialRecommendationConsumed(true)}
+                onStartWithQuizUnavailable={() => setDiagnosticUnavailable(true)}
+                focusGroundedAi={initialActivity === 'grounded_ai' && !initialRecommendationConsumed}
+                onGroundedAiFocusConsumed={() => setInitialRecommendationConsumed(true)}
+                isOnboarding={!!onboardTarget || demoMission || onboardingStart}
               />
             </motion.div>
           )}
@@ -851,6 +1021,11 @@ export default function StudentCourseLibrary() {
             setIsDetailsOpen(false);
             openInline(lectureId, focusedCourse.id);
           }}
+          onAddMaterial={ownsFocusedCourse ? () => navigate(StudentRoutes.ONBOARDING_UPLOAD, {
+            state: { existingCourseId: focusedCourse.id, existingCourseTitle: focusedCourse.title },
+          }) : undefined}
+          canEdit={ownsFocusedCourse}
+          onCourseChanged={() => void refetch()}
         />
       )}
 

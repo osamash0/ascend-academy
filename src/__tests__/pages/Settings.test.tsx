@@ -1,10 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
-import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
-
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 vi.mock("@/integrations/supabase/client", async () => {
-  const m = await import("@/test/sharedSupabaseMock");
-  return { supabase: m.sharedSupabaseMock };
+  const { createSupabaseMock } = await import("@/test/supabaseMock");
+  return { supabase: createSupabaseMock() };
 });
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -18,7 +17,11 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 import Settings from "@/pages/Settings";
+import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseMock } from "@/test/supabaseMock";
 import { renderWithProviders } from "@/test/renderWithProviders";
+
+const supabaseMock = supabase as unknown as SupabaseMock;
 
 beforeEach(() => {
   supabaseMock.reset();
@@ -94,5 +97,30 @@ describe("Settings page (smoke)", () => {
     // the pane heading — hence getAllByText.
     expect(screen.getAllByText(/data & privacy/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/export my data/i)).toBeInTheDocument();
+  });
+
+  it("lets a user opt out of future lifecycle reminders", async () => {
+    useAuthMock.mockReturnValue({
+      user: { id: "u1", email: "x@x.com" },
+      profile: {
+        id: "p1", user_id: "u1", email: "x@x.com", full_name: "Pat User",
+        display_name: "Pat", avatar_url: null, total_xp: 0, current_level: 1,
+        current_streak: 0, best_streak: 0,
+      },
+      role: "student", loading: false, signOut: vi.fn(), refreshProfile: vi.fn(),
+    });
+    supabaseMock.seed("notification_preferences", [{
+      user_id: "u1", lifecycle_nudges_enabled: true, in_app_enabled: true,
+    }]);
+
+    renderWithProviders(<Settings />, { initialEntries: ["/settings?tab=preferences"] });
+    const toggle = await screen.findByRole("switch", { name: /show learning reminders/i });
+    await waitFor(() => expect(toggle).not.toBeDisabled());
+    expect(toggle).toHaveAttribute("data-state", "checked");
+    await userEvent.setup().click(toggle);
+
+    await waitFor(() => {
+      expect(supabaseMock.data.notification_preferences.rows[0].lifecycle_nudges_enabled).toBe(false);
+    });
   });
 });

@@ -142,6 +142,7 @@ async def chat_with_lecture(
     lecture_id: Optional[str] = None,
     pdf_hash: Optional[str] = None,
     current_slide_index: Optional[int] = None,
+    response_language: str = "en",
 ) -> Dict[str, Any]:
     """Grounded Socratic tutor.
 
@@ -188,7 +189,9 @@ async def chat_with_lecture(
             )
             history_str += f"{role}: {content}\n"
 
+    language_name = "German" if response_language == "de" else "English"
     prompt = TUTOR_SOCRATIC_PROMPT.format(
+        language_name=language_name,
         voice_prose=VOICE_PROSE,
         lang_match=LANG_MATCH,
         context_block=context_block,

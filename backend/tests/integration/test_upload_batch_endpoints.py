@@ -165,6 +165,41 @@ class TestBatchUpload:
         )
         assert r.status_code == 403
 
+    def test_exact_prior_upload_is_flagged_without_repointing_its_parse_run(
+        self, app_client, patch_supabase, fake_arq_pool, fake_storage, monkeypatch
+    ):
+        from backend.services.cache import compute_pdf_hash
+
+        content = b"%PDF-1.4 same material"
+        prior_run = uuid4()
+        patch_supabase.seed("parse_runs", [{
+            "run_id": str(prior_run),
+            "pdf_hash": compute_pdf_hash(content),
+            "filename": "Lecture 1.pdf",
+            "status": "completed",
+            "user_id": PROFESSOR_ID,
+        }])
+
+        async def valid_pdf(filename, raw):
+            return 1
+
+        async def should_not_create_run(*args, **kwargs):
+            raise AssertionError("an exact prior upload must not create or overwrite a parse run")
+
+        monkeypatch.setattr(upload_api.upload_service, "validate_upload", valid_pdf)
+        monkeypatch.setattr(repos_module, "get_or_create_run", should_not_create_run)
+        r = app_client.post(
+            "/api/upload/batch",
+            files=[("files", ("Lecture 1 copy.pdf", content, "application/pdf"))],
+        )
+
+        assert r.status_code == 200
+        item = r.json()["files"][0]
+        assert item["status"] == "duplicate"
+        assert item["run_id"] == str(prior_run)
+        assert "exact copy" in item["error"]
+        assert fake_arq_pool == []
+
 
 class TestListUploadJobs:
     def test_returns_jobs_for_authenticated_user(self, app_client, patch_supabase, monkeypatch):

@@ -359,8 +359,9 @@ export function PomodoroTimer() {
               </div>
               <button
                 onClick={() => setSoundEnabled(!soundEnabled)}
-                className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-white/5"
+                className="text-muted-foreground hover:text-foreground transition-colors p-2 -m-1 rounded-lg hover:bg-white/5"
                 title={soundEnabled ? 'Disable Audio' : 'Enable Audio'}
+                aria-label={soundEnabled ? 'Disable Audio' : 'Enable Audio'}
               >
                 {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
               </button>

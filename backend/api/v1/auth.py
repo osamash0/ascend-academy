@@ -69,10 +69,17 @@ async def export_data_endpoint(
     """Export every PII / derived-from-PII row belonging to the caller
     (GDPR Art. 20 right to data portability).
 
-    Returns a single JSON document — one key per source table (profile,
-    progress, events, uploads/lectures, exams, review schedule, etc.) plus
-    ``exported_at``. This is the full server-side counterpart to the
-    previously partial client-side-only export in ``src/pages/Settings.tsx``.
+    Returns a single JSON document — one key per source table — covering
+    every table the account touches: profile, progress, achievements,
+    learning events, XP, notifications, feedback, enrollments/visits,
+    nudges, schedule, review/SRS state, exam attempts, practice attempts,
+    catalog selections, social/friend data, roles, and any owned
+    lectures/private uploads — plus ``exported_at``.
+    ``account_service.EXPORT_TABLES`` is the single source of truth.
+
+    This is the full server-side counterpart to the old client-side export
+    in ``src/pages/Settings.tsx``, which only ever read four tables through
+    the RLS-scoped Supabase client.
     """
     uid = _user_id(user)
     if not uid:

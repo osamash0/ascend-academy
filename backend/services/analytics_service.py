@@ -6,8 +6,10 @@ from backend.services.utils.analytics_utils import calculate_student_typology, g
 from supabase import Client
 from backend.services import analytics_cache
 import json
+import hashlib
+from functools import lru_cache
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 
 
 def cached_analytic(view_name: str):
@@ -89,7 +91,8 @@ def _fetch_all_in(
     return out
 
 
-def get_auth_client(token: Optional[str]) -> Client:
+@lru_cache(maxsize=128)
+def get_auth_client(token: str = None) -> Client:
     """Create a Supabase client authenticated with the user's JWT.
     Enforces RLS by using the ANON_KEY (not the service_role key).
 
@@ -139,7 +142,7 @@ def get_lecture_overview(lecture_id: str, token: str = None) -> Dict[str, Any]:
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "lecture_complete")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     total_time = 0
     event_count = 0
@@ -192,13 +195,13 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
     view_events = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "slide_view")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     # Confidence ratings — used to compute confusion_rate per slide
     confidence_events = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "confidence_rating")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     # Quiz attempts joined with their slide via quiz_questions
     quiz_questions = _fetch_all(client.table("quiz_questions")\
@@ -209,7 +212,7 @@ def get_slide_analytics(lecture_id: str, token: str = None) -> List[Dict[str, An
     quiz_events = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     # Aggregate per-slide quiz totals/correct
     quiz_by_slide: Dict[str, Dict[str, int]] = {}
@@ -290,7 +293,7 @@ def get_quiz_analytics(lecture_id: str, token: str = None) -> List[Dict[str, Any
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     attempts_data = events_data or []
     quiz_analytics = []
@@ -335,7 +338,7 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
 
     events_data = _fetch_all(client.table("learning_events")\
         .select("user_id, event_type")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     # Data is already lists from _fetch_all
 
@@ -360,7 +363,6 @@ def get_student_performance(lecture_id: str, token: str = None) -> List[Dict[str
 
         typology = calculate_student_typology(prog_pct, score, stud_ai_queries, stud_revisions)
 
-        import hashlib
         anon_id = "anon_" + hashlib.md5(p["user_id"].encode()).hexdigest()[:8]
         students_matrix.append({
             "student_id": anon_id,
@@ -387,7 +389,7 @@ def get_distractor_analysis(lecture_id: str, token: str = None) -> List[Dict[str
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "quiz_attempt")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     attempts_data = events_data or []
     result = []
@@ -499,12 +501,12 @@ def get_retry_performance(lecture_id: str, token: str = None) -> List[Dict[str, 
     first_events = _fetch_all(client.table("learning_events")
         .select("event_data")
         .eq("event_type", "quiz_attempt")
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     retry_events = _fetch_all(client.table("learning_events")
         .select("event_data")
         .eq("event_type", "quiz_retry_attempt")
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     return _calculate_retry_performance(quiz_data, first_events, retry_events)
 
@@ -558,7 +560,7 @@ def get_confidence_by_slide(lecture_id: str, token: str = None) -> List[Dict[str
     events_data = _fetch_all(client.table("learning_events")\
         .select("event_data")\
         .eq("event_type", "confidence_rating")\
-        .contains("event_data", {"lectureId": lecture_id}))
+        .eq("event_data->>lectureId", str(lecture_id)))
 
     slides_data = _fetch_all(client.table("slides")\
         .select("id, slide_number, title")\
@@ -634,7 +636,7 @@ def get_lecture_insights(lecture_id: str, token: str = None) -> Dict[str, Any]:
     insights = build_insights(lecture_id, token)
     return {
         "lectureId": lecture_id,
-        "computedAt": datetime.utcnow().isoformat() + "Z",
+        "computedAt": datetime.now(timezone.utc).isoformat() + "Z",
         "insights": insights,
     }
 
@@ -1120,7 +1122,7 @@ async def _compute_professor_overview(
                 _fetch_all,
                 client.table("learning_events")
                 .select("user_id, event_type, event_data, created_at")
-                .contains("event_data", {"lectureId": lid})
+                .eq("event_data->>lectureId", str(lid))
             )
             for e in events_data:
                 created_at_val = e.get("created_at")
@@ -1318,7 +1320,7 @@ async def _compute_professor_overview(
                 day = (created or "")[:10]
             if day:
                 by_day[day] += 1
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     sparkline = []
     for i in range(days - 1, -1, -1):
         d = (today - timedelta(days=i)).isoformat()
@@ -1347,7 +1349,7 @@ def _median(values: List[float]) -> float:
 
 
 def _empty_sparkline(days: int) -> List[Dict[str, Any]]:
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     return [
         {"date": (today - timedelta(days=i)).isoformat(), "count": 0}
         for i in range(days - 1, -1, -1)

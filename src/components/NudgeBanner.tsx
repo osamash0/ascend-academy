@@ -17,7 +17,7 @@ interface NudgeNotification {
     deep_link: string | null;
 }
 
-const NUDGE_TYPES = new Set(['streak', 'assignment', 'review']);
+const NUDGE_TYPES = new Set(['streak', 'assignment', 'review', 'daily_review', 'activation']);
 
 // Fallback used only when an old notification row has no deep_link (the
 // nudge engine always writes one, but other producers might not).
@@ -25,6 +25,8 @@ const FALLBACK_DEEP_LINK_BY_TYPE: Record<string, string> = {
     streak: '/dashboard',
     assignment: '/assignments',
     review: '/insights',
+    daily_review: '/review',
+    activation: '/dashboard',
 };
 
 /**
@@ -51,7 +53,7 @@ export function NudgeBanner() {
                 .select('id, title, message, type, read, created_at, priority, deep_link')
                 .eq('user_id', user.id)
                 .eq('read', false)
-                .in('type', ['streak', 'assignment', 'review'])
+                .in('type', ['streak', 'assignment', 'review', 'daily_review', 'activation'])
                 .order('priority', { ascending: false })
                 .order('created_at', { ascending: false })
                 .limit(10);

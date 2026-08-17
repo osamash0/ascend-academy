@@ -109,8 +109,10 @@ describe('Onboarding', () => {
     await user.type(nameInput, 'Alice');
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
-    // Step 2: Avatar (Luna customizer — "Suit Finish" is the first control)
-    await waitFor(() => expect(screen.getByText(/Suit Finish/i)).toBeInTheDocument());
+    // Step 2: Avatar (Luna's paired colour themes)
+    await waitFor(() => expect(screen.getByText(/Choose Luna's look/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: /Nebula/i }));
+    expect(screen.getByRole('radio', { name: /Nebula/i })).toHaveAttribute('aria-checked', 'true');
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
     // Step 3: Academic setup. University auto-matches from the email domain
@@ -149,11 +151,14 @@ describe('Onboarding', () => {
     await user.click(screen.getAllByRole('button', { name: /Start Learning/i }).at(-1)!);
 
     await waitFor(() => {
-      // objectContaining: the profile update also persists cosmetic Luna
-      // customization fields (luna_suit_color/visor_tint/patch); we only assert
-      // the identity fields the onboarding is responsible for.
       expect(updateSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ full_name: 'Alice', display_name: 'Alice', avatar_url: expect.any(String) }),
+        expect.objectContaining({
+          full_name: 'Alice',
+          display_name: 'Alice',
+          avatar_url: expect.any(String),
+          luna_suit_color: '#E8E4F0',
+          luna_visor_tint: '#6B5B95',
+        }),
       );
       expect(setAcademicProfileMock).toHaveBeenCalledWith({ universityId: 'uni1', facultyId: 'fac1', programId: 'prog1', currentSemester: 1 });
       expect(confirmCatalogCoursesMock).toHaveBeenCalledWith([{ catalogCourseId: 'cat1', status: 'planned' }]);
@@ -183,7 +188,7 @@ describe('Onboarding', () => {
     await user.type(screen.getByPlaceholderText(/Enter your name/i), 'Bob');
     await user.click(screen.getByRole('button', { name: /Next/i }));
     
-    await waitFor(() => screen.getByText(/Suit Finish/i));
+    await waitFor(() => screen.getByText(/Choose Luna's look/i));
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
     // Step 3 — uni2 auto-matches from the email domain; because it has no

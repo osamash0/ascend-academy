@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { useReducedMotion } from 'framer-motion';
 
 interface Particle {
   x: number;
@@ -15,6 +16,7 @@ export function NeuralBackground() {
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const rafRef = useRef<number>(0);
   const isActiveRef = useRef(true);
+  const reduceMotion = useReducedMotion();
 
   const initParticles = useCallback((width: number, height: number) => {
     const count = Math.min(80, Math.floor((width * height) / 15000));
@@ -35,6 +37,8 @@ export function NeuralBackground() {
   }, []);
 
   useEffect(() => {
+    if (reduceMotion) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -163,7 +167,9 @@ export function NeuralBackground() {
       window.removeEventListener('mouseleave', handleMouseLeave);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [initParticles]);
+  }, [initParticles, reduceMotion]);
+
+  if (reduceMotion) return null;
 
   return (
     <canvas

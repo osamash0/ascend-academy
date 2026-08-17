@@ -394,7 +394,12 @@ function AskPanel({
     <div className="flex max-h-[70vh] flex-col">
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
         {onBack && (
-          <button type="button" onClick={onBack} className="text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label={t('common:actions.back', { defaultValue: 'Back' })}
+            className="p-2 -m-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/5"
+          >
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
@@ -405,7 +410,12 @@ function AskPanel({
           </div>
           {initialCourseTitle && <div className="truncate text-xs text-muted-foreground">{initialCourseTitle}</div>}
         </div>
-        <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('common:actions.close', { defaultValue: 'Close' })}
+          className="p-2 -m-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/5"
+        >
           <X className="h-4 w-4" />
         </button>
       </div>

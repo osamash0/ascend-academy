@@ -19,6 +19,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -69,10 +70,30 @@ class TitleSuggestionRequest(BaseModel):
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
+def _clean_suggested_title(raw: Optional[str]) -> str:
+    """Reduce a raw LLM reply to a single bare course title.
+
+    The orchestrator's chain spans several free-tier models, and the weaker
+    ones ignore "output ONLY the title": they answer with a `Title: ...`
+    prefix, markdown emphasis, or the title followed by a paragraph of
+    justification. Take the first non-empty line and strip the usual wrappers.
+    """
+    line = next((l.strip() for l in (raw or "").splitlines() if l.strip()), "")
+    # Peel repeatedly: the wrappers nest in either order, e.g. **Title: "X"**.
+    for _ in range(3):
+        before = line
+        line = line.strip().strip("*_#`").strip()
+        line = re.sub(r"^(?:course\s+)?title\s*[:\-]\s*", "", line, flags=re.I)
+        line = line.strip().strip('"').strip("'").strip()
+        if line == before:
+            break
+    return line[:200]
+
+
 def _fetch_course(course_id: str) -> Optional[dict]:
     res = (
         supabase_admin.table("courses")
-        .select("id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at")
+        .select("id, professor_id, title, description, color, icon, is_archived, status, demo_slug, created_at, updated_at")
         .eq("id", course_id)
         .execute()
     )
@@ -101,6 +122,7 @@ def _serialize(course: dict, lecture_count: int = 0) -> dict:
         "icon": course.get("icon"),
         "is_archived": course.get("is_archived", False),
         "status": course.get("status", "published"),
+        "demo_slug": course.get("demo_slug"),
         "created_at": course.get("created_at"),
         "updated_at": course.get("updated_at"),
         "lecture_count": lecture_count,
@@ -126,14 +148,22 @@ def _is_professor(user: Any) -> bool:
 def _student_visible_course_ids(user_id: str) -> set[str]:
     """Course ids whose lectures the student can see via course enrollment or assignment enrollment.
 
-    P2-1 (RLS-as-API-boundary) note: `list_courses` and `browse_courses` below
-    no longer call this — they've been converted to the RLS-enforcing
-    per-user client, and the `courses` table's own SELECT policies
-    (20260611000000, 20260621000000, 20260719020000) already encode exactly
-    this "own course OR enrolled via course_enrollments OR enrolled via an
-    assignment's lectures" visibility, so Postgres enforces it directly.
+    P2-1 (RLS-as-API-boundary) note: `browse_courses` below does not call
+    this — it queries the RLS-enforcing per-user client and adds its own
+    explicit `status='published'` filter.
 
-    This function is still a live, hand-rolled authorization check used by
+    `list_courses` DOES still call this, deliberately. It was briefly
+    converted to "RLS alone decides visibility" on the assumption that the
+    `courses` SELECT policies (20260611000000, 20260621000000,
+    20260719020000) encode exactly "own course OR enrolled" — that
+    assumption was wrong and leaked every professor's published courses to
+    every caller, because 20260719020000 ("Authenticated users browse
+    published courses") is permissive and ORs together with the others.
+    RLS is the ceiling on what is *possible*; each endpoint still has to
+    narrow to what it specifically means by "visible". See the bug-fix note
+    in `list_courses`.
+
+    This function is also a live, hand-rolled authorization check used by
     `get_course` (this module), `backend/api/v1/exams.py::_student_visible_course_ids`
     import, and `backend/services/search_service.py` for cross-course search
     scoping — none of those were converted in this slice (get_course also
@@ -208,17 +238,27 @@ async def list_courses(
     for non-owned rows, any course visible via course/assignment enrollment.
     A creator who is also enrolled elsewhere as a student sees both.
 
-    P2-1 (RLS-as-API-boundary): this used to fetch every course with the
-    service-role `supabase_admin` client and re-implement student visibility
-    in Python (`_student_visible_course_ids`). It now queries with the
-    RLS-enforcing per-user client instead -- the `courses` table's SELECT
-    policies (professor owns the row; OR the caller is enrolled via
-    `course_enrollments`; OR the caller is enrolled in an assignment whose
-    lectures belong to the course) already encode exactly this visibility,
-    so Postgres enforces it directly and the manual post-filter is gone --
-    which also sidesteps the P4-2 filter-after-limit pagination bug (see
-    docs/ROADMAP_10X_FOUNDATION.md §9) for this endpoint specifically: there
-    is no post-filter left to apply after slicing to `limit`.
+    BUG FIX (this endpoint was leaking every professor's published courses
+    to every caller): the docstring here used to claim the `courses` table's
+    SELECT policies alone encode "own OR enrolled" visibility, so no
+    application-level filter was needed. That stopped being true once
+    migration 20260719020000 added "Authenticated users browse published
+    courses" -- a policy that grants ANY authenticated user SELECT on ANY
+    published, non-archived course, for the separate `/courses/browse`
+    catalog feature. Permissive RLS policies on the same table combine with
+    OR, so that policy alone was enough to make this endpoint return every
+    professor's published courses, not just the caller's own -- the RLS
+    "ceiling" was correct for `/courses/browse` but far too wide for "my
+    courses". A professor would then see other professors' courses in their
+    own list, click one, and get a 404 from get_course's separate ownership
+    check (which is correctly still scoped) -- surfacing as "courses fail
+    to open".
+    Fix: this endpoint now adds its own explicit filter (own courses OR the
+    specific ids _student_visible_course_ids returns), the same way
+    `browse_courses` adds its own explicit `status='published'` filter
+    rather than relying on RLS to narrow results to what that one endpoint
+    means by "visible". RLS still bounds what's possible; this restores the
+    business-logic scoping this endpoint actually needs.
     """
     uid = _user_id(user)
     if not uid:
@@ -226,8 +266,16 @@ async def list_courses(
 
     def _load() -> List[dict]:
         client = analytics_service.get_auth_client(creds.credentials)
-        q = client.table("courses").select(
-            "id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at"
+        visible_ids = _student_visible_course_ids(uid)
+        or_filter = f"professor_id.eq.{uid}"
+        if visible_ids:
+            or_filter += f",id.in.({','.join(visible_ids)})"
+        q = (
+            client.table("courses")
+            .select(
+                "id, professor_id, title, description, color, icon, is_archived, status, demo_slug, created_at, updated_at"
+            )
+            .or_(or_filter)
         )
 
         if only_archived:
@@ -307,7 +355,7 @@ async def browse_courses(
         client = analytics_service.get_auth_client(creds.credentials)
         q = (
             client.table("courses")
-            .select("id, professor_id, title, description, color, icon, is_archived, status, created_at, updated_at")
+            .select("id, professor_id, title, description, color, icon, is_archived, status, demo_slug, created_at, updated_at")
             .eq("is_archived", False)
             .eq("status", "published")
         )
@@ -350,8 +398,18 @@ async def browse_courses(
 @router.post("/generate-title-suggestion")
 @limiter.limit("30/minute")
 async def generate_title_suggestion(request: Request, req: TitleSuggestionRequest, user: Any = Depends(verify_token)):
-    from openai import AsyncOpenAI
-    from backend.core.config import settings
+    """Suggest a course title from the lecture titles in an upload batch.
+
+    Goes through the shared multi-provider orchestrator — the same failover
+    chain every other AI feature uses — rather than the LiteLLM gateway. The
+    gateway path was the last live caller of ``LITELLM_BASE_URL``, so it was
+    unreachable in any environment that runs the backend outside the compose
+    network, and the broad ``except`` turned that into a *successful* response
+    carrying the constant "My AI Generated Course". "Suggest again" therefore
+    looked like a no-op instead of an outage. Failures now surface as 502 so
+    the client can tell the user something actually went wrong.
+    """
+    from backend.services.ai.orchestrator import generate_text
 
     if not req.lectures:
         return {"title": "My New Course"}
@@ -361,23 +419,23 @@ async def generate_title_suggestion(request: Request, req: TitleSuggestionReques
     # bounds a client that sends oversized/adversarial strings.
     lectures = [l[:200] for l in req.lectures]
 
-    # Use a small temperature to get a bit of variation on retry
     prompt = f"Suggest a short, catchy, professional course title (max 6 words) for a course that covers these lectures: {', '.join(lectures)}. Output ONLY the title, no quotes or prefix."
 
     try:
-        client = AsyncOpenAI(api_key=settings.litellm_client_key, base_url=settings.litellm_base_url)
-        resp = await client.chat.completions.create(
-            # Using stage-text or default model mapped in litellm
-            model="gpt-4o-mini", 
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=20,
-            temperature=0.8
+        raw = await generate_text(
+            prompt,
+            feature="course_title_suggestion",
+            user_id=_user_id(user),
         )
-        title = resp.choices[0].message.content.strip().strip('"').strip("'")
-        return {"title": title}
     except Exception as e:
-        logger.error(f"Failed to generate title suggestion: {e}")
-        return {"title": "My AI Generated Course"}
+        logger.error("Failed to generate title suggestion: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Could not suggest a title right now. Please try again.")
+
+    title = _clean_suggested_title(raw)
+    if not title:
+        logger.warning("Title suggestion came back empty (raw=%r)", raw)
+        raise HTTPException(status_code=502, detail="Could not suggest a title right now. Please try again.")
+    return {"title": title}
 
 
 @router.post("/{course_id}/enroll")
@@ -546,6 +604,62 @@ async def create_course(
     except Exception as e:
         logger.error("Course create failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to create course.")
+
+
+# ── Lecture-level mutations ───────────────────────────────────────────────────
+
+class LectureUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=500)
+
+
+@router.patch("/lecture/{lecture_id}")
+@limiter.limit("60/minute")
+async def update_lecture(
+    request: Request,
+    lecture_id: str,
+    body: LectureUpdate,
+    user: Any = Depends(require_creator),
+):
+    """Update mutable fields of a lecture (currently: title).
+
+    Registered before PATCH /{course_id} so FastAPI matches the literal
+    path segment 'lecture' before treating it as a {course_id} wildcard.
+
+    Accepts ownership via professor_id (professor-created or post-assignment
+    student lecture) or student_owner_id (private student upload not yet
+    assigned to a course).
+    """
+    uid = _user_id(user)
+
+    def _update():
+        lecture = _fetch_lecture(lecture_id)
+        if not lecture:
+            raise HTTPException(status_code=404, detail="Lecture not found.")
+        raw_owner = lecture.get("professor_id") or lecture.get("student_owner_id")
+        owner_id = str(raw_owner) if raw_owner is not None else None
+        uid_str = str(uid) if uid else ""
+        if not uid_str:
+            raise HTTPException(status_code=401, detail="Could not determine your user id.")
+        if owner_id != uid_str:
+            raise HTTPException(status_code=403, detail="You do not own this lecture.")
+
+        patch: dict[str, Any] = {}
+        if body.title is not None:
+            patch["title"] = body.title.strip()
+
+        if patch:
+            supabase_admin.table("lectures").update(patch).eq("id", lecture_id).execute()
+
+        return {"id": lecture_id, **patch}
+
+    try:
+        data = await run_in_threadpool(_update)
+        return {"success": True, "data": data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Lecture update failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update lecture.")
 
 
 @router.patch("/{course_id}")
@@ -814,7 +928,7 @@ async def get_study_guide_endpoint(
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid user context.")
 
-    def _check_visibility() -> None:
+    def _check_visibility() -> bool:
         c = _fetch_course(course_id)
         if not c:
             raise HTTPException(status_code=404, detail="Course not found.")
@@ -823,8 +937,17 @@ async def get_study_guide_endpoint(
             c.get("status") != "published" or course_id not in _student_visible_course_ids(uid)
         ):
             raise HTTPException(status_code=403, detail="You do not have access to this course.")
+        return is_owner
 
-    await run_in_threadpool(_check_visibility)
+    is_owner = await run_in_threadpool(_check_visibility)
+
+    # Reading is open to anyone who can see the course; regenerating is not.
+    # force_regenerate bypasses the cache, spends an LLM call, and overwrites the
+    # single shared study_guides row every other student on the course reads — so
+    # it is gated on ownership, not merely on role (a *different* professor must
+    # not be able to regenerate this course's guide either).
+    if regenerate and not is_owner:
+        raise HTTPException(status_code=403, detail="You do not own this course.")
 
     from backend.services.study_guide_service import get_or_generate_study_guide
     try:
@@ -900,6 +1023,7 @@ async def delete_course(
         raise HTTPException(status_code=500, detail="Failed to delete course.")
 
 
+
 @router.post("/{course_id}/lectures/{lecture_id}")
 @limiter.limit("60/minute")
 async def assign_lecture(
@@ -912,13 +1036,24 @@ async def assign_lecture(
 
     def _assign():
         course = _fetch_course(course_id)
-        if not course or course["professor_id"] != uid:
+        # Normalise to str() so UUID objects and UUID strings compare equal.
+        if not course or str(course["professor_id"]) != str(uid):
             raise HTTPException(status_code=404, detail="Course not found.")
         lecture = _fetch_lecture(lecture_id)
         if not lecture:
             raise HTTPException(status_code=404, detail="Lecture not found.")
-        owner_id = lecture.get("professor_id") or lecture.get("student_owner_id")
-        if owner_id != uid:
+        raw_owner = lecture.get("professor_id") or lecture.get("student_owner_id")
+        owner_id = str(raw_owner) if raw_owner is not None else None
+        uid_str = str(uid) if uid else ""
+        logger.info(
+            "assign_lecture: uid=%r owner_id=%r (prof=%r student=%r) lecture=%s",
+            uid_str, owner_id,
+            lecture.get("professor_id"), lecture.get("student_owner_id"),
+            lecture_id,
+        )
+        if not uid_str:
+            raise HTTPException(status_code=401, detail="Could not determine your user id.")
+        if owner_id != uid_str:
             raise HTTPException(status_code=403, detail="You do not own this lecture.")
         
         update_data = {"course_id": course_id}
@@ -966,7 +1101,22 @@ async def unassign_lecture(
                 status_code=400,
                 detail="Lecture is not assigned to this course.",
             )
-        supabase_admin.table("lectures").update({"course_id": None}).eq(
+
+        # A professor's uncategorised lectures still have a home: the course
+        # list surfaces them so they can be reassigned. A student has no such
+        # view — their only lecture surfaces are a course rail (keyed on
+        # course_id) and My Materials (keyed on student_owner_id). Leaving the
+        # row with neither would strand the material in a place no screen
+        # lists. So for a student this reverses the promotion `assign_lecture`
+        # performs, handing the upload back as a private material.
+        update: dict[str, Any] = {"course_id": None}
+        if not _is_professor(user):
+            update.update({
+                "visibility": "private_student",
+                "student_owner_id": uid,
+                "professor_id": None,
+            })
+        supabase_admin.table("lectures").update(update).eq(
             "id", lecture_id
         ).execute()
 

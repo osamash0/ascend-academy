@@ -21,6 +21,11 @@ local-Postgres-first `pg_dsn` fixture) that:
   - The pre-migration backup table (`learning_events_legacy_20260721`) still
     exists and still has all of its original rows — the migration must not
     have deleted anything.
+  - The DEFAULT partition is never reported as a retention candidate, no
+    matter how aggressive the threshold — it holds out-of-range writes of
+    arbitrary age by design.
+  - A query spanning several monthly partitions returns the correct total
+    AND prunes the partitions outside its range.
 """
 from __future__ import annotations
 
@@ -220,3 +225,152 @@ def test_default_partition_catches_out_of_range_writes(db_conn, make_user):
         )
         (partition,) = cur.fetchone()
     assert partition == "learning_events_default"
+
+
+def test_default_partition_is_never_a_retention_candidate(db_conn):
+    """The catch-all default partition can legitimately hold rows of any
+    age, so it must never be reported as droppable no matter how far back
+    the retention threshold reaches. Dropping it would discard exactly the
+    out-of-range writes it exists to catch."""
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "SELECT partition_name FROM "
+            "public.list_learning_events_partitions_older_than(0)"
+        )
+        candidates = {r[0] for r in cur.fetchall()}
+    assert "learning_events_default" not in candidates
+
+
+def test_cross_partition_query_returns_correct_totals_and_prunes(db_conn, make_user):
+    """A range query spanning several monthly partitions must return the
+    full total (partitioning loses no rows) AND let the planner prune the
+    partitions outside the range -- the whole reason partitioning keeps
+    range-scoped analytics cheap as the table grows."""
+    uid = make_user()
+    months = ["2022-03", "2022-04", "2022-05", "2022-06"]
+    with db_conn.cursor() as cur:
+        for m in months:
+            cur.execute(
+                "SELECT public.ensure_learning_events_partition(%s)", (f"{m}-01",)
+            )
+            cur.execute(
+                """
+                INSERT INTO public.learning_events (user_id, event_type, event_data, created_at)
+                VALUES (%s, 'slide_view', '{}'::jsonb, %s)
+                """,
+                (str(uid), f"{m}-15 12:00:00"),
+            )
+
+        # Bare (timezone-less) literals on purpose: `ensure_learning_events_
+        # partition` builds its FROM/TO bounds the same way, so both are
+        # resolved in the session timezone and the range lines up EXACTLY
+        # with the partition boundaries. Pinning the query to UTC instead
+        # would straddle a boundary under any non-UTC session timezone --
+        # e.g. under Europe/Berlin '2022-07-01T00:00:00Z' is 02:00 local,
+        # two hours INTO the July partition, so July could not be pruned.
+        #
+        # Scoped to this test's own synthetic user so other tests' rows
+        # (and any real data) can't shift the total.
+        cur.execute(
+            """
+            SELECT count(*) FROM public.learning_events
+            WHERE user_id = %s
+              AND created_at >= '2022-03-01'
+              AND created_at <  '2022-07-01'
+            """,
+            (str(uid),),
+        )
+        (total,) = cur.fetchone()
+        assert total == 4, "range query must see rows from all four partitions"
+
+        # Neighbouring partitions must exist, otherwise "they were pruned"
+        # is vacuously true and the assertion below proves nothing.
+        for outside in ("2022-02-01", "2022-07-01"):
+            cur.execute(
+                "SELECT public.ensure_learning_events_partition(%s)", (outside,)
+            )
+
+        cur.execute(
+            """
+            EXPLAIN (FORMAT TEXT)
+            SELECT count(*) FROM public.learning_events
+            WHERE created_at >= '2022-03-01'
+              AND created_at <  '2022-07-01'
+            """
+        )
+        plan = "\n".join(r[0] for r in cur.fetchall())
+
+    for included in ("y2022m03", "y2022m04", "y2022m05", "y2022m06"):
+        assert included in plan, f"expected {included} to be scanned:\n{plan}"
+    for pruned in ("y2022m02", "y2022m07"):
+        assert pruned not in plan, f"expected {pruned} to be pruned:\n{plan}"
+
+
+# ── What the rename-and-rebuild must NOT silently lose ───────────────────────
+# The partitioning migration rebuilds learning_events from scratch. These three
+# guard the things that do not survive a rebuild on their own and had to be
+# restored explicitly by
+# 20260731010000_repair_learning_events_partitioning_gaps.sql.
+
+
+def test_all_six_rls_policies_survive_the_rebuild(db_conn):
+    """The pre-partitioning table carried 6 policies; the partitioning
+    migration recreates only 3. Losing the other 3 would silently strip
+    admin read/delete on the event log and users' ability to delete their
+    own events (which GDPR erasure depends on)."""
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "SELECT polname FROM pg_policy p JOIN pg_class r ON r.oid = p.polrelid "
+            "WHERE r.relname = 'learning_events'"
+        )
+        policies = {r[0] for r in cur.fetchall()}
+
+    assert {
+        "Users can view their own events",
+        "Users can insert their own events",
+        "Professors view events for their enrolled students",
+        "Admins view learning events",
+        "Admins delete learning events",
+        "Users can delete own events",
+    } <= policies, f"missing policies after rebuild: {policies}"
+
+
+def test_matview_is_bound_to_the_partitioned_table_not_the_legacy_backup(db_conn):
+    """A matview binds to a table OID, so the migration's
+    `ALTER TABLE learning_events RENAME TO learning_events_legacy_20260721`
+    silently repoints mv_course_daily_activity at the frozen backup instead
+    of erroring. REFRESH would keep succeeding while serving data that can
+    never change -- and analytics_service's `use_mv` path reads this view."""
+    with db_conn.cursor() as cur:
+        cur.execute(
+            "SELECT definition FROM pg_matviews WHERE matviewname = 'mv_course_daily_activity'"
+        )
+        row = cur.fetchone()
+    assert row is not None, "mv_course_daily_activity must exist"
+    definition = row[0]
+    assert "learning_events_legacy" not in definition, (
+        "mv_course_daily_activity is still bound to the pre-partitioning backup "
+        "table; it would serve permanently frozen analytics:\n" + definition
+    )
+    assert "learning_events" in definition
+
+
+def test_every_partition_has_rls_enabled(db_conn):
+    """Postgres does NOT inherit relrowsecurity from a partitioned parent --
+    each partition must enable it itself, or rows in that month are readable
+    without policy enforcement."""
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT public.ensure_learning_events_partition('2029-02-01')")
+        cur.execute(
+            """
+            SELECT c.relname, c.relrowsecurity
+            FROM pg_class c
+            JOIN pg_inherits i ON i.inhrelid = c.oid
+            WHERE i.inhparent = 'public.learning_events'::regclass
+            """
+        )
+        partitions = cur.fetchall()
+
+    assert partitions, "expected at least one partition"
+    unprotected = [name for name, rls in partitions if not rls]
+    assert not unprotected, f"partitions without RLS enabled: {unprotected}"

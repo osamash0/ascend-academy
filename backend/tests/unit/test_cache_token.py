@@ -47,7 +47,7 @@ class TestTokenCache:
         rows = patch_supabase.tables["backend_cache"]
         assert len(rows) == 1
         # Force the row to be already expired.
-        rows[0]["expires_at"] = (datetime.utcnow() - timedelta(seconds=1)).isoformat()
+        rows[0]["expires_at"] = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
         assert await cache.get_cached_token("tok-x") is None
 
     async def test_token_is_hashed_not_stored_raw(self, patch_supabase):

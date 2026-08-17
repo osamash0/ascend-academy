@@ -90,6 +90,21 @@ export default function StudentDashboard() {
     staleTime: 1000 * 60,
   });
   const myMaterialsCount = FEATURES.studentUploads ? myMaterialsQuery.data?.materials.length ?? 0 : undefined;
+  const activeOnboardingBatchQuery = useQuery({
+    queryKey: ['active-onboarding-batch', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('onboarding_progress')
+        .select('active_batch_id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.active_batch_id ?? null;
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+  const activeOnboardingBatchId = activeOnboardingBatchQuery.data;
 
   const deferredLectures = useDeferredValue(lectures);
   const deferredCourseVisits = useDeferredValue(courseVisits);
@@ -186,7 +201,7 @@ export default function StudentDashboard() {
         .catch(() => {})
         .finally(() => gamification.evaluate());
     }
-  }, [user?.id]);
+  }, [user?.id, gamification]);
 
   // Let the screen transition (~exit 0.18s + entrance spring) finish before
   // mounting the expensive below-the-fold section.
@@ -298,6 +313,17 @@ export default function StudentDashboard() {
         </div>
         <div className="px-6 lg:px-12 pt-4 space-y-3">
           <NudgeBanner />
+          {activeOnboardingBatchId ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/10 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Your course material is still being organized.</p>
+                <p className="text-xs text-muted-foreground">You can review ready files now; the rest will continue in the background.</p>
+              </div>
+              <Button size="sm" onClick={() => navigate(`${StudentRoutes.ONBOARDING_UPLOAD}?batch=${encodeURIComponent(activeOnboardingBatchId)}`)}>
+                Resume setup <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          ) : null}
           <AnimatePresence>
             {showStreakBanner && (
               <motion.div

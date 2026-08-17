@@ -47,6 +47,8 @@ from backend.api.v1.review import router as review_router
 from backend.api.v1.exams import router as exams_router
 from backend.api.v1.search import router as search_router
 from backend.api.v1.materials import router as materials_router
+from backend.api.v1.onboarding import router as onboarding_router
+from backend.api.v1.localized_content import router as localized_content_router
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -58,12 +60,42 @@ docs_url = "/docs" if _docs_enabled else None
 redoc_url = "/redoc" if _docs_enabled else None
 openapi_url = "/openapi.json" if _docs_enabled else None
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from backend.core.database import init_db_pool, close_db_pool
+    from backend.core.redis import init_redis, close_redis
+    from backend.core.auth_middleware import get_auth_http_client, close_auth_http_client
+    
+    await init_db_pool()
+    await init_redis()
+    get_auth_http_client()
+    # Roadmap P2-2: the daily nudge engine deliberately does NOT start here.
+    # It used to be an in-process APScheduler job (ENABLE_NUDGE_SCHEDULER=1),
+    # which is why docker-compose.prod.yml pinned uvicorn to --workers 1 --
+    # APScheduler has no leader election, so a second web replica would
+    # double-fire every nudge. It now runs as an Arq cron job in the worker
+    # process instead (backend/workers/arq_worker.py,
+    # backend/services/nudge_scheduler.py), deduped across workers via arq's
+    # cron(unique=True). The same ENABLE_NUDGE_SCHEDULER / NUDGE_RUN_HOUR_UTC
+    # env vars still control it -- just read by the worker, not the API.
+    # `nudge_scheduler.start_scheduler()` is retained but deprecated; calling
+    # it from here would reintroduce the double-fire it was moved to avoid.
+
+    yield
+
+    await close_db_pool()
+    await close_redis()
+    await close_auth_http_client()
+
 app = FastAPI(
     title="Learnstation API",
     version="0.1.0",
     docs_url=docs_url,
     redoc_url=redoc_url,
     openapi_url=openapi_url,
+    lifespan=lifespan,
 )
 
 def _trusted_proxy_hosts() -> list[str]:
@@ -203,6 +235,8 @@ v1_router.include_router(schedule_router)
 v1_router.include_router(slides_ai_router)
 v1_router.include_router(practice_sheets_router)
 v1_router.include_router(academic_router)
+v1_router.include_router(onboarding_router)
+v1_router.include_router(localized_content_router)
 # Roadmap Phase 1.1 (review engine) — off by default; FEATURE_REVIEW_ENGINE=1 to enable.
 if settings.feature_review_engine:
     v1_router.include_router(review_router)
@@ -280,33 +314,6 @@ async def redirect_legacy_api(request: Request, path: str):
         new_path = f"{new_path}?{query_params}"
     return RedirectResponse(url=new_path, status_code=307)
 
-
-@app.on_event("startup")
-async def startup_event():
-    from backend.core.database import init_db_pool
-    from backend.core.redis import init_redis
-    await init_db_pool()
-    await init_redis()
-    from backend.core.auth_middleware import get_auth_http_client
-    get_auth_http_client()
-    # Roadmap P2-2: the daily nudge engine no longer runs here. It used to be
-    # an in-process APScheduler job (ENABLE_NUDGE_SCHEDULER=1), which is why
-    # docker-compose.prod.yml pinned uvicorn to --workers 1 — APScheduler has
-    # no leader election, so a second web replica would double-fire every
-    # nudge. It now runs as an Arq cron job in the worker process instead
-    # (backend/workers/arq_worker.py, backend/services/nudge_scheduler.py),
-    # which dedupes across worker processes via arq's cron(unique=True).
-    # Same ENABLE_NUDGE_SCHEDULER / NUDGE_RUN_HOUR_UTC env vars still control
-    # it — just read by the worker now, not the API process.
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    from backend.core.database import close_db_pool
-    from backend.core.redis import close_redis
-    await close_db_pool()
-    await close_redis()
-    from backend.core.auth_middleware import close_auth_http_client
-    await close_auth_http_client()
 
 @app.get("/")
 async def read_root():

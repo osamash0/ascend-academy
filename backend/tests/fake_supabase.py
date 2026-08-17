@@ -73,6 +73,81 @@ def _matches_contains(value: Any, sub: dict) -> bool:
     return True
 
 
+def _get_val(row: dict, col: str) -> Any:
+    if "->>" in col:
+        base_col, key = col.split("->>", 1)
+        base_val = row.get(base_col)
+        if isinstance(base_val, str):
+            import json
+            try:
+                base_val = json.loads(base_val)
+            except Exception:
+                base_val = {}
+        if isinstance(base_val, dict):
+            v = base_val.get(key)
+            return str(v) if v is not None else None
+        return None
+    return row.get(col)
+
+
+def _split_or_clauses(value: str) -> list[str]:
+    """Split a PostgREST `or=(...)` filter into clauses on top-level commas only.
+
+    `id.in.(a,b)` is a SINGLE clause that happens to contain commas, so the
+    obvious `value.split(",")` shreds it into `id.in.(a` and `b)` -- the first
+    then parses as a one-element IN list and the second is silently dropped for
+    having fewer than two dot-separated parts. Tracking paren depth keeps
+    parenthesised lists intact.
+    """
+    clauses: list[str] = []
+    current: list[str] = []
+    depth = 0
+    for ch in value:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        if ch == "," and depth == 0:
+            clauses.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+    clauses.append("".join(current))
+    return [c for c in (c.strip() for c in clauses) if c]
+
+
+def _or_clause_matches(row: dict, value: str) -> bool:
+    """True when `row` satisfies at least one clause of a PostgREST or-filter.
+
+    Shared by the SELECT path and `_row_matches` so the two cannot drift apart
+    (they previously carried duplicate copies of this logic, and the paren bug
+    with them).
+    """
+    for clause in _split_or_clauses(value):
+        parts = clause.split(".", 2)
+        if len(parts) < 2:
+            continue
+        c_col, c_op = parts[0], parts[1]
+        c_val = parts[2] if len(parts) > 2 else None
+        r_val = row.get(c_col)
+
+        if c_op == "gt" and c_val:
+            if r_val is not None and str(r_val) > c_val:
+                return True
+        elif c_op == "is" and c_val == "null":
+            if r_val is None:
+                return True
+        elif c_op == "eq" and c_val:
+            if str(r_val) == c_val:
+                return True
+        elif c_op == "in" and c_val:
+            inner = c_val.strip().strip("()")
+            members = [m.strip().strip('"') for m in inner.split(",")] if inner else []
+            if str(r_val) in members:
+                return True
+    return False
+
+
 class _Storage:
     def __init__(self) -> None:
         self.uploaded: list[tuple[str, str]] = []
@@ -252,50 +327,23 @@ class _QueryBuilder:
         matching = [copy.deepcopy(r) for r in rows]
         for op, col, val in self._filters:
             if op == "eq":
-                matching = [r for r in matching if r.get(col) == val]
+                matching = [r for r in matching if _get_val(r, col) == val]
             elif op == "neq":
-                matching = [r for r in matching if r.get(col) != val]
+                matching = [r for r in matching if _get_val(r, col) != val]
             elif op == "gt":
-                matching = [r for r in matching if r.get(col) is not None and r.get(col) > val]
+                matching = [r for r in matching if _get_val(r, col) is not None and _get_val(r, col) > val]
             elif op == "gte":
-                matching = [r for r in matching if r.get(col) is not None and r.get(col) >= val]
+                matching = [r for r in matching if _get_val(r, col) is not None and _get_val(r, col) >= val]
             elif op == "lt":
-                matching = [r for r in matching if r.get(col) is not None and r.get(col) < val]
+                matching = [r for r in matching if _get_val(r, col) is not None and _get_val(r, col) < val]
             elif op == "lte":
-                matching = [r for r in matching if r.get(col) is not None and r.get(col) <= val]
+                matching = [r for r in matching if _get_val(r, col) is not None and _get_val(r, col) <= val]
             elif op == "in":
-                matching = [r for r in matching if r.get(col) in val]
+                matching = [r for r in matching if _get_val(r, col) in val]
             elif op == "contains":
-                matching = [r for r in matching if _matches_contains(r.get(col), val)]
+                matching = [r for r in matching if _matches_contains(_get_val(r, col), val)]
             elif op == "or":
-                new_matching = []
-                for r in matching:
-                    parts = val.split(",")
-                    matched_any = False
-                    for part in parts:
-                        sub_parts = part.split(".", 2)
-                        if len(sub_parts) < 2:
-                            continue
-                        c_col = sub_parts[0]
-                        c_op = sub_parts[1]
-                        c_val = sub_parts[2] if len(sub_parts) > 2 else None
-                        
-                        r_val = r.get(c_col)
-                        if c_op == "gt" and c_val:
-                            if r_val is not None and str(r_val) > c_val:
-                                matched_any = True
-                                break
-                        elif c_op == "is" and c_val == "null":
-                            if r_val is None:
-                                matched_any = True
-                                break
-                        elif c_op == "eq" and c_val:
-                            if str(r_val) == c_val:
-                                matched_any = True
-                                break
-                    if matched_any:
-                        new_matching.append(r)
-                matching = new_matching
+                matching = [r for r in matching if _or_clause_matches(r, val)]
 
         if self._mutation == "update":
             updated = []
@@ -336,46 +384,25 @@ class _QueryBuilder:
     # ── helpers ────────────────────────────────────────────────────────────
     def _row_matches(self, row: dict) -> bool:
         for op, col, val in self._filters:
-            if op == "eq" and row.get(col) != val:
+            row_val = _get_val(row, col)
+            if op == "eq" and row_val != val:
                 return False
-            if op == "neq" and row.get(col) == val:
+            if op == "neq" and row_val == val:
                 return False
-            if op == "gt" and not (row.get(col) is not None and row.get(col) > val):
+            if op == "gt" and not (row_val is not None and row_val > val):
                 return False
-            if op == "gte" and not (row.get(col) is not None and row.get(col) >= val):
+            if op == "gte" and not (row_val is not None and row_val >= val):
                 return False
-            if op == "lt" and not (row.get(col) is not None and row.get(col) < val):
+            if op == "lt" and not (row_val is not None and row_val < val):
                 return False
-            if op == "lte" and not (row.get(col) is not None and row.get(col) <= val):
+            if op == "lte" and not (row_val is not None and row_val <= val):
                 return False
-            if op == "in" and row.get(col) not in val:
+            if op == "in" and row_val not in val:
                 return False
-            if op == "contains" and not _matches_contains(row.get(col), val):
+            if op == "contains" and not _matches_contains(row_val, val):
                 return False
             if op == "or":
-                parts = val.split(",")
-                matched_any = False
-                for part in parts:
-                    sub_parts = part.split(".", 2)
-                    if len(sub_parts) < 2:
-                        continue
-                    c_col = sub_parts[0]
-                    c_op = sub_parts[1]
-                    c_val = sub_parts[2] if len(sub_parts) > 2 else None
-                    r_val = row.get(c_col)
-                    if c_op == "gt" and c_val:
-                        if r_val is not None and str(r_val) > c_val:
-                            matched_any = True
-                            break
-                    elif c_op == "is" and c_val == "null":
-                        if r_val is None:
-                            matched_any = True
-                            break
-                    elif c_op == "eq" and c_val:
-                        if str(r_val) == c_val:
-                            matched_any = True
-                            break
-                if not matched_any:
+                if not _or_clause_matches(row, val):
                     return False
         return True
 

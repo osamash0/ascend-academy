@@ -53,8 +53,11 @@ export default function StudyGuide() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
-  const isProfessor = profile?.role === 'professor';
+  // Roles live in the `user_roles` table, exposed as a top-level `role` by
+  // useAuth() — `profiles` has no role column, so `profile?.role` was always
+  // undefined and this button never rendered.
+  const { role } = useAuth();
+  const isProfessor = role === 'professor';
 
   const [regenerating, setRegenerating] = useState(false);
 

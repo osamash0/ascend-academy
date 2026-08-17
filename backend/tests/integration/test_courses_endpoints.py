@@ -95,6 +95,48 @@ def test_assign_unassign_lecture(client, app, fake_supabase, professor_user):
     detail = client.get(f"/api/courses/{cid}").json()["data"]
     assert detail["lectures"] == []
 
+    # A professor keeps the lecture as an uncategorised course lecture, which
+    # their course list still surfaces for reassignment.
+    row = fake_supabase.table("lectures").select("*").eq("id", "lec-1").execute().data[0]
+    assert row["course_id"] is None
+    assert row.get("visibility") != "private_student"
+
+
+def test_student_unassign_returns_lecture_to_private_materials(
+    client, app, fake_supabase, student_user
+):
+    """A student has no 'uncategorised' surface: their lecture screens key on
+    course_id (library) or student_owner_id (My Materials). Unassigning has to
+    hand the upload back as a private material or it lands in neither."""
+    _auth_as(app, student_user)
+    _seed_user_role(fake_supabase, student_user.id, "student")
+
+    cid = client.post("/api/courses", json={"title": "My DBS"}).json()["data"]["id"]
+    fake_supabase.table("lectures").insert({
+        "id": "lec-s1",
+        "professor_id": None,
+        "student_owner_id": student_user.id,
+        "visibility": "private_student",
+        "title": "My upload",
+        "description": None,
+        "total_slides": 3,
+        "course_id": None,
+    }).execute()
+
+    assert client.post(f"/api/courses/{cid}/lectures/lec-s1").status_code == 200
+    promoted = fake_supabase.table("lectures").select("*").eq("id", "lec-s1").execute().data[0]
+    assert promoted["visibility"] == "course"
+    assert promoted["professor_id"] == student_user.id
+    assert promoted["student_owner_id"] is None
+
+    assert client.delete(f"/api/courses/{cid}/lectures/lec-s1").status_code == 204
+    row = fake_supabase.table("lectures").select("*").eq("id", "lec-s1").execute().data[0]
+    assert row["course_id"] is None
+    # Exactly the shape lectures_owner_consistency demands of a private upload.
+    assert row["visibility"] == "private_student"
+    assert row["student_owner_id"] == student_user.id
+    assert row["professor_id"] is None
+
 
 def test_delete_nonempty_course_requires_reassign(client, app, fake_supabase, professor_user):
     _auth_as(app, professor_user)

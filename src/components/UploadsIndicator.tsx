@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, Upload as UploadIcon, X } from 'lucide-react';
 import { apiClient } from '@/lib/apiClient';
 import { toast as sonnerToast } from '@/components/ui/sonner';
-import { ProfessorRoutes } from '@/lib/routes';
+import { ProfessorRoutes, SharedRoutes, StudentRoutes } from '@/lib/routes';
 import { useAuth } from '@/lib/auth';
 import type { UploadJob } from '@/types/upload';
 
@@ -20,7 +20,7 @@ const IN_FLIGHT_STATUSES = new Set<UploadJob['status']>([
  * only way to reflect progress that happened while no tab was open at all.
  */
 export function UploadsIndicator() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [isHidden, setIsHidden] = useState(document.hidden);
@@ -44,8 +44,13 @@ export function UploadsIndicator() {
     staleTime: 4000,
   });
 
-  const jobs = jobsQuery.data ?? [];
+  const jobs = useMemo(() => jobsQuery.data ?? [], [jobsQuery.data]);
   const inFlight = jobs.filter((j) => IN_FLIGHT_STATUSES.has(j.status));
+  const openBatch = useCallback((batchId: string) => {
+    navigate(role === 'student'
+      ? `${StudentRoutes.ONBOARDING_UPLOAD}?batch=${encodeURIComponent(batchId)}`
+      : ProfessorRoutes.UPLOAD_BATCH_REVIEW(batchId));
+  }, [navigate, role]);
 
   // Fire a one-time toast the first time a job is observed to have settled —
   // this is the "completion triggers an in-app notification" requirement,
@@ -60,16 +65,16 @@ export function UploadsIndicator() {
       const label = job.filename || 'A file';
       if (job.status === 'completed') {
         sonnerToast.success(`${label} ready`, {
-          description: job.batch_id ? 'Open the batch review to publish it.' : 'Lecture created.',
+          description: job.batch_id ? (role === 'student' ? 'Open course setup when you are ready.' : 'Open the batch review to publish it.') : 'Lecture created.',
           action: job.batch_id
-            ? { label: 'Review', onClick: () => navigate(ProfessorRoutes.UPLOAD_BATCH_REVIEW(job.batch_id!)) }
+            ? { label: role === 'student' ? 'Open course setup' : 'Review', onClick: () => openBatch(job.batch_id!) }
             : undefined,
         });
       } else {
         sonnerToast.error(`${label} failed`, { description: job.error || 'Parsing failed.' });
       }
     }
-  }, [jobs, navigate]);
+  }, [jobs, openBatch, role]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -130,8 +135,8 @@ export function UploadsIndicator() {
                   <button
                     key={job.run_id}
                     onClick={() => {
-                      if (job.batch_id) navigate(ProfessorRoutes.UPLOAD_BATCH_REVIEW(job.batch_id));
-                      else if (job.lecture_id) navigate(ProfessorRoutes.LECTURE_EDIT(job.lecture_id));
+                      if (job.batch_id) openBatch(job.batch_id);
+                      else if (job.lecture_id) navigate(role === 'student' ? SharedRoutes.LECTURE(job.lecture_id) : ProfessorRoutes.LECTURE_EDIT(job.lecture_id));
                       setOpen(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 border-b border-border/50 last:border-b-0 hover:bg-muted/50 text-left"

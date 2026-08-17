@@ -27,6 +27,7 @@ from backend.services.ai.prompts import (
     SLIDE_ANALYSIS_PROMPT,
     SYLLABUS_FACTS_EXTRACTION_PROMPT,
     SYNTHESIS_DECK_QUIZ_PROMPT,
+    output_language as _output_language,
 )
 from backend.services.ai.quiz_validator import _normalize_answer_index
 from backend.services.ai.voice import with_voice
@@ -39,7 +40,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 async def analyze_lecture_meta(
-    slides: List[str], ai_model: str, course_context_hint: str = ""
+    slides: List[str], ai_model: str, course_context_hint: str = "", source_language: str = "en"
 ) -> Dict[str, Any]:
     """One LLM call on the first 15 slides to extract lecture-level metadata.
 
@@ -52,7 +53,10 @@ async def analyze_lecture_meta(
     combined_text = "\n\n".join(
         f"[Slide {i + 1}]: {text[:400]}" for i, text in enumerate(slides[:15])
     )
-    prompt = LECTURE_META_ANALYSIS_PROMPT.format(combined_text=combined_text)
+    prompt = LECTURE_META_ANALYSIS_PROMPT.format(
+        combined_text=combined_text,
+        output_language=_output_language(source_language),
+    )
     if course_context_hint:
         prompt += f"\n\nFor consistent terminology, this course already covers:\n{course_context_hint}"
     raw = await generate_text(prompt, ai_model=ai_model)
@@ -64,12 +68,14 @@ async def analyze_slide(
     text: str,
     lecture_context: str,
     ai_model: str,
+    source_language: str = "en",
 ) -> Dict[str, Any]:
     """Analyze a single slide; returns the LLM result dict."""
     prompt = SLIDE_ANALYSIS_PROMPT.format(
         lecture_context=lecture_context[:1000],
         slide_number=slide_number,
         text=text[:1500],
+        output_language=_output_language(source_language),
     )
     raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     res = parse_json_response(raw)
@@ -84,6 +90,7 @@ async def generate_quiz_questions(
     slides: List[str],
     lecture_title: str,
     ai_model: str,
+    source_language: str = "en",
 ) -> List[Dict[str, Any]]:
     """Generate 5–8 deck-level MCQs from content-rich slides."""
     content_slides = [s for s in slides if len(s) > 50][:10]
@@ -96,6 +103,7 @@ async def generate_quiz_questions(
     prompt = SYNTHESIS_DECK_QUIZ_PROMPT.format(
         lecture_title=lecture_title,
         slide_summary=slide_summary,
+        output_language=_output_language(source_language),
     )
     raw = await generate_text_bulk(with_voice(prompt, structured=True), ai_model=ai_model)
     res = parse_json_response(raw)

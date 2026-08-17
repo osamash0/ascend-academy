@@ -315,6 +315,7 @@ async def regenerate_slide(
     # `analysis` payload, which nests these under different keys.
     analysis["slide"] = {
         "id": slide_id,
+        "lecture_id": res.data.get("lecture_id"),
         "title": new_title,
         "content_text": content,
         "summary": new_summary,
@@ -335,7 +336,7 @@ async def undo_regenerate_slide(slide_id: str, user_id: str, creds_token: str) -
     client.postgrest.auth(creds_token)
 
     res = client.table("slides").select(
-        "previous_version, lectures(professor_id)"
+        "lecture_id, previous_version, lectures(professor_id)"
     ).eq("id", slide_id).maybe_single().execute()
     if not res or not res.data:
         raise FileNotFoundError("Slide not found.")
@@ -371,7 +372,7 @@ async def undo_regenerate_slide(slide_id: str, user_id: str, creds_token: str) -
             "metadata": q.get("metadata") or {},
         }).execute()
 
-    return {"id": slide_id, **update}
+    return {"id": slide_id, "lecture_id": res.data.get("lecture_id"), **update}
 
 async def generate_lecture_description(title: str, course_name: Optional[str], summaries: List[str], ai_model: str) -> str:
     course_line = f"\n[COURSE]\n{course_name}" if course_name else ""

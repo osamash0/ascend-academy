@@ -158,12 +158,14 @@ function CourseFactsCard({ courseId }: { courseId: string }) {
                   value={d.label}
                   onChange={(e) => updateExamDate(i, { label: e.target.value })}
                   placeholder="Label (e.g. Midterm)"
+                  aria-label={`Exam date ${i + 1} label`}
                   className="flex-1"
                 />
                 <Input
                   value={d.date}
                   onChange={(e) => updateExamDate(i, { date: e.target.value })}
                   placeholder="Date"
+                  aria-label={`Exam date ${i + 1} date`}
                   className="flex-1"
                 />
                 <button

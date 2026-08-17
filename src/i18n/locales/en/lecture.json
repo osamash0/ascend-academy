@@ -51,7 +51,8 @@
     "uncategorized": "Uncategorized",
     "lectureLoading": "Loading...",
     "slideView": "Slide View",
-    "sourcePdf": "Source PDF"
+  "sourcePdf": "Source PDF",
+  "sourceLanguage": "Source: {{language}}"
   },
   "toasts": {
     "notFoundTitle": "Not Found",
@@ -80,7 +81,8 @@
     "jumpTo": "Jump to slide {{number}}",
     "slideRef": "Slide {{number}}",
     "requestFailed": "Chat request failed",
-    "noReader": "No reader available"
+    "noReader": "No reader available",
+    "close": "Close chat"
   },
   "regenerate": {
     "button": "Re-analyze slide",

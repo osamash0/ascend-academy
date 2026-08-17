@@ -83,6 +83,12 @@ async def verify_token(
       3. Cache MISS → call ``supabase_admin.auth.get_user(token)`` (~150ms),
          coerce the result to JSON-safe data, write it to the cache,
          and return the live Supabase User object.
+
+    Takes no ``Request``: per-route rate limits are already keyed on the
+    caller's identity by ``rate_limit.rate_limit_key``, which hashes the
+    bearer token directly. SlowAPI runs its key function BEFORE route
+    dependencies, so it cannot see anything this dependency resolves --
+    stashing a user id on ``request.state`` here would never be read.
     """
     if credentials is None:
         raise HTTPException(

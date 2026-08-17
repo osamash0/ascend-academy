@@ -198,7 +198,7 @@ class _ProviderFactory:
             if not settings.groq_api_key:
                 raise RuntimeError("GROQ_API_KEY is not configured")
             provider = GroqProvider(api_key=settings.groq_api_key)
-        elif model_key in ("gemini-1.5-flash", "gemini-1.5-flash"):
+        elif model_key in ("gemini-1.5-flash", "gemini-2.0-flash"):
             from backend.core.config import settings
             key = settings.effective_gemini_key
             if not key:

@@ -2,7 +2,7 @@
 learning_events retention job (Roadmap P5-4 — docs/ROADMAP_10X_FOUNDATION.md §13).
 
 `learning_events` is time-partitioned monthly (see migration
-20260721000000_learning_events_partitioning_retention.sql). This script is
+20260721010000_learning_events_partitioning_retention.sql). This script is
 the operational retention policy on top of that partitioning:
 
   1. List partitions whose entire date range ends more than

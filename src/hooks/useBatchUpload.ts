@@ -26,6 +26,7 @@ interface BatchUploadResponseFile {
   run_id: string | null;
   status: string;
   error?: string;
+  warning?: string;
 }
 
 interface UseBatchUploadOptions {
@@ -106,7 +107,7 @@ export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploa
     };
   });
 
-  const allSettled = mergedFiles.length > 0 && mergedFiles.every((f) => f.status === 'done' || f.status === 'failed');
+  const allSettled = mergedFiles.length > 0 && mergedFiles.every((f) => f.status === 'done' || f.status === 'failed' || f.status === 'duplicate');
 
   const submitBatch = useCallback(async (): Promise<{ batchId: string } | null> => {
     if (files.length === 0) return null;
@@ -127,8 +128,9 @@ export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploa
           if (!match) return f;
           return {
             ...f,
-            status: match.status === 'failed' ? 'failed' : 'queued',
+            status: match.status === 'failed' ? 'failed' : match.status === 'duplicate' ? 'duplicate' : 'queued',
             error: match.error ?? null,
+            warning: match.warning ?? null,
             runId: match.run_id,
             pdfHash: match.pdf_hash,
           };
@@ -152,6 +154,10 @@ export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploa
     [mergedFiles, batchId, queryClient],
   );
 
+  const resumeBatch = useCallback((existingBatchId: string) => {
+    setBatchId(existingBatchId);
+  }, []);
+
   return {
     files: mergedFiles,
     addFiles,
@@ -159,6 +165,7 @@ export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploa
     reorderFiles,
     submitBatch,
     retryFile,
+    resumeBatch,
     batchId,
     isSubmitting,
     allSettled,

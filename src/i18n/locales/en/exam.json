@@ -25,7 +25,8 @@
     "autosaving": "Saving…",
     "expiredWarning": "Time's up — submit now before the grace period ends.",
     "submitting": "Submitting…",
-    "goToQuestion": "Go to question {{n}}"
+    "goToQuestion": "Go to question {{n}}",
+    "submitFailed": "Couldn't submit your exam. Please try again."
   },
   "report": {
     "title": "Exam results",
@@ -50,7 +51,8 @@
     "totalOf": "{{total}} total",
     "questionReview": "Question review",
     "questionNumber": "Question {{n}}",
-    "notAvailable": "Exam report not available."
+    "notAvailable": "Exam report not available.",
+    "sendToReviewFailed": "Couldn't send these questions to review. Please try again."
   },
   "widget": {
     "title": "Mock Exam",

@@ -56,13 +56,22 @@ jobs:
         id: changed
         run: |
           BASE_REF="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
-          FILES=$(git diff --name-only --diff-filter=A "$BASE_REF"...HEAD -- 'supabase/migrations/*.sql' || true)
-          echo "files<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$FILES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          # --no-renames: a renamed migration is a new *path*, and on a fresh
+          # database it executes as written, so it has to satisfy the same
+          # grant rule as any other new file.
+          git diff --no-renames --name-only --diff-filter=A "$BASE_REF"...HEAD \
+            -- 'supabase/migrations/*.sql' > /tmp/new-migrations.txt || true
+          echo "count=$(wc -l < /tmp/new-migrations.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
       - name: Lint new migrations for unguarded SECURITY DEFINER functions
-        if: steps.changed.outputs.files != ''
-        run: python backend/scripts/lint_new_definer_functions.py ${{ steps.changed.outputs.files }}
+        if: steps.changed.outputs.count != '0'
+        # NUL-delimited via xargs rather than interpolating the file list into
+        # the run: block. The list used to be a multi-line step output spliced
+        # in unquoted, which made only line 1 an argument to python and turned
+        # lines 2..n into their own shell commands — so the lint silently
+        # checked one file and the job failed with "command not found" whenever
+        # a PR added more than one migration. It passed on main only because
+        # HEAD~1 never yields more than one.
+        run: tr '\n' '\0' < /tmp/new-migrations.txt | xargs -0 --no-run-if-empty python backend/scripts/lint_new_definer_functions.py
 
   # Cheap path-detection so PRs that touch nothing RLS/migration-related
   # don't pay for a Docker/testcontainers boot. See the `nightly-db` job's

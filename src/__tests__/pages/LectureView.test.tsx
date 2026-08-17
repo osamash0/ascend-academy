@@ -152,6 +152,17 @@ vi.mock("@/services/lectureService", async () => {
     fetchLecture: (...a: unknown[]) => fetchLectureMock(...a),
     fetchSlides: (...a: unknown[]) => fetchSlidesMock(...a),
     fetchQuizQuestions: (...a: unknown[]) => fetchQuizQuestionsMock(...a),
+    // LectureView now loads one locale-resolved, revision-atomic bundle.
+    // Keep these long-lived interaction tests focused on their lecture data
+    // by adapting their existing three fixtures to that boundary.
+    fetchLocalizedLectureBundle: async (...a: unknown[]) => {
+      const [lecture, slides, questions] = await Promise.all([
+        fetchLectureMock(...a),
+        fetchSlidesMock(...a),
+        fetchQuizQuestionsMock(...a),
+      ]);
+      return { locale: "en", lecture, slides, questions };
+    },
   };
 });
 
@@ -581,4 +592,3 @@ describe("LectureView Keyboard and Empty State Verification", () => {
     });
   });
 });
-

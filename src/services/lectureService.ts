@@ -8,6 +8,52 @@ import type { Lecture, Slide, QuizQuestion } from '@/types/domain';
 import type { SlideData } from '@/types/lectureUpload';
 import { toSlug } from '@/lib/utils';
 
+export interface LocalizedLectureBundle {
+  locale: 'en' | 'de';
+  lecture: Lecture;
+  slides: Slide[];
+  questions: QuizQuestion[];
+}
+
+/**
+ * Returns one atomic, locale-resolved study snapshot. The server derives the
+ * locale from the authenticated profile, so changing the language preference
+ * cannot expose a stale cached variant from another locale.
+ */
+export async function fetchLocalizedLectureBundle(lectureId: string): Promise<LocalizedLectureBundle> {
+  const payload = await apiClient.get<{
+    locale: 'en' | 'de';
+    lecture: Lecture;
+    slides: Array<Slide & { questions?: unknown[] }>;
+    questions: Array<Record<string, unknown>>;
+  }>(`/api/v1/localized-content/lectures/${encodeURIComponent(lectureId)}`);
+
+  const slides: Slide[] = (payload.slides ?? []).map((slide) => ({
+    id: slide.id,
+    slide_number: slide.slide_number,
+    title: slide.title ?? '',
+    content_text: slide.content_text ?? '',
+    summary: slide.summary ?? '',
+  }));
+  const questions: QuizQuestion[] = (payload.questions ?? []).map((question) => ({
+    id: String(question.id ?? ''),
+    slide_id: String(question.slide_id ?? ''),
+    question_text: String(question.question_text ?? ''),
+    options: Array.isArray(question.options) ? question.options.filter((item): item is string => typeof item === 'string') : [],
+    correct_answer: typeof question.correct_answer === 'number' ? question.correct_answer : 0,
+    explanation: typeof question.explanation === 'string' ? question.explanation : undefined,
+    concept: typeof question.concept === 'string' ? question.concept : undefined,
+    cognitive_level:
+      question.cognitive_level === 'recall' || question.cognitive_level === 'apply' || question.cognitive_level === 'analyse'
+        ? question.cognitive_level
+        : undefined,
+    linked_slides: Array.isArray(question.linked_slides)
+      ? question.linked_slides.filter((item): item is number => typeof item === 'number')
+      : undefined,
+  }));
+  return { locale: payload.locale, lecture: payload.lecture, slides, questions };
+}
+
 export interface EnhancedSlideResult {
   slide_id: string;
   title: string;
@@ -466,6 +512,10 @@ export async function saveExistingLecture(
       }
     }
   }
+
+  // Canonical editor writes invalidate localized snapshots at the database
+  // level. Rebuild both locales before declaring this save complete.
+  await apiClient.post(`/api/v1/localized-content/lectures/${lectureId}/retry`, {});
 }
 
 export async function deleteLecture(lectureId: string): Promise<void> {

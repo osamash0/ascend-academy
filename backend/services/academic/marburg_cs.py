@@ -76,7 +76,7 @@ class MarburgCsSource(CatalogSource):
         )
         faculty = ScrapedFaculty(
             external_ref="marburg-fb12",
-            name="Mathematics & Computer Science (FB12)",
+            name="Mathematics and Computer Science (FB12)",
             programs=[program],
         )
         return ScrapedCatalog(

@@ -18,6 +18,8 @@ export interface Course {
   icon: string | null;
   is_archived: boolean;
   status: CourseStatus;
+  /** Stable identifier for an optional, globally seeded starter course. */
+  demo_slug?: string | null;
   created_at: string | null;
   updated_at: string | null;
   lecture_count: number;
@@ -111,6 +113,16 @@ export async function generateCourseDescription(courseId: string): Promise<strin
 export async function deleteCourse(id: string, reassignTo?: string): Promise<void> {
   const qs = reassignTo ? `?reassign_to=${encodeURIComponent(reassignTo)}` : '';
   await apiClient.delete<void>(`/api/courses/${id}${qs}`);
+}
+
+/**
+ * Rename a lecture you own. Goes through the API rather than supabase-js
+ * because the endpoint accepts ownership via either `professor_id` or
+ * `student_owner_id`, so it covers a private upload that has not been placed
+ * in a course yet as well as one that has.
+ */
+export async function updateLectureTitle(lectureId: string, title: string): Promise<void> {
+  await apiClient.patch<Envelope<unknown>>(`/api/courses/lecture/${lectureId}`, { title });
 }
 
 export async function assignLectureToCourse(courseId: string, lectureId: string): Promise<void> {

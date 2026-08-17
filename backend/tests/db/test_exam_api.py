@@ -325,7 +325,14 @@ async def test_send_misses_to_review_creates_cards_and_is_idempotent(
         assert r2.json()["cards_activated"] == 0  # schedule rows already exist
 
     with db_conn.cursor() as cur:
-        cur.execute("SELECT count(*) FROM review_cards")
+        # Scope to THIS student's cards: the db suite shares one session
+        # database, so an unscoped `count(*) FROM review_cards` also counts
+        # rows seeded by any test file that happens to sort before this one.
+        cur.execute(
+            "SELECT count(*) FROM review_cards rc "
+            "JOIN review_schedule rs ON rs.card_id = rc.id WHERE rs.user_id = %s",
+            (str(student),),
+        )
         assert cur.fetchone()[0] == 20
         cur.execute("SELECT count(*) FROM review_schedule WHERE user_id = %s", (str(student),))
         assert cur.fetchone()[0] == 20

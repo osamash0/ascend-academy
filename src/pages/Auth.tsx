@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { logLearningEvent } from '@/services/studentService';
+import { recordOnboardingSecondSession } from '@/services/onboardingService';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
@@ -111,6 +112,7 @@ export default function Auth() {
                 timestamp: new Date().toISOString(),
                 method: 'email_password',
               });
+              void recordOnboardingSecondSession();
             }
           } catch (loginEventErr) {
             console.error('Failed to log login event:', loginEventErr);
@@ -126,6 +128,13 @@ export default function Auth() {
           // blank until a manual reload.
         }
       } else {
+        // The account does not exist yet, so capture this client-side funnel
+        // transition now and attach it as soon as Supabase returns a user.
+        try {
+          sessionStorage.setItem('ascend:account-creation-started', new Date().toISOString());
+        } catch {
+          // Funnel timing must never block account creation.
+        }
         const { error } = await signUp(email, password, selectedRole);
         if (error) {
           toast({
@@ -136,6 +145,17 @@ export default function Auth() {
             variant: 'destructive',
           });
         } else {
+          try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (authUser) {
+              const startedAt = sessionStorage.getItem('ascend:account-creation-started');
+              await logLearningEvent(authUser.id, 'account_creation_started', { method: 'email_password', role: selectedRole, started_at: startedAt });
+              await logLearningEvent(authUser.id, 'account_created', { method: 'email_password', role: selectedRole });
+              sessionStorage.removeItem('ascend:account-creation-started');
+            }
+          } catch (accountEventErr) {
+            console.error('Failed to log account creation events:', accountEventErr);
+          }
           toast({
             title: t('auth:toasts.accountCreated'),
             description: t('auth:toasts.welcomeMessage'),

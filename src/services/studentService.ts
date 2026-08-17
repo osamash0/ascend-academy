@@ -61,7 +61,7 @@ export async function fetchStudentCourseVisits(userId: string) {
 export async function fetchStudentCourses() {
   const { data, error } = await (supabase as any)
     .from('courses')
-    .select('id, title, color, description')
+    .select('id, professor_id, title, color, description')
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) console.error('Error fetching courses:', error);

@@ -46,7 +46,7 @@ def _patch_synthesis(monkeypatch, *, pages, deck_quiz):
     import backend.services.file_parse_service as fps
     import backend.services.cache as cache
 
-    async def synth(idx, text, ctx, model, pdf):
+    async def synth(idx, text, ctx, model, pdf, source_language="en"):
         return {"title": f"Slide {idx} title", "content": text,
                 "summary": f"Explanation for slide {idx}.", "slide_type": "text"}
 

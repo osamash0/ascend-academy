@@ -189,9 +189,9 @@ export function NotificationBell() {
                                         {t('common:notifications.markAllRead')}
                                     </button>
                                 )}
-                                <button 
-                                    onClick={() => setOpen(false)} 
-                                    className="text-muted-foreground hover:text-foreground"
+                                <button
+                                    onClick={() => setOpen(false)}
+                                    className="p-1.5 -m-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/5"
                                     aria-label={t('common:notifications.close')}
                                 >
                                     <X className="w-4 h-4" />

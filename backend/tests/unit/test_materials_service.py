@@ -113,6 +113,72 @@ async def test_create_upload_happy_path_enqueues_with_private_visibility(fake_fi
     assert "batch_id" not in kwargs
 
 
+class _FakeConn:
+    """Routes each `conn.fetch` to a canned result keyed by a SQL fragment."""
+
+    def __init__(self, responses: dict[str, list]):
+        self._responses = responses
+
+    async def fetch(self, sql, *args):
+        for fragment, rows in self._responses.items():
+            if fragment in sql:
+                return rows
+        raise AssertionError(f"unexpected query: {sql}")
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+@pytest.mark.asyncio
+async def test_list_my_materials_hides_runs_whose_lecture_left_the_private_lane():
+    """A run whose lecture was promoted into a course (promotion clears
+    student_owner_id, so the lecture query stops matching) must drop off this
+    screen — the Library owns it now. Listing it produced a phantom row: the
+    original filename, zero slides, and an Open button pointing at a lecture
+    this page can no longer read. A run with no lecture_id yet is the opposite
+    case and must stay, because its status is the point of the list.
+    """
+    user_id = "11111111-1111-1111-1111-111111111111"
+    started = datetime(2026, 8, 2, tzinfo=timezone.utc)
+    responses = {
+        "FROM parse_runs": [
+            {"run_id": "run-private", "lecture_id": "lec-private", "status": "completed",
+             "error": None, "filename": "kept.pdf", "started_at": started, "finished_at": started},
+            {"run_id": "run-promoted", "lecture_id": "lec-promoted", "status": "completed",
+             "error": None, "filename": "promoted.pdf", "started_at": started, "finished_at": started},
+            {"run_id": "run-parsing", "lecture_id": None, "status": "extracting",
+             "error": None, "filename": "still-parsing.pdf", "started_at": started, "finished_at": None},
+        ],
+        # Only the still-private lecture comes back: the query filters on
+        # student_owner_id, which promotion nulls.
+        "FROM lectures": [
+            {"id": "lec-private", "title": "Kept", "description": None,
+             "total_slides": 3, "created_at": started},
+        ],
+        "FROM slides": [
+            {"lecture_id": "lec-private", "slide_count": 3, "quiz_count": 4},
+        ],
+    }
+
+    async def _fake_conn():
+        return _FakeConn(responses)
+
+    with patch.object(materials_service, "get_db_connection", new=_fake_conn):
+        out = await materials_service.list_my_materials(user_id)
+
+    assert [r["run_id"] for r in out] == ["run-private", "run-parsing"]
+    assert out[0]["title"] == "Kept"
+    assert out[0]["total_slides"] == 3
+    assert out[0]["quiz_count"] == 4
+    # The in-flight run keeps its filename as a stand-in title and no counts.
+    assert out[1]["lecture_id"] is None
+    assert out[1]["title"] == "still-parsing.pdf"
+    assert out[1]["total_slides"] == 0
+
+
 @pytest.mark.asyncio
 async def test_create_upload_propagates_validation_error_without_side_effects(fake_file):
     with patch.object(materials_service.upload_service, "read_upload_capped", new=AsyncMock(return_value=b"not a pdf")), \

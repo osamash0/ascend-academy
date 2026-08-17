@@ -71,16 +71,26 @@ VALID_PAYLOADS: dict[str, dict] = {
     "exam_generated": {"exam_id": "e1", "course_id": "c1"},
     "exam_submitted": {"exam_id": "e1", "score": 87.5, "expired": False},
     "review_graded": {"card_id": "cd1", "rating": 3},
+    # Added when fix/s6-continuous-security-ci merged into the P5-1 line:
+    # both were live producers that predated this catalog. See
+    # 20260731000000_extend_learning_event_catalog.sql.
+    "lecture_uploaded": {"lectureId": "L1", "course_id": "c1"},
+    "onboarding_completed": {
+        "role": "student",
+        "path": "material",
+        "study_goal": "exam",
+        "onboarding_version": 1,
+    },
 }
 
 
 def test_registry_covers_exactly_the_audited_catalog():
     """The registry (and by extension the CHECK constraint it must mirror)
-    covers exactly the 14 event types found by auditing every write call
+    covers exactly the event types found by auditing every write call
     site — no more, no less. A change here without updating the migration
     (or vice versa) is a bug."""
     assert KNOWN_EVENT_TYPES == set(VALID_PAYLOADS)
-    assert len(KNOWN_EVENT_TYPES) == 14
+    assert len(KNOWN_EVENT_TYPES) == 16
 
 
 @pytest.mark.parametrize("event_type", sorted(VALID_PAYLOADS))

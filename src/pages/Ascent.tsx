@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, type ComponentType, type SVGProps } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,19 +31,6 @@ import type { InsightsView } from '@/components/InsightsViewTabs';
 // ─── types ───────────────────────────────────────────────────────────────────
 
 type AscentView = 'overview' | 'trophies' | 'mindmap' | 'skills';
-
-const MOCK_JOURNEY_NODES: JourneyNode[] = [
-  { id: '1', label: 'Introduction to Learnstation', status: 'completed' },
-  { id: '2', label: 'Fundamentals of UI Design', status: 'completed' },
-  { id: '3', label: 'Advanced Color Theory', status: 'completed' },
-  { id: '4', label: 'Typography Mastery', status: 'active' },
-  { id: '5', label: 'Interaction Design', status: 'locked' },
-  { id: '6', label: 'Prototyping with Framer', status: 'locked' },
-  { id: '7', label: 'User Testing Methods', status: 'locked' },
-  { id: '8', label: 'Design Systems', status: 'locked' },
-  { id: '9', label: 'Portfolio Preparation', status: 'locked' },
-  { id: '10', label: 'Final Assessment', status: 'locked' },
-];
 
 interface Achievement {
   id: string;
@@ -222,7 +209,7 @@ function MilestoneBadge({ name, description, icon, category, xpReward, index }: 
 
 function AscentTabs({ view, onChange }: { view: AscentView; onChange: (v: AscentView) => void }) {
   const { t } = useTranslation('gamification');
-  const TABS: { id: AscentView; label: string; icon: React.ComponentType<any> }[] = [
+  const TABS: { id: AscentView; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
     { id: 'overview', label: t('ascent.tabs.overview'), icon: Brain },
     { id: 'trophies', label: t('ascent.tabs.trophies'), icon: Trophy },
     { id: 'mindmap', label: t('ascent.tabs.mindMap'), icon: Network },
@@ -312,6 +299,26 @@ export default function Ascent() {
     () => new Set(progress.map(p => p.lecture_id).filter(Boolean)).size,
     [progress],
   );
+
+  const journeyNodes = useMemo<JourneyNode[]>(() => {
+    let hasActiveNode = false;
+    return lectures.map((lecture) => {
+      const lectureView = toLectureView(lecture, byId.get(lecture.id));
+      const status = lectureView.status === 'done'
+        ? 'completed'
+        : !hasActiveNode
+          ? 'active'
+          : 'locked';
+      if (status === 'active') hasActiveNode = true;
+      return {
+        id: lecture.id,
+        lectureId: lecture.id,
+        label: lectureView.cleanTitle,
+        description: lecture.description,
+        status,
+      };
+    });
+  }, [byId, lectures]);
 
   // ── Narrative insight builder ────────────────────────────────────────────
   const insights = useMemo(() => {
@@ -581,7 +588,7 @@ export default function Ascent() {
                   <div className="flex-1 h-px bg-white/5" />
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Sparkles className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.25em]">{t('gamification:ascent.insightsLabel')}</span>
+                    <h2 className="text-[10px] font-black uppercase tracking-[0.25em]">{t('gamification:ascent.insightsLabel')}</h2>
                   </div>
                   <div className="flex-1 h-px bg-white/5" />
                 </div>
@@ -621,7 +628,7 @@ export default function Ascent() {
                     eyebrow={t('dashboard:journey.eyebrow', { defaultValue: 'Curriculum' })}
                     title={t('dashboard:journey.title', { defaultValue: 'Your Learning Journey' })}
                   />
-                  <FullJourneyPath nodes={MOCK_JOURNEY_NODES} />
+                  <FullJourneyPath nodes={journeyNodes} onOpenLecture={(id) => navigate(SharedRoutes.LECTURE(id))} />
                 </section>
               </motion.div>
             </AnimatePresence>

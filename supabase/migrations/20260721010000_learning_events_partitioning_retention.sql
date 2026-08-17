@@ -57,7 +57,7 @@ ALTER TABLE IF EXISTS public.learning_events
 
 COMMENT ON TABLE public.learning_events_legacy_20260721 IS
     'Pre-partitioning backup of learning_events, renamed aside by '
-    '20260721000000_learning_events_partitioning_retention.sql. All rows were '
+    '20260721010000_learning_events_partitioning_retention.sql. All rows were '
     'copied into the new partitioned public.learning_events table. Kept '
     'intentionally (not dropped) pending explicit human review/cleanup — see '
     'that migration''s header comment for why.';

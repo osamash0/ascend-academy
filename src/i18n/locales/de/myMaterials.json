@@ -1,11 +1,19 @@
 {
   "title": "Meine Materialien",
-  "subtitle": "Lade deine eigenen PDFs hoch — erhalte Folien, Quizfragen, Tutor-Chat und tägliche Wiederholung, nur für dich.",
+  "subtitle": "Deine privaten PDFs liegen hier. Lade eine Datei hoch, warte auf die Aufbereitung und öffne sie dann zum Lernen. Kursmaterialien findest du in der Bibliothek.",
+  "uploadSection": "PDF hinzufügen",
+  "filesHeading": "Deine Dateien",
+  "uploadedOn": "Hochgeladen am {{date}}",
+  "originalFile": "Originaldatei: {{filename}}",
   "quotaLabel": "Uploads diesen Monat",
   "quotaExhausted": "Du hast alle {{limit}} Uploads für diesen Monat verbraucht. Schau nächsten Monat wieder vorbei.",
-  "emptyState": "Noch keine Materialien — lade ein PDF hoch, um loszulegen.",
+  "emptyState": "Noch keine privaten Materialien. Lade ein PDF hoch, um deinen ersten Lernbereich zu erstellen.",
   "slideQuizCount": "{{slides}} Folien · {{quizzes}} Quizfragen",
   "processing": "Wird verarbeitet…",
+  "ready": "Bereit zum Lernen",
+  "failed": "Verarbeitung fehlgeschlagen",
+  "cancelled": "Verarbeitung abgebrochen",
+  "failedDetail": "Diese Datei konnte nicht verarbeitet werden. Du kannst sie entfernen und ein anderes PDF hochladen.",
   "open": "Öffnen",
   "delete": "Material löschen",
   "duplicateToast": "Diese Datei hast du bereits hochgeladen.",
@@ -14,9 +22,17 @@
   "uploadErrorToast": "Upload fehlgeschlagen. Bitte versuche es erneut.",
   "deletedToast": "Material gelöscht.",
   "deleteErrorToast": "Dieses Material konnte nicht gelöscht werden.",
+  "deleteDialog": {
+    "title": "Dieses Material löschen?",
+    "description": "Dadurch werden die erstellten Lerninhalte für {{title}} dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.",
+    "cancel": "Abbrechen",
+    "confirm": "Material löschen"
+  },
   "widget": {
     "title": "Meine Materialien",
     "uploaded": "hochgeladen",
-    "cta": "PDF hochladen"
+    "cta": "PDF hochladen",
+    "open": "Materialien öffnen",
+    "ariaLabel": "Meine Materialien: {{count}} hochgeladen"
   }
 }

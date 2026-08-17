@@ -175,6 +175,7 @@ async def test_regenerate_persists_new_instruction(monkeypatch):
     # format_slide_content({"main_topic": "New Topic", "summary": "New summary"}) == "## New Topic"
     assert result["slide"] == {
         "id": "slide-1",
+        "lecture_id": "lec-1",
         "title": "New Title",
         "content_text": "## New Topic",
         "summary": "New summary",

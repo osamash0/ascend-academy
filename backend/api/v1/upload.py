@@ -1,6 +1,8 @@
 import logging
 import json
 import asyncio
+import os
+import re
 from typing import Any, List, Dict, Optional
 from uuid import UUID, uuid4
 
@@ -13,9 +15,10 @@ from backend.services import diagnostics_service
 from backend.services.slide_synth_service import synthesize_slide
 from backend.services.parser import repos as parser_repos
 from backend.domain.parse_models import RunStatus
-from backend.core.auth_middleware import require_creator, _app_metadata
+from backend.core.auth_middleware import require_creator, require_professor, _app_metadata
 from backend.core.rate_limit import limiter
 from backend.core.file_validation import sanitize_filename
+from starlette.concurrency import run_in_threadpool
 from backend.services.cache import (
     compute_pdf_hash,
     get_cached_parse,
@@ -28,6 +31,18 @@ logger = logging.getLogger(__name__)
 
 # Single source of truth for the upload size limit (backend/core/config.py).
 MAX_FILE_MB = settings.max_upload_mb
+
+
+def _filename_version_signature(filename: str) -> str:
+    """A conservative filename key for a possible revised upload.
+
+    Hashes identify exact repeats.  This intentionally only flags a likely
+    revision for review; it never assumes that two similarly named files are
+    interchangeable or deletes either one.
+    """
+    stem = os.path.splitext(filename or "")[0].lower()
+    stem = re.sub(r"(?:[_\-\s]*(?:v|ver(?:sion)?)[_\-\s]*\d+|[_\-\s]*(?:final|draft|revised?))$", "", stem)
+    return re.sub(r"[^a-z0-9]+", "", stem)
 
 # Extensions the upload pipeline accepts (served to the frontend for parity).
 ACCEPTED_UPLOAD_EXTENSIONS = [".pdf", ".pptx"]
@@ -84,15 +99,22 @@ async def parse_pdf_stream_endpoint(
     meta_role = _app_metadata(user).get("role", "")
     if not meta_role and user_id:
         from backend.core.auth_middleware import _lookup_role_from_db
-        db_roles = _lookup_role_from_db(str(user_id))
+        db_roles = await run_in_threadpool(_lookup_role_from_db, str(user_id))
         if db_roles and "student" in db_roles:
             meta_role = "student"
     visibility = "course" if course_id else ("private_student" if meta_role == "student" else "course")
     if lecture_id:
         res = await run_sync(
-            lambda: supabase_admin.table("lectures").select("professor_id").eq("id", lecture_id).execute()
+            lambda: supabase_admin.table("lectures").select("professor_id, student_owner_id").eq("id", lecture_id).execute()
         )
-        if not res.data or res.data[0].get("professor_id") != user_id:
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Lecture not found.")
+        row = res.data[0]
+        # Accept ownership via either professor_id (professor/student course lecture)
+        # or student_owner_id (private student upload before course assignment).
+        owns_via_professor = row.get("professor_id") and str(row["professor_id"]) == str(user_id)
+        owns_via_student = row.get("student_owner_id") and str(row["student_owner_id"]) == str(user_id)
+        if not owns_via_professor and not owns_via_student:
             raise HTTPException(status_code=403, detail="You do not own this lecture.")
 
     try:
@@ -460,7 +482,7 @@ async def diagnostics_endpoint(
 @limiter.limit("5/minute")
 async def cleanup_cache_endpoint(
     request: Request,
-    user: Any = Depends(require_creator),
+    user: Any = Depends(require_professor),
 ):
     deleted = await purge_expired_slide_checkpoints()
     return {"deleted": deleted, "message": f"Purged {deleted} expired checkpoint rows."}
@@ -489,10 +511,8 @@ async def upload_batch_endpoint(
     support). A bad file is isolated — recorded failed with run_id=null,
     never aborting the rest of the batch.
 
-    PowerPoint (.pptx) isn't supported here yet — the markitdown+LibreOffice
-    conversion path used by /parse-pdf-stream isn't wired into this loop;
-    a .pptx file is rejected per-file with a clear message rather than
-    silently mishandled.
+    PowerPoint files are converted to the pipeline's canonical PDF form before
+    they enter the queue. Each failed conversion is isolated to that file.
     """
     from backend.services.parser.unified_orchestrator import PIPELINE_VERSION_UNIFIED
 
@@ -530,35 +550,95 @@ async def upload_batch_endpoint(
     meta_role = _app_metadata(user).get("role", "")
     if not meta_role and user_id:
         from backend.core.auth_middleware import _lookup_role_from_db
-        db_roles = _lookup_role_from_db(str(user_id))
+        db_roles = await run_in_threadpool(_lookup_role_from_db, str(user_id))
         if db_roles and "student" in db_roles:
             meta_role = "student"
     visibility = "course" if course_id else ("private_student" if meta_role == "student" else "course")
 
+    # `parse_runs` is intentionally re-used for the same hash. Re-enqueuing an
+    # old run would otherwise repoint it at this batch, so detect exact prior
+    # uploads before creating work. Similar filenames with new bytes stay in
+    # the flow but carry a visible version warning for the blueprint review.
+    try:
+        known_res = await run_sync(
+            lambda: supabase_admin.table("parse_runs")
+            .select("run_id, pdf_hash, filename, status, course_id")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        known_runs = known_res.data or []
+    except Exception as exc:
+        logger.warning("Could not check prior uploads for %s: %s", user_id, exc)
+        known_runs = []
+    known_by_hash = {str(run.get("pdf_hash")): run for run in known_runs if run.get("pdf_hash")}
+
     results: List[Dict[str, Any]] = []
+    seen_hashes: set[str] = set()
     for file in files:
         raw_name = file.filename or "upload.pdf"
-        if raw_name.lower().endswith(".pptx"):
-            results.append({
-                "filename": raw_name, "pdf_hash": None, "run_id": None, "status": "failed",
-                "error": "PowerPoint isn't supported in batch upload yet — upload it individually.",
-            })
-            continue
-
         try:
             content = await upload_service.read_upload_capped(file, MAX_FILE_MB)
-            await upload_service.validate_upload(raw_name, content)
+            parse_filename = sanitize_filename(raw_name)
+            if raw_name.lower().endswith(".pptx"):
+                from backend.services.office_convert import to_pdf
+                content = await to_pdf(content, raw_name)
+                parse_filename = f"{parse_filename.rsplit('.', 1)[0]}.pdf"
+                await upload_service.validate_upload(parse_filename, content)
+            else:
+                await upload_service.validate_upload(raw_name, content)
         except ValueError as e:
             results.append({"filename": raw_name, "pdf_hash": None, "run_id": None,
                              "status": "failed", "error": str(e)})
             continue
+        except RuntimeError as e:
+            results.append({"filename": raw_name, "pdf_hash": None, "run_id": None,
+                            "status": "failed", "error": f"Could not convert PowerPoint: {e}"})
+            continue
 
-        filename = sanitize_filename(raw_name)
+        filename = parse_filename
         pdf_hash = compute_pdf_hash(content)
+        if pdf_hash in seen_hashes:
+            results.append({
+                "filename": raw_name,
+                "pdf_hash": pdf_hash,
+                "run_id": None,
+                "status": "duplicate",
+                "error": "This file matches another file in this upload and was skipped.",
+            })
+            continue
+        seen_hashes.add(pdf_hash)
+        existing_run = known_by_hash.get(pdf_hash)
+        if existing_run and existing_run.get("status") not in {"failed", "cancelled"}:
+            prior_name = existing_run.get("filename") or "an earlier upload"
+            results.append({
+                "filename": raw_name,
+                "pdf_hash": pdf_hash,
+                "run_id": str(existing_run.get("run_id")) if existing_run.get("run_id") else None,
+                "status": "duplicate",
+                "error": f"This is an exact copy of {prior_name}. We kept the original material unchanged.",
+            })
+            continue
+        signature = _filename_version_signature(raw_name)
+        related_run = next(
+            (
+                run for run in known_runs
+                if run.get("pdf_hash") != pdf_hash
+                and signature
+                and _filename_version_signature(str(run.get("filename") or "")) == signature
+            ),
+            None,
+        )
         try:
             await upload_service.upload_pdf_to_storage(pdf_hash, content)
+            # Must match what unified_orchestrator computes for the same
+            # upload, or its re-fetch creates a second parse_runs row instead
+            # of resuming this one. Per-user scoping is the `user_id` column
+            # in UNIQUE (pdf_hash, pipeline_version, user_id), not a suffix.
+            pipeline_version = (
+                f"{PIPELINE_VERSION_UNIFIED}-student" if visibility == "private_student" else PIPELINE_VERSION_UNIFIED
+            )
             run = await parser_repos.get_or_create_run(
-                pdf_hash, None, PIPELINE_VERSION_UNIFIED,
+                pdf_hash, None, pipeline_version,
                 batch_id=batch_id, user_id=user_uuid, course_id=course_uuid,
                 filename=filename, parsing_mode=parsing_mode,
             )
@@ -578,8 +658,13 @@ async def upload_batch_endpoint(
                 course_id=course_id,
                 visibility=visibility,
             )
-            results.append({"filename": filename, "pdf_hash": pdf_hash,
-                             "run_id": str(run.run_id), "status": "queued"})
+            # Keep the client-facing original name so the queue can match its
+            # File object; parse_runs retain the canonical PDF filename.
+            result = {"filename": raw_name, "pdf_hash": pdf_hash,
+                      "run_id": str(run.run_id), "status": "queued"}
+            if related_run:
+                result["warning"] = "A file with a similar name already exists. We added this as a possible newer version so you can review both in the course structure."
+            results.append(result)
         except Exception as e:
             logger.error("batch upload enqueue failed for %s: %s", filename, e)
             results.append({"filename": filename, "pdf_hash": pdf_hash, "run_id": None,

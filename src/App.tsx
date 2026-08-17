@@ -9,7 +9,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ConsoleLayout } from "@/components/console";
 import { useLanguagePreference } from "@/hooks/useLanguagePreference";
 
-import { lazy, Suspense, Component, type ReactNode } from "react";
+import { lazy, Suspense, Component, useRef, type ReactNode } from "react";
 import { useLunaPhase } from "../learnstation-luna";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
@@ -62,7 +62,10 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 const Landing = lazy(() => import("./pages/Landing"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+// Two-part first run: the cinematic sets up identity (name, Luna, university,
+// courses), then the activation screen picks the first study path.
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const ActivationOnboarding = lazy(() => import("./pages/ActivationOnboarding"));
 const StudentUploadWizard = lazy(() => import("./features/student/components/StudentUploadWizard"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const StudentCourseView = lazy(() => import("./pages/StudentCourseView"));
@@ -161,14 +164,35 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     if (role === 'admin') {
       return <Navigate to="/admin/dashboard" replace />;
     }
-    // If student hasn't finished onboarding (no full name), enforce onboarding
-    if (profile && !profile.full_name) {
+    // New accounts choose a study path before reaching the dashboard. A name
+    // is now optional and belongs to progressive personalization.
+    if (profile && !profile.has_completed_activation_onboarding) {
       return <Navigate to="/onboarding" replace />;
     }
     return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
+}
+
+function OnboardingRoute() {
+  const { profile } = useAuth();
+
+  // The cinematic is the identity flow, and a name is the durable thing it
+  // writes. Someone who already has one has been through it, so send them to
+  // the study-path step instead of replaying avatar and university setup.
+  //
+  // Answered on arrival rather than on every render, because the cinematic
+  // writes that name itself at the *start* of a finish sequence that still has
+  // a five-second reveal left to play. Nothing refreshes the profile mid-flow
+  // today, so a live check would also work — but only until it does.
+  const skipCinematic = useRef(Boolean(profile?.full_name));
+
+  if (skipCinematic.current) {
+    return <Navigate to={StudentRoutes.ONBOARDING_START} replace />;
+  }
+
+  return <Onboarding />;
 }
 
 function StudentDashboardRoute() {
@@ -178,8 +202,7 @@ function StudentDashboardRoute() {
     return <Navigate to={ProfessorRoutes.DASHBOARD} replace />;
   }
 
-  // Prevent accessing dashboard if onboarding isn't finished
-  if (profile && !profile.full_name) {
+  if (profile && !profile.has_completed_activation_onboarding) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -240,7 +263,15 @@ function AppRoutes() {
           path={StudentRoutes.ONBOARDING}
           element={
             <ProtectedRoute allowedRoles={['student']}>
-              <Onboarding />
+              <OnboardingRoute />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={StudentRoutes.ONBOARDING_START}
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <ActivationOnboarding />
             </ProtectedRoute>
           }
         />
@@ -581,7 +612,7 @@ const App = () => {
   return (
   <AppErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="dark">
         <TooltipProvider>
           <Toaster />
           <Sonner />

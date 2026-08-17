@@ -53,6 +53,7 @@ async def create_lecture(
     course_id: Optional[UUID] = None,
     visibility: str = "course",
     student_owner_id: Optional[UUID] = None,
+    source_language: str = "en",
 ) -> UUID:
     """Create the lecture row up front and return its id.
 
@@ -75,8 +76,8 @@ async def create_lecture(
         """
         INSERT INTO lectures
           (id, title, description, professor_id, total_slides, pdf_url, pdf_hash,
-           course_id, visibility, student_owner_id)
-        VALUES ($1, $2, '', $3, 0, $4, $5, $6, $7, $8)
+           course_id, visibility, student_owner_id, source_language)
+        VALUES ($1, $2, '', $3, 0, $4, $5, $6, $7, $8, $9)
         """,
         lecture_id,
         title,
@@ -86,7 +87,27 @@ async def create_lecture(
         course_id,
         visibility,
         student_owner_id,
+        source_language,
     )
+    # The parser owns lecture creation, so this is the authoritative place to
+    # record the first successful professor upload. Re-parses reuse the same
+    # lecture and deliberately do not produce another conversion event.
+    if professor_id is not None:
+        await _execute(
+            """
+            -- The ::uuid/::text casts are load-bearing: inside
+            -- jsonb_build_object() Postgres has no context to infer a
+            -- placeholder's type, and asyncpg's prepare step fails with
+            -- "could not determine data type of parameter $2" without them.
+            -- `lectureId` (camelCase) is the canonical payload spelling for
+            -- new writes -- see backend/schemas/learning_events.py.
+            INSERT INTO learning_events (user_id, event_type, event_data)
+            VALUES ($1, 'lecture_uploaded', jsonb_build_object('lectureId', $2::uuid, 'course_id', $3::uuid))
+            """,
+            professor_id,
+            lecture_id,
+            course_id,
+        )
     return lecture_id
 
 
@@ -105,6 +126,15 @@ async def set_course_id(lecture_id: UUID, course_id: Optional[UUID]) -> None:
 async def set_lecture_title(lecture_id: UUID, title: str) -> None:
     """Update the lecture title and unarchive it (used when reusing a lecture on re-parse)."""
     await _execute("UPDATE lectures SET title = $1, is_archived = false WHERE id = $2", title, lecture_id)
+
+
+async def set_lecture_source_language(lecture_id: UUID, source_language: str) -> None:
+    """Update the canonical authoring locale when a PDF is re-parsed."""
+    await _execute(
+        "UPDATE lectures SET source_language = $1 WHERE id = $2",
+        source_language,
+        lecture_id,
+    )
 
 
 async def finalize_lecture(lecture_id: UUID, description: str, total_slides: int) -> None:

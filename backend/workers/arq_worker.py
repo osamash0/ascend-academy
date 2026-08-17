@@ -22,6 +22,7 @@ from arq.cron import cron
 
 from backend.core.config import settings
 from backend.services.analytics_rollup import rollup_analytics_cache, rollup_concept_mastery
+from backend.services.localization_service import localize_lecture_job
 from backend.services.nudge_scheduler import (
     NUDGE_CRON_ENABLED,
     NUDGE_RUN_HOUR_UTC,
@@ -173,6 +174,7 @@ class WorkerSettings:
     functions = [
         parse_pdf_unified,
         generate_review_cards,
+        localize_lecture_job,
         rollup_analytics_cache,
         rollup_concept_mastery,
     ]

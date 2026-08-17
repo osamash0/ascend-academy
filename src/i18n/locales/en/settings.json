@@ -51,6 +51,19 @@
     "saved": "Language saved",
     "savedDescription": "Your language preference has been updated."
   },
+  "notifications": {
+    "title": "Learning reminders",
+    "description": "Choose whether Ascend can show in-app reminders that help you return to a study or teaching task.",
+    "lifecycleLabel": "Show learning reminders",
+    "lifecycleHelp": "Includes time-sensitive reminders such as an unfinished first quiz or a course waiting for its first upload.",
+    "inAppOnly": "These reminders stay inside Ascend. Email and push delivery are off until you explicitly opt in when those channels are available.",
+    "enabled": "Learning reminders enabled",
+    "enabledDescription": "Relevant reminders can appear in Ascend again.",
+    "disabled": "Learning reminders paused",
+    "disabledDescription": "Ascend will not create new lifecycle reminders for you.",
+    "loadError": "We couldn't load your notification settings",
+    "saveError": "We couldn't save your notification settings"
+  },
   "ai": {
     "title": "AI Model",
     "description": "Choose which AI model powers your tutor and content generation.",
