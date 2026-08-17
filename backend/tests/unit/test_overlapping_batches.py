@@ -20,6 +20,24 @@ from backend.services.ai.orchestrator import (
 )
 
 
+@pytest.fixture(autouse=True)
+def no_cost_accounting(monkeypatch):
+    """Stub the post-call cost hook.
+
+    ``batch_analyze_text_slides`` reports every LLM call through
+    ``_account_for_call`` -> ``cost.log_llm_call``, which INSERTs into
+    ``llm_calls`` over a real asyncpg pool. That is out of scope for these
+    tests (which only stub the LLM call itself) and is blocked by the
+    outbound-access guard in conftest.
+    """
+    from backend.services.ai import orchestrator
+
+    async def _noop(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(orchestrator, "_account_for_call", _noop)
+
+
 # ---------------------------------------------------------------------------
 # iter_overlapping_windows
 # ---------------------------------------------------------------------------
