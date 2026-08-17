@@ -7,6 +7,31 @@ export type Json =
   | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       _post_merge_migrations: {
@@ -929,6 +954,45 @@ export type Database = {
         }
         Relationships: []
       }
+      dead_letter_jobs: {
+        Row: {
+          args: Json
+          error: string
+          failed_at: string
+          function_name: string
+          id: string
+          job_id: string | null
+          job_try: number | null
+          kwargs: Json
+          resolved_at: string | null
+          resolved_note: string | null
+        }
+        Insert: {
+          args?: Json
+          error: string
+          failed_at?: string
+          function_name: string
+          id?: string
+          job_id?: string | null
+          job_try?: number | null
+          kwargs?: Json
+          resolved_at?: string | null
+          resolved_note?: string | null
+        }
+        Update: {
+          args?: Json
+          error?: string
+          failed_at?: string
+          function_name?: string
+          id?: string
+          job_id?: string | null
+          job_try?: number | null
+          kwargs?: Json
+          resolved_at?: string | null
+          resolved_note?: string | null
+        }
+        Relationships: []
+      }
       degree_programs: {
         Row: {
           created_at: string
@@ -1268,6 +1332,7 @@ export type Database = {
           pdf_hash: string | null
           pdf_sha256: string | null
           pdf_url: string | null
+          poster_url: string | null
           professor_id: string | null
           slug: string | null
           source_language: string
@@ -1290,6 +1355,7 @@ export type Database = {
           pdf_hash?: string | null
           pdf_sha256?: string | null
           pdf_url?: string | null
+          poster_url?: string | null
           professor_id?: string | null
           slug?: string | null
           source_language?: string
@@ -1312,6 +1378,7 @@ export type Database = {
           pdf_hash?: string | null
           pdf_sha256?: string | null
           pdf_url?: string | null
+          poster_url?: string | null
           professor_id?: string | null
           slug?: string | null
           source_language?: string
@@ -3355,23 +3422,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      hybrid_search_slides: {
-        Args: {
-          match_count?: number
-          query_embedding: string
-          query_text: string
-          rrf_k?: number
-        }
-        Returns: {
-          content_hash: string
-          id: string
-          lecture_id: string
-          metadata: Json
-          pdf_hash: string
-          similarity: number
-          slide_index: number
-        }[]
-      }
       increment_upload_quota: {
         Args: { p_limit: number; p_period: string; p_user_id: string }
         Returns: {
@@ -3432,6 +3482,39 @@ export type Database = {
               slide_index: number
             }[]
           }
+      match_slides_by_lecture: {
+        Args: {
+          match_count: number
+          match_threshold: number
+          p_lecture_id: string
+          p_pdf_hash: string
+          query_embedding: string
+        }
+        Returns: {
+          id: string
+          lecture_id: string
+          pdf_hash: string
+          similarity: number
+          slide_index: number
+        }[]
+      }
+      match_slides_scoped: {
+        Args: {
+          match_count: number
+          match_threshold: number
+          query_embedding: string
+          scoped_course_ids: string[]
+        }
+        Returns: {
+          content_hash: string
+          course_id: string
+          id: string
+          lecture_id: string
+          metadata: Json
+          similarity: number
+          slide_index: number
+        }[]
+      }
       mutual_courses_count: {
         Args: { _me: string; _other: string }
         Returns: number
@@ -3457,6 +3540,48 @@ export type Database = {
         Returns: string
       }
       restore_analytics: { Args: { p_backup_id: string }; Returns: boolean }
+      search_concepts_keyword: {
+        Args: {
+          match_count: number
+          scoped_course_ids: string[]
+          search_query: string
+        }
+        Returns: {
+          canonical_name: string
+          course_id: string
+          id: string
+          lecture_id: string
+        }[]
+      }
+      search_lectures_keyword: {
+        Args: {
+          match_count: number
+          scoped_course_ids: string[]
+          search_query: string
+        }
+        Returns: {
+          course_id: string
+          description: string
+          id: string
+          title: string
+        }[]
+      }
+      search_slides_keyword: {
+        Args: {
+          match_count: number
+          scoped_course_ids: string[]
+          search_query: string
+        }
+        Returns: {
+          content_text: string
+          course_id: string
+          id: string
+          lecture_id: string
+          rank: number
+          slide_index: number
+          title: string
+        }[]
+      }
       search_users: {
         Args: {
           p_common_only?: boolean
@@ -3479,6 +3604,19 @@ export type Database = {
           social_roles: string[]
           total_xp: number
           user_id: string
+        }[]
+      }
+      search_worksheets_keyword: {
+        Args: {
+          match_count: number
+          scoped_course_ids: string[]
+          search_query: string
+        }
+        Returns: {
+          course_id: string
+          id: string
+          lecture_id: string
+          title: string
         }[]
       }
       send_friend_request: { Args: { p_addressee: string }; Returns: string }
@@ -3637,6 +3775,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["student", "professor", "admin"],
