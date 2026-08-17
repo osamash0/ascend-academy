@@ -1018,6 +1018,43 @@ def parse_json_response(raw: str) -> Any:
         return {}
 
 
+def as_slide_item_list(parsed: Any) -> List[Any]:
+    """Normalise a parsed LLM response into a list of per-slide objects.
+
+    Our batch prompts ask for a bare JSON *array*, but we send them with
+    ``json_mode=True`` and JSON mode requires a top-level JSON *object* — so
+    the model physically cannot comply and wraps the array instead, typically
+    as ``{"slides": [...]}``.
+
+    The previous ``if isinstance(parsed, dict): parsed = [parsed]`` treated
+    that envelope as a single slide. The resulting item had no ``page_number``,
+    so page-keyed matching found nothing and every batch was discarded as an
+    "unusable JSON response" — falling back to per-slide synthesis at ~5x the
+    LLM calls, for a response whose contents were perfectly good.
+
+    Unwrap the envelope; only treat a dict as a lone slide when it actually
+    looks like one.
+    """
+    if isinstance(parsed, list):
+        return parsed
+    if not isinstance(parsed, dict):
+        return []
+
+    for key in ("slides", "items", "results", "data", "output"):
+        value = parsed.get(key)
+        if isinstance(value, list):
+            return value
+
+    # Unknown envelope key: accept a sole list-valued entry as the payload,
+    # but never when the dict is itself slide-shaped.
+    if "page_number" not in parsed:
+        list_values = [v for v in parsed.values() if isinstance(v, list)]
+        if len(list_values) == 1:
+            return list_values[0]
+
+    return [parsed]
+
+
 # ---------------------------------------------------------------------------
 # Token truncation
 # ---------------------------------------------------------------------------
@@ -1630,9 +1667,7 @@ async def batch_analyze_text_slides(
         logger.error("Bulk batch call failed: %s", exc)
         raise
 
-    parsed = parse_json_response(raw)
-    if isinstance(parsed, dict):
-        parsed = [parsed]
+    parsed = as_slide_item_list(parse_json_response(raw))
 
     # Only the non-context (active) slides should appear in the output.
     active_slides = [s for s in slides if s["index"] not in context_only_indices]
@@ -1798,9 +1833,7 @@ async def _regenerate_failing_slide_quizzes(
         )
         return
 
-    parsed = parse_json_response(raw)
-    if isinstance(parsed, dict):
-        parsed = [parsed]
+    parsed = as_slide_item_list(parse_json_response(raw))
     if not isinstance(parsed, list):
         logger.info(
             "Per-slide quiz regeneration produced no usable list; keeping originals.",
