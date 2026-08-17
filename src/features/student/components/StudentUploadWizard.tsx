@@ -326,9 +326,17 @@ export default function StudentUploadWizard() {
                     onRetry={batchUpload.retryFile}
                     submitted={!!batchUpload.batchId}
                   />
+                  {batchUpload.submitError && (
+                    <div
+                      role="alert"
+                      className="mt-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+                    >
+                      {batchUpload.submitError}
+                    </div>
+                  )}
                   <div className="mt-6 flex justify-end">
-                    <Button 
-                      size="lg" 
+                    <Button
+                      size="lg"
                       className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-violet-500/25"
                       onClick={async () => {
                         const res = await batchUpload.submitBatch();
