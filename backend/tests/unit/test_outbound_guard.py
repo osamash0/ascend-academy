@@ -32,13 +32,28 @@ async def test_asyncpg_pool_creation_is_blocked():
         await asyncpg.create_pool("postgresql://nope/nope")
 
 
-async def test_get_db_connection_is_blocked():
+async def test_get_db_connection_is_blocked(monkeypatch):
     """The guard has to fire through the app's own accessor, not just the raw
-    driver — this is the call every service actually makes."""
-    from backend.core.database import get_db_connection
+    driver — this is the call every service actually makes.
+
+    `DB_URL` is patched because `get_db_connection` only reaches the driver when
+    one is configured: `init_db_pool` returns early on a missing DATABASE_URL
+    (database.py:156), leaving `db_pool` unset, so `get_db_connection` raises
+    `RuntimeError("Database pool not initialized")` on the next line and the
+    guard never gets a connection to block.
+
+    Without this the test asserted different things in different environments --
+    it passed locally off a populated .env and failed in CI, where DATABASE_URL
+    is unset. Pinning the URL here makes the attempted connection, and therefore
+    the guard, the actual subject of the test.
+    """
+    from backend.core import database
+
+    monkeypatch.setattr(database, "DB_URL", "postgresql://nope/nope", raising=False)
+    monkeypatch.setattr(database, "db_pool", None, raising=False)
 
     with pytest.raises(BlockedOutboundAccess, match="Postgres"):
-        await get_db_connection()
+        await database.get_db_connection()
 
 
 def test_real_http_request_is_blocked():
