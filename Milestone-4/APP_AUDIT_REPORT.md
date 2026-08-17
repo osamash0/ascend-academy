@@ -28,6 +28,7 @@ what each document could and could not see.
 | **D** `PROFESSOR_ACCOUNT_AUDIT.md` | **prod** | browser only | Same |
 | **E** `AUDIT_ADDENDUM_previously_uncovered.md` | **prod** | browser + authorized writes | Same |
 | **R** (this doc, Part 4) | localhost | repo + live professor drive | Prod drift; anything visual (pre-flight never passed) |
+| **F** (this doc, Part 8) | `main` + **live prod DB** | repo + `pg_catalog` + prod storage | Anything visual — no browser drive; code- and query-level only |
 
 **Prod is not necessarily main.** B/C/D/E audited a deployed build; several of their findings may
 already be fixed in the repo, and several repo findings may not be deployed. Part 5 separates these.
@@ -47,13 +48,15 @@ already be fixed in the repo, and several repo findings may not be deployed. Par
 > **M6 is a prime suspect for the documented Supabase egress overage.** It was reported as a
 > symptom by a prod audit that could not see the cause; the root cause and fix are new here.
 
-### 0.2 The twelve open blockers — 8 reconciled + 4 source-level
+### 0.2 The fourteen open blockers — 8 reconciled + 4 source-level + 2 from the milestone consolidation
 
 Ordered by what I would fix first, not by discovery order. M1–M3 share a row: they are one legal workstream.
 
 | ID | Blocker | Why it ranks here |
 |---|---|---|
-| **M4** | Professor save writes every slide, and a later AI action re-writes them from stale client state — silently resurrecting values already changed and saved | **The only finding actively destroying user data.** Fix before anything else. |
+| **F8** | **A new student cannot enroll in any course.** Every catalog entry renders disabled reading "Enrolled" | **Nothing downstream matters if signup dead-ends.** Confirmed and reproduced live with a zero-enrollment account. Scope is bounded — one policy, one caller. |
+| **F1** | **Live Supabase service JWTs are committed in git history** and still valid | Credential exposure, not a bug. Fails the nightly `secret-scan` every night. Needs key rotation, which only the account owner can do. |
+| **M4** | Professor save writes every slide, and a later AI action re-writes them from stale client state — silently resurrecting values already changed and saved | **The most severe finding that destroys user data.** Fix before anything else in the app itself. |
 | **M5** | Scrolling makes "Save Lecture" unclickable — it slides under the sticky header, and clicks land on **Sign out** | Edit → scroll → Save = sign yourself out and lose the work. Compounds M4. |
 | **M1–M3** | Privacy policy states a falsehood in both languages; Impressum is unfilled boilerplate; both legal pages unreachable | Genuine legal exposure in a DACH market, and the cheapest fix in the document — no runtime code. |
 | **R1** | **The admin error console invents production errors** | An operator cannot tell fabricated incidents from real ones. Worse than a crash: the screen looks correct and is lying. |
@@ -755,6 +758,157 @@ Reconciling A §7.3, B §12, C, D §5 and E §5 (E's revised order is the most r
 - **Squash-merge each session as one commit** so any single fix can be reverted independently — A singles out S3 as the one where this matters most.
 - **Never trust `getComputedStyle().opacity` in this codebase** (B §10, C §2.7) and **never trust any visual measurement without the rAF/visibility pre-flight** (A §8.1b). Between them these two rules account for one retracted finding and two phantom blockers across the audits.
 - **Always run a single-variable control before filing an interaction bug** (A §8.1b) — the "double-click wedges the wizard" claim died to exactly this.
+---
+
+## Part 8 — Milestone-consolidation findings (F1–F9)
+
+Source **F**. These did not come from a browser drive; they came out of the 2026-08 branch
+consolidation, from reading `main` and probing the **live production database** directly. So there
+is nothing visual here, and nothing that depends on animation state — every claim is a code
+reference or a query result.
+
+Full context in [`docs/MILESTONE_2026_08.md`](../docs/MILESTONE_2026_08.md), tagged
+`milestone/2026-08-consolidation`. IDs match that document exactly, so a finding can be traced
+either way.
+
+### F8 🔴 A new student cannot enroll in any course — CONFIRMED
+
+Every catalog entry renders disabled and labelled "Enrolled". Reproduced against the live app with
+an account holding **zero** `course_enrollments` rows: 20 catalog buttons `disabled: true`, 24+
+courses in the rail.
+
+The chain, each link verified independently:
+
+1. `src/services/studentService.ts:61` — `fetchStudentCourses` selects from `courses` with **no
+   enrollment filter and no user filter at all**.
+2. RLS does not scope it either. `courses` SELECT policies are **permissive**, so they **OR**
+   together, and `"Authenticated users browse published courses"` is
+   `USING (status = 'published' AND is_archived = false)` with no caller condition. It alone grants
+   every published course to any authenticated user; the two enrollment-scoped policies beside it
+   add access and restrict nothing.
+3. `src/pages/StudentCourseLibrary.tsx:222` pre-seeds from that result under the comment
+   *"Pre-seed courseMeta with explicitly enrolled courses"* — **the comment is false.**
+4. `:324` wraps it as `enrolledCourseIds`; `CourseCatalogSheet.tsx:168/:207` disable the enroll
+   control on membership in that set.
+
+**This is the `list_courses` leak's twin.** Identical mechanism — a permissive browse policy ORing
+away the enrollment scope — fixed on the backend endpoint by `7c3af43` and still live on the client
+path. `7c3af43` cannot have fixed it: that patched `backend/api/v1/courses.py`, and
+`fetchStudentCourses` is a direct PostgREST select that never reaches the `list_courses` endpoint.
+
+**Blast radius is closed, not open.** Two sweeps: exactly two client-side reads of `courses` exist
+outside tests — this one and `AdminDashboard.tsx:115`, which is legitimate and gated behind
+`<ProtectedRoute allowedRoles={['admin']}>` (`App.tsx:540`). And across all of `public`, `courses`
+is the **only** table with the OR-away shape:
+
+```sql
+WITH sel AS (
+  SELECT tablename, COALESCE(qual,'') AS q, permissive
+  FROM pg_policies WHERE schemaname='public' AND cmd='SELECT'
+)
+SELECT tablename,
+       count(*) FILTER (WHERE q !~* 'auth\.uid|has_role|current_setting') AS unscoped,
+       count(*) FILTER (WHERE q  ~* 'auth\.uid|has_role|current_setting') AS scoped
+FROM sel WHERE permissive='PERMISSIVE'
+GROUP BY tablename
+HAVING count(*) FILTER (WHERE q !~* 'auth\.uid|has_role|current_setting') > 0
+   AND count(*) FILTER (WHERE q  ~* 'auth\.uid|has_role|current_setting') > 0;
+```
+
+Returns one row: `courses | unscoped=1 | scoped=2`. Keep this query — it proves the negative in one
+statement and fires the moment a second unscoped permissive policy lands anywhere.
+
+**The fix is not a filter tweak.** There is **no client-side enrolled-course accessor at all** —
+zero `course_enrollments` reads under `src/services/`, `src/features/` or `src/pages/`. One has to
+be written, and `StudentCourseLibrary` has to start distinguishing "courses I can see" from
+"courses I'm enrolled in". They are currently the same variable.
+
+⚠️ A unit test against `fake_supabase` **cannot** catch this class — it has no RLS machinery, so it
+cannot model permissive policies ORing. Use the real-Postgres harness or Playwright. See F4.
+
+### F1 🔴 Live Supabase service JWTs committed in git history
+
+`184e574:.env` and `8a34f6a:backend/.env` contain real `eyJhbG…` service keys. `1fcc2bd` untracked
+them from HEAD but **not from history**.
+
+This is why the nightly `secret-scan` fails: it runs `fetch-depth: 0` with no `.gitleaksignore`
+anywhere. **It passes on PRs and fails nightly**, because PR runs are shallow — which is exactly why
+it read as scanner noise for weeks. The `.dockerignore` fix in `785bcb3` addresses a different
+problem (keys entering images) and cannot help here.
+
+Rotation is an outward-facing action on the live project and belongs to the account owner. Then
+either scrub history or add a documented allowlist recording the rotation date.
+
+### F2 🟠 GDPR erasure can destroy data while reporting success
+
+`backend/api/v1/auth.py` swallows storage-cleanup failures and then deletes `auth.users` anyway,
+returning `200 "Account deleted."` `lectures` cascades away on that delete and was the only
+`uid → pdf_hash` map, so the orphaned blobs become **unrecoverable by any retry**.
+
+The reverse order fails too: embeddings (`account_service.py:222`) and blobs are deleted *before*
+the auth delete, so a failure there leaves a live account with no PDFs and no search index —
+`SettingsGdpr.test.tsx` currently asserts that state as correct.
+
+`_remove_blob` (`:238`) and `_remove_worksheets` (`:266`) swallow errors but still increment the
+success counters returned in the erasure receipt. Two buckets are never touched: **`avatars` — a
+public bucket, so photos stay fetchable after erasure** — and `lecture-pdfs`, where the current
+upload path writes.
+
+### F3 🟠 GDPR export omits 14 tables holding personal data
+
+`EXPORT_TABLES` (`account_service.py:78-99`) misses `tutor_messages` (AI chat transcripts),
+`courses`, `assignments`, `llm_calls`, `notification_preferences`, `concept_mastery`,
+`onboarding_progress`, `parse_runs`, `practice_sheets`, `course_blueprints`, `material_sources`,
+`assignment_enrollments`, `learning_events_daily_rollup`, `learning_events_legacy_20260721`.
+`friend_requests` is exported by `requester_id` only — half the social graph.
+
+It has already drifted once (`notification_preferences` landed after the list was written). Needs a
+test asserting coverage of every user-scoped column, or it drifts again.
+
+### F4 🟠 No test composes the real endpoint with real RLS
+
+`fake_supabase.py` has no RLS machinery, and `conftest.py` binds `get_auth_client` to the same
+service-role fake, discarding the token. The real-Postgres test re-implements `list_courses`'s
+filter in raw SQL rather than calling it. Both halves are covered; they are never composed — which
+is precisely why F8 survived a fix aimed at the same mechanism.
+
+### F5 🔵 Dead index on a 100%-NULL column
+
+`slides_embedding_ivfflat`, 1208 kB, **0 scans in 252 days**, on `slides.embedding` — NULL across
+all 5,456 rows and superseded by the `slide_embeddings` table. No non-test code references it.
+
+### F6 🔵 `types.ts` detects drift in one direction only
+
+`src/integrations/supabase/types.ts` is generated **from production**, so it cannot reveal a
+migration production never applied. That is exactly how `eval_runs` and `activation_funnel_daily`
+stayed invisible until `pg_catalog` was probed directly. Generate with `--db-url`; the
+`--project-id` path needs a `supabase login` token.
+
+### F7 🔵 Two unreliable tests — do not conflate them
+
+`test_check_duplicate.py::test_force_reparse_skips_cache` fails locally with a 429 from rate-limiter
+state leaking between tests and **passes in CI** — environment-dependent in both directions.
+
+`Settings page (smoke) > lets a user opt out of future lifecycle reminders` is **genuinely
+nondeterministic, roughly a coin flip — not order-dependent.** Measured alone in a clean worktree:
+4 passed / 1 failed / 1 failed / then 3 clean. An earlier "fails 4/4 in isolation" reading was a
+small sample plus luck. The wrong label sends the next person hunting for test pollution that does
+not exist.
+
+### F9 🔵 ~113 MB of duplicate objects in `lecture-pdfs`
+
+Relevant to the same egress budget the WebP poster work addressed from the other direction.
+
+### Production database state
+
+**Never run `supabase db push`.** `supabase_migrations.schema_migrations` holds **2 rows against
+115 migration files**, so a push would attempt to replay 113 migrations against a live database.
+`pg_catalog` is ground truth. Five migrations remain deliberately unapplied, including
+`learning_events` partitioning, which rewrites a live table — give that one its own pass.
+
+Closed during the consolidation, contrary to older notes: `reset_all_analytics`,
+`restore_analytics` and `increment_upload_quota` are locked down (`anon=false`).
+
 ---
 
 ## Appendix — provenance and how to maintain this document
