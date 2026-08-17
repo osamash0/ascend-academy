@@ -141,3 +141,23 @@ CREATE TRIGGER trg_invalidate_course_overview_quiz
 AFTER INSERT OR UPDATE OR DELETE ON public.quiz_questions
 FOR EACH ROW
 EXECUTE FUNCTION public.invalidate_course_overview_on_quiz();
+
+
+-- ── Grants (S-1) ────────────────────────────────────────────────────────────
+-- Postgres grants EXECUTE to PUBLIC by default on function creation, so every
+-- SECURITY DEFINER function above is reachable with the anon key over
+-- PostgREST unless a migration says otherwise (docs/RPC_EXPOSURE_AUDIT.md).
+--
+-- The three `RETURNS trigger` functions are not actually callable that way --
+-- PostgREST will not expose a function returning `trigger` as an RPC -- but
+-- they are revoked anyway so the ACL matches the intent rather than relying on
+-- a property of the client library.
+--
+-- `_invalidate_course_overview(uuid)` is the one that genuinely mattered: it
+-- takes a uuid and returns void, so anon could call it directly and evict any
+-- course's cached `professor_overview` row at will. Only the trigger functions
+-- need it, and they run as their own definer, so no role needs EXECUTE.
+REVOKE ALL ON FUNCTION public._invalidate_course_overview(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.invalidate_course_overview_on_lecture() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.invalidate_course_overview_on_slide() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.invalidate_course_overview_on_quiz() FROM PUBLIC, anon, authenticated;
