@@ -20,6 +20,24 @@ async function loadBatchConfig(): Promise<void> {
   }
 }
 
+/**
+ * apiClient throws `Upload <path> → <status>: <raw body>`, where the body is
+ * usually FastAPI's `{"detail": "..."}`. Show the user the detail prose, not
+ * the transport wrapper.
+ */
+function toUserMessage(err: unknown): string {
+  const fallback = 'Upload failed. Please try again.';
+  if (!(err instanceof Error) || !err.message) return fallback;
+  const body = err.message.slice(err.message.indexOf(': ') + 1).trim();
+  try {
+    const parsed = JSON.parse(body) as { detail?: unknown };
+    if (typeof parsed.detail === 'string' && parsed.detail) return parsed.detail;
+  } catch {
+    // Not JSON (HTML error page, proxy failure, network error) — fall through.
+  }
+  return err.message.includes('→') ? fallback : err.message;
+}
+
 interface BatchUploadResponseFile {
   filename: string;
   pdf_hash: string | null;
@@ -54,6 +72,8 @@ export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploa
   const [files, setFiles] = useState<BatchFileEntry[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  /** Last submit failure, for the wizard to render. null once a submit succeeds. */
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => { void loadBatchConfig(); }, []);
 
@@ -112,6 +132,7 @@ export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploa
   const submitBatch = useCallback(async (): Promise<{ batchId: string } | null> => {
     if (files.length === 0) return null;
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       const formData = new FormData();
       files.forEach((f) => formData.append('files', f.file));
@@ -138,6 +159,19 @@ export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploa
       );
       setBatchId(body.batch_id);
       return { batchId: body.batch_id };
+    } catch (err) {
+      // Without this catch the rejection escaped into the caller's async
+      // onClick (which has no handler either), so `finally` cleared the
+      // spinner and the wizard looked idle and ready — the user got no
+      // feedback at all that their upload had failed. That swallowed every
+      // failure mode, not just the 429 backpressure one: expired session,
+      // 5xx, and dropped connections all looked like "the button did
+      // nothing". Surface the server's message and mark the rows failed so
+      // the existing per-file error UI and `retryFile` can act on it.
+      const message = toUserMessage(err);
+      setFiles((prev) => prev.map((f) => ({ ...f, status: 'failed' as QueueFileStatus, error: message })));
+      setSubmitError(message);
+      return null;
     } finally {
       setIsSubmitting(false);
     }
@@ -168,6 +202,7 @@ export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploa
     resumeBatch,
     batchId,
     isSubmitting,
+    submitError,
     allSettled,
     maxBatchFiles: cachedMaxBatchFiles,
   };
