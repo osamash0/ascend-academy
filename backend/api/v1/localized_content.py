@@ -65,6 +65,7 @@ async def _lecture_metadata(lecture_id: UUID) -> dict[str, Any]:
         row = await conn.fetchrow(
             """
             SELECT l.id, l.title, l.description, l.total_slides, l.created_at, l.pdf_url,
+                   l.poster_url,
                    l.course_id, l.is_archived, l.source_language, l.content_revision,
                    c.id AS course_id_joined, c.title AS course_title, c.color AS course_color
             FROM lectures l LEFT JOIN courses c ON c.id = l.course_id
@@ -116,6 +117,7 @@ async def localized_lecture_endpoint(
         "total_slides": metadata["total_slides"],
         "created_at": metadata["created_at"].isoformat(),
         "pdf_url": metadata["pdf_url"],
+        "poster_url": metadata["poster_url"],
         "course_id": str(metadata["course_id"]) if metadata["course_id"] else None,
         "is_archived": metadata["is_archived"],
         "source_language": metadata["source_language"],
