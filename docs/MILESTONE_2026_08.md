@@ -213,9 +213,36 @@ Regenerate. Note these types are generated **from prod**, so they detect drift i
 one direction only — they cannot reveal a migration prod never applied, which is
 exactly how `eval_runs` and `activation_funnel_daily` stayed invisible.
 
-**F7 — Order-dependent test.** `test_check_duplicate.py::test_force_reparse_skips_cache`
-fails locally with a 429 from rate-limiter state leaking between tests, and
-passes in CI. Environment-dependent in both directions.
+**F7 — Two unreliable tests, with different causes. Don't conflate them.**
+
+`test_check_duplicate.py::test_force_reparse_skips_cache` fails locally with a
+429 from rate-limiter state leaking between tests, and passes in CI —
+environment-dependent in both directions.
+
+`Settings page (smoke) > lets a user opt out of future lifecycle reminders` is
+**genuinely nondeterministic, roughly a coin flip — not order-dependent.**
+Measured in a clean worktree with no other session's WIP, running it alone:
+4 passed / 1 failed / 1 failed / then 3 consecutive clean runs. An earlier
+characterisation of "fails 4/4 in isolation, passes in the full suite" was a
+small sample plus luck. Recorded precisely because starting from the
+order-dependent hypothesis sends you hunting for test pollution that isn't
+there. It predates all of this milestone's branches and imports none of their
+modules.
+
+**F8 — Student self-enrollment may be broken.**
+`src/pages/StudentCourseLibrary.tsx:324` derives `enrolledCourseIds` from
+`courseList`, which is then used by `CourseCatalogSheet.tsx` to filter
+recommendations (`:44`) and to set `isEnrolled` (`:168`). If `courseList` ever
+contains a course the student can merely *see* rather than one they are enrolled
+in, every catalog entry is marked enrolled and the enroll affordance never
+appears. Reported as a live user-facing break; not independently confirmed here,
+and its status may have changed with `7c3af43`, which narrowed what
+`list_courses` returns. Verify against a real student account before assuming
+either way.
+
+**F9 — Duplicate PDFs in storage.** ~113 MB of duplicate objects inside the
+`lecture-pdfs` bucket. Relevant to the egress budget that PR #12 addressed from
+the other direction.
 
 ---
 
@@ -252,6 +279,16 @@ Three independent instances surfaced on 2026-08-17:
 The environment-level fix removes one whole class of this. **The residual class
 survives**: a fake `DATABASE_URL` does nothing for a parse step that rejects fake
 bytes. Treat guard-green as evidence about reachability, not coverage.
+
+**The third instance is the worst of the three, and needs a different reflex.**
+The first two hid behind *green*. The SCA one hid behind *red with a known,
+already-diagnosed cause* — and red-for-a-stated-reason is exactly where people
+stop looking. A job that exits at step one reports a truthful failure and a
+completely silent second half. So:
+
+- when something is **green**, ask what wasn't covered — widen coverage;
+- when something is **red for a known reason**, ask what never *ran* — a
+  multi-step job's later steps may never have executed at all.
 
 ---
 
