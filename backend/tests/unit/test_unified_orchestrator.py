@@ -192,7 +192,8 @@ def test_review_flag_healthy_slide_not_flagged():
 
 def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pages=None):
     rec = {"status": [], "errors": [], "lectures": [], "slides": [], "deck_quiz": [],
-           "finalize": [], "run_lecture": [], "cleared": [], "titled": [], "pdf": []}
+           "finalize": [], "run_lecture": [], "cleared": [], "titled": [], "pdf": [],
+           "poster": [], "poster_url": []}
     run = types.SimpleNamespace(run_id=uuid4(), status=run_status, lecture_id=lecture_id)
     pages = pages if pages is not None else ["text 0", "text 1", "text 2"]
 
@@ -240,6 +241,25 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     async def set_lecture_pdf_url(lid, url):
         rec["pdf"].append((lid, url))
 
+    # The poster hook performs a real Supabase Storage upload, so it needs a stub
+    # like every other outbound call in this fixture. Without one the suite only
+    # passes by accident: `fetch_pdf` hands back b"%PDF-fake", which fails to
+    # parse, so render_poster returns None and store_lecture_poster short-circuits
+    # before ever reaching the upload. Give this fixture a valid PDF -- conftest
+    # already builds real ones with fitz elsewhere -- and it uploads for real.
+    #
+    # Verified directly: with those bytes the upload path is never reached; with a
+    # valid PDF it is. Once the unit-test outbound guard lands it turns that latent
+    # upload into a hard failure that is also awkward to read, because the guard
+    # raises from BaseException specifically so that product code cannot absorb it
+    # -- poster.py's deliberately non-fatal `except Exception` would not catch it.
+    async def store_poster(lecture_id, pdf_bytes):
+        rec["poster"].append(lecture_id)
+        return f"lectures/{lecture_id}/poster.webp"
+
+    async def set_lecture_poster_url(lid, url):
+        rec["poster_url"].append((lid, url))
+
     async def insert_slide(lecture_id, idx, slide, *, ai_enhanced=True, parser_engine="unified"):
         rec["slides"].append((idx, slide.get("title"), slide.get("summary")))
         rec.setdefault("slide_flags", []).append((idx, ai_enhanced, parser_engine))
@@ -269,6 +289,8 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     monkeypatch.setattr(persist, "set_lecture_title", set_lecture_title)
     monkeypatch.setattr(persist, "set_lecture_source_language", set_lecture_source_language)
     monkeypatch.setattr(persist, "set_lecture_pdf_url", set_lecture_pdf_url)
+    monkeypatch.setattr(uo.poster, "store_lecture_poster", store_poster)
+    monkeypatch.setattr(persist, "set_lecture_poster_url", set_lecture_poster_url)
     monkeypatch.setattr(persist, "insert_slide", insert_slide)
     monkeypatch.setattr(persist, "insert_slide_quizzes", insert_slide_quizzes)
     monkeypatch.setattr(persist, "insert_deck_quizzes", insert_deck_quizzes)
@@ -394,6 +416,40 @@ async def test_parse_pdf_unified_happy_path(monkeypatch):
     assert rec["deck_quiz"] == [1]
     assert rec["finalize"] == [("Deck summary.", 3)]
     assert RunStatus.COMPLETED in rec["status"]
+
+
+async def test_parse_pdf_unified_stores_a_hero_poster(monkeypatch):
+    """The pipeline renders the console hero's key art during ingest.
+
+    It happens here, while the PDF bytes are already in memory, because the
+    alternative -- letting the frontend rasterise page 1 out of the source PDF --
+    downloaded the whole document per focused lecture and was the dominant cause
+    of a Supabase egress overage. See backend/services/parser/poster.py.
+    """
+    rec, run = _patch_common(monkeypatch)
+    await _run("h", OWNER, filename="My Deck.pdf")
+
+    lecture_id = rec["lectures"][0][2]
+    assert rec["poster"] == [lecture_id], "ingest must render a poster for the lecture"
+    # ...and the path must be recorded, or the frontend has no poster to resolve
+    # and the hero silently falls back to the ambient gradient forever.
+    assert rec["poster_url"] == [(lecture_id, f"lectures/{lecture_id}/poster.webp")]
+
+
+async def test_parse_pdf_unified_survives_poster_failure(monkeypatch):
+    """Key art is decorative: a poster failure must never fail the parse."""
+    rec, run = _patch_common(monkeypatch)
+
+    async def failing_poster(lecture_id, pdf_bytes):
+        return None  # what store_lecture_poster returns on render/upload failure
+
+    monkeypatch.setattr(uo.poster, "store_lecture_poster", failing_poster)
+    events = await _run("h", OWNER, filename="My Deck.pdf")
+
+    assert [t for t, _ in events][-1] == "complete"
+    assert RunStatus.COMPLETED in rec["status"]
+    # no poster path recorded, and crucially no attempt to persist a null one
+    assert rec["poster_url"] == []
 
 
 async def test_parse_pdf_unified_propagates_vision_routed_on_slide_event(monkeypatch):
