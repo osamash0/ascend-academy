@@ -541,22 +541,7 @@ async def parse_pdf_unified(
         pdf_path = await _store_lecture_pdf(created_lecture_id, filename, pdf_bytes)
         if pdf_path:
             await persist.set_lecture_pdf_url(created_lecture_id, pdf_path)
-<<<<<<< HEAD
         await emit("meta", {"pdf_hash": pdf_hash, "lecture_id": str(created_lecture_id)})
-=======
-        # Render the hero key art now, while the PDF bytes are already in memory.
-        # Doing it here costs no egress; the alternative (the frontend rendering
-        # page 1 out of the source PDF) cost ~98% more bytes per view.
-        poster_path_ = await poster.store_lecture_poster(created_lecture_id, pdf_bytes)
-        if poster_path_:
-            await persist.set_lecture_poster_url(created_lecture_id, poster_path_)
-        await emit("meta", {
-            "pdf_hash": pdf_hash,
-            "lecture_id": str(created_lecture_id),
-            "source_language": source_language,
-            "localization_status": "pending",
-        })
->>>>>>> f313a6c (fix(egress): serve hero key art from WebP posters, not source PDFs)
 
         # ── 4. Per-slide synthesis (chunked-parallel; narrative carries over) ─
         from backend.services.ai.orchestrator import QUIZ_BATCH_CONFIG

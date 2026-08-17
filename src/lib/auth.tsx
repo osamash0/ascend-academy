@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { AUTH_INIT_TIMEOUT_MS, AUTH_PROFILE_TIMEOUT_MS } from '@/lib/constants';
@@ -60,7 +60,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleLoading, setRoleLoading] = useState(false);
   const loading = sessionLoading || roleLoading;
 
-  const fetchProfile = async (userId: string): Promise<ProfileFetchResult> => {
+  // Every function below is memoized, and the context value with it. This is
+  // load-bearing, not hygiene. `refreshProfile` is an effect dependency in
+  // useStudentDashboard and StudentCourseLibrary; when it was a fresh closure
+  // each render it closed a loop with its own side effect —
+  //   refreshProfile -> fetchProfile -> setProfile(<new object from network>)
+  //   -> AuthProvider re-renders -> new refreshProfile identity
+  //   -> dependent effect re-fires -> refreshProfile ...
+  // Note the loop turns on object *identity*, not on failure: the row is
+  // re-fetched over the network every pass, so `setProfile` always gets a new
+  // reference and React never bails out. It therefore span just as fast when
+  // everything was working. Measured on an idle /dashboard: 300 requests to
+  // /rest/v1/profiles in 5 s — 60 req/s, ~216k/hour per open tab — against
+  // 0.8/s once the dashboard unmounted.
+  const fetchProfile = useCallback(async (userId: string): Promise<ProfileFetchResult> => {
     const { data: profileData, error } = await supabase
       .from('profiles')
       .select('id, user_id, email, full_name, display_name, avatar_url, total_xp, current_level, current_streak, best_streak, preferred_language, luna_suit_color, luna_visor_tint, luna_patch, has_seen_dashboard_tour')
@@ -86,9 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setProfile(profileData as Profile);
     return 'ok';
-  };
+  }, []);
 
-  const fetchRole = async (userId: string) => {
+  const fetchRole = useCallback(async (userId: string) => {
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
@@ -98,13 +111,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (roleData) {
       setRole(roleData.role as UserRole);
     }
-  };
+  }, []);
 
-  const refreshProfile = async () => {
-    if (user) {
-      await fetchProfile(user.id);
+  // Depend on the id string, not the `user` object: Supabase hands back a new
+  // User object on every token refresh, so keying on the object would hand
+  // consumers a fresh identity roughly hourly for no reason.
+  const userId = user?.id;
+  const refreshProfile = useCallback(async () => {
+    if (userId) {
+      await fetchProfile(userId);
     }
-  };
+  }, [userId, fetchProfile]);
 
   const withTimeout = <T,>(promise: Promise<T>, ms: number = AUTH_INIT_TIMEOUT_MS): Promise<T> => {
     return Promise.race([
@@ -214,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
 
-  const signUp = async (email: string, password: string, selectedRole: UserRole) => {
+  const signUp = useCallback(async (email: string, password: string, selectedRole: UserRole) => {
     const redirectUrl = `${window.location.origin}/`;
 
     const { error } = await supabase.auth.signUp({
@@ -239,9 +256,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // role checks. If signups are succeeding but no role is assigned,
     // verify the trigger exists in Supabase.
     return { error: null };
-  };
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -264,9 +281,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return { error: null };
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       // Coordinate with backend cache invalidation before wiping local credentials
       await apiClient.post('/api/v1/auth/logout', {});
@@ -279,21 +296,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       setRole(null);
     }
-  };
+  }, []);
+
+  // Memoized for the same reason as the callbacks above: a fresh object literal
+  // here re-renders every consumer of useAuth on every AuthProvider render,
+  // which is what gave the loop its engine.
+  const value = useMemo(
+    () => ({ user, session, profile, role, loading, signUp, signIn, signOut, refreshProfile }),
+    [user, session, profile, role, loading, signUp, signIn, signOut, refreshProfile]
+  );
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        session,
-        profile,
-        role,
-        loading,
-        signUp,
-        signIn,
-        signOut,
-        refreshProfile,
-      }}
+      value={value}
     >
       {children}
     </AuthContext.Provider>
