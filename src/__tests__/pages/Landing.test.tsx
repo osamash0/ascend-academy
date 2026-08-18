@@ -36,4 +36,25 @@ describe("Landing page (smoke)", () => {
     renderWithProviders(<Landing />, { initialEntries: ["/"] });
     expect(screen.getAllByRole("button", { name: /sign in/i }).length).toBeGreaterThan(0);
   });
+
+  // M27/M3: the footer used to have 13 dead `href="#"` links, including the
+  // one labelled "Privacy" — leaving the privacy policy and imprint pages
+  // unreachable from the footer. Privacy now points at /datenschutz, and a
+  // real Imprint link was added; every other link that pointed at a page
+  // that doesn't exist in this app (Enterprise, Careers, Blog, API
+  // Reference, Community, About, Contact, Security, Twitter, GitHub) was
+  // removed rather than left dangling.
+  it("wires the footer's legal links and removes the rest of the dead ones", () => {
+    const { container } = renderWithProviders(<Landing />, { initialEntries: ["/"] });
+    const footer = container.querySelector("footer");
+    expect(footer).not.toBeNull();
+
+    const links = Array.from(footer!.querySelectorAll("a"));
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.every((a) => a.getAttribute("href") !== "#")).toBe(true);
+
+    const hrefs = links.map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain("/datenschutz");
+    expect(hrefs).toContain("/impressum");
+  });
 });

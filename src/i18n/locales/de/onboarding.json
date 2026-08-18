@@ -1,4 +1,7 @@
 {
+  "activation": {
+    "badge": "Learnstation"
+  },
   "actions": {
     "back": "Zurück",
     "next": "Weiter",
@@ -34,6 +37,7 @@
       "title": "Dein Studium",
       "subtitle": "Sag uns, wo du studierst, damit wir alles für dich einrichten können.",
       "universityPlaceholder": "Wähle deine Universität…",
+      "typeToSearch": "Tippe, um Universitäten zu suchen…",
       "autoMatched": "Sieht aus, als wärst du an der {{university}}. Aus deiner E-Mail übernommen.",
       "noCatalog": "Wir haben den Studiengangskatalog von {{university}} noch nicht. Sag uns trotzdem deine Hochschule — wir personalisieren, sobald sie verfügbar ist.",
       "institutionPlaceholder": "Deine Hochschule",
