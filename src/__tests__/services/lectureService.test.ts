@@ -5,6 +5,8 @@
  * on the exact PostgREST chain the service uses without hitting the network.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import { server } from "@/test/server";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
 vi.mock("@/integrations/supabase/client", async () => {
@@ -22,9 +24,19 @@ import {
   deleteSlideWithQuestions,
   deleteLecture,
   enhanceSlide,
+  saveExistingLecture,
 } from "@/services/lectureService";
 
-beforeEach(() => supabaseMock.reset());
+const API = "http://api.test/api/v1";
+
+beforeEach(() => {
+  supabaseMock.reset();
+  // saveExistingLecture always fires this fire-and-forget-shaped retry at
+  // the end; give it a default handler so tests don't need to know about it.
+  server.use(
+    http.post(`${API}/localized-content/lectures/:id/retry`, () => HttpResponse.json({})),
+  );
+});
 
 describe("fetchLecture", () => {
   it("returns the lecture when found", async () => {
@@ -101,6 +113,175 @@ describe("insertQuizQuestion / updateQuizQuestion", () => {
     const row = supabaseMock.data["quiz_questions"].rows[0];
     expect(row.question_text).toBe("new");
     expect(row.correct_answer).toBe(1);
+  });
+
+  it("returns the inserted row's id", async () => {
+    const { id } = await insertQuizQuestion({
+      slide_id: "s1",
+      question_text: "Q",
+      options: ["a", "b", "c", "d"],
+      correct_answer: 0,
+    });
+    expect(id).toBe(supabaseMock.data["quiz_questions"].rows[0].id);
+  });
+});
+
+describe("saveExistingLecture", () => {
+  const baseSlide = (overrides: Record<string, unknown> = {}) => ({
+    id: "S1",
+    title: "Original Title",
+    content: "Original content",
+    summary: "Original summary",
+    questions: [{ question: "", options: ["", "", "", ""], correctAnswer: 0 }],
+    ...overrides,
+  });
+
+  const seedLecture = () => {
+    supabaseMock.seed("lectures", [{ id: "L1", title: "Old", description: "Old desc" }]);
+  };
+
+  it("writes exactly one slide PATCH when only that slide's title changed (M4: no write amplification)", async () => {
+    seedLecture();
+    const original = [baseSlide({ id: "S1" }), baseSlide({ id: "S2" }), baseSlide({ id: "S3" })];
+    const edited = [
+      { ...original[0], title: "Edited Title" },
+      original[1],
+      original[2],
+    ];
+
+    const fromSpy = vi.spyOn(supabaseMock, "from");
+    await saveExistingLecture("L1", {
+      title: "Old",
+      description: "Old desc",
+      slides: edited,
+      originalSlides: original,
+    });
+
+    const slideWrites = fromSpy.mock.calls.filter((c) => c[0] === "slides");
+    // Exactly one .from("slides") call for the one changed slide - the two
+    // untouched slides must not be re-written at all.
+    expect(slideWrites).toHaveLength(1);
+  });
+
+  it("issues zero quiz_questions writes when no question changed (M4: no write amplification)", async () => {
+    seedLecture();
+    const original = [
+      baseSlide({ id: "S1", questions: [{ id: "Q1", question: "Q?", options: ["a", "b", "c", "d"], correctAnswer: 1 }] }),
+    ];
+    const edited = [{ ...original[0], title: "New Title" }]; // slide changes, question does not
+
+    const fromSpy = vi.spyOn(supabaseMock, "from");
+    await saveExistingLecture("L1", {
+      title: "Old",
+      description: "Old desc",
+      slides: edited,
+      originalSlides: original,
+    });
+
+    expect(fromSpy.mock.calls.filter((c) => c[0] === "quiz_questions")).toHaveLength(0);
+  });
+
+  it("does not resurrect a slide the user never touched (M4/N1: stale local copy must not overwrite it)", async () => {
+    seedLecture();
+    // The DB currently holds content the user's local `slides` array does
+    // NOT reflect (e.g. a background job updated it after this editor
+    // loaded). The user only edited a *different* slide.
+    supabaseMock.seed("slides", [
+      { id: "S1", lecture_id: "L1", slide_number: 1, title: "Untouched", content_text: "Newer content from elsewhere", summary: "" },
+    ]);
+    const original = [baseSlide({ id: "S1", content: "Original content (stale)" }), baseSlide({ id: "S2" })];
+    const edited = [original[0], { ...original[1], title: "Edited slide 2" }];
+
+    await saveExistingLecture("L1", {
+      title: "Old",
+      description: "Old desc",
+      slides: edited,
+      originalSlides: original,
+    });
+
+    const s1 = supabaseMock.data["slides"].rows.find((r) => r.id === "S1");
+    // Untouched slide's DB row must survive exactly as it was - not
+    // overwritten with the editor's stale local copy.
+    expect(s1?.content_text).toBe("Newer content from elsewhere");
+  });
+
+  it("still writes a slide whose id has no baseline entry (defensive default)", async () => {
+    seedLecture();
+    supabaseMock.seed("slides", [
+      { id: "S1", lecture_id: "L1", slide_number: 1, title: "DB value", content_text: "c", summary: "s" },
+    ]);
+    const edited = [baseSlide({ id: "S1", title: "Brand new to this session" })];
+    await saveExistingLecture("L1", { title: "Old", description: "Old desc", slides: edited, originalSlides: [] });
+    const s1 = supabaseMock.data["slides"].rows.find((r) => r.id === "S1");
+    expect(s1?.title).toBe("Brand new to this session");
+  });
+
+  it("inserts a genuinely new question and skips an unchanged one on the same slide", async () => {
+    seedLecture();
+    const original = [
+      baseSlide({
+        id: "S1",
+        questions: [{ id: "Q1", question: "Old Q", options: ["a", "b", "c", "d"], correctAnswer: 0 }],
+      }),
+    ];
+    const edited = [
+      {
+        ...original[0],
+        questions: [
+          { id: "Q1", question: "Old Q", options: ["a", "b", "c", "d"], correctAnswer: 0 }, // unchanged
+          { question: "New Q", options: ["w", "x", "y", "z"], correctAnswer: 2 }, // new, no id
+        ],
+      },
+    ];
+
+    await saveExistingLecture("L1", {
+      title: "Old",
+      description: "Old desc",
+      slides: edited,
+      originalSlides: original,
+    });
+
+    const questions = supabaseMock.data["quiz_questions"].rows;
+    expect(questions).toHaveLength(1);
+    expect(questions[0].question_text).toBe("New Q");
+  });
+
+  it("updates a question whose content changed", async () => {
+    seedLecture();
+    supabaseMock.seed("quiz_questions", [
+      { id: "Q1", slide_id: "S1", question_text: "Old Q", options: ["a", "b", "c", "d"], correct_answer: 0 },
+    ]);
+    const original = [
+      baseSlide({ id: "S1", questions: [{ id: "Q1", question: "Old Q", options: ["a", "b", "c", "d"], correctAnswer: 0 }] }),
+    ];
+    const edited = [
+      { ...original[0], questions: [{ id: "Q1", question: "Changed Q", options: ["a", "b", "c", "d"], correctAnswer: 0 }] },
+    ];
+
+    await saveExistingLecture("L1", {
+      title: "Old",
+      description: "Old desc",
+      slides: edited,
+      originalSlides: original,
+    });
+
+    expect(supabaseMock.data["quiz_questions"].rows[0].question_text).toBe("Changed Q");
+  });
+
+  it("still inserts brand-new (id-less) slides alongside diffed existing ones", async () => {
+    seedLecture();
+    const original = [baseSlide({ id: "S1" })];
+    const edited = [original[0], { title: "New Slide", content: "c", summary: "s", questions: [] }];
+
+    await saveExistingLecture("L1", {
+      title: "Old",
+      description: "Old desc",
+      slides: edited,
+      originalSlides: original,
+    });
+
+    const titles = supabaseMock.data["slides"].rows.map((r) => r.title);
+    expect(titles).toContain("New Slide");
   });
 });
 

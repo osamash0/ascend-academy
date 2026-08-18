@@ -49,11 +49,22 @@ interface UseLectureSubmitOptions {
   editLectureId?: string | null;
   /** Current stored pdf_url for the edited lecture (kept unless replaced). */
   existingPdfUrl?: string | null;
+  /**
+   * Slides as last loaded/saved this session (edit mode only) — passed
+   * through to {@link saveExistingLecture} so it writes only what actually
+   * changed instead of every slide on every save.
+   */
+  originalSlides?: SlideData[];
+  /**
+   * Called with the just-saved slides after a successful edit-mode save, so
+   * the caller can advance its baseline for the next diff.
+   */
+  onSavedSlides?: (slides: SlideData[]) => void;
 }
 
 
 
-export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode = 'ai', serverLectureId, editLectureId, existingPdfUrl }: UseLectureSubmitOptions) {
+export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode = 'ai', serverLectureId, editLectureId, existingPdfUrl, originalSlides, onSavedSlides }: UseLectureSubmitOptions) {
   const { user, role } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -84,7 +95,8 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
       if (editLectureId) {
         setLoading(true);
         try {
-          await saveExistingLecture(editLectureId, { title, description, slides, pdfFile, existingPdfUrl });
+          await saveExistingLecture(editLectureId, { title, description, slides, originalSlides, pdfFile, existingPdfUrl });
+          onSavedSlides?.(slides);
           try {
             apiClient.post(`/api/v1/concepts/ingest/${editLectureId}`, {}).catch(() => { /* swallow */ });
           } catch (e) {
@@ -313,7 +325,7 @@ export function useLectureSubmit({ slides, title, description, pdfFile, pdfHash,
         setLoading(false);
       }
     },
-    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, serverLectureId, editLectureId, existingPdfUrl, user, navigate, toast, doneDestination]
+    [slides, title, description, pdfFile, pdfHash, courseId, deckQuiz, parsingMode, serverLectureId, editLectureId, existingPdfUrl, originalSlides, onSavedSlides, user, navigate, toast, doneDestination]
   );
 
   return { loading, handleSubmit };

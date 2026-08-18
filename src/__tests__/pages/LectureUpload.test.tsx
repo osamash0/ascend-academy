@@ -1,7 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
+import { server } from "@/test/server";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
+
+const API = "http://api.test/api/v1";
 
 const navigateMock = vi.fn();
 vi.mock("react-router-dom", async (orig) => {
@@ -53,10 +57,18 @@ vi.mock("react-pdf", () => ({
   pdfjs: { GlobalWorkerOptions: { workerSrc: "" }, version: "0" },
 }));
 
+import { Routes, Route } from "react-router-dom";
 import LectureUpload from "@/pages/LectureUpload";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
-beforeEach(() => supabaseMock.reset());
+beforeEach(() => {
+  supabaseMock.reset();
+  server.use(
+    http.post(`${API}/localized-content/lectures/:id/retry`, () => HttpResponse.json({})),
+  );
+});
+
+afterEach(() => cleanup());
 
 describe("LectureUpload page (smoke)", () => {
   it("mounts the Create Lecture header", () => {
@@ -453,5 +465,120 @@ describe("LectureUpload duplicate-PDF flow (integration)", () => {
     expect(navigateMock).not.toHaveBeenCalled();
     // Only the duplicate-check call — no parse-pdf-stream.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+function renderEditor(lectureId: string) {
+  return renderWithProviders(
+    <Routes>
+      <Route path="/professor/lecture/:lectureId" element={<LectureUpload />} />
+    </Routes>,
+    { initialEntries: [`/professor/lecture/${lectureId}`] },
+  );
+}
+
+function seedEditableLecture() {
+  supabaseMock.seed("lectures", [
+    { id: "L1", title: "Existing Lecture", description: "Desc", course_id: null, pdf_url: null, pdf_hash: null },
+  ]);
+  supabaseMock.seed("slides", [
+    { id: "S1", lecture_id: "L1", slide_number: 1, title: "Slide 1", content_text: "Enough content for the AI to work with.", summary: "" },
+  ]);
+  supabaseMock.seed("quiz_questions", []);
+}
+
+describe("LectureUpload edit mode (M4/M5/M12/M13)", () => {
+  it("persists an accepted quiz suggestion immediately, before any Save click (M13)", async () => {
+    seedEditableLecture();
+    renderEditor("L1");
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /quiz suggestions/i })).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: /quiz suggestions/i }));
+
+    await user.click(await screen.findByRole("button", { name: /suggest quiz/i }));
+    await user.click(await screen.findByRole("button", { name: /accept.*add to slide/i }));
+
+    await waitFor(() => {
+      expect(supabaseMock.data["quiz_questions"].rows).toHaveLength(1);
+    });
+    expect(supabaseMock.data["quiz_questions"].rows[0].question_text).toBe("What is 2+2?");
+    expect(supabaseMock.data["quiz_questions"].rows[0].slide_id).toBe("S1");
+  });
+
+  it("shows no unsaved-changes indicator on load, and shows one after an edit (M12)", async () => {
+    seedEditableLecture();
+    renderEditor("L1");
+
+    await waitFor(() => expect(screen.getByDisplayValue("Existing Lecture")).toBeInTheDocument());
+    expect(screen.queryByTestId("unsaved-changes-indicator")).toBeNull();
+
+    const user = userEvent.setup();
+    await user.type(screen.getByDisplayValue("Existing Lecture"), "!");
+
+    await waitFor(() => expect(screen.getByTestId("unsaved-changes-indicator")).toBeInTheDocument());
+  });
+
+  it("registers a beforeunload guard while dirty (M12)", async () => {
+    seedEditableLecture();
+    renderEditor("L1");
+
+    await waitFor(() => expect(screen.getByDisplayValue("Existing Lecture")).toBeInTheDocument());
+    // Let the load-baseline settle (no dirty marker) before checking that a
+    // freshly-loaded, unedited lecture installs no guard.
+    await waitFor(() => expect(screen.queryByTestId("unsaved-changes-indicator")).toBeNull());
+
+    // Clean: no guard on a freshly-loaded, unedited lecture.
+    const cleanEvt = new Event("beforeunload", { cancelable: true });
+    const cleanSpy = vi.spyOn(cleanEvt, "preventDefault");
+    window.dispatchEvent(cleanEvt);
+    expect(cleanSpy).not.toHaveBeenCalled();
+
+    const user = userEvent.setup();
+    await user.type(screen.getByDisplayValue("Existing Lecture"), "!");
+    await waitFor(() => expect(screen.getByTestId("unsaved-changes-indicator")).toBeInTheDocument());
+
+    const dirtyEvt = new Event("beforeunload", { cancelable: true });
+    const dirtySpy = vi.spyOn(dirtyEvt, "preventDefault");
+    window.dispatchEvent(dirtyEvt);
+    expect(dirtySpy).toHaveBeenCalled();
+  });
+
+  it("sticks the action bar below the console header height instead of `top: 0` (M5)", async () => {
+    seedEditableLecture();
+    renderEditor("L1");
+
+    await waitFor(() => expect(screen.getByDisplayValue("Existing Lecture")).toBeInTheDocument());
+    const actionBar = screen.getByTestId("lecture-editor-action-bar");
+    // jsdom's cssstyle rejects `var()` outright as an invalid <length> for
+    // `top` (real browsers accept var() for any property) and drops it
+    // entirely rather than preserving it as raw text, so neither
+    // `.style.top` nor `getAttribute("style")` reflects it here. What jsdom
+    // *can* confirm: the old hardcoded `top-0` class - the actual bug, which
+    // put this bar at the same sticky offset as the console header - is gone.
+    expect(actionBar).not.toHaveClass("top-0");
+    expect(actionBar).toHaveClass("sticky");
+  });
+
+  it("does not overwrite a slide's DB content that changed after this editor loaded, when saving an unrelated edit (M4/N1 resurrection guard)", async () => {
+    seedEditableLecture();
+    renderEditor("L1");
+    await waitFor(() => expect(screen.getByDisplayValue("Existing Lecture")).toBeInTheDocument());
+
+    // Something else (a background enhancement job, another session, ...)
+    // updated this slide's content in the DB after the editor already
+    // loaded its own now-stale local copy.
+    supabaseMock.data["slides"].rows[0].content_text = "Updated by a background job after load.";
+
+    const user = userEvent.setup();
+    // Only the lecture title changes locally - this slide is never touched.
+    await user.type(screen.getByDisplayValue("Existing Lecture"), "!");
+    await user.click(screen.getByRole("button", { name: /save lecture/i }));
+
+    await waitFor(() => expect(screen.queryByTestId("unsaved-changes-indicator")).toBeNull());
+
+    // The old unconditional-write behavior would have PATCHed every slide
+    // with its stale local content, clobbering this. It must survive.
+    expect(supabaseMock.data["slides"].rows[0].content_text).toBe("Updated by a background job after load.");
   });
 });

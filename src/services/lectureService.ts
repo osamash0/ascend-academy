@@ -375,7 +375,7 @@ export interface QuizQuestionInput {
   };
 }
 
-export async function insertQuizQuestion(q: QuizQuestionInput): Promise<void> {
+export async function insertQuizQuestion(q: QuizQuestionInput): Promise<{ id: string }> {
   // Trim the metadata down to only its populated keys before INSERT so we
   // don't pollute the column with explicit "undefined"s that PostgREST would
   // serialize as nulls.
@@ -396,8 +396,9 @@ export async function insertQuizQuestion(q: QuizQuestionInput): Promise<void> {
   if (cleanedMetadata && Object.keys(cleanedMetadata).length > 0) {
     payload.metadata = cleanedMetadata;
   }
-  const { error } = await supabase.from('quiz_questions').insert(payload as any);
+  const { data, error } = await supabase.from('quiz_questions').insert(payload as any).select('id').single();
   if (error) throw error;
+  return { id: (data as { id: string }).id };
 }
 
 export async function updateQuizQuestion(
@@ -514,10 +515,25 @@ export interface SaveExistingLectureInput {
   title: string;
   description: string;
   slides: SlideData[];
+  /**
+   * Slides exactly as last loaded from (or saved to) the database, in this
+   * editing session. Used to write only what the professor actually changed
+   * locally — see the write-amplification note below.
+   */
+  originalSlides?: SlideData[];
   /** New PDF to replace the current one (optional). */
   pdfFile?: File | null;
   /** Current stored pdf_url; kept when no replacement is uploaded. */
   existingPdfUrl?: string | null;
+}
+
+function questionsEqual(a: SlideData['questions'][number], b: SlideData['questions'][number]): boolean {
+  return (
+    a.question === b.question &&
+    a.correctAnswer === b.correctAnswer &&
+    a.options.length === b.options.length &&
+    a.options.every((o, i) => o === b.options[i])
+  );
 }
 
 /**
@@ -526,10 +542,21 @@ export interface SaveExistingLectureInput {
  * order) and its questions — updating rows that carry an id, inserting the
  * rest. Ported from the legacy LectureEdit.handleSave so the unified editor
  * shares one save path. Throws on failure.
+ *
+ * Only slides/questions that actually differ from `originalSlides` (the
+ * snapshot as loaded/last-saved this session) are written. This isn't just
+ * an efficiency fix: unconditionally rewriting every slide on every save
+ * meant that any slide the professor never touched — including one a
+ * background job (e.g. slide enhancement) updated after this editor
+ * loaded — got its LOCAL, possibly-stale copy blasted back over the
+ * database, silently reverting work that had nothing to do with this save.
+ * Diffing against the load-time snapshot means a slide is only written if
+ * the professor actually changed it in this session, regardless of what
+ * else may have changed server-side in the meantime.
  */
 export async function saveExistingLecture(
   lectureId: string,
-  { title, description, slides, pdfFile, existingPdfUrl }: SaveExistingLectureInput,
+  { title, description, slides, originalSlides = [], pdfFile, existingPdfUrl }: SaveExistingLectureInput,
 ): Promise<void> {
   let finalPdfUrl = existingPdfUrl ?? null;
 
@@ -555,23 +582,30 @@ export async function saveExistingLecture(
     .eq('id', lectureId);
   if (lErr) throw lErr;
 
+  const originalById = new Map(originalSlides.filter(s => s.id).map(s => [s.id as string, s]));
+  const originalIndexById = new Map(originalSlides.map((s, idx) => [s.id, idx]));
+
   for (let i = 0; i < slides.length; i++) {
     const s = slides[i];
     if (s.id) {
-      const { error: sErr } = await supabase
-        .from('slides')
-        .update({
-          slide_number: i + 1,
-          title: s.title || `Slide ${i + 1}`,
-          content_text: s.content,
-          summary: s.summary,
-        })
-        .eq('id', s.id);
-      if (sErr) throw sErr;
+      const original = originalById.get(s.id);
+      const effectiveTitle = s.title || `Slide ${i + 1}`;
+      const patch: Record<string, unknown> = {};
+      if (!original || original.title !== s.title) patch.title = effectiveTitle;
+      if (!original || original.content !== s.content) patch.content_text = s.content;
+      if (!original || original.summary !== s.summary) patch.summary = s.summary;
+      if (!original || originalIndexById.get(s.id) !== i) patch.slide_number = i + 1;
+
+      if (Object.keys(patch).length > 0) {
+        const { error: sErr } = await supabase.from('slides').update(patch).eq('id', s.id);
+        if (sErr) throw sErr;
+      }
 
       for (const q of s.questions) {
         if (!q.question.trim()) continue;
         if (q.id) {
+          const originalQ = original?.questions.find(oq => oq.id === q.id);
+          if (originalQ && questionsEqual(originalQ, q)) continue;
           await updateQuizQuestion(q.id, {
             question_text: q.question,
             options: q.options,

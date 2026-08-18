@@ -29,8 +29,10 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 const insertQuizQuestionMock = vi.fn().mockResolvedValue(undefined);
+const saveExistingLectureMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/services/lectureService", () => ({
   insertQuizQuestion: (q: unknown) => insertQuizQuestionMock(q),
+  saveExistingLecture: (id: string, input: unknown) => saveExistingLectureMock(id, input),
 }));
 
 import { useLectureSubmit } from "@/hooks/useLectureSubmit";
@@ -39,6 +41,7 @@ import type { SlideData, DeckQuizItem } from "@/types/lectureUpload";
 beforeEach(() => {
   supabaseMock.reset();
   insertQuizQuestionMock.mockClear();
+  saveExistingLectureMock.mockClear().mockResolvedValue(undefined);
   navigateMock.mockClear();
 });
 
@@ -125,5 +128,78 @@ describe("useLectureSubmit deck-quiz persistence", () => {
       expect(navigateMock).toHaveBeenCalled();
     });
     expect(insertQuizQuestionMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("useLectureSubmit edit-mode save (M4)", () => {
+  it("passes originalSlides through to saveExistingLecture so it can diff", async () => {
+    const original: SlideData[] = [{ id: "S1", title: "Old", content: "c", summary: "", questions: [] }];
+    const slides: SlideData[] = [{ id: "S1", title: "New", content: "c", summary: "", questions: [] }];
+
+    const { result } = renderHook(() =>
+      useLectureSubmit({
+        slides,
+        title: "T",
+        description: "",
+        pdfFile: null,
+        editLectureId: "L1",
+        originalSlides: original,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    await waitFor(() => expect(saveExistingLectureMock).toHaveBeenCalled());
+    const [id, input] = saveExistingLectureMock.mock.calls[0];
+    expect(id).toBe("L1");
+    expect(input.originalSlides).toBe(original);
+    expect(input.slides).toBe(slides);
+  });
+
+  it("calls onSavedSlides with the just-saved slides after a successful edit save", async () => {
+    const onSavedSlides = vi.fn();
+    const slides: SlideData[] = [{ id: "S1", title: "New", content: "c", summary: "", questions: [] }];
+
+    const { result } = renderHook(() =>
+      useLectureSubmit({
+        slides,
+        title: "T",
+        description: "",
+        pdfFile: null,
+        editLectureId: "L1",
+        onSavedSlides,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    await waitFor(() => expect(onSavedSlides).toHaveBeenCalledWith(slides));
+  });
+
+  it("does not call onSavedSlides when the save fails", async () => {
+    saveExistingLectureMock.mockRejectedValueOnce(new Error("boom"));
+    const onSavedSlides = vi.fn();
+    const slides: SlideData[] = [{ id: "S1", title: "New", content: "c", summary: "", questions: [] }];
+
+    const { result } = renderHook(() =>
+      useLectureSubmit({
+        slides,
+        title: "T",
+        description: "",
+        pdfFile: null,
+        editLectureId: "L1",
+        onSavedSlides,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(onSavedSlides).not.toHaveBeenCalled();
   });
 });
