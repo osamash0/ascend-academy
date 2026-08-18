@@ -66,7 +66,7 @@ const SAMPLE_QUESTIONS: PracticeSheetQuestion[] = [
   id,
   sheet_id: 'demo',
   order_index: i,
-  type: 'mc',
+  type: 'multiple_choice' as const,
   prompt,
   choices: null,
   correct_answer: answer,
