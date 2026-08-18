@@ -45,6 +45,7 @@
   "lectureCount_other": "{{count}} Vorlesungen",
   "recentAchievements": "Aktuelle Erfolge",
   "viewAll": "Alle anzeigen",
+  "viewCourse": "Kurs ansehen",
   "browseCourses": {
     "title": "Kurse durchsuchen",
     "description": "Finde weitere Kurse und schreib dich ein"

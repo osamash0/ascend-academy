@@ -45,6 +45,7 @@
   "lectureCount_other": "{{count}} lectures",
   "recentAchievements": "Recent Achievements",
   "viewAll": "View all",
+  "viewCourse": "View course",
   "browseCourses": {
     "title": "Browse courses",
     "description": "Find and enroll in more courses"
