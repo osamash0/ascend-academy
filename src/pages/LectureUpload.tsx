@@ -40,6 +40,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 import { Button } from '@/components/ui/button';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -391,7 +392,14 @@ export default function LectureUpload() {
   }, [editLectureId]);
 
   /* ── UI state ──────────────────────────────────────────────────────────── */
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // M52: below md the two-pane layout (slide list + editor) is too cramped to
+  // use, so the slide list starts collapsed and opens as an overlay drawer
+  // instead of a permanent side-by-side pane. Lazily read the viewport once
+  // so the very first paint on mobile is already the single-pane view.
+  const isMobile = useIsMobile();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768,
+  );
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [currentTab, setCurrentTab] = useState<'editor' | 'quizzes' | 'lecture'>('editor');
 
@@ -1328,7 +1336,16 @@ export default function LectureUpload() {
       </div>
 
       {/* ═══════ MAIN LAYOUT ═══════ */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* On mobile the slide list opens as an overlay drawer rather than a
+            permanent pane, so a tap outside it closes it again. */}
+        {isMobile && !sidebarCollapsed && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={() => setSidebarCollapsed(true)}
+            aria-hidden="true"
+          />
+        )}
         {/* ─── SIDEBAR: Slide Navigator ─── */}
         <AnimatePresence mode="popLayout">
           {!sidebarCollapsed && (
@@ -1337,7 +1354,10 @@ export default function LectureUpload() {
               animate={{ width: 280, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="border-r border-border bg-muted/30 flex flex-col shrink-0 overflow-hidden"
+              className={cn(
+                "border-r border-border bg-muted/30 flex flex-col overflow-hidden",
+                isMobile ? "fixed inset-y-0 left-0 z-50 shadow-2xl" : "shrink-0",
+              )}
             >
               {/* Sidebar Header */}
               <div className="p-4 border-b border-border">
@@ -1494,11 +1514,17 @@ export default function LectureUpload() {
           )}
         </AnimatePresence>
 
-        {/* Sidebar Toggle */}
+        {/* Sidebar Toggle. On mobile the sidebar is a fixed overlay (out of
+            flow), so this stays pinned at the left edge instead of sliding
+            over with it — it needs to sit above the overlay/backdrop to
+            remain the way to close it again. */}
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-6 h-12 bg-card border border-border rounded-r-lg flex items-center justify-center shadow-md hover:bg-accent transition-colors"
-          style={{ marginLeft: sidebarCollapsed ? 0 : 280 }}
+          className={cn(
+            "absolute left-0 top-1/2 -translate-y-1/2 w-6 h-12 bg-card border border-border rounded-r-lg flex items-center justify-center shadow-md hover:bg-accent transition-colors",
+            isMobile ? "z-[60]" : "z-20",
+          )}
+          style={{ marginLeft: !isMobile && !sidebarCollapsed ? 280 : 0 }}
           aria-label={sidebarCollapsed ? t('upload:chrome.expandSidebar', { defaultValue: 'Expand sidebar' }) : t('upload:chrome.collapseSidebar', { defaultValue: 'Collapse sidebar' })}
         >
           {sidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}

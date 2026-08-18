@@ -14,6 +14,7 @@ import { AssignmentsPanel } from '@/features/assignments/AssignmentsPanel';
 import { KnowledgeMapCard } from '@/components/KnowledgeMapCard';
 import { OptimalScheduleCard } from '@/components/OptimalScheduleCard';
 import { NudgeBanner } from '@/components/NudgeBanner';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { splitLectureTitle } from '@/lib/utils';
 import { topicIcon } from '@/lib/topicIcon';
 import {
@@ -51,6 +52,7 @@ import { LunaAstronaut } from '../../learnstation-luna';
 
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
+  const isMobile = useIsMobile();
   const gamification = useGamification();
   const navigate = useNavigate();
   const { t } = useTranslation(['dashboard']);
@@ -303,8 +305,13 @@ export default function StudentDashboard() {
     >
       {/* ── Diegetic first screen ── */}
       <section className="relative flex min-h-[calc(100svh-4rem)] flex-col">
-        {/* Calm friends glance — top-right, never competes with the hero. */}
-        <div className="absolute right-6 top-4 z-20 lg:right-12">
+        {/* Calm friends glance. On mobile it flows in-line above the greeting
+            so it can never overlap the hero title when the section is short
+            on vertical room; on larger screens it floats top-right as before,
+            since there's always enough height there for it to stay out of
+            the way. (JS-driven rather than a responsive Tailwind prefix so we
+            only ever use already-compiled utility classes here.) */}
+        <div className={isMobile ? "flex justify-end px-6 pt-4" : "absolute right-6 top-4 z-20 lg:right-12"}>
           <DashboardFriendsWidget />
         </div>
         <div className="px-6 lg:px-12 pt-4 space-y-3">
