@@ -78,7 +78,7 @@ export function HealthGauges({ info, loading }: HealthGaugesProps) {
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-2 text-slate-300 font-medium">
             <Database className="w-4 h-4 text-purple-400" />
-            <span>DB Connections</span>
+            <span>DB Pool Connections</span>
           </div>
           <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${getStatusColor(health.database)}`}>
             {health.database}

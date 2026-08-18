@@ -34,13 +34,22 @@ class MockConnection:
 
     async def fetchval(self, query, *args):
         if "pg_stat_activity" in query:
-            return 5
+            # Deliberately much larger than the pool's own size — R37: the
+            # server-wide pg_stat_activity count must NOT be what the
+            # endpoint reports, so this value should never surface in the
+            # response even though this mock still answers the query if
+            # something calls it.
+            return 47
         return 1
 
 
 class MockPool:
-    def __init__(self, conn):
+    def __init__(self, conn, size=8, idle=3, min_size=5, max_size=20):
         self.conn = conn
+        self._size = size
+        self._idle = idle
+        self._min_size = min_size
+        self._max_size = max_size
 
     def acquire(self):
         class AsyncContext:
@@ -51,6 +60,21 @@ class MockPool:
             async def __aexit__(self, exc_type, exc_val, exc_tb):
                 pass
         return AsyncContext(self.conn)
+
+    # R37: mirror the subset of asyncpg.Pool's introspection API that
+    # get_deployment_info now reads (checked-out connections + real min/max),
+    # instead of the server-wide `pg_stat_activity` count it used to query.
+    def get_size(self):
+        return self._size
+
+    def get_idle_size(self):
+        return self._idle
+
+    def get_min_size(self):
+        return self._min_size
+
+    def get_max_size(self):
+        return self._max_size
 
 
 @pytest.fixture
@@ -246,4 +270,17 @@ def test_get_deployment_info(app, patch_admin_deps, admin_user):
     body = r.json()
     assert body["success"] is True
     assert body["data"]["health"]["database"] == "healthy"
+
+    # R37: `database_connections` must be the pool's own checked-out count
+    # (get_size() - get_idle_size() == 8 - 3 == 5), never the server-wide
+    # `pg_stat_activity` count (mocked to 47 above) which includes every
+    # other client on the same Postgres instance and is meaningless compared
+    # to this app's own pool max.
     assert body["data"]["health"]["database_connections"] == 5
+    assert body["data"]["health"]["database_connections"] != 47
+
+    # DB_POOL_MIN/MAX must reflect the pool's real bounds (asyncpg's own
+    # get_min_size()/get_max_size()), not a hand-duplicated literal that can
+    # drift from what the pool was actually created with.
+    assert body["data"]["environment"]["DB_POOL_MIN"] == "5"
+    assert body["data"]["environment"]["DB_POOL_MAX"] == "20"

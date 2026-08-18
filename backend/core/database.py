@@ -150,6 +150,12 @@ def get_client(use_admin: bool = False) -> Client:
 DB_URL: Optional[str] = os.environ.get("DATABASE_URL")
 db_pool: Optional[asyncpg.Pool] = None
 
+# Single source of truth for the pool's min/max size, so callers that report
+# on it (e.g. the admin deployment-info endpoint) don't hand-duplicate these
+# as separate literals that can drift from what the pool was actually built with.
+DB_POOL_MIN_SIZE = 5
+DB_POOL_MAX_SIZE = 20
+
 async def init_db_pool():
     """Initialize the asyncpg connection pool."""
     global db_pool
@@ -159,8 +165,8 @@ async def init_db_pool():
     try:
         db_pool = await asyncpg.create_pool(
             DB_URL,
-            min_size=5,
-            max_size=20,
+            min_size=DB_POOL_MIN_SIZE,
+            max_size=DB_POOL_MAX_SIZE,
             max_queries=1000,
             max_inactive_connection_lifetime=300,
             statement_cache_size=0,  # required for pgbouncer transaction-mode pooling
