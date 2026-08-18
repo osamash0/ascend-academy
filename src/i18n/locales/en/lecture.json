@@ -39,6 +39,11 @@
     "accuracy": "Accuracy: {{percent}}%",
     "continueButton": "Continue"
   },
+  "pdf": {
+    "loadErrorTitle": "Couldn't load the source PDF",
+    "loadErrorDescription": "This can happen when the file host is briefly unavailable. Try again.",
+    "stillLoading": "Still loading… this can take a moment"
+  },
   "chrome": {
     "reviewMissed": "Review missed questions",
     "reviewProgress": "{{current}} of {{total}} · second attempt",

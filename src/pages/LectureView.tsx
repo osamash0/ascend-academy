@@ -77,6 +77,11 @@ export default function LectureView() {
 
   const [lecture, setLecture] = useState<Lecture | null>(null);
   const [resolvedPdfUrl, setResolvedPdfUrl] = useState<string | null>(null);
+  // M22: distinguishes "this lecture genuinely has no PDF" (pdf_url is empty,
+  // resolvedPdfUrl stays null, no error) from "we have a pdf_url but failed
+  // to resolve/refresh a signed URL for it after retries" -- the latter needs
+  // an error state with a retry affordance, not a silently-vanishing panel.
+  const [pdfResolveFailed, setPdfResolveFailed] = useState(false);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [showQuiz, setShowQuiz] = useState(false);
@@ -402,6 +407,33 @@ export default function LectureView() {
   }, [lectureId, currentSlideIndex, slides.length, navigate, location.search]);
 
 
+  // M22: resolves (or re-resolves) the signed PDF URL, tracking success/failure
+  // separately from "no PDF at all". `forceRefresh` bypasses the sessionStorage
+  // cache -- used for a manual retry after the panel itself failed to load the
+  // (previously "successfully" resolved) URL, since re-signing the same cached
+  // token would just fail the same way again.
+  const loadPdfUrl = useCallback((rawPdfUrl: string | null | undefined, opts?: { forceRefresh?: boolean }) => {
+    if (!rawPdfUrl) {
+      setResolvedPdfUrl(null);
+      setPdfResolveFailed(false);
+      return;
+    }
+    setPdfResolveFailed(false);
+    resolvePdfUrl(rawPdfUrl, opts)
+      .then((url) => {
+        setResolvedPdfUrl(url);
+        setPdfResolveFailed(url === null);
+      })
+      .catch(() => {
+        setResolvedPdfUrl(null);
+        setPdfResolveFailed(true);
+      });
+  }, []);
+
+  const handlePdfRetry = useCallback(() => {
+    loadPdfUrl(lecture?.pdf_url, { forceRefresh: true });
+  }, [lecture?.pdf_url, loadPdfUrl]);
+
   const fetchLectureData = async () => {
     setLoading(true);
     setLoadError(false);
@@ -441,8 +473,11 @@ export default function LectureView() {
       setLecture(lectureData);
 
     // Resolve the stored pdf_url (path or legacy public URL) to an authenticated
-    // signed URL so the private bucket is accessible in the browser.
-    resolvePdfUrl(lectureData.pdf_url).then(setResolvedPdfUrl).catch(() => setResolvedPdfUrl(null));
+    // signed URL so the private bucket is accessible in the browser. Retries
+    // transient (5xx) signing failures internally; loadPdfUrl tracks whether
+    // it ultimately gave up so the UI can show a retry affordance instead of
+    // silently rendering as "no PDF".
+    loadPdfUrl(lectureData.pdf_url);
 
     // The bundle is revision-atomic: titles, body text, and quizzes all use
     // the same preferred-language snapshot.
@@ -1213,6 +1248,8 @@ export default function LectureView() {
                       isFirst={currentSlideIndex === 0}
                       isLast={currentSlideIndex === slides.length - 1}
                       pdfUrl={resolvedPdfUrl}
+                      pdfLoadFailed={pdfResolveFailed}
+                      onPdfRetry={handlePdfRetry}
                       pageNumber={currentSlide.slide_number}
                       onConfidenceRate={async (rating) => {
                         if (!user || !currentSlide) return;
