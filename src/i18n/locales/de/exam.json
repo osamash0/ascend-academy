@@ -7,7 +7,8 @@
     "start": "Prüfung starten",
     "starting": "Deine Prüfung wird erstellt…",
     "notEnoughQuestions": "Dieser Kurs hat noch nicht genug Quizfragen für eine Probeprüfung.",
-    "rateLimited": "Du hast zuletzt schon einige Prüfungen erstellt — versuch es später erneut."
+    "rateLimited": "Du hast zuletzt schon einige Prüfungen erstellt — versuch es später erneut.",
+    "failed": "Deine Prüfung konnte nicht gestartet werden. Bitte versuche es erneut."
   },
   "runner": {
     "loading": "Deine Prüfung wird geladen…",
@@ -26,7 +27,12 @@
     "expiredWarning": "Die Zeit ist um — gib jetzt ab, bevor die Kulanzzeit endet.",
     "submitting": "Wird abgegeben…",
     "goToQuestion": "Zu Frage {{n}} springen",
-    "submitFailed": "Deine Prüfung konnte nicht abgegeben werden. Bitte versuche es erneut."
+    "submitFailed": "Deine Prüfung konnte nicht abgegeben werden. Bitte versuche es erneut.",
+    "answerSaveFailed": "Deine Antwort konnte nicht gespeichert werden. Prüfe deine Verbindung und versuche es erneut.",
+    "alreadySubmitted": "Diese Prüfung wurde bereits abgegeben — deine Antworten können nicht mehr geändert werden.",
+    "loadErrorTitle": "Deine Prüfung konnte nicht geladen werden",
+    "loadErrorSubtitle": "Beim Erreichen des Servers ist etwas schiefgelaufen. Dein Fortschritt ist sicher — versuche es erneut.",
+    "retry": "Erneut versuchen"
   },
   "report": {
     "title": "Prüfungsergebnis",

@@ -1,14 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Clock, Send, BrainCircuit, Rocket } from 'lucide-react';
-import { useGenerateExam, useExamAttempt, useSaveExamAnswer, useSubmitExam } from '@/features/student/hooks/useExamMode';
+import { AlertTriangle, ChevronLeft, ChevronRight, Clock, RefreshCw, Send, BrainCircuit, Rocket } from 'lucide-react';
+import { useGenerateExam, useExamAttempt, useSaveExamAnswer, useSubmitExam, getExamErrorMessage } from '@/features/student/hooks/useExamMode';
 import { DepthScene } from '@/components/console';
 import { toast } from 'sonner';
 import { PixelSpark, LunaLoader } from '../../learnstation-luna';
 import { useAuth } from '@/lib/auth';
+import { StudentRoutes } from '@/lib/routes';
 import { recordOnboardingActivation, recordOnboardingEvent } from '@/services/onboardingService';
+
+// Must match backend/api/v1/exams.py's GRACE_SECONDS — the server accepts
+// (and grades) a submission up to this many seconds after time_limit_s and
+// merely flags it `expired`; it never rejects a late submit. The client
+// mirrors the same deadline purely to know when to auto-submit, not to
+// enforce anything the server doesn't already enforce itself.
+const GRACE_SECONDS = 30;
 
 // ── Configuration Screen ──────────────────────────────────────────────────
 export function MockExamConfig() {
@@ -28,7 +36,7 @@ export function MockExamConfig() {
       navigate(`/exam/take/${res.exam_id}`);
     } catch (err: unknown) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : t('generate.notEnoughQuestions'));
+      toast.error(getExamErrorMessage(err, t, 'generate'));
     }
   };
 
@@ -99,7 +107,14 @@ export function MockExamTake() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: exam, isLoading } = useExamAttempt(examId);
+  // R9: don't destructure just `isError` — react-query also has an
+  // `isPaused` state (fetchStatus: 'paused') when the browser reports
+  // itself offline mid-retry: `isLoading` is false, `isError` is false, and
+  // `data` stays undefined, exactly like a normal error, but the query is
+  // just waiting for connectivity rather than having failed outright. An
+  // offline refresh mid-exam hits this, not `isError` — both need the same
+  // error/retry UI, so the render check below is `isError || isPaused`.
+  const { data: exam, isLoading, isError, isPaused, refetch } = useExamAttempt(examId);
   const saveAnswer = useSaveExamAnswer(examId || '');
   const submitExam = useSubmitExam(examId || '');
 
@@ -107,30 +122,102 @@ export function MockExamTake() {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  // R32: only hydrate local `answers` from the server once per attempt (on
+  // first load, or when navigating to a different exam_id) — never again
+  // after that. Local state is already the source of truth for what the
+  // student picked (set synchronously on click, before the autosave POST
+  // even fires); re-hydrating from any later background refetch risked
+  // reverting a newer local selection back to a stale server snapshot.
+  const hydratedExamIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (exam && exam.answers) {
-      setAnswers(exam.answers);
+    if (exam && exam.exam_id && hydratedExamIdRef.current !== exam.exam_id) {
+      setAnswers(exam.answers || {});
+      hydratedExamIdRef.current = exam.exam_id;
     }
   }, [exam]);
 
-  // Soft Timer
+  // Latest answers, readable from the timer interval below without
+  // recreating the interval on every keystroke/click.
+  const answersRef = useRef(answers);
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  const autoSubmitTriggeredRef = useRef(false);
+
+  // Soft Timer — also owns auto-submit once the grace deadline passes.
   useEffect(() => {
     if (!exam || exam.submitted_at) return;
-    
+
     // Calculate elapsed based on started_at to be resilient to reloads
     const started = new Date(exam.started_at).getTime();
-    const tick = () => setElapsedSeconds(Math.floor((Date.now() - started) / 1000));
+    const deadlineMs = started + (exam.time_limit_s + GRACE_SECONDS) * 1000;
+
+    const tick = () => {
+      setElapsedSeconds(Math.floor((Date.now() - started) / 1000));
+
+      // R30: the backend never rejects a late submit — submit_exam() in
+      // backend/api/v1/exams.py grades whatever was sent and just flags
+      // `expired: true`. So once the grace deadline passes, auto-submitting
+      // whatever's been answered so far is safe and matches what the
+      // backend already does, instead of leaving the exam stuck open with
+      // no countdown and no way for the student to know time is long gone.
+      if (Date.now() >= deadlineMs && !autoSubmitTriggeredRef.current) {
+        autoSubmitTriggeredRef.current = true;
+        void submitExam
+          .mutateAsync({ answers: answersRef.current })
+          .then(() => navigate(`/exam/report/${exam.exam_id}`))
+          .catch((err: unknown) => {
+            console.error('Auto-submit at expiry failed', err);
+            toast.error(getExamErrorMessage(err, t, 'submit'));
+          });
+      }
+    };
 
     tick();
     const interval = setInterval(tick, 1000);
-    
+
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exam]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <LunaLoader type="pixel-dash" size={72} />
+      </div>
+    );
+  }
+
+  // R9: a failed attempt fetch (403/404/500, or an offline refresh mid-exam)
+  // used to fall straight through to `!exam || !exam.questions` returning
+  // `null` — a blank page inside the console shell, no message, no retry,
+  // no way back except manual navigation. Give it a real error state.
+  if (isError || (isPaused && !exam)) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-center px-6">
+        <div className="glass-card max-w-md w-full p-8 rounded-[32px] border border-white/10 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 flex items-center justify-center mx-auto mb-5 text-rose-400">
+            <AlertTriangle className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-black text-foreground mb-2">{t('runner.loadErrorTitle')}</h2>
+          <p className="text-sm text-muted-foreground mb-8">{t('runner.loadErrorSubtitle')}</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => refetch()}
+              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-black text-sm tracking-widest uppercase hover:scale-105 active:scale-95 transition-all shadow-glow-primary"
+            >
+              <RefreshCw className="w-4 h-4" />
+              {t('runner.retry')}
+            </button>
+            <button
+              onClick={() => navigate(StudentRoutes.HOME)}
+              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-muted-foreground font-bold text-sm tracking-wider uppercase hover:bg-white/10 hover:text-foreground transition-all"
+            >
+              {t('report.backToDashboard')}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -148,8 +235,16 @@ export function MockExamTake() {
 
   const questions = exam.questions;
   const currentQ = questions[currentIndex];
-  
+
+  const timeLimit = exam.time_limit_s;
+  const isOverTime = elapsedSeconds > timeLimit;
+  const isInGracePeriod = isOverTime && elapsedSeconds <= timeLimit + GRACE_SECONDS;
+
   const handleOptionSelect = (optIndex: number) => {
+    // Defensive: the timer effect above auto-submits once the grace
+    // deadline passes, but there's up to a ~1s window each tick — don't let
+    // a click register a change after time is truly up.
+    if (elapsedSeconds > timeLimit + GRACE_SECONDS) return;
     const newAnswers = { ...answers, [currentQ.id]: optIndex };
     setAnswers(newAnswers);
     saveAnswer.mutate({ question_id: currentQ.id, selected: optIndex });
@@ -183,7 +278,7 @@ export function MockExamTake() {
         navigate(`/exam/report/${exam.exam_id}`);
       } catch (err: unknown) {
         console.error("Submit failed", err);
-        toast.error(err instanceof Error ? err.message : t('runner.submitFailed'));
+        toast.error(getExamErrorMessage(err, t, 'submit'));
       }
     }
   };
@@ -194,8 +289,12 @@ export function MockExamTake() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const timeLimit = exam.time_limit_s;
-  const isOverTime = elapsedSeconds > timeLimit;
+  // R30: show time REMAINING (timeLimit - elapsed), not elapsed — clamped
+  // to 0 so it never prints a negative value once time is used up. The
+  // underlying `elapsedSeconds` state itself is untouched (still recomputed
+  // from the server's `started_at` every tick, so it stays correct across
+  // reloads/backgrounding) — only what's displayed changes here.
+  const remainingSeconds = Math.max(timeLimit - elapsedSeconds, 0);
   const progressPercent = ((currentIndex + 1) / questions.length) * 100;
 
   return (
@@ -217,17 +316,29 @@ export function MockExamTake() {
             </div>
           </div>
           
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${
-            isOverTime 
-              ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.2)]' 
-              : 'bg-white/5 border-white/10 text-muted-foreground'
-          }`}>
+          <div
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${
+              isOverTime
+                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.2)]'
+                : 'bg-white/5 border-white/10 text-muted-foreground'
+            }`}
+            title={t('runner.timeRemaining')}
+          >
             <Clock className={`w-4 h-4 ${isOverTime ? 'animate-pulse' : ''}`} />
+            <span className="sr-only">{t('runner.timeRemaining')}</span>
             <span className="font-mono text-sm font-bold tracking-wider">
-              {formatTime(elapsedSeconds)}
+              {formatTime(remainingSeconds)}
             </span>
           </div>
         </div>
+
+        {/* Time's up / grace-period warning */}
+        {isInGracePeriod && (
+          <div className="mb-8 flex items-center gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-3 text-rose-300 text-sm font-bold">
+            <Clock className="w-4 h-4 shrink-0 animate-pulse" />
+            {t('runner.expiredWarning')}
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mb-12">
