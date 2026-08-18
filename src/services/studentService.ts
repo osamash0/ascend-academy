@@ -4,6 +4,7 @@
  * of importing supabase themselves.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { listCourses } from '@/services/coursesService';
 import type { Lecture, StudentProgress, Achievement, CourseVisit, LectureVisit, CourseSummary } from '@/types/domain';
 
 export interface StudentDashboardData {
@@ -58,14 +59,22 @@ export async function fetchStudentCourseVisits(userId: string) {
   return data || [];
 }
 
+/**
+ * Courses the caller can actually see: their own (if they created any) plus
+ * anything they're enrolled in via `course_enrollments` or an assignment.
+ * This goes through the backend `/api/courses` endpoint rather than a raw
+ * Supabase select — `courses` SELECT policies are permissive and OR
+ * together, so an unscoped client-side select returns every published
+ * course platform-wide regardless of enrollment. The endpoint applies its
+ * own explicit enrollment filter on top of RLS for exactly this reason.
+ */
 export async function fetchStudentCourses() {
-  const { data, error } = await (supabase as any)
-    .from('courses')
-    .select('id, professor_id, title, color, description')
-    .order('created_at', { ascending: false })
-    .limit(100);
-  if (error) console.error('Error fetching courses:', error);
-  return data || [];
+  try {
+    return await listCourses();
+  } catch (error) {
+    console.error('Error fetching courses:', error);
+    return [];
+  }
 }
 
 export async function fetchStudentDashboard(userId: string): Promise<StudentDashboardData> {

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import { server } from "@/test/server";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
 vi.mock("@/integrations/supabase/client", async () => {
@@ -8,6 +10,7 @@ vi.mock("@/integrations/supabase/client", async () => {
 
 import {
   fetchStudentDashboard,
+  fetchStudentCourses,
   fetchLectureProgress,
   upsertLectureProgress,
   awardAchievement,
@@ -18,7 +21,52 @@ import {
   deleteAccountData,
 } from "@/services/studentService";
 
+const API = "http://api.test/api/v1";
+
 beforeEach(() => supabaseMock.reset());
+
+describe("fetchStudentCourses", () => {
+  it("returns only what the enrollment-scoped endpoint reports, not every published course", async () => {
+    // F8 regression: this used to be a raw, unfiltered `courses` select, so
+    // a student with zero enrollments saw every published course platform-
+    // wide. Seed the raw table with courses the caller has no enrollment
+    // in at all, to prove the client no longer reads it directly.
+    supabaseMock.seed("courses", [
+      { id: "other-1", professor_id: "prof-x", title: "Someone else's course", color: null, description: null },
+      { id: "other-2", professor_id: "prof-y", title: "Another unrelated course", color: null, description: null },
+    ]);
+    server.use(
+      http.get(`${API}/courses`, () =>
+        HttpResponse.json({
+          success: true,
+          data: [{ id: "enrolled-1", professor_id: "prof-x", title: "My enrolled course", description: null, color: null, icon: null, is_archived: false, status: "published", created_at: null, updated_at: null, lecture_count: 3 }],
+        }),
+      ),
+    );
+
+    const result = await fetchStudentCourses();
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("enrolled-1");
+  });
+
+  it("returns an empty list (not every course) for a student with zero enrollments", async () => {
+    supabaseMock.seed("courses", [
+      { id: "other-1", professor_id: "prof-x", title: "Course A", color: null, description: null },
+      { id: "other-2", professor_id: "prof-y", title: "Course B", color: null, description: null },
+    ]);
+    // default handler for GET /courses returns { success: true, data: [] }
+    const result = await fetchStudentCourses();
+    expect(result).toEqual([]);
+  });
+
+  it("does not throw, and returns an empty list, when the endpoint errors", async () => {
+    server.use(
+      http.get(`${API}/courses`, () => HttpResponse.json({ detail: "boom" }, { status: 500 })),
+    );
+    const result = await fetchStudentCourses();
+    expect(result).toEqual([]);
+  });
+});
 
 describe("fetchStudentDashboard", () => {
   it("returns lectures, progress, achievements together", async () => {
