@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { BrainCircuit, CheckCircle2, Share2, Target, XCircle } from 'lucide-react';
+import { AlertTriangle, BrainCircuit, CheckCircle2, Share2, Target, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { useExamAttempt, useSendMissesToReview } from '@/features/student/hooks/useExamMode';
+import { useExamAttempt, useSendMissesToReview, getExamErrorMessage } from '@/features/student/hooks/useExamMode';
 import { DepthScene } from '@/components/console';
 
 export function MockExamReport() {
@@ -39,9 +39,9 @@ export function MockExamReport() {
     try {
       await sendMisses.mutateAsync();
       setSentToReview(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err?.message || t('report.sendToReviewFailed'));
+      toast.error(getExamErrorMessage(err, t, 'sendToReview'));
     }
   };
 
@@ -59,6 +59,18 @@ export function MockExamReport() {
             {t('report.backToCourse')}
           </button>
         </div>
+
+        {/* R30: surface the backend's `expired` flag (set when a submission
+            lands after time_limit_s + the 30s grace period, see
+            backend/api/v1/exams.py submit_exam) — it used to be read
+            nowhere on the frontend, so a late attempt looked identical to
+            an on-time one. */}
+        {exam.expired && (
+          <div className="mb-8 flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-amber-300 text-sm font-bold">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            {t('report.expiredNotice')}
+          </div>
+        )}
 
         {/* Hero Section */}
         <motion.div 

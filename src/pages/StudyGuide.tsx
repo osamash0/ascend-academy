@@ -10,6 +10,7 @@ import {
 import { fetchStudyGuide } from '@/services/coursesService';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { getErrorStatus } from '@/lib/apiErrors';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface StudyGuideLecture { lecture_id: string; title: string; synopsis: string; }
@@ -75,8 +76,18 @@ export default function StudyGuide() {
       const fresh = await fetchStudyGuide(courseId, { regenerate: true });
       queryClient.setQueryData(['study-guide', courseId], fresh);
       toast.success('Study guide regenerated!');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to regenerate study guide.');
+    } catch (err: unknown) {
+      // R31: this used to toast the raw apiClient transport string
+      // (`POST /api/... → 429: {...}`) straight from `err.message`. This
+      // page doesn't use i18n elsewhere, so the fallback copy here is
+      // hardcoded English to match the rest of the file, not the `exam`
+      // translation namespace.
+      const status = getErrorStatus(err);
+      if (status === 429) {
+        toast.error("You've regenerated this a few times recently — try again in a bit.");
+      } else {
+        toast.error("Couldn't regenerate the study guide. Please try again.");
+      }
     } finally {
       setRegenerating(false);
     }

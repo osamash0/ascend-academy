@@ -4,6 +4,7 @@
  *   1. Supabase JWT (preferred) — set after the auth bridge succeeds.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { ApiError } from './apiErrors';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -68,7 +69,18 @@ async function request<T>(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(`${method} ${path} → ${res.status}: ${text}`);
+    // FastAPI's HTTPException bodies are `{"detail": "..."}` — pull it out
+    // when present so callers can show that instead of a raw transport
+    // string (R31). Any non-JSON (or JSON without `detail`) body just
+    // leaves `detail` undefined; `.message` still carries the full text.
+    let detail: string | undefined;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed.detail === 'string') detail = parsed.detail;
+    } catch {
+      // not JSON — nothing to extract
+    }
+    throw new ApiError(`${method} ${path} → ${res.status}: ${text}`, res.status, detail);
   }
   // 204 No Content (and any empty body) must not be parsed as JSON, otherwise
   // every successful DELETE throws on the empty body. Return undefined.

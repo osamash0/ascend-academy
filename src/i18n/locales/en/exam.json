@@ -7,7 +7,8 @@
     "start": "Start exam",
     "starting": "Generating your exam…",
     "notEnoughQuestions": "This course doesn't have enough quiz questions yet for a mock exam.",
-    "rateLimited": "You've generated a few exams recently — try again later."
+    "rateLimited": "You've generated a few exams recently — try again later.",
+    "failed": "Couldn't start your exam. Please try again."
   },
   "runner": {
     "loading": "Loading your exam…",
@@ -26,7 +27,12 @@
     "expiredWarning": "Time's up — submit now before the grace period ends.",
     "submitting": "Submitting…",
     "goToQuestion": "Go to question {{n}}",
-    "submitFailed": "Couldn't submit your exam. Please try again."
+    "submitFailed": "Couldn't submit your exam. Please try again.",
+    "answerSaveFailed": "Couldn't save your answer. Check your connection and try again.",
+    "alreadySubmitted": "This exam was already submitted, so your answers can't be changed.",
+    "loadErrorTitle": "Couldn't load your exam",
+    "loadErrorSubtitle": "Something went wrong reaching the server. Your progress is safe — try again.",
+    "retry": "Try again"
   },
   "report": {
     "title": "Exam results",

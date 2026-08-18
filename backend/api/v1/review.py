@@ -258,7 +258,7 @@ async def get_stats(request: Request, user: Any = Depends(require_student)):
     end_of_today = now.replace(hour=23, minute=59, second=59, microsecond=0)
 
     async with await get_db_connection() as conn:
-        due_today = await conn.fetchval(
+        due_today_raw = await conn.fetchval(
             """
             SELECT COUNT(*)
             FROM review_schedule rs
@@ -268,6 +268,15 @@ async def get_stats(request: Request, user: Any = Depends(require_student)):
             """,
             user_id, end_of_today,
         )
+        # R33: this used to be the raw, uncapped COUNT(*) shown as the
+        # dashboard tile's "N due" figure, while /queue (and thus an actual
+        # review session) hard-caps at DEFAULT_TOTAL_CAP. A student with
+        # 250 due cards would see "250 due", grade 100, and get told
+        # "Session complete... come back tomorrow" while 150 remained due
+        # today. Cap the displayed count to match what a session can
+        # actually consume, rather than threading a dynamic "N more still
+        # due" remainder through the completion copy.
+        due_today = min(due_today_raw, DEFAULT_TOTAL_CAP)
         window_rows = await conn.fetch(
             "SELECT rating, reviewed_at FROM review_log WHERE user_id = $1 AND reviewed_at > $2",
             user_id, now - timedelta(days=30),
