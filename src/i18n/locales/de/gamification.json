@@ -47,6 +47,10 @@
     "badgeCount": "{{count}} Abzeichen",
     "emptyTitle": "Noch keine Abzeichen",
     "emptyBody": "Schließe dein erstes Quiz ab, um dein erstes Abzeichen zu erhalten.",
+    "achievementsErrorTitle": "Deine Abzeichen konnten nicht geladen werden",
+    "achievementsErrorBody": "Beim Verbinden mit dem Server ist etwas schiefgelaufen. Bitte versuche es erneut.",
+    "dashboardErrorTitle": "Dein Fortschritt konnte nicht geladen werden",
+    "dashboardErrorBody": "Beim Verbinden mit dem Server ist etwas schiefgelaufen. Bitte versuche es erneut.",
     "potentialMilestones": "Mögliche Meilensteine",
     "unlockableCount": "{{count}} freischaltbar"
   },
@@ -59,6 +63,7 @@
     "semester": "Semester {{n}}",
     "verifiedOnly": "Nur verifiziert",
     "noLearners": "Noch keine Lernenden.",
+    "loadError": "Die Bestenliste konnte nicht geladen werden. Beim Verbinden mit dem Server ist etwas schiefgelaufen.",
     "rankSummary": "Du hast heute {{reward}} verdient — Rang {{rank}} von {{total}}",
     "columns": {
       "rank": "Rang",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Loader2, Search, Users, Sparkles, BadgeCheck, GraduationCap } from "lucide-react";
+import { AlertTriangle, BookOpen, Loader2, Search, Users, Sparkles, BadgeCheck, GraduationCap } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -55,7 +55,12 @@ export default function FindFriends() {
     return () => clearTimeout(t);
   }, [raw]);
 
-  const { data: results = [], isFetching } = useSearchUsers({
+  const {
+    data: results = [],
+    isFetching,
+    isError: searchError,
+    refetch: refetchSearch,
+  } = useSearchUsers({
     query,
     institution: institution === "all" ? null : institution,
     role: role === "all" ? null : role,
@@ -133,7 +138,21 @@ export default function FindFriends() {
         </section>
       )}
 
-      {results.length === 0 ? (
+      {/* R25: useSearchUsers failing used to fall through to `results.length
+          === 0` and render "No learners match your search." — indistinguishable
+          from a real, empty result set. */}
+      {searchError ? (
+        <Panel className="flex flex-col items-center gap-3 py-8 text-center">
+          <AlertTriangle className="h-8 w-8 text-destructive/60" />
+          <p className="text-sm text-muted-foreground">Couldn't search right now. Something went wrong reaching the server.</p>
+          <button
+            onClick={() => refetchSearch()}
+            className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium text-foreground hover:bg-white/10"
+          >
+            Retry
+          </button>
+        </Panel>
+      ) : results.length === 0 ? (
         <Panel className="text-sm text-muted-foreground">{isFetching ? "Searching…" : "No learners match your search."}</Panel>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

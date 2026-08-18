@@ -1,9 +1,9 @@
-import { useMemo, useState, useEffect, type ComponentType, type SVGProps } from 'react';
+import { useCallback, useMemo, useState, useEffect, type ComponentType, type SVGProps } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Brain, ChevronLeft, Target, BookOpen, CheckCircle2,
+  AlertTriangle, Brain, ChevronLeft, Target, BookOpen, CheckCircle2,
   Sparkles, ArrowRight, Lightbulb, TrendingUp, Flame,
   Trophy, Award, Zap, Star, Network, GitBranch, Map as MapIcon
 } from 'lucide-react';
@@ -207,6 +207,29 @@ function MilestoneBadge({ name, description, icon, category, xpReward, index }: 
   );
 }
 
+// R29: lightweight placeholder for the metrics + insights block while
+// useStudentDashboard() is still resolving, so the student never sees hard
+// zeros ("0% Quiz Accuracy", "0 Lectures Done") masquerading as real data.
+function OverviewMetricsSkeleton() {
+  return (
+    <div className="space-y-10 animate-pulse" aria-hidden="true">
+      <div className="flex flex-wrap gap-10 md:gap-16 items-start">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex flex-col items-center gap-2">
+            <div className="h-10 w-16 rounded-lg bg-white/10" />
+            <div className="h-2.5 w-20 rounded bg-white/5" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-40 rounded-3xl border border-white/5 bg-white/[0.03]" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AscentTabs({ view, onChange }: { view: AscentView; onChange: (v: AscentView) => void }) {
   const { t } = useTranslation('gamification');
   const TABS: { id: AscentView; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
@@ -250,10 +273,19 @@ export default function Ascent() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, profile } = useAuth();
-  const { data } = useStudentDashboard();
+  // R29: this used to discard isLoading/isError entirely, so the first paint
+  // rendered hard zeros ("0% Quiz Accuracy", "0 Lectures Done") before data
+  // ever arrived — and those zeros were permanent on a real fetch failure,
+  // indistinguishable from a genuine brand-new-user state.
+  const { data, isLoading: dashboardLoading, isError: dashboardError, refetch: refetchDashboard } = useStudentDashboard();
   const [view, setView] = useState<AscentView>('overview');
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [achLoading, setAchLoading] = useState(true);
+  // R22: the achievements query used to destructure away any error and had
+  // no .catch(), so an RLS/network failure resolved to `[]` and rendered the
+  // 🌱 "no badges yet" empty state — indistinguishable from truly having
+  // earned nothing.
+  const [achError, setAchError] = useState(false);
 
   // The badge catalog (single source of truth) drives the "Potential Milestones"
   // list, so it stays in sync with the DB without hand-maintained arrays here.
@@ -267,19 +299,29 @@ export default function Ascent() {
   const lectures = data?.lectures ?? [];
 
   // Fetch achievements (only once user is known)
-  useEffect(() => {
+  const fetchAchievements = useCallback(() => {
     if (!user) return;
+    setAchLoading(true);
+    setAchError(false);
     supabase
       .from('achievements')
       .select('id, badge_name, badge_description, badge_icon, earned_at')
       .eq('user_id', user.id)
       .order('earned_at', { ascending: false })
       .limit(50)
-      .then(({ data: rows }) => {
-        if (rows) setAchievements(rows);
+      .then(({ data: rows, error }) => {
+        if (error) {
+          setAchError(true);
+        } else if (rows) {
+          setAchievements(rows);
+        }
         setAchLoading(false);
       });
   }, [user?.id]);
+
+  useEffect(() => {
+    fetchAchievements();
+  }, [fetchAchievements]);
 
   // ── Derived numbers ──────────────────────────────────────────────────────
   const byId = useMemo(() => new Map(progress.map(p => [p.lecture_id, p])), [progress]);
@@ -557,48 +599,79 @@ export default function Ascent() {
                   />
                 </motion.div>
 
-                {/* 3 floating metrics */}
-                <div className="flex flex-wrap gap-10 md:gap-16 items-start">
-                  <FloatingMetric
-                    index={0}
-                    value={`${accuracy}%`}
-                    label="Quiz Accuracy"
-                    sub={totalQuestionsAnswered > 0 ? `${totalCorrect}/${totalQuestionsAnswered} correct` : 'No quizzes yet'}
-                    color={accuracy >= 80 ? 'success' : accuracy >= 50 ? 'warning' : 'primary'}
-                  />
-                  <div className="w-px h-14 self-center bg-white/10 hidden md:block" />
-                  <FloatingMetric
-                    index={1}
-                    value={lecturesDone}
-                    label="Lectures Done"
-                    sub={lectures.length > 0 ? `out of ${lectures.length} total` : undefined}
-                    color="primary"
-                  />
-                  <div className="w-px h-14 self-center bg-white/10 hidden md:block" />
-                  <FloatingMetric
-                    index={2}
-                    value={coursesStarted}
-                    label="Courses Started"
-                    color="xp"
-                  />
-                </div>
-
-                {/* Divider */}
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 h-px bg-white/5" />
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Sparkles className="w-3.5 h-3.5 text-primary" />
-                    <h2 className="text-[10px] font-black uppercase tracking-[0.25em]">{t('gamification:ascent.insightsLabel')}</h2>
+                {/* R29: metrics + insights are derived from useStudentDashboard(),
+                    which used to be destructured as only `data` — discarding
+                    isLoading/isError entirely. A skeleton now covers the
+                    resolving state, and a real failure gets its own message
+                    with a retry instead of permanent, indistinguishable-from-real
+                    "0% Quiz Accuracy" / "0 Lectures Done" zeros. */}
+                {dashboardLoading ? (
+                  <OverviewMetricsSkeleton />
+                ) : dashboardError ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center glass-card border-white/5 rounded-3xl">
+                    <AlertTriangle className="w-14 h-14 text-destructive/60 mb-4" />
+                    <h3 className="text-xl font-bold text-foreground mb-3">
+                      {t('gamification:ascent.dashboardErrorTitle', "Couldn't load your progress")}
+                    </h3>
+                    <p className="text-muted-foreground max-w-md mx-auto text-sm leading-relaxed mb-6">
+                      {t(
+                        'gamification:ascent.dashboardErrorBody',
+                        'Something went wrong reaching the server. Please try again.',
+                      )}
+                    </p>
+                    <button
+                      onClick={() => refetchDashboard()}
+                      className="console-focusable flex items-center justify-center h-11 px-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black tracking-wide shadow-glow-primary transition-all active:scale-95"
+                    >
+                      {t('common:actions.retry', 'Retry')}
+                    </button>
                   </div>
-                  <div className="flex-1 h-px bg-white/5" />
-                </div>
+                ) : (
+                  <>
+                    {/* 3 floating metrics */}
+                    <div className="flex flex-wrap gap-10 md:gap-16 items-start">
+                      <FloatingMetric
+                        index={0}
+                        value={`${accuracy}%`}
+                        label="Quiz Accuracy"
+                        sub={totalQuestionsAnswered > 0 ? `${totalCorrect}/${totalQuestionsAnswered} correct` : 'No quizzes yet'}
+                        color={accuracy >= 80 ? 'success' : accuracy >= 50 ? 'warning' : 'primary'}
+                      />
+                      <div className="w-px h-14 self-center bg-white/10 hidden md:block" />
+                      <FloatingMetric
+                        index={1}
+                        value={lecturesDone}
+                        label="Lectures Done"
+                        sub={lectures.length > 0 ? `out of ${lectures.length} total` : undefined}
+                        color="primary"
+                      />
+                      <div className="w-px h-14 self-center bg-white/10 hidden md:block" />
+                      <FloatingMetric
+                        index={2}
+                        value={coursesStarted}
+                        label="Courses Started"
+                        color="xp"
+                      />
+                    </div>
 
-                {/* Insight cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {insights.map((ins) => (
-                    <InsightCard key={ins.label} {...ins} />
-                  ))}
-                </div>
+                    {/* Divider */}
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 h-px bg-white/5" />
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        <h2 className="text-[10px] font-black uppercase tracking-[0.25em]">{t('gamification:ascent.insightsLabel')}</h2>
+                      </div>
+                      <div className="flex-1 h-px bg-white/5" />
+                    </div>
+
+                    {/* Insight cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {insights.map((ins) => (
+                        <InsightCard key={ins.label} {...ins} />
+                      ))}
+                    </div>
+                  </>
+                )}
 
                 {/* Academic Profile */}
                 <section className="space-y-6 pt-8">
@@ -685,6 +758,25 @@ export default function Ascent() {
                   {achLoading ? (
                     <div className="flex justify-center py-16">
                       <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
+                    </div>
+                  ) : achError ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center glass-card border-white/5 rounded-3xl">
+                      <AlertTriangle className="w-14 h-14 text-destructive/60 mb-4" />
+                      <h3 className="text-xl font-bold text-foreground mb-3">
+                        {t('gamification:ascent.achievementsErrorTitle', "Couldn't load your badges")}
+                      </h3>
+                      <p className="text-muted-foreground max-w-md mx-auto text-sm leading-relaxed mb-6">
+                        {t(
+                          'gamification:ascent.achievementsErrorBody',
+                          'Something went wrong reaching the server. Please try again.',
+                        )}
+                      </p>
+                      <button
+                        onClick={fetchAchievements}
+                        className="console-focusable flex items-center justify-center h-11 px-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black tracking-wide shadow-glow-primary transition-all active:scale-95"
+                      >
+                        {t('common:actions.retry', 'Retry')}
+                      </button>
                     </div>
                   ) : achievements.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center glass-card border-white/5 rounded-3xl">

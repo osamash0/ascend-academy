@@ -8,6 +8,8 @@
   "quotaLabel": "Uploads diesen Monat",
   "quotaExhausted": "Du hast alle {{limit}} Uploads für diesen Monat verbraucht. Schau nächsten Monat wieder vorbei.",
   "emptyState": "Noch keine privaten Materialien. Lade ein PDF hoch, um deinen ersten Lernbereich zu erstellen.",
+  "loadErrorTitle": "Deine Materialien konnten nicht geladen werden",
+  "loadErrorHint": "Beim Verbinden mit dem Server ist etwas schiefgelaufen. Bitte versuche es erneut.",
   "slideQuizCount": "{{slides}} Folien · {{quizzes}} Quizfragen",
   "processing": "Wird verarbeitet…",
   "ready": "Bereit zum Lernen",

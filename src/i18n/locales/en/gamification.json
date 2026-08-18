@@ -47,6 +47,10 @@
     "badgeCount": "{{count}} badges",
     "emptyTitle": "No badges yet",
     "emptyBody": "Complete your first quiz to earn your first badge.",
+    "achievementsErrorTitle": "Couldn't load your badges",
+    "achievementsErrorBody": "Something went wrong reaching the server. Please try again.",
+    "dashboardErrorTitle": "Couldn't load your progress",
+    "dashboardErrorBody": "Something went wrong reaching the server. Please try again.",
     "potentialMilestones": "Potential Milestones",
     "unlockableCount": "{{count}} to unlock"
   },
@@ -59,6 +63,7 @@
     "semester": "Semester {{n}}",
     "verifiedOnly": "Verified only",
     "noLearners": "No learners yet.",
+    "loadError": "Couldn't load the leaderboard. Something went wrong reaching the server.",
     "rankSummary": "You earned {{reward}} today — rank {{rank}} of {{total}}",
     "columns": {
       "rank": "Rank",

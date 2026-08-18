@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, FolderOpen, BookOpen, GraduationCap, Sparkles, NotebookText } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, FolderOpen, BookOpen, GraduationCap, Sparkles, NotebookText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
 import { LectureCard } from '@/components/LectureCard';
@@ -16,7 +16,7 @@ export default function StudentCourseView() {
   const { t } = useTranslation();
   const [askOpen, setAskOpen] = useState(false);
 
-  const { data, isLoading } = useStudentDashboard();
+  const { data, isLoading, isError, refetch } = useStudentDashboard();
   const lectures = data?.lectures || [];
   const progress = data?.progress || [];
 
@@ -56,6 +56,29 @@ export default function StudentCourseView() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // R23: useStudentDashboard() used to be destructured without `isError`, so
+  // a failed fetch fell through to `lectures = []` and rendered the "Empty
+  // Course" copy (with the title also falling back to a generic string) —
+  // the library screen already implements and documents this exact hazard;
+  // mirror that pattern here.
+  if (isError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
+        <AlertTriangle className="w-14 h-14 text-destructive/60 mb-4" />
+        <h3 className="text-2xl font-black">{t('common:loadError', "Couldn't load this course")}</h3>
+        <p className="text-muted-foreground mb-8">
+          {t('common:loadErrorHint', 'Something went wrong reaching the server. Please try again.')}
+        </p>
+        <button
+          onClick={() => refetch()}
+          className="console-focusable flex items-center justify-center h-14 px-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black tracking-wide shadow-glow-primary transition-all active:scale-95"
+        >
+          {t('common:actions.retry', 'Retry')}
+        </button>
       </div>
     );
   }

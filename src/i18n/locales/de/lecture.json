@@ -52,7 +52,9 @@
     "lectureLoading": "Wird geladen...",
     "slideView": "Folienansicht",
   "sourcePdf": "Quell-PDF",
-  "sourceLanguage": "Quelle: {{language}}"
+  "sourceLanguage": "Quelle: {{language}}",
+  "loadErrorTitle": "Diese Vorlesung konnte nicht geladen werden",
+  "loadErrorDescription": "Beim Verbinden mit dem Server ist etwas schiefgelaufen. Bitte versuche es erneut."
   },
   "toasts": {
     "notFoundTitle": "Nicht gefunden",

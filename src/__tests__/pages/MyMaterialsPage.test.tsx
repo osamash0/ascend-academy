@@ -108,4 +108,20 @@ describe('MyMaterialsPage', () => {
     expect(screen.getByText(/used all 10 uploads/i)).toBeInTheDocument();
     expect(screen.queryByTestId('multi-file-dropzone')).not.toBeInTheDocument();
   });
+
+  // R21: useMyMaterials' `error` used to be destructured away, so a failed
+  // listMaterials() fell straight into the "No materials yet" empty state —
+  // telling the student their uploads didn't exist.
+  it('shows a real error state (not "no materials yet") when the materials fetch fails', async () => {
+    const refetch = vi.fn();
+    mockMaterials({ error: new Error('network down'), refetch });
+
+    renderWithProviders(<MyMaterialsPage />, { initialEntries: ['/materials'] });
+
+    expect(screen.queryByText(/no materials yet/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/couldn't load your materials/i)).toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
 });

@@ -9,11 +9,11 @@ import { useAuth } from "@/lib/auth";
 import { initialsOf, type Role, type SocialUser } from "./data";
 import { useMySocialExtras } from "./hooks";
 
-export function useSocialUser(): SocialUser {
+export function useSocialUser(): SocialUser & { isLoaded: boolean } {
   const { profile, role } = useAuth();
   const { data: extras } = useMySocialExtras();
 
-  return useMemo<SocialUser>(() => {
+  return useMemo<SocialUser & { isLoaded: boolean }>(() => {
     const name = profile?.display_name || profile?.full_name || "You";
     const baseRole: Role = role === "professor" ? "Professor" : "Student";
     const roles = (extras?.roles?.length ? extras.roles : [baseRole]) as Role[];
@@ -31,6 +31,11 @@ export function useSocialUser(): SocialUser {
       streak: profile?.current_streak ?? 0,
       online: true,
       isCurrentUser: true,
+      // R24: while `profile` hasn't loaded yet, `id` falls back to the
+      // sentinel "me" — Leaderboard used this to compute a rank/reward
+      // summary that showed rank "-", reward 0 as if that were real data.
+      // Callers should gate that kind of "my rank" display on this flag.
+      isLoaded: !!profile,
     };
   }, [profile, role, extras]);
 }
