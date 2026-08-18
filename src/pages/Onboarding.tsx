@@ -832,6 +832,7 @@ function OnboardingInner() {
                     onChange={(e) => setFullName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && fullName.trim()) handleNext(); }}
                     placeholder={t('steps.name.placeholder')}
+                    aria-label={t('steps.name.ariaLabel')}
                     className="h-16 text-center text-xl bg-white/5 border-white/10 focus:border-primary/50 rounded-2xl transition-all"
                     maxLength={DISPLAY_NAME_MAX_LENGTH}
                     autoFocus

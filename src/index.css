@@ -1064,9 +1064,14 @@
   }
 }
 
-/* Smooth scroll behavior */
+/* Smooth scroll behavior.
+   position: relative is required so framer-motion's useScroll({ target })
+   calls (e.g. Landing.tsx HeroSection) can correctly measure the scroll
+   container (document.scrollingElement, i.e. <html>) — without it,
+   framer-motion logs a "non-static position" console warning on every load. */
 html {
   scroll-behavior: smooth;
+  position: relative;
 }
 
 /* Prevent horizontal overflow */
