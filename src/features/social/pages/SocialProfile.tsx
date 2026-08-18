@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Pencil, X } from "lucide-react";
+import { AlertTriangle, Check, Pencil, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -9,11 +10,19 @@ import { StudentRoutes } from "@/lib/routes";
 import { SOCIAL_ROLE_OPTIONS, type Role } from "../data";
 import { useSocial } from "../store";
 import { useSocialUser } from "../useSocialUser";
-import { useFriends, useSetSocialProfile, useUserCourses, useWeeklyXpByDay } from "../hooks";
+import { useFriends, useMySocialExtras, useSetSocialProfile, useUserCourses, useWeeklyXpByDay } from "../hooks";
 import { Avatar, InstitutionBadge, Panel, RoleBadges, SectionHeading } from "../components/atoms";
 import { CourseChips, FriendsRow, PresenceCard, StatCards } from "../components/ProfileBlocks";
 
 export default function SocialProfile() {
+  // useSocialUser() falls back to placeholder values ("You", 0 XP, level 1,
+  // "No roles set", etc.) while the real profile/extras are still loading —
+  // indistinguishable from a genuine brand-new account. Gate the page on
+  // both the auth profile finishing its load and the social-extras RPC
+  // (institution/roles/weekly XP) before trusting those values, and surface
+  // a distinct error state if the extras fetch fails.
+  const { loading: authLoading } = useAuth();
+  const extras = useMySocialExtras();
   const me = useSocialUser();
   const navigate = useNavigate();
   const { setRoleFilter } = useSocial();
@@ -25,6 +34,33 @@ export default function SocialProfile() {
     setRoleFilter(r);
     navigate(StudentRoutes.LEADERBOARD);
   };
+
+  if (authLoading || extras.isLoading) {
+    return (
+      <div
+        className="mx-auto flex w-full max-w-4xl items-center justify-center px-4 py-24"
+        data-testid="social-profile-loading"
+      >
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (extras.isError) {
+    return (
+      <div
+        className="mx-auto flex w-full max-w-4xl flex-col items-center justify-center gap-4 px-4 py-24 text-center"
+        data-testid="social-profile-error"
+      >
+        <AlertTriangle className="h-12 w-12 text-destructive/60" />
+        <div>
+          <p className="text-lg font-bold text-foreground">Couldn't load your profile</p>
+          <p className="text-sm text-muted-foreground">Something went wrong reaching the server. Please try again.</p>
+        </div>
+        <Button onClick={() => extras.refetch()}>Try Again</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-6 lg:px-0 lg:py-8">

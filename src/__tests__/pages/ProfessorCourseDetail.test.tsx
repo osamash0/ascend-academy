@@ -29,6 +29,17 @@ vi.mock("@/lib/auth", () => ({
   })),
 }));
 
+const fetchProfessorLecturesMock = vi.fn();
+vi.mock("@/services/lectureService", async () => {
+  const actual = await vi.importActual<typeof import("@/services/lectureService")>(
+    "@/services/lectureService",
+  );
+  return {
+    ...actual,
+    fetchProfessorLectures: (...args: unknown[]) => fetchProfessorLecturesMock(...args),
+  };
+});
+
 import ProfessorCourseDetail from "@/pages/ProfessorCourseDetail";
 
 const API = "http://api.test/api/v1";
@@ -68,7 +79,79 @@ function renderAtRoute() {
   );
 }
 
-beforeEach(() => supabaseMock.reset());
+beforeEach(() => {
+  supabaseMock.reset();
+  fetchProfessorLecturesMock.mockReset();
+  fetchProfessorLecturesMock.mockResolvedValue([]);
+});
+
+// R10: a failed getCourse() used to leave `course` null and `loading` false,
+// so the page span forever with only an auto-dismissing toast as a signal.
+describe("ProfessorCourseDetail — load failure", () => {
+  it("shows a distinct error state with retry instead of spinning forever", async () => {
+    server.use(
+      http.get(`${API}/courses/${CID}`, () => HttpResponse.json({ success: false }, { status: 500 })),
+    );
+    renderAtRoute();
+
+    expect(await screen.findByText(/failed to load course/i)).toBeInTheDocument();
+    expect(screen.getByTestId("course-detail-retry")).toBeInTheDocument();
+  });
+
+  it("retries the course fetch when the retry button is clicked", async () => {
+    const user = userEvent.setup();
+    let attempt = 0;
+    server.use(
+      http.get(`${API}/courses/${CID}`, () => {
+        attempt += 1;
+        if (attempt === 1) return HttpResponse.json({ success: false }, { status: 500 });
+        return HttpResponse.json({ success: true, data: COURSE });
+      }),
+    );
+    renderAtRoute();
+
+    await screen.findByTestId("course-detail-retry");
+    await user.click(screen.getByTestId("course-detail-retry"));
+
+    expect(await screen.findByText(/no lectures in this course yet/i)).toBeInTheDocument();
+  });
+});
+
+// R16: openPicker had no catch — a rejected fetchProfessorLectures escaped as
+// an unhandled rejection and, because allLectures stayed [], the dialog
+// falsely asserted every lecture was already in the course.
+describe("ProfessorCourseDetail — Add lecture picker failure", () => {
+  it("shows an error row with retry instead of the false 'all already added' message", async () => {
+    const user = userEvent.setup();
+    stubCourse();
+    stubEmptyCourseContext();
+    fetchProfessorLecturesMock.mockRejectedValue(new Error("network down"));
+    renderAtRoute();
+
+    await user.click(await screen.findByRole("button", { name: /^add lecture$/i }));
+
+    expect(await screen.findByTestId("picker-error")).toBeInTheDocument();
+    expect(screen.queryByText(/all your lectures are already in this course/i)).not.toBeInTheDocument();
+  });
+
+  it("retries loading lectures from the error row", async () => {
+    const user = userEvent.setup();
+    stubCourse();
+    stubEmptyCourseContext();
+    fetchProfessorLecturesMock.mockRejectedValueOnce(new Error("network down"));
+    fetchProfessorLecturesMock.mockResolvedValueOnce([
+      { id: "lec-9", title: "Extra Lecture", total_slides: 3, description: null, created_at: null, course_id: null },
+    ]);
+    renderAtRoute();
+
+    await user.click(await screen.findByRole("button", { name: /^add lecture$/i }));
+    await screen.findByTestId("picker-error");
+
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+
+    expect(await screen.findByText("Extra Lecture")).toBeInTheDocument();
+  });
+});
 
 describe("ProfessorCourseDetail — Course facts card", () => {
   it("shows the empty state when no facts have been extracted yet", async () => {

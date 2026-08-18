@@ -2,14 +2,42 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Users, BookOpen, Activity, AlertCircle, Server } from 'lucide-react';
 import { PlatformStats, DeploymentTelemetry } from '@/services/adminService';
+import { Button } from '@/components/ui/button';
 
 interface AdminKPISummaryProps {
   stats: PlatformStats | null;
   telemetry?: DeploymentTelemetry | null;
   loading: boolean;
+  /** True when loadStats() failed — rendered distinctly from `loading` so a
+   * failed fetch doesn't pulse the skeleton forever with no message or way
+   * to retry. */
+  isError?: boolean;
+  onRetry?: () => void;
 }
 
-export function AdminKPISummary({ stats, telemetry, loading }: AdminKPISummaryProps) {
+export function AdminKPISummary({ stats, telemetry, loading, isError = false, onRetry }: AdminKPISummaryProps) {
+  if (isError && !stats) {
+    return (
+      <div
+        className="mb-8 p-6 rounded-xl border border-red-500/20 bg-red-500/10 flex flex-col md:flex-row md:items-center justify-between gap-4"
+        data-testid="admin-kpi-error"
+      >
+        <div>
+          <p className="text-sm font-semibold text-red-300">Couldn't load platform stats</p>
+          <p className="text-xs text-red-300/70 mt-1">Something went wrong reaching the server. Please try again.</p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-red-500/30 text-red-300 hover:bg-red-500/10 shrink-0"
+          onClick={onRetry}
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
   if (loading || !stats) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { BookOpen, Folder } from 'lucide-react';
+import { AlertTriangle, BookOpen, Folder } from 'lucide-react';
 import type { Lecture } from '@/types/domain';
 import type { Course } from '@/services/coursesService';
 import { DepthScene, MediaRail, ConsoleTile } from '@/components/console';
@@ -42,6 +42,11 @@ interface GardenLecturePickerProps {
   courses?: Course[];
   lectures: Lecture[];
   loading: boolean;
+  /** True when the lecture/course fetch failed — rendered distinctly from a
+   * legitimately empty picker so a failed request doesn't masquerade as
+   * "no lectures yet". */
+  isError?: boolean;
+  onRetry?: () => void;
   selectedLectureId?: string;
   onSelectLecture: (id: string) => void;
   selectedCourseId?: string;
@@ -52,6 +57,8 @@ export function GardenLecturePicker({
   courses = [],
   lectures,
   loading,
+  isError = false,
+  onRetry,
   selectedLectureId,
   onSelectLecture,
   selectedCourseId,
@@ -277,6 +284,32 @@ export function GardenLecturePicker({
         <div className="relative min-h-screen flex flex-col justify-center items-center">
           <div className="h-32 w-1/2 rounded-3xl bg-white/[0.04] animate-pulse mb-8" />
           <div className="h-64 w-3/4 rounded-3xl bg-white/[0.04] animate-pulse" />
+        </div>
+      </DepthScene>
+    );
+  }
+
+  // Distinguish a genuine load failure from a legitimately empty picker —
+  // otherwise a failed fetch silently renders the same "No lectures yet"
+  // empty state even when the professor has lectures (see
+  // StudentCourseLibrary.tsx for the same isError/empty distinction).
+  if (isError) {
+    return (
+      <DepthScene status="progress" gradientIndex={0}>
+        <div className="relative min-h-screen flex flex-col justify-center items-center">
+          <div className="rounded-3xl border border-destructive/20 bg-white/[0.02] px-10 py-16 text-center glass-panel">
+            <AlertTriangle className="mx-auto mb-5 h-12 w-12 text-destructive/60" />
+            <p className="text-xl font-bold text-white tracking-tight">Couldn't load your lectures</p>
+            <p className="mt-2 text-sm text-white/50">Something went wrong reaching the server. Please try again.</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-6 inline-flex items-center justify-center h-12 px-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black tracking-wide transition-all active:scale-95"
+              data-testid="analytics-picker-retry"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </DepthScene>
     );

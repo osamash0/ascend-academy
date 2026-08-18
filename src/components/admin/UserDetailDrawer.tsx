@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Clock, TrendingUp, DollarSign } from 'lucide-react';
+import { X, Shield, Clock, TrendingUp, DollarSign, AlertTriangle } from 'lucide-react';
 import { adminService, UserDetail } from '@/services/adminService';
 
 interface UserDetailDrawerProps {
@@ -12,6 +12,10 @@ interface UserDetailDrawerProps {
 export function UserDetailDrawer({ userId, onClose, onRoleChanged }: UserDetailDrawerProps) {
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  // R15: loadDetail used to swallow errors to console.error only, so a
+  // failed fetch left `detail` null and the `loading || !detail` guard spun
+  // the drawer forever with no reason given.
+  const [isError, setIsError] = useState(false);
   const [roleLoading, setRoleLoading] = useState(false);
 
   useEffect(() => {
@@ -19,17 +23,20 @@ export function UserDetailDrawer({ userId, onClose, onRoleChanged }: UserDetailD
       loadDetail();
     } else {
       setDetail(null);
+      setIsError(false);
     }
   }, [userId]);
 
   const loadDetail = async () => {
     if (!userId) return;
     setLoading(true);
+    setIsError(false);
     try {
       const data = await adminService.fetchUserDetail(userId);
       setDetail(data);
     } catch (e) {
       console.error(e);
+      setIsError(true);
     } finally {
       setLoading(false);
     }
@@ -69,7 +76,21 @@ export function UserDetailDrawer({ userId, onClose, onRoleChanged }: UserDetailD
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-[#0a0a0c] border-l border-white/10 shadow-2xl z-50 flex flex-col overflow-hidden"
           >
-            {loading || !detail ? (
+            {isError ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4" data-testid="user-drawer-error">
+                <AlertTriangle className="w-10 h-10 text-red-400/70" />
+                <div>
+                  <p className="text-white font-semibold mb-1">Couldn't load this user</p>
+                  <p className="text-sm text-slate-400">Something went wrong reaching the server. Please try again.</p>
+                </div>
+                <button
+                  onClick={() => void loadDetail()}
+                  className="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30 text-sm font-medium transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : loading || !detail ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
               </div>

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
@@ -182,6 +183,52 @@ describe("ProfessorAnalytics page (smoke)", () => {
     // The picker itself should still render (not a blank page) — e.g. the
     // lecture rail's loading/empty chrome, not an unhandled crash.
     expect(document.body.textContent).not.toBe("");
+  });
+
+  // R12: a failed fetch used to be swallowed into empty arrays, so the
+  // picker rendered "No lectures yet" even when the professor has lectures
+  // and the fetch just failed.
+  it("shows a distinct error state with retry when the fetch fails, not the empty state", async () => {
+    fetchProfessorLecturesMock.mockRejectedValue(new Error("network down"));
+    renderWithProviders(
+      <Routes>
+        <Route path="/professor/analytics" element={<ProfessorAnalytics />} />
+        <Route path="/professor/analytics/:lectureId" element={<ProfessorAnalytics />} />
+      </Routes>,
+      { initialEntries: ["/professor/analytics"] },
+    );
+
+    expect(await screen.findByText(/couldn't load your lectures/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no lectures yet/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("analytics-picker-retry")).toBeInTheDocument();
+  });
+
+  it("retries the fetch and shows real data when the retry button is clicked", async () => {
+    const user = userEvent.setup();
+    fetchProfessorLecturesMock.mockRejectedValueOnce(new Error("network down"));
+    fetchProfessorLecturesMock.mockResolvedValueOnce([
+      {
+        id: "lec-x",
+        title: "Cell Biology",
+        description: "Membranes and organelles",
+        total_slides: 8,
+        created_at: "2025-01-01T00:00:00Z",
+      },
+    ]);
+    renderWithProviders(
+      <Routes>
+        <Route path="/professor/analytics" element={<ProfessorAnalytics />} />
+        <Route path="/professor/analytics/:lectureId" element={<ProfessorAnalytics />} />
+      </Routes>,
+      { initialEntries: ["/professor/analytics"] },
+    );
+
+    await user.click(await screen.findByTestId("analytics-picker-retry"));
+
+    await waitFor(() => {
+      expect(screen.queryByText(/couldn't load your lectures/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/no lectures yet/i)).not.toBeInTheDocument();
+    });
   });
 
   it("does not show the not-found notice for a slug that resolves correctly", async () => {
