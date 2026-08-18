@@ -90,8 +90,8 @@ After the session-21+ batch, ran a full gap analysis of every M1–M81/R1–R54 
 
 | # | Session | IDs | Area | Status | PR |
 |---|---|---|---|---|---|
-| 30 | Quick wins | M26, M30, R45, R50 | Landing page `useScroll` console warning (missing `relative`); onboarding name input has no accessible label; dead `extraLoading` state in professor analytics; unused exam i18n strings | 🔄 | in progress |
-| 31 | Lecture PDF fetch reliability | M22 | First PDF fetch sometimes 503s (retry succeeds) with an ~18s bare spinner and no error/retry UI if it ultimately fails | 🔄 | in progress |
+| 30 | Quick wins | M26, M30, R45, R50 | Landing page `useScroll` console warning (missing `relative`); onboarding name input has no accessible label; dead `extraLoading` state in professor analytics; unused exam i18n strings | ✅ | [#49](https://github.com/osamash0/ascend-academy/pull/49) — M26's real cause turned out to be `useScroll`'s default `container` (`<html>`), not the ref'd section as the audit assumed; fixed at the `html` rule instead; R50 removed 14 confirmed-dead exam i18n keys while carefully preserving the ones just wired up by tonight's R30/R31 fix |
+| 31 | Lecture PDF fetch reliability | M22 | First PDF fetch sometimes 503s (retry succeeds) with an ~18s bare spinner and no error/retry UI if it ultimately fails | 🔄 | [#50](https://github.com/osamash0/ascend-academy/pull/50) opened, diff reviewed and sound (bounded retry, fails fast on 4xx, real error+retry UI, 12 new tests) — waiting on CI before merge |
 | 32 | Professor analytics fabricated AI insights | R2 | Same fabrication-on-failure pattern as the already-fixed R1 — hardcoded fake "AI insights" shown identically to real ones when the backend call fails | ✅ | [#48](https://github.com/osamash0/ascend-academy/pull/48) — added a distinct honest error state with retry, new test coverage; success path untouched |
 
 **Deferred, needs your input:** M54 (API path convention migration, 67 call sites, audit's own "do not bundle" warning) and R40 (global-search feature flag ship-or-delete decision, same call as M56) — see the "Needs your input" table above for full reasoning.
