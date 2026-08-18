@@ -25,8 +25,8 @@ Everything else below was actionable without you and is being worked tonight.
 
 | # | Session | IDs | Area | Category | Status | PR |
 |---|---|---|---|---|---|---|
-| 0 | A-S0 | M64 | Fix 18 TypeScript errors so `tsc` can gate CI | Tonight | ⬜ | |
-| 1 | F8 | F8 | Student enrollment query has no filter — new students can't enroll | Tonight | ⬜ | |
+| 0 | A-S0 | M64 | Fix 18 TypeScript errors so `tsc` can gate CI | Tonight | ✅ | [#27](https://github.com/osamash0/ascend-academy/pull/27) |
+| 1 | F8 | F8 | Student enrollment query has no filter — new students can't enroll | Tonight | 🔄 | |
 | 2 | U(b) | M4/N1 | Kill stale AI-replay overwriting saved slide edits (data corruption) | Tonight | ⬜ | |
 | 3 | O | M5 | Editor "Save Lecture" button unreachable under sticky header at scroll | Tonight | ⬜ | |
 | 4 | V | M12/N2 | Unsaved-changes guard (beforeunload + dirty marker) | Tonight | ⬜ | |
