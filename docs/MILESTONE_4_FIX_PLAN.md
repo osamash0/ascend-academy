@@ -91,10 +91,22 @@ After the session-21+ batch, ran a full gap analysis of every M1–M81/R1–R54 
 | # | Session | IDs | Area | Status | PR |
 |---|---|---|---|---|---|
 | 30 | Quick wins | M26, M30, R45, R50 | Landing page `useScroll` console warning (missing `relative`); onboarding name input has no accessible label; dead `extraLoading` state in professor analytics; unused exam i18n strings | ✅ | [#49](https://github.com/osamash0/ascend-academy/pull/49) — M26's real cause turned out to be `useScroll`'s default `container` (`<html>`), not the ref'd section as the audit assumed; fixed at the `html` rule instead; R50 removed 14 confirmed-dead exam i18n keys while carefully preserving the ones just wired up by tonight's R30/R31 fix |
-| 31 | Lecture PDF fetch reliability | M22 | First PDF fetch sometimes 503s (retry succeeds) with an ~18s bare spinner and no error/retry UI if it ultimately fails | 🔄 | [#50](https://github.com/osamash0/ascend-academy/pull/50) opened, diff reviewed and sound (bounded retry, fails fast on 4xx, real error+retry UI, 12 new tests) — waiting on CI before merge |
+| 31 | Lecture PDF fetch reliability | M22 | First PDF fetch sometimes 503s (retry succeeds) with an ~18s bare spinner and no error/retry UI if it ultimately fails | ✅ | [#50](https://github.com/osamash0/ascend-academy/pull/50) — bounded retry (3 attempts, exponential backoff), fails fast on permanent 4xx errors, PDF panel shows a real error+retry state instead of silently unmounting; 12 new tests |
 | 32 | Professor analytics fabricated AI insights | R2 | Same fabrication-on-failure pattern as the already-fixed R1 — hardcoded fake "AI insights" shown identically to real ones when the backend call fails | ✅ | [#48](https://github.com/osamash0/ascend-academy/pull/48) — added a distinct honest error state with retry, new test coverage; success path untouched |
 
 **Deferred, needs your input:** M54 (API path convention migration, 67 call sites, audit's own "do not bundle" warning) and R40 (global-search feature flag ship-or-delete decision, same call as M56) — see the "Needs your input" table above for full reasoning.
+
+---
+
+## Full audit coverage confirmed (2026-08-18, early morning)
+
+Ran a final ID-by-ID check: every single finding in the audit — **M1 through M81, R1 through R54** (135 findings total) — now appears somewhere in this document, in one of four states:
+1. **Fixed and merged to `main`** (the large majority — see PR links throughout this doc).
+2. **Confirmed already fixed** before or during this audit, verified still present in `main`'s history (M6, M10, M11, M20, M35, R51, R52).
+3. **Investigated and confirmed not a real bug** — working as intentionally designed (M18, and a few smaller ones noted inline in individual PR descriptions like M68/M70).
+4. **Explicitly deferred to you**, each with a specific reason (F1, M1–M3/M66/M81, M17, M79's deploy half, A-S3+D's M9/M19/M28/M29/M55/M56, data cleanup's M36/M37/M39, plus M54 and R40 added during the final sweep).
+
+No finding was silently dropped. If you want to sanity-check this yourself: every M/R ID should appear at least once in this file (accounting for range shorthand like `M67-M70`).
 
 ---
 
