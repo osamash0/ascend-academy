@@ -18,7 +18,7 @@ import { renderWithProviders } from "@/test/renderWithProviders";
 const rows = [
   {
     run_id: "run-1",
-    status: "complete",
+    status: "completed",
     error: null,
     filename: "lecture-1.pdf",
     lecture_id: "lec-1",
@@ -83,5 +83,92 @@ describe("BatchReviewPage — R44 reviewed-state persistence", () => {
     // batch-2 has no stored state, so the row should still show its
     // "Done reviewing" action.
     expect(screen.getByTestId("done-reviewing")).toBeInTheDocument();
+  });
+});
+
+// M14: the header count and the rendered card count must come from the same
+// source and therefore can never drift apart, even when some members of the
+// batch are still in flight.
+describe("BatchReviewPage — M14 header/rendered count consistency", () => {
+  it("the header count always equals the number of rendered cards", async () => {
+    const mixedRows = [
+      { ...rows[0], run_id: "run-1", title: "Lecture One" },
+      { ...rows[0], run_id: "run-2", title: "Lecture Two", status: "extracting", lecture_id: null },
+      { ...rows[0], run_id: "run-3", title: "Lecture Three", status: "failed", error: "boom" },
+    ];
+    fetchBatchSummaryMock.mockResolvedValue(mixedRows);
+
+    renderAtBatch("batch-3");
+
+    await screen.findByText("Lecture One");
+    await waitFor(() => {
+      expect(screen.getByText("3 lectures ready")).toBeInTheDocument();
+    });
+    // Every one of the 3 members renders a card — none silently dropped.
+    expect(screen.getByText("Lecture One")).toBeInTheDocument();
+    expect(screen.getByText("Lecture Two")).toBeInTheDocument();
+    expect(screen.getByText("Lecture Three")).toBeInTheDocument();
+  });
+});
+
+// M15: in-flight/stuck batch members must render with an explicit state
+// indicator instead of being silently omitted or looking like an empty
+// finished lecture (0 slides / 0 quiz questions / blank summary).
+describe("BatchReviewPage — M15 in-progress/stuck member visibility", () => {
+  it("renders a 'still processing' indicator for a non-terminal, non-failed member", async () => {
+    fetchBatchSummaryMock.mockResolvedValue([
+      { ...rows[0], run_id: "run-2", title: "Stuck Lecture", status: "extracting", lecture_id: null, slide_count: 0, quiz_count: 0, deck_summary: null },
+    ]);
+
+    renderAtBatch("batch-4");
+
+    await screen.findByText("Stuck Lecture");
+    expect(screen.getByTestId("in-progress-label")).toHaveTextContent("extracting");
+    // No editor/review actions on a card that isn't actually done yet.
+    expect(screen.queryByTestId("done-reviewing")).not.toBeInTheDocument();
+  });
+
+  it("still shows a failed member with its error, distinct from in-progress", async () => {
+    fetchBatchSummaryMock.mockResolvedValue([
+      { ...rows[0], run_id: "run-2", title: "Broken Lecture", status: "failed", error: "Parsing failed: corrupt PDF" },
+    ]);
+
+    renderAtBatch("batch-5");
+
+    await screen.findByText("Broken Lecture");
+    expect(screen.getByText("Parsing failed: corrupt PDF")).toBeInTheDocument();
+    expect(screen.queryByTestId("in-progress-label")).not.toBeInTheDocument();
+  });
+});
+
+// M51: duplicate titles within the same batch must be disambiguated so
+// review cards aren't indistinguishable from one another.
+describe("BatchReviewPage — M51 duplicate-title disambiguation", () => {
+  it("appends the source filename when two members share a title", async () => {
+    fetchBatchSummaryMock.mockResolvedValue([
+      { ...rows[0], run_id: "run-1", title: "Advanced Topics in Cryptography", filename: "week1.pdf", slide_count: 44 },
+      { ...rows[0], run_id: "run-2", title: "Advanced Topics in Cryptography", filename: "week2.pdf", slide_count: 79 },
+    ]);
+
+    renderAtBatch("batch-6");
+
+    await waitFor(() => {
+      expect(screen.getByText("Advanced Topics in Cryptography (week1.pdf)")).toBeInTheDocument();
+      expect(screen.getByText("Advanced Topics in Cryptography (week2.pdf)")).toBeInTheDocument();
+    });
+  });
+
+  it("does not alter a title that is unique within the batch", async () => {
+    fetchBatchSummaryMock.mockResolvedValue([
+      { ...rows[0], run_id: "run-1", title: "Unique Lecture", filename: "week1.pdf" },
+      { ...rows[0], run_id: "run-2", title: "Another Unique Lecture", filename: "week2.pdf" },
+    ]);
+
+    renderAtBatch("batch-7");
+
+    await waitFor(() => {
+      expect(screen.getByText("Unique Lecture")).toBeInTheDocument();
+      expect(screen.getByText("Another Unique Lecture")).toBeInTheDocument();
+    });
   });
 });

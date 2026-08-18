@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { fetchBatchSummary } from '@/services/uploadBatchService';
 import { ProfessorRoutes, StudentRoutes } from '@/lib/routes';
+import type { BatchSummaryRow } from '@/types/upload';
 
 /**
  * Phase 1.3 batch review screen. There is no draft/published state on
@@ -74,6 +75,41 @@ export default function BatchReviewPage() {
     enabled: !!batchId,
   });
 
+  // M14: the header count and the rendered list must never be able to drift
+  // apart — both are derived from this ONE array (not two independently
+  // computed numbers), so "N lectures ready" always matches exactly what's
+  // rendered below, including in-flight/stuck members (M15).
+  const totalCount = lectures?.length ?? 0;
+
+  // M51: multiple lectures in the same batch can carry an identical title
+  // (e.g. a deck the source PDF just calls "Advanced Topics in
+  // Cryptography" twice). Detect duplicates so those cards can be
+  // disambiguated instead of looking like the same card rendered twice.
+  const titleCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const l of lectures ?? []) {
+      const key = (l.title || l.filename || '').trim().toLowerCase();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [lectures]);
+
+  const displayTitle = (row: BatchSummaryRow): string => {
+    const base = row.title || row.filename || 'Untitled lecture';
+    const key = base.trim().toLowerCase();
+    const isDuplicate = (titleCounts.get(key) ?? 0) > 1;
+    if (!isDuplicate) return base;
+    // Prefer the source filename as the disambiguator (most recognizable to
+    // the professor); fall back to slide count if the filename is missing
+    // or identical to the title itself.
+    const disambiguator =
+      row.filename && row.filename.trim().toLowerCase() !== key
+        ? row.filename
+        : `${row.slide_count} slide${row.slide_count === 1 ? '' : 's'}`;
+    return `${base} (${disambiguator})`;
+  };
+
   const remaining = useMemo(
     () => (lectures ?? []).filter((l) => !reviewed.has(l.run_id)),
     [lectures, reviewed],
@@ -111,7 +147,7 @@ export default function BatchReviewPage() {
             <div>
               <h1 className="text-lg font-bold text-foreground">Batch review</h1>
               <p className="text-xs text-muted-foreground">
-                {lectures ? `${lectures.length} lecture${lectures.length === 1 ? '' : 's'} ready` : 'Loading…'}
+                {lectures ? `${totalCount} lecture${totalCount === 1 ? '' : 's'} ready` : 'Loading…'}
               </p>
             </div>
           </div>
@@ -156,6 +192,14 @@ export default function BatchReviewPage() {
           {(lectures ?? []).map((row, idx) => {
             const isReviewed = reviewed.has(row.run_id);
             const failed = row.status === 'failed';
+            // M15: a batch member whose parse job never reached a terminal
+            // status (still queued/extracting, or stuck there) used to fall
+            // through into the same branch as a finished lecture — rendering
+            // 0 slides / 0 quiz questions / a blank summary with no
+            // indication anything was still in flight. Every non-terminal
+            // status now gets its own explicit "still processing" card
+            // instead of silently looking like an empty finished lecture.
+            const inProgress = !failed && row.status !== 'completed';
             return (
               <motion.div
                 key={row.run_id}
@@ -165,18 +209,24 @@ export default function BatchReviewPage() {
                 className={`rounded-2xl border p-5 flex items-center gap-4 shadow-sm transition-opacity ${
                   failed
                     ? 'border-destructive/30 bg-destructive/5'
-                    : 'border-border bg-card/60 hover:shadow-md'
+                    : inProgress
+                      ? 'border-amber-500/30 bg-amber-500/5'
+                      : 'border-border bg-card/60 hover:shadow-md'
                 } ${isReviewed ? 'opacity-60' : ''}`}
               >
                 <div
                   className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-md ${
                     failed
                       ? 'bg-destructive/10 shadow-none'
-                      : 'bg-gradient-to-br from-violet-500 to-indigo-600 shadow-violet-500/20'
+                      : inProgress
+                        ? 'bg-amber-500/10 shadow-none'
+                        : 'bg-gradient-to-br from-violet-500 to-indigo-600 shadow-violet-500/20'
                   }`}
                 >
                   {failed ? (
                     <AlertCircle className="w-5 h-5 text-destructive" />
+                  ) : inProgress ? (
+                    <Loader2 className="w-5 h-5 text-amber-600 animate-spin" />
                   ) : (
                     <BookOpen className="w-5 h-5 text-white" />
                   )}
@@ -184,11 +234,15 @@ export default function BatchReviewPage() {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-foreground truncate">{row.title || row.filename}</h3>
+                    <h3 className="font-semibold text-foreground truncate">{displayTitle(row)}</h3>
                     {isReviewed && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
                   </div>
                   {failed ? (
-                    <p className="text-xs text-destructive mt-1">{row.error || 'Parsing failed.'}</p>
+                    <p className="text-xs text-destructive mt-1">{row.error || 'Parsing failed — see the uploads panel.'}</p>
+                  ) : inProgress ? (
+                    <p className="text-xs text-amber-700 mt-1" data-testid="in-progress-label">
+                      Still processing ({row.status}) — this card will update once it finishes.
+                    </p>
                   ) : (
                     <>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{row.deck_summary}</p>
@@ -210,7 +264,7 @@ export default function BatchReviewPage() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {!failed && row.lecture_id && (
+                  {!failed && !inProgress && row.lecture_id && (
                     <Button
                       onClick={() => navigate(ProfessorRoutes.LECTURE_EDIT(row.lecture_id!))}
                       className="gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md shadow-violet-500/20"
@@ -218,7 +272,7 @@ export default function BatchReviewPage() {
                       Open editor <ArrowRight className="w-3.5 h-3.5" />
                     </Button>
                   )}
-                  {!failed && !isReviewed && (
+                  {!failed && !inProgress && !isReviewed && (
                     <Button
                       variant="outline"
                       onClick={() => {

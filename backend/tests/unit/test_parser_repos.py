@@ -205,6 +205,29 @@ async def test_list_runs_by_user_recent_branch(conn):
     assert "24 hours" in q  # the recent/non-terminal branch
 
 
+# ── list_stalled_extracting_runs (R51/R52) ───────────────────────────────────
+
+async def test_list_stalled_extracting_runs_filters_by_status_and_cutoff(conn):
+    conn.fetch_queue = [[_run_row(status="extracting")]]
+    cutoff = _now() - timedelta(minutes=25)
+    runs = await repos.list_stalled_extracting_runs(cutoff)
+    assert len(runs) == 1
+    assert runs[0].status == RunStatus.EXTRACTING
+    _, q, args = conn.executed[-1]
+    # Scoped to 'extracting' only — never 'queued' (see the function's
+    # docstring for why a freshly-retried QUEUED row would be unsafe here).
+    assert RunStatus.EXTRACTING.value in args
+    assert cutoff in args
+    assert "status = $1" in q
+    assert "started_at < $2" in q
+
+
+async def test_list_stalled_extracting_runs_empty(conn):
+    conn.fetch_queue = [[]]
+    runs = await repos.list_stalled_extracting_runs(_now())
+    assert runs == []
+
+
 # ── get_batch_summary ────────────────────────────────────────────────────────
 
 async def test_get_batch_summary_rolls_up_counts_and_titles(conn):

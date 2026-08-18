@@ -132,6 +132,47 @@ async def test_finalize_lecture_defaults_empty_description(conn):
     assert args[0] == ""
 
 
+# ── get_slide_count / sync_total_slides (R51/R52 reconciliation) ────────────
+
+async def test_get_slide_count_returns_int(conn):
+    lid = uuid4()
+    conn.fetchval_result = 127
+    count = await persist.get_slide_count(lid)
+    assert count == 127
+    _, q, args = conn.calls[-1]
+    assert "COUNT(*)" in q
+    assert "FROM slides" in q
+    assert args == (lid,)
+
+
+async def test_get_slide_count_none_result_is_zero(conn):
+    lid = uuid4()
+    conn.fetchval_result = None
+    assert await persist.get_slide_count(lid) == 0
+
+
+async def test_sync_total_slides_updates_lectures_from_live_count(conn):
+    lid = uuid4()
+    conn.fetchval_result = 32
+    count = await persist.sync_total_slides(lid)
+    assert count == 32
+    _, q, args = conn.calls[-1]
+    assert "UPDATE lectures SET total_slides" in q
+    assert args == (32, lid)
+    # Only total_slides — never description, unlike finalize_lecture, so a
+    # reconciled lecture's real deck_summary (which the crashed run never
+    # got to write) can't be clobbered with an empty string.
+    assert "description" not in q
+
+
+async def test_sync_total_slides_idempotent_when_called_twice(conn):
+    lid = uuid4()
+    conn.fetchval_result = 10
+    first = await persist.sync_total_slides(lid)
+    second = await persist.sync_total_slides(lid)
+    assert first == second == 10
+
+
 async def test_set_lecture_title_unarchives(conn):
     lid = uuid4()
     await persist.set_lecture_title(lid, "New Title")

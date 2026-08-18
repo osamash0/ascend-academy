@@ -221,6 +221,34 @@ class TestListUploadJobs:
         assert completed["status"] == "completed"
         assert completed["lecture_id"] is not None
 
+    def test_returns_timestamps_for_every_job(self, app_client, patch_supabase, monkeypatch):
+        """R53: the payload must carry enough timing info for a human or a
+        monitor to tell a 30-second-old job from a stuck, hours-old one —
+        `started_at` (effectively "enqueued at", parse_runs' only creation
+        timestamp) always present, `finished_at` only once terminal."""
+        in_flight = _make_run(status=RunStatus.EXTRACTING, filename="stuck.pdf")
+        done = _make_run(
+            status=RunStatus.COMPLETED, filename="done.pdf", lecture_id=uuid4(),
+            finished_at=datetime.now(timezone.utc),
+        )
+
+        async def fake_list(user_id, batch_id=None, limit=100):
+            return [in_flight, done]
+
+        monkeypatch.setattr(repos_module, "list_runs_by_user", fake_list)
+
+        r = app_client.get("/api/upload/jobs")
+        assert r.status_code == 200
+        jobs = {j["filename"]: j for j in r.json()["jobs"]}
+
+        stuck_job = jobs["stuck.pdf"]
+        assert stuck_job["started_at"] is not None
+        assert stuck_job["finished_at"] is None  # still in flight
+
+        done_job = jobs["done.pdf"]
+        assert done_job["started_at"] is not None
+        assert done_job["finished_at"] is not None
+
 
 class TestGetBatchSummary:
     def test_returns_per_lecture_rollup(self, app_client, patch_supabase, monkeypatch):
@@ -242,6 +270,37 @@ class TestGetBatchSummary:
         assert len(lectures) == 1
         assert lectures[0]["title"] == "Lecture A"
         assert lectures[0]["slide_count"] == 10
+
+    def test_includes_in_flight_and_failed_members_not_just_completed(
+        self, app_client, patch_supabase, monkeypatch
+    ):
+        """M15: a batch review query must return EVERY member regardless of
+        status — a batch with stuck/in-flight jobs must not look "done" just
+        because only the finished ones came back."""
+        batch_id = uuid4()
+
+        async def fake_summary(bid, uid):
+            assert bid == batch_id
+            return [
+                {"run_id": uuid4(), "status": "completed", "error": None, "filename": "done.pdf",
+                 "lecture_id": uuid4(), "title": "Done Lecture", "deck_summary": "S",
+                 "slide_count": 10, "quiz_count": 5, "flagged_count": 0},
+                {"run_id": uuid4(), "status": "extracting", "error": None, "filename": "stuck.pdf",
+                 "lecture_id": None, "title": None, "deck_summary": None,
+                 "slide_count": 0, "quiz_count": 0, "flagged_count": 0},
+                {"run_id": uuid4(), "status": "failed", "error": "Parsing failed.", "filename": "broken.pdf",
+                 "lecture_id": None, "title": None, "deck_summary": None,
+                 "slide_count": 0, "quiz_count": 0, "flagged_count": 0},
+            ]
+
+        monkeypatch.setattr(repos_module, "get_batch_summary", fake_summary)
+
+        r = app_client.get(f"/api/upload/batches/{batch_id}")
+        assert r.status_code == 200
+        lectures = r.json()["lectures"]
+        assert len(lectures) == 3
+        statuses = {l["filename"]: l["status"] for l in lectures}
+        assert statuses == {"done.pdf": "completed", "stuck.pdf": "extracting", "broken.pdf": "failed"}
 
     def test_unknown_batch_404s(self, app_client, patch_supabase, monkeypatch):
         async def fake_summary(bid, uid):

@@ -21,6 +21,7 @@ from arq.connections import RedisSettings
 from arq.cron import cron
 
 from backend.core.config import settings
+from backend.core.worker_heartbeat import WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL_SECONDS
 from backend.services.analytics_rollup import rollup_analytics_cache, rollup_concept_mastery
 from backend.services.localization_service import localize_lecture_job
 from backend.services.nudge_scheduler import (
@@ -33,6 +34,23 @@ from backend.services.review.card_factory import generate_review_cards
 from backend.workers.dlq import capture_dlq_on_job_end
 
 logger = logging.getLogger(__name__)
+
+# M33/M34: how often the liveness heartbeat re-writes itself. Comfortably
+# inside WORKER_HEARTBEAT_TTL_SECONDS (90s) so a healthy worker's key never
+# lapses between cron ticks even under a slow Redis round-trip.
+WORKER_HEARTBEAT_INTERVAL_SECONDS = 30
+
+# R51/R52: how long a run may sit in 'extracting' before the reconciliation
+# sweep treats it as stalled. Comfortably above WorkerSettings.job_timeout
+# (900s / 15min below) so a legitimately-still-running job — including one
+# Arq is about to cancel for exceeding job_timeout, which now self-heals via
+# unified_orchestrator's except clause — is never mistaken for abandoned.
+STALLED_RUN_THRESHOLD_MINUTES = 25
+
+# How often the reconciliation sweep runs. Coarser than the heartbeat: this
+# is a second line of defense for a worker that died outright (no chance to
+# run its own except/finally cleanup), not the common path.
+RECONCILE_INTERVAL_MINUTES = 10
 
 # Empty when ENABLE_NUDGE_SCHEDULER isn't set to "1" — same off-by-default
 # posture as the old APScheduler wiring (never fires in dev/tests).
@@ -111,6 +129,59 @@ async def refresh_professor_overview_mv(ctx: dict) -> None:
         logger.error("mv_course_daily_activity refresh failed: %s", e, exc_info=True)
 
 
+async def worker_heartbeat(ctx: dict) -> None:
+    """M33/M34: prove a worker process is alive and cycling, independent of
+    whether any parse jobs happen to be queued right now.
+
+    A raw queue-depth reading alone can't distinguish "the worker is actively
+    draining a backlog" from "the worker is dead and the backlog is frozen" —
+    that's exactly the M33 upload-copy bug and the M34 readiness-probe gap.
+    This key is the missing signal both consult: /health/ready
+    (backend/main.py) and the upload backpressure message
+    (backend/services/upload_service.py) only treat a nonempty queue as
+    unhealthy/non-draining when this heartbeat is ALSO missing — an idle
+    queue with zero jobs never needs a heartbeat at all.
+    """
+    try:
+        redis = ctx.get("redis")
+        if redis is None:
+            return
+        await redis.set(WORKER_HEARTBEAT_KEY, "1", ex=WORKER_HEARTBEAT_TTL_SECONDS)
+    except Exception:
+        logger.debug("worker_heartbeat: failed to write heartbeat key", exc_info=True)
+
+
+async def reconcile_stalled_parse_runs(ctx: dict) -> None:
+    """R51/R52 second line of defense: recover (or fail-honestly) any
+    parse_runs row stuck in 'extracting' past STALLED_RUN_THRESHOLD_MINUTES.
+
+    The common case (an ordinary exception, or Arq cancelling a job for
+    exceeding job_timeout) already self-heals inside parse_pdf_unified's own
+    except clause within one job_timeout cycle — see unified_orchestrator.py.
+    This sweep exists for the case that can't: the worker process dying
+    outright (OOM-kill, container restart) mid-job, with no chance to run any
+    exception handler at all, leaving the row frozen in 'extracting' with
+    error=NULL forever.
+
+    Never destructive: reconcile_stalled_run only ever (a) finishes the
+    terminal transition for a run whose lecture already has real slides
+    persisted, reconciling total_slides from the actual count, or (b) marks
+    a run FAILED with a real error when nothing was ever persisted for it —
+    it never deletes or re-parses anything.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from backend.services.parser.reconcile import reconcile_all_stalled
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=STALLED_RUN_THRESHOLD_MINUTES)
+    try:
+        results = await reconcile_all_stalled(cutoff)
+        if results:
+            logger.info("reconcile_stalled_parse_runs: %s", results)
+    except Exception:
+        logger.exception("reconcile_stalled_parse_runs: sweep failed")
+
+
 async def on_job_start(ctx: dict) -> None:
     """Roadmap P1-2: stamp a start time on this job's ctx (Arq passes the
     SAME ctx dict through on_job_start -> the job function -> after_job_end,
@@ -180,6 +251,10 @@ class WorkerSettings:
     ]
     cron_jobs = [
         cron(refresh_professor_overview_mv, minute={0, 10, 20, 30, 40, 50}, run_at_startup=True),
+        # M33/M34: liveness heartbeat every 30s, well inside its own 90s TTL.
+        cron(worker_heartbeat, second={0, 30}, run_at_startup=True),
+        # R51/R52: stalled-run reconciliation sweep every 10 minutes.
+        cron(reconcile_stalled_parse_runs, minute={0, 10, 20, 30, 40, 50}, run_at_startup=True),
         *_cron_jobs,
     ]
     on_startup = startup
