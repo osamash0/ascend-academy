@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/apiClient';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 import { ProfessorRoutes, SharedRoutes, StudentRoutes } from '@/lib/routes';
 import { useAuth } from '@/lib/auth';
+import { formatJobAge, jobAgeMinutes, LIKELY_STUCK_MINUTES } from '@/lib/jobAge';
 import type { UploadJob } from '@/types/upload';
 
 const IN_FLIGHT_STATUSES = new Set<UploadJob['status']>([
@@ -131,31 +132,43 @@ export function UploadsIndicator() {
                   No recent uploads
                 </div>
               ) : (
-                jobs.map((job) => (
-                  <button
-                    key={job.run_id}
-                    onClick={() => {
-                      if (job.batch_id) openBatch(job.batch_id);
-                      else if (job.lecture_id) navigate(role === 'student' ? SharedRoutes.LECTURE(job.lecture_id) : ProfessorRoutes.LECTURE_EDIT(job.lecture_id));
-                      setOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 border-b border-border/50 last:border-b-0 hover:bg-muted/50 text-left"
-                  >
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-muted">
-                      {IN_FLIGHT_STATUSES.has(job.status) ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
-                      ) : job.status === 'completed' ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      ) : (
-                        <UploadIcon className="w-4 h-4 text-destructive" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground truncate">{job.filename || job.pdf_hash}</p>
-                      <p className="text-xs text-muted-foreground">{job.status}</p>
-                    </div>
-                  </button>
-                ))
+                jobs.map((job) => {
+                  const inFlight = IN_FLIGHT_STATUSES.has(job.status);
+                  // R53: `started_at` was already in the API response but
+                  // never rendered — a stuck job looked identical to a
+                  // 30-second-old one. Age is only meaningful while the job
+                  // hasn't reached a terminal status yet.
+                  const ageMinutes = inFlight ? jobAgeMinutes(job.started_at) : null;
+                  const ageLabel = inFlight ? formatJobAge(job.started_at) : null;
+                  const likelyStuck = ageMinutes !== null && ageMinutes >= LIKELY_STUCK_MINUTES;
+                  return (
+                    <button
+                      key={job.run_id}
+                      onClick={() => {
+                        if (job.batch_id) openBatch(job.batch_id);
+                        else if (job.lecture_id) navigate(role === 'student' ? SharedRoutes.LECTURE(job.lecture_id) : ProfessorRoutes.LECTURE_EDIT(job.lecture_id));
+                        setOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 border-b border-border/50 last:border-b-0 hover:bg-muted/50 text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-muted">
+                        {inFlight ? (
+                          <Loader2 className={`w-4 h-4 animate-spin ${likelyStuck ? 'text-amber-500' : 'text-violet-500'}`} />
+                        ) : job.status === 'completed' ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                          <UploadIcon className="w-4 h-4 text-destructive" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground truncate">{job.filename || job.pdf_hash}</p>
+                        <p className={`text-xs ${likelyStuck ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`} data-testid="job-status-line">
+                          {ageLabel ? `${job.status} for ${ageLabel}` : job.status}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </motion.div>

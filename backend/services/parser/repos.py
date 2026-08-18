@@ -217,6 +217,37 @@ async def get_batch_summary(batch_id: UUID, user_id: UUID) -> list[dict]:
         return out
 
 
+async def list_stalled_extracting_runs(cutoff: datetime) -> list[ParseRun]:
+    """Runs stuck in 'extracting' whose ``started_at`` predates ``cutoff`` —
+    candidates for ``backend.services.parser.reconcile.reconcile_stalled_run``
+    (R51/R52).
+
+    Deliberately scoped to ``extracting`` only, never ``queued``: a QUEUED
+    run can legitimately sit for a while under real backlog, and — because a
+    ``/retry`` resets status back to QUEUED without bumping ``started_at`` —
+    an old ``started_at`` on a freshly-retried row would otherwise look
+    "stalled" the instant it's requeued, while its ``lecture_id`` still
+    points at the PREVIOUS attempt's (possibly stale) slide count. Only
+    ``extracting`` means a worker actually picked the run up and started the
+    real pipeline, so a stuck ``extracting`` row is never a false positive
+    from a normal queue wait or an in-flight retry.
+    """
+    pool = await _pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT run_id, pdf_hash, lecture_id, pipeline_version, status,
+                   page_count, started_at, finished_at, outline, error,
+                   batch_id, user_id, course_id, filename, parsing_mode
+            FROM parse_runs
+            WHERE status = $1 AND started_at < $2
+            ORDER BY started_at
+            """,
+            RunStatus.EXTRACTING.value, cutoff,
+        )
+        return [_run_from_row(r) for r in rows]
+
+
 async def set_status(run_id: UUID, status: RunStatus) -> None:
     pool = await _pool()
     kwargs: dict = {"status": status.value, "run_id": run_id}

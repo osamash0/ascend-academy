@@ -207,6 +207,53 @@ async def test_queue_depth_returns_zero_on_error(monkeypatch):
     assert await upload_service.queue_depth() == 0
 
 
+# ── queue_backpressure_message (M33) ────────────────────────────────────────
+
+async def test_queue_backpressure_message_transient_when_heartbeat_present(monkeypatch):
+    """A worker heartbeat present means the backlog is (or recently was)
+    actively being drained — "retry in a few minutes" is honest here."""
+    class _Pool:
+        async def get(self, key):
+            return "1"
+
+    async def _get_pool():
+        return _Pool()
+
+    monkeypatch.setattr(upload_service, "get_arq_pool", _get_pool)
+    message = await upload_service.queue_backpressure_message()
+    assert message == upload_service.TRANSIENT_BACKPRESSURE_MESSAGE
+    assert "retry" in message.lower()
+
+
+async def test_queue_backpressure_message_honest_when_worker_dead(monkeypatch):
+    """No heartbeat at all means nothing is draining the backlog — telling
+    someone to retry would be dishonest, since retrying never helps."""
+    class _Pool:
+        async def get(self, key):
+            return None
+
+    async def _get_pool():
+        return _Pool()
+
+    monkeypatch.setattr(upload_service, "get_arq_pool", _get_pool)
+    message = await upload_service.queue_backpressure_message()
+    assert message == upload_service.WORKER_DOWN_MESSAGE
+    # Must not tell the user retrying will help — the backlog is frozen.
+    assert "please retry in a few minutes" not in message.lower()
+
+
+async def test_queue_backpressure_message_fails_toward_transient_on_error(monkeypatch):
+    """A monitoring hiccup (can't reach Redis to check the heartbeat) must
+    never itself produce the more alarming "unavailable" message — mirrors
+    queue_depth()'s own "never block uploads on a blip" posture."""
+    async def _boom():
+        raise RuntimeError("redis down")
+
+    monkeypatch.setattr(upload_service, "get_arq_pool", _boom)
+    message = await upload_service.queue_backpressure_message()
+    assert message == upload_service.TRANSIENT_BACKPRESSURE_MESSAGE
+
+
 # ── upload_pdf_to_storage ────────────────────────────────────────────────────
 
 class _FakeStorageBucket:

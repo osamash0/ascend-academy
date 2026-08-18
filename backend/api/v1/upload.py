@@ -184,7 +184,7 @@ async def parse_pdf_stream_endpoint(
     if _max_depth and await upload_service.queue_depth() >= _max_depth:
         raise HTTPException(
             status_code=429,
-            detail="The processing queue is busy right now. Please retry in a few minutes.",
+            detail=await upload_service.queue_backpressure_message(),
         )
 
     return StreamingResponse(
@@ -539,7 +539,7 @@ async def upload_batch_endpoint(
     if _max_depth and await upload_service.queue_depth() >= _max_depth:
         raise HTTPException(
             status_code=429,
-            detail="The processing queue is busy right now. Please retry in a few minutes.",
+            detail=await upload_service.queue_backpressure_message(),
         )
 
     parsing_mode = parsing_mode if parsing_mode in {"ai", "on_demand"} else "ai"

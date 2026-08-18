@@ -954,14 +954,34 @@ async def parse_pdf_unified(
         await emit("complete", {"total": total_persisted})
         return str(run_uuid)
 
-    except Exception as exc:
+    except (Exception, asyncio.CancelledError) as exc:
+        # R51/R52: asyncio.CancelledError is a BaseException, not an
+        # Exception — a plain `except Exception` here would let it fall
+        # straight through, skipping set_error entirely. That's exactly how
+        # Arq enforces WorkerSettings.job_timeout: it cancels this coroutine
+        # at whatever await point it's stuck on, which raises
+        # CancelledError right here. Without catching it too, a job that
+        # legitimately exceeds job_timeout is left in 'extracting' forever
+        # with error=NULL — one of the two root causes behind the "stuck
+        # forever" findings (the other being a worker process dying outright,
+        # which no in-process except clause can ever catch; see
+        # backend/services/parser/reconcile.py for that second line of
+        # defense). Catching it here means a timed-out job now self-heals
+        # within a single job_timeout cycle instead of needing the
+        # reconciliation sweep at all.
+        is_cancellation = isinstance(exc, asyncio.CancelledError)
         logger.exception("Unified pipeline failed for pdf_hash=%s: %s", pdf_hash, exc)
         # Full detail is in the server log above (logger.exception, with
         # traceback). What reaches the DB row / SSE stream — and from there
         # GET /upload/jobs, visible to the owning user — is a generic
         # message: str(exc) here could surface internal details (service
         # URLs, library internals) depending on what actually raised.
-        user_facing_error = "PDF parsing failed. Please try again or contact support if this keeps happening."
+        user_facing_error = (
+            "Processing timed out before it could finish. Please try again or contact "
+            "support if this keeps happening."
+            if is_cancellation
+            else "PDF parsing failed. Please try again or contact support if this keeps happening."
+        )
         try:
             if run_uuid is not None:
                 if created_lecture_id is not None and slide_db_ids:
@@ -973,6 +993,9 @@ async def parse_pdf_unified(
             await emit("error", {"message": user_facing_error})
         except Exception:
             pass
+        # A caught CancelledError MUST be re-raised (not swallowed) so
+        # asyncio's own cancellation bookkeeping for this task stays correct
+        # — `raise` here re-raises the exact exception object either way.
         raise
     finally:
         if got_lock:
