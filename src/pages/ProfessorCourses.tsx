@@ -22,12 +22,9 @@ import {
 } from '@/services/coursesService';
 import { COLOR_SWATCHES, CreateCourseDialog } from '@/features/courses/components/CreateCourseDialog';
 
-import { useCurriculumTranslation } from '@/hooks/useCurriculumTranslation';
-
 export default function ProfessorCourses() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const translateCurriculum = useCurriculumTranslation();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -125,7 +122,6 @@ export default function ProfessorCourses() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {courses.map((c) => {
-            const translatedTitle = translateCurriculum(c.title);
             return (
             <motion.div
               key={c.id}
@@ -143,7 +139,7 @@ export default function ProfessorCourses() {
                     <BookOpen className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-foreground">{translatedTitle}</h3>
+                    <h3 className="font-bold text-foreground">{c.title}</h3>
                     <p className="text-xs text-muted-foreground">
                       {c.lecture_count} lecture{c.lecture_count === 1 ? '' : 's'}
                     </p>

@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, ChevronLeft, CheckCircle2, AlertTriangle, Building2 } from 'lucide-react';
+import { Play, BookOpen, Sparkles, ChevronUp, ChevronDown, ChevronLeft, CheckCircle2, AlertTriangle, Building2, ArrowUpRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStudentDashboard } from '@/features/student/hooks/useStudentDashboard';
@@ -55,6 +55,8 @@ interface DerivedCourse {
   ratingCount: number;
   lecturesCount: number;
   completedLectures: number;
+  /** Sum of each lecture's completion fraction (0-1), used to compute `progress`. */
+  progressSum: number;
   progress: number;
   status: ConsoleStatus;
 }
@@ -231,6 +233,7 @@ export default function StudentCourseLibrary() {
         ratingCount: (c as any).rating_count ?? 0,
         lecturesCount: 0,
         completedLectures: 0,
+        progressSum: 0,
         progress: 0,
         status: 'new',
       });
@@ -252,6 +255,7 @@ export default function StudentCourseLibrary() {
           ratingCount: (l.course as any)?.rating_count ?? 0,
           lecturesCount: 0,
           completedLectures: 0,
+          progressSum: 0,
           progress: 0,
           status: 'new',
         });
@@ -268,6 +272,9 @@ export default function StudentCourseLibrary() {
       const cm = courseMeta.get(cid)!;
       cm.lecturesCount++;
       if (total > 0 && completed >= total) cm.completedLectures++;
+      // Accumulate the raw completion fraction (not gated on 100%) so the
+      // course-level rollup reflects partial progress across every lecture.
+      cm.progressSum += total > 0 ? completed / total : 0;
     });
 
     // Order lectures within a course by their numeric badge, then by recency.
@@ -282,8 +289,16 @@ export default function StudentCourseLibrary() {
 
     const list = Array.from(courseMeta.values())
       .map((c) => {
-        c.progress = c.lecturesCount > 0 ? Math.round((c.completedLectures / c.lecturesCount) * 100) : 0;
-        c.status = c.progress === 100 ? 'done' : c.progress > 0 ? 'progress' : 'new';
+        // Weighted average of per-lecture completion, not gated on any single
+        // lecture being 100% done — a course with lectures at 2% and 9%
+        // should show a small non-zero overall percentage, not 0%.
+        c.progress = c.lecturesCount > 0 ? Math.round((c.progressSum / c.lecturesCount) * 100) : 0;
+        // Base "done" on every lecture actually being complete, not on the
+        // rounded average hitting 100 (which rounding could otherwise trigger
+        // early or fail to trigger when truly all-complete).
+        c.status = c.lecturesCount > 0 && c.completedLectures === c.lecturesCount
+          ? 'done'
+          : c.progress > 0 ? 'progress' : 'new';
         return c;
       })
       .sort((a, b) => {
@@ -647,7 +662,7 @@ export default function StudentCourseLibrary() {
                     const dim = activeRow === 'lectures';
                     const isTarget = onboardTarget && c.title.toLowerCase() === onboardTarget.toLowerCase();
                     return (
-                <div key={c.id} className="relative flex flex-col items-center gap-2">
+                <div key={c.id} className="group relative flex flex-col items-center gap-2">
                   {isTarget && (
                     <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-50 whitespace-nowrap bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-full shadow-xl animate-bounce pointer-events-none before:content-[''] before:absolute before:-bottom-1 before:left-1/2 before:-translate-x-1/2 before:border-4 before:border-transparent before:border-t-primary">
                       Here is your course!
@@ -712,6 +727,21 @@ export default function StudentCourseLibrary() {
                     {c.title}
                   </span>
                 </button>
+                  {/* Explicit affordance to open the full course page. Kept separate
+                      from the tile's own click/double-click (focus / drop-into-lectures)
+                      handlers so neither behavior is disturbed. */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(StudentRoutes.COURSE_DETAIL(c.id));
+                    }}
+                    aria-label={t('dashboard:viewCourse', 'View course')}
+                    title={t('dashboard:viewCourse', 'View course')}
+                    className="console-focusable absolute right-0 top-0 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/70 text-white/70 opacity-0 transition-opacity hover:bg-black/90 hover:text-white focus-visible:opacity-100 group-hover:opacity-100"
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </button>
               </div>
                     );
                   })}
