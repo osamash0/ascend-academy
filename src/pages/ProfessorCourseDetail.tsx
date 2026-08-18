@@ -259,18 +259,22 @@ export default function ProfessorCourseDetail() {
   const translateCurriculum = useCurriculumTranslation();
   const [course, setCourse] = useState<CourseWithLectures | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [allLectures, setAllLectures] = useState<Lecture[]>([]);
   const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!courseId) return;
     setLoading(true);
+    setIsError(false);
     try {
       setCourse(await getCourse(courseId));
     } catch (e) {
       console.error(e);
+      setIsError(true);
       toast({ title: 'Failed to load course', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -283,9 +287,14 @@ export default function ProfessorCourseDetail() {
     if (!user) return;
     setPickerOpen(true);
     setPickerLoading(true);
+    setPickerError(false);
     try {
       const all = await fetchProfessorLectures(user.id);
       setAllLectures(all);
+    } catch (e) {
+      console.error(e);
+      setPickerError(true);
+      toast({ title: 'Failed to load your lectures', description: 'Please try again.', variant: 'destructive' });
     } finally {
       setPickerLoading(false);
     }
@@ -335,10 +344,31 @@ export default function ProfessorCourseDetail() {
     }
   };
 
-  if (loading || !course) {
+  if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Distinguish a genuine load failure from any other unexpected state —
+  // otherwise a rejected getCourse() call spins forever with only an
+  // auto-dismissing toast as a signal (see StudentCourseLibrary.tsx for the
+  // same isError/empty distinction on the student side).
+  if (isError || !course) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-card/40 border border-destructive/20 rounded-3xl p-8 text-center glass-panel backdrop-blur">
+          <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-5 text-destructive">
+            <X className="w-6 h-6" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground mb-2">Failed to load course</h2>
+          <p className="text-sm text-muted-foreground mb-6">There was an issue fetching this course. Please try again.</p>
+          <Button onClick={() => void refresh()} className="w-full rounded-2xl h-12" data-testid="course-detail-retry">
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
@@ -459,6 +489,13 @@ export default function ProfessorCourseDetail() {
             {pickerLoading ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : pickerError ? (
+              <div className="text-center py-10 space-y-3" data-testid="picker-error">
+                <p className="text-sm text-destructive">Couldn't load your lectures.</p>
+                <Button size="sm" variant="outline" onClick={() => void openPicker()}>
+                  Retry
+                </Button>
               </div>
             ) : unassignable.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-10">

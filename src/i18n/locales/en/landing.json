@@ -121,6 +121,7 @@
     "platform": "Platform",
     "resources": "Resources",
     "company": "Company",
+    "legal": "Legal",
     "links": {
       "features": "Features",
       "pricing": "Pricing",

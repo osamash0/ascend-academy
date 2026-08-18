@@ -4,7 +4,7 @@
  * Slots into the existing professor dashboard alongside the lectures table.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, ClipboardList, Trash2, CalendarDays } from 'lucide-react';
+import { Plus, ClipboardList, Trash2, CalendarDays, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -37,11 +37,17 @@ export function ProfessorAssignmentsTab({ lectures }: Props) {
   const [assignments, setAssignments] = useState<Assignment[] | null>(null);
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [loading, setLoading] = useState(true);
+  // Tracked separately from `assignments` being empty/null — a failed
+  // listAssignments() call must not render the same "No assignments yet"
+  // copy as a professor who genuinely has none, since that could lead them
+  // to create a duplicate of an assignment that actually already exists.
+  const [isError, setIsError] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
+      setIsError(false);
       const [list, studentList] = await Promise.all([
         listAssignments(),
         listEnrollableStudents().catch(err => {
@@ -53,7 +59,7 @@ export function ProfessorAssignmentsTab({ lectures }: Props) {
       setStudents(studentList);
     } catch (err) {
       console.error('Failed to load assignments:', err);
-      setAssignments([]);
+      setIsError(true);
     } finally {
       setLoading(false);
     }
@@ -105,6 +111,17 @@ export function ProfessorAssignmentsTab({ lectures }: Props) {
 
       {loading ? (
         <div className="glass-card p-8 animate-pulse h-40" />
+      ) : isError ? (
+        <div className="glass-card p-12 text-center border-dashed border-2 border-destructive/20" data-testid="assignments-error">
+          <AlertTriangle className="w-10 h-10 text-destructive/60 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-foreground mb-1">Couldn't load assignments</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
+            Something went wrong reaching the server. Please try again.
+          </p>
+          <Button variant="outline" onClick={() => void refresh()}>
+            Try Again
+          </Button>
+        </div>
       ) : !assignments || assignments.length === 0 ? (
         <div className="glass-card p-12 text-center border-dashed border-2 border-white/5">
           <ClipboardList className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -39,8 +39,32 @@ export default function ProfessorDashboard() {
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [isError, setIsError] = useState(false);
+  // Tracked separately from the lecture-load `isError` above: a failed
+  // listCourses() call used to be console.error-only, leaving `courses` at
+  // [] — which made the whole Course Overview section (stat cards, 7-day
+  // chart, weakest-concepts list) silently disappear with no indication
+  // anything went wrong (ProfessorOverviewSection returns null for an empty
+  // course list).
+  const [coursesError, setCoursesError] = useState(false);
+
+  const loadCourses = useCallback(() => {
+    setCoursesError(false);
+    return listCourses()
+      .then(setCourses)
+      .catch((e) => {
+        console.error('Failed to load courses', e);
+        setCoursesError(true);
+        toast({
+          title: t('professor:coursesLoadFailed', { defaultValue: 'Failed to load your courses' }),
+          description: t('professor:coursesLoadFailedDesc', { defaultValue: 'The Course Overview section could not be loaded.' }),
+          variant: 'destructive',
+        });
+      });
+  }, [toast, t]);
+
   useEffect(() => {
-    listCourses().then(setCourses).catch((e) => console.error('Failed to load courses', e));
+    void loadCourses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAssignCourse = async (lecture: Lecture, nextCourseId: string | null) => {
@@ -301,7 +325,18 @@ export default function ProfessorDashboard() {
           </div>
 
           {/* ── Course Overview (whole-course aggregate) ── */}
-          <ProfessorOverviewSection courses={courses.map(c => ({...c, title: translateCurriculum(c.title)}))} />
+          {coursesError ? (
+            <div className="glass-card p-8 text-center space-y-4" data-testid="course-overview-error">
+              <p className="text-sm text-muted-foreground">
+                {t('professor:coursesLoadFailed', { defaultValue: "Couldn't load your course overview." })}
+              </p>
+              <Button variant="outline" onClick={() => void loadCourses()}>
+                {t('common:retry', { defaultValue: 'Try Again' })}
+              </Button>
+            </div>
+          ) : (
+            <ProfessorOverviewSection courses={courses.map(c => ({...c, title: translateCurriculum(c.title)}))} />
+          )}
 
           {/* ── Assignments Section ── */}
           <ProfessorAssignmentsTab lectures={lectures.map(l => ({ id: l.id, title: translateCurriculum(l.title) }))} />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-motion';
 import {
@@ -52,6 +52,14 @@ const LUNA_THEMES = [
 
 const TOTAL_STEPS = 5;
 const JOURNEY_LABELS = ['You', 'Avatar', 'Studies', 'Courses', 'Explore'];
+// Client-side cap on the step-1 display name. It flows into the leaderboard,
+// friends list and profile chip, so an unbounded value is a UX/abuse risk.
+// NOTE: there is no matching DB-level constraint on profiles.full_name /
+// display_name today, so this is a UX guard, not a security boundary — a
+// direct API call can still bypass it.
+const DISPLAY_NAME_MAX_LENGTH = 60;
+// Draft persistence (M61): local-storage key for in-progress onboarding state.
+const ONBOARDING_DRAFT_KEY = 'onboarding_draft';
 
 type Stage = 'intro' | 'form' | 'reveal';
 
@@ -185,6 +193,9 @@ function OnboardingInner() {
   const [programs, setPrograms] = useState<DegreeProgram[]>([]);
   const [uniId, setUniId] = useState('');
   const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
+  // M62: the university picker has ~443 options — do not mount any of them
+  // until the user has typed something to search for.
+  const [uniSearchQuery, setUniSearchQuery] = useState('');
   const [facId, setFacId] = useState('');
   const [progId, setProgId] = useState('');
   const [semester, setSemester] = useState(1);
@@ -200,6 +211,15 @@ function OnboardingInner() {
   const selectedUni = universities.find((u) => u.id === uniId);
   // No usable catalog if a university is chosen but has no faculties/program.
   const noCatalog = !!selectedUni && !selectedUni.hasCatalog;
+
+  // M62: only compute (and later render) matches once the user has typed
+  // something — this is what keeps the ~443-option picker from mounting
+  // every option up front, which was the heaviest DOM on the whole flow.
+  const uniSearchMatches = useMemo(() => {
+    const query = uniSearchQuery.trim().toLowerCase();
+    if (!query) return [];
+    return universities.filter((u) => `${u.name} ${u.city || ''}`.toLowerCase().includes(query));
+  }, [universities, uniSearchQuery]);
 
   const firstName =
     fullName.trim().split(' ')[0] || profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
@@ -237,13 +257,90 @@ function OnboardingInner() {
     }
   }, [profile, step]);
 
+  // M61: restore an in-progress draft on mount, once, before anything else
+  // has a chance to overwrite it. This is a UX safety net for a reload
+  // mid-onboarding — not a sync mechanism, so a corrupt/unreadable draft is
+  // simply ignored rather than surfaced to the user.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(ONBOARDING_DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as Partial<{
+        step: number;
+        fullName: string;
+        avatarUrl: string;
+        lunaSuit: string;
+        lunaVisor: string;
+        uniId: string;
+        facId: string;
+        progId: string;
+        semester: number;
+        freeInstitution: string;
+        selectedCourses: string[];
+        statusMap: Record<string, StudentCatalogStatus>;
+      }>;
+      if (typeof draft.fullName === 'string' && draft.fullName) setFullName(draft.fullName);
+      if (typeof draft.avatarUrl === 'string' && draft.avatarUrl) setAvatarUrl(draft.avatarUrl);
+      if (typeof draft.lunaSuit === 'string' && draft.lunaSuit) setLunaSuit(draft.lunaSuit);
+      if (typeof draft.lunaVisor === 'string' && draft.lunaVisor) setLunaVisor(draft.lunaVisor);
+      if (typeof draft.uniId === 'string') setUniId(draft.uniId);
+      if (typeof draft.facId === 'string') setFacId(draft.facId);
+      if (typeof draft.progId === 'string') setProgId(draft.progId);
+      if (typeof draft.semester === 'number') setSemester(draft.semester);
+      if (typeof draft.freeInstitution === 'string') setFreeInstitution(draft.freeInstitution);
+      if (Array.isArray(draft.selectedCourses)) setSelectedCourses(draft.selectedCourses);
+      if (draft.statusMap && typeof draft.statusMap === 'object') setStatusMap(draft.statusMap);
+      if (typeof draft.step === 'number' && draft.step > 1) {
+        setStep(draft.step);
+        setStage('form');
+      }
+    } catch {
+      // Corrupt or unreadable draft — proceed with a clean onboarding run.
+    }
+    // Restore once, on mount only.
+  }, []);
+
+  // M61: persist the in-progress draft after every step/field change so a
+  // reload doesn't drop everything the student has already entered.
+  useEffect(() => {
+    if (stage !== 'form') return;
+    try {
+      window.localStorage.setItem(
+        ONBOARDING_DRAFT_KEY,
+        JSON.stringify({
+          step,
+          fullName,
+          avatarUrl,
+          lunaSuit,
+          lunaVisor,
+          uniId,
+          facId,
+          progId,
+          semester,
+          freeInstitution,
+          selectedCourses,
+          statusMap,
+        }),
+      );
+    } catch {
+      // Best-effort safety net only (e.g. storage disabled/full) — never
+      // block onboarding on this.
+    }
+  }, [stage, step, fullName, avatarUrl, lunaSuit, lunaVisor, uniId, facId, progId, semester, freeInstitution, selectedCourses, statusMap]);
+
   // Load platform courses (step 5) + universities (step 3) up-front.
   useEffect(() => {
     (async () => {
       try {
+        // `browseCourses()` already hits the `/api/courses/browse` endpoint,
+        // which is server-side scoped to published, non-archived courses
+        // (see backend/api/v1/courses.py::browse_courses). That is exactly
+        // the "is_public"/"is_ready" semantics this step needs, so no extra
+        // client-side filter is required. This used to additionally filter
+        // down to a single hardcoded German course title, which meant the
+        // step showed nothing unless that exact course existed.
         const data = await browseCourses();
-        // Extra-topics onboarding step only surfaces courses that are ready today.
-        setCourses(data.filter((c) => c.title.trim().toLowerCase() === 'datenbanksysteme'));
+        setCourses(data);
       } catch (err) {
         console.error('Failed to load courses', err);
       } finally {
@@ -482,6 +579,9 @@ function OnboardingInner() {
       // institution was just verified). We intentionally DO NOT call evaluate()
       // here because it would spawn a popup that obscures the 5-second cinematic.
       // Instead, we let the Dashboard's on-mount useEffect trigger the evaluation.
+
+      // Onboarding completed successfully — the draft safety net is no longer needed.
+      try { window.localStorage.removeItem(ONBOARDING_DRAFT_KEY); } catch { /* best-effort cleanup */ }
 
       // The reveal montage — the payoff for setting everything up.
       setStep(TOTAL_STEPS);
@@ -733,6 +833,7 @@ function OnboardingInner() {
                     onKeyDown={(e) => { if (e.key === 'Enter' && fullName.trim()) handleNext(); }}
                     placeholder={t('steps.name.placeholder')}
                     className="h-16 text-center text-xl bg-white/5 border-white/10 focus:border-primary/50 rounded-2xl transition-all"
+                    maxLength={DISPLAY_NAME_MAX_LENGTH}
                     autoFocus
                   />
                 </div>
@@ -875,31 +976,48 @@ function OnboardingInner() {
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl border-white/10 bg-background/95 backdrop-blur-xl">
-                        <Command className="bg-transparent">
-                          <CommandInput placeholder={t('steps.university.universityPlaceholder')} className="h-12 border-none focus:ring-0 text-base" />
+                      <PopoverContent
+                        side="bottom"
+                        avoidCollisions={false}
+                        className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl border-white/10 bg-background/95 backdrop-blur-xl"
+                      >
+                        <Command className="bg-transparent" shouldFilter={false}>
+                          <CommandInput
+                            value={uniSearchQuery}
+                            onValueChange={setUniSearchQuery}
+                            placeholder={t('steps.university.universityPlaceholder')}
+                            className="h-12 border-none focus:ring-0 text-base"
+                          />
                           <CommandList>
-                            <CommandEmpty className="py-4 text-center text-sm text-muted-foreground">No university found.</CommandEmpty>
-                            <CommandGroup>
-                              {universities.map((u) => (
-                                <CommandItem
-                                  key={u.id}
-                                  value={`${u.name} ${u.city || ''} ${u.id}`}
-                                  onSelect={() => {
-                                    play('select');
-                                    setAutoMatched(false);
-                                    setUniId(u.id);
-                                    setUniDropdownOpen(false);
-                                  }}
-                                  className="rounded-lg cursor-pointer my-1 text-sm aria-selected:bg-white/10"
-                                >
-                                  <Check
-                                    className={`mr-2 h-4 w-4 text-primary ${uniId === u.id ? 'opacity-100' : 'opacity-0'}`}
-                                  />
-                                  {u.name}{u.city ? `, ${u.city}` : ''}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
+                            {uniSearchQuery.trim().length === 0 ? (
+                              <div className="py-4 text-center text-sm text-muted-foreground">
+                                {t('steps.university.typeToSearch')}
+                              </div>
+                            ) : (
+                              <>
+                                <CommandEmpty className="py-4 text-center text-sm text-muted-foreground">No university found.</CommandEmpty>
+                                <CommandGroup>
+                                  {uniSearchMatches.map((u) => (
+                                    <CommandItem
+                                      key={u.id}
+                                      value={`${u.name} ${u.city || ''} ${u.id}`}
+                                      onSelect={() => {
+                                        play('select');
+                                        setAutoMatched(false);
+                                        setUniId(u.id);
+                                        setUniDropdownOpen(false);
+                                      }}
+                                      className="rounded-lg cursor-pointer my-1 text-sm aria-selected:bg-white/10"
+                                    >
+                                      <Check
+                                        className={`mr-2 h-4 w-4 text-primary ${uniId === u.id ? 'opacity-100' : 'opacity-0'}`}
+                                      />
+                                      {u.name}{u.city ? `, ${u.city}` : ''}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </>
+                            )}
                           </CommandList>
                         </Command>
                       </PopoverContent>

@@ -66,7 +66,7 @@ export function ProfileChip({ className }: ProfileChipProps) {
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          'group flex items-center gap-3 rounded-[16px] px-1.5 py-1 -mx-1.5 outline-none transition-all',
+          'group flex min-w-0 items-center gap-3 rounded-[16px] px-1.5 py-1 -mx-1.5 outline-none transition-all',
           'hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary/50',
           'data-[state=open]:bg-white/5 active:scale-[0.98]',
           className,
@@ -74,10 +74,19 @@ export function ProfileChip({ className }: ProfileChipProps) {
         aria-label="Open account menu"
       >
         {avatar}
-        <div className="leading-tight text-left">
+        {/* M24: a long display name used to render this trigger far wider
+            than intended, and the left header group had no size floor of
+            its own to resist being flex-shrunk by the rest of the header —
+            the excess silently overlapped the center nav instead of
+            truncating. Capping the name's width (matching the dropdown
+            content below, which already truncates) gives this trigger a
+            real, bounded natural size; ConsoleTopBar's `shrink-0` on the
+            left group means the header now respects that size instead of
+            compressing it toward zero. */}
+        <div className="min-w-0 leading-tight text-left">
           <p className="flex items-center gap-1 text-sm font-black text-foreground">
-            {name}
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 group-hover:text-foreground group-data-[state=open]:rotate-180" />
+            <span className="max-w-[140px] truncate">{name}</span>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-foreground group-data-[state=open]:rotate-180" />
           </p>
           <p className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground tabular-nums">
             <span className="text-primary">Lvl {profile.current_level}</span>

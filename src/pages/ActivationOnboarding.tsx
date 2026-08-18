@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, CheckCircle2, Loader2, PlayCircle, Sparkles, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { browseCourses, enrollInCourse } from '@/services/coursesService';
@@ -18,6 +19,7 @@ const STUDY_GOALS: Array<{ id: StudyGoal; title: string; description: string }> 
 ];
 
 export default function ActivationOnboarding() {
+  const { t } = useTranslation('onboarding');
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
@@ -107,7 +109,7 @@ export default function ActivationOnboarding() {
       <section className="relative mx-auto flex min-h-[calc(100dvh-5rem)] max-w-6xl flex-col justify-center">
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
-            <Sparkles className="h-3.5 w-3.5" /> Ascend Academy
+            <Sparkles className="h-3.5 w-3.5" /> {t('activation.badge')}
           </div>
           <h1 className="max-w-xl text-balance text-4xl font-black tracking-[-0.04em] sm:text-6xl">What would you like to study today, {firstName}?</h1>
           <p className="mt-5 max-w-xl text-pretty text-lg leading-8 text-muted-foreground">Turn your own lecture files into an interactive course, or take a short study session in a working example.</p>

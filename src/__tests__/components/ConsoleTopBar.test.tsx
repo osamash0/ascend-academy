@@ -68,4 +68,16 @@ describe('ConsoleTopBar student navigation', () => {
 
     expect(screen.queryByRole('link', { name: 'Review' })).not.toBeInTheDocument();
   });
+
+  it('never lets the identity group (Home button + ProfileChip) be flex-shrunk by the rest of the header (M24)', () => {
+    renderWithProviders(<ConsoleTopBar />, { initialEntries: ['/dashboard'] });
+
+    const homeButton = screen.getByRole('button', { name: 'Home' });
+    const identityGroup = homeButton.parentElement;
+    // Without shrink-0 here, a long ProfileChip name (rendered as a sibling
+    // of this Home button) could compress this whole group toward zero
+    // width while its unclipped content still overlapped the center nav -
+    // the exact M24 failure mode.
+    expect(identityGroup?.className).toMatch(/shrink-0/);
+  });
 });

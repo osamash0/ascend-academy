@@ -4,8 +4,9 @@
  * literal, never derived from any real data. It now reads from the real
  * `/deployment-info` telemetry (`telemetry.health.api`) passed in as a prop.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AdminKPISummary } from "@/components/admin/AdminKPISummary";
 import type { PlatformStats, DeploymentTelemetry } from "@/services/adminService";
 
@@ -49,5 +50,30 @@ describe("AdminKPISummary — System Health tile (R5 regression)", () => {
     render(<AdminKPISummary stats={stats} telemetry={makeTelemetry("degraded")} loading={false} />);
     expect(screen.getByText("Degraded")).toBeInTheDocument();
     expect(screen.queryByText("Online")).not.toBeInTheDocument();
+  });
+});
+
+// R14: loadStats() swallowed errors to console.error only, so a failed fetch
+// left `stats` null forever and the strip (driven by `loading={stats === null}`)
+// pulsed its skeleton with no message and no way to retry.
+describe("AdminKPISummary — stats load failure (R14 regression)", () => {
+  it("shows a distinct error state with retry instead of pulsing the skeleton forever", () => {
+    render(<AdminKPISummary stats={null} telemetry={null} loading={false} isError />);
+    expect(screen.getByTestId("admin-kpi-error")).toBeInTheDocument();
+    expect(screen.queryByText("Total Users")).not.toBeInTheDocument();
+  });
+
+  it("calls onRetry when the retry button is clicked", async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    render(<AdminKPISummary stats={null} telemetry={null} loading={false} isError onRetry={onRetry} />);
+
+    await user.click(screen.getByRole("button", { name: /try again/i }));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it("still shows the loading skeleton (not the error) while a request is in flight", () => {
+    render(<AdminKPISummary stats={null} telemetry={null} loading isError={false} />);
+    expect(screen.queryByTestId("admin-kpi-error")).not.toBeInTheDocument();
   });
 });
