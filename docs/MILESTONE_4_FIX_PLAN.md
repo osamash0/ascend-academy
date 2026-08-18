@@ -27,15 +27,15 @@ Everything else below was actionable without you and is being worked tonight.
 |---|---|---|---|---|---|---|
 | 0 | A-S0 | M64 | Fix 18 TypeScript errors so `tsc` can gate CI | Tonight | ✅ | [#27](https://github.com/osamash0/ascend-academy/pull/27) |
 | 1 | F8 | F8 | Student enrollment query has no filter — new students can't enroll | Tonight | ✅ | [#28](https://github.com/osamash0/ascend-academy/pull/28) |
-| 2 | U(b) | M4/N1 | Kill stale AI-replay overwriting saved slide edits (data corruption) | Tonight | ⬜ | |
-| 3 | O | M5 | Editor "Save Lecture" button unreachable under sticky header at scroll | Tonight | ⬜ | |
-| 4 | V | M12/N2 | Unsaved-changes guard (beforeunload + dirty marker) | Tonight | ⬜ | |
-| 5 | U(a) | M4 | De-amplify save writes (1 field edit → 20 writes) | Tonight | ⬜ | |
-| 6 | W | M13/N3 | Quiz suggestion generated but never persisted/shown | Tonight | ⬜ | |
-| 7 | C | M24, M44 | Header hit-target collisions (account menu / Home button) | Tonight | ⬜ | |
-| 8 | B | M7 | Dashboard hero can render fully transparent | Tonight | ⬜ | |
-| 9 | R1,R3,R4,R5,R6 | — | Admin panel fabricates data (fake errors, fake charts, fake uptime, wrong version) | Tonight | ⬜ | |
-| 10 | R7 | — | `ProtectedRoute` fails open on unknown role (security) | Tonight | ⬜ | |
+| 2 | U(b) | M4/N1 | Kill stale AI-replay overwriting saved slide edits (data corruption) | Tonight | ✅ | [#32](https://github.com/osamash0/ascend-academy/pull/32) |
+| 3 | O | M5 | Editor "Save Lecture" button unreachable under sticky header at scroll | Tonight | ✅ | [#32](https://github.com/osamash0/ascend-academy/pull/32) |
+| 4 | V | M12/N2 | Unsaved-changes guard (beforeunload + dirty marker) | Tonight | ✅ | [#32](https://github.com/osamash0/ascend-academy/pull/32) — also found & fixed a *pre-existing* broken version of this guard (checked "has content" not "was edited") |
+| 5 | U(a) | M4 | De-amplify save writes (1 field edit → 20 writes) | Tonight | ✅ | [#32](https://github.com/osamash0/ascend-academy/pull/32) |
+| 6 | W | M13/N3 | Quiz suggestion generated but never persisted/shown | Tonight | ✅ | [#32](https://github.com/osamash0/ascend-academy/pull/32) |
+| 7 | C | M24, M44 | Header hit-target collisions (account menu / Home button) | Tonight | ⬜ | not started |
+| 8 | B | M7 | Dashboard hero can render fully transparent | Tonight | ⬜ | not started |
+| 9 | R1,R3,R4,R5,R6 | — | Admin panel fabricates data (fake errors, fake charts, fake uptime, wrong version) | Tonight | ✅ | [#30](https://github.com/osamash0/ascend-academy/pull/30) |
+| 10 | R7 | — | `ProtectedRoute` fails open on unknown role (security) | Tonight | ✅ | [#29](https://github.com/osamash0/ascend-academy/pull/29) |
 | 11 | A-S3+D | M9, M19, M28, M29, M55, M56 | Exam 404 in prod, `.env` config consolidation, misleading nginx/vite comments | Tonight | ⬜ | |
 | 12 | E | M8 | Browser Back strands lecture player (no slide pane) | Tonight | ⬜ | |
 | 13 | F | M21 | `?slide=` URL param inert | Tonight | ⬜ | |
@@ -43,7 +43,7 @@ Everything else below was actionable without you and is being worked tonight.
 | 15 | Error-handling sweep | R8–R30 (error-as-emptiness family) | Failed fetches silently render empty/success states across ~15 pages | Tonight | ⬜ | |
 | 16 | Legal reachability (mechanical part) | M27, M3 | Wire footer links to real pages, remove links to nonexistent pages | Tonight | ⬜ | |
 | 17 | Onboarding | M31, M32, M60, M61, M62, M67-M70 | Hardcoded course filter, stale product name, no draft persistence, no virtualization, a11y | Tonight | ⬜ | |
-| 18 | Low-effort correctness | M77, M78, M79(code), M80, R34, R35, R36, R37, R38, R39, R44, R46, R47, R48, R49, R54, R41, R42, R43 | One-line/small correctness fixes scattered across the app | Tonight | ⬜ | |
+| 18 | Low-effort correctness | M77, M78, M79(code), M80, R34, R35, R36, R37, R38, R39, R44, R46, R47, R48, R49, R54, R41, R42, R43 | One-line/small correctness fixes scattered across the app | Tonight | 🔄 | [#31](https://github.com/osamash0/ascend-academy/pull/31) — rebased onto main after #30/#32 landed, all 17 findings addressed, awaiting final CI before merge |
 | 19 | Housekeeping | M57, M58, M59 | Dead component, dead routes, loose root scripts | Tonight | ⬜ | |
 | 20 | Data cleanup | M36, M37, M39 | 83% noise in course catalog (dev fixtures), 38% of lectures missing review cards | Tonight, if safe | ⬜ | |
 

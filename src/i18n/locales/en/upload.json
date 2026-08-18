@@ -47,6 +47,7 @@
     "deleteSlide": "Delete Slide",
     "save": "Save Lecture",
     "saving": "Saving...",
+    "unsavedChanges": "Unsaved changes",
     "generateAll": "Generate All",
     "generateSummary": "Generate Summary",
     "generateQuiz": "Generate Quiz",

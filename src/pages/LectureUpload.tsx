@@ -65,9 +65,9 @@ import {
   getCompletionPercent,
   getOverallCompletion,
 } from '@/types/lectureUpload';
-import type { SlideStatus } from '@/types/lectureUpload';
+import type { SlideStatus, SlideData, QuestionData } from '@/types/lectureUpload';
 import { listCourses, assignLectureToCourse, unassignLectureFromCourse, type Course } from '@/services/coursesService';
-import { loadLectureForEdit, deleteSlideWithQuestions, enhanceSlide } from '@/services/lectureService';
+import { loadLectureForEdit, deleteSlideWithQuestions, enhanceSlide, insertQuizQuestion } from '@/services/lectureService';
 import { WorksheetsPanel } from '@/components/WorksheetsPanel';
 import { ProfessorPracticeSheetsTab } from '@/features/practice_sheets/ProfessorPracticeSheetsTab';
 import { ProfessorReviewCardsPanel } from '@/features/review/ProfessorReviewCardsPanel';
@@ -345,6 +345,12 @@ export default function LectureUpload() {
   const prefilledCourseId = searchParams.get('courseId') || routeState?.targetCourseId;
   const [courseId, setCourseId] = useState<string | null>(prefilledCourseId || null);
   const [originalCourseId, setOriginalCourseId] = useState<string | null>(null);
+  // Snapshot of slides/title/description as last loaded/saved this session —
+  // slides feed the write-amplification diff in saveExistingLecture; all
+  // three together drive the M12 unsaved-changes guard below.
+  const [originalSlides, setOriginalSlides] = useState<SlideData[]>([]);
+  const [originalTitle, setOriginalTitle] = useState('');
+  const [originalDescription, setOriginalDescription] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
   type ParserChoice = 'auto' | 'pymupdf' | 'opendataloader' | 'mineru' | 'llamaparse' | 'markitdown';
   const [parserChoice, setParserChoice] = useState<ParserChoice>('auto');
@@ -361,13 +367,16 @@ export default function LectureUpload() {
       .then((data) => {
         if (cancelled) return;
         setTitle(data.title);
+        setOriginalTitle(data.title);
         setDescription(data.description);
+        setOriginalDescription(data.description);
         setCourseId(data.courseId);
         setOriginalCourseId(data.courseId);
         setExistingPdfUrl(data.pdfUrl);
         setSignedPdfUrl(data.signedPdfUrl);
         setEditPdfHash(data.pdfHash);
         setSlides(data.slides);
+        setOriginalSlides(data.slides);
         setActiveSlideIndex(0);
       })
       .catch((e) => {
@@ -708,13 +717,42 @@ export default function LectureUpload() {
     }
   }, [pdfFile, pdfHash, slides, isBulkGenerating, suggestedQuizzes, handleGenerateAllQuizzes]);
 
-  // Copy suggested quiz to the main active slide's questions list
-  const handleAddQuiz = useCallback((sIndex: number) => {
+  // Copy suggested quiz to the main active slide's questions list. In edit
+  // mode the slide already exists server-side, so this also persists the
+  // accepted suggestion immediately (M13/N3: previously an accepted
+  // suggestion only ever lived in local state until an unrelated later
+  // "Save Lecture" click, and was lost entirely on any reload before that).
+  const handleAddQuiz = useCallback(async (sIndex: number) => {
     const sug = suggestedQuizzes[sIndex];
     if (!sug) return;
-    updateSlide(sIndex, 'questions', [
-      { question: sug.question, options: sug.options, correctAnswer: sug.correctAnswer }
-    ]);
+    const slideId = slides[sIndex]?.id;
+    let question: QuestionData = { question: sug.question, options: sug.options, correctAnswer: sug.correctAnswer };
+
+    if (isEditMode && slideId) {
+      try {
+        const inserted = await insertQuizQuestion({
+          slide_id: slideId,
+          question_text: sug.question,
+          options: sug.options,
+          correct_answer: sug.correctAnswer,
+          metadata: { explanation: sug.explanation, concept: sug.concept },
+        });
+        question = { ...question, id: inserted.id };
+        // Keep the diff baseline in sync so a later Save doesn't redundantly
+        // re-write a question that's already persisted exactly as-is.
+        setOriginalSlides(prev => prev.map((s, i) => (i !== sIndex ? s : { ...s, questions: [question] })));
+      } catch (e) {
+        console.error('Failed to persist accepted quiz suggestion:', e);
+        toast({
+          title: 'Error',
+          description: 'Could not save the quiz question. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    updateSlide(sIndex, 'questions', [question]);
     setSuggestedQuizzes(prev => ({
       ...prev,
       [sIndex]: { ...prev[sIndex], added: true }
@@ -723,7 +761,7 @@ export default function LectureUpload() {
       title: 'Quiz Added',
       description: `Suggested quiz successfully applied to Slide ${sIndex + 1}.`,
     });
-  }, [suggestedQuizzes, updateSlide, setSuggestedQuizzes, toast]);
+  }, [suggestedQuizzes, slides, isEditMode, updateSlide, setSuggestedQuizzes, setOriginalSlides, toast]);
 
   const [singleGenLoading, setSingleGenLoading] = useState<Record<number, boolean>>({});
 
@@ -799,6 +837,14 @@ export default function LectureUpload() {
     }
   }, [suggestedQuizzes, updateSlide, setSuggestedQuizzes, toast]);
 
+  // Advance the M12 dirty-check baseline to what was just saved, so the
+  // guard clears immediately instead of still reporting unsaved changes.
+  const handleSavedSlides = useCallback((savedSlides: SlideData[]) => {
+    setOriginalSlides(savedSlides);
+    setOriginalTitle(title);
+    setOriginalDescription(description);
+  }, [title, description]);
+
   const { loading, handleSubmit } = useLectureSubmit({
     slides,
     title,
@@ -811,6 +857,8 @@ export default function LectureUpload() {
     serverLectureId,
     editLectureId: isEditMode ? editLectureId : null,
     existingPdfUrl,
+    originalSlides,
+    onSavedSlides: handleSavedSlides,
   });
 
   /* ── Derived ───────────────────────────────────────────────────────────── */
@@ -837,13 +885,46 @@ export default function LectureUpload() {
     [setActiveSlideIndex, totalSlides]
   );
 
+  // M12: whether the editor has anything unsaved. In edit mode, diff
+  // against the loaded/last-saved baseline (this is the professor lecture
+  // editor's data-loss path M12 targets - a pre-existing guard here only
+  // checked "does any slide have content", which is true for virtually
+  // every real lecture regardless of whether anything was actually edited,
+  // so it never distinguished a genuinely clean load from a dirty one). In
+  // the create flow there's no persisted baseline yet, so "dirty" is just
+  // "is there anything here that would be lost" - the same check the old
+  // guard used, preserved for that flow.
+  const isDirty = useMemo(() => {
+    if (isEditMode) {
+      if (title !== originalTitle || description !== originalDescription) return true;
+      if (slides.length !== originalSlides.length) return true;
+      return JSON.stringify(slides) !== JSON.stringify(originalSlides);
+    }
+    return slides.some(s => s.title || s.content || s.summary || s.questions.some(q => q.question));
+  }, [isEditMode, title, originalTitle, description, originalDescription, slides, originalSlides]);
+
+  // Tab close / reload / external navigation bypass React entirely, so this
+  // is the only guard that can catch them (M12/N2 - the pre-existing
+  // `addEventListener('beforeunload', ...)` guard is invisible to a
+  // `typeof window.onbeforeunload === 'function'` probe either way, which
+  // is why the audit read this as "no guard at all").
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
   const handleExit = useCallback(() => {
-    if (slides.length > 0) {
+    if (isDirty) {
       const confirm = window.confirm(t('upload:toasts.exitConfirm'));
       if (!confirm) return;
     }
     navigate('/professor/dashboard');
-  }, [slides.length, navigate, t]);
+  }, [isDirty, navigate, t]);
 
   /* ── Scroll active slide into view ─────────────────────────────────────── */
   useEffect(() => {
@@ -884,20 +965,6 @@ export default function LectureUpload() {
     }
   }, [processedSlides]);
 
-  /* ── Unsaved-changes guard ─────────────────────────────────────────────── */
-  useEffect(() => {
-    const dirty = slides.some(
-      s => s.title || s.content || s.summary || s.questions.some(q => q.question)
-    );
-    const handler = (e: BeforeUnloadEvent) => {
-      if (dirty) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [slides]);
 
   /* ── Render: Edit-mode loading ─────────────────────────────────────────── */
   if (isEditMode && editLoading) {
@@ -1155,7 +1222,14 @@ export default function LectureUpload() {
   const editorContent = (
     <div className="h-dvh bg-background flex flex-col">
       {/* ═══════ TOP BAR ═══════ */}
-      <div className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-30">
+      {/* M5: sticks just below the console header (--console-header-height,
+          published by ConsoleTopBar) instead of `top-0`, which put this bar
+          fully underneath that header - and its own clicks - once scrolled. */}
+      <div
+        data-testid="lecture-editor-action-bar"
+        className="border-b border-border bg-card/80 backdrop-blur-md sticky z-30"
+        style={{ top: 'var(--console-header-height, 0px)' }}
+      >
         <div className="flex items-center justify-between px-4 lg:px-6 h-16">
           {/* Left: Brand + Title Input */}
           <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -1218,6 +1292,14 @@ export default function LectureUpload() {
             >
               {t('upload:header.exit')}
             </Button>
+            {isDirty && (
+              <span
+                data-testid="unsaved-changes-indicator"
+                className="text-xs font-medium text-amber-600 dark:text-amber-400 px-1"
+              >
+                {t('upload:actions.unsavedChanges')}
+              </span>
+            )}
             <Button
               variant="outline"
               size="sm"

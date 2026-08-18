@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -77,8 +77,27 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
   const tabs = role === 'admin' ? ADMIN_TABS : (role === 'professor' ? PROFESSOR_TABS : studentTabs);
   const homeRoute = role === 'admin' ? AdminRoutes.DASHBOARD : (role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME);
 
+  // Publish this header's real rendered height so page-level sticky bars
+  // (e.g. the lecture editor's action bar, M5) can stick just below it
+  // instead of guessing a pixel value that drifts with content/breakpoint
+  // changes and ends up sliding underneath this header at scroll.
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const setVar = (height: number) => {
+      document.documentElement.style.setProperty('--console-header-height', `${height}px`);
+    };
+    setVar(el.offsetHeight);
+    // Re-read offsetHeight (border-box) rather than trusting contentRect,
+    // which excludes this header's padding/border and would under-measure.
+    const obs = new ResizeObserver(() => setVar(el.offsetHeight));
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between gap-4 px-5 lg:px-10 py-3 bg-gradient-to-b from-[#070b14]/80 via-[#070b14]/30 to-transparent backdrop-blur-[2px]">
+    <header ref={headerRef} className="sticky top-0 z-40 flex items-center justify-between gap-4 px-5 lg:px-10 py-3 bg-gradient-to-b from-[#070b14]/80 via-[#070b14]/30 to-transparent backdrop-blur-[2px]">
       {/* Left: brand + identity */}
       <div className="flex items-center gap-4 min-w-0">
         <button
