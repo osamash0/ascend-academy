@@ -154,6 +154,31 @@ async def finalize_lecture(lecture_id: UUID, description: str, total_slides: int
     )
 
 
+async def get_slide_count(lecture_id: UUID) -> int:
+    """Live COUNT(*) of persisted slide rows — the source of truth
+    ``lectures.total_slides`` is denormalized from. Used by
+    ``backend.services.parser.reconcile`` (R51/R52) to detect "the real work
+    already finished, only the terminal transition never ran," and by R51's
+    fix wherever a lecture's stored count might have desynced from reality.
+    """
+    count = await _fetchval("SELECT COUNT(*) FROM slides WHERE lecture_id = $1", lecture_id)
+    return int(count or 0)
+
+
+async def sync_total_slides(lecture_id: UUID) -> int:
+    """Idempotent: recompute ``lectures.total_slides`` from a live COUNT(*)
+    over ``slides``. Unlike ``finalize_lecture``, this touches ONLY
+    total_slides — never ``description`` — so it's safe to call on a lecture
+    whose real deck_summary was never captured in memory by a crashed or
+    reconciled run, without risking overwriting it with an empty string.
+    Calling this any number of times (or concurrently) is a no-op after the
+    first call converges on the true count.
+    """
+    count = await get_slide_count(lecture_id)
+    await _execute("UPDATE lectures SET total_slides = $1 WHERE id = $2", count, lecture_id)
+    return count
+
+
 async def set_run_lecture(run_id: UUID, lecture_id: UUID) -> None:
     """Link a parse_runs row to the lecture created during the run."""
     await _execute(

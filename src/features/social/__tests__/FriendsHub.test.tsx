@@ -63,8 +63,39 @@ describe("FriendsHub", () => {
     } as any);
 
     renderWithProviders(<FriendsHub />);
-    
+
     expect(screen.getByText("Charlie")).toBeInTheDocument();
     expect(screen.getByText(/2 mutual friends/i)).toBeInTheDocument();
+  });
+
+  // R25: useFriends() failing used to fall straight into the onboarding
+  // empty state ("Find your first study buddy") — an outage looked
+  // identical to a brand-new account with no friends yet.
+  it("shows a real error state (not the onboarding empty state) when useFriends() fails", () => {
+    vi.mocked(hooks.useFriends).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: true,
+      refetch: vi.fn(),
+    } as any);
+
+    renderWithProviders(<FriendsHub />);
+
+    expect(screen.queryByText("Find your first study buddy")).not.toBeInTheDocument();
+    expect(screen.getByText(/couldn't load your friends/i)).toBeInTheDocument();
+  });
+
+  it("retries useFriends() when the retry button is clicked", async () => {
+    const refetch = vi.fn();
+    vi.mocked(hooks.useFriends).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: true,
+      refetch,
+    } as any);
+
+    renderWithProviders(<FriendsHub />);
+    screen.getByRole("button", { name: /retry/i }).click();
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });

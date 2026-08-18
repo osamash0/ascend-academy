@@ -427,7 +427,7 @@ export default function StudentDashboard() {
           <BentoGrid
             widgets={widgets}
             onOpenLecture={(id) => openLecture(id)}
-            onViewTrophies={() => navigate(StudentRoutes.ACHIEVEMENTS)}
+            onViewTrophies={() => navigate(StudentRoutes.ASCENT)}
             onOpenReview={() => navigate(StudentRoutes.REVIEW)}
             onOpenMyMaterials={() => navigate(StudentRoutes.MY_MATERIALS)}
             onOpenStudyGuide={(courseId) => navigate(StudentRoutes.STUDY_GUIDE(courseId))}
@@ -499,11 +499,11 @@ export default function StudentDashboard() {
               title={t('dashboard:stats.learningInsights')}
             />
             <div
-              onClick={() => navigate(StudentRoutes.INSIGHTS)}
+              onClick={() => navigate(StudentRoutes.ASCENT)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  navigate(StudentRoutes.INSIGHTS);
+                  navigate(StudentRoutes.ASCENT);
                 }
               }}
               role="button"

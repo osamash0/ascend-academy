@@ -797,6 +797,32 @@ describe("LectureView — M21: `?slide=` URL param is authoritative", () => {
   });
 });
 
+describe("LectureView — R18 dedicated error state on load failure", () => {
+  it("shows a real error state with retry (not the permanent-loading chrome) when the lecture fetch fails", async () => {
+    fetchLectureMock.mockRejectedValue(new Error("network down"));
+    fetchSlidesMock.mockResolvedValue([]);
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+
+    renderAtRoute();
+
+    // Before the fix, the catch block toasted + cleared `loading` but never
+    // marked a failure, so the page fell through to the full lecture chrome
+    // with `lecture === null`: a permanent "Loading..." breadcrumb placeholder
+    // and "No slides available" in the slide column — indistinguishable from
+    // an empty lecture.
+    await waitFor(() => {
+      expect(screen.getByText(/couldn't load this lecture/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/no slides available/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+
+    // Retry re-invokes the fetch.
+    fetchLectureMock.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    await waitFor(() => expect(fetchLectureMock).toHaveBeenCalled());
+  });
+});
+
 describe("LectureView — R39 loading state on every exit path", () => {
   it("does not get stuck on the loading spinner when lectureId is missing", async () => {
     // Force EVERY render's useParams() call to report no lectureId — a

@@ -68,6 +68,40 @@ class QueueFullError(RuntimeError):
     """Raised when the parse queue is at/over ARQ_MAX_QUEUE_DEPTH. The upload
     endpoints translate this into a 429 so the client can retry shortly."""
 
+
+TRANSIENT_BACKPRESSURE_MESSAGE = "The processing queue is busy right now. Please retry in a few minutes."
+WORKER_DOWN_MESSAGE = (
+    "Uploads are temporarily unavailable — our team has been notified. "
+    "Please check back later rather than retrying immediately."
+)
+
+
+async def queue_backpressure_message() -> str:
+    """M33: a queue over ARQ_MAX_QUEUE_DEPTH is not always the same problem.
+
+    If a worker is alive and actively draining the backlog, "retry in a few
+    minutes" is honest advice. If the worker is dead, the backlog is frozen
+    and NOTHING will drain it — retrying just resubmits into a queue that
+    will never move, which is dishonest to tell someone to do. The worker's
+    own liveness heartbeat (backend/core/worker_heartbeat.py, written by the
+    Arq cron job in backend/workers/arq_worker.py) is the signal that tells
+    these two apart; a raw queue-depth number can't.
+
+    Callers must already have confirmed depth >= ARQ_MAX_QUEUE_DEPTH before
+    calling this — it does not re-check depth itself. On any error reading
+    the heartbeat (Redis hiccup, etc.) this fails toward the less alarming
+    transient message, matching queue_depth()'s own "never block uploads on
+    a monitoring blip" posture.
+    """
+    try:
+        from backend.core.worker_heartbeat import WORKER_HEARTBEAT_KEY
+        pool = await get_arq_pool()
+        heartbeat = await pool.get(WORKER_HEARTBEAT_KEY)
+    except Exception as e:
+        logger.debug("queue_backpressure_message: heartbeat check failed: %s", e)
+        return TRANSIENT_BACKPRESSURE_MESSAGE
+    return TRANSIENT_BACKPRESSURE_MESSAGE if heartbeat else WORKER_DOWN_MESSAGE
+
 async def upload_pdf_to_storage(pdf_hash: str, content: bytes) -> None:
     """Upload PDF bytes to Supabase Storage keyed by sha256 (idempotent).
 

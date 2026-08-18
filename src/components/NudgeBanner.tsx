@@ -24,7 +24,7 @@ const NUDGE_TYPES = new Set(['streak', 'assignment', 'review', 'daily_review', '
 const FALLBACK_DEEP_LINK_BY_TYPE: Record<string, string> = {
     streak: '/dashboard',
     assignment: '/assignments',
-    review: '/insights',
+    review: '/ascent',
     daily_review: '/review',
     activation: '/dashboard',
 };

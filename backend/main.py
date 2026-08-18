@@ -393,5 +393,29 @@ async def readiness_check():
         checks["redis_queue"] = f"error: {e.__class__.__name__}"
         ok = False
 
+    # M33/M34: queue-drain health. A raw "Redis is reachable" ping (above)
+    # stays green even when the worker process is completely dead — the
+    # queue just silently backs up forever while uploads 100% fail (M16). An
+    # empty queue never needs a worker heartbeat (nothing to drain), so this
+    # only fails readiness when there's an actual backlog AND no worker has
+    # heartbeat'd recently enough to trust it's alive and draining it.
+    try:
+        from backend.core.worker_heartbeat import WORKER_HEARTBEAT_KEY
+        from backend.services.upload_service import get_arq_pool, queue_depth
+        depth = await queue_depth()
+        if depth <= 0:
+            checks["job_worker"] = "ok (queue empty)"
+        else:
+            pool = await get_arq_pool()
+            heartbeat = await pool.get(WORKER_HEARTBEAT_KEY)
+            if heartbeat:
+                checks["job_worker"] = f"ok (backlog={depth}, worker heartbeat present)"
+            else:
+                checks["job_worker"] = f"backlog={depth} with no worker heartbeat — worker likely down"
+                ok = False
+    except Exception as e:
+        checks["job_worker"] = f"error: {e.__class__.__name__}"
+        ok = False
+
     body = {"status": "ok" if ok else "unavailable", "checks": checks}
     return JSONResponse(body, status_code=200 if ok else 503)

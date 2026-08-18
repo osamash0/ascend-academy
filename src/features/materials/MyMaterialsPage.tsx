@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { BookOpen, Loader2, Trash2, CheckCircle2, FileText, Clock3, XCircle } from 'lucide-react';
+import { AlertTriangle, BookOpen, Loader2, Trash2, CheckCircle2, FileText, Clock3, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 import { MultiFileDropzone } from '@/components/upload/MultiFileDropzone';
@@ -53,9 +53,9 @@ function formatUploadedDate(value: string, locale: string): string | null {
 }
 
 export default function MyMaterialsPage() {
-  const { t, i18n } = useTranslation(['myMaterials']);
+  const { t, i18n } = useTranslation(['myMaterials', 'common']);
   const navigate = useNavigate();
-  const { materials, isLoading, quota, upload, isUploading, remove } = useMyMaterials();
+  const { materials, isLoading, error, refetch, quota, upload, isUploading, remove } = useMyMaterials();
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null);
 
@@ -163,7 +163,24 @@ export default function MyMaterialsPage() {
           </div>
         )}
 
-        {!isLoading && materials.length === 0 && (
+        {/* R21: useMyMaterials' `error` used to be destructured away, so a
+            failed listMaterials() fell straight into the empty-state below —
+            telling a student their uploads didn't exist when the fetch had
+            simply failed. Branch on the error before the empty check. */}
+        {!isLoading && error && (
+          <div className="depth-card flex flex-col items-center gap-3 p-12 text-center">
+            <AlertTriangle className="h-10 w-10 text-destructive/60" />
+            <p className="text-sm font-semibold text-foreground">
+              {t('loadErrorTitle', { defaultValue: "Couldn't load your materials" })}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {t('loadErrorHint', { defaultValue: 'Something went wrong reaching the server. Please try again.' })}
+            </p>
+            <Button onClick={() => refetch()}>{t('common:actions.retry', 'Retry')}</Button>
+          </div>
+        )}
+
+        {!isLoading && !error && materials.length === 0 && (
           <div className="depth-card flex flex-col items-center gap-3 p-12 text-center">
             <BookOpen className="h-10 w-10 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">

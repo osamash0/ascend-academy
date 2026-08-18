@@ -8,6 +8,7 @@ resume-reuse, and the text-vs-vision per-slide routing.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import types
 from uuid import uuid4
@@ -1102,6 +1103,46 @@ async def test_parse_pdf_unified_pdf_missing_errors(monkeypatch):
     error_event = next(d for t, d in events if t == "error")
     assert error_event["message"] == "PDF parsing failed. Please try again or contact support if this keeps happening."
     assert rec["errors"][0] == error_event["message"]
+
+
+async def test_parse_pdf_unified_marks_failed_on_cancellation_not_left_stuck(monkeypatch):
+    """R51/R52 root-cause fix: Arq enforces WorkerSettings.job_timeout by
+    cancelling this coroutine at whatever await point it's stuck on, which
+    raises asyncio.CancelledError — a BaseException, NOT an Exception. A
+    plain `except Exception` would let that fall straight through, skipping
+    set_error entirely and leaving the run in 'extracting' with error=NULL
+    forever (exactly the Milestone-4 "stuck forever" shape). The except
+    clause must catch CancelledError too, mark the run FAILED with a real
+    message, and then re-raise it (required for correct asyncio cancellation
+    semantics — never swallow it)."""
+    rec, run = _patch_common(monkeypatch)
+
+    # Simulate the cancellation landing on this coroutine's OWN await point
+    # (what Arq's job_timeout actually does — it cancels the task running
+    # parse_pdf_unified itself). This is deliberately NOT raised from inside
+    # a per-slide synthesis call: those run under
+    # `asyncio.gather(..., return_exceptions=True)`, which absorbs a child's
+    # CancelledError as an ordinary per-slide failure rather than propagating
+    # it — realistic cancellation happens at a directly-awaited call like
+    # this one, not inside a gathered sub-task.
+    async def cancelled_fetch(pdf_hash):
+        raise asyncio.CancelledError()
+
+    monkeypatch.setattr(uo, "_fetch_pdf_bytes", cancelled_fetch)
+
+    events = []
+
+    async def emit(t, d):
+        events.append((t, d))
+
+    with pytest.raises(asyncio.CancelledError):
+        await uo.parse_pdf_unified({}, pdf_hash="h", user_id=OWNER, emit_fn=emit, filename="Deck.pdf")
+
+    # The run was marked failed (not left dangling in 'extracting').
+    assert rec["errors"]
+    assert rec["errors"][0] == "Processing timed out before it could finish. Please try again or contact support if this keeps happening."
+    assert any(t == "error" for t, _ in events)
+    assert "complete" not in [t for t, _ in events]
 
 
 # ── Roadmap P3-1: batch synthesis + budget pre-flight gate ───────────────────
