@@ -621,7 +621,7 @@ export default function StudentCourseLibrary() {
         </button>
       </div>
 
-      <section className="relative flex min-h-[calc(100svh-4rem)] flex-col text-foreground select-none">
+      <section className="relative flex flex-col text-foreground select-none">
         {/* ── Top rail: courses (the "apps") ── */}
         <div className="pt-5">
           <motion.div
@@ -748,7 +748,7 @@ export default function StudentCourseLibrary() {
         </div>
 
         {/* ── Hero: focused box ── */}
-        <div className="flex flex-1 items-end px-6 lg:px-12 pb-6">
+        <div className="px-6 lg:px-12 pt-10 pb-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={heroIsLecture ? focusedLecture!.lecture.id : focusedCourse?.id ?? 'none'}

@@ -562,7 +562,7 @@ export function SlideViewer({
         <div className="flex flex-col gap-6">
           {/* Confidence Rating */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <p className="text-caption font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                 <HelpCircle className="w-3.5 h-3.5" />
                 Comprehension Check
@@ -570,14 +570,14 @@ export function SlideViewer({
               <p className="text-body-sm text-muted-foreground/70 italic">How well did you grasp these concepts?</p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {CONFIDENCE_OPTIONS.map(opt => {
                 const isActive = confidence === opt.key;
                 return (
                   <motion.button
                     key={opt.key}
                     onClick={() => handleConfidence(opt.key)}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all duration-300 ${
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl border-2 text-xs sm:text-sm font-bold transition-all duration-300 whitespace-nowrap ${
                       isActive
                         ? opt.activeClass + ' shadow-lg'
                         : 'border-white/5 bg-surface-2 text-muted-foreground hover:border-primary/30 hover:text-foreground'
@@ -586,7 +586,7 @@ export function SlideViewer({
                     whileTap={{ scale: 0.95 }}
                     animate={isActive && justRated ? { y: [-2, -6, -2], scale: [1.02, 1.08, 1.02] } : {}}
                   >
-                    <span className="text-lg">{opt.emoji}</span>
+                    <span className="text-base sm:text-lg">{opt.emoji}</span>
                     <span className="hidden sm:inline">{opt.label}</span>
                   </motion.button>
                 );
