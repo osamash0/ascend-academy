@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft, ChevronRight, BookOpen, Volume2,
-  Square, Play, Pause, Star, HelpCircle, Loader2, Sparkles, Copy, Zap
+  Square, Play, Pause, Star, HelpCircle, Loader2, Sparkles, Copy, Zap, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -36,6 +37,12 @@ interface SlideViewerProps {
   isFirst: boolean;
   isLast: boolean;
   pdfUrl?: string | null;
+  /** M22: true when the parent tried (and, after internal retries, failed) to
+   * resolve a signed URL for this lecture's PDF. Distinct from `pdfUrl` being
+   * null because the lecture legitimately has no PDF at all. */
+  pdfLoadFailed?: boolean;
+  /** M22: re-triggers the parent's PDF resolution (fresh signed URL / retry). */
+  onPdfRetry?: () => void;
   pageNumber?: number;
   onConfidenceRate?: (rating: Confidence) => void;
   initialConfidence?: Confidence;
@@ -88,6 +95,26 @@ function prepareTTSText(title: string, summary: string, content: string, slideNu
   ].filter(Boolean).join(' ');
 }
 
+/**
+ * M22: the source PDF can legitimately take a while to fetch (large files,
+ * a cold storage-CDN edge). A bare spinner that looks identical at 1s and at
+ * 18s reads as "hung" -- swap in a second line after a few seconds so a slow
+ * load still looks alive.
+ */
+function PdfLoadingIndicator({ stillLoadingLabel }: { stillLoadingLabel: string }) {
+  const [isSlow, setIsSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setIsSlow(true), 6000);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <div className="flex flex-col items-center justify-center h-[300px] gap-3">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
+      {isSlow && <p className="text-xs text-muted-foreground">{stillLoadingLabel}</p>}
+    </div>
+  );
+}
+
 export function SlideViewer({
   title,
   content,
@@ -99,6 +126,8 @@ export function SlideViewer({
   isFirst,
   isLast,
   pdfUrl,
+  pdfLoadFailed = false,
+  onPdfRetry,
   pageNumber,
   onConfidenceRate,
   initialConfidence = null,
@@ -117,12 +146,20 @@ export function SlideViewer({
   onUndoRegenerate,
   onAskAbout,
 }: SlideViewerProps) {
+  const { t } = useTranslation(['lecture', 'common']);
   const showMindMap = false;
   // PDF state
   const [pdfError, setPdfError] = useState(false);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const { toast } = useToast();
+
+  // A fresh pdfUrl (e.g. after a manual retry mints a new signed token) means
+  // any previous load failure no longer applies -- give the new URL a clean
+  // shot instead of leaving the error state stuck from the prior attempt.
+  useEffect(() => {
+    setPdfError(false);
+  }, [pdfUrl]);
 
   // Text selection
   const [selectedPdfText, setSelectedPdfText] = useState<{ text: string; top: number; left: number } | null>(null);
@@ -249,7 +286,13 @@ export function SlideViewer({
     }
   }, [isSpeaking, isPaused, speak, stop, ttsText]);
 
-  const hasPdf = pdfUrl && !pdfError;
+  const hasPdf = !!pdfUrl && !pdfError;
+  // M22: show the "Original Source Material" panel (with an error state
+  // inside) whenever we have a URL to try, or the parent already knows
+  // resolution failed -- only a lecture with no PDF at all (no url, no
+  // failure) hides the panel entirely.
+  const showPdfPanel = !!pdfUrl || pdfLoadFailed;
+  const pdfHasError = pdfError || (pdfLoadFailed && !pdfUrl);
   const ttsLabel = isSpeaking && !isPaused ? 'Pause' : isPaused ? 'Resume' : 'Listen';
   const TtsIcon = isSpeaking && !isPaused ? Pause : isPaused ? Play : Volume2;
 
@@ -320,7 +363,7 @@ export function SlideViewer({
         className="flex-1 flex flex-col overflow-y-auto custom-scrollbar"
       >
         {/* PDF Slide Area (Top on Desktop) */}
-        {hasPdf && (
+        {showPdfPanel && (
           <div className="w-full flex flex-col border-b border-white/5 bg-surface-1/30">
             <div className="px-6 py-2 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-2 text-muted-foreground/60">
@@ -341,70 +384,97 @@ export function SlideViewer({
               )}
             </div>
             <div ref={pdfContainerRef} className="relative w-full bg-black/20 select-text">
-              <Document
-                file={pdfUrl}
-                loading={
-                  <div className="flex items-center justify-center h-[300px]">
-                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
+              {pdfHasError ? (
+                <div
+                  data-testid="pdf-error-state"
+                  className="flex flex-col items-center justify-center py-16 gap-4 text-center h-[300px]"
+                >
+                  <AlertTriangle className="w-8 h-8 text-warning" />
+                  <div>
+                    <p className="text-sm font-bold text-foreground mb-1">
+                      {t('lecture:pdf.loadErrorTitle')}
+                    </p>
+                    <p className="text-xs text-muted-foreground max-w-xs">
+                      {t('lecture:pdf.loadErrorDescription')}
+                    </p>
                   </div>
-                }
-                onLoadError={() => setPdfError(true)}
-              >
-                <Page
-                  pageNumber={pageNumber ?? slideNumber}
-                  width={containerWidth > 0 ? containerWidth - 2 : undefined}
-                  renderTextLayer={true}
-                  renderAnnotationLayer={true}
-                  className="mx-auto"
-                />
-              </Document>
-
-              {/* AI Text Selection Popup */}
-              <AnimatePresence>
-                {selectedPdfText && (
-                  <motion.div
-                    onMouseDown={(e) => e.preventDefault()}
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="fixed z-[9999] pointer-events-auto flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0a0a12]/95 p-1.5 shadow-2xl backdrop-blur-md"
-                    style={{
-                      top: Math.max(10, selectedPdfText.top),
-                      left: Math.max(10, selectedPdfText.left),
-                      transform: 'translateX(-50%)'
-                    }}
-                  >
+                  {onPdfRetry && (
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(selectedPdfText.text);
-                        toast({ title: 'Copied to clipboard' });
-                        setSelectedPdfText(null);
-                        window.getSelection()?.removeAllRanges();
+                        setPdfError(false);
+                        onPdfRetry();
                       }}
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                      data-testid="pdf-retry-button"
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:opacity-90"
                     >
-                      <Copy className="h-3.5 w-3.5" />
-                      Copy
+                      {t('common:actions.retry')}
                     </button>
-                    {onAskAbout && (
-                      <>
-                        <div className="h-4 w-px bg-white/10" />
+                  )}
+                </div>
+              ) : hasPdf ? (
+                <>
+                  <Document
+                    file={pdfUrl}
+                    loading={<PdfLoadingIndicator stillLoadingLabel={t('lecture:pdf.stillLoading')} />}
+                    onLoadError={() => setPdfError(true)}
+                  >
+                    <Page
+                      pageNumber={pageNumber ?? slideNumber}
+                      width={containerWidth > 0 ? containerWidth - 2 : undefined}
+                      renderTextLayer={true}
+                      renderAnnotationLayer={true}
+                      className="mx-auto"
+                    />
+                  </Document>
+
+                  {/* AI Text Selection Popup */}
+                  <AnimatePresence>
+                    {selectedPdfText && (
+                      <motion.div
+                        onMouseDown={(e) => e.preventDefault()}
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="fixed z-[9999] pointer-events-auto flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0a0a12]/95 p-1.5 shadow-2xl backdrop-blur-md"
+                        style={{
+                          top: Math.max(10, selectedPdfText.top),
+                          left: Math.max(10, selectedPdfText.left),
+                          transform: 'translateX(-50%)'
+                        }}
+                      >
                         <button
                           onClick={() => {
-                            onAskAbout(`Regarding: "${selectedPdfText.text}"\n\n`);
+                            navigator.clipboard.writeText(selectedPdfText.text);
+                            toast({ title: 'Copied to clipboard' });
                             setSelectedPdfText(null);
                             window.getSelection()?.removeAllRanges();
                           }}
-                          className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/20 px-3 py-1.5 text-xs font-bold text-primary shadow-xl shadow-primary/10 transition-all hover:bg-primary/30 backdrop-blur-md"
+                          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
                         >
-                          <Zap className="h-3.5 w-3.5" />
-                          Ask about this
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy
                         </button>
-                      </>
+                        {onAskAbout && (
+                          <>
+                            <div className="h-4 w-px bg-white/10" />
+                            <button
+                              onClick={() => {
+                                onAskAbout(`Regarding: "${selectedPdfText.text}"\n\n`);
+                                setSelectedPdfText(null);
+                                window.getSelection()?.removeAllRanges();
+                              }}
+                              className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/20 px-3 py-1.5 text-xs font-bold text-primary shadow-xl shadow-primary/10 transition-all hover:bg-primary/30 backdrop-blur-md"
+                            >
+                              <Zap className="h-3.5 w-3.5" />
+                              Ask about this
+                            </button>
+                          </>
+                        )}
+                      </motion.div>
                     )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </AnimatePresence>
+                </>
+              ) : null}
             </div>
           </div>
         )}

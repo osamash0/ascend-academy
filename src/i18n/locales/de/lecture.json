@@ -39,6 +39,11 @@
     "accuracy": "Genauigkeit: {{percent}}%",
     "continueButton": "Weiter"
   },
+  "pdf": {
+    "loadErrorTitle": "Die Quell-PDF konnte nicht geladen werden",
+    "loadErrorDescription": "Das kann passieren, wenn der Dateiserver kurzzeitig nicht erreichbar ist. Versuche es erneut.",
+    "stillLoading": "Wird noch geladen… das kann einen Moment dauern"
+  },
   "chrome": {
     "reviewMissed": "Verpasste Fragen wiederholen",
     "reviewProgress": "{{current}} von {{total}} · zweiter Versuch",

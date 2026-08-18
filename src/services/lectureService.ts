@@ -148,20 +148,61 @@ function writeCachedSignedUrl(cacheKey: string, url: string): void {
   }
 }
 
-async function resolveSignedUrl(bucket: string, storagePath: string): Promise<string | null> {
-  const cacheKey = `${bucket}/${storagePath}`;
-  const cached = readCachedSignedUrl(cacheKey);
-  if (cached) return cached;
+/**
+ * The storage signing endpoint occasionally returns a transient 5xx (observed
+ * as a bare 503) that clears up on its own within a second or two. There is
+ * no way to tell those apart from a genuinely missing/forbidden object except
+ * by status code, so we retry only when the error looks server-side; a 4xx
+ * (404 not found, 403 forbidden) fails fast instead of retrying forever.
+ */
+function isTransientStorageError(error: { status?: number } | null | undefined): boolean {
+  if (!error) return false;
+  const status = error.status;
+  // Unknown-shaped errors (e.g. a network failure surfaced without a status)
+  // are treated as transient too -- being conservative here just costs a
+  // couple of retries, whereas giving up early on a genuine blip costs the
+  // panel its content for no reason.
+  if (typeof status !== 'number') return true;
+  return status >= 500;
+}
 
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
-  if (error || !data?.signedUrl) {
-    console.warn(`Failed to create signed URL for ${cacheKey}:`, error?.message);
-    return null;
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const SIGNED_URL_RETRY_ATTEMPTS = 3; // 1 initial try + 2 retries
+const SIGNED_URL_RETRY_BASE_DELAY_MS = 400;
+
+async function resolveSignedUrl(
+  bucket: string,
+  storagePath: string,
+  options?: { forceRefresh?: boolean },
+): Promise<string | null> {
+  const cacheKey = `${bucket}/${storagePath}`;
+  if (!options?.forceRefresh) {
+    const cached = readCachedSignedUrl(cacheKey);
+    if (cached) return cached;
   }
-  writeCachedSignedUrl(cacheKey, data.signedUrl);
-  return data.signedUrl;
+
+  let lastErrorMessage: string | undefined;
+  for (let attempt = 0; attempt < SIGNED_URL_RETRY_ATTEMPTS; attempt++) {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+    if (!error && data?.signedUrl) {
+      writeCachedSignedUrl(cacheKey, data.signedUrl);
+      return data.signedUrl;
+    }
+
+    lastErrorMessage = error?.message;
+    const isLastAttempt = attempt === SIGNED_URL_RETRY_ATTEMPTS - 1;
+    if (isLastAttempt || !isTransientStorageError(error as { status?: number } | null)) break;
+    // Exponential backoff: 400ms, then 800ms.
+    await sleep(SIGNED_URL_RETRY_BASE_DELAY_MS * Math.pow(2, attempt));
+  }
+
+  console.warn(`Failed to create signed URL for ${cacheKey}:`, lastErrorMessage);
+  return null;
 }
 
 /**
@@ -169,13 +210,23 @@ async function resolveSignedUrl(bucket: string, storagePath: string): Promise<st
  * or download. The bucket is private, so public URLs do not work.
  *
  * The URL is cached per object for the session so that repeat views are served
- * from the storage CDN rather than re-read from origin.
+ * from the storage CDN rather than re-read from origin. A transient failure
+ * (e.g. a 503 from the signing endpoint) is retried a couple of times with
+ * backoff before giving up.
  *
- * Returns null if the input is null/empty or if signing fails.
+ * Pass `forceRefresh: true` to bypass the cache and mint a brand-new token --
+ * useful for a user-initiated retry after the previously resolved URL failed
+ * to actually load (e.g. an expired/blipped token rather than a signing
+ * failure).
+ *
+ * Returns null if the input is null/empty or if signing ultimately fails.
  */
-export async function resolvePdfUrl(rawPdfUrl: string | null | undefined): Promise<string | null> {
+export async function resolvePdfUrl(
+  rawPdfUrl: string | null | undefined,
+  options?: { forceRefresh?: boolean },
+): Promise<string | null> {
   if (!rawPdfUrl) return null;
-  return resolveSignedUrl('lecture-pdfs', extractStoragePath(rawPdfUrl));
+  return resolveSignedUrl('lecture-pdfs', extractStoragePath(rawPdfUrl), options);
 }
 
 /**
