@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { adminService, AdminUser, ActivityEvent, SentryError, BackupSession, DeploymentTelemetry, PlatformStats } from '@/services/adminService';
+import { adminService, AdminUser, ActivityEvent, SentryError, SentryErrorsResponse, BackupSession, DeploymentTelemetry, PlatformStats } from '@/services/adminService';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
@@ -37,7 +37,7 @@ import { AdminKPISummary } from '@/components/admin/AdminKPISummary';
 import { UserDetailDrawer } from '@/components/admin/UserDetailDrawer';
 import { ActivityFilters } from '@/components/admin/ActivityFilters';
 import { ContentVisibilityPanel } from '@/components/admin/ContentVisibilityPanel';
-import { ErrorTrendChart } from '@/components/admin/ErrorTrendChart';
+import { ErrorSeverityBreakdown } from '@/components/admin/ErrorSeverityBreakdown';
 import { HealthGauges } from '@/components/admin/HealthGauges';
 
 type ActiveTab = 'activity' | 'visibility' | 'errors' | 'deployment' | 'backups';
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
 
   // Errors Tab
   const [sentryErrors, setSentryErrors] = useState<SentryError[]>([]);
-  const [sentryConfig, setSentryConfig] = useState<any>(null);
+  const [sentryConfig, setSentryConfig] = useState<SentryErrorsResponse['config_help'] | null>(null);
 
   // Deployment Tab
   const [telemetry, setTelemetry] = useState<DeploymentTelemetry | null>(null);
@@ -85,9 +85,17 @@ export default function AdminDashboard() {
   }, []);
 
   const loadStats = async () => {
+    // Fetch independently (not Promise.all) so one endpoint failing doesn't
+    // blank out data the other endpoint successfully returned.
     try {
       const data = await adminService.fetchPlatformStats();
       setStats(data);
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      const telemetryData = await adminService.fetchDeploymentInfo();
+      setTelemetry(telemetryData);
     } catch (e) {
       console.error(e);
     }
@@ -242,7 +250,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* KPI Summary */}
-        <AdminKPISummary stats={stats} loading={stats === null} />
+        <AdminKPISummary stats={stats} telemetry={telemetry} loading={stats === null} />
 
         {/* Main Content Area */}
         <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
@@ -399,7 +407,19 @@ export default function AdminDashboard() {
 
                 {activeTab === 'errors' && (
                   <div>
-                    <ErrorTrendChart errors={sentryErrors} />
+                    {sentryConfig && (
+                      <div
+                        data-testid="sentry-not-configured"
+                        className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/10 flex items-start gap-3"
+                      >
+                        <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-semibold text-amber-200">Sentry not configured</p>
+                          <p className="text-xs text-amber-200/80 mt-1">{sentryConfig.message}</p>
+                        </div>
+                      </div>
+                    )}
+                    <ErrorSeverityBreakdown errors={sentryErrors} />
                     <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                       <table className="w-full text-sm text-left">
                         <thead className="bg-black/40 border-b border-white/10">
@@ -421,7 +441,11 @@ export default function AdminDashboard() {
                             </tr>
                           ))}
                           {sentryErrors.length === 0 && (
-                            <tr><td colSpan={3} className="p-8 text-center text-slate-500">No active errors!</td></tr>
+                            <tr>
+                              <td colSpan={3} className="p-8 text-center text-slate-500">
+                                {sentryConfig ? 'No error data available.' : 'No active errors!'}
+                              </td>
+                            </tr>
                           )}
                         </tbody>
                       </table>

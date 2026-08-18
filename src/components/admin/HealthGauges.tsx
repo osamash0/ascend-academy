@@ -63,13 +63,17 @@ export function HealthGauges({ info, loading }: HealthGaugesProps) {
             <span>Platform API</span>
           </div>
           <div className="flex h-3 w-3 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${getPulseColor(health.api)}`}></span>
+            <span className={`relative inline-flex rounded-full h-3 w-3 ${getPulseColor(health.api)}`}></span>
           </div>
         </div>
         <div>
-          <div className="text-2xl font-bold text-white mb-1">99.99%</div>
-          <div className="text-xs text-slate-500">Uptime (30 days)</div>
+          <div className={`inline-flex px-2 py-1 rounded text-xs uppercase font-bold border ${getStatusColor(health.api)}`}>
+            {health.api}
+          </div>
+          <div className="text-xs text-slate-500 mt-2">
+            {health.api === 'healthy' ? 'Critical dependencies responding' : 'A critical dependency is unreachable'}
+          </div>
         </div>
       </div>
 

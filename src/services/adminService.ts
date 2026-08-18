@@ -95,6 +95,9 @@ export interface DeploymentTelemetry {
     ai_services: string;
     sentry: string;
     sentry_dsn: string;
+    /** Real derived signal (not a fabricated uptime %) — "healthy" when the
+     * critical database dependency check above passed, "degraded" otherwise. */
+    api: string;
   };
   system: {
     os: string;

@@ -187,18 +187,78 @@ def test_list_events_success(app, patch_admin_deps, admin_user):
     assert body["data"][0]["event_type"] == "slide_view"
 
 
-def test_get_sentry_errors(app, patch_admin_deps, admin_user):
+def test_get_sentry_errors_unconfigured_returns_no_fabricated_issues(app, patch_admin_deps, admin_user, monkeypatch):
+    """R1 regression: when Sentry env vars are unset, the endpoint must return
+    an empty issue list plus an honest `configured: false` / `config_help`
+    payload — never the three hand-written fake issues it used to return."""
     app.dependency_overrides[verify_token] = lambda: admin_user
     app.dependency_overrides[admin_api.require_admin] = lambda: admin_user
+
+    monkeypatch.delenv("SENTRY_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("SENTRY_ORG", raising=False)
+    monkeypatch.delenv("SENTRY_PROJECT", raising=False)
 
     client = TestClient(app)
     r = client.get("/api/admin/errors", headers={"Authorization": "Bearer token"})
     assert r.status_code == 200
     body = r.json()
     assert body["success"] is True
-    assert body["configured"] is False  # Fallback to mock issues
-    assert len(body["data"]) > 0
-    assert "TypeError" in body["data"][0]["title"]
+    assert body["configured"] is False
+    assert body["data"] == []
+    assert "config_help" in body
+    assert body["config_help"]["has_token"] is False
+    # None of the old fabricated incidents should ever appear again.
+    assert "TypeError" not in str(body)
+    assert "PostgresError" not in str(body)
+
+
+def test_get_sentry_errors_configured_calls_sentry(app, patch_admin_deps, admin_user, monkeypatch):
+    """When Sentry IS configured, the endpoint should call out to the real API
+    (mocked here) rather than ever falling back to fabricated data."""
+    app.dependency_overrides[verify_token] = lambda: admin_user
+    app.dependency_overrides[admin_api.require_admin] = lambda: admin_user
+
+    monkeypatch.setenv("SENTRY_AUTH_TOKEN", "token-123")
+    monkeypatch.setenv("SENTRY_ORG", "learnstation")
+    monkeypatch.setenv("SENTRY_PROJECT", "backend")
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return [
+                {
+                    "id": "real-1",
+                    "title": "Real Sentry issue",
+                    "culprit": "backend/real.py",
+                    "count": 3,
+                    "userCount": 2,
+                    "lastSeen": "2026-08-01T00:00:00Z",
+                    "status": "unresolved",
+                    "permalink": "https://sentry.io/real",
+                    "level": "error",
+                }
+            ]
+
+    class FakeAsyncClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return None
+
+        async def get(self, *a, **kw):
+            return FakeResponse()
+
+    monkeypatch.setattr(admin_api.httpx, "AsyncClient", lambda *a, **kw: FakeAsyncClient())
+
+    client = TestClient(app)
+    r = client.get("/api/admin/errors", headers={"Authorization": "Bearer token"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["configured"] is True
+    assert len(body["data"]) == 1
+    assert body["data"][0]["title"] == "Real Sentry issue"
 
 
 def test_toggle_course_visibility(app, patch_admin_deps, admin_user, fake_supabase):
@@ -284,3 +344,72 @@ def test_get_deployment_info(app, patch_admin_deps, admin_user):
     # drift from what the pool was actually created with.
     assert body["data"]["environment"]["DB_POOL_MIN"] == "5"
     assert body["data"]["environment"]["DB_POOL_MAX"] == "20"
+
+
+def test_get_deployment_info_app_version_matches_package_json(app, patch_admin_deps, admin_user):
+    """R6 regression: app_version must be read from the real package.json
+    ("3.0.0"), not the stale hardcoded "0.1.0-alpha" literal."""
+    import json
+    from pathlib import Path
+
+    app.dependency_overrides[verify_token] = lambda: admin_user
+    app.dependency_overrides[admin_api.require_admin] = lambda: admin_user
+
+    client = TestClient(app)
+    r = client.get("/api/admin/deployment-info", headers={"Authorization": "Bearer token"})
+    assert r.status_code == 200
+    body = r.json()
+
+    repo_root = Path(admin_api.__file__).resolve().parents[3]
+    real_version = json.loads((repo_root / "package.json").read_text())["version"]
+
+    assert body["data"]["deployments"]["app_version"] == real_version
+    assert body["data"]["deployments"]["app_version"] != "0.1.0-alpha"
+
+
+def test_get_deployment_info_api_health_reflects_db_check(app, patch_admin_deps, admin_user):
+    """R4 regression: the "Platform API" health signal must be derived from
+    the real DB health check performed by this endpoint, not a fabricated
+    99.99% uptime figure (which was a frontend-only literal with no backing
+    field at all). Degraded when the DB ping fails, healthy when it succeeds."""
+    app.dependency_overrides[verify_token] = lambda: admin_user
+    app.dependency_overrides[admin_api.require_admin] = lambda: admin_user
+
+    client = TestClient(app)
+    r = client.get("/api/admin/deployment-info", headers={"Authorization": "Bearer token"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["data"]["health"]["api"] == "healthy"  # DB ping succeeds via MockConnection
+
+
+def test_get_deployment_info_api_health_degrades_with_db(app, patch_admin_deps, admin_user, monkeypatch):
+    """Same signal, failure path: a broken DB ping must flip `health.api` to
+    "degraded" rather than leaving a permanently-green status."""
+    app.dependency_overrides[verify_token] = lambda: admin_user
+    app.dependency_overrides[admin_api.require_admin] = lambda: admin_user
+
+    class BrokenConn:
+        async def fetchval(self, query, *args):
+            raise RuntimeError("db down")
+
+    class BrokenPool:
+        def acquire(self):
+            class AsyncContext:
+                async def __aenter__(self):
+                    return BrokenConn()
+
+                async def __aexit__(self, *a):
+                    return None
+            return AsyncContext()
+
+    # get_deployment_info does a local `from backend.core.database import
+    # db_pool`, so the pool must be patched on that module, not admin_api.
+    from backend.core import database
+    monkeypatch.setattr(database, "db_pool", BrokenPool(), raising=False)
+
+    client = TestClient(app)
+    r = client.get("/api/admin/deployment-info", headers={"Authorization": "Bearer token"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["data"]["health"]["database"] == "unhealthy"
+    assert body["data"]["health"]["api"] == "degraded"

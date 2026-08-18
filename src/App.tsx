@@ -123,7 +123,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
+export function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { user, role, loading } = useAuth();
 
   if (loading) {
@@ -138,7 +138,14 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/auth" replace />;
   }
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  // R7 fix: fail closed. `loading` (sessionLoading || roleLoading) is false
+  // here, meaning the role lookup has already SETTLED — success, failure, or
+  // timeout (see src/lib/auth.tsx fetchRole / roleLoading). So a falsy role
+  // at this point is not "still loading", it is "resolved to unknown/failed".
+  // Treat that the same as an explicitly wrong role: deny access with the
+  // same redirect used for any other unauthorized role, rather than skipping
+  // the check and letting the route render for an unknown role.
+  if (allowedRoles && !allowedRoles.includes(role ?? '')) {
     return <Navigate to="/dashboard" replace />;
   }
 
