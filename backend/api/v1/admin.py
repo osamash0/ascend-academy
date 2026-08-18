@@ -336,62 +336,29 @@ async def list_events(
 @limiter.limit("30/minute")
 async def get_sentry_errors(request: Request, user: Any = Depends(require_admin)):
     """Fetch active issue reports directly from Sentry.
-    
-    If Sentry API credentials are not set in the environment, returns a mock list
-    for local preview along with instructions on how to activate live Sentry integration.
+
+    If Sentry API credentials are not set in the environment, there is no live
+    error data to show. Returns an empty issue list plus `configured: false`
+    and `config_help` explaining what to set — never fabricated incidents, since
+    an admin cannot visually distinguish a real outage from an invented one.
     """
     token = os.environ.get("SENTRY_AUTH_TOKEN")
     org = os.environ.get("SENTRY_ORG")
     project = os.environ.get("SENTRY_PROJECT")
-    
+
     if not token or not org or not project:
-        # Sentry API is not configured. Return mock data + configuration details.
-        mock_errors = [
-            {
-                "id": "1",
-                "title": "TypeError: Cannot read properties of undefined (reading 'ok')",
-                "culprit": "src/pages/LectureUpload.tsx in getCourseOverview",
-                "count": 14,
-                "userCount": 4,
-                "lastSeen": "2026-06-09T14:45:00Z",
-                "status": "unresolved",
-                "permalink": "https://sentry.io/",
-                "level": "error",
-                "project": "learnstation-frontend"
-            },
-            {
-                "id": "2",
-                "title": "PostgresError: column p.display_name does not exist",
-                "culprit": "supabase/migrations/20260503000004_fix_profile_rls_and_leaderboard.sql in public_leaderboard",
-                "count": 8,
-                "userCount": 8,
-                "lastSeen": "2026-06-09T13:20:00Z",
-                "status": "unresolved",
-                "permalink": "https://sentry.io/",
-                "level": "fatal",
-                "project": "learnstation-database"
-            },
-            {
-                "id": "3",
-                "title": "HTTPException: 403 Insufficient permissions for this action",
-                "culprit": "backend/core/auth_middleware.py in require_role",
-                "count": 25,
-                "userCount": 6,
-                "lastSeen": "2026-06-09T14:50:00Z",
-                "status": "resolved",
-                "permalink": "https://sentry.io/",
-                "level": "warning",
-                "project": "learnstation-backend"
-            }
-        ]
+        # Sentry API is not configured. No real error data exists to show, so
+        # return an empty list rather than fabricated issues.
         return {
             "success": True,
             "configured": False,
             "config_help": {
-                "message": "Sentry Web API integration is pending configuration.",
+                "message": "Sentry Web API integration is not configured. Set SENTRY_AUTH_TOKEN, SENTRY_ORG, and SENTRY_PROJECT to enable live error monitoring.",
+                "org": org,
+                "project": project,
                 "has_token": bool(token)
             },
-            "data": mock_errors
+            "data": []
         }
 
     # If configured, make HTTP call to Sentry API
@@ -568,6 +535,19 @@ async def delete_backup(backup_id: str, request: Request, user: Any = Depends(re
 
 # ── System Diagnostics & Deployment Telemetry ───────────────────────────────
 
+def _get_app_version() -> str:
+    """Read the real app version from the repo's package.json (the single
+    source of truth other tooling already uses), instead of a hardcoded
+    literal that silently drifts from reality."""
+    try:
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        with open(os.path.join(repo_root, "package.json"), "r") as f:
+            return json.load(f).get("version", "unknown")
+    except Exception as e:
+        logger.warning("Could not read app version from package.json: %s", e)
+        return "unknown"
+
+
 @router.get("/deployment-info")
 @limiter.limit("30/minute")
 async def get_deployment_info(request: Request, user: Any = Depends(require_admin)):
@@ -632,7 +612,10 @@ async def get_deployment_info(request: Request, user: Any = Depends(require_admi
                     "database_connections": db_conn_count,
                     "ai_services": "connected" if ai_ok else "not_configured",
                     "sentry": "active" if sentry_ok else "disabled",
-                    "sentry_dsn": sentry_dsn_redacted
+                    "sentry_dsn": sentry_dsn_redacted,
+                    # Real signal, not a fabricated uptime %: the platform API is
+                    # only as healthy as the critical dependency checked above.
+                    "api": "healthy" if db_ok else "degraded"
                 },
                 "system": {
                     "os": os.uname().sysname if hasattr(os, "uname") else "Unknown",
@@ -641,7 +624,7 @@ async def get_deployment_info(request: Request, user: Any = Depends(require_admi
                 },
                 "deployments": {
                     "migrations_count": migrations_applied,
-                    "app_version": "0.1.0-alpha"
+                    "app_version": _get_app_version()
                 },
                 "environment": env_vars
             }

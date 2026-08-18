@@ -1,14 +1,15 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Users, BookOpen, Activity, AlertCircle, Server } from 'lucide-react';
-import { PlatformStats } from '@/services/adminService';
+import { PlatformStats, DeploymentTelemetry } from '@/services/adminService';
 
 interface AdminKPISummaryProps {
   stats: PlatformStats | null;
+  telemetry?: DeploymentTelemetry | null;
   loading: boolean;
 }
 
-export function AdminKPISummary({ stats, loading }: AdminKPISummaryProps) {
+export function AdminKPISummary({ stats, telemetry, loading }: AdminKPISummaryProps) {
   if (loading || !stats) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
@@ -18,6 +19,23 @@ export function AdminKPISummary({ stats, loading }: AdminKPISummaryProps) {
       </div>
     );
   }
+
+  // Derived from the real /deployment-info health check (not a literal) — the
+  // tile reads "Unknown" rather than assuming health when telemetry hasn't
+  // loaded yet or failed to load.
+  const apiStatus = telemetry?.health.api ?? null;
+  const systemHealthValue = apiStatus === null ? 'Unknown' : apiStatus === 'healthy' ? 'Online' : 'Degraded';
+  const systemHealthSub = apiStatus === null
+    ? 'Health data unavailable'
+    : apiStatus === 'healthy'
+      ? 'All systems operational'
+      : 'A dependency is unreachable — see Health Status';
+  const systemHealthColor = apiStatus === null ? 'text-slate-400' : apiStatus === 'healthy' ? 'text-teal-400' : 'text-red-400';
+  const systemHealthGradient = apiStatus === null
+    ? 'from-slate-500/10 to-transparent'
+    : apiStatus === 'healthy'
+      ? 'from-teal-500/10 to-transparent'
+      : 'from-red-500/10 to-transparent';
 
   const kpis = [
     {
@@ -50,10 +68,10 @@ export function AdminKPISummary({ stats, loading }: AdminKPISummaryProps) {
     },
     {
       title: 'System Health',
-      value: 'Online',
-      subValue: 'All systems operational',
-      icon: <Server className="w-5 h-5 text-teal-400" />,
-      gradient: 'from-teal-500/10 to-transparent'
+      value: systemHealthValue,
+      subValue: systemHealthSub,
+      icon: <Server className={`w-5 h-5 ${systemHealthColor}`} />,
+      gradient: systemHealthGradient
     }
   ];
 
