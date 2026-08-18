@@ -110,6 +110,24 @@ No finding was silently dropped. If you want to sanity-check this yourself: ever
 
 ---
 
+## Production deploy status — needs a dedicated supervised session
+
+Checked the live server (`root@195.201.221.137`, `/root/ascend-academy`) after being asked to "update the SSH deployed version." Found something bigger than a routine redeploy:
+
+- Prod is checked out on `deploy/egress-hotfix` @ `39c6590`, image built 2026-08-17 16:00 — **not** current `main`.
+- `git diff main origin/deploy/egress-hotfix` is **355 files**. Prod predates the entire Milestone 4 consolidation: no activation onboarding rewrite, no gamification engine, no exam mode/review engine, no course blueprints, no learning-events partitioning — plus none of tonight's 24 PRs. The branch's own 2 "unique" commits (WebP posters, dashboard-hammering fix) are almost certainly already in `main` under different SHAs from squash-merges, just not literally on this branch.
+- Bringing prod current means applying **dozens of pending Supabase migrations** in the right order on a live project with **no backups/PITR** (confirmed 2026-08-17) — a much bigger, riskier operation than "restart the containers with new code."
+
+Presented this to you directly and you chose: **stop here, do the full catch-up deploy later as its own dedicated session with you present.** Nothing on the live server was changed — no `git pull`, no container rebuild, no migrations applied. Root SSH access was used only for read-only checks (`git log`, `git status`, `git diff`, `docker ps`, `docker inspect`).
+
+**For that future session**, worth deciding upfront:
+1. Whether to point prod's checkout at `main` directly (retiring `deploy/egress-hotfix` as a concept) or keep a separate deploy branch.
+2. Migration order and a `pg_dump` snapshot immediately before starting (this DB has no PITR — a snapshot is the only rollback path).
+3. Whether to apply migrations in one batch or incrementally with health checks between groups, given how many have accumulated.
+4. env var reconciliation — `main` has grown several feature flags (`FEATURES.reviewEngine`, `FEATURES.studentUploads`, etc.) since prod's `.env` was last touched; check what's assumed-on by default vs what prod's `.env` actually sets.
+
+---
+
 ## Rules I'm following
 
 - Never bundle env/config consolidation with anything else (audit's own warning — it can silently flip a feature flag in prod).
