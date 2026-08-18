@@ -42,12 +42,25 @@ vi.mock("@/services/lectureService", async () => {
   };
 });
 
+const listCoursesMock = vi.fn();
+vi.mock("@/services/coursesService", async () => {
+  const actual = await vi.importActual<typeof import("@/services/coursesService")>(
+    "@/services/coursesService",
+  );
+  return {
+    ...actual,
+    listCourses: (...args: unknown[]) => listCoursesMock(...args),
+  };
+});
+
 import ProfessorDashboard from "@/pages/ProfessorDashboard";
 import { renderWithProviders } from "@/test/renderWithProviders";
 
 beforeEach(() => {
   supabaseMock.reset();
   archiveLectureMock.mockClear();
+  listCoursesMock.mockReset();
+  listCoursesMock.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -137,6 +150,48 @@ describe("ProfessorDashboard page (smoke)", () => {
     await waitFor(() => expect(archiveLectureMock).toHaveBeenCalledWith("lec-1"));
 
     confirmSpy.mockRestore();
+  });
+
+  // R19: listCourses() failure was console.error-only, so `courses` stayed
+  // [] and ProfessorOverviewSection returned null — the entire Course
+  // Overview block silently disappeared with no indication anything failed.
+  it("shows an error card for Course Overview instead of silently vanishing", async () => {
+    listCoursesMock.mockRejectedValue(new Error("network down"));
+    renderWithProviders(<ProfessorDashboard />, {
+      initialEntries: ["/professor/dashboard"],
+    });
+
+    expect(await screen.findByTestId("course-overview-error")).toBeInTheDocument();
+  });
+
+  it("retries loading courses when the Course Overview retry button is clicked", async () => {
+    const user = userEvent.setup();
+    listCoursesMock.mockRejectedValueOnce(new Error("network down"));
+    listCoursesMock.mockResolvedValueOnce([
+      {
+        id: "course-1",
+        professor_id: "prof-1",
+        title: "Intro to ML",
+        description: null,
+        color: null,
+        icon: null,
+        is_archived: false,
+        status: "published",
+        created_at: null,
+        updated_at: null,
+        lecture_count: 0,
+      },
+    ]);
+    renderWithProviders(<ProfessorDashboard />, {
+      initialEntries: ["/professor/dashboard"],
+    });
+
+    await screen.findByTestId("course-overview-error");
+    await user.click(screen.getByRole("button", { name: /try again/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("course-overview-error")).not.toBeInTheDocument();
+    });
   });
 
   // R54: "Good morning" used to show from 00:00-11:59 with no night band.

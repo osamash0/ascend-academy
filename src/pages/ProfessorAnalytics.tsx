@@ -16,6 +16,9 @@ export default function ProfessorAnalytics() {
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  // Bumped to force the load effect to re-run when the professor hits retry.
+  const [retryTick, setRetryTick] = useState(0);
 
   const userId = user?.id;
 
@@ -29,6 +32,7 @@ export default function ProfessorAnalytics() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setIsError(false);
       try {
         const [lecData, courseData] = await Promise.all([
           fetchProfessorLectures(userId),
@@ -39,9 +43,14 @@ export default function ProfessorAnalytics() {
           setCourses(courseData);
         }
       } catch (err) {
+        // Distinguish a genuine load failure from a legitimately empty
+        // picker — otherwise the fetch failing silently renders the same
+        // "No lectures yet" empty state as a professor with zero lectures.
         if (!cancelled) {
+          console.error('Failed to load professor analytics data', err);
           setLectures([]);
           setCourses([]);
+          setIsError(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -50,7 +59,9 @@ export default function ProfessorAnalytics() {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, retryTick]);
+
+  const handleRetry = () => setRetryTick((t) => t + 1);
 
   // Resolve route param lectureId against courses and lectures
   let resolvedLectureId: string | undefined = undefined;
@@ -106,6 +117,8 @@ export default function ProfessorAnalytics() {
         courses={courses}
         lectures={lectures}
         loading={loading}
+        isError={isError}
+        onRetry={handleRetry}
         selectedLectureId={resolvedLectureId}
         selectedCourseId={resolvedCourseId}
         onSelectLecture={(id) => {

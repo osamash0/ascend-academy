@@ -49,6 +49,11 @@ export default function AdminDashboard() {
 
   // Global Stats
   const [stats, setStats] = useState<PlatformStats | null>(null);
+  // R14: loadStats used to swallow errors to console.error only, so a failed
+  // fetch left `stats` null forever and the KPI strip (driven by
+  // `loading={stats === null}`) pulsed its skeleton with no message and no
+  // way to retry.
+  const [statsError, setStatsError] = useState(false);
 
   // Users & Events Tab
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -90,8 +95,10 @@ export default function AdminDashboard() {
     try {
       const data = await adminService.fetchPlatformStats();
       setStats(data);
+      setStatsError(false);
     } catch (e) {
       console.error(e);
+      setStatsError(true);
     }
     try {
       const telemetryData = await adminService.fetchDeploymentInfo();
@@ -123,6 +130,11 @@ export default function AdminDashboard() {
           (supabase as any).from('courses').select('id, title, is_archived'),
           supabase.from('lectures').select('id, title, is_archived')
         ]);
+        // R20: both reads used to destructure only `.data` and drop
+        // `.error` — an RLS rejection resolved to `[]` and rendered as
+        // "No content matches your filters" instead of a surfaced failure.
+        if (cRes.error) throw cRes.error;
+        if (lRes.error) throw lRes.error;
         const combined = [
           ...(cRes.data || []).map((c: any) => ({ ...c, type: 'course' as const })),
           ...(lRes.data || []).map((l: any) => ({ ...l, type: 'lecture' as const }))
@@ -250,7 +262,13 @@ export default function AdminDashboard() {
         </div>
 
         {/* KPI Summary */}
-        <AdminKPISummary stats={stats} telemetry={telemetry} loading={stats === null} />
+        <AdminKPISummary
+          stats={stats}
+          telemetry={telemetry}
+          loading={stats === null && !statsError}
+          isError={statsError}
+          onRetry={loadStats}
+        />
 
         {/* Main Content Area */}
         <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
@@ -288,6 +306,18 @@ export default function AdminDashboard() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
+                {/* R27: `loading` was only ever wired to the Refresh button's
+                    spinner — no tab body consulted it, so first paint and
+                    every tab switch showed the tab's EMPTY state ("No events
+                    found.", etc.) until the request landed, looking like
+                    "there's nothing" rather than "still loading". */}
+                {loading ? (
+                  <div className="space-y-4" data-testid="admin-tab-loading">
+                    <div className="h-40 rounded-xl bg-white/5 animate-pulse border border-white/10" />
+                    <div className="h-40 rounded-xl bg-white/5 animate-pulse border border-white/10" />
+                  </div>
+                ) : (
+                <>
                 {activeTab === 'activity' && (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Users List */}
@@ -356,6 +386,13 @@ export default function AdminDashboard() {
                                 </td>
                               </tr>
                             ))}
+                            {users.length === 0 && (
+                              <tr>
+                                <td colSpan={3} className="p-8 text-center text-slate-500">
+                                  No users found.
+                                </td>
+                              </tr>
+                            )}
                           </tbody>
                         </table>
                         <div className="p-3 flex justify-between items-center border-t border-white/10 bg-black/20">
@@ -503,6 +540,8 @@ export default function AdminDashboard() {
                       </table>
                     </div>
                   </div>
+                )}
+                </>
                 )}
               </motion.div>
             </AnimatePresence>
