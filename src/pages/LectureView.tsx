@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,7 +33,7 @@ import { useMindMap } from '@/features/mindmap/hooks/useMindMap';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
 import { AmbientGlow, GLOW_BY_STATUS, DepthScene, LectureBackdrop } from '@/components/console';
-import { StudentRoutes, ProfessorRoutes } from '@/lib/routes';
+import { StudentRoutes, ProfessorRoutes, SharedRoutes } from '@/lib/routes';
 import { safeGetUUID, cn } from '@/lib/utils';
 import 'katex/dist/katex.min.css';
 
@@ -69,6 +69,7 @@ export default function LectureView() {
   const { t, i18n } = useTranslation(['lecture', 'common']);
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -385,6 +386,21 @@ export default function LectureView() {
     }
   }, [currentSlideIndex, reviewIndex, reviewStage]);
 
+  // M21: mirror the current slide into the URL's `?slide=` param so a reload
+  // or a copied link lands back on the same slide, and so links elsewhere in
+  // the app that carry `?slide=N` (dashboard schedule/quiz-jump cards) stay
+  // meaningful once the student keeps moving. `replace: true` swaps the
+  // current history entry in place instead of pushing a new one per slide —
+  // pushing one would let the browser Back button step backward through
+  // individual slides instead of leaving the lecture, which is the failure
+  // class fixed for M8.
+  useEffect(() => {
+    if (!lectureId || slides.length === 0) return;
+    const desired = String(currentSlideIndex + 1);
+    if (new URLSearchParams(location.search).get('slide') === desired) return;
+    navigate(SharedRoutes.LECTURE(lectureId, currentSlideIndex + 1), { replace: true });
+  }, [lectureId, currentSlideIndex, slides.length, navigate, location.search]);
+
 
   const fetchLectureData = async () => {
     setLoading(true);
@@ -452,6 +468,9 @@ export default function LectureView() {
     }
 
     // Fetch user progress and schedule restoration
+    let restoreIndex: number | null = null;
+    let restoreStates: Record<string, import('@/types/domain').SlideState> | null = null;
+
     if (user?.id) {
       const progressData = await fetchLectureProgress(user.id, lectureData.id);
 
@@ -490,9 +509,30 @@ export default function LectureView() {
                 slidesData ?? [],
               );
 
-        // Defer init until after setSlides() causes a re-render
-        setPendingInit({ states: savedStates, index: lastIndex });
+        restoreIndex = lastIndex;
+        restoreStates = savedStates;
       }
+    }
+
+    // M21: an explicit `?slide=N` in the URL — e.g. the dashboard's own deep
+    // links, or a reload of a URL the student advanced to — is that visit's
+    // explicit intent, so it takes priority over whatever was last saved.
+    // Read via `location` (react-router's `useLocation()`, captured in this
+    // render's closure) rather than `window.location` directly, so this
+    // works the same whether the app runs under `BrowserRouter` (production)
+    // or `MemoryRouter` (tests) — `window.location` is only kept in sync by
+    // the former.
+    if (slidesData && slidesData.length > 0) {
+      const rawSlideParam = new URLSearchParams(location.search).get('slide');
+      const slideParam = rawSlideParam ? Number(rawSlideParam) : NaN;
+      if (Number.isFinite(slideParam) && slideParam >= 1) {
+        restoreIndex = Math.min(slideParam - 1, slidesData.length - 1);
+      }
+    }
+
+    if (restoreIndex !== null) {
+      // Defer init until after setSlides() causes a re-render
+      setPendingInit({ states: restoreStates ?? {}, index: restoreIndex });
     }
 
     // Log lecture start event (fire-and-forget; never block lecture load)
