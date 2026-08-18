@@ -52,7 +52,13 @@
     "dashboardErrorTitle": "Couldn't load your progress",
     "dashboardErrorBody": "Something went wrong reaching the server. Please try again.",
     "potentialMilestones": "Potential Milestones",
-    "unlockableCount": "{{count}} to unlock"
+    "unlockableCount": "{{count}} to unlock",
+    "mindMap3d": {
+      "unavailableTitle": "3D view unavailable",
+      "unavailableBodyGeneric": "Your browser or device doesn't support WebGL. Switch back to the 2D tree to explore the map.",
+      "unavailableBodyWithAction": "Your browser or device doesn't support WebGL. Use the button below to switch to Skills.",
+      "switchToSkills": "Switch to Skills"
+    }
   },
   "leaderboard": {
     "thisWeek": "This Week",

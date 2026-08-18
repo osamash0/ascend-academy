@@ -52,7 +52,13 @@
     "dashboardErrorTitle": "Dein Fortschritt konnte nicht geladen werden",
     "dashboardErrorBody": "Beim Verbinden mit dem Server ist etwas schiefgelaufen. Bitte versuche es erneut.",
     "potentialMilestones": "Mögliche Meilensteine",
-    "unlockableCount": "{{count}} freischaltbar"
+    "unlockableCount": "{{count}} freischaltbar",
+    "mindMap3d": {
+      "unavailableTitle": "3D-Ansicht nicht verfügbar",
+      "unavailableBodyGeneric": "Dein Browser oder Gerät unterstützt kein WebGL. Wechsle zurück zur 2D-Baumansicht, um die Karte zu erkunden.",
+      "unavailableBodyWithAction": "Dein Browser oder Gerät unterstützt kein WebGL. Nutze die Schaltfläche unten, um zu Skills zu wechseln.",
+      "switchToSkills": "Zu Skills wechseln"
+    }
   },
   "leaderboard": {
     "thisWeek": "Diese Woche",
