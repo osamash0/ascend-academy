@@ -47,5 +47,9 @@
     "deleteFailed": "Vorlesung konnte nicht gelöscht werden.",
     "courseUpdated": "Kurs aktualisiert",
     "courseUpdateFailed": "Kursänderung fehlgeschlagen"
+  },
+  "aiInsights": {
+    "loadFailed": "KI-Einblicke konnten nicht geladen werden",
+    "loadFailedDesc": "Beim Erstellen der Einblicke für diese Vorlesung ist ein Fehler aufgetreten. Bitte versuche es erneut."
   }
 }
