@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -21,14 +21,30 @@ import { ProfessorRoutes, StudentRoutes } from '@/lib/routes';
  * Phase 1.3 batch review screen. There is no draft/published state on
  * lectures today (schema has only is_archived) — a batch-created lecture is
  * already live in its course the moment the parse job finishes. So "Done
- * reviewing" here is intentionally cosmetic (a local dismissal), not a real
- * publish action; see the Phase 1 plan for why this was chosen over adding
- * a schema column for this pass.
+ * reviewing" is still just a local dismissal, not a real publish action; see
+ * the Phase 1 plan for why this was chosen over adding a schema column for
+ * this pass. R44: it's persisted to localStorage (keyed by batch id) so a
+ * refresh no longer resets every card back to unreviewed — cheap given the
+ * existing `Set<string>` shape, without needing a schema change.
  *
  * Styled to match LectureUpload.tsx's visual language (gradient header icon,
  * violet/indigo CTAs) rather than a generic console list — this screen is
  * the direct continuation of that same upload flow, just for N lectures.
  */
+const reviewedStorageKey = (batchId: string | undefined) => `ascend_batch_reviewed_${batchId ?? 'unknown'}`;
+
+function loadReviewed(batchId: string | undefined): Set<string> {
+  if (!batchId) return new Set();
+  try {
+    const raw = localStorage.getItem(reviewedStorageKey(batchId));
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
 export default function BatchReviewPage() {
   const { batchId } = useParams<{ batchId: string }>();
   const navigate = useNavigate();
@@ -36,9 +52,21 @@ export default function BatchReviewPage() {
   const routeState = location.state as any;
   const fromOnboarding = routeState?.fromOnboarding;
   const targetCourseTitle = routeState?.targetCourseTitle;
-  
+
   const { toast } = useToast();
-  const [reviewed, setReviewed] = useState<Set<string>>(new Set());
+  const [reviewed, setReviewed] = useState<Set<string>>(() => loadReviewed(batchId));
+
+  // Persist across reloads. Keyed by batch id so different batches don't
+  // clobber each other's dismissal state.
+  useEffect(() => {
+    if (!batchId) return;
+    try {
+      localStorage.setItem(reviewedStorageKey(batchId), JSON.stringify(Array.from(reviewed)));
+    } catch {
+      // Storage unavailable (private browsing quota, etc.) — dismissal state
+      // just won't survive a reload; not worth surfacing to the user.
+    }
+  }, [batchId, reviewed]);
 
   const { data: lectures, isLoading, error } = useQuery({
     queryKey: ['batch-summary', batchId],

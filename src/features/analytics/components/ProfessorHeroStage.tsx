@@ -3,7 +3,7 @@ import { LaunchButton } from '@/components/console';
 import { splitLectureTitle } from '@/lib/utils';
 import type { Lecture } from '@/types/domain';
 import type { Course } from '@/services/coursesService';
-import { Settings, Eye, Trash2 } from 'lucide-react';
+import { Settings, Eye, Trash2, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ProfessorHeroStageProps {
@@ -15,6 +15,7 @@ interface ProfessorHeroStageProps {
   onAnalytics: () => void;
   onEdit: () => void;
   onPreview: () => void;
+  onArchive: () => void;
   onDelete: () => void;
 }
 
@@ -23,7 +24,7 @@ interface ProfessorHeroStageProps {
  * slide count metadata, and primary action buttons. Cross-fades when the
  * focused lecture changes. Driven by the MediaRail position in the dashboard.
  */
-export function ProfessorHeroStage({ lecture, eyebrow, courses, onAssignCourse, onAnalytics, onEdit, onPreview, onDelete }: ProfessorHeroStageProps) {
+export function ProfessorHeroStage({ lecture, eyebrow, courses, onAssignCourse, onAnalytics, onEdit, onPreview, onArchive, onDelete }: ProfessorHeroStageProps) {
   const { cleanTitle } = splitLectureTitle(lecture.title);
 
   return (
@@ -95,6 +96,15 @@ export function ProfessorHeroStage({ lecture, eyebrow, courses, onAssignCourse, 
               title="Edit Lecture"
             >
               <Settings className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full w-12 h-12 bg-white/5 hover:bg-white/15 text-white shadow-sm border border-white/10 hover:border-white/20 transition-all"
+              onClick={onArchive}
+              title="Archive Lecture"
+            >
+              <Archive className="w-5 h-5" />
             </Button>
             <Button
               variant="ghost"

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, matchPath } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquarePlus, X, Send, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -106,7 +106,10 @@ const getRouteInfo = (pathname: string): RouteInfo => {
       pageName: 'Professor Analytics',
       features: ['Student Performance Analytics', 'Lecture Engagement Chart', 'Advanced Metrics Grid']
     },
-    '/professor/analytics/advanced': {
+    // R47: the real route is `/professor/analytics/:lectureId/advanced`
+    // (App.tsx) — this key can never match a plain string-equality lookup
+    // against the real pathname, so it's matched via matchPath below instead.
+    '/professor/analytics/:lectureId/advanced': {
       pageName: 'Advanced Analytics',
       features: ['Per-Metric AI Explanation', 'Detailed Cohort Stats Grid']
     },
@@ -120,7 +123,20 @@ const getRouteInfo = (pathname: string): RouteInfo => {
     }
   };
 
-  return routesMap[pathname] || {
+  if (routesMap[pathname]) return routesMap[pathname];
+
+  // R47: fall back to pattern matching for entries keyed by a dynamic route
+  // (e.g. `/professor/analytics/:lectureId/advanced`), which a plain object
+  // lookup by exact pathname can never hit. Without this, feedback filed from
+  // that screen fell through to the generic pathname fallback with
+  // `features: []`.
+  for (const [pattern, info] of Object.entries(routesMap)) {
+    if (pattern.includes(':') && matchPath({ path: pattern, end: true }, pathname)) {
+      return info;
+    }
+  }
+
+  return {
     pageName: pathname,
     features: []
   };

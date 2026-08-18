@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ProfessorAssignmentsTab } from '@/features/assignments/ProfessorAssignmentsTab';
 import { ProfessorOverviewSection } from '@/features/analytics/components/ProfessorOverviewSection';
 import { splitLectureTitle } from '@/lib/utils';
+import { getTimeOfDayPeriod } from '@/lib/greeting';
 import { DepthScene, MediaRail, ConsoleTile } from '@/components/console';
 import { ProfessorHeroStage } from '@/features/analytics/components/ProfessorHeroStage';
 import { topicIcon } from '@/lib/topicIcon';
@@ -156,12 +157,7 @@ export default function ProfessorDashboard() {
     }
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return t('common:greetings.morning');
-    if (hour < 17) return t('common:greetings.afternoon');
-    return t('common:greetings.evening');
-  };
+  const getGreeting = () => t(`common:greetings.${getTimeOfDayPeriod()}`);
 
   const profName = user?.email?.split('@')[0] || t('professor:defaultName');
 
@@ -225,6 +221,7 @@ export default function ProfessorDashboard() {
                 onAnalytics={() => navigate(`/professor/analytics/${focusedLec.id}`)}
                 onEdit={() => navigate(`/professor/lecture/${focusedLec.id}`)}
                 onPreview={() => navigate(`/lecture/${focusedLec.id}`)}
+                onArchive={() => handleArchiveLecture(focusedLec.id, translateCurriculum(focusedLec.title))}
                 onDelete={() => deleteLecture(focusedLec.id)}
               />
               

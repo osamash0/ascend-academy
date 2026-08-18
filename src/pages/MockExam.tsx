@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Clock, Send, BrainCircuit, Rocket } from 'lucide-react';
@@ -137,10 +137,13 @@ export function MockExamTake() {
 
   if (!exam || !exam.questions) return null;
 
-  // If already submitted, redirect to report
+  // If already submitted, redirect to report. Rendering a <Navigate> element
+  // (rather than calling navigate() directly in the render body) keeps the
+  // side effect out of render — calling navigate() here triggers React's
+  // "Cannot update a component while rendering a different component"
+  // warning, since it synchronously updates router state mid-render.
   if (exam.submitted_at) {
-    navigate(`/exam/report/${exam.exam_id}`, { replace: true });
-    return null;
+    return <Navigate to={`/exam/report/${exam.exam_id}`} replace />;
   }
 
   const questions = exam.questions;

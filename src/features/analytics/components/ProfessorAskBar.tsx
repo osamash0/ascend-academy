@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, ArrowUp, Loader2, Sparkles, ThumbsUp, ThumbsDown, RotateCcw, Copy, RefreshCw, X } from 'lucide-react';
+import { Plus, ArrowUp, Loader2, Sparkles, RotateCcw, Copy, RefreshCw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -142,8 +142,11 @@ export function ProfessorAskBar({ chat, variant }: { chat: ProfessorChat; varian
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                     </div>
                     <div className="flex items-center gap-3 text-white/35">
-                      <button onClick={() => toast.success('Thanks for the feedback')} aria-label="Helpful" className="transition-colors hover:text-white/70"><ThumbsUp className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => toast('Thanks — we’ll keep improving')} aria-label="Not helpful" className="transition-colors hover:text-white/70"><ThumbsDown className="h-3.5 w-3.5" /></button>
+                      {/* R42: thumbs up/down were removed — they recorded no
+                          feedback anywhere (no API call, no state, no store),
+                          just a toast thanking the user. No feedback-recording
+                          endpoint exists yet for chat messages; re-add once one
+                          does, wired to a real call. */}
                       <button onClick={regenerate} aria-label="Regenerate" className="transition-colors hover:text-white/70"><RotateCcw className="h-3.5 w-3.5" /></button>
                       <button onClick={() => { navigator.clipboard?.writeText(m.content); toast.success('Copied'); }} aria-label="Copy" className="transition-colors hover:text-white/70"><Copy className="h-3.5 w-3.5" /></button>
                     </div>

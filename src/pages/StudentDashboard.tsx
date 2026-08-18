@@ -46,6 +46,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getStats as getReviewStats } from '@/services/reviewService';
 import { listMaterials } from '@/services/myMaterialsService';
 import { FEATURES } from '@/lib/featureFlags';
+import { getTimeOfDayPeriod } from '@/lib/greeting';
 import { LunaAstronaut } from '../../learnstation-luna';
 
 export default function StudentDashboard() {
@@ -278,12 +279,7 @@ export default function StudentDashboard() {
     ? profile.full_name.split(' ')[0]
     : user?.email?.split('@')[0] || t('dashboard:fallbackName');
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return t('dashboard:greeting.morning');
-    if (hour < 17) return t('dashboard:greeting.afternoon');
-    return t('dashboard:greeting.evening');
-  };
+  const getGreeting = () => t(`dashboard:greeting.${getTimeOfDayPeriod()}`);
 
   const ctaLabel = !focusedView
     ? t('dashboard:cta.browse', { defaultValue: 'Browse' })

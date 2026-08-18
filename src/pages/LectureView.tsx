@@ -323,6 +323,13 @@ export default function LectureView() {
   useEffect(() => {
     if (lectureId && user) {
       fetchLectureData();
+    } else if (!lectureId) {
+      // R39: without a lectureId this effect never calls fetchLectureData,
+      // so nothing would otherwise clear the initial loading=true state —
+      // the page would show a permanent spinner. (When lectureId is present
+      // but `user` hasn't resolved yet, we deliberately keep waiting; the
+      // effect reruns once `user` settles.)
+      setLoading(false);
     }
   }, [lectureId, user, i18n.resolvedLanguage]);
 
@@ -398,7 +405,13 @@ export default function LectureView() {
     setRecapItems([]);
 
     const currentLectureId = lectureId;
-    if (!currentLectureId) return;
+    if (!currentLectureId) {
+      // R39: this early return used to skip setLoading(false), leaving the
+      // page stuck on its loading spinner forever whenever lectureId is
+      // missing (e.g. mid-navigation or a malformed URL).
+      setLoading(false);
+      return;
+    }
 
     try {
       const localized = await fetchLocalizedLectureBundle(currentLectureId);

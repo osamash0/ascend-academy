@@ -61,7 +61,7 @@ export default function StudyGuide() {
 
   const [regenerating, setRegenerating] = useState(false);
 
-  const { data: guide, isLoading, isError } = useQuery<StudyGuide>({
+  const { data: guide, isLoading, isError, isFetching, refetch } = useQuery<StudyGuide>({
     queryKey: ['study-guide', courseId],
     queryFn: () => fetchStudyGuide(courseId!),
     enabled: !!courseId,
@@ -174,6 +174,21 @@ export default function StudyGuide() {
             <FileText className="w-10 h-10 text-red-400/60 mx-auto mb-3" aria-hidden="true" />
             <p className="font-semibold text-white/70">Couldn't load the study guide.</p>
             <p className="text-sm text-white/40 mt-1">The feature may not be enabled for this course yet.</p>
+            {/* R48: the likeliest cause (a transient 500) is retriable — give
+                the user a way out instead of a terminal dead end. */}
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              id="study-guide-retry-btn"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/12 bg-white/6 px-4 py-2 text-xs font-bold text-white/70 hover:bg-white/10 hover:text-white transition-all disabled:opacity-40"
+            >
+              {isFetching ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+              )}
+              Retry
+            </button>
           </div>
         )}
 

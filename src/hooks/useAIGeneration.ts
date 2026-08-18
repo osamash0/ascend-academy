@@ -181,6 +181,7 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
       setIsBulkGenerating(true);
 
       let successCount = 0;
+      let failCount = 0;
       const chunkSize = 3;
 
       for (let i = 0; i < pending.length; i += chunkSize) {
@@ -190,9 +191,9 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
         await Promise.all(
           chunk.map(async ({ slide, idx }) => {
             try {
-              const quiz = await apiClient.post<{ 
-                question: string; 
-                options: string[]; 
+              const quiz = await apiClient.post<{
+                question: string;
+                options: string[];
                 correctAnswer: number;
                 explanation?: string;
                 concept?: string;
@@ -216,6 +217,7 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
               }
             } catch (err) {
               console.error(`Bulk generation failed for slide ${idx + 1}:`, err);
+              failCount++;
             } finally {
               setOpLoading(idx, 'quiz', false);
             }
@@ -224,10 +226,23 @@ export function useAIGeneration({ slides, updateSlide }: UseAIGenerationOptions)
       }
 
       setIsBulkGenerating(false);
-      toast({
-        title: 'Quiz Suggestions Ready',
-        description: `Generated ${successCount} suggested quiz recommendations in the tab.`,
-      });
+
+      // If every attempt errored out (as opposed to 0 successes because every
+      // slide was legitimately administrative), the toast must not read as a
+      // success — the professor would otherwise be told generation "worked"
+      // when nothing was actually produced.
+      if (successCount === 0 && failCount > 0) {
+        toast({
+          title: 'Quiz Generation Failed',
+          description: `Could not generate quiz suggestions for any of the ${pending.length} slide(s). Please try again.`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Quiz Suggestions Ready',
+          description: `Generated ${successCount} suggested quiz recommendations in the tab.`,
+        });
+      }
     },
     [slides, aiModel, suggestedQuizzes, setOpLoading, toast]
   );

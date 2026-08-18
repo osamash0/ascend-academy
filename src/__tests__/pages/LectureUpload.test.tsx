@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
+import { server } from "@/test/server";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
 const navigateMock = vi.fn();
@@ -453,5 +455,47 @@ describe("LectureUpload duplicate-PDF flow (integration)", () => {
     expect(navigateMock).not.toHaveBeenCalled();
     // Only the duplicate-check call — no parse-pdf-stream.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("LectureUpload per-slide quiz suggestion — R35 model passthrough", () => {
+  // The per-slide "Suggest Quiz" button (Quiz Suggestions tab) used to
+  // hardcode ai_model: 'cerebras' instead of passing through the professor's
+  // selected model (mocked to 'groq' for this whole file via
+  // @/hooks/use-ai-model above). A manually-created slide (no PDF import) is
+  // used deliberately — it never triggers the separate PDF-import
+  // auto-generate-all-quizzes effect, so this exercises only the single-slide
+  // "Suggest Quiz" code path under test.
+  it("passes the professor's selected AI model, not a hardcoded provider", async () => {
+    let capturedBody: unknown = null;
+    server.use(
+      http.post("http://api.test/api/v1/ai/generate-quiz", async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          question: "What is covered?",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: 0,
+        });
+      }),
+    );
+
+    renderWithProviders(<LectureUpload />, {
+      initialEntries: ["/professor/upload"],
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /create first slide/i }));
+
+    const contentBox = await screen.findByPlaceholderText(/write the main content of this slide/i);
+    await user.type(contentBox, "Some real slide content.");
+
+    await user.click(screen.getByRole("tab", { name: /quiz suggestions/i }));
+
+    const suggestButton = await screen.findByRole("button", { name: /suggest quiz/i });
+    await user.click(suggestButton);
+
+    await waitFor(() => expect(capturedBody).not.toBeNull());
+    expect(capturedBody).toMatchObject({ ai_model: "groq" });
+    expect(capturedBody).not.toMatchObject({ ai_model: "cerebras" });
   });
 });

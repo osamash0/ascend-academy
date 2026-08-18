@@ -129,12 +129,12 @@ export function MockExamReport() {
                 <div key={i} className="glass-card p-5 rounded-2xl border border-white/5 bg-white/[0.02]">
                   <h3 className="font-bold text-foreground mb-1 line-clamp-1">{wc.concept}</h3>
                   <div className="text-xs font-bold uppercase tracking-widest text-warning mb-4">
-                    {t('report.missRate', { rate: wc.miss_rate * 100 })}
+                    {t('report.missRate', { rate: Math.round(wc.miss_rate * 100) })}
                   </div>
                   <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
                     <div
                       className="bg-warning h-full rounded-full"
-                      style={{ width: `${wc.miss_rate * 100}%` }}
+                      style={{ width: `${Math.round(wc.miss_rate * 100)}%` }}
                     />
                   </div>
                   <div className="mt-4 text-xs text-muted-foreground flex justify-between">
