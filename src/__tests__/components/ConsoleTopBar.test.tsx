@@ -20,6 +20,7 @@ import { renderWithProviders } from '@/test/renderWithProviders';
 describe('ConsoleTopBar student navigation', () => {
   afterEach(() => {
     (FEATURES as { studentUploads: boolean }).studentUploads = true;
+    (FEATURES as { reviewEngine: boolean }).reviewEngine = false;
   });
 
   it('exposes My Materials as the active persistent tab instead of Create', () => {
@@ -47,5 +48,24 @@ describe('ConsoleTopBar student navigation', () => {
     expect(
       document.documentElement.style.getPropertyValue('--console-header-height'),
     ).toMatch(/^\d+px$/);
+  });
+
+  // R17: /review (Daily Ascent) previously had no persistent nav entry point
+  // — its only door in was a home-feed tile gated on reviewDueCount > 0,
+  // which silently collapsed to 0 (and the tile vanished) on a failed stats
+  // fetch. A persistent tab guarantees an entry point regardless.
+  it('exposes a persistent Review tab when the review engine feature is on', () => {
+    (FEATURES as { reviewEngine: boolean }).reviewEngine = true;
+
+    renderWithProviders(<ConsoleTopBar />, { initialEntries: ['/dashboard'] });
+
+    const reviewTab = screen.getByRole('link', { name: 'Review' });
+    expect(reviewTab).toHaveAttribute('href', '/review');
+  });
+
+  it('hides the Review tab while the review engine feature is off', () => {
+    renderWithProviders(<ConsoleTopBar />, { initialEntries: ['/dashboard'] });
+
+    expect(screen.queryByRole('link', { name: 'Review' })).not.toBeInTheDocument();
   });
 });

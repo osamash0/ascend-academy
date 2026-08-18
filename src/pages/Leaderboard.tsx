@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Gem, BadgeCheck } from "lucide-react";
+import { AlertTriangle, Gem, BadgeCheck } from "lucide-react";
 import { LunaLoader } from "../../learnstation-luna";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,7 +16,12 @@ type Period = "week" | "all";
 export default function Leaderboard() {
   const { t } = useTranslation('gamification');
   const me = useSocialUser();
-  const { data: globalRows = [], isLoading: globalLoading } = useGlobalLeaderboard();
+  const {
+    data: globalRows = [],
+    isLoading: globalLoading,
+    isError: globalError,
+    refetch: refetchGlobal,
+  } = useGlobalLeaderboard();
 
   const [period, setPeriod] = useState<Period>("week");
 
@@ -145,6 +150,25 @@ export default function Leaderboard() {
 
         {globalLoading ? (
           <div className="flex justify-center py-20"><LunaLoader type="orbit-ring" size={64} /></div>
+        ) : globalError ? (
+          // R24: this page previously had no error handling at all, so a
+          // failed fetch fell through to `ranked.length === 0` and rendered
+          // the generic "no learners" empty copy — identical to a real,
+          // still-empty leaderboard.
+          <div className="flex flex-col items-center py-20 text-center">
+            <AlertTriangle className="mb-4 h-12 w-12 text-destructive/60" />
+            <p className="mb-6 text-muted-foreground">
+              {t('leaderboard.loadError', {
+                defaultValue: "Couldn't load the leaderboard. Something went wrong reaching the server.",
+              })}
+            </p>
+            <button
+              onClick={() => refetchGlobal()}
+              className="rounded-full bg-white/10 px-6 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+            >
+              {t('common:actions.retry', 'Retry')}
+            </button>
+          </div>
         ) : ranked.length === 0 ? (
           <p className="py-20 text-center text-muted-foreground">{t('leaderboard.noLearners')}</p>
         ) : (
@@ -180,14 +204,21 @@ export default function Leaderboard() {
             )}
 
             {/* User Rank Summary Box */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mx-auto mb-10 flex max-w-2xl items-center justify-center gap-2 rounded-2xl bg-white/[0.03] px-6 py-4 border border-white/5 backdrop-blur-md text-sm text-muted-foreground shadow-lg"
-            >
-              <Gem className="h-4 w-4 text-blue-400 mx-1" fill="currentColor" />
-              {t('leaderboard.rankSummary', { reward: myReward, rank: myRank, total: ranked.length })}
-            </motion.div>
+            {/* R24: `me` falls back to id "me" while the real profile is
+                still loading, so myIndex was always -1 during that window —
+                rendering rank "-", reward 0 as though that were the actual
+                (bad) result instead of "we don't know yet". Wait for the
+                real profile before showing this box at all. */}
+            {me.isLoaded && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mx-auto mb-10 flex max-w-2xl items-center justify-center gap-2 rounded-2xl bg-white/[0.03] px-6 py-4 border border-white/5 backdrop-blur-md text-sm text-muted-foreground shadow-lg"
+              >
+                <Gem className="h-4 w-4 text-blue-400 mx-1" fill="currentColor" />
+                {t('leaderboard.rankSummary', { reward: myReward, rank: myRank, total: ranked.length })}
+              </motion.div>
+            )}
 
             {/* Table */}
             {rest.length > 0 && (

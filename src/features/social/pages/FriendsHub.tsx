@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronRight, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, ChevronRight, UserPlus, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { StudentRoutes } from "@/lib/routes";
@@ -8,12 +8,12 @@ import { Avatar, OnlineDot, Panel, SectionHeading } from "../components/atoms";
 import { LiveActivityFeed } from "../components/LiveActivityFeed";
 
 export default function FriendsHub() {
-  const { data: friends = [], isLoading } = useFriends();
+  const { data: friends = [], isLoading, isError, refetch } = useFriends();
   const { data: requests = [] } = useFriendRequests();
 
   const online = friends.filter((f) => f.online);
   const incoming = requests.filter((r) => r.direction === "incoming");
-  const empty = !isLoading && friends.length === 0 && requests.length === 0;
+  const empty = !isLoading && !isError && friends.length === 0 && requests.length === 0;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 lg:px-0 lg:py-8">
@@ -34,7 +34,19 @@ export default function FriendsHub() {
         </Button>
       </motion.div>
 
-      {empty ? (
+      {/* R25: useFriends() failing used to fall through to this exact same
+          onboarding empty state ("Find your first study buddy") — an outage
+          looked identical to a brand-new account with no friends yet. */}
+      {isError ? (
+        <Panel className="flex flex-col items-center gap-4 border-dashed py-12 text-center">
+          <AlertTriangle className="h-8 w-8 text-destructive/60" />
+          <div>
+            <p className="text-base font-bold text-foreground">Couldn't load your friends</p>
+            <p className="mt-1 text-sm text-muted-foreground">Something went wrong reaching the server. Please try again.</p>
+          </div>
+          <Button onClick={() => refetch()}>Retry</Button>
+        </Panel>
+      ) : empty ? (
         <Panel className="flex flex-col items-center gap-4 border-dashed py-12 text-center">
           <UserPlus className="h-8 w-8 text-primary" />
           <div>

@@ -47,6 +47,7 @@ export function useMyMaterials() {
     materials: materialsQuery.data?.materials ?? [],
     isLoading: materialsQuery.isLoading,
     error: materialsQuery.error,
+    refetch: materialsQuery.refetch,
     quota: quotaQuery.data,
     upload: uploadMutation.mutateAsync,
     isUploading: uploadMutation.isPending,

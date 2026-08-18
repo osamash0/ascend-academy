@@ -8,6 +8,8 @@
   "quotaLabel": "Uploads this month",
   "quotaExhausted": "You've used all {{limit}} uploads for this month. Come back next month for more.",
   "emptyState": "No private materials yet. Upload a PDF to create your first study space.",
+  "loadErrorTitle": "Couldn't load your materials",
+  "loadErrorHint": "Something went wrong reaching the server. Please try again.",
   "slideQuizCount": "{{slides}} slides · {{quizzes}} quiz questions",
   "processing": "Processing…",
   "ready": "Ready to study",

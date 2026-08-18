@@ -22,6 +22,7 @@ export function useReviewQueue() {
     totalDue: queueQuery.data?.total_due ?? 0,
     isLoading: queueQuery.isLoading,
     error: queueQuery.error,
+    refetch: queueQuery.refetch,
     grade: gradeMutation.mutateAsync,
     isGrading: gradeMutation.isPending,
   };

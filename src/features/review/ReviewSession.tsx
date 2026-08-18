@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Loader2, PartyPopper } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, PartyPopper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/lib/auth';
 import { useGamification } from '@/lib/gamification/GamificationProvider';
+import { useToast } from '@/hooks/use-toast';
 import { getStats } from '@/services/reviewService';
 import { StudentRoutes } from '@/lib/routes';
 import { useReviewQueue } from './useReviewQueue';
@@ -20,10 +21,11 @@ function todayKey(): string {
 
 export default function ReviewSession() {
   const navigate = useNavigate();
-  const { t } = useTranslation(['review']);
+  const { t } = useTranslation(['review', 'common']);
   const { user } = useAuth();
   const gamification = useGamification();
-  const { cards, totalDue, isLoading, grade, isGrading } = useReviewQueue();
+  const { toast } = useToast();
+  const { cards, totalDue, isLoading, error, refetch, grade, isGrading } = useReviewQueue();
 
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -43,33 +45,51 @@ export default function ReviewSession() {
   const handleGrade = async (rating: number) => {
     if (!current || isGrading) return;
     const elapsedMs = Date.now() - shownAt.current;
-    await grade({ cardId: current.card_id, rating, elapsedMs });
 
-    if (user) {
-      const dedupeKey = `review:${user.id}:${current.card_id}:${todayKey()}`;
-      await gamification.grantXp(5, 'review', dedupeKey);
-    }
+    // R8: this used to await the mutation + grantXp with no try/catch, invoked
+    // as `void handleGrade(rating)` — a rejection was an unhandled promise
+    // rejection: no toast, setIndex never ran, and all four rating buttons
+    // went silently dead mid-session. Catch it, tell the student, and leave
+    // the card in place (don't advance) so they can retry the same rating.
+    try {
+      await grade({ cardId: current.card_id, rating, elapsedMs });
 
-    const nextCount = gradedCount + 1;
-    setGradedCount(nextCount);
-
-    if (!checkedStreakThisSession.current) {
-      checkedStreakThisSession.current = true;
-      try {
-        const stats = await getStats();
-        if (stats.streak === 7) await gamification.awardBadge('review-streak-7');
-        else if (stats.streak === 30) await gamification.awardBadge('review-streak-30');
-      } catch {
-        // best-effort — a missed streak badge check isn't worth failing the session for
+      if (user) {
+        const dedupeKey = `review:${user.id}:${current.card_id}:${todayKey()}`;
+        await gamification.grantXp(5, 'review', dedupeKey);
       }
-    }
-    if (nextCount === 100 && !awardedCenturion.current) {
-      awardedCenturion.current = true;
-      await gamification.awardBadge('centurion');
-    }
-    gamification.evaluate();
 
-    setIndex((i) => i + 1);
+      const nextCount = gradedCount + 1;
+      setGradedCount(nextCount);
+
+      if (!checkedStreakThisSession.current) {
+        checkedStreakThisSession.current = true;
+        try {
+          const stats = await getStats();
+          if (stats.streak === 7) await gamification.awardBadge('review-streak-7');
+          else if (stats.streak === 30) await gamification.awardBadge('review-streak-30');
+        } catch {
+          // best-effort — a missed streak badge check isn't worth failing the session for
+        }
+      }
+      if (nextCount === 100 && !awardedCenturion.current) {
+        awardedCenturion.current = true;
+        await gamification.awardBadge('centurion');
+      }
+      gamification.evaluate();
+
+      setIndex((i) => i + 1);
+    } catch (err) {
+      console.error('Failed to grade review card', err);
+      toast({
+        title: t('review:session.gradeErrorTitle', "Couldn't save your answer"),
+        description: t(
+          'review:session.gradeErrorDescription',
+          "Check your connection and try again — this card hasn't moved on.",
+        ),
+        variant: 'destructive',
+      });
+    }
   };
 
   useEffect(() => {
@@ -98,6 +118,25 @@ export default function ReviewSession() {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> {t('review:session.loading')}
+      </div>
+    );
+  }
+
+  // R11: useReviewQueue's `error` used to be ignored here, so a failed queue
+  // fetch resolved `cards` to [] and fell straight into the empty-queue
+  // branch below — rendering the success "You're all caught up" screen for
+  // an outage. Branch on the real error first.
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
+        <AlertTriangle className="w-14 h-14 text-destructive/60 mb-4" />
+        <h1 className="text-xl font-bold text-foreground mb-2">
+          {t('review:session.errorTitle', "Couldn't load your review queue")}
+        </h1>
+        <p className="text-sm text-muted-foreground mb-6">
+          {t('review:session.errorSubtitle', 'Something went wrong reaching the server. Please try again.')}
+        </p>
+        <Button onClick={() => refetch()}>{t('common:actions.retry', 'Retry')}</Button>
       </div>
     );
   }

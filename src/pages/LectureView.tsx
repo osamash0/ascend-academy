@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle, Loader2, Send, ArrowLeft, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, BookOpen, Zap, Trophy, X, Bot, ExternalLink, HelpCircle, Loader2, Send, ArrowLeft, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { fetchLocalizedLectureBundle, resolvePdfUrl } from '@/services/lectureService';
 import {
@@ -81,6 +81,11 @@ export default function LectureView() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
+  // R18: a failed fetch used to toast + clear `loading` without ever marking
+  // the failure, so the page fell through to the full lecture chrome with
+  // `lecture === null` (permanent "Loading..." breadcrumb, "No slides
+  // available" body) — an outage rendered identically to an empty lecture.
+  const [loadError, setLoadError] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   // In-session consecutive-correct counter for the "On Fire" / "Unstoppable" badges.
@@ -383,7 +388,8 @@ export default function LectureView() {
 
   const fetchLectureData = async () => {
     setLoading(true);
-    
+    setLoadError(false);
+
     // Reset session state for new lecture
     setPendingInit(null); // clear any stale pending-init from previous lecture
     setShowQuiz(false);
@@ -500,6 +506,7 @@ export default function LectureView() {
     } catch (err) {
       console.error('Fatal error in fetchLectureData:', err);
       toast({ title: t('lecture:toasts.errorTitle'), description: t('lecture:toasts.systemError'), variant: 'destructive' });
+      setLoadError(true);
       setLoading(false);
     }
   };
@@ -962,6 +969,24 @@ export default function LectureView() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // R18: distinguish a genuine load failure from a legitimately loaded lecture
+  // — otherwise the fetch's catch block silently rendered full lecture chrome
+  // around a null lecture instead of telling the student anything went wrong.
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
+        <AlertTriangle className="w-14 h-14 text-destructive/60 mb-4" />
+        <h2 className="text-xl font-bold text-foreground mb-2">
+          {t('lecture:chrome.loadErrorTitle', "Couldn't load this lecture")}
+        </h2>
+        <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+          {t('lecture:chrome.loadErrorDescription', 'Something went wrong reaching the server. Please try again.')}
+        </p>
+        <Button onClick={() => fetchLectureData()}>{t('common:actions.retry', 'Retry')}</Button>
       </div>
     );
   }

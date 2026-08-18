@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, FolderOpen, Search, type LucideIcon } from 'lucide-react';
+import { Home, TrendingUp, BarChart3, Users, Crown, Settings, LogOut, Rocket, BookOpen, LayoutDashboard, Archive, Upload, FolderOpen, Repeat, Search, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { FEATURES } from '@/lib/featureFlags';
@@ -21,6 +21,12 @@ interface NavTab {
 const STUDENT_TABS: NavTab[] = [
   { label: 'Home', to: StudentRoutes.HOME, icon: Home },
   { label: 'Library', to: StudentRoutes.LIBRARY, icon: BookOpen },
+  // R17: /review (Daily Ascent) previously had no persistent entry point —
+  // its only door in was a home-feed tile gated on reviewDueCount > 0, and a
+  // failed stats fetch collapsed that count to 0, making the whole feature
+  // vanish with zero explanation. A persistent nav tab guarantees a way in
+  // regardless of that fetch's outcome.
+  { label: 'Review', labelKey: 'student.review', to: StudentRoutes.REVIEW, icon: Repeat },
   { label: 'My Materials', labelKey: 'student.materials', to: StudentRoutes.MY_MATERIALS, icon: FolderOpen },
   { label: 'Ascent', to: StudentRoutes.ASCENT, icon: TrendingUp },
   { label: 'Ranking', to: StudentRoutes.LEADERBOARD, icon: Crown },
@@ -71,9 +77,11 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
     navigate(PublicRoutes.LANDING);
   };
 
-  const studentTabs = FEATURES.studentUploads
-    ? STUDENT_TABS
-    : STUDENT_TABS.filter((tab) => tab.to !== StudentRoutes.MY_MATERIALS);
+  const studentTabs = STUDENT_TABS.filter((tab) => {
+    if (tab.to === StudentRoutes.MY_MATERIALS) return FEATURES.studentUploads;
+    if (tab.to === StudentRoutes.REVIEW) return FEATURES.reviewEngine;
+    return true;
+  });
   const tabs = role === 'admin' ? ADMIN_TABS : (role === 'professor' ? PROFESSOR_TABS : studentTabs);
   const homeRoute = role === 'admin' ? AdminRoutes.DASHBOARD : (role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME);
 

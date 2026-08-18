@@ -27,10 +27,12 @@ const MOCK_ROWS = [
 describe("Leaderboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(userHook.useSocialUser).mockReturnValue(MOCK_ME as any);
+    vi.mocked(userHook.useSocialUser).mockReturnValue({ ...MOCK_ME, isLoaded: true } as any);
     vi.mocked(hooks.useGlobalLeaderboard).mockReturnValue({
       data: MOCK_ROWS,
       isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
     } as any);
   });
 
@@ -74,5 +76,49 @@ describe("Leaderboard", () => {
     // Now only Charlie should be visible
     expect(screen.queryByText("Alice")).not.toBeInTheDocument();
     expect(screen.getByText("Charlie")).toBeInTheDocument();
+  });
+
+  // R24 (part 1): the page previously had no error handling at all, so a
+  // failed fetch fell through to `ranked.length === 0` and rendered the
+  // generic "no learners" empty copy — identical to a real, empty board.
+  it("shows a real error state with retry (not the empty-board copy) when the leaderboard fetch fails", async () => {
+    const refetch = vi.fn();
+    vi.mocked(hooks.useGlobalLeaderboard).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: true,
+      refetch,
+    } as any);
+
+    const user = userEvent.setup();
+    renderWithProviders(<Leaderboard />);
+
+    expect(screen.queryByText(/no learners yet/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/couldn't load the leaderboard/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  // R24 (part 2): useSocialUser() used to fall back to id "me" while the
+  // profile was still loading, so myIndex was -1 and the rank summary
+  // rendered rank "-", reward 0 as if that were the real result.
+  it("hides the 'my rank' summary until the profile has actually loaded", () => {
+    vi.mocked(userHook.useSocialUser).mockReturnValue({ ...MOCK_ME, id: "me", isLoaded: false } as any);
+
+    renderWithProviders(<Leaderboard />);
+
+    // The rank/reward summary box specifically — not the table's "Rank" column header.
+    expect(screen.queryByText(/earned .* today/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the 'my rank' summary once the profile has loaded", () => {
+    vi.mocked(userHook.useSocialUser).mockReturnValue({ ...MOCK_ME, isLoaded: true } as any);
+
+    renderWithProviders(<Leaderboard />);
+
+    // Alice (u1) is 2nd by weekly XP (Charlie 300, Alice 100, Bob 50, Diana 10).
+    expect(screen.getByText(/earned .* today/i)).toBeInTheDocument();
+    expect(screen.getByText(/rank 2 of 4/i)).toBeInTheDocument();
   });
 });

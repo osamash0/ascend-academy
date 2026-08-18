@@ -52,7 +52,9 @@
     "lectureLoading": "Loading...",
     "slideView": "Slide View",
   "sourcePdf": "Source PDF",
-  "sourceLanguage": "Source: {{language}}"
+  "sourceLanguage": "Source: {{language}}",
+  "loadErrorTitle": "Couldn't load this lecture",
+  "loadErrorDescription": "Something went wrong reaching the server. Please try again."
   },
   "toasts": {
     "notFoundTitle": "Not Found",
