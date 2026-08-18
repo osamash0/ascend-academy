@@ -98,8 +98,18 @@ export function ConsoleTopBar({ onOpenSearch }: ConsoleTopBarProps = {}) {
 
   return (
     <header ref={headerRef} className="sticky top-0 z-40 flex items-center justify-between gap-4 px-5 lg:px-10 py-3 bg-gradient-to-b from-[#070b14]/80 via-[#070b14]/30 to-transparent backdrop-blur-[2px]">
-      {/* Left: brand + identity */}
-      <div className="flex items-center gap-4 min-w-0">
+      {/* Left: brand + identity.
+          M24/M44: this group used to be allowed to flex-shrink freely
+          (`min-w-0`, no `shrink-0`) while its content (the rocket Home
+          button + ProfileChip) had no size floor of its own. Under real
+          content pressure - a long display name, a narrower viewport - the
+          flex algorithm computed a near-zero box for this group but the
+          unclipped content still rendered at full size, silently overlapping
+          the center nav (its Home tab link ended up sitting entirely inside
+          the account-menu's hit area). `shrink-0` here plus a capped name
+          width in ProfileChip means this group has a real, bounded natural
+          size the layout can actually respect. */}
+      <div className="flex shrink-0 items-center gap-4">
         <button
           onClick={() => navigate(homeRoute)}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary hover:scale-105 transition-transform"
