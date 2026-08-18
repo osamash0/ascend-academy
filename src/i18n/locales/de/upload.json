@@ -47,6 +47,7 @@
     "deleteSlide": "Folie löschen",
     "save": "Vorlesung speichern",
     "saving": "Wird gespeichert...",
+    "unsavedChanges": "Ungespeicherte Änderungen",
     "generateAll": "Alles generieren",
     "generateSummary": "Zusammenfassung generieren",
     "generateQuiz": "Quiz generieren",

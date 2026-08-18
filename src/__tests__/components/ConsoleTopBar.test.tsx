@@ -39,4 +39,13 @@ describe('ConsoleTopBar student navigation', () => {
 
     expect(screen.queryByRole('link', { name: 'My Materials' })).not.toBeInTheDocument();
   });
+
+  it('publishes its rendered height as --console-header-height (M5)', () => {
+    document.documentElement.style.removeProperty('--console-header-height');
+    renderWithProviders(<ConsoleTopBar />, { initialEntries: ['/dashboard'] });
+
+    expect(
+      document.documentElement.style.getPropertyValue('--console-header-height'),
+    ).toMatch(/^\d+px$/);
+  });
 });
