@@ -26,6 +26,12 @@ interface ProfessorHeroStageProps {
  */
 export function ProfessorHeroStage({ lecture, eyebrow, courses, onAssignCourse, onAnalytics, onEdit, onPreview, onArchive, onDelete }: ProfessorHeroStageProps) {
   const { cleanTitle } = splitLectureTitle(lecture.title);
+  // M48: a lecture can have a pdf_url long before it has any parsed slides —
+  // don't headline it as ready-to-analyze ("Active Protocol") until it
+  // actually has content.
+  const hasSlides = (lecture.total_slides ?? 0) > 0;
+  const badgeLabel = !lecture.pdf_url ? 'No Source PDF' : hasSlides ? 'Active Protocol' : 'Processing';
+  const badgeReady = lecture.pdf_url && hasSlides;
 
   return (
     <AnimatePresence mode="wait">
@@ -42,12 +48,12 @@ export function ProfessorHeroStage({ lecture, eyebrow, courses, onAssignCourse, 
           {cleanTitle}
         </h1>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <span className={`inline-flex items-center gap-2 text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest border transition-all ${lecture.pdf_url 
-            ? 'bg-success/10 text-success border-success/20 shadow-glow-success/5' 
+          <span className={`inline-flex items-center gap-2 text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest border transition-all ${badgeReady
+            ? 'bg-success/10 text-success border-success/20 shadow-glow-success/5'
             : 'bg-warning/10 text-warning border-warning/20'
           }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${lecture.pdf_url ? 'bg-success animate-pulse' : 'bg-warning'}`} />
-            {lecture.pdf_url ? 'Active Protocol' : 'No Source PDF'}
+            <span className={`w-1.5 h-1.5 rounded-full ${badgeReady ? 'bg-success animate-pulse' : 'bg-warning'}`} />
+            {badgeLabel}
           </span>
           <span className="text-xs font-bold uppercase tracking-[0.15em] text-white/70">
             Slides {lecture.total_slides}
@@ -76,8 +82,16 @@ export function ProfessorHeroStage({ lecture, eyebrow, courses, onAssignCourse, 
           </p>
         )}
         <div className="pt-2 flex flex-wrap items-center gap-4">
-          <LaunchButton label="View Analytics" onClick={onAnalytics} />
-          
+          <LaunchButton
+            label={hasSlides ? 'View Analytics' : 'Processing…'}
+            onClick={onAnalytics}
+            disabled={!hasSlides}
+            title={hasSlides ? undefined : 'No slides yet — analytics will be available once this lecture finishes processing'}
+          />
+
+          {/* M50: non-destructive actions grouped together, separated from
+              the destructive delete button by a divider + extra gap so a
+              misclick between "View Analytics" and delete is less likely. */}
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -106,16 +120,19 @@ export function ProfessorHeroStage({ lecture, eyebrow, courses, onAssignCourse, 
             >
               <Archive className="w-5 h-5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full w-12 h-12 bg-destructive/10 hover:bg-destructive/20 text-destructive shadow-sm border border-destructive/20 hover:border-destructive/30 transition-all"
-              onClick={onDelete}
-              title="Delete Lecture"
-            >
-              <Trash2 className="w-5 h-5" />
-            </Button>
           </div>
+
+          <div className="w-px self-stretch bg-white/10" aria-hidden="true" />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full w-12 h-12 bg-white/5 hover:bg-destructive/20 text-white/40 hover:text-destructive shadow-sm border border-white/10 hover:border-destructive/30 transition-all"
+            onClick={onDelete}
+            title="Delete Lecture"
+          >
+            <Trash2 className="w-5 h-5" />
+          </Button>
         </div>
       </motion.div>
     </AnimatePresence>

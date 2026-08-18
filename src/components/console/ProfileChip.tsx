@@ -88,11 +88,13 @@ export function ProfileChip({ className }: ProfileChipProps) {
             <span className="max-w-[140px] truncate">{name}</span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-foreground group-data-[state=open]:rotate-180" />
           </p>
-          <p className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground tabular-nums">
-            <span className="text-primary">Lvl {profile.current_level}</span>
-            <span className="text-white/20">·</span>
-            <span>{profile.total_xp.toLocaleString()} XP</span>
-          </p>
+          {role === 'student' && (
+            <p className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground tabular-nums">
+              <span className="text-primary">Lvl {profile.current_level}</span>
+              <span className="text-white/20">·</span>
+              <span>{profile.total_xp.toLocaleString()} XP</span>
+            </p>
+          )}
         </div>
       </DropdownMenuTrigger>
 

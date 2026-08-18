@@ -95,6 +95,9 @@
     "summary": "Zusammenfassung",
     "quiz": "Quiz"
   },
+  "diagnostics": {
+    "noTelemetry": "Für diesen Durchlauf sind keine Routing-Telemetriedaten verfügbar."
+  },
   "slideFallback": "Folie {{number}}",
   "toasts": {
     "saved": "Vorlesung gespeichert",

@@ -532,7 +532,19 @@ export default function StudentDashboard() {
           {user?.id && <KnowledgeMapCard userId={user.id} />}
 
           {/* Socratic AI Tutor Invite */}
-          <div className="ai-tutor-invite p-4 rounded-2xl glass-card border border-primary/20 shadow-glow-primary bg-primary/5">
+          <div
+            onClick={() => navigate(StudentRoutes.MY_MATERIALS)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate(StudentRoutes.MY_MATERIALS);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Upload your first lecture PDF"
+            className="ai-tutor-invite p-4 rounded-2xl glass-card border border-primary/20 shadow-glow-primary bg-primary/5 cursor-pointer transition-transform hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          >
             <div className="flex items-center gap-4">
               <LunaAstronaut
                 phase="crescent"

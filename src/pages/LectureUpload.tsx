@@ -1635,15 +1635,22 @@ export default function LectureUpload() {
                       <Plus className="w-3.5 h-3.5" />
                       {t('upload:chrome.insertAfter')}
                     </Button>
+                    {/* M50: separated from the primary actions above by a
+                        divider + extra margin, and muted until hover, so a
+                        misclick doesn't land on delete. */}
                     {slides.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveSlide(activeSlideIndex)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      <>
+                        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveSlide(activeSlideIndex)}
+                          title={t('upload:actions.deleteSlide')}
+                          className="text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -2169,19 +2176,27 @@ export default function LectureUpload() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {diagnostics.per_slide.map(s => {
-                                  const f = s.layout_features || {};
-                                  return (
-                                    <tr key={s.slide_index} className="border-t border-border">
-                                      <td className="py-1 pr-2">{s.slide_index + 1}</td>
-                                      <td className="py-1 pr-2 font-mono">{s.route || '—'}</td>
-                                      <td className="py-1 pr-2 font-mono text-muted-foreground">{s.route_reason || '—'}</td>
-                                      <td className="py-1 pr-2">{Number(f.word_count ?? 0)}</td>
-                                      <td className="py-1 pr-2">{Number(f.image_coverage ?? 0).toFixed(2)}</td>
-                                      <td className="py-1 pr-2">{Number(f.alpha_ratio ?? 0).toFixed(2)}</td>
-                                    </tr>
-                                  );
-                                })}
+                                {diagnostics.per_slide.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={6} className="py-3 text-center text-muted-foreground">
+                                      {t('upload:diagnostics.noTelemetry')}
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  diagnostics.per_slide.map(s => {
+                                    const f = s.layout_features || {};
+                                    return (
+                                      <tr key={s.slide_index} className="border-t border-border">
+                                        <td className="py-1 pr-2">{s.slide_index + 1}</td>
+                                        <td className="py-1 pr-2 font-mono">{s.route || '—'}</td>
+                                        <td className="py-1 pr-2 font-mono text-muted-foreground">{s.route_reason || '—'}</td>
+                                        <td className="py-1 pr-2">{Number(f.word_count ?? 0)}</td>
+                                        <td className="py-1 pr-2">{Number(f.image_coverage ?? 0).toFixed(2)}</td>
+                                        <td className="py-1 pr-2">{Number(f.alpha_ratio ?? 0).toFixed(2)}</td>
+                                      </tr>
+                                    );
+                                  })
+                                )}
                               </tbody>
                             </table>
                           </div>

@@ -95,6 +95,9 @@
     "summary": "Summary",
     "quiz": "Quiz"
   },
+  "diagnostics": {
+    "noTelemetry": "No routing telemetry available for this parse."
+  },
   "slideFallback": "Slide {{number}}",
   "toasts": {
     "saved": "Lecture saved",

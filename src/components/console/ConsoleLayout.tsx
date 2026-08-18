@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, useReducedMotion } from 'framer-motion';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -8,6 +9,7 @@ import { ConsoleTopBar } from './ConsoleTopBar';
 import { ConsoleBoot } from './ConsoleBoot';
 import { useAuth } from '@/lib/auth';
 import { StudentRoutes, ProfessorRoutes, AdminRoutes } from '@/lib/routes';
+import { splitLectureTitle } from '@/lib/utils';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -39,6 +41,28 @@ const TAB_ORDER = [
   '/professor/dashboard', '/professor/courses', '/professor/archive', '/professor/analytics', '/professor/upload'
 ];
 
+// Matches a bare UUID route param (course id, lecture id, exam id, ...).
+const UUID_SEGMENT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Generic fallback label keyed by the segment immediately preceding the id,
+// used when no cheap title lookup is available (e.g. professor analytics,
+// which fetches via plain useState/useEffect rather than React Query, so
+// there's no shared cache ConsoleLayout can read without a fresh fetch).
+const GENERIC_ID_LABEL: Record<string, string> = {
+  course: 'Course',
+  'course-v3': 'Course',
+  courses: 'Course',
+  exam: 'Course', // :courseId under /exam — "Exam" is already the parent crumb
+  analytics: 'Lecture',
+  lecture: 'Lecture',
+};
+
+interface CachedTitledEntity {
+  id: string;
+  title?: string | null;
+  course?: { id: string; title?: string | null } | null;
+}
+
 /**
  * Full-bleed console "OS" shell: a persistent top-bar nav over a deep base,
  * with PS5-style directional screen transitions between tabs.
@@ -47,7 +71,27 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
   const { role } = useAuth();
+  const queryClient = useQueryClient();
   const homeRoute = role === 'admin' ? AdminRoutes.DASHBOARD : (role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME);
+
+  // Resolve a dynamic route id (course/lecture UUID) to its real title using
+  // data already sitting in the React Query cache from the page that's
+  // currently rendering below (the student dashboard's ['student-courses']
+  // / ['student-lectures'] queries) — no extra network fetch just for a
+  // breadcrumb. Returns null when nothing cached matches, so the caller can
+  // fall back to a generic (non-UUID) label instead of the raw id.
+  const resolveIdTitle = useCallback((id: string): string | null => {
+    const courses = queryClient.getQueryData<CachedTitledEntity[]>(['student-courses']);
+    const courseMatch = courses?.find((c) => c.id === id);
+    if (courseMatch?.title) return courseMatch.title;
+
+    const lectures = queryClient.getQueryData<CachedTitledEntity[]>(['student-lectures']);
+    const lectureMatch = lectures?.find((l) => l.id === id);
+    if (lectureMatch?.title) return splitLectureTitle(lectureMatch.title).cleanTitle;
+    if (lectureMatch?.course?.title) return lectureMatch.course.title;
+
+    return null;
+  }, [queryClient]);
 
   // Key the screen by TAB, not the full pathname, so intra-tab navigation
   // (e.g. /professor/analytics → /professor/analytics/:id) updates in place
@@ -88,12 +132,23 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
               {location.pathname.split('/').filter(Boolean).map((path, index, arr) => {
                 const href = `/${arr.slice(0, index + 1).join('/')}`;
                 const isLast = index === arr.length - 1;
-                // Format path text: capitalize and replace hyphens with spaces
-                const formattedPath = path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
-                
+
                 // Skip redundant "Home" or "Dashboard" if it's already the root
                 if (index === 0 && (path === 'dashboard' || path === 'professor')) return null;
                 if (index === 1 && path === 'dashboard' && arr[0] === 'professor') return null;
+
+                // Dynamic route params (course/lecture UUIDs) render as the
+                // literal id otherwise — resolve to a real title from
+                // whatever's already cached, or fall back to a generic,
+                // non-UUID label (M42).
+                let formattedPath: string;
+                if (UUID_SEGMENT.test(path)) {
+                  const resolved = resolveIdTitle(path);
+                  formattedPath = resolved ?? GENERIC_ID_LABEL[arr[index - 1]] ?? 'Details';
+                } else {
+                  // Format path text: capitalize and replace hyphens with spaces
+                  formattedPath = path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
+                }
 
                 return (
                   <React.Fragment key={href}>

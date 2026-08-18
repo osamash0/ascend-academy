@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -100,10 +100,24 @@ export default function ProfessorDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [focused, setFocused] = useState(0);
+  // M48: lectures are ordered most-recent-first, so `focused` defaulting to 0
+  // would headline whatever was just uploaded even if it has 0 slides (not
+  // parsed yet). Default to the most recent lecture that actually HAS
+  // slides instead, falling back to index 0 if none do. Only runs once per
+  // load (guarded by the ref) so it doesn't fight the professor's own
+  // MediaRail selection afterwards.
+  const hasAutoFocusedRef = useRef(false);
 
   useEffect(() => {
     if (user) fetchData();
   }, [user]);
+
+  useEffect(() => {
+    if (hasAutoFocusedRef.current || lectures.length === 0) return;
+    hasAutoFocusedRef.current = true;
+    const firstWithSlides = lectures.findIndex((l) => (l.total_slides ?? 0) > 0);
+    setFocused(firstWithSlides !== -1 ? firstWithSlides : 0);
+  }, [lectures]);
 
   const fetchData = async () => {
     setLoading(true);
