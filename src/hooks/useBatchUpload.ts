@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '@/lib/apiClient';
+import { useToast } from '@/hooks/use-toast';
 import { naturalSort, safeGetUUID } from '@/lib/utils';
 import type { BatchFileEntry, QueueFileStatus, UploadJob } from '@/types/upload';
 
@@ -38,6 +40,18 @@ function toUserMessage(err: unknown): string {
   return err.message.includes('→') ? fallback : err.message;
 }
 
+/** Identity used for client-side dedupe: the backend already dedupes by
+ * content hash (a duplicate upload safely returns the existing lecture
+ * without consuming quota), so this is purely cosmetic — it just stops the
+ * same file picked/dropped twice from producing two confusing "Queued" rows
+ * before the request is ever sent. (name, size, lastModified) is cheap and
+ * good enough to catch the common case (re-drag, folder picker re-scanning
+ * the same file); it is not a content hash and can't catch two files with
+ * identical bytes but different names. */
+function fileIdentity(file: File): string {
+  return `${file.name}::${file.size}::${file.lastModified}`;
+}
+
 interface BatchUploadResponseFile {
   filename: string;
   pdf_hash: string | null;
@@ -69,6 +83,8 @@ function jobStatusToQueueStatus(status: UploadJob['status']): QueueFileStatus {
  */
 export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploadOptions) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(['upload']);
+  const { toast } = useToast();
   const [files, setFiles] = useState<BatchFileEntry[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,13 +95,33 @@ export function useBatchUpload({ courseId, parsingMode, aiModel }: UseBatchUploa
 
   const addFiles = useCallback((picked: File[]) => {
     setFiles((prev) => {
+      const existingIdentities = new Set(prev.map((f) => fileIdentity(f.file)));
+      const deduped: File[] = [];
+      let skippedCount = 0;
+      for (const file of picked) {
+        const identity = fileIdentity(file);
+        // Also guard within the same `picked` batch (e.g. a folder drop that
+        // happens to include the same file twice), not just against `prev`.
+        if (existingIdentities.has(identity)) {
+          skippedCount += 1;
+          continue;
+        }
+        existingIdentities.add(identity);
+        deduped.push(file);
+      }
+      if (skippedCount > 0) {
+        toast({
+          title: t('upload:toasts.duplicateSkippedTitle'),
+          description: t('upload:toasts.duplicateSkippedDescription', { count: skippedCount }),
+        });
+      }
       const remaining = Math.max(0, cachedMaxBatchFiles - prev.length);
-      const entries: BatchFileEntry[] = naturalSort(picked)
+      const entries: BatchFileEntry[] = naturalSort(deduped)
         .slice(0, remaining)
         .map((file) => ({ fileId: safeGetUUID(), file, status: 'queued' }));
       return [...prev, ...entries];
     });
-  }, []);
+  }, [t, toast]);
 
   const removeFile = useCallback((fileId: string) => {
     setFiles((prev) => prev.filter((f) => f.fileId !== fileId));

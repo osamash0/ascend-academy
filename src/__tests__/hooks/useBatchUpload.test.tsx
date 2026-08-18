@@ -116,3 +116,38 @@ describe('useBatchUpload — submit failures are surfaced, not swallowed', () =>
     expect(result.current.submitError).toBeNull();
   });
 });
+
+describe('useBatchUpload — client-side dedupe (M75)', () => {
+  it('skips a file already in the queue with the same name/size/lastModified', async () => {
+    const { result } = renderBatchUpload();
+    const file = pdf('lecture.pdf');
+
+    act(() => { result.current.addFiles([file]); });
+    await waitFor(() => expect(result.current.files).toHaveLength(1));
+
+    // Re-adding the exact same File object (same name/size/lastModified) —
+    // e.g. the user drags the same PDF onto the dropzone a second time.
+    act(() => { result.current.addFiles([file]); });
+
+    // No new row: the backend already dedupes by content hash safely, so this
+    // is purely about not showing the user two confusing "Queued" rows.
+    expect(result.current.files).toHaveLength(1);
+  });
+
+  it('dedupes within a single addFiles call (e.g. a folder drop with a repeat)', async () => {
+    const { result } = renderBatchUpload();
+    const file = pdf('lecture.pdf');
+
+    act(() => { result.current.addFiles([file, file]); });
+    await waitFor(() => expect(result.current.files).toHaveLength(1));
+  });
+
+  it('still adds files that differ by name, size, or lastModified', async () => {
+    const { result } = renderBatchUpload();
+    const a = pdf('a.pdf');
+    const b = pdf('b.pdf');
+
+    act(() => { result.current.addFiles([a, b]); });
+    await waitFor(() => expect(result.current.files).toHaveLength(2));
+  });
+});
