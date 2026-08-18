@@ -282,7 +282,7 @@ export default function Auth() {
         >
           {/* Brand Logo */}
           <div className="flex items-center gap-4 mb-12 justify-center cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center shadow-glow-primary">
+            <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-glow-primary">
               <Layers className="w-7 h-7 text-white" />
             </div>
             <div className="flex flex-col text-left">
@@ -373,7 +373,6 @@ export default function Auth() {
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder={t('auth:fields.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onFocus={() => setFocusedField('password')}

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { GraduationCap } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 import { LanguageToggle } from '@/components/LanguageToggle';
 
@@ -29,8 +29,8 @@ export default function Datenschutz() {
             <header className="border-b border-border bg-background/80 backdrop-blur-sm">
                 <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-3">
                     <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
-                            <GraduationCap className="w-6 h-6 text-primary-foreground" />
+                        <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center">
+                            <Layers className="w-6 h-6 text-white" />
                         </div>
                         <span className="font-bold text-xl text-foreground">Learnstation</span>
                     </Link>
