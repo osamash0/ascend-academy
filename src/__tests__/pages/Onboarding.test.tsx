@@ -92,6 +92,7 @@ function renderPage() {
 beforeEach(() => {
   supabaseMock.reset();
   vi.clearAllMocks();
+  window.localStorage.clear();
 });
 
 describe('Onboarding', () => {
@@ -132,11 +133,13 @@ describe('Onboarding', () => {
     // keeps both in the DOM since it doesn't resolve the responsive CSS.
     await user.click(screen.getAllByRole('button', { name: /Next/i }).at(-1)!);
 
-    // Step 5: Platform courses (only the ready "Datenbanksysteme" course is
-    // surfaced, displayed with its English label "Database Systems").
+    // Step 5: Platform courses. `browseCourses()` is used as-is (the backend
+    // already scopes /api/courses/browse to published, non-archived courses),
+    // so every course the mock returns should surface here — not just a
+    // hardcoded "Datenbanksysteme" title (M31 regression).
     await waitFor(() => expect(screen.getByText(/Add extra topics/i)).toBeInTheDocument());
     expect(screen.getByText('Database Systems')).toBeInTheDocument();
-    expect(screen.queryByText('Platform Course')).not.toBeInTheDocument();
+    expect(screen.getByText('Platform Course')).toBeInTheDocument();
     await user.click(screen.getByText('Database Systems'));
     
     // Original from mock: .eq('user_id', user.id) is used in update profile
@@ -169,6 +172,11 @@ describe('Onboarding', () => {
     // montage (which now replaces the old "Setup Complete!" toast). See
     // handleFinish in Onboarding.tsx.
     expect(evaluateMock).not.toHaveBeenCalled();
+
+    // M61: the in-progress draft safety net is cleared once onboarding
+    // actually completes — it must not linger and resurrect stale state on
+    // the next onboarding run (e.g. for a different account on a shared machine).
+    expect(window.localStorage.getItem('onboarding_draft')).toBeNull();
   });
 
   it('skips step 4 if university has no catalog', async () => {
@@ -197,10 +205,11 @@ describe('Onboarding', () => {
     await waitFor(() => expect(screen.getByText(/We don't have No Cat Uni's course catalog yet/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
-    // Should jump to Step 5 (Add extra topics), skipping step 4. Step 5 only
-    // ever surfaces the ready "Datenbanksysteme" course (others are filtered out).
+    // Should jump to Step 5 (Add extra topics), skipping step 4. Every course
+    // `browseCourses()` returns should surface (M31 regression).
     await waitFor(() => expect(screen.getByText(/Add extra topics/i)).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('Database Systems')).toBeInTheDocument());
+    expect(screen.getByText('Platform Course')).toBeInTheDocument();
   });
 
   // Regression: backing out of step 1 used to strand the user on a blank screen.
@@ -228,5 +237,95 @@ describe('Onboarding', () => {
     await waitFor(() => expect(screen.getByPlaceholderText(/Enter your name/i)).toBeInTheDocument());
     expect(screen.getByText(/What should we call you/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Next/i })).toBeInTheDocument();
+  });
+
+  // M60: the display name flows into the leaderboard, friends list and
+  // profile chip, so it needs a client-side cap.
+  it('caps the step-1 display name field length', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/Welcome to Learnstation/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Click to continue/i }));
+
+    await waitFor(() => expect(screen.getByPlaceholderText(/Enter your name/i)).toBeInTheDocument());
+    const nameInput = screen.getByPlaceholderText(/Enter your name/i) as HTMLInputElement;
+    expect(nameInput.maxLength).toBe(60);
+  });
+
+  // M67: the single field on step 1 should be autofocused — free UX on a
+  // one-field step. (Already present in the JSX; this just guards it.)
+  it('autofocuses the step-1 name field', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/Welcome to Learnstation/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Click to continue/i }));
+
+    await waitFor(() => expect(screen.getByPlaceholderText(/Enter your name/i)).toBeInTheDocument());
+    expect(screen.getByPlaceholderText(/Enter your name/i)).toHaveFocus();
+  });
+
+  // M61: nothing should be lost to a reload mid-onboarding.
+  it('persists an in-progress draft to localStorage and restores it on remount', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+
+    await waitFor(() => expect(screen.getByText(/Welcome to Learnstation/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Click to continue/i }));
+
+    await waitFor(() => expect(screen.getByPlaceholderText(/Enter your name/i)).toBeInTheDocument());
+    await user.type(screen.getByPlaceholderText(/Enter your name/i), 'Carol');
+    await user.click(screen.getByRole('button', { name: /Next/i }));
+    await waitFor(() => expect(screen.getByText(/Choose Luna's look/i)).toBeInTheDocument());
+
+    await waitFor(() => {
+      const raw = window.localStorage.getItem('onboarding_draft');
+      expect(raw).toBeTruthy();
+      const draft = JSON.parse(raw as string);
+      expect(draft.fullName).toBe('Carol');
+      expect(draft.step).toBe(2);
+    });
+
+    // Simulate a reload: unmount and mount fresh. The draft should restore
+    // straight to step 2 with the name kept, instead of starting over.
+    unmount();
+    renderPage();
+    await waitFor(() => expect(screen.getByText(/Choose Luna's look/i)).toBeInTheDocument());
+  });
+
+  // M62: the university picker has ~443 options — none of them should be
+  // mounted into the DOM until the user actually searches for one.
+  it('does not mount university options until the user searches', async () => {
+    getUniversitiesMock.mockResolvedValueOnce([
+      { id: 'uni1', name: 'Test Uni', emailDomains: ['other.edu'], hasCatalog: true },
+      { id: 'uni3', name: 'Third Uni', emailDomains: ['other.edu'], hasCatalog: true },
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/Welcome to Learnstation/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Click to continue/i }));
+
+    await waitFor(() => screen.getByPlaceholderText(/Enter your name/i));
+    await user.type(screen.getByPlaceholderText(/Enter your name/i), 'Dana');
+    await user.click(screen.getByRole('button', { name: /Next/i }));
+
+    await waitFor(() => screen.getByText(/Choose Luna's look/i));
+    await user.click(screen.getByRole('button', { name: /Next/i }));
+
+    await waitFor(() => expect(screen.getByText(/Tell us where you study/i)).toBeInTheDocument());
+
+    // Open the university picker (no email-domain auto-match this time).
+    await user.click(screen.getByRole('combobox'));
+
+    // Nothing typed yet — no options mounted.
+    await waitFor(() => expect(screen.getByPlaceholderText('Select your university…')).toBeInTheDocument());
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+
+    // Type to search — matches mount only now.
+    await user.type(screen.getByPlaceholderText('Select your university…'), 'Test');
+    await waitFor(() => expect(screen.getByRole('option', { name: /Test Uni/i })).toBeInTheDocument());
+    expect(screen.queryByRole('option', { name: /Third Uni/i })).not.toBeInTheDocument();
   });
 });

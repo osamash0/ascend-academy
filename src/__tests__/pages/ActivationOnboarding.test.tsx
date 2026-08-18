@@ -62,6 +62,16 @@ describe('ActivationOnboarding', () => {
     expect(recordEventMock).toHaveBeenCalledWith('student-1', 'landing_viewed', { landing_path: '/' });
   });
 
+  // M32: the eyebrow badge used to hardcode the retired "Ascend Academy" name
+  // in English only, so it never translated to German. It should now show
+  // the current product name, sourced from the i18n `onboarding` namespace.
+  it('shows the current product name in the eyebrow badge, not the retired one', () => {
+    renderPage();
+
+    expect(screen.getByText('Learnstation')).toBeInTheDocument();
+    expect(screen.queryByText('Ascend Academy')).not.toBeInTheDocument();
+  });
+
   it('records the selected goal and continues to the material journey', async () => {
     const user = userEvent.setup();
     renderPage();

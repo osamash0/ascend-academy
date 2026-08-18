@@ -1,4 +1,7 @@
 {
+  "activation": {
+    "badge": "Learnstation"
+  },
   "actions": {
     "back": "Back",
     "next": "Next",
@@ -34,6 +37,7 @@
       "title": "Your studies",
       "subtitle": "Tell us where you study so we can set things up for you.",
       "universityPlaceholder": "Select your university…",
+      "typeToSearch": "Start typing to search universities…",
       "autoMatched": "Looks like you're at {{university}}. Pre-filled from your email.",
       "noCatalog": "We don't have {{university}}'s course catalog yet. You can still tell us your institution, and we'll personalize once it's available.",
       "institutionPlaceholder": "Your institution",
