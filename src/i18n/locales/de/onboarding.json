@@ -22,7 +22,8 @@
     "name": {
       "title": "Willkommen!",
       "subtitle": "Wie sollen wir dich nennen?",
-      "placeholder": "Gib deinen Namen ein…"
+      "placeholder": "Gib deinen Namen ein…",
+      "ariaLabel": "Dein Name"
     },
     "avatar": {
       "companionName": "luna",

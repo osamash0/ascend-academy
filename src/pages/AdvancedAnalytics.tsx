@@ -581,7 +581,6 @@ export default function AdvancedAnalytics() {
   const [dropoffData, setDropoffData] = useState<DropoffPoint[]>([]);
   const [confidenceBySlide, setConfidenceBySlide] = useState<SlideConfidence[]>([]);
   const [aiQueryFeed, setAiQueryFeed] = useState<AIQueryItem[]>([]);
-  const [extraLoading, setExtraLoading] = useState(false);
 
   // Slide-level recommendations (Task #44)
   const [slideAnalytics, setSlideAnalytics] = useState<SlideAnalytics[]>([]);
@@ -1193,9 +1192,7 @@ export default function AdvancedAnalytics() {
                 isOpen={openSections.dropoff}
                 onToggle={() => handleMetricClick('dropoff', 'Where Students Quit', dropoffData)}
               >
-                {extraLoading ? (
-                  <Skeleton className="h-64 w-full" />
-                ) : dropoffData?.length === 0 ? (
+                {dropoffData?.length === 0 ? (
                   <div className="text-center py-10 space-y-2">
                     <CheckCircle2 className="w-10 h-10 text-success/40 mx-auto" />
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">All students completed this lecture</p>
@@ -1228,9 +1225,7 @@ export default function AdvancedAnalytics() {
                 isOpen={openSections.bySlide}
                 onToggle={() => handleMetricClick('bySlide', 'Confidence By Slide', confidenceBySlide)}
               >
-                {extraLoading ? (
-                  <Skeleton className="h-64 w-full" />
-                ) : confidenceBySlide?.length === 0 ? (
+                {confidenceBySlide?.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground/50 text-xs font-bold uppercase tracking-widest">No confidence ratings yet</div>
                 ) : (
                   <div className="h-64">
@@ -1423,9 +1418,7 @@ export default function AdvancedAnalytics() {
 
               {/* AI Question Feed */}
               <Section title="Student Questions Feed" subtitle="What students asked the AI tutor (most recent first)" icon={MessageSquare}>
-                {extraLoading ? (
-                  <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
-                ) : groupedQueries.length === 0 ? (
+                {groupedQueries.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground/50">
                     <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-20" />
                     <p className="text-xs font-bold uppercase tracking-widest">No AI tutor queries recorded yet</p>
