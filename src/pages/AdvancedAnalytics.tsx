@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -541,6 +542,7 @@ const SHOW_PREDICTIVE_INTERVENTION_HUB = false;
 const SHOW_SPATIAL_NEURAL_MATRIX = false;
 
 export default function AdvancedAnalytics() {
+  const { t } = useTranslation(['professor', 'common']);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { lectureId: selectedLectureId } = useParams();
@@ -588,6 +590,12 @@ export default function AdvancedAnalytics() {
 
   const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  // Tracked separately from `aiInsights` — a failed /api/ai/analytics-insights
+  // call must render a distinct, honest error state instead of writing
+  // plausible-sounding fabricated content into `aiInsights`, since that state
+  // is rendered identically to a genuine AI response with no way for a
+  // professor to tell them apart (see R2 in the audit).
+  const [aiInsightsError, setAiInsightsError] = useState(false);
   const [matrixView, setMatrixView] = useState<'2d' | '3d'>('3d');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
   const [metricFeedback, setMetricFeedback] = useState<string | null>(null);
@@ -760,6 +768,7 @@ export default function AdvancedAnalytics() {
     if (!dashboardData) return;
     setAiLoading(true);
     setAiInsights(null);
+    setAiInsightsError(false);
 
     try {
       const hardSlides = dashboardData.slidePerformance
@@ -778,15 +787,12 @@ export default function AdvancedAnalytics() {
         ai_model: aiModel,
       });
       setAiInsights(result);
-    } catch {
-      setAiInsights({
-        summary: 'AI insights unavailable right now.',
-        suggestions: [
-          'Engagement is lower on a few key slides.',
-          'Try adjusting the quiz questions on those slides.',
-          'A leaderboard could help boost activity here.',
-        ],
-      });
+    } catch (err) {
+      // Never fabricate a plausible-looking summary here — it would render
+      // identically to a genuine AI response and a professor would have no
+      // way to tell it apart. Surface a real, retryable error instead.
+      console.error('Failed to fetch AI insights:', err);
+      setAiInsightsError(true);
     }
     setAiLoading(false);
   }, [dashboardData]);
@@ -860,10 +866,10 @@ export default function AdvancedAnalytics() {
             
             {/* AI Neural Intelligence Summary */}
             <AnimatePresence>
-              {(aiInsights || aiLoading) && (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }} 
-                  animate={{ opacity: 1, scale: 1 }} 
+              {(aiInsights || aiLoading || aiInsightsError) && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="intelligence-hub p-10 rounded-[2.5rem] relative overflow-hidden"
                 >
@@ -879,6 +885,26 @@ export default function AdvancedAnalytics() {
                           <Skeleton className="h-4 w-full bg-surface-2 rounded-full" />
                           <Skeleton className="h-4 w-3/4 bg-surface-2 rounded-full" />
                           <Skeleton className="h-4 w-1/2 bg-surface-2 rounded-full" />
+                        </div>
+                      ) : aiInsightsError ? (
+                        <div
+                          className="rounded-2xl border border-destructive/30 bg-destructive/10 p-8 text-center"
+                          data-testid="ai-insights-error"
+                        >
+                          <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-destructive/70" />
+                          <p className="text-lg font-bold text-white">{t('professor:aiInsights.loadFailed')}</p>
+                          <p className="mt-2 text-sm text-white/60 max-w-md mx-auto">
+                            {t('professor:aiInsights.loadFailedDesc')}
+                          </p>
+                          <Button
+                            variant="outline"
+                            onClick={() => void fetchAiInsights()}
+                            className="mt-6 rounded-full border-white/20 text-white hover:bg-white/10 hover:text-white"
+                            data-testid="ai-insights-retry"
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            {t('common:actions.retry')}
+                          </Button>
                         </div>
                       ) : (
                         <div className="space-y-8">

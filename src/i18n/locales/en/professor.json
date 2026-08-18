@@ -47,5 +47,9 @@
     "deleteFailed": "Failed to delete lecture.",
     "courseUpdated": "Course updated",
     "courseUpdateFailed": "Failed to change course"
+  },
+  "aiInsights": {
+    "loadFailed": "Couldn't load AI insights",
+    "loadFailedDesc": "Something went wrong generating insights for this lecture. Please try again."
   }
 }
