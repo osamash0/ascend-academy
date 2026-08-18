@@ -26,7 +26,7 @@ Everything else below was actionable without you and is being worked tonight.
 | # | Session | IDs | Area | Category | Status | PR |
 |---|---|---|---|---|---|---|
 | 0 | A-S0 | M64 | Fix 18 TypeScript errors so `tsc` can gate CI | Tonight | ✅ | [#27](https://github.com/osamash0/ascend-academy/pull/27) |
-| 1 | F8 | F8 | Student enrollment query has no filter — new students can't enroll | Tonight | 🔄 | |
+| 1 | F8 | F8 | Student enrollment query has no filter — new students can't enroll | Tonight | ✅ | [#28](https://github.com/osamash0/ascend-academy/pull/28) |
 | 2 | U(b) | M4/N1 | Kill stale AI-replay overwriting saved slide edits (data corruption) | Tonight | ⬜ | |
 | 3 | O | M5 | Editor "Save Lecture" button unreachable under sticky header at scroll | Tonight | ⬜ | |
 | 4 | V | M12/N2 | Unsaved-changes guard (beforeunload + dirty marker) | Tonight | ⬜ | |
@@ -58,5 +58,13 @@ Sessions 21+ (M38, M40-M43, M45, M46, M48-M50, M52, M53, M63, M65, M71-M76, R18-
 - Every merge to `main` is tested first (unit tests for backend logic, `npm test`/`tsc`/`lint` for frontend, and a live browser check via the preview tools for anything user-visible).
 - Squash-merge each session as one PR so any single fix can be reverted independently.
 - Branch from the now-current `main` (`5b789d5`, synced from `origin/main` at session start — local `main` was 95 commits stale; old tip preserved at `backup/local-main-pre-sync-20260818`).
+
+---
+
+## Discovered along the way (not in the original audit)
+
+| What | Where | Status |
+|---|---|---|
+| `Settings.test.tsx` has a pre-existing failing/flaky test (`notification_preferences` toggle never becomes enabled in the test harness) | `src/__tests__/pages/Settings.test.tsx:118-123` | Confirmed it fails identically on unmodified `main` before any of tonight's changes — not a regression from this session. Not fixed yet; flagging for a future session. |
 
 _This file is updated live as work lands. Last updated: see git log._
