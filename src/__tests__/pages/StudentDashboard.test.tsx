@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
@@ -88,6 +88,22 @@ describe("StudentDashboard page (smoke)", () => {
     });
     renderWithProviders(<StudentDashboard />, { initialEntries: ["/dashboard"] });
     expect(screen.getByText(/no courses yet/i)).toBeInTheDocument();
+  });
+
+  // R54: "Good morning" used to show from 00:00-11:59 with no night band,
+  // duplicated verbatim from ProfessorDashboard's own copy of the same bug.
+  it("shows the night greeting at 2am instead of 'Good morning'", () => {
+    const hoursSpy = vi.spyOn(Date.prototype, "getHours").mockReturnValue(2);
+    useStudentDashboardMock.mockReturnValue({
+      data: { lectures: [], progress: [], achievements: [] },
+      isLoading: false,
+    });
+    renderWithProviders(<StudentDashboard />, { initialEntries: ["/dashboard"] });
+
+    expect(screen.queryByText(/good morning/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/good to see you/i).length).toBeGreaterThan(0);
+
+    hoursSpy.mockRestore();
   });
 
   it("renders the focused lecture when data is populated", async () => {

@@ -774,7 +774,7 @@ export default function LectureUpload() {
     const attemptGenerate = async () => {
       const quiz = await apiClient.post<{ question: string; options: string[]; correctAnswer: number; explanation?: string; concept?: string }>(
         '/api/ai/generate-quiz',
-        { slide_text: slide.content, ai_model: 'cerebras' }
+        { slide_text: slide.content, ai_model: aiModel }
       );
       setSuggestedQuizzes(prev => ({
         ...prev,
@@ -818,7 +818,7 @@ export default function LectureUpload() {
     } finally {
       setSingleGenLoading(prev => ({ ...prev, [sIndex]: false }));
     }
-  }, [slides, setSuggestedQuizzes, toast]);
+  }, [slides, setSuggestedQuizzes, toast, aiModel]);
 
   // Accept all pending (non-added, non-administrative) quiz suggestions at once
   const handleAcceptAllQuizzes = useCallback(() => {

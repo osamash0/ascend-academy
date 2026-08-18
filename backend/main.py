@@ -174,6 +174,16 @@ app.add_middleware(RequestLogMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
+DEV_LOCAL_ORIGINS = [
+    "http://localhost:5000",
+    "http://localhost:5001",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:5000",
+    "http://127.0.0.1:5001",
+]
+
+
 def _build_cors_origins() -> list[str]:
     """
     Build the CORS allowlist. In production set CORS_ALLOWED_ORIGINS (or ALLOWED_ORIGINS)
@@ -182,16 +192,18 @@ def _build_cors_origins() -> list[str]:
     raw = os.environ.get("CORS_ALLOWED_ORIGINS") or os.environ.get("ALLOWED_ORIGINS") or ""
     raw = raw.strip()
     if raw:
-        return [o.strip() for o in raw.split(",") if o.strip()]
+        origins = [o.strip() for o in raw.split(",") if o.strip()]
+        # Even when an explicit allowlist is set (e.g. a dev .env copied from
+        # a prod-style config), never let a local dev environment lose access
+        # to localhost. This never applies outside settings.env=="development",
+        # so production origins are untouched.
+        if settings.env == "development":
+            for o in DEV_LOCAL_ORIGINS:
+                if o not in origins:
+                    origins.append(o)
+        return origins
 
-    origins = [
-        "http://localhost:5000",
-        "http://localhost:5001",
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "http://127.0.0.1:5000",
-        "http://127.0.0.1:5001",
-    ]
+    origins = list(DEV_LOCAL_ORIGINS)
     dev_domain = os.environ.get("REPLIT_DEV_DOMAIN")
     if dev_domain:
         origins.append(f"https://{dev_domain}")

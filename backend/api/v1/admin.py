@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from backend.core.auth_middleware import (
     require_role,
 )
-from backend.core.database import supabase_admin
+from backend.core.database import supabase_admin, DB_POOL_MIN_SIZE, DB_POOL_MAX_SIZE
 from backend.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -555,7 +555,14 @@ async def get_deployment_info(request: Request, user: Any = Depends(require_admi
     try:
         # 1. DB Ping
         db_ok = False
-        db_conn_count = 0
+        # Report THIS app's own pool usage (checked-out vs. its real min/max),
+        # not `pg_stat_activity`'s server-wide count — that includes every
+        # other client connected to the same Postgres instance and has no
+        # relationship to our pool's max_size, which made the previous
+        # "N / 20 used" readout meaningless (and silently clamped to 100%).
+        db_pool_active = 0
+        db_pool_min = DB_POOL_MIN_SIZE
+        db_pool_max = DB_POOL_MAX_SIZE
         try:
             from backend.core.database import db_pool, init_db_pool
             if not db_pool:
@@ -563,10 +570,11 @@ async def get_deployment_info(request: Request, user: Any = Depends(require_admi
             async with db_pool.acquire() as conn:
                 val = await conn.fetchval("SELECT 1")
                 db_ok = (val == 1)
-            
-            # Fetch database connection count
-            async with db_pool.acquire() as conn:
-                db_conn_count = await conn.fetchval("SELECT count(*) FROM pg_stat_activity")
+
+            if db_pool:
+                db_pool_active = db_pool.get_size() - db_pool.get_idle_size()
+                db_pool_min = db_pool.get_min_size()
+                db_pool_max = db_pool.get_max_size()
         except Exception as dbe:
             logger.warning("DB ping failed: %s", dbe)
         
@@ -598,8 +606,8 @@ async def get_deployment_info(request: Request, user: Any = Depends(require_admi
         env_vars = {
             "ENVIRONMENT": os.environ.get("ENVIRONMENT", "development"),
             "PORT": os.environ.get("PORT", "8000"),
-            "DB_POOL_MIN": "5",
-            "DB_POOL_MAX": "20",
+            "DB_POOL_MIN": str(db_pool_min),
+            "DB_POOL_MAX": str(db_pool_max),
             "SENTRY_DSN_CONFIGURED": sentry_ok,
             "GEMINI_KEY_CONFIGURED": ai_ok
         }
@@ -609,7 +617,7 @@ async def get_deployment_info(request: Request, user: Any = Depends(require_admi
             "data": {
                 "health": {
                     "database": "healthy" if db_ok else "unhealthy",
-                    "database_connections": db_conn_count,
+                    "database_connections": db_pool_active,
                     "ai_services": "connected" if ai_ok else "not_configured",
                     "sentry": "active" if sentry_ok else "disabled",
                     "sentry_dsn": sentry_dsn_redacted,

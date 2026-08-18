@@ -26,14 +26,31 @@ def test_accepts_minimal_valid_pdf():
     validate_pdf_content(MIN_PDF)
 
 
-def test_accepts_magic_within_first_1024_bytes_after_leading_noise():
-    # Some PDFs prepend a BOM / whitespace; magic is found within the first 1KB.
-    content = (b" " * 50) + MIN_PDF
+def test_accepts_magic_after_a_utf8_bom():
+    # Some PDFs get a UTF-8 BOM prepended by tools that touched them as text.
+    content = b"\xef\xbb\xbf" + MIN_PDF
     validate_pdf_content(content)
 
 
 def test_rejects_when_magic_is_beyond_the_first_1024_bytes():
     content = (b"\x00" * 1024) + b"%PDF-1.4\n"
+    with pytest.raises(ValueError, match="Invalid file format"):
+        validate_pdf_content(content)
+
+
+def test_rejects_pdf_magic_embedded_mid_file_not_at_start():
+    # Regression for M77: `%PDF` appearing anywhere in the first 1KB used to
+    # pass because the old check was a substring search (`b"%PDF" not in
+    # content[:1024]`). Real PDFs start with the magic at byte 0, so a file
+    # that merely contains `%PDF` somewhere in its header must be rejected.
+    content = b"GIF89a" + (b"\x00" * 100) + b"%PDF-1.4\n" + (b"\x00" * 50)
+    with pytest.raises(ValueError, match="Invalid file format"):
+        validate_pdf_content(content)
+
+
+def test_rejects_leading_whitespace_before_magic():
+    # Leading whitespace is no longer tolerated — only a UTF-8 BOM is.
+    content = (b" " * 10) + MIN_PDF
     with pytest.raises(ValueError, match="Invalid file format"):
         validate_pdf_content(content)
 

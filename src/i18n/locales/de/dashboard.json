@@ -2,7 +2,8 @@
   "greeting": {
     "morning": "Guten Morgen",
     "afternoon": "Guten Tag",
-    "evening": "Guten Abend"
+    "evening": "Guten Abend",
+    "night": "Schön, dich zu sehen"
   },
   "welcomeBack": "Willkommen zurück, {{name}}",
   "subtitle_one": "Bereit, deine Lernreise fortzusetzen? Du hast <bold>1 Kurs</bold> in Bearbeitung.",

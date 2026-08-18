@@ -152,4 +152,61 @@ describe("ProfessorAnalytics page (smoke)", () => {
       expect(screen.getByText("Cell Biology")).toBeInTheDocument();
     });
   });
+
+  // R49: a deep link slug matching no lecture/course used to fall through
+  // every branch silently — both resolved ids stayed undefined and the
+  // course picker rendered with no "not found" signal at all.
+  it("shows a not-found notice for a deep link that matches no lecture or course", async () => {
+    fetchProfessorLecturesMock.mockResolvedValue([
+      {
+        id: "lec-x",
+        title: "Cell Biology",
+        description: "Membranes and organelles",
+        total_slides: 8,
+        created_at: "2025-01-01T00:00:00Z",
+      },
+    ]);
+    renderWithProviders(
+      <Routes>
+        <Route path="/professor/analytics" element={<ProfessorAnalytics />} />
+        <Route path="/professor/analytics/:lectureId" element={<ProfessorAnalytics />} />
+      </Routes>,
+      {
+        initialEntries: ["/professor/analytics/this-slug-matches-nothing"],
+      }
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("analytics-deep-link-not-found")).toBeInTheDocument();
+    });
+    // The picker itself should still render (not a blank page) — e.g. the
+    // lecture rail's loading/empty chrome, not an unhandled crash.
+    expect(document.body.textContent).not.toBe("");
+  });
+
+  it("does not show the not-found notice for a slug that resolves correctly", async () => {
+    fetchProfessorLecturesMock.mockResolvedValue([
+      {
+        id: "lec-x",
+        title: "Cell Biology",
+        description: "Membranes and organelles",
+        total_slides: 8,
+        created_at: "2025-01-01T00:00:00Z",
+      },
+    ]);
+    renderWithProviders(
+      <Routes>
+        <Route path="/professor/analytics" element={<ProfessorAnalytics />} />
+        <Route path="/professor/analytics/:lectureId" element={<ProfessorAnalytics />} />
+      </Routes>,
+      {
+        initialEntries: ["/professor/analytics/cell-biology"],
+      }
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cell Biology")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("analytics-deep-link-not-found")).not.toBeInTheDocument();
+  });
 });

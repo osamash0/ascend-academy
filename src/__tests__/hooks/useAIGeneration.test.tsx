@@ -344,4 +344,62 @@ describe('handleGenerateAllQuizzes', () => {
     // Should not show any toast since nothing was pending
     expect(toastMock).not.toHaveBeenCalled();
   });
+
+  // R36: when every per-slide request fails, the professor must be told it
+  // failed — not shown the generic "Generated 0..." success toast.
+  it('shows a destructive error toast when every slide fails to generate', async () => {
+    server.use(
+      http.post(`${API}/ai/generate-quiz`, () => new HttpResponse('Internal Error', { status: 500 })),
+    );
+    const slides = [makeSlide(), makeSlide('Second slide content here.')];
+    const { result } = makeHook(slides);
+
+    await act(async () => {
+      await result.current.handleGenerateAllQuizzes();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isBulkGenerating).toBe(false);
+    });
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Quiz Generation Failed', variant: 'destructive' }),
+    );
+    expect(toastMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Quiz Suggestions Ready' }),
+    );
+    // No suggestions should have been recorded for either slide.
+    expect(Object.keys(result.current.suggestedQuizzes)).toHaveLength(0);
+  });
+
+  it('shows the normal success toast when at least one slide succeeds', async () => {
+    let callCount = 0;
+    server.use(
+      http.post(`${API}/ai/generate-quiz`, () => {
+        callCount++;
+        if (callCount === 1) {
+          return new HttpResponse('Internal Error', { status: 500 });
+        }
+        return HttpResponse.json({
+          question: 'What is 2+2?',
+          options: ['3', '4', '5', '6'],
+          correctAnswer: 1,
+        });
+      }),
+    );
+    const slides = [makeSlide(), makeSlide('Second slide content here.')];
+    const { result } = makeHook(slides);
+
+    await act(async () => {
+      await result.current.handleGenerateAllQuizzes();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isBulkGenerating).toBe(false);
+    });
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Quiz Suggestions Ready', description: expect.stringContaining('Generated 1') }),
+    );
+  });
 });

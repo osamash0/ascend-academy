@@ -55,6 +55,11 @@ export default function ProfessorAnalytics() {
   // Resolve route param lectureId against courses and lectures
   let resolvedLectureId: string | undefined = undefined;
   let resolvedCourseId: string | undefined = undefined;
+  // R49: a deep link whose slug matches nothing (deleted/renamed lecture or
+  // course) used to fall through every branch below with both ids left
+  // undefined, silently rendering the course picker with no signal that the
+  // link didn't resolve. Tracked explicitly so we can surface a notice.
+  let notFound = false;
 
   if (lectureId && !loading) {
     if (lectureId === 'uncategorized') {
@@ -77,6 +82,8 @@ export default function ProfessorAnalytics() {
             if (lectureBySlug) {
               resolvedLectureId = lectureBySlug.id;
               resolvedCourseId = lectureBySlug.course_id || undefined;
+            } else {
+              notFound = true;
             }
           }
         }
@@ -85,35 +92,46 @@ export default function ProfessorAnalytics() {
   }
 
   return (
-    <GardenLecturePicker
-      courses={courses}
-      lectures={lectures}
-      loading={loading}
-      selectedLectureId={resolvedLectureId}
-      selectedCourseId={resolvedCourseId}
-      onSelectLecture={(id) => {
-        const lecture = lectures.find(l => l.id === id);
-        if (lecture) {
-          const slug = toSlug(lecture.title);
-          if (slug === lectureId) {
-            navigate('/professor/analytics');
+    <>
+      {notFound && (
+        <div
+          role="alert"
+          data-testid="analytics-deep-link-not-found"
+          className="relative z-20 mx-auto mt-4 max-w-2xl rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-sm font-semibold text-amber-200"
+        >
+          We couldn't find that lecture or course — it may have been renamed, deleted, or archived. Showing your course overview instead.
+        </div>
+      )}
+      <GardenLecturePicker
+        courses={courses}
+        lectures={lectures}
+        loading={loading}
+        selectedLectureId={resolvedLectureId}
+        selectedCourseId={resolvedCourseId}
+        onSelectLecture={(id) => {
+          const lecture = lectures.find(l => l.id === id);
+          if (lecture) {
+            const slug = toSlug(lecture.title);
+            if (slug === lectureId) {
+              navigate('/professor/analytics');
+            } else {
+              navigate(`/professor/analytics/${slug}`);
+            }
           } else {
-            navigate(`/professor/analytics/${slug}`);
+            navigate('/professor/analytics');
           }
-        } else {
-          navigate('/professor/analytics');
-        }
-      }}
-      onSelectCourse={(id) => {
-        if (id === 'uncategorized') {
-          navigate('/professor/analytics/uncategorized');
-        } else {
-          const course = courses.find(c => c.id === id);
-          if (course) {
-            navigate(`/professor/analytics/${toSlug(course.title)}`);
+        }}
+        onSelectCourse={(id) => {
+          if (id === 'uncategorized') {
+            navigate('/professor/analytics/uncategorized');
+          } else {
+            const course = courses.find(c => c.id === id);
+            if (course) {
+              navigate(`/professor/analytics/${toSlug(course.title)}`);
+            }
           }
-        }
-      }}
-    />
+        }}
+      />
+    </>
   );
 }

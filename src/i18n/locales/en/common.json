@@ -50,7 +50,8 @@
   "greetings": {
     "morning": "Good morning",
     "afternoon": "Good afternoon",
-    "evening": "Good evening"
+    "evening": "Good evening",
+    "night": "Good to see you"
   },
   "shell": {
     "toggleSidebar": "Toggle sidebar",

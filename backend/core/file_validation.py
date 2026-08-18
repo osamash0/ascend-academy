@@ -6,21 +6,30 @@ from backend.core.config import settings
 # Single source of truth: backend/core/config.py (MAX_UPLOAD_MB).
 MAX_FILE_BYTES = settings.max_upload_mb * 1024 * 1024
 
+PDF_MAGIC = b"%PDF-"
+# A UTF-8 BOM is the only real-world prefix known to precede the PDF magic
+# bytes (some tools accidentally stamp one on binary files they touched as
+# text). No other leading noise is tolerated.
+UTF8_BOM = b"\xef\xbb\xbf"
+
 def validate_pdf_content(content: bytes) -> None:
     """
     Validates that the provided bytes represent a valid PDF.
     - Checks the absolute file size against MAX_FILE_BYTES.
-    - Checks the magic bytes `%PDF` at the start of the file.
+    - Checks the magic bytes `%PDF-` at the start of the file (optionally
+      after a UTF-8 BOM).
     """
     if len(content) > MAX_FILE_BYTES:
         raise ValueError(f"File exceeds the {MAX_FILE_BYTES // (1024 * 1024)}MB limit.")
-    
+
     if len(content) < 8:
         raise ValueError("File is too small to be a valid PDF.")
-    
-    # PDF magic bytes usually start at index 0, but can be preceded by whitespace or BOM in rare cases.
-    # We will simply check if b"%PDF" is in the first 1024 bytes.
-    if b"%PDF" not in content[:1024]:
+
+    body = content[len(UTF8_BOM):] if content.startswith(UTF8_BOM) else content
+    # Real PDFs begin with `%PDF-` at byte 0 (per the PDF spec). A substring
+    # match anywhere in the first 1KB let non-PDF files with `%PDF` embedded
+    # mid-content pass, so this must be an anchored startswith check.
+    if not body.startswith(PDF_MAGIC):
         raise ValueError("Invalid file format. Only PDF files are supported.")
 
 def sanitize_filename(filename: Optional[str]) -> str:

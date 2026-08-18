@@ -1,7 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useParams } from "react-router-dom";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
+
+// R39 needs to force useParams() to report a missing lectureId while the
+// route itself still mounts LectureView (a real "/lecture/:lectureId" URL
+// can never omit the param). Delegate to the real implementation by default
+// so every other test in this file is unaffected; only the R39 test below
+// overrides it (and restores the real implementation immediately after).
+vi.mock("react-router-dom", async (orig) => {
+  const actual = (await orig()) as typeof import("react-router-dom");
+  return { ...actual, useParams: vi.fn(actual.useParams) };
+});
 
 // The shared mock does not natively expose `.rpc()` — LectureView calls
 // `supabase.rpc('update_user_streak'|'add_xp_to_user')` inside handleQuizAnswer.
@@ -590,5 +600,31 @@ describe("LectureView Keyboard and Empty State Verification", () => {
       expect(screen.getByText(/No slides available/i)).toBeInTheDocument();
       expect(screen.getByText(/This lecture does not contain any slide content yet/i)).toBeInTheDocument();
     });
+  });
+});
+
+describe("LectureView — R39 loading state on every exit path", () => {
+  it("does not get stuck on the loading spinner when lectureId is missing", async () => {
+    // Force EVERY render's useParams() call to report no lectureId — a
+    // one-shot mockReturnValueOnce isn't enough here because the component
+    // re-renders (context/provider updates) before effects settle, and a
+    // later render would fall through to the real (truthy) route param,
+    // masking the bug this test exists to catch.
+    vi.mocked(useParams).mockReturnValue({ lectureId: undefined });
+
+    try {
+      const { container } = renderAtRoute();
+
+      // Before the fix, neither fetchLectureData's internal guard nor the
+      // calling effect ever cleared the initial loading=true state when
+      // lectureId was falsy, so the spinner rendered forever.
+      await waitFor(() => {
+        expect(container.querySelector(".animate-spin")).toBeNull();
+      });
+    } finally {
+      // Restore real routing behavior for any tests that might run after this.
+      const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+      vi.mocked(useParams).mockImplementation(actual.useParams);
+    }
   });
 });
