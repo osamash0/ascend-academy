@@ -128,7 +128,7 @@ describe('Onboarding', () => {
     // Step 4: Catalog courses confirmation
     await waitFor(() => expect(screen.getByText(/We set up your Semester/i)).toBeInTheDocument());
     expect(getSuggestedCoursesMock).toHaveBeenCalledWith('prog1', 1);
-    expect(screen.getByText('Intro CS')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Intro CS')).toBeInTheDocument());
     // Step 4 renders both a desktop and a mobile CTA (both call Next); happy-dom
     // keeps both in the DOM since it doesn't resolve the responsive CSS.
     await user.click(screen.getAllByRole('button', { name: /Next/i }).at(-1)!);
@@ -138,8 +138,8 @@ describe('Onboarding', () => {
     // so every course the mock returns should surface here — not just a
     // hardcoded "Datenbanksysteme" title (M31 regression).
     await waitFor(() => expect(screen.getByText(/Add extra topics/i)).toBeInTheDocument());
-    expect(screen.getByText('Database Systems')).toBeInTheDocument();
-    expect(screen.getByText('Platform Course')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Database Systems')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Platform Course')).toBeInTheDocument());
     await user.click(screen.getByText('Database Systems'));
     
     // Original from mock: .eq('user_id', user.id) is used in update profile
