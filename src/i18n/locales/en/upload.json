@@ -101,6 +101,9 @@
     "savedDescription": "Your lecture has been saved successfully.",
     "saveError": "Failed to save lecture",
     "exitConfirm": "You have unsaved changes. Are you sure you want to exit? All progress will be lost.",
-    "deleteSlideConfirm": "Delete this slide? This cannot be undone."
+    "deleteSlideConfirm": "Delete this slide? This cannot be undone.",
+    "duplicateSkippedTitle": "Already added",
+    "duplicateSkippedDescription_one": "{{count}} file was already in the queue and was skipped.",
+    "duplicateSkippedDescription_other": "{{count}} files were already in the queue and were skipped."
   }
 }

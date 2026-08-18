@@ -101,6 +101,9 @@
     "savedDescription": "Deine Vorlesung wurde erfolgreich gespeichert.",
     "saveError": "Vorlesung konnte nicht gespeichert werden",
     "exitConfirm": "Du hast ungespeicherte Änderungen. Möchtest du wirklich beenden? Alle Fortschritte gehen verloren.",
-    "deleteSlideConfirm": "Diese Folie löschen? Dies kann nicht rückgängig gemacht werden."
+    "deleteSlideConfirm": "Diese Folie löschen? Dies kann nicht rückgängig gemacht werden.",
+    "duplicateSkippedTitle": "Bereits hinzugefügt",
+    "duplicateSkippedDescription_one": "{{count}} Datei war bereits in der Warteschlange und wurde übersprungen.",
+    "duplicateSkippedDescription_other": "{{count}} Dateien waren bereits in der Warteschlange und wurden übersprungen."
   }
 }
