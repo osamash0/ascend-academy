@@ -85,6 +85,10 @@ class SoundManager {
     this.playTone(880, 'sine', 0.2, 0.06, 0);
     this.playTone(880, 'sine', 0.2, 0.06, 0.1);
   }
+
+  public playSendNudge() {
+    this.playTone(1200, 'sine', 0.1, 0.05);
+  }
 }
 
 export const soundManager = new SoundManager();
@@ -98,7 +102,7 @@ if (typeof window !== 'undefined') {
       case 'success': soundManager.playSuccess(); break;
       case 'levelUp': soundManager.playLevelUp(); break;
       case 'nudge': soundManager.playNudge(); break;
-      case 'sendNudge': soundManager.playTone(1200, 'sine', 0.1, 0.05); break; // simple pop
+      case 'sendNudge': soundManager.playSendNudge(); break; // simple pop
     }
   }) as EventListener);
 }

@@ -64,7 +64,7 @@ export async function completeActivationOnboarding(
     p_study_goal: studyGoal ?? null,
   });
   if (error) throw error;
-  return data as CompletionResult;
+  return data as unknown as CompletionResult;
 }
 
 /** Returns true only for a user's first meaningful learning activity. */

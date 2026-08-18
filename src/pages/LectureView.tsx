@@ -930,10 +930,10 @@ export default function LectureView() {
             }
           }
         }
-        setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'assistant', content: full }]);
+        setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'model', content: full }]);
       } else {
         const data = await res.json();
-        setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'assistant', content: data.reply }]);
+        setMessages((prev) => [...prev, { id: safeGetUUID(), role: 'model', content: data.reply }]);
       }
     } catch (e: any) {
       if (e.name !== 'AbortError') {
@@ -1053,9 +1053,9 @@ export default function LectureView() {
             >
               {slides.map((s, i) => {
                 const isCurrent = i === currentSlideIndex;
-                const state = slideStates[s.id] || { status: 'unvisited', history: [] };
-                const isVisited = state.status === 'visited';
-                const isSkipped = state.status === 'skipped';
+                const state = slideStates[s.id];
+                const isVisited = state === 'visited';
+                const isSkipped = state === 'skipped';
                 return (
                   <button
                     key={s.id}

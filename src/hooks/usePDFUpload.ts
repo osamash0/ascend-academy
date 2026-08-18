@@ -33,7 +33,7 @@ interface UsePDFUploadOptions {
   setActiveSlideIndex: (idx: number) => void;
   title: string;
   setTitle: (t: string) => void;
-  parserChoice?: 'auto' | 'pymupdf' | 'opendataloader' | 'mineru' | 'llamaparse';
+  parserChoice?: 'auto' | 'pymupdf' | 'opendataloader' | 'mineru' | 'llamaparse' | 'markitdown';
 }
 
 /**

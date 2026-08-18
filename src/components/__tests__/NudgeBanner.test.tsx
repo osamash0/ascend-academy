@@ -24,7 +24,7 @@ vi.mock("framer-motion", () => {
                 return React.createElement(
                     tag,
                     { ref, ...safe } as React.HTMLAttributes<HTMLElement> & React.RefAttributes<HTMLElement>,
-                    children,
+                    children as React.ReactNode,
                 );
             },
         );

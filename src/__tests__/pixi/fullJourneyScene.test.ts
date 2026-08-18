@@ -41,23 +41,23 @@ describe('FullJourneyScene', () => {
     expect(firstNode.eventMode).toBe('static');
     
     // Simulate pointertap
-    firstNode.emit('pointertap');
+    firstNode.emit('pointertap', {} as any);
     expect(clickedNodeId).toBe('1');
 
     // Test panning setup and math
     expect(scene.root.eventMode).toBe('static');
-    
+
     // Simulate panning drag
-    scene.root.emit('pointerdown', { pointerId: 1, global: { x: 100, y: 100 } });
-    scene.root.emit('globalpointermove', { pointerId: 1, global: { x: 150, y: 120 } });
-    
+    scene.root.emit('pointerdown', { pointerId: 1, global: { x: 100, y: 100 } } as any);
+    scene.root.emit('globalpointermove', { pointerId: 1, global: { x: 150, y: 120 } } as any);
+
     expect(scene.root.x).toBe(50);
     expect(scene.root.y).toBe(20);
-    
-    scene.root.emit('pointerup', { pointerId: 1 });
-    
+
+    scene.root.emit('pointerup', { pointerId: 1 } as any);
+
     // Simulate globalpointermove after pointerup (should not pan)
-    scene.root.emit('globalpointermove', { pointerId: 1, global: { x: 200, y: 200 } });
+    scene.root.emit('globalpointermove', { pointerId: 1, global: { x: 200, y: 200 } } as any);
     expect(scene.root.x).toBe(50);
     expect(scene.root.y).toBe(20);
 
