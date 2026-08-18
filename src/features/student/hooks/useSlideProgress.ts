@@ -10,7 +10,7 @@
  *   - Exposes `initialize()` to restore state after lecture data loads
  *   - Exposes `validateSlide()`, `markLectureComplete()`, `resetProgress()`
  */
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { upsertLectureProgress } from '@/services/studentService';
 import {
@@ -45,6 +45,30 @@ export function useSlideProgress({ lectureId, slides, userId }: UseSlideProgress
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+  // M8 fix: `currentIndex` is only ever moved by `goToSlide`/`initialize`,
+  // both of which clamp it — but `slides` itself can change without going
+  // through either (LectureView reuses this same hook instance when the
+  // student navigates from one lecture to another without unmounting, e.g.
+  // an in-app link, a deep link, or the browser Back/Forward buttons landing
+  // on a different `:lectureId` for the same mounted `/lecture/:lectureId`
+  // route). If the newly-loaded lecture has fewer slides than the index left
+  // over from whatever was viewed before, `slides[currentIndex]` becomes
+  // undefined and LectureView's render guard (`currentSlide ? <SlideViewer/>
+  // : null`) silently drops the entire left slide pane with no way to
+  // recover short of a reload. Re-clamp synchronously (useLayoutEffect, so it
+  // lands before the browser paints) whenever `slides` changes so that
+  // out-of-range frame is never shown. This is a backstop only: when saved
+  // progress exists for the new lecture, `initialize()` (invoked by
+  // LectureView right after this) still restores the correct index.
+  useLayoutEffect(() => {
+    if (slides.length === 0) return;
+    if (currentIndexRef.current > slides.length - 1) {
+      const clamped = slides.length - 1;
+      currentIndexRef.current = clamped;
+      setCurrentIndex(clamped);
+    }
+  }, [slides]);
 
   // ── Core save ──────────────────────────────────────────────────────────────
 

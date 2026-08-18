@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { Routes, Route, useParams } from "react-router-dom";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Routes, Route, useParams, createMemoryRouter, RouterProvider } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "next-themes";
+import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
 
 // R39 needs to force useParams() to report a missing lectureId while the
@@ -209,13 +212,13 @@ import LectureView from "@/pages/LectureView";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import { useMindMap } from "@/features/mindmap/hooks/useMindMap";
 
-function renderAtRoute() {
+function renderAtRoute(entry: string = "/lecture/lec-1") {
   return renderWithProviders(
     <Routes>
       <Route path="/lecture/:lectureId" element={<LectureView />} />
       <Route path="/dashboard" element={<div>Dashboard Stub</div>} />
     </Routes>,
-    { initialEntries: ["/lecture/lec-1"] },
+    { initialEntries: [entry] },
   );
 }
 
@@ -600,6 +603,197 @@ describe("LectureView Keyboard and Empty State Verification", () => {
       expect(screen.getByText(/No slides available/i)).toBeInTheDocument();
       expect(screen.getByText(/This lecture does not contain any slide content yet/i)).toBeInTheDocument();
     });
+  });
+});
+
+describe("LectureView — M8 regression: browser Back must not strip the slide pane", () => {
+  it("keeps the slide pane mounted after Back returns to a shorter lecture with a higher carried-over slide index", async () => {
+    // Lecture B is short; lecture A is long. The student starts on B, moves
+    // forward (in-app, same mounted LectureView instance — no unmount) to A,
+    // advances several slides in, then presses the browser Back button to
+    // return to B. Before the fix, `currentIndex` from useSlideProgress is
+    // never re-clamped when `slides` changes out from under it, so the index
+    // carried over from A (out of range for B's shorter slide list) left
+    // `slides[currentIndex]` undefined — and LectureView's render guard
+    // (`currentSlide ? <SlideViewer/> : null`) rendered nothing at all for
+    // the entire left pane.
+    const lectureB = {
+      id: "lecture-B",
+      title: "Short Lecture",
+      description: null,
+      total_slides: 2,
+      professor_id: "prof-1",
+      created_at: "2025-01-01T00:00:00Z",
+      pdf_url: null,
+    };
+    const slidesB = [
+      { id: "b-slide-1", slide_number: 1, title: "B Slide One", content_text: "b1", summary: "" },
+      { id: "b-slide-2", slide_number: 2, title: "B Slide Two", content_text: "b2", summary: "" },
+    ];
+    const lectureA = {
+      id: "lecture-A",
+      title: "Long Lecture",
+      description: null,
+      total_slides: 6,
+      professor_id: "prof-1",
+      created_at: "2025-01-01T00:00:00Z",
+      pdf_url: null,
+    };
+    const slidesA = Array.from({ length: 6 }, (_, i) => ({
+      id: `a-slide-${i + 1}`,
+      slide_number: i + 1,
+      title: `A Slide ${i + 1}`,
+      content_text: `a${i + 1}`,
+      summary: "",
+    }));
+
+    fetchLectureMock.mockImplementation(async (id: string) => (id === "lecture-A" ? lectureA : lectureB));
+    fetchSlidesMock.mockImplementation(async (id: string) => (id === "lecture-A" ? slidesA : slidesB));
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+
+    // A real data router (not the plain <MemoryRouter> used by
+    // renderWithProviders) so we can trigger a genuine history pop —
+    // `router.navigate(-1)` — the same mechanism the browser's own Back
+    // button drives, rather than simulating it by hand.
+    const router = createMemoryRouter(
+      [
+        { path: "/lecture/:lectureId", element: <LectureView /> },
+        { path: "/dashboard", element: <div>Dashboard Stub</div> },
+      ],
+      { initialEntries: ["/lecture/lecture-B", "/lecture/lecture-A"], initialIndex: 1 },
+    );
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="light">
+          <GamificationProvider>
+            <RouterProvider router={router} />
+          </GamificationProvider>
+        </ThemeProvider>
+      </QueryClientProvider>,
+    );
+
+    // Land on lecture A (index 0) and advance forward to its 5th slide (index 4).
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("A Slide 1"),
+    );
+    for (let i = 0; i < 4; i++) {
+      fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    }
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("A Slide 5"),
+    );
+
+    // Press browser Back — returns to lecture B, which only has 2 slides.
+    await act(async () => {
+      router.navigate(-1);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("slide-viewer-stub")).toBeInTheDocument();
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent(/B Slide/);
+      expect(screen.getByRole("button", { name: /previous/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
+    });
+  });
+});
+
+describe("LectureView — M21: `?slide=` URL param is authoritative", () => {
+  const lecture = {
+    id: "lec-1",
+    title: "Slide Param Lecture",
+    description: null,
+    total_slides: 4,
+    professor_id: "prof-1",
+    created_at: "2025-01-01T00:00:00Z",
+    pdf_url: null,
+  };
+  const slides = [
+    { id: "slide-1", slide_number: 1, title: "Slide One", content_text: "1", summary: "" },
+    { id: "slide-2", slide_number: 2, title: "Slide Two", content_text: "2", summary: "" },
+    { id: "slide-3", slide_number: 3, title: "Slide Three", content_text: "3", summary: "" },
+    { id: "slide-4", slide_number: 4, title: "Slide Four", content_text: "4", summary: "" },
+  ];
+
+  function setupLecture() {
+    fetchLectureMock.mockResolvedValue(lecture);
+    fetchSlidesMock.mockResolvedValue(slides);
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+  }
+
+  it("lands on the slide named by `?slide=N` on load, even with no saved progress", async () => {
+    setupLecture();
+    renderAtRoute("/lecture/lec-1?slide=3");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide Three"),
+    );
+  });
+
+  it("clamps an out-of-range `?slide=` to the last real slide instead of ignoring it", async () => {
+    setupLecture();
+    renderAtRoute("/lecture/lec-1?slide=999");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide Four"),
+    );
+  });
+
+  it("falls back to slide 1 when there is no `?slide=` param and no saved progress", async () => {
+    setupLecture();
+    renderAtRoute("/lecture/lec-1");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide One"),
+    );
+  });
+
+  it("updates the URL's `?slide=` param as the student advances, via history replace (not push)", async () => {
+    setupLecture();
+
+    // A real data router so history entries are observable, exactly like
+    // the M8 regression test above.
+    const router = createMemoryRouter(
+      [
+        { path: "/lecture/:lectureId", element: <LectureView /> },
+        { path: "/dashboard", element: <div>Dashboard Stub</div> },
+      ],
+      { initialEntries: ["/dashboard", "/lecture/lec-1"], initialIndex: 1 },
+    );
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="light">
+          <GamificationProvider>
+            <RouterProvider router={router} />
+          </GamificationProvider>
+        </ThemeProvider>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("current-slide-title")).toHaveTextContent("Slide One"),
+    );
+    expect(router.state.location.search).toBe("?slide=1");
+
+    // Advance twice — if each advance pushed a history entry, one Back press
+    // would only step back one slide. Since we replace instead of push, one
+    // Back press must leave the lecture entirely (back to the dashboard
+    // entry that preceded it), proving no per-slide history entries were
+    // created — the exact thing that would risk reintroducing M8.
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    await waitFor(() => expect(router.state.location.search).toBe("?slide=2"));
+
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    await waitFor(() => expect(router.state.location.search).toBe("?slide=3"));
+
+    await act(async () => {
+      router.navigate(-1);
+    });
+
+    await waitFor(() => expect(screen.getByText("Dashboard Stub")).toBeInTheDocument());
   });
 });
 
