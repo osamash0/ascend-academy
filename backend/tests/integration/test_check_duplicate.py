@@ -315,6 +315,42 @@ class TestParsePdfStreamForceReparse:
         assert "cached" not in r.text
         # The fresh unified stream contributes the parser identity + phase markers.
         assert '"parser": "unified"' in r.text
+
+    def test_saturated_queue_rejects_a_fresh_parse(
+        self, app, professor_user, patch_supabase, stub_streaming, saturated_queue
+    ):
+        """Backpressure still fires — the isolation fixture is a stub, not a bypass.
+
+        Without this, `isolate_queue_depth` would silently disable a real
+        safety check across the whole integration suite and nothing would
+        notice. The 429 path had no coverage at all before.
+        """
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        client = TestClient(app)
+
+        r = self._post(client, force=True)
+
+        assert r.status_code == 429
+        # The job must be rejected before enqueueing, not after.
+        assert stub_streaming["get_cached_parse"] == 0
+
+    def test_saturated_queue_still_serves_a_cache_hit(
+        self, app, professor_user, patch_supabase, stub_streaming, saturated_queue
+    ):
+        """A cache hit needs no worker, so backpressure must not block it.
+
+        This pins the ordering in upload.py: the parse-cache branch
+        (:134-178) deliberately returns before the backpressure check
+        (:200-205). Reversing them would degrade cached reads during a
+        backlog for no reason.
+        """
+        app.dependency_overrides[verify_token] = lambda: professor_user
+        client = TestClient(app)
+
+        r = self._post(client, force=False)
+
+        assert r.status_code == 200
+        assert "cached" in r.text
         assert '"phase": "enhance"' in r.text
 
 
