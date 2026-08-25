@@ -19,7 +19,16 @@ triaged file-by-file. Summary:
 - `.env` (root, 2 commits) + `backend/.env` (1 commit): every value ever
   committed decodes (JWT payload) to Supabase's `"role":"anon"` key — the
   publishable/anon key, intentionally public by Supabase's design, RLS-
-  protected, already shipped in the frontend bundle. Not a leak.
+  protected, already shipped in the frontend bundle. Not a leak. Two
+  different project refs appear across these commits
+  (`obwkbypcsczangyqehvb` in the very first commit, `lkiiideqjoiksnycgplc`
+  in every commit since, starting with the one titled "connecting to
+  supabase and adding analytics") — confirmed with the repo owner that
+  `obwkbypcsczangyqehvb` is an old, no-longer-used project (the current one
+  is `lkiiideqjoiksnycgplc`). Recommended the old project be deleted
+  outright in the Supabase dashboard if nothing still depends on it —
+  a deleted project can't be queried regardless of its anon key being
+  public in history, which is a cleaner close-out than auditing its RLS.
 - `src/pages/Datenschutz.tsx` + 2 coverage HTML copies: false positive — an
   i18n translation key (`privacy.section7Body`) matched a generic-entropy
   rule, not a real secret.
