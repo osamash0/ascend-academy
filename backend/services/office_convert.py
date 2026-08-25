@@ -20,6 +20,18 @@ logger = logging.getLogger(__name__)
 # Conversion is bounded — a runaway soffice process must not hang the request.
 _CONVERT_TIMEOUT_SECONDS = 120
 
+# Shown to end users when the binary is missing, so callers can reject a .pptx
+# up front instead of failing mid-upload. The Docker image deliberately does
+# NOT ship LibreOffice (it would grow the image from ~200 MB to >1 GB, and
+# soffice is memory-hungry against the api container's 512 MB limit), so this
+# is the expected state in every containerised deployment — not a
+# misconfiguration. Deliberately actionable for a student: exporting to PDF is
+# something they can do, unlike installing LibreOffice on the server.
+UNAVAILABLE_MESSAGE = (
+    "PowerPoint (.pptx) conversion is not available on this server. "
+    "Please export your slides to PDF and upload the PDF instead."
+)
+
 
 def _find_soffice() -> Optional[str]:
     """Locate the LibreOffice headless binary across macOS / Linux installs."""
@@ -72,11 +84,12 @@ def _convert_sync(file_bytes: bytes, filename: str) -> bytes:
     """Blocking PPTX→PDF conversion — must be called via run_in_executor."""
     soffice = _find_soffice()
     if not soffice:
-        raise RuntimeError(
-            "LibreOffice (soffice) is not installed. "
-            "Install it (e.g. `brew install --cask libreoffice`) "
-            "or set SOFFICE_BINARY, or choose a different parser."
-        )
+        # Callers should have rejected the upload via `is_available()` long
+        # before reaching here (see upload_service.validate_upload), so this
+        # is a backstop. Use the user-facing wording rather than the old
+        # "run brew install" text, which leaked developer instructions to
+        # students when it surfaced mid-upload.
+        raise RuntimeError(UNAVAILABLE_MESSAGE)
 
     with tempfile.TemporaryDirectory() as tmp:
         # SECURITY: never trust the client filename in a path (traversal →

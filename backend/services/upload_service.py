@@ -177,6 +177,15 @@ async def validate_upload(filename: Optional[str], content: bytes) -> int:
     # PowerPoint decks are imported via markitdown (text) + LibreOffice→PDF
     # (rendering); validate the OOXML container and count slides here.
     if lower.endswith(".pptx"):
+        # Fail fast when LibreOffice is absent (every Docker deployment —
+        # the image ships curl only). Previously the upload was accepted,
+        # hashed, stored and enqueued, and only blew up later inside
+        # office_convert.to_pdf with a developer-facing "run brew install"
+        # message delivered mid-SSE. Rejecting here covers all five
+        # validate_upload call sites at once, before any work is done.
+        from backend.services import office_convert
+        if not office_convert.is_available():
+            raise ValueError(office_convert.UNAVAILABLE_MESSAGE)
         return await _validate_pptx(content)
 
     if not lower.endswith(".pdf"):

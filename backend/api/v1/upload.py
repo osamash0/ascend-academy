@@ -45,7 +45,24 @@ def _filename_version_signature(filename: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", stem)
 
 # Extensions the upload pipeline accepts (served to the frontend for parity).
+# `.pptx` is conditional: it needs LibreOffice, which the Docker image
+# deliberately does not ship. See accepted_upload_extensions().
 ACCEPTED_UPLOAD_EXTENSIONS = [".pdf", ".pptx"]
+
+
+def accepted_upload_extensions() -> List[str]:
+    """Extensions this *deployment* can actually process.
+
+    Resolved per-request rather than at import time so a server that gains or
+    loses the LibreOffice binary reports the truth without a restart. Keeping
+    `.pptx` in the advertised list when the converter is missing is what let
+    the frontend offer a file type every upload of which was guaranteed to
+    fail.
+    """
+    from backend.services import office_convert
+    if office_convert.is_available():
+        return list(ACCEPTED_UPLOAD_EXTENSIONS)
+    return [ext for ext in ACCEPTED_UPLOAD_EXTENSIONS if ext != ".pptx"]
 
 class SlideMetadata(BaseModel):
     filename: str
@@ -77,7 +94,7 @@ async def upload_config_endpoint():
     """
     return {
         "maxUploadMb": MAX_FILE_MB,
-        "acceptedExtensions": ACCEPTED_UPLOAD_EXTENSIONS,
+        "acceptedExtensions": accepted_upload_extensions(),
         "maxBatchFiles": settings.max_batch_files,
     }
 
@@ -580,8 +597,14 @@ async def upload_batch_endpoint(
             content = await upload_service.read_upload_capped(file, MAX_FILE_MB)
             parse_filename = sanitize_filename(raw_name)
             if raw_name.lower().endswith(".pptx"):
-                from backend.services.office_convert import to_pdf
-                content = await to_pdf(content, raw_name)
+                from backend.services import office_convert
+                # Reject before spending a conversion attempt. The batch loop
+                # already catches RuntimeError per-file, but to_pdf's failure
+                # arrived as an opaque "Could not convert PowerPoint: ..."
+                # wrapper around a developer-facing message.
+                if not office_convert.is_available():
+                    raise ValueError(office_convert.UNAVAILABLE_MESSAGE)
+                content = await office_convert.to_pdf(content, raw_name)
                 parse_filename = f"{parse_filename.rsplit('.', 1)[0]}.pdf"
                 await upload_service.validate_upload(parse_filename, content)
             else:
