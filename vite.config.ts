@@ -35,6 +35,15 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // SECURITY: console.error/warn calls across the app can surface raw
+  // backend response bodies (via apiClient's ApiError messages) to anyone
+  // with devtools open. None are gated behind a dev check, so strip them
+  // from the production bundle at build time instead of touching every
+  // call site. Must be top-level `esbuild` (Vite's per-module transform
+  // config), not `build.esbuild` — the latter key is silently ignored.
+  esbuild: {
+    drop: mode === "production" ? ["console", "debugger"] : [],
+  },
   build: {
     rollupOptions: {
       output: {
