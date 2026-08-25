@@ -35,10 +35,11 @@ triaged file-by-file. Summary:
    and `prof@admin.com`) all sharing one plaintext, reused password
    (`"LoadTest!2026"`). The committed `access_token` JWTs are expired
    (1-hour Supabase tokens), but the password is not time-limited.
-   **Status: documented only, not fixed on this branch** — the fix is a
-   live action against the real Supabase project (rotate/delete these
-   accounts via Authentication → Users), not a code change. **Action
-   required from the repo owner.**
+   **Status: RESOLVED** — verified via `scripts/rotate_exposed_credentials.py`
+   (dry run, read-only `list_users` against the live project) that none of
+   these 152 accounts currently exist on the live Supabase project anymore
+   (already cleaned up separately, prior to this audit). No further action
+   needed.
 2. **`scripts/seed_courses.py` / `scripts/update_course_ownership.py`** —
    a hardcoded plaintext password (`"Academy2026!"`) for `prof@admin.com`
    and **`admin@admin.com` (an admin-role account)**, in files that are
@@ -46,23 +47,23 @@ triaged file-by-file. Summary:
    itself did not flag this (the value doesn't match its entropy/pattern
    rules) — found by manually tracing the `PROF_EMAIL`/`ADMIN_EMAIL`
    references surfaced while investigating finding #1.
-   **Status: fixed in `f2f0578`** — both scripts now read the password
-   from a new `SEED_DEFAULT_PASSWORD` env var (documented in
-   `.env.example`), failing loudly if unset rather than silently reusing
-   the old value. **The live account password still needs rotating in
-   Supabase directly — this commit only stops a future re-commit of the
-   secret, it does not invalidate the old one.**
+   **Status: RESOLVED** — code fixed in `f2f0578` (both scripts now read
+   the password from a new `SEED_DEFAULT_PASSWORD` env var, documented in
+   `.env.example`, failing loudly if unset rather than silently reusing
+   the old value). The live credential itself was then rotated by the repo
+   owner via `scripts/rotate_exposed_credentials.py --yes` — both
+   `admin@admin.com` and `prof@admin.com` now have a fresh, randomly
+   generated password that was never committed anywhere; the old
+   `"Academy2026!"` value is no longer valid against the live project.
 
-**Recommended remediation (repo owner action, not done on this branch):**
-- Rotate or delete all 152 load-test accounts and the `admin@admin.com` /
-  `prof@admin.com` accounts in the Supabase dashboard now — this alone
-  neutralizes the exposure regardless of git history, since a leaked
-  password only matters while it's still the live one.
-- Skip rewriting git history (`git filter-repo` + force-push) unless
-  there's a separate reason to — once the passwords above are rotated,
-  the old committed values in history are inert, and a history rewrite is
-  the one option here that could genuinely disrupt the project (rewritten
-  commit hashes, invalidated clones/forks/PR links).
+**Git history was intentionally left unrewritten.** Both credential
+exposures are now closed at the source (rotated/confirmed absent on the
+live project), which is what actually neutralizes a leaked password —
+the old committed values in history are inert once rotated. A
+`git filter-repo` + force-push rewrite was deliberately not pursued, since
+it's the one option here that could genuinely disrupt the project
+(rewritten commit hashes, invalidated clones/forks/PR links) for no
+remaining security benefit.
 
 ### A1. `backend/api/v1/admin.py` — SQL built with f-strings — **SAFE, verified**
 
