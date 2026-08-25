@@ -209,15 +209,19 @@ than guessed values:
 |---|---|---|---|
 | `src/hooks/**` | 60% stmts / 50% branches | 81.22% / 74.3% | 60% / 50% (documented value — comfortably cleared) |
 | `src/lib/**` | 70% / 60% | 78.09% / 84.92% | 70% / 60% (documented value — comfortably cleared) |
-| `src/services/**` | 65% / 55% | 61.11% / 75.27% | **60%** / 55% (statements ratcheted down — see below) |
+| `src/services/**` | 65% / 55% | 69.78% / 78.09% | 65% / 55% (documented value — gap closed, see below) |
 | `src/pages/**` | "smoke only", no numeric target | 70.46% / 70.71% | not thresholded (per doc) |
 
-**Gap to follow up:** `src/services/**` statement coverage (61.11%) is
-below the documented 65% target. Rather than land a threshold the suite
-doesn't currently meet (which would break CI on day one), the statements
-threshold here is set to 60% — the measured value, floored for a small
-margin — not the aspirational 65%. Closing this ~5-point gap with real
-tests is a follow-up, not attempted in this audit.
+**Gap closed (commit `055acc1`):** `src/services/**` statement coverage
+was originally measured at 61.11%, below the documented 65% target, so the
+threshold was temporarily ratcheted down to 60% rather than land one the
+suite didn't meet. Added MSW-backed tests (matching the existing
+`assignmentsService.test.ts` convention) for the five lowest-covered files
+— `adminService.ts` (was 28%), `searchService.ts` (18%),
+`courseBlueprintService.ts` (0%), `uploadBatchService.ts` (0%), and
+`reviewService.ts` (37%) — covering the happy path plus at least one error
+path per exported function. Coverage rose to 69.78%/78.09%, so the
+threshold was raised back to the documented 65%/55%.
 
 ### B2. Ruff blocking in CI (changed-files ratchet)
 
