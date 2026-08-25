@@ -183,6 +183,21 @@ jobs:
           name: backend-coverage
           path: htmlcov/
           retention-days: 14
+      - name: Export OpenAPI schema
+        # backend/main.py disables the live /docs, /redoc, and /openapi.json
+        # HTTP routes outside `development` so the full endpoint surface
+        # (incl. /admin/*) isn't published to the public internet — this
+        # exports a static, offline copy for tooling instead, via the same
+        # app.openapi() call FastAPI uses internally (unaffected by the HTTP
+        # route gating). Placed after the pytest step above so it only runs
+        # once this same import chain has already proven to work in this job.
+        run: python backend/scripts/export_openapi.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: openapi-schema
+          path: docs/openapi.json
+          retention-days: 14
 
   e2e:
     name: E2E (Playwright)
