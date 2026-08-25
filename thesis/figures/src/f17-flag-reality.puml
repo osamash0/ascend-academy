@@ -1,0 +1,97 @@
+' F17 -- Built versus deployed.
+' Chapter 6 (Evaluation). Concept diagram.
+' Claim supported: every feature flag in the project defaults to off, so the
+' deployed product is a strict subset of the implemented one -- and three
+' features are in inconsistent half-states rather than cleanly hidden.
+@startuml f17-flag-reality
+!include _style.iuml
+
+title Built versus deployed — every flag defaults off
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+}
+
+rectangle "**IMPLEMENTED**\nbuilt, migrated, tested" as BUILT #F2F2F2 {
+  rectangle "Lecture tutor" as A1
+  rectangle "In-lecture quizzes" as A2
+  rectangle "Study guide" as A3
+  rectangle "Review engine (SRS)\nSM-2, swappable for FSRS" as A4
+  rectangle "Student uploads\n'My Materials'" as A5
+  rectangle "Exam mode\ncoverage-first sampling" as A6
+  rectangle "Global search\n+ course tutor" as A7
+  rectangle "Course brain\nconcept graph" as A8
+}
+
+rectangle "**REACHABLE BY A STUDENT TODAY**" as LIVE #BFBFBF {
+  rectangle "Lecture tutor" as B1
+  rectangle "In-lecture quizzes" as B2
+  rectangle "Study guide" as B3
+}
+
+rectangle "**BROKEN HALF-STATE**\nfrontend flag ON, backend flag OFF" as HALF #DCDCDC {
+  rectangle "Review / SRS\n//nav tab renders,\nAPI returns 404//" as C1
+  rectangle "My Materials\n//page renders,\nrouter unmounted//" as C2
+}
+
+rectangle "**DEAD END**\nno frontend flag at all" as DEAD #DCDCDC {
+  rectangle "Exam mode\n//'Generate exam' button always\nvisible, routes unmounted//" as D1
+}
+
+rectangle "**CLEANLY HIDDEN**\nboth flags off — the only consistent gate" as HID #F2F2F2 {
+  rectangle "Global search + course tutor\n//no command palette,\nno 'Ask this course'//" as E1
+}
+
+rectangle "**SILENT CASCADE**" as CASC #DCDCDC {
+  rectangle "Course brain off\n→ concepts write-idle\n→ review_cards.concept_id NULL\n→ concept_mastery empty\n→ record_grade() a no-op" as F1
+}
+
+A1 --> B1
+A2 --> B2
+A3 --> B3
+A4 --> C1
+A5 --> C2
+A6 --> D1
+A7 --> E1
+A8 --> F1
+
+note bottom of BUILT
+  Not one flag in the codebase ships on:
+  FEATURE_REVIEW_ENGINE, FEATURE_EXAM_MODE,
+  FEATURE_GLOBAL_SEARCH, FEATURE_STUDENT_UPLOADS,
+  FEATURE_COURSE_BRAIN, FEATURE_STUDY_GUIDE,
+  FEATURE_LLM_PROMPT_LOGGING — all default False.
+end note
+
+note right of HALF
+  **Flag parity is manual and duplicated.**
+  The frontend reads build-time Vite env vars
+  directly — featureFlags.ts:2-5 admits "no
+  flag-delivery endpoint exists yet". It covers
+  only 3 of the 7 backend flags, which is how a
+  frontend-on / backend-off state arises at all.
+end note
+
+note right of DEAD
+  **And local diverges from deployed
+  structurally.** backend/.env enables three
+  features, but .dockerignore:28 excludes
+  **/.env from the image, so prod sees only
+  the root .env. Locally 22 routers mount;
+  prod serves 17-19. This is the documented
+  cause of exam generation 404ing in prod.
+end note
+
+note bottom of CASC
+  **The production default is the least-tested
+  configuration.** conftest.py:32-33 force-sets
+  FEATURE_REVIEW_ENGINE=1 and FEATURE_EXAM_MODE=1,
+  so the suite never exercises the shipped state.
+end note
+
+legend bottom
+  For the Evaluation chapter this reframes the question from "what was built?" to
+  "what was delivered?" — a distinction most implementation theses never draw.
+endlegend
+
+@enduml

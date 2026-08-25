@@ -1,0 +1,67 @@
+' F3 -- Grounded vs ungrounded generation.
+' Chapter 2 (Foundations). Concept diagram.
+' Claim supported: this system contains a natural experiment -- two tutors over
+' the same corpus with materially different groundedness guarantees. The one
+' with the STRONGER guarantee is the one users cannot reach.
+@startuml f3-grounded-vs-ungrounded
+!include _style.iuml
+
+title Two groundedness regimes over one corpus
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+}
+
+rectangle "Student question" as Q #DCDCDC
+
+rectangle "**A — Lecture tutor**  //live, every student//" as A #F2F2F2 {
+  rectangle "Retrieve, scoped in SQL\nk=5, threshold 0.65" as A1
+  rectangle "**No pre-LLM gate**\nlow-similarity results still\nreach the model" as A2 #DCDCDC
+  rectangle "Prompt: cite [Slide N],\nblockquote off-slide knowledge,\ntreat context as data" as A3
+  rectangle "Post-hoc: drop citations\nnot in the retrieved set" as A4
+  rectangle "Answer + citations" as A5
+  A1 -[#1A1A1A]-> A2
+  A2 -[#1A1A1A]-> A3
+  A3 -[#1A1A1A]-> A4
+  A4 -[#1A1A1A]-> A5
+}
+
+rectangle "**B — Course tutor**  //behind an OFF flag//" as B #F2F2F2 {
+  rectangle "Hybrid retrieve, k=6\nvector + FTS, fused by RRF" as B1
+  rectangle "**Hard refusal gate**\nis_grounded(): max similarity\nbelow 0.65 stops here" as B2 #BFBFBF
+  rectangle "Prompt: cite [Source N]\n(lecture + slide, since slide\nnumbers collide in a course)" as B3
+  rectangle "Post-hoc: drop out-of-range\nsources; force empty when\nungrounded" as B4
+  rectangle "Answer + citations\n+ **grounded flag**" as B5
+  B1 -[#1A1A1A]-> B2
+  B2 -[#1A1A1A]-> B3
+  B3 -[#1A1A1A]-> B4
+  B4 -[#1A1A1A]-> B5
+}
+
+rectangle "**Refusal**\n'This doesn't appear in your\ncourse materials'\n//returned before any LLM call//" as REF #BFBFBF
+rectangle "**Labelled ungrounded**\nuser opts in; entire answer\nblockquoted and marked as\nbeyond the material" as UNG
+rectangle "**Citations discarded by the UI**\n(see F16)" as ARR #DCDCDC
+
+Q -[#1A1A1A]-> A1
+Q -[#1A1A1A]-> B1
+B2 -[#1A1A1A]-> REF : "not grounded"
+REF -[#1A1A1A]-> UNG : "user clicks\n'answer anyway'"
+A5 -[#1A1A1A]-> ARR
+
+note bottom of A
+  A's hard refusal was **removed**. `has_scope`
+  (tutor.py:178) is assigned and never read — a
+  dead variable left by the deleted gate — and the
+  module docstring still describes the refusal as
+  present. Groundedness in A rests entirely on
+  prompt instruction plus post-hoc filtering.
+end note
+
+legend bottom
+  The asymmetry is the finding: the tutor with the enforceable guarantee (B, a pure
+  `is_grounded` function deliberately written so a CI eval set can assert on it) is
+  gated off by default, while the reachable one (A) offers no refusal signal at all —
+  `grounded` is not even a field on its response type.
+endlegend
+
+@enduml

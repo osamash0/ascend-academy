@@ -1,0 +1,236 @@
+' F9 -- Core physical schema.
+' Chapter 4 (Design). ER diagram (class notation with multiplicities).
+' Claim supported: 26 of ~68 tables constitute the domain; four are dead and
+' excluded by name; three relationships carry NO database-enforced foreign key.
+@startuml f9-er-core
+!include _style.iuml
+
+title Core schema — 26 of ~68 tables
+
+hide methods
+hide circle
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+package "Identity" {
+  class auth_users <<supabase>> {
+    +id : uuid
+  }
+  class profiles {
+    +id : uuid
+    user_id : uuid FK
+    total_xp, current_level
+    current_streak, best_streak
+  }
+  class user_roles {
+    user_id : uuid FK
+    role : app_role
+  }
+  class onboarding_progress {
+    +user_id : uuid FK
+  }
+}
+
+package "Content hierarchy" {
+  class courses {
+    +id : uuid
+    professor_id : uuid FK
+  }
+  class lectures {
+    +id : uuid
+    professor_id : uuid FK //nullable//
+    student_owner_id : uuid FK
+    course_id : uuid FK
+    visibility, pdf_hash, poster_url
+  }
+  class slides {
+    +id : uuid
+    lecture_id : uuid FK
+    slide_number, content_text
+    summary, ai_enhanced, needs_review
+  }
+  class quiz_questions {
+    +id : uuid
+    slide_id : uuid FK
+    options : jsonb
+    correct_answer : int
+  }
+  class worksheets {
+    lecture_id : uuid FK
+  }
+  class course_context {
+    +course_id : uuid FK
+  }
+}
+
+package "Authorisation graph" {
+  class course_enrollments {
+    user_id, course_id : uuid FK
+  }
+  class assignments {
+    professor_id : uuid FK
+    course_id : uuid //un-FK'd//
+  }
+  class assignment_lectures {
+    assignment_id, lecture_id
+  }
+  class assignment_enrollments {
+    assignment_id, user_id
+  }
+}
+
+package "Parse pipeline" {
+  class parse_runs {
+    +run_id : uuid
+    lecture_id : uuid FK
+    pdf_hash, pipeline_version
+    user_id, batch_id, status
+  }
+  class parse_pages {
+    run_id, page_index
+  }
+  class slide_embeddings {
+    lecture_id : uuid FK
+    pdf_hash, slide_index
+    embedding : vector(768)
+    content_hash
+  }
+}
+
+package "Concepts" {
+  class concepts {
+    +id : uuid
+    name_key : text UNIQUE
+    embedding : vector(768)
+  }
+  class concept_lectures {
+    concept_id, lecture_id
+    slide_indices : int[]
+  }
+}
+
+package "Assessment" {
+  class student_progress {
+    user_id, lecture_id
+    xp_earned, completed_slides : int[]
+  }
+  class review_cards {
+    lecture_id : uuid FK
+    concept_id : uuid FK //always NULL//
+    content_hash
+  }
+  class review_schedule {
+    user_id, card_id
+    stability, difficulty, due
+  }
+  class review_log {
+    user_id, card_id, rating
+  }
+  class exam_attempts {
+    user_id, course_id : uuid FK
+    question_ids : uuid[]
+    answers : jsonb, seed
+  }
+  class practice_sheets {
+    lecture_id, created_by
+  }
+  class practice_sheet_questions {
+    sheet_id : uuid FK
+    source_quiz_question_id : uuid FK
+  }
+  class practice_attempts {
+    sheet_id, student_id
+  }
+}
+
+package "Gamification and telemetry" {
+  class xp_events {
+    user_id : uuid FK
+    dedupe_key
+  }
+  class achievements {
+    user_id : uuid FK
+    badge_name : text
+  }
+  class badge_definitions {
+    +key : text
+    metric //NULL = event badge//
+  }
+  class learning_events <<partitioned>> {
+    user_id : uuid FK
+    created_at //RANGE partition key//
+  }
+}
+
+auth_users "1" -- "1" profiles
+auth_users "1" -- "0..*" user_roles
+auth_users "1" -- "0..1" onboarding_progress
+auth_users "1" -- "0..*" courses
+auth_users "1" -- "0..*" course_enrollments
+courses "1" -- "0..*" course_enrollments
+courses "1" -- "0..*" lectures
+courses "1" -- "0..1" course_context
+lectures "1" -- "1..*" slides
+lectures "1" -- "0..*" worksheets
+lectures "1" -- "0..*" parse_runs
+lectures "1" -- "0..*" slide_embeddings
+lectures "1" -- "0..*" review_cards
+slides "1" -- "0..*" quiz_questions
+parse_runs "1" -- "0..*" parse_pages
+concepts "1" -- "0..*" concept_lectures
+lectures "1" -- "0..*" concept_lectures
+concepts "1" -- "0..*" review_cards
+auth_users "1" -- "0..*" student_progress
+lectures "1" -- "0..*" student_progress
+review_cards "1" -- "0..*" review_schedule
+review_cards "1" -- "0..*" review_log
+auth_users "1" -- "0..*" exam_attempts
+courses "1" -- "0..*" exam_attempts
+lectures "1" -- "0..*" practice_sheets
+practice_sheets "1" -- "0..*" practice_sheet_questions
+practice_sheets "1" -- "0..*" practice_attempts
+quiz_questions "1" -- "0..*" practice_sheet_questions
+auth_users "1" -- "0..*" xp_events
+auth_users "1" -- "0..*" achievements
+auth_users "1" -- "0..*" learning_events
+assignments "1" -- "0..*" assignment_lectures
+assignments "1" -- "0..*" assignment_enrollments
+lectures "1" -- "0..*" assignment_lectures
+auth_users "1" -- "0..*" assignment_enrollments
+
+' --- Unenforced relationships: DASHED, no FK in the database ---
+achievements .. badge_definitions : "//soft link//\nbadge_name = key"
+exam_attempts .. quiz_questions : "//soft link//\nquestion_ids : uuid[]"
+assignments .. courses : "//soft link//\nnullable, un-FK'd by design"
+
+note as N1
+  **Dashed = no database-enforced foreign key.**
+  Not cosmetic. Because achievements.badge_name is
+  only conventionally tied to badge_definitions.key,
+  three badges ('review-streak-7', 'review-streak-30',
+  'centurion') were never seeded — so those
+  awardBadge() calls **silently no-op today**.
+  A missing constraint became silently dropped writes.
+end note
+
+note as N2
+  **Excluded, and why — four dead tables:**
+  • slide_chunks — 384-dim FastEmbed era, zero writers
+  • tutor_messages — zero references outside generated types
+  • concept_mastery — read but never written; permanently empty
+  • catalog_course_links — only reference is generated types
+
+  **Also excluded:** caches, admin/eval tables, the academic
+  catalog and social graph (separate sub-diagrams), and
+  slides.embedding — which exists in production with **no
+  migration defining it**, 100% NULL across 5,445 rows.
+
+  **No quizzes table exists.** A quiz is the set of
+  quiz_questions reachable via slides.lecture_id.
+end note
+
+legend bottom
+  Physical schema as deployed. Compare F5, the analysis-level domain model.
+endlegend
+
+@enduml

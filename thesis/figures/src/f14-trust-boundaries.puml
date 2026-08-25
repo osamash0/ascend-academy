@@ -1,0 +1,76 @@
+' F14 -- Trust boundaries and RLS policy patterns.
+' Chapter 5 (Implementation). Concept diagram.
+' Claim supported: authorisation is enforced in the database, not the API. Four
+' distinct policy patterns cover 47 tables; effective visibility is the UNION
+' of applicable policies, which is the structural hazard.
+@startuml f14-trust-boundaries
+!include _style.iuml
+
+title Trust boundaries — where authorisation is actually enforced
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+}
+
+rectangle "**UNTRUSTED**" as UT #DCDCDC {
+  rectangle "Browser\n//holds the anon key,\nbaked into the bundle//" as BR
+  rectangle "Uploaded PDF text\n//professor OR student//" as PDF #DCDCDC
+}
+
+rectangle "**Identity boundary**" as ID #F2F2F2 {
+  rectangle "Supabase Auth\nJWT issuer" as JWT
+  rectangle "anon\n//no claims//" as ANON
+  rectangle "authenticated\n//auth.uid() present//" as AUTH
+  rectangle "service_role\n//bypasses RLS entirely//" as SR #BFBFBF
+}
+
+rectangle "**Postgres RLS — the real enforcement point**\n47 tables, 100% coverage, 198 policies" as RLS #F2F2F2 {
+  rectangle "**P1 Owner-scoped**\nuser_id = auth.uid()\n//xp_events, review_schedule,\nexam_attempts, notifications//" as P1
+  rectangle "**P2 Role-gated ownership**\nowner = uid AND has_role(professor)\n//courses, lectures//" as P2
+  rectangle "**P3 Enrollment-derived**\nEXISTS join via course_enrollments\nor assignment_lectures\n//slides, quiz_questions, review_cards//" as P3
+  rectangle "**P4 Backend-only**\nno anon/authenticated policy at all\n//parse_runs, slide_embeddings, caches//" as P4 #DCDCDC
+}
+
+rectangle "FastAPI\n//holds the service_role key//" as API #F2F2F2
+
+BR --> JWT
+JWT --> ANON
+JWT --> AUTH
+ANON -[#1A1A1A,dashed]-> RLS : "**zero** table policies\ngrant TO anon"
+AUTH --> P1
+AUTH --> P2
+AUTH --> P3
+BR --> API
+API --> SR
+SR --> P4
+PDF -[#1A1A1A,dashed]-> P3 : "content flows into\nanother user's\ntutor context"
+
+note bottom of RLS
+  **The structural hazard.** Postgres OR-combines permissive
+  SELECT policies, so effective visibility is the UNION of every
+  applicable policy — not the intersection. Called out explicitly
+  in migration 20260719020000:25-29.
+
+  **And it is untested end to end:** no test composes a real
+  endpoint against real RLS (MILESTONE_2026_08.md:205-210), so the
+  union behaviour that caused the original cross-tenant leak
+  remains unguarded at the integration level.
+end note
+
+note right of P4
+  service_role bypasses RLS, so
+  every P4 table is protected only
+  by the API's own checks. This is
+  why lecture ownership is verified
+  in chat_service before retrieval
+  (see F12) — the database will not
+  do it for this path.
+end note
+
+legend bottom
+  Authorisation lives in the database. The API layer adds ownership checks on top for
+  service_role paths, but is not the boundary. See F15 for how these policies were
+  hardened across five migrations, and F4 for why uploaded content is untrusted.
+endlegend
+
+@enduml

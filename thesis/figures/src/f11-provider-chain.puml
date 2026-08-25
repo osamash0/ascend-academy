@@ -1,0 +1,90 @@
+' F11 -- LLM provider failover chain and its correlated-failure flaw.
+' Chapter 4. UML activity diagram.
+' Claim supported: the chain presents nine providers but contains roughly five
+' independent failure domains; failure classification is three-way and omits
+' the authentication and payment classes entirely.
+@startuml f11-provider-chain
+!include _style.iuml
+
+title LLM provider failover -- nine entries, ~five failure domains
+
+start
+:call site\n(BULK or QUALITY chain);
+
+if (per-user monthly budget OK?) then (no)
+  #DCDCDC:LLMBudgetExceededError;
+  stop
+else (yes)
+endif
+
+:refresh fleet-wide counters from Redis;
+:move user-preferred provider to head of chain;
+
+partition "Availability filter (in order)" {
+  :skip if not in registry;
+  :skip if permanently disabled;
+  :skip if no API key configured;
+  :skip if fleet daily cost ceiling hit (OpenAI);
+  :skip if daily request limit reached;
+  :skip if inside backoff window;
+}
+
+while (providers remaining?) is (yes)
+  :call provider;
+  if (outcome?) then (success)
+    :record success, flush counter,\naccount cost;
+    #BFBFBF:return response;
+    stop
+  elseif (429 / "rate limit" / "quota") then
+    :exponential backoff\n90s x 2^n, capped 600s;
+  elseif (404 model not found) then
+    :**permanent** disable\n//not cleared at UTC midnight//;
+  else (401 / 402 / 403 / 5xx / network)
+    #DCDCDC:**no penalty recorded**;
+    note right
+      A revoked key or exhausted credit
+      balance re-fires a doomed HTTPS
+      request on every subsequent call
+      for the whole process lifetime.
+      There is no 402 handling anywhere
+      in the codebase.
+    end note
+  endif
+endwhile (no)
+
+#DCDCDC:raise last exception;
+stop
+
+note right
+  **Three weaknesses to discuss.**
+
+  1. Chain depth is partly illusory.
+     'gemma' is not Gemma -- its model is
+     gemini-2.0-flash-lite, sharing one
+     GEMINI_API_KEY with the 'gemini' entry.
+     Same for groq_fast / groq. Four of nine
+     entries are **not** independent failure
+     domains, so their separate daily quotas
+     (14 400 vs 1 500) are fiction.
+
+  2. Classification is string-sniffing on
+     str(exc).lower(), not status codes. A
+     prompt containing the word "quota" can
+     be misclassified as a rate limit.
+
+  3. The retry budget is unreachable.
+     stop_after_attempt(8) with
+     wait_exponential(min=4, max=60) sits
+     inside asyncio.wait_for(timeout=25s).
+     4+8+16s already exceeds 25s, capping
+     real attempts near three. The docstring
+     says "3x"; the code says 8.
+end note
+
+legend bottom
+  BULK:    cerebras > groq_fast > cloudflare > gemma > mistral > openrouter > gemini > groq > openai
+  QUALITY: cerebras > groq > openrouter > cloudflare > gemini > mistral > groq_fast > gemma > openai
+  Vision uses a separate three-provider chain that does not classify 404 at all.
+endlegend
+
+@enduml

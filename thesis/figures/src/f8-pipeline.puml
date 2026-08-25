@@ -1,0 +1,105 @@
+' F8 -- The ingestion pipeline, five observable phases.
+' HERO FIGURE. Chapter 4.
+' Claim supported: a single live pipeline (v5 "unified") transforms an uploaded
+' PDF into structured content. Admission control happens before enqueue; all
+' content persistence is server-authoritative inside the worker.
+' NOTE: swimlanes and `partition` cannot be mixed in PlantUML activity
+' diagrams. Phases are therefore rendered as shaded header steps.
+@startuml f8-pipeline
+!include _style.iuml
+
+title Ingestion pipeline -- from uploaded PDF to structured content
+
+|#F2F2F2|API request (synchronous)|
+start
+:POST /api/v1/upload/parse-pdf-stream;
+:capped streaming body read;
+
+if (valid PDF or PPTX?\nsize <= 50 MB, pages <= 300) then (no)
+  #DCDCDC:HTTP 413 / 400;
+  stop
+else (yes)
+endif
+
+:**sha256(bytes)**\nthe pipeline's primary key;
+note right
+  Content addressing drives the storage
+  path, run identity, the dedupe lock
+  and the embedding cache alike.
+end note
+
+if (Arq queue depth < 50?) then (no)
+  #DCDCDC:HTTP 429\nworker-liveness-aware message;
+  stop
+else (yes)
+endif
+
+:store PDF at pdf-uploads/[sha256].pdf;
+:enqueue Arq job;
+:subscribe to Redis pubsub  parse:[sha256];
+
+|#DCDCDC|Arq worker (asynchronous, durable)|
+:claim job;
+
+if (run already completed?) then (yes)
+  :replay slides + deck from DB;
+  #F2F2F2:emit complete;
+  stop
+else (no)
+endif
+
+if (acquire lock  joblock:parse:[hash]?) then (no)
+  :another worker holds it,\nreturn early;
+  stop
+else (yes)
+endif
+
+#BFBFBF:**phase: extract**;
+:PyMuPDF per-page text extraction;
+:detect source language;
+if (LLM budget headroom\n>= pages + 2?) then (no)
+  #DCDCDC:InsufficientHeadroomError;
+  stop
+else (yes)
+endif
+
+#BFBFBF:**phase: enhance**;
+:lecture title, summary, key topics;
+:create or reuse lecture row\n//re-parse keeps lecture_id//;
+:render WebP poster from page 1;
+if (slide text length?) then (25 chars or more)
+  :batched text synthesis\n8 slides per LLM call;
+else (under 25 chars)
+  :per-slide **vision** model\nvision_routed = true;
+endif
+:persist slides\nai_enhanced, needs_review, vision_routed;
+
+#BFBFBF:**phase: finalize**;
+:generate deck quiz questions;
+:persist quiz_questions;
+:update lecture description + slide count;
+:localise EN / DE;
+:attach lecture_id to embeddings\n//written earlier keyed by hash only//;
+:emit deck_complete + complete;
+stop
+
+|#F2F2F2|Fire and forget (not awaited)|
+:per-slide embedding, semaphore 3;
+note right
+  Dispatched with asyncio.create_task and
+  **never awaited**. A parse can report
+  "complete" with embeddings still in
+  flight, or lose them entirely if the
+  worker process exits.
+end note
+stop
+
+legend bottom
+  One live pipeline. PARSER_VERSION selects nothing: any value other than 5 logs
+  "retired" and runs this path (upload_service.py:258). Parser v3 -- the README's
+  headline feature -- and v4 are archived in backend/_legacy/ with zero live importers.
+  Ordinary exceptions here receive **no retry**: max_tries applies only to
+  CancelledError and explicit RetryJob.
+endlegend
+
+@enduml

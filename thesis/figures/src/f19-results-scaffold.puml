@@ -1,0 +1,63 @@
+' F19 -- Results.
+' HERO FIGURE (intended). Chapter 6 (Evaluation).
+'
+' ############################################################################
+' # THIS IS A SCAFFOLD. IT CONTAINS NO RESULTS AND MUST NOT BE SUBMITTED     #
+' # AS-IS. No evaluation run exists yet: `eval_runs` was never applied to    #
+' # production, and no local scorecard has been recorded. Inventing numbers  #
+' # here would be fabrication, so the slots are deliberately empty.          #
+' #                                                                          #
+' # To complete it: run `python -m backend.eval.run_eval`, take the          #
+' # Scorecard, and fill the four metric rows plus the band thresholds.       #
+' ############################################################################
+@startuml f19-results-scaffold
+!include _style.iuml
+
+title Results — SCAFFOLD, no data recorded yet
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+}
+
+rectangle "**⚠  NO EVALUATION HAS BEEN RUN**\nEvery value below is a placeholder.\nRun backend/eval/run_eval.py and fill them in." as WARN #BFBFBF
+
+rectangle "**Scorecard** — one row per metric" as CARD #F2F2F2 {
+  rectangle "Quiz key accuracy\n----\nscore:  ______\nband:   ______\nn cases: ______\nverdict: ______" as M1
+  rectangle "Tutor faithfulness\n----\nscore:  ______\nband:   ______\nn cases: ______\nverdict: ______" as M2
+  rectangle "Retrieval precision@k\n----\nscore:  ______\nband:   ______\nk = 5 (lecture) / 6 (course)\nverdict: ______" as M3
+  rectangle "Synthesis quality (LLM judge)\n----\nscore:  ______\nband:   ______\nn cases: ______\nverdict: ______" as M4
+}
+
+rectangle "**Run metadata**\n----\ncommit:      ______\npipeline:     Live / Fake\nmodel(s):     ______\ndate:         ______\noverall:      PASS / FAIL" as META #F2F2F2
+
+WARN --> CARD
+CARD --> META
+
+note right of CARD
+  These four metrics are the ones the existing
+  harness actually computes (see F18). Do not add
+  a fifth row without adding a scorer for it —
+  a metric with no code behind it is the same
+  class of error as the README claims audited in
+  the honesty ledger.
+end note
+
+note bottom of META
+  **Claims this figure can support once filled:**
+  pipeline output quality against curated golden sets,
+  measured reproducibly at a known commit.
+
+  **Claims it can NEVER support, however good the numbers:**
+  that students learned more. There is no controlled study,
+  no comparison group, and `learning_events` retention
+  defaults to 0 (never archive) with no analysis pipeline
+  behind it. Say so explicitly rather than letting a reader
+  infer a learning-outcomes claim from a quality metric.
+end note
+
+legend bottom
+  Placeholder figure, tracked deliberately so the gap is visible rather than forgotten.
+  Replace before submission or remove the figure and its reference from Chapter 6.
+endlegend
+
+@enduml

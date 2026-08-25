@@ -1,0 +1,56 @@
+' F16 -- The citation gap.
+' Chapter 6 (Evaluation). Concept diagram.
+' Claim supported: verifiable source attribution is computed correctly on the
+' server and consumed by no reachable user interface. Groundedness is real at
+' the API boundary and invisible at the user boundary.
+@startuml f16-citation-gap
+!include _style.iuml
+
+title The citation gap -- implemented server-side, invisible to users
+
+rectangle "**SERVER -- works as designed**" as SRV {
+  rectangle "LLM reply text\ncontains [Slide N] markers" as A
+  rectangle "_extract_citations\ntutor.py:106-133" as B
+  rectangle "Drop every index **not** in\nthe retrieved set\n//invented [Slide 99] discarded//" as C
+  rectangle "Surviving citations carry\nreal similarity scores" as D
+  A --> B
+  B --> C
+  C --> D
+}
+
+rectangle "ChatResponse.citations" as RESP #DCDCDC
+D --> RESP
+
+rectangle "**CLIENT -- three consumers**" as CLI {
+  rectangle "LectureView.tsx\n//live student surface//" as E
+  rectangle "InlineLecturePlayer.tsx\n//live student surface//" as F
+  rectangle "LectureChat.tsx\nrenders clickable chips\nwith slide-jump" as G #F2F2F2
+}
+
+RESP --> E
+RESP --> F
+RESP --> G
+
+rectangle "**Discarded.**\nChatMessage type has no\ncitations field; data.citations\nis never read." as E2 #BFBFBF
+rectangle "**Substituted.**\nShows a hand-built label from the\n//currently visible// slide -- not\nfrom what the model cited." as F2 #BFBFBF
+rectangle "**Unreachable.**\nImported nowhere. Only references\nare its own definition and its test.\nIts telemetry never fires." as G2 #BFBFBF
+
+E --> E2
+F --> F2
+G --> G2
+
+note bottom of CLI
+  The 'grounded' boolean is not part of ChatResponse at all
+  (ai_content.py:84-87), so the lecture tutor cannot signal
+  ungroundedness to the UI even in principle. The refusal
+  affordance exists only in CommandPalette, which sits behind
+  FEATURE_GLOBAL_SEARCH -- off by default.
+end note
+
+legend bottom
+  Net result: a normal student receives a retrieval-grounded, injection-hardened,
+  prompt-constrained tutor answer with **zero visible source attribution and no
+  refusal signal**. The gap between implemented and delivered is the finding.
+endlegend
+
+@enduml

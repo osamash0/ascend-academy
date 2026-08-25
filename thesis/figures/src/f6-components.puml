@@ -1,0 +1,71 @@
+' F6 -- Component view of the deployed system.
+' Chapter 4. UML component diagram.
+' Claim supported: LLM traffic bypasses the LiteLLM gateway entirely; the
+' gateway remains only as a startup dependency. Database access is dual-mode.
+@startuml f6-components
+!include _style.iuml
+
+title Component view (as deployed) -- corrected against code
+
+skinparam componentStyle uml2
+
+actor "Student /\nProfessor" as U
+
+package "Hetzner CX23 -- Docker, single bridge network" {
+  component "**frontend**\nnginx 1.27\nstatic Vite bundle\nreverse-proxies /api/" as FE
+  component "**api**\nFastAPI\nuvicorn --workers 1" as API
+  component "**worker**\nArq, max_jobs = 4" as WK
+  database "**redis**\ncache\nallkeys-lru" as RC
+  queue "**redis-queue**\nbroker + pubsub\nnoeviction + AOF" as RQ
+  component "**litellm**\ngateway" as LL #DCDCDC
+}
+
+cloud "**Supabase** (managed)\nPostgres 15 + pgvector\nAuth · Storage · PostgREST" as SB
+cloud "**LLM providers**\nCerebras · Groq · Google\nMistral · OpenRouter\nCloudflare · OpenAI" as LLM
+
+U --> FE : HTTPS / SSE
+U --> SB : auth + direct reads
+
+FE --> API : proxy /api/ (prefix **not** stripped)
+
+API --> RC
+API --> RQ : enqueue, ZCARD depth,\nsubscribe parse:<hash>
+WK  --> RQ : consume,\npublish parse:<hash>
+WK  --> RC
+
+API --> SB : PostgREST over HTTPS\n(sync, threadpool)
+API ..> SB : direct Postgres (asyncpg)\n//only if DATABASE_URL set//
+WK  --> SB
+
+API --> LLM : direct HTTPS
+WK  --> LLM : direct HTTPS
+
+API ..> LL : depends_on\nservice_healthy
+WK  ..> LL : depends_on\nservice_healthy
+
+note right of LL
+  **Zero live callers.**
+  LITELLM_BASE_URL is referenced only from
+  backend/_legacy/. The container still runs,
+  consumes 1 GB / 0.75 vCPU of a 4 GB / 2 vCPU
+  host, and gates api + worker startup.
+
+  README.md:42 and GDPR_DATA_PROTECTION.md:23
+  both claim LLM traffic flows through it.
+  It does not.
+end note
+
+note bottom of SB
+  Dual access path. Without DATABASE_URL there is no
+  asyncpg pool, yet /health/ready returns 200 with
+  database = "not_configured" (main.py:360) while
+  MV refresh, localization and the review engine
+  are non-functional.
+end note
+
+legend bottom
+  Solid = live data path.  Dashed = conditional or startup-only dependency.
+  Shaded component = runs but is not on any data path.
+endlegend
+
+@enduml

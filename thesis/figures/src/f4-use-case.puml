@@ -1,0 +1,70 @@
+' F4 -- Actors and goals.
+' Chapter 3 (Requirements). UML use case diagram.
+' Claim supported: three roles with asymmetric capabilities; content authoring
+' is gated on OWNERSHIP, not role, which is a deliberate design decision with
+' a security consequence (see F14).
+@startuml f4-use-case
+!include _style.iuml
+
+title Actors and goals (as implemented)
+
+left to right direction
+
+actor "Student" as S
+actor "Professor" as P
+actor "Admin" as A
+
+rectangle "Learnstation" {
+  usecase "Read lecture\n+ structured notes" as U1
+  usecase "Ask the grounded\nAI tutor" as U2
+  usecase "Answer in-lecture\nquizzes" as U3
+  usecase "Review queue (SRS)" as U4 #DCDCDC
+  usecase "Take a mock exam" as U5 #DCDCDC
+  usecase "Upload own\nmaterials" as U6 #DCDCDC
+
+  usecase "Upload + edit\na lecture" as U7
+  usecase "Review AI-extracted\ncontent (batch)" as U8
+  usecase "Manage courses" as U9
+  usecase "View analytics" as U10
+
+  usecase "Grant / revoke roles" as U11
+  usecase "Platform stats,\nLLM spend" as U12
+  usecase "Backups, analytics reset" as U13
+}
+
+S --> U1
+S --> U2
+S --> U3
+S --> U4
+S --> U5
+S --> U6
+
+P --> U7
+P --> U8
+P --> U9
+P --> U10
+P --> U1
+P --> U2
+
+A --> U11
+A --> U12
+A --> U13
+
+note bottom
+  **Shaded use cases are unreachable in a default deployment.**
+  Every feature flag in the project defaults to off, so the review queue,
+  mock exams and student uploads ship dark. See F17.
+
+  **Authoring is gated on ownership, not role.** `require_creator` admits
+  both professor and student (auth_middleware.py:243) — the comment states
+  the intent: "ownership (not role) is what RLS and endpoint checks gate on."
+  Consequence: a student-uploaded PDF can reach another student's tutor
+  context, which is why retrieved text is treated as untrusted. See F14.
+end note
+
+legend bottom
+  Professors reach "Read lecture" and the tutor by URL only — their navigation
+  chrome has no entry for either (ConsoleTopBar.tsx:36-42).
+endlegend
+
+@enduml

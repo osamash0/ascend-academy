@@ -1,0 +1,59 @@
+' F10 -- Layered idempotency in the content-addressed ingestion pipeline.
+' HERO FIGURE. Chapter 4.
+' Claim supported: the pipeline guarantees at-most-once effective work for
+' identical input through six independent mechanisms at four different layers.
+@startuml f10-idempotency
+!include _style.iuml
+
+title Layered idempotency: six mechanisms, four layers
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+}
+
+rectangle "**Re-submission of identical PDF bytes**" as REQ #DCDCDC
+
+package "Layer 1 -- Content" {
+  rectangle "**L1  Content addressing**\nsha256(bytes) is the storage key\n//Identical bytes cannot create a second object//" as L1
+}
+
+package "Layer 2 -- Database" {
+  rectangle "**L2  Unique constraint**\nparse_runs UNIQUE (pdf_hash, pipeline_version, user_id)\nupsert via COALESCE -- a re-fetch never clobbers" as L2
+  rectangle "**L3  Completed-run replay**\nstatus = completed  ==>  replay slides from DB\n//No re-parse. No duplicate lecture.//" as L3
+}
+
+package "Layer 3 -- Distributed runtime" {
+  rectangle "**L4  In-flight lock**\nSET joblock:parse:<hash> NX EX 1200\nTTL 1200s > job_timeout 900s" as L4
+  rectangle "**L5  Lecture reuse**\nre-parse clears content, keeps lecture_id\n//Inbound references survive//" as L5
+}
+
+package "Layer 4 -- Cost control" {
+  rectangle "**L6  Embedding dedupe**\nsha256(embedding text) checked\n//before// any paid API call" as L6
+}
+
+rectangle "**At most one unit of effective work**" as OK #BFBFBF
+
+REQ  --> L1
+L1   --> L2
+L2   --> L3
+L3   --> L4
+L4   --> L5
+L5   --> L6
+L6   --> OK
+
+note right of L4
+  **Deliberate availability trade-off.**
+  A Redis error returns True and proceeds
+  //unlocked// (job_locks.py:53). Mutual
+  exclusion is sacrificed to keep uploads
+  working; L2 and L3 remain the
+  correctness backstop.
+end note
+
+legend bottom
+  Provenance: L1 upload.py:131 | L2 repos.py:82 + migration 20260730000000:49
+  L3 unified_orchestrator.py:531 | L4 job_locks.py:41 | L5 unified_orchestrator.py:641
+  L6 file_parse_service.py:832
+endlegend
+
+@enduml

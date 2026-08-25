@@ -1,0 +1,54 @@
+' F15 -- Privilege-escalation hardening arc.
+' Chapter 5. UML state diagram.
+' Claim supported: authorisation hardened iteratively over five migrations,
+' each closing a vulnerability the previous step created or left open. Each
+' migration header documents its own attack -- a primary-source record.
+@startuml f15-security-arc
+!include _style.iuml
+
+title Privilege-escalation hardening -- five sequential migrations
+
+state "Initial design" as S0 #FFFFFF : role stored on the user profile
+state "1 · Role storage separated" as S1 : user_roles table, not profiles\nhas_role() SECURITY DEFINER\nbreaks RLS recursion
+state "2 · Client writes forbidden" as S2 : FOR ALL USING(false)\nWITH CHECK(false)
+state "3 · Trigger-only assignment" as S3 : on_auth_user_created\ndomain-whitelisted, then\ndeliberately opened
+state "4 · Professor reads rescoped" as S4 : union-of-policies leak closed\nvia course_enrollments join
+state "5 · Privileged columns frozen" as S5 #DCDCDC : BEFORE UPDATE trigger reverts\ntotal_xp, current_level,\ninstitution_verified
+
+S0 --> S1 : **closes** self-PATCH of\nyour own role column
+S1 --> S2 : **closes** "any authenticated user\ncould escalate to professor by\ninserting role=professor"
+S2 --> S3 : admin can never be\nself-granted
+S3 --> S4 : //introduces// platform-wide\ncross-tenant read
+S4 --> S5 : **closes** forgeable verified\nbadge, leaderboard poisoning
+S5 --> [*]
+
+note right of S3
+  Opening professor self-signup to any
+  domain was intentional -- but combined
+  with USING (has_role(uid,'professor'))
+  it exposed every student's data to
+  every self-declared professor.
+  Step 4 rescopes learning_events,
+  student_progress and achievements to
+  the professor's **own** enrolled students.
+end note
+
+note bottom
+  **One fully reproduced exploit.** As the anon role with zero JWT claims,
+  SELECT * FROM friend_ids_of('<victim-uuid>') returned a real friend's UUID,
+  and relationship_status(victim, friend) returned 'friends'.
+
+  Root cause was a four-way conjunction:
+   (1) SECURITY DEFINER   (2) caller-supplied UUID   (3) no auth.uid() check
+   (4) Postgres's implicit GRANT EXECUTE TO PUBLIC, never REVOKEd.
+
+  Reproduced against local Postgres 18. 13 regression tests.
+  Migration 20260721000001_s1_rpc_exposure_lockdown.sql:23-30
+end note
+
+legend bottom
+  Migrations: 20260122202809:5,16 | 20260502000003:16 | 20260601000000:26
+  + 20260615000800:31 | 20260621000000:1-24 | 20260620000000:29
+endlegend
+
+@enduml

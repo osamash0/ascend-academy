@@ -1,0 +1,82 @@
+' F18 -- Evaluation setup.
+' Chapter 6 (Evaluation). Concept / dataflow diagram.
+' Claim supported: an automated scorecard harness exists with four metrics over
+' human-curated golden sets, a pass/fail band per metric, and CI-gating exit
+' semantics. Grounded in backend/eval/.
+@startuml f18-evaluation-setup
+!include _style.iuml
+
+title Evaluation setup — the scorecard harness
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+}
+
+rectangle "**Golden sets** (human-curated)\nbackend/eval/golden_sets.py" as GS #F2F2F2 {
+  rectangle "QuizGoldenCase\n//verified correct answer index//" as G1
+  rectangle "TutorFaithfulnessCase\n//answer must be supported\nby the cited slides//" as G2
+  rectangle "RetrievalCase\n//known-relevant slide set//" as G3
+  rectangle "SynthesisQualityCase\n//open-ended, judged//" as G4
+}
+
+rectangle "**Pipeline under test**\nbackend/eval/pipeline.py" as PIPE #DCDCDC {
+  rectangle "LivePipeline\n//real models, nightly//" as P1
+  rectangle "FakePipeline\n//deterministic, unit tests//" as P2
+}
+
+rectangle "**Scorers** (pure functions, no I/O)\nbackend/eval/scorer.py" as SC #F2F2F2 {
+  rectangle "score_quiz_key_accuracy\n//fraction matching the\nhuman-verified answer//" as S1
+  rectangle "score_tutor_faithfulness" as S2
+  rectangle "score_retrieval_precision_at_k" as S3
+  rectangle "LLM judge\nbackend/eval/judge.py\n//JudgeFn injected, so a canned\nresponse works in unit tests//" as S4
+}
+
+rectangle "**Scorecard**\n4 metrics + ScoreBand per metric" as CARD #BFBFBF
+rectangle "**eval_runs** table\none row per run" as DB #F2F2F2
+rectangle "**Exit code**\nnon-zero if any metric\nfalls below its band" as EXIT #DCDCDC
+
+G1 --> P1
+G2 --> P1
+G3 --> P1
+G4 --> P1
+G1 --> P2
+
+P1 --> S1
+P1 --> S2
+P1 --> S3
+P1 --> S4
+P2 --> S1
+
+S1 --> CARD
+S2 --> CARD
+S3 --> CARD
+S4 --> CARD
+
+CARD --> DB
+CARD --> EXIT
+
+note right of SC
+  Scorers are deliberately **pure**: no I/O, so
+  they are trivially unit-testable and reusable
+  outside the CLI runner. The same design choice
+  as `is_grounded` in the course tutor (F3) —
+  the assertion surface is a function, not an
+  HTTP round-trip.
+end note
+
+note bottom of DB
+  **Honest limitation to state in the thesis:** the
+  `eval_runs` migration was never applied to
+  production (MILESTONE_2026_08.md:214), so this
+  harness is dev-and-CI tooling only. No production
+  scorecard history exists. Any longitudinal claim
+  must be scoped to local or CI runs.
+end note
+
+legend bottom
+  What this setup CAN support: quiz-key accuracy, tutor faithfulness, retrieval
+  precision@k, judged synthesis quality. What it CANNOT support without new
+  instrumentation: any claim about real student learning outcomes.
+endlegend
+
+@enduml
