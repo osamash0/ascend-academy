@@ -133,6 +133,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Needed so `git diff BASE_REF...HEAD` below can see the PR's base
+          # commit — a shallow (depth-1) clone only has HEAD.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -145,6 +149,29 @@ jobs:
         # 2026-07-21) then flip this to blocking. Kept non-blocking for now so
         # CI is informative without breaking on day one.
         run: ruff check backend/ --statistics || true
+      - name: Determine changed backend Python files (PR only)
+        id: changed_py
+        if: github.event_name == 'pull_request'
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.sha }}"
+          # Same NUL-delimited pattern as migration-lint-definer-grants above:
+          # a multi-line step output spliced unquoted into a run: block turns
+          # line 2+ into separate shell commands, so hand the list to xargs -0
+          # instead. --diff-filter=ACMR (Added/Copied/Modified/Renamed, no
+          # Deleted) since a deleted file can't be linted.
+          git diff --no-renames --name-only --diff-filter=ACMR "$BASE_REF"...HEAD \
+            -- 'backend/*.py' 'backend/**/*.py' > /tmp/changed-backend-py.txt || true
+          echo "count=$(wc -l < /tmp/changed-backend-py.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+      - name: ruff — block on violations in changed backend files (PR only)
+        # Ratchet, not a full fix: the 180 pre-existing violations above are
+        # not all safely auto-fixable (E402/E741 are sometimes intentional in
+        # this codebase — see backend/tests/conftest.py's own deliberate
+        # post-env-setup imports), so instead of a risky bulk fix or blanket
+        # ignore, this blocks only NEW violations in files a PR actually
+        # touches. Full-repo violations in untouched files stay non-blocking
+        # above until someone gets to them.
+        if: github.event_name == 'pull_request' && steps.changed_py.outputs.count != '0'
+        run: tr '\n' '\0' < /tmp/changed-backend-py.txt | xargs -0 ruff check
       # Database/RLS tests are separately gated below: nightly, dispatch, or
       # a PR touching database-relevant paths. Keeping this fast suite free
       # of Docker makes ordinary pushes deterministic while retaining the

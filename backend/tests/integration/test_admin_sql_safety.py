@@ -9,7 +9,9 @@ than concatenated into the query text, and that it can never fall through to
 `sort_by` (which is always resolved via the allowlist, defaulting safely).
 """
 from __future__ import annotations
+
 from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 
