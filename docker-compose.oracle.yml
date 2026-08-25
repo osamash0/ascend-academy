@@ -6,17 +6,16 @@ name: ascend-academy-oracle
 #
 # Target shape: VM.Standard.A1.Flex — 1 OCPU · 6 GB RAM
 #
-# Memory budget (hard limits below sum to ~1.9 GB):
+# Memory budget (hard limits below sum to ~1.4 GB):
 #   redis        256 MB
 #   redis-queue  160 MB  (durable Arq broker — noeviction + AOF)
-#   litellm      512 MB
 #   api          512 MB   ← uvicorn overridden to 1 worker (was 2 in Dockerfile)
 #   worker       384 MB
 #   frontend      64 MB  (nginx static files — very light)
 #   ─────────────────
-#   total       1888 MB  (~1.9 GB)
+#   total       1376 MB  (~1.4 GB)
 #   Ubuntu OS + Docker daemon: ~800 MB
-#   headroom: ~3.5 GB free of 6 GB
+#   headroom: ~3.8 GB free of 6 GB
 #
 # Usage:
 #   docker compose -f docker-compose.oracle.yml up -d --build
@@ -26,7 +25,6 @@ name: ascend-academy-oracle
 #   - api CMD overridden: uvicorn --workers 2 → 1  (single OCPU)
 #   - api memory:    512M  (unchanged, fits comfortably)
 #   - worker memory: 512M → 384M  (trimmed for tighter headroom)
-#   - litellm memory limit added: 512M  (was unlimited)
 #   - project name: ascend-academy-oracle  (avoids collision with prod stack)
 
 networks:
@@ -75,41 +73,11 @@ services:
       timeout: 5s
       retries: 3
 
-  # ── LLM gateway ────────────────────────────────────────────────────────────
-  # NOTE: LiteLLM is optional.
-  # It acts as a gateway to external LLM providers (Groq, Gemini, OpenAI, etc.).
-  # If you want to reduce memory pressure on this 6 GB VM, you can remove this
-  # service and point LITELLM_BASE_URL directly to the provider's API in .env.
-  litellm:
-    image: ghcr.io/berriai/litellm:main-latest
-    # main-latest is a multi-arch manifest that includes arm64 — no platform pin needed.
-    entrypoint: ["sh", "-c", "unset DATABASE_URL && exec docker/prod_entrypoint.sh \"$$@\"", "--"]
-    networks:
-      - ascend_net
-    volumes:
-      - ./litellm/config.yaml:/app/config.yaml:ro
-    command: --config /app/config.yaml --port 4000
-    env_file:
-      - .env
-    environment:
-      - DISABLE_SCHEMA_UPDATE=true
-      - STORE_MODEL_IN_DB=False
-      - LITELLM_TELEMETRY=False
-      - DATABASE_URL=
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\" || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+  # ── LLM gateway: REMOVED (2026-08-25) ──────────────────────────────────────
+  # Had no live callers — LITELLM_BASE_URL was referenced only from
+  # backend/_legacy/. The live path is backend/services/ai/orchestrator.py,
+  # calling each provider's API directly. See docker-compose.prod.yml for the
+  # full rationale. Frees 512M on this VM.
 
   # ── FastAPI API server ──────────────────────────────────────────────────────
   api:
@@ -127,7 +95,6 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
-      - LITELLM_BASE_URL=http://litellm:4000
       - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     restart: unless-stopped
     deploy:
@@ -139,8 +106,6 @@ services:
         condition: service_healthy
       redis-queue:
         condition: service_healthy
-      litellm:
-        condition: service_started
     healthcheck:
       # Probe /health/ready — verifies DB + both Redis instances (returns 503
       # when a dependency is down). DB is only critical when DATABASE_URL is set.
@@ -189,7 +154,6 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
-      - LITELLM_BASE_URL=http://litellm:4000
     restart: unless-stopped
     deploy:
       resources:
@@ -200,8 +164,6 @@ services:
         condition: service_healthy
       redis-queue:
         condition: service_healthy
-      litellm:
-        condition: service_started
 
 
 volumes:

@@ -52,46 +52,22 @@ services:
       timeout: 5s
       retries: 3
 
-  # ── LLM gateway ────────────────────────────────────────────────────────────
-  # NOTE: LiteLLM is optional.
-  # It acts as a gateway to external LLM providers (Groq, Gemini, OpenAI, etc.).
-  # If the university server hosts its own LLM (e.g. via vLLM or an
-  # OpenAI-compatible endpoint), LiteLLM can be removed entirely and the
-  # LITELLM_BASE_URL variable in the api and worker services should point
-  # directly to the university-hosted LLM endpoint instead.
-  # In that case, no external LLM API keys would be needed.
-  litellm:
-    image: ghcr.io/berriai/litellm:main-latest
-    entrypoint: ["sh", "-c", "unset DATABASE_URL && exec docker/prod_entrypoint.sh \"$$@\"", "--"]
-    networks:
-      - ascend_net
-    volumes:
-      - ./litellm/config.yaml:/app/config.yaml:ro
-    command: --config /app/config.yaml --port 4000
-    env_file:
-      - .env
-    environment:
-      - DISABLE_SCHEMA_UPDATE=true
-      - STORE_MODEL_IN_DB=False
-      - LITELLM_TELEMETRY=False
-      - DATABASE_URL=
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          # Cap RAM/CPU so a LiteLLM leak/spike can't OOM the 4 GB box or
-          # starve the API on 2 vCPU. Was previously unbounded.
-          memory: 1G
-          cpus: "0.75"
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\" || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+  # ── LLM gateway: REMOVED ───────────────────────────────────────────────────
+  # The LiteLLM gateway container was deleted (2026-08-25). It had no live
+  # callers: `LITELLM_BASE_URL` was referenced only from `backend/_legacy/`
+  # (stage2_synthesize, stage3_generate, stage5_finalize), and the model
+  # aliases in litellm/config.yaml (stage-text, stage-vision, stage-outline,
+  # stage-deck) were likewise only used there. The removal of the last live
+  # caller is documented at backend/api/v1/courses.py:399-411.
+  #
+  # The live path is backend/services/ai/orchestrator.py, which calls each
+  # provider's API directly over HTTPS (Cerebras, Groq, Google, Mistral,
+  # OpenRouter, Cloudflare, OpenAI) with its own failover chain, rate-limit
+  # backoff and cost accounting.
+  #
+  # Keeping it cost 1 GB / 0.75 vCPU of a 4 GB / 2 vCPU box, and both `api`
+  # and `worker` gated startup on `litellm: service_healthy` — so a gateway
+  # health failure blocked the entire stack for no functional reason.
 
   # ── FastAPI API server ──────────────────────────────────────────────────────
   api:
@@ -106,7 +82,6 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
-      - LITELLM_BASE_URL=http://litellm:4000
       - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     # Single uvicorn worker in prod: two workers each load FastAPI + PyMuPDF +
     # Pillow + LLM clients and can jointly breach the 512M cap → OOM kill on the
@@ -134,8 +109,6 @@ services:
       redis:
         condition: service_healthy
       redis-queue:
-        condition: service_healthy
-      litellm:
         condition: service_healthy
     healthcheck:
       # Probe /health/ready — verifies DB + both Redis instances, not just that
@@ -184,7 +157,6 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
-      - LITELLM_BASE_URL=http://litellm:4000
     restart: unless-stopped
     deploy:
       resources:
@@ -197,8 +169,6 @@ services:
       redis:
         condition: service_healthy
       redis-queue:
-        condition: service_healthy
-      litellm:
         condition: service_healthy
 
 

@@ -6,8 +6,8 @@
 # Build and start all services:
 #   docker compose up --build
 #
-# Infrastructure only (redis + litellm):
-#   docker compose up redis litellm -d
+# Infrastructure only (redis):
+#   docker compose up redis redis-queue -d
 #
 # Worker logs:
 #   docker compose logs -f worker
@@ -52,38 +52,11 @@ services:
       timeout: 5s
       retries: 3
 
-  # ── LLM gateway ────────────────────────────────────────────────────────────
-  litellm:
-    image: ghcr.io/berriai/litellm:main-latest
-    # litellm's entrypoint treats an empty-but-present DATABASE_URL (the
-    # `environment:` override below) as a fatal config error and exits
-    # before serving — it needs the var fully unset, not blanked. Mirrors
-    # docker-compose.prod.yml's entrypoint, which already does this
-    # correctly.
-    entrypoint: ["sh", "-c", "unset DATABASE_URL && exec docker/prod_entrypoint.sh \"$$@\"", "--"]
-    ports:
-      - "127.0.0.1:4000:4000"
-    volumes:
-      - ./litellm/config.yaml:/app/config.yaml:ro
-    command: --config /app/config.yaml --port 4000 --detailed_debug
-    env_file:
-      - .env
-    environment:
-      - DISABLE_SCHEMA_UPDATE=true
-      - STORE_MODEL_IN_DB=False
-      - LITELLM_TELEMETRY=False
-      - DATABASE_URL=
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      # /health requires auth in this litellm version (401 -> healthcheck
-      # always fails); /health/liveliness doesn't, matching prod's compose.
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\" || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+  # ── LLM gateway: REMOVED (2026-08-25) ──────────────────────────────────────
+  # Had no live callers — LITELLM_BASE_URL was referenced only from
+  # backend/_legacy/. The live path is backend/services/ai/orchestrator.py,
+  # calling each provider's API directly. See docker-compose.prod.yml for the
+  # full rationale.
 
   # ── FastAPI API server ──────────────────────────────────────────────────────
   api:
@@ -97,15 +70,12 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
-      - LITELLM_BASE_URL=http://litellm:4000
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5000,http://localhost:5001,http://localhost:5173
     depends_on:
       redis:
         condition: service_healthy
       redis-queue:
         condition: service_healthy
-      litellm:
-        condition: service_started
     volumes:
       - ./backend:/app/backend:ro
     develop:
@@ -141,14 +111,11 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - REDIS_QUEUE_URL=redis://:${REDIS_PASSWORD}@redis-queue:6379
-      - LITELLM_BASE_URL=http://litellm:4000
     depends_on:
       redis:
         condition: service_healthy
       redis-queue:
         condition: service_healthy
-      litellm:
-        condition: service_started
     volumes:
       - ./backend:/app/backend:ro
 
