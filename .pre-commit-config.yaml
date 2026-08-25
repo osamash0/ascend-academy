@@ -1,0 +1,21 @@
+# Dev-tooling only — not wired into CI or `pre-commit install` by this
+# change. Run `pre-commit install` locally to enable, or `pre-commit run
+# --all-files` for a one-off check. Ruff uses its default rule set (no
+# custom config exists in this repo — see pyproject.toml), matching what
+# CI's `ruff check backend/` already runs.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: mixed-line-ending
