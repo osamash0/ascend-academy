@@ -495,11 +495,33 @@ async def store_slide_embedding(
     insert, leaving duplicate rows) and churned dead tuples under the vector
     index on every re-parse.
 
-    Returns True on a successful upsert, False if the embedding was missing
-    or the upsert failed (failures are still logged here so existing
-    fire-and-forget callers can keep ignoring the return value).
+    Returns True on a successful upsert, False if the embedding was missing,
+    all-zero, or the upsert failed (failures are still logged here so
+    existing fire-and-forget callers can keep ignoring the return value).
+
+    Rejecting all-zero vectors here is the single chokepoint every writer
+    funnels through, including `backend/scripts/backfill_slide_embeddings.py`
+    which does not share the parse path's guards. A zero vector is worse than
+    no row: pgvector's cosine distance against it is NaN, and Postgres treats
+    `NaN > threshold` as TRUE, so it survives the similarity filter meant to
+    drop irrelevant slides. It sorts last (the RPC orders by distance
+    ascending), so it cannot displace a genuine match — but it does occupy
+    leftover top-k slots when genuine matches are scarce, feeding an unrelated
+    slide into the tutor's grounding context. Pinned against a real Postgres
+    in backend/tests/db/test_zero_vector_retrieval_hazard.py.
     """
     if embedding is None:
+        return False
+
+    # Same guard idiom as concept_graph.py:417.
+    if not embedding or all(v == 0.0 for v in embedding):
+        logger.error(
+            "Refusing to store an all-zero embedding for slide %s (pdf_hash=%s). "
+            "This usually means GEMINI_API_KEY is unset or the embedding API "
+            "returned an empty vector.",
+            slide_index,
+            pdf_hash,
+        )
         return False
 
     try:

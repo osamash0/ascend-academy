@@ -66,6 +66,12 @@ PIPELINE_VERSION_UNIFIED = "5"
 # and routed to the vision model instead of text synthesis.
 _MIN_TEXT_FOR_SYNTH = 25
 
+# Ceiling on waiting for in-flight slide embeddings to land at the end of a
+# parse (and again for the one retry pass). Embeddings run at concurrency 3,
+# so a large deck legitimately needs time -- but a wedged provider must not
+# hold a parse that is otherwise finished. Well inside the 900s job_timeout.
+_EMBED_JOIN_TIMEOUT_SECONDS = 120
+
 
 class InsufficientHeadroomError(RuntimeError):
     """Raised pre-flight (Roadmap P3-1) when the provider fleet's remaining
@@ -676,6 +682,13 @@ async def parse_pdf_unified(
         chunk_size = max(1, QUIZ_BATCH_CONFIG.batch_size)
         embed_q: list = []
         embed_sem = asyncio.Semaphore(3)
+        # Strong references to the in-flight embedding tasks. asyncio only
+        # holds a weak reference to a bare `create_task(...)` result, so
+        # without this list CPython is free to garbage-collect a task
+        # mid-execution and the embedding is silently lost. These are joined
+        # (with a bounded timeout) before `attach_lecture_id_to_embeddings`
+        # below, which would otherwise race the writes it is meant to patch.
+        embed_tasks: List[asyncio.Task] = []
         previous_narrative = ""
 
         # Roadmap Phase 3 (course brain): collect administrative-slide text
@@ -792,7 +805,11 @@ async def parse_pdf_unified(
                         slide_db_ids[i] = sid
                     except Exception as exc:
                         logger.error("persist slide %d failed: %s", i, exc)
-                asyncio.create_task(_safe_embedding_task(i, ui_slide, pdf_hash, embed_q, embed_sem))
+                embed_tasks.append(
+                    asyncio.create_task(
+                        _safe_embedding_task(i, ui_slide, pdf_hash, embed_q, embed_sem)
+                    )
+                )
                 await emit("slide", {"index": i, "slide": ui_slide})
                 await emit("progress", {"current": i + 1, "total": total, "message": f"Analyzed {i + 1}/{total}"})
 
@@ -912,6 +929,53 @@ async def parse_pdf_unified(
                         await pool.enqueue_job("generate_review_cards", lecture_id=str(created_lecture_id))
                 except Exception as exc:
                     logger.warning("review card-factory enqueue failed (non-fatal): %s", exc)
+            # Join the in-flight embedding tasks before touching their rows.
+            # Two bugs this closes: (1) `attach_lecture_id_to_embeddings`
+            # below used to race writes still in flight, leaving rows stuck at
+            # lecture_id = NULL; (2) `embed_q` was populated as a retry queue
+            # but never drained anywhere in this pipeline -- the drain existed
+            # only in the retired v2 path -- so every failed embedding was
+            # silently discarded. Bounded so a hung provider cannot stall a
+            # parse that is otherwise complete.
+            if embed_tasks:
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*embed_tasks, return_exceptions=True),
+                        timeout=_EMBED_JOIN_TIMEOUT_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    pending = [t for t in embed_tasks if not t.done()]
+                    logger.warning(
+                        "embedding join timed out after %ss with %d task(s) still "
+                        "pending; continuing (rows may lack lecture_id)",
+                        _EMBED_JOIN_TIMEOUT_SECONDS, len(pending),
+                    )
+
+            # One retry pass over slides whose embedding failed.
+            if embed_q:
+                retry_batch, embed_q = list(embed_q), []
+                logger.info("retrying %d failed slide embedding(s)", len(retry_batch))
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(
+                            *(
+                                _safe_embedding_task(idx, res, ph, embed_q, embed_sem)
+                                for idx, res, ph in retry_batch
+                            ),
+                            return_exceptions=True,
+                        ),
+                        timeout=_EMBED_JOIN_TIMEOUT_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning("embedding retry pass timed out; continuing")
+                if embed_q:
+                    logger.error(
+                        "%d slide embedding(s) still failing after retry for "
+                        "pdf_hash=%s -- semantic search will be incomplete for "
+                        "those slides",
+                        len(embed_q), pdf_hash,
+                    )
+
             # Attach embeddings (written keyed by pdf_hash) to this lecture.
             try:
                 from backend.services.cache import attach_lecture_id_to_embeddings

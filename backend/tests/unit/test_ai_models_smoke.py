@@ -66,18 +66,27 @@ def test_generate_embeddings_pads_or_trims_to_expected_dims(monkeypatch):
     assert len(out) == emb_mod.EMBEDDING_DIMS == 768
 
 
-def test_generate_embeddings_empty_text_short_circuits():
+def test_generate_embeddings_empty_text_raises():
+    """Blank input used to short-circuit to a zero vector. It now raises.
+
+    A zero vector is not an inert placeholder: Postgres orders NaN above every
+    real float, so `NaN > threshold` is TRUE and the row survives retrieval's
+    similarity filter. Pinned in
+    backend/tests/db/test_zero_vector_retrieval_hazard.py.
+    """
     from backend.services.ai import embeddings as emb_mod
 
-    out = asyncio.run(emb_mod.generate_embeddings("   "))
-    assert out == [0.0] * emb_mod.EMBEDDING_DIMS
+    with pytest.raises(emb_mod.EmbeddingUnavailableError):
+        asyncio.run(emb_mod.generate_embeddings("   "))
 
 
 def test_generate_embeddings_propagates_runtime_errors(monkeypatch):
     """Runtime failures (bad model, RPC error, 4xx/5xx) MUST propagate to the
     caller — silently writing zero vectors into pgvector poisons semantic
-    cache and RAG. Only the genuine 'no client' case should fall back to
-    zeros, and only the empty-text case should short-circuit."""
+    cache and RAG. No case returns zeros any more: the former 'no client' and
+    'empty text' fallbacks both raise EmbeddingUnavailableError now, since a
+    zero vector survives retrieval's similarity filter rather than being
+    ignored."""
     from backend.services.ai import embeddings as emb_mod
 
     class _BoomModels:
@@ -92,12 +101,21 @@ def test_generate_embeddings_propagates_runtime_errors(monkeypatch):
         asyncio.run(emb_mod.generate_embeddings("real text"))
 
 
-def test_generate_embeddings_returns_zero_only_when_client_absent(monkeypatch):
+def test_generate_embeddings_raises_when_client_absent(monkeypatch):
+    """An unconfigured client is a configuration fault, not a degraded mode.
+
+    This previously returned zeros, which `_safe_embedding_task` then
+    persisted — a 768-zero list is truthy, so `if not embedding` did not catch
+    it, and it is not None, so `store_slide_embedding`'s `is None` check did
+    not either. Worse, it was stored with a content_hash derived from the real
+    slide text, so the dedupe short-circuit made the bad row permanent on
+    every subsequent re-parse.
+    """
     from backend.services.ai import embeddings as emb_mod
 
     monkeypatch.setattr(emb_mod, "gemini_client", None)
-    out = asyncio.run(emb_mod.generate_embeddings("real text"))
-    assert out == [0.0] * emb_mod.EMBEDDING_DIMS
+    with pytest.raises(emb_mod.EmbeddingUnavailableError):
+        asyncio.run(emb_mod.generate_embeddings("real text"))
 
 
 # ── Vision (Groq + Gemini) ────────────────────────────────────────────────────
