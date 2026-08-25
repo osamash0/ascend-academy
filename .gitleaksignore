@@ -1,0 +1,92 @@
+# Gitleaks allowlist — every entry here was manually triaged during the
+# security-audit branch's A0 investigation (see SECURITY_AUDIT.md for full
+# detail). Nothing here represents a live credential: it's either not a
+# secret at all, or a secret that has since been rotated/confirmed absent
+# on the live Supabase project. Do not add new entries without the same
+# level of triage — this file suppresses gitleaks entirely for these
+# fingerprints, forever, across every future scan.
+
+# Supabase anon/publishable key (role: anon in the JWT payload) — this is
+# Supabase's intentionally public key, protected by RLS, already shipped
+# in every production frontend bundle. Not a secret.
+184e574203f58e987ed908d577a0955eb5341ccd:.env:jwt:2
+8a34f6a039ad0f89c7c3758ccee22616496e4eaa:.env:jwt:2
+8a34f6a039ad0f89c7c3758ccee22616496e4eaa:backend/.env:jwt:2
+
+# False positive — an i18n translation key ("privacy.section7Body") that
+# happens to match gitleaks' generic high-entropy-string rule. Not a secret.
+715e578f7e0389549c80bbf4e8a3d5fd5120bc82:src/pages/Datenschutz.tsx:generic-api-key:83
+ab233101f018994ac4b70ffbae3e9194532f96d0:coverage/lcov-report/pages/Datenschutz.tsx.html:generic-api-key:350
+ab233101f018994ac4b70ffbae3e9194532f96d0:coverage/pages/Datenschutz.tsx.html:generic-api-key:350
+
+# Stale documentation example — a truncated placeholder key from an old/
+# different Supabase project ref, no longer in use.
+a01f20c526be0037897c3d016854c01fef281289:SETUP_GUIDE.md:generic-api-key:61
+
+# backend/loadtest/.students.json — 152 load-test account access_token
+# JWTs + a shared password, committed in d35565d. The load-testing tooling
+# that generated this file was removed from the codebase in 343890c; the
+# accounts themselves were confirmed absent from the live Supabase project
+# via scripts/rotate_exposed_credentials.py (dry run, read-only list_users)
+# during this audit. Nothing to rotate — they don't exist anymore.
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:1015
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:1043
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:105
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:112
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:119
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:126
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:133
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:14
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:140
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:147
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:154
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:161
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:168
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:175
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:182
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:189
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:196
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:203
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:21
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:210
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:217
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:224
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:231
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:238
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:245
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:252
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:259
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:266
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:28
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:287
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:329
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:35
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:357
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:399
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:42
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:434
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:469
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:49
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:504
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:539
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:56
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:574
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:6
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:609
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:63
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:644
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:679
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:70
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:714
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:749
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:77
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:777
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:812
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:84
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:847
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:882
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:91
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:917
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:952
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:98
+d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:980
