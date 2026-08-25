@@ -2,12 +2,22 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 sys.path.append(str(Path(__file__).parent.parent))
+
+# Same precedence as backend.core.config.Settings: backend/.env first, then
+# root .env. Needed so SEED_DEFAULT_PASSWORD below actually resolves —
+# pydantic-settings reads .env into its own Settings object, it does not
+# populate os.environ as a side effect.
+_root = Path(__file__).parent.parent
+load_dotenv(dotenv_path=_root / "backend" / ".env")
+load_dotenv(dotenv_path=_root / ".env")
 
 from backend.core.database import supabase_admin
 
 PROF_EMAIL = "prof@admin.com"
-PROF_PASSWORD = "Academy2026!"
+PROF_PASSWORD = os.environ["SEED_DEFAULT_PASSWORD"]
 
 COURSES = [
     # Semester 1
@@ -61,7 +71,6 @@ def get_or_create_user(email, role="professor", full_name="User"):
     except Exception as e:
         if "already been registered" in str(e):
             print(f"User {email} already exists. Finding by iterating...")
-            page = 1
             while True:
                 # the python client list_users returns a list, wait, let me just try listing more if possible
                 # actually, I can just query `profiles` or `user_roles` if they have email, but they don't always.
@@ -75,9 +84,9 @@ def get_or_create_user(email, role="professor", full_name="User"):
                             id = user_id
                         user = DummyUser()
                         break
-                except Exception:
-                    pass
-                
+                except Exception as lookup_err:  # noqa: BLE001 — profiles lookup is a best-effort fallback; any failure just falls through to the list_users scan below
+                    print(f"profiles lookup failed for {email}: {lookup_err}")
+
                 users_res = supabase_admin.auth.admin.list_users() # unfortunately the python client does not paginate nicely, it returns a generator or list
                 for u in users_res:
                     if u.email == email:
@@ -85,9 +94,9 @@ def get_or_create_user(email, role="professor", full_name="User"):
                         break
                 break
             if not user:
-                raise Exception("User exists but could not be found.")
+                raise RuntimeError("User exists but could not be found.")
         else:
-            raise e
+            raise
 
     # Ensure role is set in user_roles
     try:
@@ -95,9 +104,9 @@ def get_or_create_user(email, role="professor", full_name="User"):
             "user_id": user.id,
             "role": role
         }).execute()
-    except Exception:
-        pass
-    
+    except Exception as e:  # noqa: BLE001 — best-effort upsert against an external API; log and continue rather than abort the whole seed run
+        print(f"role upsert failed for {email}: {e}")
+
     # Create profile
     try:
         supabase_admin.table("profiles").upsert({
@@ -105,8 +114,8 @@ def get_or_create_user(email, role="professor", full_name="User"):
             "email": email,
             "full_name": full_name
         }).execute()
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001 — best-effort upsert against an external API; log and continue rather than abort the whole seed run
+        print(f"profile upsert failed for {email}: {e}")
     
     return user.id
 
@@ -160,7 +169,7 @@ def seed():
         for i in range(0, len(enrollments), 500):
             try:
                 supabase_admin.table("course_enrollments").upsert(enrollments[i:i+500], on_conflict="user_id,course_id").execute()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — best-effort batch upsert against an external API; log and continue with the next batch
                 print(f"Error enrolling batch: {e}")
             
     print("Done!")
