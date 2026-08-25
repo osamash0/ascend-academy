@@ -40,16 +40,15 @@ export default defineConfig({
       ],
       // Per-directory aggregate thresholds from TESTING_STRATEGY.md section 7
       // (`src/pages/**` is documented as "smoke only" with no numeric target,
-      // so it is intentionally left out here). Measured actual coverage as of
-      // this change: hooks 81.22%/74.3%, lib 78.09%/84.92% — both comfortably
-      // clear their documented targets, so those use the documented numbers
-      // directly. services measured at 61.11%/75.27% — branches clears the
-      // documented 55%, but statements is below the documented 65% target;
-      // rather than set a threshold the suite doesn't currently meet, the
-      // statements figure here is ratcheted down to the measured value (see
-      // SECURITY_AUDIT.md for the gap to the documented target).
+      // so it is intentionally left out here). All three now use the
+      // documented targets directly — services was briefly ratcheted down
+      // to 60%/55% (statements measured 61.11% against a 65% target at the
+      // time) until tests were added for its lowest-covered files
+      // (adminService, searchService, courseBlueprintService,
+      // uploadBatchService, reviewService); it now measures 69.78%/78.09%,
+      // comfortably clearing the documented target.
       thresholds: {
-        "src/services/**": { statements: 60, branches: 55 },
+        "src/services/**": { statements: 65, branches: 55 },
         "src/hooks/**": { statements: 60, branches: 50 },
         "src/lib/**": { statements: 70, branches: 60 },
       },
