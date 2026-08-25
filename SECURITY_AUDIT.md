@@ -8,6 +8,62 @@ already solid was touched.
 
 ## Part A — Security Audit Findings
 
+### A0. Gitleaks secret-scan investigation (surfaced mid-audit, not in original scope)
+
+While verifying CI would pass before merge, a Gitleaks run against the
+repo's git history (matching the existing `secret-scan` CI job:
+`gitleaks detect --source .`, 600 commits, 68 raw findings) was manually
+triaged file-by-file. Summary:
+
+**Not real secrets (no action needed):**
+- `.env` (root, 2 commits) + `backend/.env` (1 commit): every value ever
+  committed decodes (JWT payload) to Supabase's `"role":"anon"` key — the
+  publishable/anon key, intentionally public by Supabase's design, RLS-
+  protected, already shipped in the frontend bundle. Not a leak.
+- `src/pages/Datenschutz.tsx` + 2 coverage HTML copies: false positive — an
+  i18n translation key (`privacy.section7Body`) matched a generic-entropy
+  rule, not a real secret.
+- `SETUP_GUIDE.md`: a truncated example key in setup docs, from an old/
+  different Supabase project ref no longer in use — a stale placeholder.
+
+**Real, actionable findings:**
+
+1. **`backend/loadtest/.students.json`** (committed in `d35565d`, tooling
+   removed in `343890c` on 2026-06-15, file itself never purged from
+   history) — 152 real Supabase Auth accounts (150
+   `loadtest+NNN@learnstation.test` students, `loadtest-prof@learnstation.test`,
+   and `prof@admin.com`) all sharing one plaintext, reused password
+   (`"LoadTest!2026"`). The committed `access_token` JWTs are expired
+   (1-hour Supabase tokens), but the password is not time-limited.
+   **Status: documented only, not fixed on this branch** — the fix is a
+   live action against the real Supabase project (rotate/delete these
+   accounts via Authentication → Users), not a code change. **Action
+   required from the repo owner.**
+2. **`scripts/seed_courses.py` / `scripts/update_course_ownership.py`** —
+   a hardcoded plaintext password (`"Academy2026!"`) for `prof@admin.com`
+   and **`admin@admin.com` (an admin-role account)**, in files that are
+   still active in the current codebase (not just old history). Gitleaks
+   itself did not flag this (the value doesn't match its entropy/pattern
+   rules) — found by manually tracing the `PROF_EMAIL`/`ADMIN_EMAIL`
+   references surfaced while investigating finding #1.
+   **Status: fixed in `f2f0578`** — both scripts now read the password
+   from a new `SEED_DEFAULT_PASSWORD` env var (documented in
+   `.env.example`), failing loudly if unset rather than silently reusing
+   the old value. **The live account password still needs rotating in
+   Supabase directly — this commit only stops a future re-commit of the
+   secret, it does not invalidate the old one.**
+
+**Recommended remediation (repo owner action, not done on this branch):**
+- Rotate or delete all 152 load-test accounts and the `admin@admin.com` /
+  `prof@admin.com` accounts in the Supabase dashboard now — this alone
+  neutralizes the exposure regardless of git history, since a leaked
+  password only matters while it's still the live one.
+- Skip rewriting git history (`git filter-repo` + force-push) unless
+  there's a separate reason to — once the passwords above are rotated,
+  the old committed values in history are inert, and a history rewrite is
+  the one option here that could genuinely disrupt the project (rewritten
+  commit hashes, invalidated clones/forks/PR links).
+
 ### A1. `backend/api/v1/admin.py` — SQL built with f-strings — **SAFE, verified**
 
 - **Severity:** N/A (not vulnerable)
