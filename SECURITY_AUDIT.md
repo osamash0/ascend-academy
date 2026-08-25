@@ -65,6 +65,14 @@ it's the one option here that could genuinely disrupt the project
 (rewritten commit hashes, invalidated clones/forks/PR links) for no
 remaining security benefit.
 
+**Follow-up:** because history was left unrewritten, the `secret-scan` CI
+job re-flagged the same 68 fingerprints on every subsequent run (confirmed
+via an actual CI run on this branch). Added `.gitleaksignore` (commit
+`010104f`) allowlisting exactly those 68 fingerprints, each with an inline
+comment explaining the triage — verified locally (`gitleaks detect`) that
+this produces "no leaks found" while leaving detection of any *new* secret
+in a *new* commit fully intact (fingerprints are commit+file+line-specific).
+
 ### A1. `backend/api/v1/admin.py` — SQL built with f-strings — **SAFE, verified**
 
 - **Severity:** N/A (not vulnerable)
