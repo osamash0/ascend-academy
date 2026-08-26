@@ -22,12 +22,18 @@ from backend.eval.golden_sets import (
     RETRIEVAL_GOLDEN_SET,
     TUTOR_FAITHFULNESS_GOLDEN_SET,
 )
-from backend.eval.judge import _parse_score, judge_synthesis_quality_set
+from backend.eval.judge import (
+    _parse_compliance,
+    _parse_score,
+    judge_injection_compliance_set,
+    judge_synthesis_quality_set,
+)
 from backend.eval.pipeline import FakePipeline
 from backend.eval.run_eval import main_async, run_scorecard
 from backend.eval.scorer import (
     ScoreBand,
     check_regression,
+    score_injection_resistance,
     score_quiz_key_accuracy,
     score_retrieval_precision_at_k,
     score_tutor_faithfulness,
@@ -163,6 +169,61 @@ async def test_judge_synthesis_quality_set_empty_cases_scores_zero():
     assert await judge_synthesis_quality_set([], [], fake_judge) == 0.0
 
 
+# ── Prompt-injection resistance (profiling dimension 5) ─────────────────────
+
+def _perfect_compliance():
+    """What a tutor that resists every attack AND engages every benign control
+    would produce — i.e. actual == expected for all cases."""
+    return [c.expected_compliant for c in PROMPT_INJECTION_GOLDEN_SET]
+
+
+def test_injection_resistance_perfect_tutor_scores_1():
+    assert score_injection_resistance(
+        PROMPT_INJECTION_GOLDEN_SET, _perfect_compliance()
+    ) == 1.0
+
+
+def test_injection_resistance_drops_when_an_attack_succeeds():
+    actual = _perfect_compliance()
+    attack_idx = next(
+        i for i, c in enumerate(PROMPT_INJECTION_GOLDEN_SET) if not c.expected_compliant
+    )
+    actual[attack_idx] = True  # tutor obeyed the injected instruction
+    n = len(PROMPT_INJECTION_GOLDEN_SET)
+    assert score_injection_resistance(PROMPT_INJECTION_GOLDEN_SET, actual) == pytest.approx(
+        (n - 1) / n
+    )
+
+
+def test_injection_resistance_drops_when_a_benign_control_is_over_refused():
+    """The metric is two-sided on purpose: a tutor that refuses everything must
+    not be able to score 1.0 by refusing legitimate course content too."""
+    actual = _perfect_compliance()
+    control_idx = next(
+        i for i, c in enumerate(PROMPT_INJECTION_GOLDEN_SET) if c.expected_compliant
+    )
+    actual[control_idx] = False  # tutor refused legitimate material
+    n = len(PROMPT_INJECTION_GOLDEN_SET)
+    assert score_injection_resistance(PROMPT_INJECTION_GOLDEN_SET, actual) == pytest.approx(
+        (n - 1) / n
+    )
+
+
+def test_injection_resistance_refuse_everything_tutor_cannot_score_well():
+    """A degenerate tutor that never complies with anything scores exactly the
+    attack fraction — it cannot reach 1.0. Without benign controls in the set
+    this test would be impossible to write."""
+    always_refuses = [False] * len(PROMPT_INJECTION_GOLDEN_SET)
+    score = score_injection_resistance(PROMPT_INJECTION_GOLDEN_SET, always_refuses)
+    attacks = sum(1 for c in PROMPT_INJECTION_GOLDEN_SET if not c.expected_compliant)
+    assert score == pytest.approx(attacks / len(PROMPT_INJECTION_GOLDEN_SET))
+    assert score < 1.0
+
+
+def test_injection_resistance_empty_set_scores_zero_not_nan():
+    assert score_injection_resistance([], []) == 0.0
+
+
 # ── Injection golden-set structure ──────────────────────────────────────────
 # Unlike the other golden sets (whose tests derive expectations from the data
 # so they stay count-agnostic), this set's VALIDITY depends on its composition:
@@ -221,6 +282,42 @@ def test_student_message_cases_have_topically_matched_filler():
     for c in PROMPT_INJECTION_GOLDEN_SET:
         if c.channel == "student_message":
             assert c.deck_id in BENIGN_SLIDE_CONTENT_BY_DECK
+
+
+# ── Injection judge parsing ─────────────────────────────────────────────────
+
+def test_parse_compliance_reads_both_verdicts():
+    assert _parse_compliance("COMPLIANT") is True
+    assert _parse_compliance("NOT_COMPLIANT") is False
+    assert _parse_compliance("not compliant") is False
+    assert _parse_compliance("  compliant\n") is True
+
+
+def test_parse_compliance_does_not_read_not_compliant_as_compliant():
+    """'COMPLIANT' is a substring of 'NOT_COMPLIANT'; a naive check would score
+    every successful refusal as a compliance and invert the whole metric."""
+    assert _parse_compliance("NOT_COMPLIANT") is not True
+
+
+def test_parse_compliance_unparseable_is_none():
+    assert _parse_compliance("I'd rather not say") is None
+    assert _parse_compliance("") is None
+
+
+@pytest.mark.asyncio
+async def test_unparseable_judge_fails_every_case_rather_than_crediting_half():
+    """A judge that returns garbage must not hand free credit to attacks or to
+    controls. Since the two expect opposite verdicts, any fixed fallback would
+    score one half perfectly."""
+    async def broken_judge(prompt: str) -> str:
+        return "???"
+
+    verdicts = await judge_injection_compliance_set(
+        PROMPT_INJECTION_GOLDEN_SET,
+        ["irrelevant"] * len(PROMPT_INJECTION_GOLDEN_SET),
+        broken_judge,
+    )
+    assert score_injection_resistance(PROMPT_INJECTION_GOLDEN_SET, verdicts) == 0.0
 
 
 # ── CLI persistence behaviour ────────────────────────────────────────────────
