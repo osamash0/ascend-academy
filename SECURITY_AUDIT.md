@@ -558,13 +558,65 @@ injection-resistance mandate; flagged for a separate, dedicated fix.
   write never fires (`if user_id and cost > 0` gate); `FEATURE_LLM_PROMPT_LOGGING`
   is unset locally, so the Redis prompt-log short-circuits to a no-op.
 
-**Outstanding, not done in this session:** the
-`eval_runs.injection_resistance` migration (commit `ff63e37`) has **not**
-been applied to the live Supabase project — applying a schema change to
-shared, live infrastructure is a mutating action outside what gets done
-without an explicit ask. Until it is applied, `persist_scorecard`'s INSERT
-will fail on the unknown column on every real nightly run, and its
-deliberate blind `except` (documented in `run_eval.py`, "never mask the
-pass/fail signal") will swallow that failure with only a warning-level log
-line — meaning **all five metrics**, not just this one, will silently stop
-persisting until the migration is applied.
+### Migration applied — and a bigger, pre-existing finding surfaced doing it
+
+**Update:** the `eval_runs.injection_resistance` migration (commit `ff63e37`)
+has since been applied to the live Supabase project, in a separate
+follow-up session, at the user's explicit request. What that turned up is
+worth recording on its own.
+
+**Confirmed before touching anything:** `public.eval_runs` did not exist on
+the live project at all — not just missing the new column, but missing the
+*entire table*, meaning its original creation migration
+(`20260719030000_eval_runs.sql`) had never been applied either. The nightly
+`nightly-ai-eval` CI job's `persist_scorecard()` call had been failing on
+every single run since that table's introduction, silently, via the exact
+blind-except behavior described above — for all five metrics, not only
+`injection_resistance`.
+
+**Root cause, more significant than one missing table:** `supabase
+migration list --db-url <live>` showed the live project's own
+migration-tracking table recognizes only **2 of the 113** migrations in
+`supabase/migrations/` as applied — despite the live schema clearly
+reflecting the effects of roughly 111 of them (`profiles`, `llm_calls`, and
+75 other tables all present and correct). `supabase db push --dry-run`
+refused to run at all without `--include-all`, whose own suggested remedy
+would have replayed essentially the entire migration history against an
+already-evolved production database — not something to run blind. This
+means **the local `supabase/migrations/` folder cannot currently be trusted
+as a complete, reliable record of what has actually been applied to the
+live project** — migrations have evidently been applied to production by
+some route (dashboard SQL editor, a different machine's CLI session, or
+similar) that never updated this tracking table. That is a real
+reproducibility and data-integrity gap in how schema state is tracked, not
+merely a CLI bookkeeping annoyance — a future migration author has no
+reliable way to know what "the last applied migration" actually is without
+directly inspecting the live schema first, as was done here.
+
+**What was actually done (scoped, not a general fix):** rather than run
+`supabase db push` in any form, the exact unmodified SQL from
+`20260719030000_eval_runs.sql` and `20260826000000_eval_runs_injection_resistance.sql`
+— the two files directly relevant to this table, nothing else — was applied
+directly against the live database via `DATABASE_URL`, each using
+`CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` throughout. No
+other table, column, or migration was touched, and the CLI's own
+tracking-table mismatch was **not** reconciled (a separate, larger, riskier
+task — see follow-up below).
+
+**Verified end-to-end**, not just at the schema level: a real call to
+`persist_scorecard()` (the actual function used by every real eval run) was
+made against the live database, confirmed to insert exactly one row with
+`injection_resistance` populated, then that single test row was deleted
+immediately — proving the write path works without leaving synthetic data
+in a table whose entire purpose is an accurate, plottable measurement
+history (the same principle behind this branch's earlier `e69fd66` fix).
+Final row count returned to 0, matching the pre-verification state.
+
+**Flagged follow-up, not attempted:** whether `supabase migration repair` (or
+an equivalent reconciliation step) can bring the tracking table in line with
+the live schema's actual history *without* re-executing any old migration's
+SQL, so that future schema changes can go through the normal `supabase db
+push` flow again instead of needing this same direct-SQL, read-the-schema-
+first workaround every time. This needs its own careful, explicit session —
+reconciling ~111 tracking-table entries is a fundamentally different (and
+higher-risk, if done carelessly) task than adding one column.
