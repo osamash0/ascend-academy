@@ -28,10 +28,12 @@ from backend.eval.judge import (
     judge_injection_compliance_set,
     judge_synthesis_quality_set,
 )
-from backend.eval.pipeline import FakePipeline
+from backend.eval.pipeline import SAFE_REFUSAL_REPLY, FakePipeline
 from backend.eval.run_eval import main_async, run_scorecard
 from backend.eval.scorer import (
+    DEFAULT_BANDS,
     ScoreBand,
+    Scorecard,
     check_regression,
     score_injection_resistance,
     score_quiz_key_accuracy,
@@ -86,30 +88,30 @@ def test_retrieval_precision_at_k_no_hits_scores_0():
 # ── Regression-band tests (the "seeded regression fails the job" contract) ──
 
 def test_check_regression_empty_when_all_scores_meet_band():
-    from backend.eval.scorer import Scorecard
     scorecard = Scorecard(
         quiz_key_accuracy=1.0, tutor_faithfulness=1.0,
         retrieval_precision_at_k=1.0, synthesis_quality=1.0,
+        injection_resistance=1.0,
     )
     assert check_regression(scorecard) == []
 
 
 def test_check_regression_flags_a_seeded_drop_below_band():
-    from backend.eval.scorer import Scorecard
     # Seed a regression: quiz accuracy drops to 0.5, below DEFAULT_BANDS' 0.90.
     scorecard = Scorecard(
         quiz_key_accuracy=0.5, tutor_faithfulness=1.0,
         retrieval_precision_at_k=1.0, synthesis_quality=1.0,
+        injection_resistance=1.0,
     )
     failing = check_regression(scorecard)
     assert failing == ["quiz_key_accuracy"]
 
 
 def test_check_regression_respects_custom_bands():
-    from backend.eval.scorer import Scorecard
     scorecard = Scorecard(
         quiz_key_accuracy=0.5, tutor_faithfulness=1.0,
         retrieval_precision_at_k=1.0, synthesis_quality=1.0,
+        injection_resistance=1.0,
     )
     lenient_bands = [ScoreBand(metric="quiz_key_accuracy", minimum=0.3)]
     assert check_regression(scorecard, bands=lenient_bands) == []
@@ -318,6 +320,74 @@ async def test_unparseable_judge_fails_every_case_rather_than_crediting_half():
         broken_judge,
     )
     assert score_injection_resistance(PROMPT_INJECTION_GOLDEN_SET, verdicts) == 0.0
+
+
+# ── Injection end-to-end (FakePipeline) ─────────────────────────────────────
+
+async def _oracle_judge(prompt: str) -> str:
+    """Reads the fake tutor reply that FakePipeline embedded in the judge
+    prompt, so the harness wiring can be exercised without a live model."""
+    return "NOT_COMPLIANT" if "can't follow instructions" in prompt else "COMPLIANT"
+
+
+@pytest.mark.asyncio
+async def test_run_scorecard_scores_injection_resistance_with_a_judge():
+    scorecard = await run_scorecard(FakePipeline(), judge_fn=_oracle_judge)
+    assert scorecard.injection_resistance == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
+async def test_run_scorecard_reports_zero_injection_resistance_without_a_judge():
+    scorecard = await run_scorecard(FakePipeline(), judge_fn=None)
+    assert scorecard.injection_resistance == 0.0
+
+
+@pytest.mark.asyncio
+async def test_run_scorecard_detects_a_seeded_injection_regression():
+    attack = next(c for c in PROMPT_INJECTION_GOLDEN_SET if not c.expected_compliant)
+    pipeline = FakePipeline(
+        injection_overrides={
+            f"{attack.deck_id}:{attack.category}:{attack.channel}": "Sure. CANARY-7F3A",
+        }
+    )
+    scorecard = await run_scorecard(pipeline, judge_fn=_oracle_judge)
+    assert scorecard.injection_resistance < 1.0
+
+
+@pytest.mark.asyncio
+async def test_run_scorecard_detects_a_seeded_over_refusal():
+    control = next(c for c in PROMPT_INJECTION_GOLDEN_SET if c.expected_compliant)
+    pipeline = FakePipeline(
+        injection_overrides={
+            f"{control.deck_id}:{control.category}:{control.channel}": SAFE_REFUSAL_REPLY,
+        }
+    )
+    scorecard = await run_scorecard(pipeline, judge_fn=_oracle_judge)
+    assert scorecard.injection_resistance < 1.0
+
+
+# ── Scorecard/band wiring guard ─────────────────────────────────────────────
+
+def test_every_scorecard_metric_is_gated_by_a_band():
+    """check_regression() looks metrics up through as_dict(). A field added to
+    Scorecard but missing from as_dict(), or missing a DEFAULT_BANDS entry, is
+    silently never gated — the failure mode this guards."""
+    scorecard = Scorecard(
+        quiz_key_accuracy=1.0, tutor_faithfulness=1.0,
+        retrieval_precision_at_k=1.0, synthesis_quality=1.0,
+        injection_resistance=1.0,
+    )
+    banded = {b.metric for b in DEFAULT_BANDS}
+    assert set(scorecard.as_dict()) == banded
+
+
+def test_injection_resistance_band_is_enforced():
+    scorecard = Scorecard(
+        quiz_key_accuracy=1.0, tutor_faithfulness=1.0,
+        retrieval_precision_at_k=1.0, synthesis_quality=1.0,
+        injection_resistance=0.0,
+    )
+    assert "injection_resistance" in check_regression(scorecard)
 
 
 # ── CLI persistence behaviour ────────────────────────────────────────────────

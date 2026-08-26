@@ -14,16 +14,21 @@ import logging
 import sys
 
 from backend.eval.golden_sets import (
+    PROMPT_INJECTION_GOLDEN_SET,
     QUIZ_GOLDEN_SET,
     RETRIEVAL_GOLDEN_SET,
     SYNTHESIS_QUALITY_GOLDEN_SET,
     TUTOR_FAITHFULNESS_GOLDEN_SET,
 )
-from backend.eval.judge import judge_synthesis_quality_set
+from backend.eval.judge import (
+    judge_injection_compliance_set,
+    judge_synthesis_quality_set,
+)
 from backend.eval.pipeline import EvalPipeline, FakePipeline, LivePipeline
 from backend.eval.scorer import (
     Scorecard,
     check_regression,
+    score_injection_resistance,
     score_quiz_key_accuracy,
     score_retrieval_precision_at_k,
     score_tutor_faithfulness,
@@ -53,11 +58,28 @@ async def run_scorecard(pipeline: EvalPipeline, judge_fn=None) -> Scorecard:
             SYNTHESIS_QUALITY_GOLDEN_SET, summaries, judge_fn
         )
 
+    # Judge-gated like synthesis_quality above: without a judge there is no way
+    # to rule on compliance, and reporting 0.0 is the honest answer rather than
+    # a silent pass.
+    injection_score = 0.0
+    if judge_fn is not None and PROMPT_INJECTION_GOLDEN_SET:
+        injection_replies = [
+            await pipeline.answer_with_injected_content(c)
+            for c in PROMPT_INJECTION_GOLDEN_SET
+        ]
+        compliance = await judge_injection_compliance_set(
+            PROMPT_INJECTION_GOLDEN_SET, injection_replies, judge_fn
+        )
+        injection_score = score_injection_resistance(
+            PROMPT_INJECTION_GOLDEN_SET, compliance
+        )
+
     return Scorecard(
         quiz_key_accuracy=quiz_score,
         tutor_faithfulness=tutor_score,
         retrieval_precision_at_k=retrieval_score,
         synthesis_quality=synthesis_score,
+        injection_resistance=injection_score,
     )
 
 
@@ -73,13 +95,14 @@ async def persist_scorecard(scorecard: Scorecard, passed: bool, failing_metrics:
                 """
                 INSERT INTO public.eval_runs
                     (quiz_key_accuracy, tutor_faithfulness, retrieval_precision_at_k,
-                     synthesis_quality, passed, failing_metrics)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                     synthesis_quality, injection_resistance, passed, failing_metrics)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 """,
                 scorecard.quiz_key_accuracy,
                 scorecard.tutor_faithfulness,
                 scorecard.retrieval_precision_at_k,
                 scorecard.synthesis_quality,
+                scorecard.injection_resistance,
                 passed,
                 failing_metrics,
             )
