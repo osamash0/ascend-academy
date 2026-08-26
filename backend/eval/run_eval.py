@@ -12,7 +12,6 @@ import argparse
 import asyncio
 import logging
 import sys
-from typing import List
 
 from backend.eval.golden_sets import (
     QUIZ_GOLDEN_SET,
@@ -22,7 +21,13 @@ from backend.eval.golden_sets import (
 )
 from backend.eval.judge import judge_synthesis_quality_set
 from backend.eval.pipeline import EvalPipeline, FakePipeline, LivePipeline
-from backend.eval.scorer import Scorecard, check_regression, score_quiz_key_accuracy, score_retrieval_precision_at_k, score_tutor_faithfulness
+from backend.eval.scorer import (
+    Scorecard,
+    check_regression,
+    score_quiz_key_accuracy,
+    score_retrieval_precision_at_k,
+    score_tutor_faithfulness,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +61,7 @@ async def run_scorecard(pipeline: EvalPipeline, judge_fn=None) -> Scorecard:
     )
 
 
-async def persist_scorecard(scorecard: Scorecard, passed: bool, failing_metrics: List[str]) -> None:
+async def persist_scorecard(scorecard: Scorecard, passed: bool, failing_metrics: list[str]) -> None:
     """Best-effort: writes one row per run to `eval_runs` so scores are
     plottable over time. Never raises — a persistence failure shouldn't
     mask (or be masked by) the actual pass/fail signal from stdout/exit code."""
@@ -78,7 +83,10 @@ async def persist_scorecard(scorecard: Scorecard, passed: bool, failing_metrics:
                 passed,
                 failing_metrics,
             )
-    except Exception as exc:
+    # Blind catch IS the contract here (see docstring): narrowing it would let an
+    # unanticipated driver/network error escape and mask the run's real pass/fail
+    # signal, which is the opposite of the intent.
+    except Exception as exc:  # noqa: BLE001
         logger.warning("Failed to persist eval scorecard (continuing): %s", exc)
 
 
@@ -105,7 +113,14 @@ async def main_async(use_fake: bool) -> int:
     if failing:
         print(f"Regressed metrics: {', '.join(failing)}")
 
-    await persist_scorecard(scorecard, passed, failing)
+    # Fake mode is a smoke test of the harness itself, not a measurement.
+    # Persisting it would put synthetic scores in the same table real nightly
+    # runs write to, with no column distinguishing them — silently corrupting
+    # the only record of how AI quality moved over time.
+    if use_fake:
+        print("(fake mode: scorecard not persisted to eval_runs)")
+    else:
+        await persist_scorecard(scorecard, passed, failing)
     return 0 if passed else 1
 
 

@@ -20,7 +20,7 @@ from backend.eval.golden_sets import (
 )
 from backend.eval.judge import _parse_score, judge_synthesis_quality_set
 from backend.eval.pipeline import FakePipeline
-from backend.eval.run_eval import run_scorecard
+from backend.eval.run_eval import main_async, run_scorecard
 from backend.eval.scorer import (
     ScoreBand,
     check_regression,
@@ -28,7 +28,6 @@ from backend.eval.scorer import (
     score_retrieval_precision_at_k,
     score_tutor_faithfulness,
 )
-
 
 # ── Scorer unit tests ────────────────────────────────────────────────────────
 
@@ -158,3 +157,25 @@ async def test_judge_synthesis_quality_set_empty_cases_scores_zero():
         return "10"
 
     assert await judge_synthesis_quality_set([], [], fake_judge) == 0.0
+
+
+# ── CLI persistence behaviour ────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_fake_mode_does_not_persist_synthetic_scores(monkeypatch, capsys):
+    """`--fake` is a smoke test, not a measurement. Writing its synthetic
+    scores to eval_runs would make them indistinguishable from a real nightly
+    result in the only record of how AI quality moved over time."""
+    calls = []
+
+    async def _recording_persist(*args, **kwargs):
+        calls.append(args)
+
+    monkeypatch.setattr("backend.eval.run_eval.persist_scorecard", _recording_persist)
+
+    exit_code = await main_async(use_fake=True)
+
+    assert calls == []
+    # The scorecard itself must still be computed and reported.
+    assert "AI Eval Scorecard" in capsys.readouterr().out
+    assert exit_code in (0, 1)
