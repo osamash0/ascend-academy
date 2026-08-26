@@ -37,7 +37,12 @@ class AskRequest(BaseModel):
     question: str = Field(..., max_length=2_000)
     history: Optional[List[Dict[str, str]]] = None
     allow_ungrounded: bool = False
-    ai_model: str = "llama3"
+    # "llama3" used to be the default here, but it's a special-cased local
+    # Ollama path (orchestrator.py's _call_provider), not a cloud provider key
+    # in PROVIDER_REGISTRY - it fails wherever no local Ollama server is
+    # running, i.e. every real deployment. cerebras is QUALITY_CHAIN's head
+    # and confirmed reachable.
+    ai_model: str = "cerebras"
 
 
 @router.get("")

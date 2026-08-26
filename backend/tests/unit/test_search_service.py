@@ -112,6 +112,34 @@ async def test_ask_course_allows_in_scope_course(monkeypatch):
     assert result["grounded"] is True
 
 
+@pytest.mark.asyncio
+async def test_ask_course_default_ai_model_is_not_ollama_only(monkeypatch):
+    """A caller that omits ai_model (the router always supplies one, but
+    ask_course is a public function other code could call directly) must not
+    silently fall through to "llama3" - a special-cased local Ollama path
+    (orchestrator.py's _call_provider) that fails wherever no local Ollama
+    server is running, i.e. every real deployment."""
+    monkeypatch.setattr(
+        search_service, "_resolve_scope_course_ids", lambda *a, **kw: _immediate({"c1"})
+    )
+
+    async def _fake_retrieval(*a, **kw):
+        return [{"lecture_id": "l1", "slide_index": 0, "similarity": 0.9}]
+
+    captured = {}
+
+    async def _fake_chat(question, retrieved, **kw):
+        captured["ai_model"] = kw.get("ai_model")
+        return {"reply": "ok", "citations": [], "grounded": True}
+
+    monkeypatch.setattr(search_service, "retrieve_relevant_slides_course_scoped", _fake_retrieval)
+    monkeypatch.setattr(search_service, "chat_with_course", _fake_chat)
+
+    await search_service.ask_course("student-1", False, "c1", "What is X?")
+
+    assert captured["ai_model"] != "llama3"
+
+
 # ── global_search short-circuits ─────────────────────────────────────────────
 
 

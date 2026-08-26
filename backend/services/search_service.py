@@ -115,7 +115,11 @@ async def ask_course(
     question: str,
     *,
     chat_history: Optional[List[Dict[str, str]]] = None,
-    ai_model: str = "llama3",
+    # Same reasoning as search.py's AskRequest.ai_model: "llama3" is a local
+    # Ollama-only path, not a cloud provider - keeping this default in sync
+    # with the router's so a caller that invokes this function directly
+    # (bypassing the router) doesn't reintroduce the same broken path.
+    ai_model: str = "cerebras",
     allow_ungrounded: bool = False,
 ) -> Dict[str, Any]:
     """Course-wide grounded tutor. Raises `PermissionError` if the caller
