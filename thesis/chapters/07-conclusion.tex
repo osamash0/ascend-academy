@@ -1,0 +1,50 @@
+\chapter{Conclusion and Outlook}
+\label{ch:conclusion}
+
+\section{Summary}
+\label{sec:summary}
+
+\TODO{Answer RQ1 directly in a short paragraph, then summarise the contributions:
+an asynchronous, content-addressed ingestion pipeline with layered idempotency;
+a retrieval-grounded tutor with four distinct groundedness mechanisms; and a
+systematic audit method that separates implemented from delivered behaviour.}
+
+\section{Contributions}
+\label{sec:contributions}
+
+\TODO{State them as claims a reader can check, not as activities. "Implemented a
+pipeline" is an activity. "Demonstrated that six independent idempotency
+mechanisms across four layers make repeated ingestion of identical input free,
+including under concurrent workers" is a claim.}
+
+\section{Limitations}
+\label{sec:limitations}
+
+\TODO{Consolidate from \cref{sec:threats} and be concrete. The ones that matter:
+no learning-outcome study; prompt-level injection defences are mitigations
+rather than guarantees; the human review step cannot gate publication; and
+several implemented features are undeployed, so their behaviour at real usage is
+unobserved.}
+
+\section{Future Work}
+\label{sec:future-work}
+
+\TODO{Prefer items this thesis has already shown to be necessary over generic
+wishes. Strong candidates, each traceable to a finding:
+(1) surface citations in the student interface, closing the gap in
+\cref{sec:citation-gap};
+(2) introduce a draft/published state so review becomes a real gate
+(\cref{sec:review});
+(3) decouple the provider chain into genuinely independent failure domains and
+classify authentication and payment failures (\cref{sec:provider-strategy});
+(4) run the empirical study designed in \cref{sec:unanswered};
+(5) generate architecture documentation from code so the drift measured in
+\cref{sec:reality-vs-documented} cannot recur.}
+
+\section{Reflection}
+\label{sec:reflection}
+
+\TODO{Optional, and only if your institute welcomes it --- some do, some regard
+it as padding. If included, the honest reflection worth writing is what the
+audit taught about the gap between what a developer believes a system does and
+what it does, and why documentation is not evidence.}
