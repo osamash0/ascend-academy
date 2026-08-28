@@ -1,0 +1,38 @@
+% =============================================================================
+%  Title-page data — the single place to edit names, dates and affiliations.
+%  Referenced by frontmatter/titlepage.tex and by hyperref's PDF metadata.
+% =============================================================================
+
+\newcommand{\thesisTitle}{From Lecture Materials to Structured Educational Content}
+\newcommand{\thesisSubtitle}{Design and Implementation of an AI-Assisted Learning Platform}
+\newcommand{\thesisType}{Bachelor Thesis}
+\newcommand{\thesisDegree}{Bachelor of Science}
+\newcommand{\thesisProgram}{Informatik}
+
+\newcommand{\thesisAuthor}{Abdullah Abobaker}
+\newcommand{\thesisMatriculation}{\TODO{matriculation number}}
+
+\newcommand{\thesisUniversity}{\TODO{university}}
+\newcommand{\thesisFaculty}{\TODO{faculty / department}}
+\newcommand{\thesisSupervisor}{\TODO{first supervisor}}
+\newcommand{\thesisSecondSupervisor}{\TODO{second supervisor}}
+
+\newcommand{\thesisPlace}{\TODO{place}}
+\newcommand{\thesisSubmissionDate}{\TODO{submission date}}
+
+% The commit the implementation chapters describe. Every architectural claim in
+% this thesis was verified against code at this revision — state it explicitly
+% so a reader can reproduce the inspection.
+\newcommand{\thesisCommit}{0be0081}
+
+% --- Before submitting --------------------------------------------------------
+% Uncomment to hide every \TODO{} marker, then read the PDF looking for holes.
+% \todosoff
+
+\hypersetup{
+  pdftitle={\thesisTitle},
+  pdfauthor={\thesisAuthor},
+  pdfsubject={\thesisSubtitle},
+  pdfkeywords={AI-assisted learning, document AI, retrieval-augmented generation,
+               educational content generation, LLM pipeline},
+}
