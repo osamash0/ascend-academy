@@ -14,21 +14,42 @@ EMBEDDING_MODEL = "gemini-embedding-001"
 EMBEDDING_DIMS = 768
 
 
+class EmbeddingUnavailableError(RuntimeError):
+    """No embedding could be produced (missing credentials, or empty input).
+
+    Raised instead of returning a zero vector. A zero vector is not a
+    harmlessly-useless row: pgvector's cosine distance against it is NaN, and
+    Postgres treats `NaN > threshold` as TRUE, so it survives the very
+    similarity filter that exists to drop irrelevant slides. It does sort
+    last (the retrieval RPC orders by distance ascending, where NaN is
+    largest), so it cannot displace a genuine match — but it fills leftover
+    top-k slots whenever fewer slides clear the threshold than were
+    requested, injecting a semantically unrelated slide into the tutor's
+    grounding context precisely when the tutor should be reporting the topic
+    as uncovered.
+
+    Callers that must not fail (e.g. `_safe_embedding_task`) should catch
+    this and queue the slide for retry, leaving no row behind — see
+    backend/tests/db/test_zero_vector_retrieval_hazard.py, which pins both
+    halves of that behaviour against a real Postgres.
+    """
+
+
 def _sync_generate_embeddings(text: str) -> List[float]:
     """Synchronous implementation of Gemini embedding generation.
 
-    Returns a 768-zero vector ONLY when the Gemini client is not configured
-    (no GEMINI_API_KEY → `gemini_client is None`). Any other failure — bad
-    model name, network error, malformed response — is re-raised so the
-    caller sees the real failure instead of silently writing useless
-    all-zero vectors into pgvector and poisoning semantic-cache + RAG.
+    Never returns a zero vector. An unconfigured client raises
+    `EmbeddingUnavailableError`; every other failure — bad model name,
+    network error, malformed response — propagates as-is so the caller sees
+    the real fault instead of silently writing useless all-zero vectors into
+    pgvector and poisoning semantic-cache + RAG.
     """
     if not gemini_client:
-        logger.warning(
-            "generate_embeddings: GEMINI_API_KEY not set — returning zero vector. "
-            "AI Tutor semantic search will be degraded until a key is configured."
+        raise EmbeddingUnavailableError(
+            "GEMINI_API_KEY is not configured, so no embedding can be produced. "
+            "Refusing to return a zero vector: it would survive the retrieval "
+            "similarity filter rather than simply being ignored."
         )
-        return [0.0] * EMBEDDING_DIMS
 
     # First try with explicit output_dimensionality; older SDKs don't ship
     # EmbedContentConfig and will raise ImportError/TypeError — for *those*
@@ -81,10 +102,16 @@ async def generate_embeddings(text: str) -> List[float]:
     """Asynchronous wrapper for embedding generation.
 
     Propagates exceptions to the caller so they can be handled, logged,
-    and queued for retries appropriately.
+    and queued for retries appropriately. Blank input raises rather than
+    returning a zero vector — callers already skip empty slide text
+    upstream (`_safe_embedding_task` returns early on falsy text), so this
+    only closes the hole for future callers that forget to check.
     """
     if not text.strip():
-        return [0.0] * EMBEDDING_DIMS
+        raise EmbeddingUnavailableError(
+            "Refusing to embed blank text: the result would be a zero vector, "
+            "which survives pgvector's similarity filter instead of being ignored."
+        )
     return await asyncio.to_thread(_sync_generate_embeddings, text)
 
 

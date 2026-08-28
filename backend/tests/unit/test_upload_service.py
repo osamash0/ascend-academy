@@ -135,6 +135,24 @@ async def test_validate_upload_rejects_corrupt_header_pdf():
 
 # ── validate_upload / _validate_pptx (PPTX) ──────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def _pptx_converter_available(monkeypatch):
+    """Pin LibreOffice as present for every test in this module.
+
+    `validate_upload` rejects .pptx outright when soffice is missing — the
+    state of every Docker deployment, since the image ships curl only.
+    Without this pin the .pptx tests below would pass on a dev Mac with
+    LibreOffice installed and fail in CI without it: same assertion,
+    different meaning per environment. The guard itself is covered in
+    backend/tests/unit/test_office_convert.py.
+
+    Harmless for this module's PDF tests — they never reach that branch.
+    """
+    from backend.services import office_convert
+
+    monkeypatch.setattr(office_convert, "is_available", lambda: True)
+
+
 def _pptx_bytes(n_slides: int) -> bytes:
     from pptx import Presentation
 

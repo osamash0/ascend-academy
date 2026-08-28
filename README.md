@@ -39,7 +39,7 @@
 ### Backend
 - **FastAPI** (Python 3.11+) with Pydantic v2
 - **Content Processing** — PyMuPDF-based parsing pipeline (`PARSER_VERSION=5` default; Docling available for the v3/v4 pipelines via the full `backend/requirements.txt`, not included in the Docker image)
-- **LLM Integration** — LiteLLM proxy with Gemini/Groq/Cerebras fallback
+- **LLM Integration** — provider APIs called directly from `backend/services/ai/orchestrator.py`, with a 9-entry failover chain (Cerebras → Groq → Cloudflare → Gemini → Mistral → OpenRouter → OpenAI), per-provider rate-limit backoff and cost accounting. *No gateway sits in this path* — the LiteLLM container was removed 2026-08-25 after it was found to have no live callers.
 - **Job Queue** — Arq (Redis) for durable async processing
 - **Vector Search** — pgvector for grounded RAG
 
@@ -47,8 +47,7 @@
 - **Database**: Supabase (PostgreSQL 15+) with pgvector
 - **Authentication**: Supabase Auth
 - **File Storage**: Supabase Storage for slide images
-- **Message Queue**: Redis (Arq workers)
-- **LLM Gateway**: LiteLLM (local or remote)
+- **Message Queue**: Redis (two instances — an evictable LRU cache and a durable `noeviction` Arq broker)
 
 ## 🏁 Getting Started
 
@@ -61,7 +60,7 @@
 
 ### Run with Docker (Recommended)å
 
-The full stack (frontend, backend API, Redis, LiteLLM gateway, Arq worker) starts with one command:
+The full stack (frontend, backend API, both Redis instances, Arq worker) starts with one command:
 
 ```bash
 # 1. Copy and configure environment
@@ -95,8 +94,8 @@ Services will be available at:
 |---------|-----|
 | Frontend (nginx) | http://localhost:3000 |
 | Backend API | http://localhost:8000 |
-| LiteLLM gateway | http://localhost:4000 |
-| Redis | localhost:6379 |
+| Redis (cache) | localhost:6379 |
+| Redis (Arq queue) | localhost:6380 |
 
 ### Manual Setup (Development)
 
@@ -124,9 +123,9 @@ Services will be available at:
    npm install
    ```
 
-4. **Start infrastructure** (Redis + LiteLLM)
+4. **Start infrastructure** (both Redis instances)
    ```bash
-   docker compose up redis litellm -d
+   docker compose up redis redis-queue -d
    ```
 
 5. **Start the Backend**
@@ -177,9 +176,8 @@ Services will be available at:
 | `GEMINI_API_KEY` | ✓ | [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | `DATABASE_URL` | optional | Supabase → Database → connection string. Enables the asyncpg pool; without it the API logs a warning and uses PostgREST only |
 | `GROQ_API_KEY` | optional | [console.groq.com](https://console.groq.com) (fallback LLM) |
-| `OPENAI_API_KEY` | optional | [platform.openai.com](https://platform.openai.com) (used by LiteLLM) |
+| `OPENAI_API_KEY` | optional | [platform.openai.com](https://platform.openai.com) (last entry in both failover chains) |
 | `LLAMA_CLOUD_API_KEY` | optional | [cloud.llamaindex.ai](https://cloud.llamaindex.ai) (for enhanced parsing) |
-| `LITELLM_MASTER_KEY` | optional | Any value; auth for the LiteLLM gateway |
 | `PARSER_VERSION` | optional | PDF pipeline version, default `5`. Versions 3/4 need the full `requirements.txt` (Docling) and don't work in the Docker image |
 | `ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGINS` | optional | Comma-separated CORS allowlist (dev / prod compose respectively); defaults to localhost dev ports |
 | `NUDGE_RUN_SECRET` | optional | Shared secret for the `/nudges/run` scheduler endpoint; the endpoint fails closed (404) when unset |
@@ -191,7 +189,7 @@ All others default to sensible development values — `.env.example` documents t
 
 ```bash
 # Start only infrastructure, run backend locally
-docker compose up redis litellm -d
+docker compose up redis redis-queue -d
 
 # Tail worker logs
 docker compose logs -f worker

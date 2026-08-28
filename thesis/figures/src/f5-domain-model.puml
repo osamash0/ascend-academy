@@ -1,0 +1,81 @@
+' F5 -- Conceptual domain model.
+' Chapter 3 (Requirements). UML class diagram.
+' Claim supported: the domain vocabulary and its multiplicities, at analysis
+' level. Deliberately distinct from F9 (the physical ER schema) -- this one
+' names concepts, including one (Quiz) that has no table behind it.
+@startuml f5-domain-model
+!include _style.iuml
+
+title Conceptual domain model
+
+hide methods
+skinparam classAttributeIconSize 0
+
+class User {
+  role : student | professor | admin
+}
+class Course
+class Lecture {
+  visibility : course | private_student
+}
+class Slide {
+  slideNumber
+  needsReview
+}
+class Quiz <<derived>> #DCDCDC
+class Question {
+  options[4]
+  correctAnswer
+}
+class Concept
+class Embedding {
+  vector : 768
+}
+
+class Attempt <<abstract>>
+class QuizAttempt
+class ExamAttempt
+class ReviewGrade {
+  rating : 1..4
+}
+
+User "1" -- "0..*" Course : owns >
+User "0..*" -- "0..*" Course : enrolled in >
+Course "1" -- "0..*" Lecture : contains >
+Lecture "1" -- "1..*" Slide : contains >
+Slide "1" -- "0..*" Question : tests >
+Lecture "1" -- "0..*" Embedding : vectorised as >
+Slide "0..*" -- "0..*" Concept : teaches >
+
+Quiz .. Slide : "//derived//: the set of\nQuestions reachable via\nSlide.lecture"
+
+Attempt <|-- QuizAttempt
+Attempt <|-- ExamAttempt
+Attempt <|-- ReviewGrade
+User "1" -- "0..*" Attempt : performs >
+Question "1" -- "0..*" Attempt : answered in >
+
+note right of Quiz
+  **No Quiz table exists.**
+  A quiz is implicit — the set of
+  quiz_questions joined through
+  slides.lecture_id. Modelled here
+  because it is real domain
+  vocabulary, but it must not appear
+  as an entity in F9.
+end note
+
+note bottom of Concept
+  Concept and its links are **write-idle by default**:
+  ingestion is gated behind FEATURE_COURSE_BRAIN (off),
+  so in a default deployment no Slide teaches any Concept.
+  That single default also empties concept mastery — see F17.
+end note
+
+legend bottom
+  Analysis-level model: names the domain, not the tables. Compare F9, which shows the
+  26 physical tables actually deployed, three unenforced relationships, and the four
+  dead tables excluded from it.
+endlegend
+
+@enduml

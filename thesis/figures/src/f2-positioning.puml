@@ -1,0 +1,56 @@
+' F2 -- Positioning within the surrounding solution space.
+' Chapter 2 (Foundations / Related Work). Concept diagram.
+' Claim supported: the system occupies the gap between document-conversion
+' tooling (structure without pedagogy) and learning platforms (pedagogy
+' without ingestion) -- it derives assessable objects from raw lecture PDFs.
+'
+' NOTE FOR THE AUTHOR: the four quadrant families below are grounded in this
+' system's own capabilities and its actual dependency set. The specific named
+' exemplars you cite in each family must come from YOUR related-work reading --
+' do not present this figure as a literature survey it is not.
+@startuml f2-positioning
+!include _style.iuml
+
+title Positioning: structure versus pedagogy
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+}
+
+rectangle "**Document conversion / layout AI**\nPDF to markup or markdown\n----\nRecovers //structure//: pages, blocks,\ntables, reading order.\nProduces no assessable objects.\nNo learner model.\n\n//This system consumes tools from this\nfamily: PyMuPDF for extraction, and\nMarkItDown / LlamaParse / MinerU /\nOpenDataLoader as swappable text\nfront-ends.//" as DOC #F2F2F2
+
+rectangle "**Learning platforms / LMS**\ncourses, enrolment, grading\n----\nRich //pedagogy//: assignments,\nprogress, analytics, spaced review.\nAssumes content is **already**\nauthored and structured.\nIngestion is a manual upload." as LMS #F2F2F2
+
+rectangle "**Retrieval-augmented QA**\ngrounded answers over a corpus\n----\nAnswers //questions// over documents.\nOptimises faithfulness and citation.\nDoes not durably materialise\nreusable learning objects." as RAG #F2F2F2
+
+rectangle "**THIS WORK**\nlecture materials to structured\neducational content\n----\n• ingests raw slide decks as the //primary// input\n• materialises persistent, addressable objects:\n  slides, MCQs with Bloom levels, embeddings\n• layers pedagogy on the derived objects:\n  grounded tutor, SM-2 review, mock exams\n• keeps a human-in-the-loop correction path\n• server-authoritative: the database defines\n  what a slide //is// once parsed" as THIS #BFBFBF
+
+DOC -[#1A1A1A]-> THIS : "structure,\nbut no pedagogy"
+LMS -[#1A1A1A]-> THIS : "pedagogy,\nbut no ingestion"
+RAG -[#1A1A1A]-> THIS : "grounded answers,\nbut nothing persisted"
+
+note bottom of THIS
+  The distinguishing move is **materialisation**. A RAG system
+  answers a question and forgets; this pipeline writes durable
+  objects that several independent features then consume — the
+  same quiz_questions rows feed in-lecture quizzes, the SRS card
+  factory (with no further LLM call) and mock-exam sampling.
+  One extraction, many pedagogical uses.
+end note
+
+note as CAVEAT
+  **Author's note — not a literature survey.**
+  These four families are derived from this system's
+  own capabilities and dependency set, not from a
+  citation search. Populate each family with the
+  specific works you cite in Chapter 2, and check
+  that the boundaries still hold once you do.
+end note
+
+CAVEAT .. DOC
+
+legend bottom
+  Grayscale-safe: families are distinguished by position and label, not by fill.
+endlegend
+
+@enduml

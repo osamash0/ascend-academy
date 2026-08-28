@@ -1,0 +1,69 @@
+' F1 -- The transformation: lecture materials to structured educational content.
+' HERO FIGURE. Chapter 1 (Introduction).
+' Claim supported: the thesis title made visual. One opaque artefact in, a set
+' of addressable, queryable learning objects out -- and the capabilities each
+' output unlocks.
+@startuml f1-transformation
+!include _style.iuml
+
+title From lecture materials to structured educational content
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+}
+
+rectangle "**INPUT** — one opaque artefact" as IN #F2F2F2 {
+  rectangle "**Lecture slide deck (PDF)**\n1–300 pages\n----\n• text trapped in page layout\n• no slide boundaries as data\n• no notion of a //concept//\n• not addressable, not queryable\n• readable by humans, opaque to software" as A
+}
+
+rectangle "**TRANSFORMATION**" as MID #DCDCDC {
+  rectangle "1. Extract\nper-page text (PyMuPDF)" as T1
+  rectangle "2. Route\ntext-bearing vs image-only" as T2
+  rectangle "3. Synthesise\nbatched LLM, 8 slides/call" as T3
+  rectangle "4. Embed\n768-dim vectors" as T4
+  T1 -[#1A1A1A]-> T2
+  T2 -[#1A1A1A]-> T3
+  T3 -[#1A1A1A]-> T4
+}
+
+rectangle "**OUTPUT** — addressable learning objects" as OUT #F2F2F2 {
+  rectangle "**Slide records**\ntitle · body · summary\n//trust flags: needs_review, vision_routed//" as B1
+  rectangle "**Quiz questions**\n4-option MCQ, one per slide\n//tagged by Bloom level + concept//" as B2
+  rectangle "**Slide embeddings**\npgvector 768, HNSW index" as B3
+  rectangle "**Deck metadata**\ntitle · summary · key topics" as B4
+}
+
+rectangle "**CAPABILITIES UNLOCKED**" as CAP #BFBFBF {
+  rectangle "Grounded Socratic tutor\n//retrieval-scoped, citation-checked//" as C1
+  rectangle "Spaced repetition\n//SM-2 over quiz-derived cards//" as C2
+  rectangle "Mock exams\n//coverage-first, weakness-weighted//" as C3
+  rectangle "Professor analytics\n//per-slide engagement//" as C4
+}
+
+A -[#1A1A1A]-> T1
+T4 -[#1A1A1A]-> B3
+T3 -[#1A1A1A]-> B1
+T3 -[#1A1A1A]-> B2
+T3 -[#1A1A1A]-> B4
+
+B3 -[#1A1A1A]-> C1
+B2 -[#1A1A1A]-> C2
+B2 -[#1A1A1A]-> C3
+B1 -[#1A1A1A]-> C4
+
+note right of MID
+  The transformation is **one-way and
+  server-authoritative**: the database is
+  the single source of truth for what a
+  slide "is" once parsed
+  (parser/persist.py:5). The client never
+  supplies structured content — it can
+  only correct it afterwards.
+end note
+
+legend bottom
+  Every output object is independently addressable, which is what makes the
+  capabilities on the right possible at all. The input PDF supports none of them.
+endlegend
+
+@enduml

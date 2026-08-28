@@ -62,15 +62,15 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 GEMINI_API_KEY=your_gemini_api_key
 GROQ_API_KEY=your_groq_key (optional)
 REDIS_URL=redis://localhost:6379
-LITELLM_BASE_URL=http://localhost:4000
+REDIS_QUEUE_URL=redis://localhost:6380
 PARSER_VERSION=5   # default; see "Parser Version" below
 ```
 
 ### 4. Run Infrastructure
 
 ```bash
-# In one terminal, start Redis + LiteLLM
-docker compose up redis litellm -d
+# In one terminal, start both Redis instances
+docker compose up redis redis-queue -d
 ```
 
 ### 5. Run the Server
@@ -190,7 +190,6 @@ ORDER BY day DESC;
 |-------|----------|
 | Port 8000 already in use | `lsof -i :8000` and kill the process, or use `--port 8001` |
 | Redis connection refused | Ensure `docker compose up redis -d` is running |
-| LiteLLM 404 errors | Start with `docker compose up litellm -d` |
 | Supabase auth errors | Verify `SUPABASE_SERVICE_ROLE_KEY` has service_role permissions |
 | Memory issues during parse | Reduce `extract_sem` and `vision_sem` concurrency limits |
 

@@ -1,0 +1,79 @@
+' F7 -- Production deployment topology.
+' Chapter 4 (Design). UML deployment diagram.
+' Claim supported: the deployed system is five containers on one small VM plus
+' managed Supabase, with TLS terminated by a host proxy that is not in version
+' control. Notably NOT what three of the four compose files claim.
+@startuml f7-deployment
+!include _style.iuml
+
+title Production deployment topology (as actually deployed)
+
+node "Client device" as CL {
+  artifact "Browser\nReact SPA (hashed assets)" as BR
+}
+
+cloud "Internet" as NET
+
+node "**Hetzner CX23** — 4 GB / 2 vCPU, Germany" as HOST {
+  artifact "**Host reverse proxy** (TLS)\n⚠ not in version control" as PROXY #DCDCDC
+
+  node "Docker — bridge network ascend_net" as DOCK {
+    artifact "**frontend**\nnginx 1.27-alpine\nstatic bundle + /api/ proxy\npublishes 127.0.0.1:3000 only" as FE
+    artifact "**api**\nFastAPI, uvicorn --workers 1\n512M / 1.0 cpu\nno published port" as API
+    artifact "**worker**\narq, max_jobs 4\n512M / 1.0 cpu" as WK
+    database "**redis**\ncache, allkeys-lru\n256M" as RC
+    queue "**redis-queue**\nbroker, noeviction + AOF\n160M" as RQ
+  }
+  artifact "volume redis_data" as V1
+  artifact "volume redis_queue_data" as V2
+}
+
+cloud "**Supabase** (managed, external)\nPostgres 15 + pgvector\nAuth · Storage · PostgREST" as SB
+cloud "**LLM providers** (external)\n7 vendors, direct HTTPS" as LLM
+
+BR --> NET
+NET --> PROXY
+PROXY --> FE : "127.0.0.1:3000"
+FE --> API : "proxy /api/\n**prefix NOT stripped**"
+API --> RC
+API --> RQ
+WK --> RQ
+WK --> RC
+RC -- V1
+RQ -- V2
+
+API --> SB
+WK --> SB
+API --> LLM
+WK --> LLM
+BR --> SB : "auth + direct reads\n(anon key baked into bundle)"
+
+note right of HOST
+  **Container memory now sums to ~1.4 GB.**
+  The LiteLLM gateway (1 GB / 0.75 vCPU) was
+  removed 2026-08-25 — it had no live callers
+  yet gated api and worker startup via
+  depends_on: service_healthy.
+end note
+
+note bottom of DOCK
+  **Traps when reading this from the repo.**
+  • docker-compose.prod.yml:3 says "shared university server";
+    the real host is Hetzner (docs/GDPR_DATA_PROTECTION.md:8).
+    docker-compose.oracle.yml claims Oracle A1 ARM. Three files,
+    three stated targets, one actual host.
+  • docker-compose.staging.yml is not deployable: it sets
+    network_mode host AND ports (mutually exclusive) and names
+    services it never defines.
+  • Dockerfile CMD says --workers 2; every compose overrides to 1.
+  • Prometheus/Grafana exist in the dev compose only. /metrics is
+    always exposed and unauthenticated, but nothing scrapes it in prod.
+end note
+
+legend bottom
+  nginx forwards the request URI verbatim despite its own comment claiming it strips
+  the /api prefix — and not stripping is what makes it work, since FastAPI mounts
+  everything at /api/v1.
+endlegend
+
+@enduml

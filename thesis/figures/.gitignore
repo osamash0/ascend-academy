@@ -1,0 +1,12 @@
+# Review artefacts: regenerate with `make svg`. Only used to eyeball figures in
+# a browser gallery; never referenced by the thesis document itself.
+*.svg
+
+# Stray renders inside src/. The Makefile writes output to this directory (the
+# figures/ root) via -o; running plantuml by hand from inside src/ drops copies
+# there instead. Ignore them so they cannot be committed twice.
+src/*.pdf
+src/*.svg
+
+# Figure PDFs in this directory ARE committed (~125 KB total) so the thesis
+# compiles without needing Java and the PlantUML jar on hand.

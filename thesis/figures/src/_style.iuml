@@ -1,0 +1,107 @@
+' Shared style for all thesis figures.
+' Design constraint: GRAYSCALE-SAFE. Theses get printed and photocopied, so no
+' distinction may rely on hue alone -- every difference is also carried by
+' border weight, line style, shape or an explicit label.
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 11
+skinparam roundCorner 3
+skinparam padding 3
+skinparam nodesep 18
+skinparam ranksep 24
+
+skinparam ArrowColor #1A1A1A
+skinparam ArrowFontSize 10
+skinparam ArrowFontColor #333333
+
+skinparam TitleFontSize 14
+skinparam TitleFontStyle bold
+
+' --- neutral fills, light to dark ---
+!$FILL_PLAIN = "#FFFFFF"
+!$FILL_SOFT  = "#F2F2F2"
+!$FILL_MID   = "#DCDCDC"
+!$FILL_DARK  = "#BFBFBF"
+!$LINE       = "#1A1A1A"
+
+skinparam rectangle {
+  BackgroundColor $FILL_PLAIN
+  BorderColor $LINE
+  BorderThickness 1
+  FontSize 11
+}
+skinparam component {
+  BackgroundColor $FILL_SOFT
+  BorderColor $LINE
+  BorderThickness 1
+}
+skinparam database {
+  BackgroundColor $FILL_SOFT
+  BorderColor $LINE
+}
+skinparam queue {
+  BackgroundColor $FILL_SOFT
+  BorderColor $LINE
+}
+skinparam cloud {
+  BackgroundColor $FILL_PLAIN
+  BorderColor $LINE
+}
+skinparam node {
+  BackgroundColor $FILL_PLAIN
+  BorderColor $LINE
+}
+skinparam actor {
+  BackgroundColor $FILL_PLAIN
+  BorderColor $LINE
+}
+skinparam usecase {
+  BackgroundColor $FILL_PLAIN
+  BorderColor $LINE
+}
+skinparam activity {
+  BackgroundColor $FILL_SOFT
+  BorderColor $LINE
+  DiamondBackgroundColor $FILL_PLAIN
+  DiamondBorderColor $LINE
+}
+skinparam state {
+  BackgroundColor $FILL_SOFT
+  BorderColor $LINE
+  FontSize 11
+}
+skinparam sequence {
+  ArrowColor $LINE
+  LifeLineBorderColor #999999
+  LifeLineBackgroundColor $FILL_SOFT
+  ParticipantBackgroundColor $FILL_SOFT
+  ParticipantBorderColor $LINE
+  ActorBackgroundColor $FILL_PLAIN
+  ActorBorderColor $LINE
+  BoxBackgroundColor #FAFAFA
+  BoxBorderColor #999999
+  GroupBackgroundColor $FILL_MID
+  GroupBorderColor $LINE
+  DividerBackgroundColor $FILL_MID
+}
+skinparam note {
+  BackgroundColor #FCFCFC
+  BorderColor #666666
+  FontSize 10
+}
+skinparam legend {
+  BackgroundColor #FCFCFC
+  BorderColor #666666
+  FontSize 10
+}
+skinparam class {
+  BackgroundColor $FILL_PLAIN
+  BorderColor $LINE
+  AttributeFontSize 10
+}
+skinparam partition {
+  BorderColor $LINE
+  FontStyle bold
+}

@@ -1,3 +1,18 @@
+# =============================================================================
+# LEGACY — NOT USED BY ANY LIVE CODE PATH (as of 2026-08-25)
+#
+# The LiteLLM gateway container was removed from every compose file. The stage
+# aliases below (stage-text, stage-vision, stage-outline, stage-deck) are
+# referenced only from backend/_legacy/, which nothing live imports. The live
+# LLM path is backend/services/ai/orchestrator.py, which calls each provider's
+# API directly over HTTPS with its own failover chain.
+#
+# Retained rather than deleted, matching this repo's flag-not-delete
+# convention for the archived v3/v4 pipeline (see
+# backend/services/parser/__init__.py). Reviving that pipeline also requires
+# restoring the container to the compose files.
+# =============================================================================
+#
 # LiteLLM proxy configuration for the v3 pipeline.
 #
 # Each stage gets a named model alias and a fallback chain.
@@ -6,8 +21,6 @@
 #
 # Run with:
 #   litellm --config litellm/config.yaml --port 4000
-#
-# Or via docker-compose (see docker-compose.yml).
 
 model_list:
 

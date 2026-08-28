@@ -34,10 +34,19 @@ edge-tts>=6.1,<8.0
 slowapi>=0.1.9,<0.2
 tenacity==8.2.3
 tiktoken==0.8.0
-pytesseract==0.3.10
 arq>=0.26,<0.27
-litellm>=1.40,<2.0
 openai>=1.50.0,<2.0
+# pytesseract removed 2026-08-25: its only consumer is
+# backend/services/ocr_fallback.py, imported solely by the retired v2
+# `parse_pdf_stream` (backend/services/file_parse_service.py:82) which has no
+# live callers. The Tesseract *binary* was never in the image either, so the
+# package could not have worked regardless. Scanned slides are handled by the
+# vision models (backend/services/ai/vision.py).
+#
+# litellm removed 2026-08-25: the gateway container was deleted from every
+# compose file. LITELLM_BASE_URL was referenced only from backend/_legacy/;
+# the live path (backend/services/ai/orchestrator.py) calls provider APIs
+# directly. See docker-compose.prod.yml for the full rationale.
 sentry-sdk>=2.0.0,<3.0
 python-json-logger>=3.0  # required by backend/core/logging_config.py
 

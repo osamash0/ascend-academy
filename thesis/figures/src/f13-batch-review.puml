@@ -1,0 +1,89 @@
+' F13 -- Professor batch review of AI-extracted content.
+' Chapter 5 (Implementation). UML activity diagram.
+' Claim supported: the human-in-the-loop step is CORRECTIVE, not GATING.
+' AI-extracted content is student-visible from the moment the parse finishes;
+' "Done reviewing" is a localStorage flag, not a publish action.
+@startuml f13-batch-review
+!include _style.iuml
+
+title Batch review — corrective, not gating
+
+|#F2F2F2|Professor|
+start
+:upload N files at /professor/upload;
+
+|#DCDCDC|Pipeline (per file)|
+:one parse_runs row per file,\nsharing a batch_id;
+:parse, synthesise, persist\nlectures + slides + quiz_questions;
+:**lecture is LIVE in its course**\n**the moment the job finishes**;
+note right
+  There is no draft/published state —
+  the schema has only is_archived.
+  Stated verbatim at
+  BatchReviewPage.tsx:22-30.
+  Students can read the AI's output
+  **before** any human looks at it.
+end note
+
+|#F2F2F2|Professor|
+:open /professor/upload/batch/[id]/review;
+
+|#DCDCDC|Backend|
+:GET /upload/batches/[id]\nscoped by batch_id AND user_id;
+:aggregate per lecture:\nslide_count, quiz_count,\nflagged_count;
+note right
+  flagged = ai_enhanced IS false
+  OR needs_review IS true
+  → Skip-AI import, synthesis
+  failure, vision rescue, or
+  empty output.
+end note
+
+|#F2F2F2|Professor|
+:review cards, one per batch member;
+if (card state?) then (still processing)
+  :"Still processing" card,\nno editor link;
+  stop
+elseif (failed) then
+  :failure card;
+  stop
+else (completed)
+endif
+
+:open the editor for a lecture;
+:toggle "show only flagged";
+:correct title / body / summary / MCQs\n(AI assists available in-editor);
+:save;
+
+|#DCDCDC|Backend|
+:minimal diff patch — only changed fields:\ntitle, content_text, summary, slide_number;
+:update or insert quiz_questions\n(unchanged questions skipped);
+:**needs_review is never cleared**;
+note right
+  saveExistingLecture patches only the
+  four fields above (lectureService.ts:644-648).
+  A corrected slide stays flagged forever, so
+  the editor's "auto-reset when the last flagged
+  slide is resolved" branch is unreachable
+  through editing.
+end note
+
+|#F2F2F2|Professor|
+:click "Done reviewing";
+:written to **localStorage only**\nkey ascend_batch_reviewed_[batchId];
+note right
+  Non-authoritative: another browser,
+  another device, or a cleared cache
+  shows the batch as unreviewed again.
+  Nothing server-side records that a
+  human approved this content.
+end note
+stop
+
+legend bottom
+  For a thesis about turning lecture materials into educational content, the ordering
+  here is a first-order finding: the human-in-the-loop is positioned AFTER publication,
+  so the review step can correct errors but cannot prevent students seeing them.
+endlegend
+
+@enduml
