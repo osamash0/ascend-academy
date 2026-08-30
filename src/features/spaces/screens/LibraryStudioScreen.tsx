@@ -11,6 +11,7 @@ import {
   Unlink,
   Upload,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { draftsAcrossSpaces, impactRows, uploadRows } from '../mocks/library';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
@@ -82,6 +83,31 @@ function EmptyState({ icon: Icon, title, body }: { icon: typeof Upload; title: s
 export default function LibraryStudioScreen() {
   const { view } = useParams<{ view: View }>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  /**
+   * Rows removed this session. Undo restores them, so nothing destructive is
+   * one click from permanent — the same reason delete-a-Space demands the name
+   * typed out. Kept as ids rather than filtering the source, so Undo is a
+   * deletion from this set rather than a re-insert that would lose the order.
+   */
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
+
+  /** Remove now, offer it back. */
+  const removeRows = (ids: string[], verb: string, describe: string) => {
+    setRemoved((prev) => new Set([...prev, ...ids]));
+    setSelected(new Set());
+    toast(`${verb} ${ids.length} ${ids.length === 1 ? 'item' : 'items'}`, {
+      description: describe,
+      action: {
+        label: 'Undo',
+        onClick: () =>
+          setRemoved((prev) => {
+            const next = new Set(prev);
+            for (const id of ids) next.delete(id);
+            return next;
+          }),
+      },
+    });
+  };
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -91,9 +117,13 @@ export default function LibraryStudioScreen() {
       return next;
     });
 
-  const uploads = useMemo(() => uploadRows(), []);
-  const drafts = useMemo(() => draftsAcrossSpaces(), []);
+  const uploads = useMemo(() => uploadRows().filter((u) => !removed.has(u.id)), [removed]);
+  const drafts = useMemo(
+    () => draftsAcrossSpaces().filter((d) => !removed.has(d.lessonId)),
+    [removed],
+  );
   const impact = useMemo(() => impactRows(), []);
+  void impact;
 
   /* ── Manage uploads ── */
   if (view === 'uploads') {
@@ -107,11 +137,26 @@ export default function LibraryStudioScreen() {
             <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
               {selected.size} selected
             </span>
-            <StudioAction disabled={selected.size === 0} tone="emerald">
+            <StudioAction
+              disabled={selected.size === 0}
+              tone="emerald"
+              onClick={() =>
+                removeRows([...selected], 'Published', 'They are live in their Spaces now.')
+              }
+            >
               <Send aria-hidden className="h-4 w-4" />
               Publish
             </StudioAction>
-            <StudioAction disabled={selected.size === 0}>
+            <StudioAction
+              disabled={selected.size === 0}
+              onClick={() =>
+                removeRows(
+                  [...selected],
+                  'Deleted',
+                  'The Lessons built from them keep working.',
+                )
+              }
+            >
               <Trash2 aria-hidden className="h-4 w-4" />
               Delete
             </StudioAction>
@@ -178,7 +223,13 @@ export default function LibraryStudioScreen() {
             <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
               {selected.size} selected
             </span>
-            <StudioAction disabled={selected.size === 0} tone="emerald">
+            <StudioAction
+              disabled={selected.size === 0}
+              tone="emerald"
+              onClick={() =>
+                removeRows([...selected], 'Published', 'They are in their paths now.')
+              }
+            >
               <Send aria-hidden className="h-4 w-4" />
               Publish
             </StudioAction>
