@@ -1,3 +1,41 @@
+/* ═══════════════════════════════════════════════════════════════
+   Typeface — Inter, self-hosted
+   ═══════════════════════════════════════════════════════════════
+   Self-hosted deliberately. Loading Inter from fonts.googleapis.com
+   transmits every visitor's IP to Google, which LG München I held to
+   breach the GDPR (3 O 17493/20, 20 Jan 2022). DSGVO is a hard
+   constraint on this product and its users are German universities,
+   so the CDN is not an option here. Do not "simplify" these rules
+   into an @import — that is a compliance regression, not a cleanup.
+
+   One variable file per subset covers weights 100–900, so the whole
+   scale costs a single request. `latin` carries U+0000–00FF, which
+   includes ä ö ü ß; `latin-ext` only downloads if a name needs it.
+   SIL Open Font License — self-hosting is expressly permitted. */
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -156,6 +194,56 @@
     --glow-done: 34 197 94;      /* emerald */
     --glow-progress: 99 102 241; /* indigo */
     --glow-new: 168 85 247;      /* violet */
+
+    /* ── v4 semantic layer (Learnstation foundations v1.15) ──
+       Additive only. These name concepts the v3 token set has no word for.
+       See docs/design-v4/01-foundations.md. */
+
+    /* Origin — Official vs Community must never blur (Separation, Rule 1).
+       Deliberately far apart in hue so the two never read as a gradient of
+       each other: Official is the cool authoritative indigo of the path,
+       Community is a warm amber that belongs to people. */
+    --origin-official: 235 85% 65%;
+    --origin-community: 32 95% 60%;
+
+    /* Grounding — a quiet marker, never a warning (Grounding, Rule 2/3).
+       Muted on purpose: nothing is blocked, things are labelled. */
+    --grounded: 174 60% 52%;
+    --not-grounded: 220 12% 55%;
+
+    /* Space modes — who may publish into the path. */
+    --mode-guided: 235 60% 62%;
+    --mode-open: 158 55% 50%;
+
+    /* Engagement — Like targets contributions, Star targets whole Spaces.
+       Two words, two objects, two colours: a learner must never confuse
+       rating a Space with rating one summary inside it (Engagement, Rule 1). */
+    --like: 340 82% 62%;
+    --star: 45 95% 58%;
+
+    /* ── Quiet text scale ──
+       Measured, not guessed. Every step below clears WCAG AA (4.5:1) against
+       BOTH surfaces text can land on here: the console background (#070b14)
+       and a depth-card (white 6% over it, so lighter and the harder case).
+
+         quiet  0.72  10.24 / 9.03   secondary text, descriptions
+         label  0.58   6.89 / 6.35   uppercase eyebrows, meta, counts
+         faint  0.50   5.33 / 5.07   the smallest step that is still legal
+
+       The old ad-hoc alphas below 0.50 fail: white/45 lands at 4.39 on a card
+       and white/40 at 3.77. Do not reintroduce them for text.
+
+       `decor` is NOT a text colour. It is for the tile watermark, and may only
+       ever carry decoration — never information that appears nowhere else. */
+    --text-quiet: 255 255 255 / 0.72;
+    --text-label: 255 255 255 / 0.58;
+    --text-faint: 255 255 255 / 0.50;
+    --text-decor: 255 255 255 / 0.14;
+
+    /* Accent eyebrow. Replaces text-primary/80, which reads 3.18:1 on the
+       console and 2.82:1 on a card — a clear AA failure at the 10–11px sizes
+       eyebrows are actually set at. */
+    --eyebrow: 235 85% 78%;
   }
 
   /* ── Light Mode: Unified "Settings" Aesthetic ── */
@@ -249,6 +337,10 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    /* Inter carries an optical-size axis (14–32); let it track the rendered
+       size so small labels open up and large headings tighten. Inert until
+       now, because no Inter was actually loaded. */
+    font-optical-sizing: auto;
     background-image:
       radial-gradient(ellipse at 20% 20%, hsl(235 85% 65% / 0.025) 0%, transparent 50%),
       radial-gradient(ellipse at 80% 80%, hsl(265 55% 58% / 0.025) 0%, transparent 50%);

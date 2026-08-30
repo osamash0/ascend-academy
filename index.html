@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
+    <!-- Inter, self-hosted (GDPR: no Google CDN — see src/index.css).
+         Only the `latin` subset is preloaded; it covers ä ö ü ß and everything
+         above the fold. `latin-ext` is left to load on demand. -->
+    <link
+      rel="preload"
+      href="/fonts/inter-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
     <title>Learnstation</title>
     <meta name="description" content="Upload a lecture. Get smart notes, quizzes, and a personal AI tutor grounded in your own course content." />
     <meta name="author" content="Learnstation" />
