@@ -350,7 +350,7 @@ flowchart TD
 ```
 
 *Provenance:* enrollment check
-[`search_service.py:123`](../../backend/services/search_service.py:123) ·
+[`search_service.py:127-129`](../../backend/services/search_service.py:127) ·
 RRF [`retrieval.py:246`](../../backend/services/ai/retrieval.py:246) ·
 `is_grounded` [`tutor.py:275`](../../backend/services/ai/tutor.py:275) ·
 gate `:316-319` · ungrounded prompt `:332-341`.
@@ -382,10 +382,18 @@ flowchart LR
 ```
 
 *Provenance:* `type ChatMessage` omits citations
-[`LectureView.tsx:43`](../../src/pages/LectureView.tsx:43); `data.citations` never read at
-`:1028`/`:1031`. `sourceLabel` derived from the visible slide, not the cited one:
-`InlineLecturePlayer.tsx:830-832`. `LectureChat.tsx:413-436` renders real chips; the only
-references to `LectureChat` anywhere are its own definition and its test.
+[`LectureView.tsx:44`](../../src/pages/LectureView.tsx:44). The `/chat` endpoint is declared
+`response_model=ChatResponse` with a plain `return`, not `StreamingResponse`
+([`ai_content.py:200-202`](../../backend/api/v1/ai_content.py:200)) — so it always answers
+`application/json`, never `text/event-stream`. `handleAsk`'s SSE-parsing branch
+(`LectureView.tsx:1021-1048`) is therefore dead code against this endpoint; every real call
+falls into the plain-JSON branch, where `data.reply` is read and `data.citations` — populated
+by `ChatResponse.citations` at [`ai_content.py:86`](../../backend/api/v1/ai_content.py:86) —
+is never referenced: [`LectureView.tsx:1051`](../../src/pages/LectureView.tsx:1051). The
+string `citations` does not appear anywhere else in the file. `sourceLabel` derived from the
+visible slide, not the cited one: `InlineLecturePlayer.tsx:830-832`. `LectureChat.tsx:413-436`
+renders real chips; the only references to `LectureChat` anywhere are its own definition and
+its test.
 
 **The claim your thesis must therefore make carefully:** the system implements retrieval-grounded
 generation with post-hoc citation validation — *and ships it with no visible source attribution*.
@@ -808,7 +816,7 @@ Two further consequences worth stating:
 | Embeddings silently write 768 zeros when `GEMINI_API_KEY` is missing | `embeddings.py:32-36` |
 | Embeddings are fire-and-forget; a parse can complete with them in flight or lost | `unified_orchestrator.py:795` |
 | v5 embeddings stamped `pipeline_version = "2"` | `file_parse_service.py:79,861` |
-| `needs_review` never cleared on save — flagged slides stay flagged forever | `lectureService.ts:644-648` |
+| `needs_review` never cleared on save — flagged slides stay flagged forever | `lectureService.ts:665-672` (the `patch` object `saveExistingLecture` sends to `supabase.from('slides').update(...)` only ever sets `title`/`content_text`/`summary`/`slide_number`) |
 | Batch review is **not** an approval gate — lectures go live pre-review | `BatchReviewPage.tsx:22-30` |
 | "Done reviewing" is localStorage-only, non-authoritative | `BatchReviewPage.tsx:35` |
 | `FeedbackWidget` matches `/exams/...`; real routes are singular `/exam/...` | `FeedbackWidget.tsx:55-67` vs `routes.ts:24-26` |
@@ -946,3 +954,53 @@ Useful for the Implementation chapter; all verified against code, not docs.
 
 *Generated from commit `0be0081` by four parallel codebase readers. Re-verify before submission —
 `git log --oneline` since this commit will tell you which sections need a second look.*
+
+---
+
+## Verification log
+
+**2026-08-30 — re-verified against `5e020eb` (HEAD).** Checked every citation in this document
+that fell inside a file touched by the two fix commits landed since `0be0081`
+(`a46b796` — Ask-across-course `ai_model` routing; `5e020eb` — lecture 409/locale/concepts-403/
+language-detection fixes). Two fully independent passes did this: one by direct re-opening of
+every cited file at HEAD, the other by an isolated subagent that re-derived the same citations
+from scratch (diffing each fix commit against its parent, summing line deltas, then verifying
+byte-for-byte that the old cited content reappears at the new computed line) — blind to the
+first pass's conclusions. **The two agreed on every one of the 4 stale citations and their
+corrected line numbers, with zero contradictions requiring arbitration.** Six of the nine
+touched files (`search.py`, `CommandPalette.tsx`, `searchService.ts`, `concepts.py`,
+`localized_content.py`, `localization_service.py`) carry no citation anywhere in this document —
+both passes confirmed this independently — so the substantial bugs those commits actually fixed
+(the `llama3` default, the student-upload 403, the 409/locale dead-end, the language-detection
+threshold) are outside this document's scope entirely; nothing to correct, and good raw material
+for a future primer that actually covers them.
+
+- **D9** enrollment-check citation `search_service.py:123` had drifted to a parameter default —
+  `a46b796` inserted the `ai_model` parameter and a 4-line comment above it, shifting the block by
+  +4. Corrected to `:127-129` (the `course_ids` fetch through the `raise PermissionError`).
+  Behavior itself byte-for-byte unchanged, confirmed by both passes.
+- **D10 / F16 (the citation gap — flagged as the strongest evaluation finding, so this one got
+  the most scrutiny):** `LectureView.tsx:43` was off by one (`:44`, one import line shifted it;
+  both passes agree). `data.citations` never read at `:1028`/`:1031` no longer pointed at
+  chat-response code at all — both passes independently recomputed the same corrected lines,
+  `:1048` (SSE-stream branch) and `:1051` (plain-JSON branch), and both confirmed a whole-file
+  case-insensitive grep for `citations` in the current file returns zero matches. One additional
+  fact comes from the direct pass only, not cross-checked by the subagent (its mandate was line
+  drift, not this): `/chat` is declared `response_model=ChatResponse` with a plain `return`,
+  never `StreamingResponse` (`ai_content.py:200-202`), so it always answers `application/json` —
+  meaning `LectureView.tsx`'s SSE-parsing branch (`:1021-1048`) cannot fire against this endpoint
+  in practice, and `:1051` (not `:1048`) is where the discard actually happens on every real
+  request. **The finding is unchanged and, if anything, sharper** — citations aren't just
+  unread, the file contains zero references to the word at all. Citations corrected in place.
+- **Honesty ledger, "known-broken paths":** `needs_review never cleared on save` cited
+  `lectureService.ts:644-648`, now unrelated PDF-upload code. Corrected to `:665-672`
+  (the `patch` object in `saveExistingLecture`). Behavior unchanged.
+- Checked and found **not** cited anywhere in this document, so no drift risk from either
+  commit: `concepts.py`, `localized_content.py`, `localization_service.py`,
+  `CommandPalette.tsx`, `searchService.ts`. (The concepts-403 and locale-fallback fixes in
+  `5e020eb` are real, substantial fixes — 135/162 lectures were unreadable — but this document
+  never cited that code, so there was nothing to correct. They'd be good material for a fresh
+  primer pass, not a footnote on this one.)
+- D16's provider-chain material does not mention `llama3` and was not affected by `a46b796`.
+
+No other citation in Parts 1–7 or the Appendix falls inside a file either commit touched.
