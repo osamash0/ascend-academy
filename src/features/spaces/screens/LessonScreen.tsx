@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Check,
@@ -227,15 +227,20 @@ export default function LessonScreen() {
                 const st = CONCEPT_STATE[c.progress];
                 return (
                   <li key={c.id}>
-                    <span
+                    {/* Each idea has its own overview — where it also appears,
+                        its practice, and the community section at Concept
+                        anchor level. */}
+                    <Link
+                      to={`/v4/space/${space.id}/concept/${c.id}`}
+                      aria-label={`${c.name} — ${st.label}`}
                       className={cn(
-                        'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[13.5px]',
+                        'console-focusable inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[13.5px] transition-colors hover:border-white/30',
                         st.cls,
                       )}
                     >
                       {c.progress === 'cleared' && <Check aria-hidden className="h-3 w-3" />}
                       {c.name}
-                    </span>
+                    </Link>
                   </li>
                 );
               })}

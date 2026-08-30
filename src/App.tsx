@@ -100,6 +100,7 @@ const SpaceRoute = lazy(() => import("./features/spaces/screens/SpaceRoute"));
 const V4Library = lazy(() => import("./features/spaces/screens/LibraryScreen"));
 const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
 const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
+const V4Concept = lazy(() => import("./features/spaces/screens/ConceptScreen"));
 const V4LibraryStudio = lazy(() => import("./features/spaces/screens/LibraryStudioScreen"));
 const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
 const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
@@ -278,6 +279,7 @@ function AppRoutes() {
         {import.meta.env.DEV && <Route path="/v4/social" element={<V4Social />} />}
         {import.meta.env.DEV && <Route path="/v4/profile" element={<V4Profile />} />}
         {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />}
+        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/concept/:conceptId" element={<V4Concept />} />}
 
         {/* Student routes */}
         <Route

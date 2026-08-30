@@ -289,3 +289,22 @@ export interface LibraryItem {
   /** Materials only: still ingesting, or a draft not yet published. */
   pending?: boolean;
 }
+
+/**
+ * A Concept plus where it lives — what the Concept overview needs.
+ *
+ * Mirrors two shapes the backend already serves:
+ *   • `conceptsService.LectureConcept {concept_id, name, weight, slide_indices}`
+ *     — the Concepts of one Lesson, with how central each is to it.
+ *   • `conceptsService.RelatedLecture` — answers "which other Lessons touch
+ *     this Concept", which is why `lessonIds` is a list and not one id.
+ *
+ * Wiring this later is a field rename, not a new endpoint.
+ */
+export interface ConceptDetail extends Concept {
+  /** 0–1. How central this idea is to the Lessons that carry it. */
+  weight: number;
+  spaceId: string;
+  /** Every Lesson that touches it, in path order. Never empty. */
+  lessonIds: string[];
+}
