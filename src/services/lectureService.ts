@@ -9,7 +9,16 @@ import type { SlideData } from '@/types/lectureUpload';
 import { toSlug } from '@/lib/utils';
 
 export interface LocalizedLectureBundle {
+  /** Language of the returned content — NOT necessarily the one requested. */
   locale: 'en' | 'de';
+  /** The reader's preferred language, echoed back for comparison. */
+  requestedLocale: 'en' | 'de';
+  /**
+   * True when no translation exists for the reader's language and the deck is
+   * being served in its original one. The UI must say so rather than let a
+   * student assume their preference was honoured.
+   */
+  isOriginalLanguage: boolean;
   lecture: Lecture;
   slides: Slide[];
   questions: QuizQuestion[];
@@ -23,6 +32,8 @@ export interface LocalizedLectureBundle {
 export async function fetchLocalizedLectureBundle(lectureId: string): Promise<LocalizedLectureBundle> {
   const payload = await apiClient.get<{
     locale: 'en' | 'de';
+    requested_locale?: 'en' | 'de';
+    is_original_language?: boolean;
     lecture: Lecture;
     slides: Array<Slide & { questions?: unknown[] }>;
     questions: Array<Record<string, unknown>>;
@@ -51,7 +62,17 @@ export async function fetchLocalizedLectureBundle(lectureId: string): Promise<Lo
       ? question.linked_slides.filter((item): item is number => typeof item === 'number')
       : undefined,
   }));
-  return { locale: payload.locale, lecture: payload.lecture, slides, questions };
+  // Older servers send neither field; treat the response as honouring the
+  // request rather than falsely flagging every lecture as translated.
+  const requestedLocale = payload.requested_locale ?? payload.locale;
+  return {
+    locale: payload.locale,
+    requestedLocale,
+    isOriginalLanguage: payload.is_original_language ?? false,
+    lecture: payload.lecture,
+    slides,
+    questions,
+  };
 }
 
 export interface EnhancedSlideResult {

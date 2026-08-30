@@ -45,6 +45,45 @@ def test_detect_source_language_defaults_to_english_when_ambiguous():
     assert localization_service.detect_source_language("Neural networks 101") == "en"
 
 
+def test_long_english_deck_with_incidental_hits_is_not_german():
+    """Regression: the bare `hits >= 2` rule misread long English decks.
+
+    Real case from the corpus — an English "Relational Algebra" lecture,
+    1,111 words, whose only three matches were an incidental 'der', 'mit' and
+    'und'. It was stored as German on 2026-08-02 and would have been served
+    to readers as a German deck.
+    """
+    english = (
+        "Database Systems Relational Algebra Thorsten Papenbrock Basics Basic "
+        "Operators Advanced Operators Complex Expressions Multiset Semantics "
+    ) * 40 + " der mit und"
+
+    assert len(english.split()) > 400  # long enough for the ratio to govern
+    assert localization_service.detect_source_language(english) == "en"
+
+
+def test_a_genuinely_german_deck_is_still_detected_in_long_text():
+    """The ratio must not cost us the true positives it sits between."""
+    german = (
+        "Die Einführung in die Grundlagen der Datenübertragung und der "
+        "lokalen Netzwerke mit einer Übersicht für das Studium nicht nur "
+    ) * 40
+
+    assert localization_service.detect_source_language(german) == "de"
+
+
+def test_short_german_title_still_uses_the_plain_count():
+    """Below the ratio floor a short title is mostly hint words by nature."""
+    assert localization_service.detect_source_language(
+        "Einführung in die objektorientierte Modellierung"
+    ) == "de"
+
+
+def test_empty_text_is_english():
+    assert localization_service.detect_source_language("") == "en"
+    assert localization_service.detect_source_language(None) == "en"
+
+
 @pytest.mark.asyncio
 async def test_translate_document_keeps_source_locale_without_llm():
     document = {

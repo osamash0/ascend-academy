@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
 import { sharedSupabaseMock as supabaseMock } from "@/test/sharedSupabaseMock";
+import { ApiError } from "@/lib/apiErrors";
 
 // R39 needs to force useParams() to report a missing lectureId while the
 // route itself still mounts LectureView (a real "/lecture/:lectureId" URL
@@ -156,6 +157,12 @@ vi.mock("@/components/LectureChat", () => ({
 const fetchLectureMock = vi.fn();
 const fetchSlidesMock = vi.fn();
 const fetchQuizQuestionsMock = vi.fn();
+// Lets a test say "this deck came back in its original language" without
+// rewriting the shared three-fixture adapter below.
+const localeOverride: { locale: "en" | "de"; isOriginalLanguage: boolean } = {
+  locale: "en",
+  isOriginalLanguage: false,
+};
 vi.mock("@/services/lectureService", async () => {
   const actual = await vi.importActual<typeof import("@/services/lectureService")>(
     "@/services/lectureService",
@@ -174,7 +181,14 @@ vi.mock("@/services/lectureService", async () => {
         fetchSlidesMock(...a),
         fetchQuizQuestionsMock(...a),
       ]);
-      return { locale: "en", lecture, slides, questions };
+      return {
+        locale: localeOverride.locale,
+        requestedLocale: "en",
+        isOriginalLanguage: localeOverride.isOriginalLanguage,
+        lecture,
+        slides,
+        questions,
+      };
     },
   };
 });
@@ -229,6 +243,8 @@ beforeEach(() => {
   fetchQuizQuestionsMock.mockReset();
   logLearningEventMock.mockClear();
   upsertLectureProgressMock.mockClear();
+  localeOverride.locale = "en";
+  localeOverride.isOriginalLanguage = false;
 });
 
 describe("LectureView page (smoke)", () => {
@@ -820,6 +836,90 @@ describe("LectureView — R18 dedicated error state on load failure", () => {
     fetchLectureMock.mockClear();
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     await waitFor(() => expect(fetchLectureMock).toHaveBeenCalled());
+  });
+});
+
+describe("LectureView — 409 'still being prepared' is not a fatal error", () => {
+  it("shows a distinct preparing state with a retry, not the generic load-failure chrome", async () => {
+    // The localized-content endpoint answers 409 by design while a locale
+    // snapshot is missing/stale — the backend comment calls it out as a state
+    // "a caller can retry after the processing job has finished". The catch
+    // block treated it identically to a transport failure, so 83% of the
+    // library (135/162 lectures with no ready+revision-matching snapshot)
+    // rendered a red "something went wrong" dead end.
+    fetchLectureMock.mockRejectedValue(
+      new ApiError(
+        "GET /api/v1/localized-content/lectures/lec-1 → 409: preparing",
+        409,
+        "The preferred-language version is still being prepared.",
+      ),
+    );
+    fetchSlidesMock.mockResolvedValue([]);
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+
+    renderAtRoute();
+
+    await waitFor(() => {
+      expect(screen.getByText(/still being prepared/i)).toBeInTheDocument();
+    });
+    // Must NOT be dressed as a system failure.
+    expect(screen.queryByText(/couldn't load this lecture/i)).not.toBeInTheDocument();
+
+    // And it stays actionable.
+    fetchLectureMock.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /check again/i }));
+    await waitFor(() => expect(fetchLectureMock).toHaveBeenCalled());
+  });
+
+  it("still shows the generic fatal error for a non-409 failure", async () => {
+    fetchLectureMock.mockRejectedValue(new ApiError("boom", 500));
+    fetchSlidesMock.mockResolvedValue([]);
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+
+    renderAtRoute();
+
+    await waitFor(() => {
+      expect(screen.getByText(/couldn't load this lecture/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/still being prepared/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("LectureView — original-language deck is labelled, not silently swapped", () => {
+  const lecture = {
+    id: "lec-1", title: "Lokale Netzwerke", description: "",
+    total_slides: 1, created_at: new Date().toISOString(), pdf_url: null,
+    course_id: null, is_archived: false, source_language: "de",
+  };
+  const slides = [{ id: "s1", slide_number: 1, title: "Einführung", content_text: "x", summary: "" }];
+
+  it("shows an Original badge when the deck came back in another language", async () => {
+    localeOverride.locale = "de";
+    localeOverride.isOriginalLanguage = true;
+    fetchLectureMock.mockResolvedValue(lecture);
+    fetchSlidesMock.mockResolvedValue(slides);
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+
+    renderAtRoute();
+
+    // The student asked for English and got German: saying nothing would let
+    // them assume their preference was honoured.
+    await waitFor(() => {
+      expect(screen.getByText(/original\s*·\s*DE/i)).toBeInTheDocument();
+    });
+  });
+
+  it("shows no badge when the deck is in the requested language", async () => {
+    fetchLectureMock.mockResolvedValue({ ...lecture, source_language: "en" });
+    fetchSlidesMock.mockResolvedValue(slides);
+    fetchQuizQuestionsMock.mockResolvedValue([]);
+
+    renderAtRoute();
+
+    await waitFor(() => {
+      expect(document.body.textContent ?? "").toContain("Einführung");
+    });
+    expect(screen.queryByText(/original\s*·/i)).not.toBeInTheDocument();
   });
 });
 

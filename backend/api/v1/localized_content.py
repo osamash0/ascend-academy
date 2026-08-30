@@ -12,7 +12,7 @@ from backend.core.database import get_db_connection
 from backend.core.rate_limit import limiter
 from backend.services.localization_service import (
     SUPPORTED_LOCALES,
-    get_localized_lecture,
+    get_lecture_content_for_locale,
     get_localized_course,
 )
 
@@ -93,11 +93,13 @@ async def localized_lecture_endpoint(
     if not user_id or not await _can_view_lecture(lecture_uuid, user_id):
         raise HTTPException(status_code=404, detail="Lecture not found.")
 
-    locale = await _preferred_language(user_id)
-    content = await get_localized_lecture(lecture_uuid, locale)
+    requested_locale = await _preferred_language(user_id)
+    content, locale = await get_lecture_content_for_locale(lecture_uuid, requested_locale)
     if content is None:
-        # No source fallback: a caller can retry after the processing job has
-        # finished, but never sees an accidental mixed-language lecture.
+        # Reserved for content that does not exist yet — a missing lecture or a
+        # deck still mid-parse. A reader whose language simply has no
+        # translation is served the original instead, so this is never the
+        # "your locale isn't ready" dead end it used to be.
         raise HTTPException(
             status_code=409,
             detail="The preferred-language version is still being prepared.",
@@ -127,7 +129,17 @@ async def localized_lecture_endpoint(
             if metadata["course_id_joined"] else None
         ),
     }
-    return {"locale": locale, "lecture": lecture, "slides": slides, "questions": questions}
+    return {
+        # `locale` is the language of the payload, NOT the language asked for:
+        # a deck with no translation is served in its original language. The
+        # client needs both to tell the reader what they are looking at.
+        "locale": locale,
+        "requested_locale": requested_locale,
+        "is_original_language": locale != requested_locale,
+        "lecture": lecture,
+        "slides": slides,
+        "questions": questions,
+    }
 
 
 @router.post("/lectures/{lecture_id}/retry")

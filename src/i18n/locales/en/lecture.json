@@ -56,10 +56,16 @@
     "uncategorized": "Uncategorized",
     "lectureLoading": "Loading...",
     "slideView": "Slide View",
-  "sourcePdf": "Source PDF",
-  "sourceLanguage": "Source: {{language}}",
-  "loadErrorTitle": "Couldn't load this lecture",
-  "loadErrorDescription": "Something went wrong reaching the server. Please try again."
+    "sourcePdf": "Source PDF",
+    "sourceLanguage": "Source: {{language}}",
+    "loadErrorTitle": "Couldn't load this lecture",
+    "loadErrorDescription": "Something went wrong reaching the server. Please try again.",
+    "preparingTitle": "This lecture is still being prepared",
+    "preparingDescription": "We're building the version in your language. This usually takes a moment — check back shortly.",
+    "preparingRetry": "Check again",
+    "preparingBack": "Back to dashboard",
+    "originalLanguageBadge": "Original · {{language}}",
+    "originalLanguageHint": "No version in your language is available yet, so the original is shown."
   },
   "toasts": {
     "notFoundTitle": "Not Found",
