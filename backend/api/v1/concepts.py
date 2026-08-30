@@ -94,16 +94,28 @@ async def get_lecture_concepts(lecture_id: str, user: Any = Depends(verify_token
     caller_id = user.id if hasattr(user, "id") else user.get("id")
     # Verify access
     def _verify_access():
-        l_res = supabase_admin.table("lectures").select("course_id, professor_id").eq("id", lecture_id).execute()
+        l_res = (
+            supabase_admin.table("lectures")
+            .select("course_id, professor_id, student_owner_id")
+            .eq("id", lecture_id)
+            .execute()
+        )
         if not l_res.data:
             raise HTTPException(status_code=404, detail="Lecture not found.")
-        if l_res.data[0].get("professor_id") == caller_id:
+        row = l_res.data[0]
+        # A student-uploaded lecture carries no professor_id and (today) no
+        # course_id, so the course-membership path below could never authorize
+        # even its own owner — every such lecture 403'd for the student who
+        # uploaded it. Mirrors the canonical model already used by
+        # localized_content._can_view_lecture (professor OR student owner OR
+        # enrolment).
+        if row.get("professor_id") == caller_id or row.get("student_owner_id") == caller_id:
             return
-        c_id = l_res.data[0].get("course_id")
+        c_id = row.get("course_id")
         accessible_courses = _get_accessible_course_ids(caller_id)
         if c_id not in accessible_courses:
             raise HTTPException(status_code=403, detail="Access denied.")
-            
+
     await run_in_threadpool(_verify_access)
 
     try:
@@ -136,9 +148,24 @@ async def get_related_lectures(
                 # Filter by accessible courses
                 def _filter():
                     accessible = _get_accessible_course_ids(caller_id)
-                    lec_res = supabase_admin.table("lectures").select("id, course_id, professor_id").in_("id", lecture_ids).execute()
+                    lec_res = (
+                        supabase_admin.table("lectures")
+                        .select("id, course_id, professor_id, student_owner_id")
+                        .in_("id", lecture_ids)
+                        .execute()
+                    )
                     lec_map = {r["id"]: r for r in (lec_res.data or [])}
-                    return [r for r in data if (lec_map.get(r["lecture_id"], {}).get("professor_id") == caller_id) or (lec_map.get(r["lecture_id"], {}).get("course_id") in accessible)]
+                    # Same omission as _verify_access above: without the
+                    # student_owner_id arm a student's own uploads are dropped
+                    # from their "related across your courses" results.
+                    def _visible(lecture_id: str) -> bool:
+                        lec = lec_map.get(lecture_id, {})
+                        return (
+                            lec.get("professor_id") == caller_id
+                            or lec.get("student_owner_id") == caller_id
+                            or lec.get("course_id") in accessible
+                        )
+                    return [r for r in data if _visible(r["lecture_id"])]
                 data = await run_in_threadpool(_filter)
     except Exception as e:
         logger.error("Failed to load related lectures for %s: %s", concept_id, e, exc_info=True)
