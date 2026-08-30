@@ -4,6 +4,7 @@ import { badges, libraryItems } from '../mocks/library';
 import { viewer } from '../mocks/people';
 import { mySpaces } from '../mocks/spaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
+import { Avatar, RankRing } from '../components/Avatar';
 import { BentoCell } from '../components/BentoCell';
 import { Scene, SURFACES } from '../components/Scene';
 
@@ -36,21 +37,17 @@ export default function ProfileScreen() {
   const published = libraryItems.filter((i) => i.kind === 'contribution');
   const likesReceived = published.reduce((n, i) => n + (i.likeCount ?? 0), 0);
 
-  const initials = viewer.name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('');
-
   return (
     <Scene surface={SURFACES.profile} status="progress" motionKey="profile">
       <SpacesTopBar active="profile" viewer={viewer} />
 
       <div className="mx-auto max-w-5xl px-6 pb-24 pt-8 lg:px-8">
         <header className="flex flex-wrap items-center gap-5">
-          <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-secondary text-[24px] font-bold text-white shadow-glow-primary">
-            {initials}
-          </span>
+          {/* The ring is the gauge: progress through this Rank, drawn around
+              the face rather than reported as a second number. */}
+          <RankRing progress={pct}>
+            <Avatar person={viewer} size="xl" isViewer />
+          </RankRing>
           <div className="min-w-0">
             <h1 className="text-4xl font-bold tracking-[-0.02em]">{viewer.name}</h1>
             <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-quiet tabular-nums">
@@ -159,6 +156,21 @@ export default function ProfileScreen() {
             </p>
           </BentoCell>
         </div>
+
+        <section className="mt-10">
+          <h2 className="mb-1 text-[14px] font-medium text-quiet">Your journey</h2>
+          <p className="mb-4 text-[13.5px] text-faint">
+            Where you have been across every Space.
+          </p>
+          <div className="rounded-2xl border border-dashed border-white/12 px-6 py-10 text-center">
+            <p className="mb-1.5 text-[15px] font-semibold">Not built yet</p>
+            <p className="mx-auto max-w-[52ch] text-[14px] leading-relaxed text-quiet">
+              There are two candidate maps — the per-Space one inside a Space, and a
+              cross-Space journey. Doc 2 lists which rules apply to which as an open
+              question, so this slot is reserved rather than guessed.
+            </p>
+          </div>
+        </section>
 
         <section className="mt-10">
           <h2 className="mb-1 text-[14px] font-medium text-quiet">

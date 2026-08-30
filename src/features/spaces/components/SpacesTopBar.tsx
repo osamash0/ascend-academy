@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Avatar } from './Avatar';
 import { NotificationPanel } from './NotificationPanel';
 import type { Person } from '../types';
 
@@ -67,12 +68,6 @@ export function SpacesTopBar({
     navigate(key === 'spaces' ? '/v4/spaces' : `/v4/${key}`);
   };
 
-  const initials = viewer.name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('');
-
   return (
     <header
       className={cn(
@@ -98,9 +93,7 @@ export function SpacesTopBar({
           aria-label="Open account menu"
           className="console-focusable group -mx-1.5 hidden min-w-0 items-center gap-3 rounded-[16px] px-1.5 py-1 transition-colors hover:bg-white/5 md:flex"
         >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-primary to-secondary text-[13px] font-black text-white shadow-glow-primary">
-            {initials}
-          </span>
+          <Avatar person={viewer} size="lg" isViewer className="shadow-glow-primary" />
           <span className="min-w-0 text-left leading-tight">
             <span className="flex items-center gap-1 text-sm font-black text-foreground">
               <span className="max-w-[140px] truncate">{viewer.name}</span>

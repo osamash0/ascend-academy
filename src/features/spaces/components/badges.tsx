@@ -1,6 +1,7 @@
 import { BookOpen, Check, Link2, Lock, Quote, Star, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Grounding, Origin, Person, Space, SpaceMode, Visibility } from '../types';
+import { Avatar } from './Avatar';
 
 /**
  * The markers that carry the foundation's rules onto the screen.
@@ -220,24 +221,10 @@ export function AuthorLine({
   prefix?: string;
   className?: string;
 }) {
-  const initials = person.name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('');
-
   return (
     <span className={cn('inline-flex items-center gap-2 text-[13px] text-quiet', className)}>
-      {person.avatarUrl ? (
-        <img src={person.avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
-      ) : (
-        <span
-          aria-hidden
-          className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[9px] font-black text-quiet"
-        >
-          {initials}
-        </span>
-      )}
+      {/* One avatar component everywhere — see Avatar.tsx. */}
+      <Avatar person={person} size="xs" isViewer={person.id === 'p-viewer'} />
       {prefix ? <span className="text-faint">{prefix}</span> : null}
       <span className="font-semibold">{person.name}</span>
     </span>
