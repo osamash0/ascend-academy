@@ -3,6 +3,7 @@ import type { Contribution, Lesson, LibraryItem, LoadState, Membership, Note, Sp
 import {
   archivedSpaces,
   createdByViewer,
+  createdThisSessionSpaces,
   discoverSpaces,
   joinedByViewer,
   spaceById,
@@ -92,7 +93,8 @@ export function useSpaces(): SpacesResult {
   return {
     state,
     mine: {
-      created: empty ? [] : createdByViewer,
+      // Anything made this session leads, because you just made it.
+      created: empty ? [] : [...createdThisSessionSpaces(), ...createdByViewer],
       joined: empty ? [] : joinedByViewer,
       archived: empty ? [] : archivedSpaces,
     },

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useReducedMotion } from 'framer-motion';
-import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Plus, Sparkles } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Plus, Settings2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LaunchButton, gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
@@ -206,6 +206,18 @@ export default function SpaceScreen({
               />
             )}
             <StarButton count={space.starCount} starred={space.starredByViewer} disabled={owned} />
+
+            {/* Settings is a separate Studio screen, never a fourth tab. */}
+            {owned && (
+              <button
+                type="button"
+                onClick={() => navigate(`/v4/space/${space.id}/manage`)}
+                className="console-focusable inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3.5 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
+              >
+                <Settings2 aria-hidden className="h-3.5 w-3.5" />
+                Manage
+              </button>
+            )}
 
             {/*
               Doc 2 rule 3: the header carries the community count and jumps to

@@ -9,6 +9,7 @@ import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { SpaceTile } from '../components/SpaceTile';
 import { Scene, SURFACES } from '../components/Scene';
+import { JoinSpaceDialog, NewSpaceDialog } from '../components/SpaceDialogs';
 import {
   NoSpacesYet,
   NothingToDiscover,
@@ -73,6 +74,8 @@ export default function SpacesScreen() {
   const [sort, setSort] = useState<Sort>('recent');
   const [focus, setFocus] = useState(0);
   const [showArchived, setShowArchived] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
   const railRef = useRef<HTMLDivElement>(null);
 
   /**
@@ -184,6 +187,7 @@ export default function SpacesScreen() {
         <div className="ml-auto flex items-center gap-2.5">
           <button
             type="button"
+            onClick={() => setJoinOpen(true)}
             className="console-focusable flex h-9 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
           >
             <KeyRound aria-hidden className="h-3.5 w-3.5" />
@@ -192,6 +196,7 @@ export default function SpacesScreen() {
           {/* Create lives on the screen that owns the object. */}
           <button
             type="button"
+            onClick={() => setNewOpen(true)}
             className="console-focusable flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
           >
             <Plus aria-hidden className="h-4 w-4" />
@@ -291,6 +296,9 @@ export default function SpacesScreen() {
       </div>
 
       {/* Navigational footnotes for those who want them, per the console. */}
+      <NewSpaceDialog open={newOpen} onOpenChange={setNewOpen} />
+      <JoinSpaceDialog open={joinOpen} onOpenChange={setJoinOpen} />
+
       <ControllerHints
         hints={[
           { key: '←→', label: 'Browse' },

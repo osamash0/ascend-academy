@@ -101,6 +101,7 @@ const V4Library = lazy(() => import("./features/spaces/screens/LibraryScreen"));
 const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
 const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
 const V4Concept = lazy(() => import("./features/spaces/screens/ConceptScreen"));
+const V4SpaceManage = lazy(() => import("./features/spaces/screens/SpaceManageScreen"));
 const V4LibraryStudio = lazy(() => import("./features/spaces/screens/LibraryStudioScreen"));
 const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
 const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
@@ -270,6 +271,8 @@ function AppRoutes() {
             ?mock=empty|loading|error to inspect the other states. */}
         {import.meta.env.DEV && <Route path="/v4/spaces" element={<SpacesScreen />} />}
         {import.meta.env.DEV && <Route path="/v4/space/:spaceId" element={<SpaceRoute />} />}
+        {/* Studio screen — declared before :tab so it is not swallowed as one. */}
+        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/manage" element={<V4SpaceManage />} />}
         {/* Tabs are URL segments so every one is shareable and deep-linkable. */}
         {import.meta.env.DEV && <Route path="/v4/space/:spaceId/:tab" element={<SpaceRoute />} />}
         {import.meta.env.DEV && <Route path="/v4/library" element={<V4Library />} />}
