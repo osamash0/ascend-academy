@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Bell,
   BookOpen,
   ChevronDown,
   Compass,
@@ -14,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NotificationPanel } from './NotificationPanel';
 import type { Person } from '../types';
 
 /**
@@ -171,13 +171,7 @@ export function SpacesTopBar({
           deliberately avoids. "New Space" therefore sits on the Spaces screen.
         */}
 
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-quiet transition hover:bg-white/10 hover:text-foreground"
-        >
-          <Bell className="h-5 w-5" />
-        </button>
+        <NotificationPanel />
         <button
           type="button"
           aria-label="Settings"
