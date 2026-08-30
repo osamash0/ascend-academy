@@ -93,6 +93,16 @@ const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PipelineTestPage = lazy(() => import("./pages/PipelineTestPage"));
 const PixiLab = lazy(() => import("./pages/PixiLab"));
+// v4 design rebuild. Mock data only, no backend, dev-only route — the old
+// product is untouched and the two coexist. See docs/design-v4/.
+const SpacesScreen = lazy(() => import("./features/spaces/screens/SpacesScreen"));
+const SpaceRoute = lazy(() => import("./features/spaces/screens/SpaceRoute"));
+const V4Library = lazy(() => import("./features/spaces/screens/LibraryScreen"));
+const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
+const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
+const V4LibraryStudio = lazy(() => import("./features/spaces/screens/LibraryStudioScreen"));
+const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
+const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
 const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
@@ -254,6 +264,18 @@ function AppRoutes() {
         <Route path={PublicRoutes.DATENSCHUTZ} element={<Datenschutz />} />
         {/* Experimental PixiJS playground — dev-only; never reachable in a production build. */}
         {import.meta.env.DEV && <Route path="/pixi-lab" element={<PixiLab />} />}
+        {/* v4 Spaces screen — mock data, dev-only. Public (no auth) so the
+            design can be reviewed without a session. Append
+            ?mock=empty|loading|error to inspect the other states. */}
+        {import.meta.env.DEV && <Route path="/v4/spaces" element={<SpacesScreen />} />}
+        {import.meta.env.DEV && <Route path="/v4/space/:spaceId" element={<SpaceRoute />} />}
+        {import.meta.env.DEV && <Route path="/v4/library" element={<V4Library />} />}
+        {/* Studio screens hang off Library; Library itself stays Learn. */}
+        {import.meta.env.DEV && <Route path="/v4/library/:view" element={<V4LibraryStudio />} />}
+        {import.meta.env.DEV && <Route path="/v4/home" element={<V4Home />} />}
+        {import.meta.env.DEV && <Route path="/v4/social" element={<V4Social />} />}
+        {import.meta.env.DEV && <Route path="/v4/profile" element={<V4Profile />} />}
+        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />}
 
         {/* Student routes */}
         <Route
