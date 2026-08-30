@@ -1,7 +1,9 @@
-# v4 — Learnstation design docs
+# design-v4 — Learnstation design docs
 
 The design-doc set the product is being rebuilt against. Concept level, not implementation.
-Moved here from `~/Downloads` on 2026-08-30 and the loose copies deleted — **`docs/v4/` is the only home for these files.**
+Moved here from `~/Downloads` on 2026-08-30 and the loose copies deleted — **`docs/design-v4/` is the only home for these files.**
+
+*"v4" is the version of the design set, not a document number — Doc 4 in the plan below is the Create pipeline. The folder was renamed from `docs/v4/` because that collision caught us once already.*
 
 ## Read in this order
 

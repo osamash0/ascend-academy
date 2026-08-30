@@ -55,7 +55,7 @@ New parked item: what publishing a Lesson in an Open Space earns (not a contribu
 - New since v1.12: in an Open Space a Member can publish Lessons — the create entry point is no longer Owner-only, and the Spaces screen must show that affordance
 
 ## Files
-All of these live in `docs/v4/` in the repo — that folder is canonical. See `docs/v4/README.md` for the reading order.
+All of these live in `docs/design-v4/` in the repo — that folder is canonical. See `docs/design-v4/README.md` for the reading order.
 
 - `01-foundations.md` — the locked foundation (**v1.15**)
 - `01-foundations-map.html` — the model drawn, five panels; stamped with the doc version it was drawn from
