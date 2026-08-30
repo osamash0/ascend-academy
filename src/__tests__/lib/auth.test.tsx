@@ -123,6 +123,62 @@ describe('AuthProvider — session/role state machine', () => {
     expect(supabaseMock.auth.signOut).not.toHaveBeenCalled();
   });
 
+  it('resolves the highest-privilege role when the user holds several', async () => {
+    // user_roles is UNIQUE(user_id, role) — one row PER role — so holding
+    // both is legal by schema. This is the prod state that locked
+    // admin@admin.com out of every guarded route: .single() errors on
+    // multiple rows, the error was swallowed, and role fell back to null.
+    supabaseMock.seed('profiles', [
+      { id: 'p1', user_id: 'u1', email: 'admin@test.edu' },
+    ]);
+    supabaseMock.seed('user_roles', [
+      { user_id: 'u1', role: 'professor' },
+      { user_id: 'u1', role: 'admin' },
+    ]);
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await fireAuth('INITIAL_SESSION', { user: { id: 'u1' } });
+    await waitFor(() =>
+      expect(screen.getByTestId('loading')).toHaveTextContent('false'),
+    );
+    expect(screen.getByTestId('role')).toHaveTextContent('admin');
+  });
+
+  it('logs rather than swallows a failed role lookup', async () => {
+    supabaseMock.seed('profiles', [
+      { id: 'p1', user_id: 'u1', email: 'stu@test.edu' },
+    ]);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const realFrom = supabaseMock.from.bind(supabaseMock);
+    vi.spyOn(supabaseMock, 'from')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mockImplementation((table: string): any => {
+        if (table === 'user_roles') {
+          return {
+            select: () => ({
+              eq: () =>
+                Promise.resolve({
+                  data: null,
+                  error: { code: 'XX000', message: 'boom' },
+                }),
+            }),
+          };
+        }
+        return realFrom(table);
+      });
+
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await fireAuth('INITIAL_SESSION', { user: { id: 'u1' } });
+    await waitFor(() =>
+      expect(screen.getByTestId('loading')).toHaveTextContent('false'),
+    );
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      'fetchRole error:',
+      expect.objectContaining({ code: 'XX000' }),
+    );
+    errorSpy.mockRestore();
+  });
+
   it('signs the user out when a session exists but the profile is missing', async () => {
     // No profiles seeded → .single() returns a PGRST116 "no rows" error.
     supabaseMock.seed('user_roles', [{ user_id: 'u1', role: 'student' }]);

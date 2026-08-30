@@ -236,6 +236,21 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown }> {
       if (arr.length === 0) {
         return { data: null, error: { code: "PGRST116", message: "no rows" } };
       }
+      // PostgREST returns 406/PGRST116 for "not exactly one row" — that covers
+      // MORE than one just as much as none. Returning arr[0] here would have
+      // made a whole class of production bug untestable: user_roles is
+      // UNIQUE(user_id, role), so a multi-role user legitimately matches
+      // several rows and .single() fails against the real API.
+      if (arr.length > 1) {
+        return {
+          data: null,
+          error: {
+            code: "PGRST116",
+            message: "JSON object requested, multiple (or no) rows returned",
+            details: `The result contains ${arr.length} rows`,
+          },
+        };
+      }
       return { data: arr[0], error: null };
     });
   }

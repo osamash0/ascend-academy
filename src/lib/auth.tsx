@@ -7,6 +7,15 @@ import { apiClient } from '@/lib/apiClient';
 
 type UserRole = 'student' | 'professor' | 'admin' | null;
 
+// public.user_roles is UNIQUE(user_id, role) — one row PER role — so a user
+// may legitimately hold several at once. When they do, this is the order that
+// decides which one the UI runs as: most privileged wins, so an admin who is
+// also a professor gets the admin shell rather than whichever row Postgres
+// happened to return first. Keep this aligned with the backend, which
+// intersects the user's full role SET against each endpoint's allowed roles
+// (backend/core/auth_middleware.py require_role).
+const ROLE_PRECEDENCE = ['admin', 'professor', 'student'] as const;
+
 // Result of a profile fetch. We distinguish a MISSING profile (the account
 // row is gone → sign out) from a transient ERROR (network/RLS/timeout →
 // recoverable, keep the session but surface it). 'ok' means loaded.
@@ -103,14 +112,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchRole = useCallback(async (userId: string) => {
-    const { data: roleData } = await supabase
+    // Deliberately NOT .single(): PostgREST fails that with 406/PGRST116 when
+    // the match is anything other than exactly one row, and a multi-role user
+    // matches several. That failure used to be swallowed (only `data` was
+    // destructured), leaving role null — which ProtectedRoute fails closed on,
+    // bouncing the user to /dashboard with no explanation. It presented as a
+    // login problem and locked admin@admin.com out of its own dashboard.
+    const { data: roleRows, error } = await supabase
       .from('user_roles')
       .select('role')
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
 
-    if (roleData) {
-      setRole(roleData.role as UserRole);
+    if (error) {
+      // Loud, because a silent authz failure is indistinguishable from a
+      // wrong password from the outside.
+      console.error('fetchRole error:', error);
+      return;
+    }
+
+    const best = ROLE_PRECEDENCE.find((candidate) =>
+      roleRows?.some((row) => row.role === candidate),
+    );
+    if (best) {
+      setRole(best);
     }
   }, []);
 
