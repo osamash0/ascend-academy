@@ -289,3 +289,51 @@ export const impactRows = (): ImpactRow[] =>
 
 /** Everything you uploaded, across every Space. */
 export const uploadRows = () => libraryItems.filter((i) => i.kind === 'material');
+
+/**
+ * Which hero Home shows.
+ *
+ * Ported from the old dashboard's `homeFeed`, which already models
+ * onboard / resume / next / review. The shape is proven — what changes is the
+ * vocabulary and the rule that every target is a Lesson.
+ *
+ *   onboard — nothing to continue. A brand-new account, and the one place Home
+ *             may point at Spaces, because there is no Lesson to point at yet.
+ *   review  — everything done. Celebrate before the rails, don't show an empty
+ *             "up next" that implies you missed something.
+ *   resume  — the ordinary case.
+ */
+export type HeroKind = 'onboard' | 'resume' | 'review';
+
+export const heroKind = ({
+  hasProgress,
+  allDone,
+}: {
+  hasProgress: boolean;
+  allDone: boolean;
+}): HeroKind => {
+  if (!hasProgress) return 'onboard';
+  if (allDone) return 'review';
+  return 'resume';
+};
+
+export interface RecentItem extends HomeItem {
+  viewedAt: string;
+}
+
+/**
+ * Recently viewed, most recent first.
+ *
+ * Excludes whatever the next action already offers — the old dashboard dedupes
+ * for the same reason: the same Lesson twice on one screen reads as a bug
+ * rather than as emphasis.
+ */
+export const recentlyViewed = (): RecentItem[] =>
+  [
+    { ...homeItem('s-dbs', 1, 'continue'), viewedAt: '2026-08-30T21:40:00Z' },
+    { ...homeItem('s-linalg', 1, 'continue'), viewedAt: '2026-08-30T18:05:00Z' },
+    { ...homeItem('s-crypto', 1, 'continue'), viewedAt: '2026-08-29T20:12:00Z' },
+    { ...homeItem('s-dbs', 6, 'continue'), viewedAt: '2026-08-29T09:30:00Z' },
+  ]
+    .filter((r) => r.lessonId !== nextAction.lessonId)
+    .sort((a, b) => +new Date(b.viewedAt) - +new Date(a.viewedAt));

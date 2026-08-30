@@ -14,8 +14,17 @@ import {
   contributionsForSpace,
   membersForSpace,
 } from '../mocks/contributions';
-import { homeFeed, itemsOfKind, libraryItems, nextAction, notes, pendingUploads } from '../mocks/library';
-import type { HomeItem } from '../mocks/library';
+import {
+  heroKind,
+  homeFeed,
+  itemsOfKind,
+  libraryItems,
+  nextAction,
+  notes,
+  pendingUploads,
+  recentlyViewed,
+} from '../mocks/library';
+import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
 
 /**
  * The data seam.
@@ -192,10 +201,14 @@ export function useLibrary(kind?: LibraryItem['kind']): LibraryResult {
 
 export interface HomeResult {
   state: LoadState;
+  /** Which hero to show: onboard / resume / review. */
+  kind: HeroKind;
   /** The one thing to do now, ranked across every Space. */
   next: HomeItem | null;
   /** Everything else, all Lesson-level — never a Space card. */
   feed: HomeItem[];
+  /** Most-recent first, minus whatever `next` already offers. */
+  recent: RecentItem[];
   streakDays: number;
 }
 
@@ -204,10 +217,25 @@ export function useHome(): HomeResult {
   const scenario = useScenario();
   const state = useSettled(scenario);
   const ready = state === 'ready';
+  /*
+   * `?mock=onboard|review` forces the other two heroes, so all three can be
+   * reviewed in a browser without editing code — the same reason the load
+   * states are switchable. They are as real as the happy path.
+   */
+  const forced = new URLSearchParams(window.location.search).get('mock');
+  const kind =
+    forced === 'onboard'
+      ? 'onboard'
+      : forced === 'review'
+        ? 'review'
+        : heroKind({ hasProgress: true, allDone: false });
+
   return {
     state,
-    next: ready ? nextAction : null,
-    feed: ready ? homeFeed : [],
+    kind,
+    next: ready && kind !== 'onboard' ? nextAction : null,
+    feed: ready && kind === 'resume' ? homeFeed : [],
+    recent: ready && kind === 'resume' ? recentlyViewed() : [],
     streakDays: ready ? 4 : 0,
   };
 }

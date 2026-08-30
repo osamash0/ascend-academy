@@ -1,4 +1,5 @@
-import { Flame, Play, Plus, RotateCw, Sparkles, TrendingUp } from 'lucide-react';
+import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
@@ -54,7 +55,8 @@ const greeting = () => {
 };
 
 export default function HomeScreen() {
-  const { state, next, feed, streakDays } = useHome();
+  const navigate = useNavigate();
+  const { state, kind, next, feed, recent, streakDays } = useHome();
 
   const dueForReview = feed.filter((i) => i.reason === 'review').length;
   const fresh = feed.filter((i) => i.reason === 'new');
@@ -75,6 +77,37 @@ export default function HomeScreen() {
   // this is the only place Home may point at Spaces rather than a Lesson,
   // because there is no Lesson to point at yet.
   const NextIcon = next ? topicIcon(next.lessonTitle, next.lessonId) : Play;
+
+  if (kind === 'review' && next) {
+    return chrome(
+      <div className="mx-auto max-w-3xl px-6 pb-24 pt-16 text-center lg:px-8">
+        <PartyPopper aria-hidden className="mx-auto mb-5 h-9 w-9 text-xp" />
+        <h1 className="text-3xl font-bold tracking-[-0.02em]">
+          You are caught up, {viewer.name}
+        </h1>
+        <p className="mx-auto mt-3 max-w-[46ch] text-[15.5px] leading-[1.75] text-quiet">
+          Everything in your Spaces is done. Nothing is waiting — come back when
+          something new is published, or go back over what you have already cleared.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
+          >
+            <RotateCw aria-hidden className="h-4 w-4" />
+            Review something
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/v4/spaces')}
+            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium text-foreground transition-colors hover:bg-white/[0.08]"
+          >
+            Find another Space
+          </button>
+        </div>
+      </div>,
+    );
+  }
 
   if (!next) {
     return chrome(
@@ -213,6 +246,37 @@ export default function HomeScreen() {
           </BentoCell>
         )}
       </div>
+
+      {recent.length > 0 && (
+        <section aria-labelledby="recent-heading" className="mt-10">
+          <h2 id="recent-heading" className="mb-4 text-[14px] font-medium text-quiet">
+            Recently viewed
+          </h2>
+          {/* A rail, like the Spaces rows — and Lesson-level, like everything
+              else on Home. Excludes whatever "Continue" already offers. */}
+          <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {recent.map((r) => {
+              const Icon = topicIcon(r.lessonTitle, r.lessonId);
+              return (
+                <button
+                  key={r.lessonId}
+                  type="button"
+                  onClick={() => navigate(`/v4/space/${r.spaceId}/lesson/${r.lessonId}`)}
+                  className="console-focusable w-[13.5rem] shrink-0 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 text-left transition-colors hover:bg-white/[0.05]"
+                >
+                  <Icon aria-hidden className="mb-3 h-5 w-5 text-quiet" />
+                  <span className="block truncate text-[14.5px] font-semibold">
+                    {r.lessonTitle}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[12.5px] text-quiet">
+                    {r.spaceName}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Everything else, still Lesson-level. Never a Space card. */}
       {feed.length > 0 && (
