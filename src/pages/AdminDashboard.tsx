@@ -18,8 +18,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { adminService, AdminUser, ActivityEvent, SentryError, SentryErrorsResponse, BackupSession, DeploymentTelemetry, PlatformStats } from '@/services/adminService';
-import { supabase } from '@/integrations/supabase/client';
+import { adminService, AdminUser, ActivityEvent, SentryError, SentryErrorsResponse, BackupSession, DeploymentTelemetry, PlatformStats, AdminContentItem, UserDeletionImpact } from '@/services/adminService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,9 +67,15 @@ export default function AdminDashboard() {
   const [usersSearch, setUsersSearch] = useState('');
   const [userRole, setUserRole] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  // Bulk deletion. `deletionImpact === null` means the dialog is closed;
+  // an empty array means "open, still loading the impact assessment".
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [deletionImpact, setDeletionImpact] = useState<UserDeletionImpact[] | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   // Visibility Tab
-  const [contentItems, setContentItems] = useState<any[]>([]);
+  const [contentItems, setContentItems] = useState<AdminContentItem[]>([]);
 
   // Errors Tab
   const [sentryErrors, setSentryErrors] = useState<SentryError[]>([]);
@@ -126,20 +131,16 @@ export default function AdminDashboard() {
         setEvents(eRes.data || []);
         setEventsTotal(eRes.meta?.total_pages || 1);
       } else if (activeTab === 'visibility') {
-        const [cRes, lRes] = await Promise.all([
-          (supabase as any).from('courses').select('id, title, is_archived'),
-          supabase.from('lectures').select('id, title, is_archived')
-        ]);
-        // R20: both reads used to destructure only `.data` and drop
-        // `.error` — an RLS rejection resolved to `[]` and rendered as
-        // "No content matches your filters" instead of a surfaced failure.
-        if (cRes.error) throw cRes.error;
-        if (lRes.error) throw lRes.error;
-        const combined = [
-          ...(cRes.data || []).map((c: any) => ({ ...c, type: 'course' as const })),
-          ...(lRes.data || []).map((l: any) => ({ ...l, type: 'lecture' as const }))
-        ];
-        setContentItems(combined);
+        // Was two raw supabase.from() selects. Those ran under the CALLING
+        // ADMIN's RLS, so content owned by other users was silently absent
+        // from the inventory — the opposite of what an admin console is for.
+        // The endpoint uses the service role and returns ground truth, plus
+        // the owner attribution the raw select never fetched at all.
+        // (R20: errors are still surfaced rather than rendering as "no
+        // content matches your filters" — apiClient throws, and the catch
+        // below routes it to the same toast.)
+        const cRes = await adminService.fetchContent(1, 200);
+        setContentItems(cRes.data || []);
       } else if (activeTab === 'errors') {
         const errsResponse = await adminService.fetchErrors();
         setSentryErrors(errsResponse.data || []);
@@ -185,6 +186,44 @@ export default function AdminDashboard() {
       }
     } catch (e: any) {
       toast({ title: 'Update failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const toggleUserSelected = (userId: string) => {
+    setSelectedUserIds(ids =>
+      ids.includes(userId) ? ids.filter(i => i !== userId) : [...ids, userId],
+    );
+  };
+
+  const openDeleteDialog = async () => {
+    setDeleteConfirmText('');
+    setDeletionImpact([]);
+    try {
+      setDeletionImpact(await adminService.fetchDeletionImpact(selectedUserIds));
+    } catch (e: any) {
+      setDeletionImpact(null);
+      toast({ title: 'Could not assess deletion impact', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteUsers = async () => {
+    setDeleteBusy(true);
+    try {
+      // Send only what the server said is deletable. It re-checks anyway —
+      // this just avoids asking it to do something we know it will refuse.
+      const ids = (deletionImpact ?? []).filter(i => i.deletable).map(i => i.user_id);
+      const res = await adminService.deleteUsers(ids);
+      toast({
+        title: `Deleted ${res.deleted.length} account${res.deleted.length === 1 ? '' : 's'}`,
+        description: res.blocked.length ? `${res.blocked.length} were refused by the server.` : undefined,
+      });
+      setSelectedUserIds([]);
+      setDeletionImpact(null);
+      await loadTabData();
+    } catch (e: any) {
+      toast({ title: 'Deletion failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -354,10 +393,30 @@ export default function AdminDashboard() {
                           ))}
                         </div>
                       </div>
+                      {selectedUserIds.length > 0 && (
+                        <div className="mb-4 p-3 rounded-xl border border-red-500/30 bg-red-500/10 flex items-center justify-between gap-4">
+                          <span className="text-sm text-red-200">
+                            {selectedUserIds.length} selected
+                          </span>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => setSelectedUserIds([])}>
+                              Clear
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={openDeleteDialog}
+                            >
+                              Delete selected
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                         <table className="w-full text-sm text-left">
                           <thead className="bg-black/40 border-b border-white/10">
                             <tr>
+                              <th className="p-3 w-8" />
                               <th className="p-3 font-medium text-slate-400">User</th>
                               <th className="p-3 font-medium text-slate-400">Roles</th>
                               <th className="p-3 font-medium text-slate-400 text-right">Action</th>
@@ -366,6 +425,16 @@ export default function AdminDashboard() {
                           <tbody className="divide-y divide-white/5">
                             {users.map(u => (
                               <tr key={u.user_id} className="hover:bg-white/5">
+                                <td className="p-3">
+                                  <input
+                                    type="checkbox"
+                                    data-testid={`select-user-${u.user_id}`}
+                                    aria-label={`Select ${u.email}`}
+                                    checked={selectedUserIds.includes(u.user_id)}
+                                    onChange={() => toggleUserSelected(u.user_id)}
+                                    className="w-4 h-4 rounded border-white/20 bg-black/40 accent-red-500"
+                                  />
+                                </td>
                                 <td className="p-3">
                                   <div className="font-medium text-white">{u.display_name || u.full_name || 'Anonymous'}</div>
                                   <div className="text-xs text-slate-500">{u.email}</div>
@@ -388,7 +457,7 @@ export default function AdminDashboard() {
                             ))}
                             {users.length === 0 && (
                               <tr>
-                                <td colSpan={3} className="p-8 text-center text-slate-500">
+                                <td colSpan={4} className="p-8 text-center text-slate-500">
                                   No users found.
                                 </td>
                               </tr>
@@ -582,6 +651,102 @@ export default function AdminDashboard() {
             >
               {actionLoading ? 'Processing...' : 'Confirm'}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Account deletion. Separate from the snapshot dialog above because it
+          is categorically more dangerous: courses.professor_id and
+          lectures.professor_id cascade on auth.users, so deleting a content
+          owner would destroy the catalogue and every student's progress
+          against it — and there is no PITR to recover from. The server
+          refuses those outright; this dialog explains why rather than
+          silently dropping them from the selection. */}
+      <AlertDialog
+        open={deletionImpact !== null}
+        onOpenChange={(open) => !open && setDeletionImpact(null)}
+      >
+        <AlertDialogContent className="bg-zinc-950 border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedUserIds.length} account{selectedUserIds.length === 1 ? '' : 's'}?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              This permanently removes the accounts and everything that cascades
+              from them. It cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {(deletionImpact ?? []).map(impact => {
+              const u = users.find(x => x.user_id === impact.user_id);
+              const label = u?.email ?? impact.user_id;
+              if (impact.deletable) {
+                return (
+                  <div
+                    key={impact.user_id}
+                    data-testid={`deletion-ok-${impact.user_id}`}
+                    className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-sm"
+                  >
+                    <span className="text-emerald-300">{label}</span>
+                    <span className="text-slate-500"> — owns no content, safe to delete</span>
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={impact.user_id}
+                  data-testid={`deletion-blocked-${impact.user_id}`}
+                  className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-sm"
+                >
+                  <div className="text-red-300 font-medium">{label}</div>
+                  <div className="text-slate-400 text-xs mt-1">
+                    {impact.reason === 'owns_content' && (
+                      <>
+                        Owns {impact.courses} course{impact.courses === 1 ? '' : 's'} and{' '}
+                        {impact.lectures} lecture{impact.lectures === 1 ? '' : 's'}
+                        {impact.students_affected > 0 && <> · {impact.students_affected} student{impact.students_affected === 1 ? '' : 's'} would lose progress</>}
+                        . Reassign or delete that content first.
+                      </>
+                    )}
+                    {impact.reason === 'self' && 'You cannot delete your own account here.'}
+                    {impact.reason === 'last_admin' && 'This is the last admin — deleting it would lock everyone out.'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {(deletionImpact ?? []).some(i => i.deletable) && (
+            <div>
+              <label className="text-xs text-slate-400">
+                Type <span className="font-mono text-red-300">DELETE</span> to confirm
+              </label>
+              <input
+                data-testid="delete-confirm-input"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="mt-1 w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-red-500"
+              />
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white">
+              Cancel
+            </AlertDialogCancel>
+            <button
+              data-testid="confirm-delete-users"
+              onClick={handleDeleteUsers}
+              disabled={
+                deleteBusy ||
+                deleteConfirmText !== 'DELETE' ||
+                !(deletionImpact ?? []).some(i => i.deletable)
+              }
+              className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium"
+            >
+              {deleteBusy
+                ? 'Deleting…'
+                : `Delete ${(deletionImpact ?? []).filter(i => i.deletable).length}`}
+            </button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

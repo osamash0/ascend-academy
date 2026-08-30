@@ -23,6 +23,52 @@ export interface ActivityEvent {
   user_name: string | null;
 }
 
+/**
+ * A course or lecture as the admin inventory sees it.
+ *
+ * The visibility-related fields are raw INPUTS, not a verdict. We
+ * deliberately don't ship a "hidden because X" flag: that would mean
+ * mirroring the RLS policies in application code, where they'd go stale the
+ * next time a policy migration lands and confidently report the wrong
+ * reason. Show the facts; let the reader conclude.
+ */
+export interface AdminContentItem {
+  id: string;
+  kind: 'course' | 'lecture';
+  title: string;
+  is_archived: boolean;
+  course_id: string | null;
+  course_title: string | null;
+  /** 'course' | 'private_student' — lectures only, null for courses. */
+  visibility: string | null;
+  owner_id: string | null;
+  /** Which column attributed it: professor_id vs student_owner_id. */
+  owner_kind: 'professor' | 'student';
+  owner_email: string | null;
+  owner_name: string | null;
+  /** Lectures attached to this course (0 for lecture rows). */
+  lecture_count: number;
+  /** Students enrolled. Zero here + lectures present = students see "0/0". */
+  enrollment_count: number;
+  /** Another row of the same kind shares this title. */
+  duplicate_title: boolean;
+  created_at: string | null;
+}
+
+/** Why an account may or may not be deleted, and what would go with it. */
+export interface UserDeletionImpact {
+  user_id: string;
+  /** Courses owned. Cascades away with the account. */
+  courses: number;
+  /** Lectures owned, as professor or as a private student upload. */
+  lectures: number;
+  /** Other students who would lose progress on that content. */
+  students_affected: number;
+  deletable: boolean;
+  /** 'self' | 'last_admin' | 'owns_content' | 'delete_failed' | null */
+  reason: string | null;
+}
+
 export interface PaginatedResponse<T> {
   success: boolean;
   data: T[];
@@ -132,6 +178,62 @@ export const adminService = {
 
     const res = await apiClient.get<PaginatedResponse<AdminUser>>(`/api/v1/admin/users?${params.toString()}`);
     return res as unknown as PaginatedResponse<AdminUser>;
+  },
+
+  /**
+   * Every course and lecture on the platform, with its owner resolved.
+   *
+   * Goes through the admin API rather than a client-side `supabase.from()`
+   * on purpose: a browser select runs under the CALLER's RLS, so it silently
+   * omits content the admin doesn't own — which is precisely the content an
+   * admin needs to see. The endpoint uses the service role instead.
+   */
+  async fetchContent(
+    page = 1,
+    limit = 50,
+    search?: string,
+    kind?: 'course' | 'lecture',
+    owner?: string,
+  ): Promise<PaginatedResponse<AdminContentItem>> {
+    const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
+    if (search) params.append('search', search);
+    if (kind) params.append('kind', kind);
+    if (owner) params.append('owner', owner);
+
+    const res = await apiClient.get<PaginatedResponse<AdminContentItem>>(
+      `/api/v1/admin/content?${params.toString()}`,
+    );
+    return res as unknown as PaginatedResponse<AdminContentItem>;
+  },
+
+  /**
+   * What deleting these accounts would destroy. Read-only.
+   *
+   * Call this before showing any confirmation UI: courses.professor_id and
+   * lectures.professor_id are ON DELETE CASCADE on auth.users, so deleting a
+   * professor takes their whole catalogue and every student's progress
+   * against it. The counts are the blast radius, not a related statistic.
+   */
+  async fetchDeletionImpact(userIds: string[]): Promise<UserDeletionImpact[]> {
+    const res = await apiClient.post<{ success: boolean; data: UserDeletionImpact[] }>(
+      '/api/v1/admin/users/deletion-impact',
+      { user_ids: userIds },
+    );
+    return res.data;
+  },
+
+  /**
+   * Permanently delete accounts. Irreversible — there is no PITR.
+   *
+   * The server re-checks every guardrail; the impact preview is advisory
+   * only. Accounts that own content come back in `blocked`, not `deleted`.
+   */
+  async deleteUsers(userIds: string[]): Promise<{ deleted: string[]; blocked: UserDeletionImpact[] }> {
+    const res = await apiClient.post<{
+      success: boolean;
+      data: { deleted: string[]; blocked: UserDeletionImpact[] };
+    }>('/api/v1/admin/users/delete', { user_ids: userIds });
+    return res.data;
   },
 
   /** Manage user roles */

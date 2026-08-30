@@ -12,11 +12,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 import httpx
 from pydantic import BaseModel
 
+from fastapi.concurrency import run_in_threadpool
+
 from backend.core.auth_middleware import (
     require_role,
+    _user_id,
 )
 from backend.core.database import supabase_admin, DB_POOL_MIN_SIZE, DB_POOL_MAX_SIZE
 from backend.core.rate_limit import limiter
+from backend.services.account_service import erase_user_storage_and_derived_data
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -398,6 +402,315 @@ async def get_sentry_errors(request: Request, user: Any = Depends(require_admin)
             "configured": False,
             "error": str(e)
         }
+
+
+# ── Account Deletion (guarded) ─────────────────────────────────────────────
+
+class UserDeletionRequest(BaseModel):
+    user_ids: list[str]
+
+
+def _owned_content_counts(uid: str) -> dict[str, int]:
+    """Courses and lectures this user owns, plus students who'd lose progress.
+
+    Both courses.professor_id and lectures.professor_id are ON DELETE CASCADE
+    against auth.users, so these numbers ARE the blast radius of deleting the
+    account — not a related statistic. lectures.student_owner_id cascades the
+    same way for private student uploads.
+    """
+    courses = (
+        supabase_admin.table("courses").select("id").eq("professor_id", uid).execute().data or []
+    )
+    lectures_as_prof = (
+        supabase_admin.table("lectures").select("id").eq("professor_id", uid).execute().data or []
+    )
+    lectures_as_student = (
+        supabase_admin.table("lectures").select("id").eq("student_owner_id", uid).execute().data or []
+    )
+
+    course_ids = [c["id"] for c in courses]
+    students: set[str] = set()
+    if course_ids:
+        enrollments = (
+            supabase_admin.table("course_enrollments")
+            .select("user_id")
+            .in_("course_id", course_ids)
+            .execute()
+            .data
+            or []
+        )
+        students = {e["user_id"] for e in enrollments if e.get("user_id") != uid}
+
+    # A lecture can be counted once under each column only if both were set,
+    # which the schema's XOR constraint forbids — so a plain sum is safe.
+    return {
+        "courses": len(courses),
+        "lectures": len(lectures_as_prof) + len(lectures_as_student),
+        "students_affected": len(students),
+    }
+
+
+def _admin_user_ids() -> set[str]:
+    rows = (
+        supabase_admin.table("user_roles").select("user_id").eq("role", "admin").execute().data or []
+    )
+    return {r["user_id"] for r in rows}
+
+
+def _assess(uid: str, caller_id: str, surviving_admins: set[str]) -> dict[str, Any]:
+    """Decide whether `uid` may be deleted, and why not if it may not.
+
+    Order matters: self and last-admin are cheap identity checks, and both
+    are about not locking the operator out. Ownership is the expensive one
+    and the one that protects everyone else's data.
+    """
+    counts = _owned_content_counts(uid)
+    verdict: dict[str, Any] = {"user_id": uid, **counts, "deletable": True, "reason": None}
+
+    if uid == caller_id:
+        verdict.update(deletable=False, reason="self")
+    elif uid in surviving_admins and len(surviving_admins - {uid}) == 0:
+        verdict.update(deletable=False, reason="last_admin")
+    elif counts["courses"] or counts["lectures"]:
+        verdict.update(deletable=False, reason="owns_content")
+
+    return verdict
+
+
+@router.post("/users/deletion-impact")
+@limiter.limit("30/minute")
+async def user_deletion_impact(
+    body: UserDeletionRequest,
+    request: Request,
+    user: Any = Depends(require_admin),
+):
+    """What deleting these accounts would destroy. Changes nothing."""
+    caller_id = _user_id(user)
+    admins = await run_in_threadpool(_admin_user_ids)
+
+    def _assess_all() -> list[dict[str, Any]]:
+        return [_assess(uid, caller_id, admins) for uid in body.user_ids]
+
+    try:
+        return {"success": True, "data": await run_in_threadpool(_assess_all)}
+    except Exception as e:
+        logger.error("Deletion impact check failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to assess deletion impact.")
+
+
+@router.post("/users/delete")
+@limiter.limit("5/minute")
+async def delete_users(
+    body: UserDeletionRequest,
+    request: Request,
+    user: Any = Depends(require_admin),
+):
+    """Permanently delete accounts that own no content.
+
+    Reuses the erasure path behind /auth/delete-account rather than a second
+    implementation: storage cleanup MUST run before the auth.users row is
+    removed (it reads lectures rows the cascade would otherwise delete first)
+    and it is dedup-aware, so a PDF blob shared with another user is retained.
+
+    Guardrails are re-evaluated HERE rather than trusted from the caller's
+    earlier impact check — the preview is advisory, this is the gate.
+    """
+    caller_id = _user_id(user)
+    admins = await run_in_threadpool(_admin_user_ids)
+    surviving = set(admins)
+
+    deleted: list[str] = []
+    blocked: list[dict[str, Any]] = []
+
+    for uid in body.user_ids:
+        verdict = await run_in_threadpool(_assess, uid, caller_id, surviving)
+        if not verdict["deletable"]:
+            blocked.append(verdict)
+            continue
+
+        try:
+            # Non-fatal, exactly as in /auth/delete-account: failing to clear
+            # storage must not block removal of the DB-resident data.
+            await erase_user_storage_and_derived_data(uid)
+        except Exception as e:
+            logger.error("Admin erasure storage cleanup failed for %s: %s", uid, e)
+
+        try:
+            await run_in_threadpool(supabase_admin.auth.admin.delete_user, uid)
+        except Exception as e:
+            logger.error("Admin account deletion failed for %s: %s", uid, e)
+            blocked.append({**verdict, "deletable": False, "reason": "delete_failed"})
+            continue
+
+        deleted.append(uid)
+        surviving.discard(uid)
+        logger.info("Admin %s deleted account %s", caller_id, uid)
+
+    return {"success": True, "data": {"deleted": deleted, "blocked": blocked}}
+
+
+# ── Content Inventory (Attribution & Visibility Diagnostics) ───────────────
+
+@router.get("/content")
+@limiter.limit("30/minute")
+async def list_content(
+    request: Request,
+    user: Any = Depends(require_admin),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    search: str = Query(None),
+    kind: str = Query(None, description="'course' or 'lecture'"),
+    owner: str = Query(None, description="owner user_id"),
+    archived: bool = Query(None),
+):
+    """Every course and lecture on the platform, with its owner resolved.
+
+    Runs as the service role, so it deliberately bypasses RLS: the point is
+    to show ground truth, not what the calling admin's own policies happen
+    to permit. (The dashboard's previous client-side select ran under the
+    caller's RLS and could silently omit content owned by others.)
+
+    On visibility, this reports the *inputs* — enrolment count, is_archived,
+    visibility, course_id, duplicate titles — and deliberately does NOT
+    compute a "hidden because X" verdict. Doing so would mean reimplementing
+    the RLS predicates here, where they would silently go stale the next
+    time a policy migration lands. Facts don't drift; a duplicated rules
+    engine does.
+    """
+    offset = (page - 1) * limit
+
+    # Ownership is a two-column XOR: course content carries professor_id,
+    # private student uploads carry student_owner_id (see migration
+    # 20260710040000_student_uploads.sql). Collapse both into one owner_id
+    # so a row is attributable no matter which upload path created it.
+    cte = """
+        WITH content_rows AS (
+            SELECT
+                c.id,
+                'course'::text    AS kind,
+                c.title,
+                c.is_archived,
+                NULL::uuid        AS course_id,
+                NULL::text        AS visibility,
+                c.professor_id    AS owner_id,
+                'professor'::text AS owner_kind,
+                c.created_at
+            FROM public.courses c
+            UNION ALL
+            SELECT
+                l.id,
+                'lecture'::text,
+                l.title,
+                l.is_archived,
+                l.course_id,
+                l.visibility,
+                COALESCE(l.professor_id, l.student_owner_id),
+                CASE WHEN l.student_owner_id IS NOT NULL
+                     THEN 'student'::text ELSE 'professor'::text END,
+                l.created_at
+            FROM public.lectures l
+        )
+    """
+    base_from = """
+        FROM content_rows r
+        LEFT JOIN public.profiles p ON p.user_id = r.owner_id
+        LEFT JOIN public.courses cc ON cc.id = r.course_id
+    """
+
+    where_clauses = []
+    params: list[Any] = []
+
+    if search:
+        params.append(f"%{search}%")
+        where_clauses.append(
+            f"(r.title ILIKE ${len(params)} OR p.email ILIKE ${len(params)}"
+            f" OR p.full_name ILIKE ${len(params)})"
+        )
+    if kind in ("course", "lecture"):
+        params.append(kind)
+        where_clauses.append(f"r.kind = ${len(params)}")
+    if owner:
+        params.append(owner)
+        where_clauses.append(f"r.owner_id = ${len(params)}::uuid")
+    if archived is not None:
+        params.append(archived)
+        where_clauses.append(f"r.is_archived = ${len(params)}")
+
+    where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+    count_query = f"{cte} SELECT count(*) {base_from} {where_sql}"
+    query = f"""
+        {cte}
+        SELECT
+            r.id,
+            r.kind,
+            r.title,
+            r.is_archived,
+            r.course_id,
+            r.visibility,
+            r.owner_id,
+            r.owner_kind,
+            r.created_at,
+            p.email     AS owner_email,
+            p.full_name AS owner_name,
+            cc.title    AS course_title,
+            (SELECT count(*) FROM public.lectures l2
+              WHERE r.kind = 'course' AND l2.course_id = r.id) AS lecture_count,
+            (SELECT count(*) FROM public.course_enrollments ce
+              WHERE ce.course_id = CASE WHEN r.kind = 'course'
+                                        THEN r.id ELSE r.course_id END) AS enrollment_count,
+            -- Deliberately correlated against the UNFILTERED CTE: a title is
+            -- still a duplicate even when the sibling row is excluded by the
+            -- caller's current filter. Computing this over the filtered set
+            -- would hide exactly the case worth surfacing.
+            (SELECT count(*) > 1 FROM content_rows d
+              WHERE d.kind = r.kind AND lower(d.title) = lower(r.title)) AS duplicate_title
+        {base_from}
+        {where_sql}
+        ORDER BY r.created_at DESC NULLS LAST
+        LIMIT ${len(params) + 1} OFFSET ${len(params) + 2};
+    """
+
+    try:
+        from backend.core.database import db_pool, init_db_pool
+        if not db_pool:
+            await init_db_pool()
+        async with db_pool.acquire() as conn:
+            total_count = await conn.fetchval(count_query, *params) or 0
+            rows = await conn.fetch(query, *(params + [limit, offset]))
+
+            items = []
+            for r in rows:
+                items.append({
+                    "id": str(r["id"]),
+                    "kind": r["kind"],
+                    "title": r["title"],
+                    "is_archived": r["is_archived"],
+                    "course_id": str(r["course_id"]) if r["course_id"] else None,
+                    "course_title": r["course_title"],
+                    "visibility": r["visibility"],
+                    "owner_id": str(r["owner_id"]) if r["owner_id"] else None,
+                    "owner_kind": r["owner_kind"],
+                    "owner_email": r["owner_email"],
+                    "owner_name": r["owner_name"],
+                    "lecture_count": r["lecture_count"],
+                    "enrollment_count": r["enrollment_count"],
+                    "duplicate_title": r["duplicate_title"],
+                    "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                })
+            return {
+                "success": True,
+                "data": items,
+                "meta": {
+                    "total": total_count,
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": (total_count + limit - 1) // limit,
+                },
+            }
+    except Exception as e:
+        logger.error("Admin list content failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve content inventory.")
 
 
 # ── Student Content Visibility (Data Control) ──────────────────────────────

@@ -10,12 +10,18 @@ from backend.core.auth_middleware import verify_token
 
 
 class MockConnection:
-    def __init__(self, users_data=None, events_data=None, backups_data=None):
+    def __init__(self, users_data=None, events_data=None, backups_data=None, content_data=None):
         self.users_data = users_data or []
         self.events_data = events_data or []
         self.backups_data = backups_data or []
+        self.content_data = content_data or []
 
     async def fetch(self, query, *args):
+        # MUST come first: list_content's query joins public.profiles (to
+        # resolve the owner's email), so it would otherwise be captured by
+        # the "public.profiles" branch below and served users_data.
+        if "content_rows" in query:
+            return self.content_data
         # list_users's query selects from public.profiles but also embeds a
         # `FROM public.learning_events e` scalar subquery (for last_seen), so
         # a naive "public.learning_events" substring check matches BOTH the
@@ -137,7 +143,44 @@ def patch_admin_deps(monkeypatch, fake_supabase, patch_supabase, admin_user):
         }
     ]
 
-    mock_conn = MockConnection(users_mock, events_mock, backups_mock)
+    content_mock = [
+        {
+            "id": "c1",
+            "kind": "course",
+            "title": "Datenbanksysteme",
+            "is_archived": False,
+            "course_id": None,
+            "course_title": None,
+            "visibility": None,
+            "owner_id": "prof-1",
+            "owner_kind": "professor",
+            "owner_email": "prof@admin.com",
+            "owner_name": "Informatics Professor",
+            "lecture_count": 10,
+            "enrollment_count": 0,
+            "duplicate_title": True,
+            "created_at": None,
+        },
+        {
+            "id": "l1",
+            "kind": "lecture",
+            "title": "Private student upload",
+            "is_archived": False,
+            "course_id": None,
+            "course_title": None,
+            "visibility": "private_student",
+            "owner_id": "stu-1",
+            "owner_kind": "student",
+            "owner_email": "abdul@test.com",
+            "owner_name": "Abdulah",
+            "lecture_count": 0,
+            "enrollment_count": 0,
+            "duplicate_title": False,
+            "created_at": None,
+        },
+    ]
+
+    mock_conn = MockConnection(users_mock, events_mock, backups_mock, content_mock)
     mock_pool = MockPool(mock_conn)
 
     # Patch database pool in core.database and api.admin
@@ -172,6 +215,201 @@ def test_list_users_success(app, patch_admin_deps, admin_user):
     assert body["success"] is True
     assert len(body["data"]) == 1
     assert body["data"][0]["email"] == "user1@example.com"
+
+
+def test_list_content_resolves_owner_for_both_upload_paths(app, patch_admin_deps, admin_user):
+    """The whole point of the endpoint: say who owns each piece of content.
+
+    Ownership is a two-column XOR — professor_id for course content,
+    student_owner_id for private uploads — so a row must carry an
+    identifiable owner regardless of which path created it.
+    """
+    app.dependency_overrides[verify_token] = lambda: admin_user
+    app.dependency_overrides[admin_api.require_admin] = lambda: admin_user
+
+    client = TestClient(app)
+    r = client.get("/api/admin/content", headers={"Authorization": "Bearer token"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["success"] is True
+
+    course, lecture = body["data"][0], body["data"][1]
+    assert course["owner_email"] == "prof@admin.com"
+    assert course["owner_kind"] == "professor"
+    assert lecture["owner_email"] == "abdul@test.com"
+    assert lecture["owner_kind"] == "student"
+
+
+def test_list_content_exposes_the_inputs_to_visibility(app, patch_admin_deps, admin_user):
+    """Raw facts, not a computed verdict.
+
+    We deliberately do NOT recompute the RLS predicates here — that would go
+    stale the moment a policy changes. The endpoint surfaces the inputs
+    (enrolment count, archived, visibility, duplicate titles) and the reader
+    draws the conclusion.
+    """
+    app.dependency_overrides[verify_token] = lambda: admin_user
+    app.dependency_overrides[admin_api.require_admin] = lambda: admin_user
+
+    client = TestClient(app)
+    r = client.get("/api/admin/content", headers={"Authorization": "Bearer token"})
+    course = r.json()["data"][0]
+
+    # 10 lectures but nobody enrolled → students see "0/0 lectures".
+    assert course["lecture_count"] == 10
+    assert course["enrollment_count"] == 0
+    assert course["duplicate_title"] is True
+    assert course["is_archived"] is False
+
+
+def test_list_content_blocked_for_non_admin(app, patch_admin_deps, non_admin_user):
+    app.dependency_overrides[verify_token] = lambda: non_admin_user
+    app.dependency_overrides[admin_api.require_admin] = auth_middleware.require_role("admin")
+
+    client = TestClient(app)
+    r = client.get("/api/admin/content", headers={"Authorization": "Bearer token"})
+    assert r.status_code == 403
+
+
+class _RecordingAdminAuth:
+    """Stub exposing just `.auth.admin.delete_user`, mirroring the client shape.
+
+    Same approach as test_auth_account_deletion.py: the Supabase admin call is
+    real I/O, so it's the one thing we stub. Everything else about the
+    endpoint — the ownership guardrail, the self/last-admin checks — runs for
+    real against the seeded fake.
+    """
+
+    def __init__(self, fake):
+        self._fake = fake
+        self.deleted: list[str] = []
+
+    def __getattr__(self, name):
+        return getattr(self._fake, name)
+
+    @property
+    def auth(self):
+        outer = self
+
+        class _Auth:
+            class admin:  # noqa: N801 - mirrors supabase client shape
+                @staticmethod
+                def delete_user(uid):
+                    outer.deleted.append(uid)
+
+        return _Auth()
+
+
+@pytest.fixture
+def recording_admin(monkeypatch, fake_supabase):
+    rec = _RecordingAdminAuth(fake_supabase)
+    monkeypatch.setattr(admin_api, "supabase_admin", rec, raising=True)
+
+    async def _fake_erase(uid):
+        return {"pdf_blobs_deleted": 0, "pdf_blobs_retained_shared": 0,
+                "worksheet_files_deleted": 0, "slide_embeddings_deleted": 0}
+
+    monkeypatch.setattr(admin_api, "erase_user_storage_and_derived_data", _fake_erase, raising=False)
+    return rec
+
+
+def _as_admin(app, admin_user):
+    app.dependency_overrides[verify_token] = lambda: admin_user
+    app.dependency_overrides[admin_api.require_admin] = lambda: admin_user
+    return TestClient(app)
+
+
+def test_delete_users_refuses_a_content_owner(app, patch_admin_deps, admin_user, fake_supabase, recording_admin):
+    """The guardrail that makes catastrophic loss structurally impossible.
+
+    courses.professor_id and lectures.professor_id are both ON DELETE CASCADE
+    on auth.users, so deleting a professor would take their whole catalogue —
+    and every student's progress against it — with no PITR to recover from.
+    """
+    fake_supabase.seed("user_roles", [{"user_id": "prof-1", "role": "professor"},
+                                      {"user_id": "admin-uuid-123", "role": "admin"}])
+    fake_supabase.seed("courses", [{"id": "c1", "professor_id": "prof-1", "title": "Datenbanksysteme"}])
+    fake_supabase.seed("lectures", [{"id": "l1", "professor_id": "prof-1", "title": "L1"},
+                                    {"id": "l2", "professor_id": "prof-1", "title": "L2"}])
+
+    client = _as_admin(app, admin_user)
+    r = client.post("/api/admin/users/delete", json={"user_ids": ["prof-1"]},
+                    headers={"Authorization": "Bearer token"})
+
+    assert r.status_code == 200
+    blocked = r.json()["data"]["blocked"]
+    assert len(blocked) == 1
+    assert blocked[0]["user_id"] == "prof-1"
+    assert blocked[0]["reason"] == "owns_content"
+    assert blocked[0]["courses"] == 1
+    assert blocked[0]["lectures"] == 2
+    # The account must still exist.
+    assert recording_admin.deleted == []
+
+
+def test_delete_users_removes_a_user_owning_nothing(app, patch_admin_deps, admin_user, fake_supabase, recording_admin):
+    fake_supabase.seed("user_roles", [{"user_id": "stu-1", "role": "student"},
+                                      {"user_id": "admin-uuid-123", "role": "admin"}])
+
+    client = _as_admin(app, admin_user)
+    r = client.post("/api/admin/users/delete", json={"user_ids": ["stu-1"]},
+                    headers={"Authorization": "Bearer token"})
+
+    assert r.status_code == 200
+    assert r.json()["data"]["deleted"] == ["stu-1"]
+    assert recording_admin.deleted == ["stu-1"]
+
+
+def test_delete_users_refuses_self(app, patch_admin_deps, admin_user, fake_supabase, recording_admin):
+    fake_supabase.seed("user_roles", [{"user_id": "admin-uuid-123", "role": "admin"},
+                                      {"user_id": "other-admin", "role": "admin"}])
+
+    client = _as_admin(app, admin_user)
+    r = client.post("/api/admin/users/delete", json={"user_ids": ["admin-uuid-123"]},
+                    headers={"Authorization": "Bearer token"})
+
+    assert r.json()["data"]["blocked"][0]["reason"] == "self"
+    assert recording_admin.deleted == []
+
+
+def test_delete_users_refuses_the_last_admin(app, patch_admin_deps, admin_user, fake_supabase, recording_admin):
+    """Locking every human out of the admin console is unrecoverable from the UI."""
+    fake_supabase.seed("user_roles", [{"user_id": "lonely-admin", "role": "admin"}])
+
+    client = _as_admin(app, admin_user)
+    r = client.post("/api/admin/users/delete", json={"user_ids": ["lonely-admin"]},
+                    headers={"Authorization": "Bearer token"})
+
+    assert r.json()["data"]["blocked"][0]["reason"] == "last_admin"
+    assert recording_admin.deleted == []
+
+
+def test_deletion_impact_reports_without_deleting(app, patch_admin_deps, admin_user, fake_supabase, recording_admin):
+    fake_supabase.seed("courses", [{"id": "c1", "professor_id": "prof-1", "title": "C"}])
+    fake_supabase.seed("lectures", [{"id": "l1", "professor_id": "prof-1", "title": "L"}])
+    fake_supabase.seed("course_enrollments", [{"course_id": "c1", "user_id": "stu-9"}])
+
+    client = _as_admin(app, admin_user)
+    r = client.post("/api/admin/users/deletion-impact", json={"user_ids": ["prof-1"]},
+                    headers={"Authorization": "Bearer token"})
+
+    assert r.status_code == 200
+    impact = r.json()["data"][0]
+    assert impact["courses"] == 1
+    assert impact["lectures"] == 1
+    assert impact["students_affected"] == 1
+    assert impact["deletable"] is False
+    assert recording_admin.deleted == []
+
+
+def test_delete_users_blocked_for_non_admin(app, patch_admin_deps, non_admin_user):
+    app.dependency_overrides[verify_token] = lambda: non_admin_user
+    app.dependency_overrides[admin_api.require_admin] = auth_middleware.require_role("admin")
+
+    client = TestClient(app)
+    r = client.post("/api/admin/users/delete", json={"user_ids": ["x"]},
+                    headers={"Authorization": "Bearer token"})
+    assert r.status_code == 403
 
 
 def test_list_events_success(app, patch_admin_deps, admin_user):

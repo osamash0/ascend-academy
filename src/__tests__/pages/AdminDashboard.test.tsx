@@ -33,6 +33,9 @@ const {
   fetchUsersMock,
   fetchEventsMock,
   fetchBackupsMock,
+  fetchContentMock,
+  fetchDeletionImpactMock,
+  deleteUsersMock,
 } = vi.hoisted(() => ({
   fetchErrorsMock: vi.fn(),
   fetchDeploymentInfoMock: vi.fn(),
@@ -40,6 +43,9 @@ const {
   fetchUsersMock: vi.fn(),
   fetchEventsMock: vi.fn(),
   fetchBackupsMock: vi.fn(),
+  fetchContentMock: vi.fn(),
+  fetchDeletionImpactMock: vi.fn(),
+  deleteUsersMock: vi.fn(),
 }));
 
 vi.mock("@/services/adminService", async () => {
@@ -56,6 +62,9 @@ vi.mock("@/services/adminService", async () => {
       fetchBackups: fetchBackupsMock,
       fetchErrors: fetchErrorsMock,
       fetchDeploymentInfo: fetchDeploymentInfoMock,
+      fetchContent: fetchContentMock,
+      fetchDeletionImpact: fetchDeletionImpactMock,
+      deleteUsers: deleteUsersMock,
     },
   };
 });
@@ -93,6 +102,180 @@ beforeEach(() => {
   fetchEventsMock.mockResolvedValue({ success: true, data: [], meta: { total: 0, page: 1, limit: 20, total_pages: 1 } });
   fetchBackupsMock.mockReset();
   fetchBackupsMock.mockResolvedValue([]);
+  fetchContentMock.mockReset();
+  fetchContentMock.mockResolvedValue({
+    success: true,
+    data: [],
+    meta: { total: 0, page: 1, limit: 50, total_pages: 1 },
+  });
+  fetchDeletionImpactMock.mockReset();
+  deleteUsersMock.mockReset();
+  deleteUsersMock.mockResolvedValue({ deleted: [], blocked: [] });
+});
+
+describe("AdminDashboard — user deletion guardrail", () => {
+  const professor = {
+    user_id: "prof-1",
+    email: "prof@admin.com",
+    full_name: "Informatics Professor",
+    display_name: null,
+    avatar_url: null,
+    total_xp: 0,
+    current_level: 1,
+    created_at: null,
+    last_seen: null,
+    roles: ["professor"],
+  };
+  const student = { ...professor, user_id: "stu-1", email: "abdul@test.com", roles: ["student"] };
+
+  function seedUsers() {
+    fetchUsersMock.mockResolvedValue({
+      success: true,
+      data: [professor, student],
+      meta: { total: 2, page: 1, limit: 20, total_pages: 1 },
+    });
+  }
+
+  it("refuses to delete a user who still owns content, and says what they own", async () => {
+    // courses.professor_id and lectures.professor_id are ON DELETE CASCADE on
+    // auth.users, so deleting this account would take the catalogue with it.
+    seedUsers();
+    fetchDeletionImpactMock.mockResolvedValue([
+      {
+        user_id: "prof-1",
+        courses: 4,
+        lectures: 32,
+        students_affected: 12,
+        deletable: false,
+        reason: "owns_content",
+      },
+    ]);
+
+    renderWithProviders(<AdminDashboard />);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByTestId("select-user-prof-1")).toBeInTheDocument());
+    await user.click(screen.getByTestId("select-user-prof-1"));
+    await user.click(screen.getByRole("button", { name: /Delete selected/i }));
+
+    await waitFor(() => expect(screen.getByTestId("deletion-blocked-prof-1")).toBeInTheDocument());
+    expect(screen.getByTestId("deletion-blocked-prof-1")).toHaveTextContent("4");
+    expect(screen.getByTestId("deletion-blocked-prof-1")).toHaveTextContent("32");
+
+    // No way to proceed: nothing in the selection is deletable.
+    expect(screen.getByTestId("confirm-delete-users")).toBeDisabled();
+    expect(deleteUsersMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes a user who owns nothing once the confirmation is typed", async () => {
+    seedUsers();
+    fetchDeletionImpactMock.mockResolvedValue([
+      {
+        user_id: "stu-1",
+        courses: 0,
+        lectures: 0,
+        students_affected: 0,
+        deletable: true,
+        reason: null,
+      },
+    ]);
+    deleteUsersMock.mockResolvedValue({ deleted: ["stu-1"], blocked: [] });
+
+    renderWithProviders(<AdminDashboard />);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByTestId("select-user-stu-1")).toBeInTheDocument());
+    await user.click(screen.getByTestId("select-user-stu-1"));
+    await user.click(screen.getByRole("button", { name: /Delete selected/i }));
+
+    await waitFor(() => expect(screen.getByTestId("confirm-delete-users")).toBeInTheDocument());
+    // Guarded until the word is typed — deletion is irreversible, there is no PITR.
+    expect(screen.getByTestId("confirm-delete-users")).toBeDisabled();
+
+    await user.type(screen.getByTestId("delete-confirm-input"), "DELETE");
+    expect(screen.getByTestId("confirm-delete-users")).toBeEnabled();
+
+    await user.click(screen.getByTestId("confirm-delete-users"));
+    await waitFor(() => expect(deleteUsersMock).toHaveBeenCalledWith(["stu-1"]));
+  });
+});
+
+describe("AdminDashboard — Content Control attribution", () => {
+  const dbCourse = {
+    id: "c1",
+    kind: "course" as const,
+    title: "Datenbanksysteme",
+    is_archived: false,
+    course_id: null,
+    course_title: null,
+    visibility: null,
+    owner_id: "prof-1",
+    owner_kind: "professor" as const,
+    owner_email: "prof@admin.com",
+    owner_name: "Informatics Professor",
+    lecture_count: 10,
+    enrollment_count: 0,
+    duplicate_title: true,
+    created_at: null,
+  };
+
+  it("shows who owns each item so content is attributable", async () => {
+    fetchContentMock.mockResolvedValue({
+      success: true,
+      data: [
+        dbCourse,
+        {
+          ...dbCourse,
+          id: "l1",
+          kind: "lecture" as const,
+          title: "Scanned notes",
+          owner_id: "stu-1",
+          owner_kind: "student" as const,
+          owner_email: "abdul@test.com",
+          owner_name: "Abdulah",
+          visibility: "private_student",
+          lecture_count: 0,
+          duplicate_title: false,
+        },
+      ],
+      meta: { total: 2, page: 1, limit: 50, total_pages: 1 },
+    });
+
+    renderWithProviders(<AdminDashboard />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Content Control/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("prof@admin.com")).toBeInTheDocument();
+    });
+    expect(screen.getByText("abdul@test.com")).toBeInTheDocument();
+  });
+
+  it("surfaces the enrolment count, which is why a course reads 0/0 to students", async () => {
+    fetchContentMock.mockResolvedValue({
+      success: true,
+      data: [dbCourse],
+      meta: { total: 1, page: 1, limit: 50, total_pages: 1 },
+    });
+
+    renderWithProviders(<AdminDashboard />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Content Control/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("content-enrollment-c1")).toHaveTextContent("0");
+    });
+    // 10 lectures exist but nobody is enrolled — the pair is the diagnosis.
+    expect(screen.getByTestId("content-lectures-c1")).toHaveTextContent("10");
+  });
+
+  it("goes through the admin API, not a client-side select under the caller's own RLS", async () => {
+    renderWithProviders(<AdminDashboard />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Content Control/i }));
+
+    await waitFor(() => expect(fetchContentMock).toHaveBeenCalled());
+  });
 });
 
 describe("AdminDashboard — Diagnostics tab (R1 regression)", () => {
@@ -225,32 +408,31 @@ describe("AdminDashboard — Platform stats load failure (R14 regression)", () =
   });
 });
 
-// R20: both Content Control reads destructured only `.data` and dropped
+// R20: the two Content Control reads destructured only `.data` and dropped
 // `.error` — an RLS rejection resolved to `[]` and rendered as "No content
 // matches your filters" instead of a surfaced failure.
+//
+// Those raw supabase reads are gone: the tab now calls the admin API, which
+// uses the service role precisely so it ISN'T subject to the caller's RLS.
+// The guarantee R20 bought is still worth pinning though, and is now about
+// the API call — a failed content load must surface, not masquerade as an
+// empty inventory. An admin who reads "no content" when the request actually
+// failed draws exactly the wrong conclusion about their platform.
 describe("AdminDashboard — Content Control read failure (R20 regression)", () => {
-  it("routes a courses-read error into the existing toast handler", async () => {
+  it("routes a failed content load into the existing toast handler", async () => {
     const user = userEvent.setup();
-    const originalFrom = supabaseMock.from.bind(supabaseMock);
-    const fromSpy = vi.spyOn(supabaseMock, "from").mockImplementation((table: string) => {
-      if (table === "courses") {
-        return { select: () => Promise.resolve({ data: null, error: { message: "RLS violation" } }) } as any;
-      }
-      return originalFrom(table);
+    fetchContentMock.mockRejectedValue(new Error("admin content request failed"));
+
+    renderWithProviders(<AdminDashboard />);
+    await user.click(screen.getByRole("button", { name: /Content Control/i }));
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Error loading dashboard data" }),
+      );
     });
-
-    try {
-      renderWithProviders(<AdminDashboard />);
-      await user.click(screen.getByRole("button", { name: /Content Control/i }));
-
-      await waitFor(() => {
-        expect(toastMock).toHaveBeenCalledWith(
-          expect.objectContaining({ title: "Error loading dashboard data" }),
-        );
-      });
-    } finally {
-      fromSpy.mockRestore();
-    }
+    // The failure must not be indistinguishable from a genuinely empty list.
+    expect(screen.queryByText(/No content matches your filters/i)).not.toBeInTheDocument();
   });
 });
 
