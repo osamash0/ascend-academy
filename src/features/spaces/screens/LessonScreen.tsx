@@ -14,13 +14,14 @@ import { LaunchButton, gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import type { Concept, Lesson, Space } from '../types';
 import { spaceById } from '../mocks/spaces';
-import { lessonsForSpace } from '../mocks/lessons';
+import { adjacentLessons, lessonsForSpace } from '../mocks/lessons';
 import { contributionsForLesson } from '../mocks/contributions';
 import { notes } from '../mocks/library';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { ContributionCard } from '../components/ContributionCard';
+import { LessonPager } from '../components/LessonPager';
 import { AuthorLine, GroundingMarker, OriginBadge } from '../components/badges';
 import { SpacesError } from '../components/states';
 
@@ -82,6 +83,11 @@ export default function LessonScreen() {
     () => notes.filter((n) => n.lessonId === lessonId),
     [lessonId],
   );
+  /** Published neighbours only — the pager never steps into a draft. */
+  const { prev, next } = useMemo(
+    () => (spaceId && lessonId ? adjacentLessons(spaceId, lessonId) : { prev: null, next: null }),
+    [spaceId, lessonId],
+  );
 
   const chrome = (body: React.ReactNode, gradientIndex = 0) => (
     <Scene
@@ -102,7 +108,7 @@ export default function LessonScreen() {
   const done = lesson.progress === 'done';
 
   return chrome(
-    <div className="pb-24">
+    <div className="pb-36">
       {/* ── Key art hero ── */}
       <div className="relative">
         <div
@@ -290,6 +296,8 @@ export default function LessonScreen() {
           )}
         </Row>
       </div>
+
+      {spaceId && <LessonPager spaceId={spaceId} prev={prev} next={next} />}
     </div>,
     lesson.order,
   );

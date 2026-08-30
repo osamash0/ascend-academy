@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,7 +43,7 @@ import { SpacesError, SpacesSkeleton } from '../components/states';
  * and which rules apply to which is undecided.
  */
 
-type Tab = 'overview' | 'map' | 'members';
+export type SpaceTab = 'overview' | 'map' | 'members';
 
 /** How many Lessons the path shows before it offers "Show more". */
 const COLLAPSED_LESSONS = 4;
@@ -53,9 +54,19 @@ const ROLE_LABEL: Record<Role, string> = {
   member: 'Member',
 };
 
-export default function SpaceScreen({ spaceId = 's-dbs' }: { spaceId?: string }) {
+export default function SpaceScreen({
+  spaceId = 's-dbs',
+  tab = 'overview',
+}: {
+  spaceId?: string;
+  /** Driven by the URL segment — see SpaceRoute. */
+  tab?: SpaceTab;
+}) {
+  const navigate = useNavigate();
+  /** Tabs are routes, so switching one is navigation, not local state. */
+  const setTab = (t: SpaceTab) =>
+    navigate(t === 'overview' ? `/v4/space/${spaceId}` : `/v4/space/${spaceId}/${t}`);
   const { state, space, lessons, contributions, members } = useSpace(spaceId);
-  const [tab, setTab] = useState<Tab>('overview');
   /*
    * The path collapses by default. Doc 2 rule 3 names the problem — "in a
    * 40-Lesson Space the section is far down, and members' work must stay
@@ -229,7 +240,7 @@ export default function SpaceScreen({ spaceId = 's-dbs' }: { spaceId?: string })
         aria-label="Space"
         className="mt-8 flex items-center gap-1 border-b border-white/[0.08]"
       >
-        {(['overview', 'map', 'members'] as Tab[]).map((t) => (
+        {(['overview', 'map', 'members'] as SpaceTab[]).map((t) => (
           <button
             key={t}
             role="tab"

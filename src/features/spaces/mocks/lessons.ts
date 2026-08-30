@@ -264,3 +264,21 @@ export const lessonsForSpace = (spaceId: string): Lesson[] =>
  */
 export const publishedLessonsForSpace = (spaceId: string): Lesson[] =>
   lessonsForSpace(spaceId).filter((l) => l.state === 'published');
+
+/**
+ * The Lessons either side of one, for the pager.
+ *
+ * Walks the **published** path only. Rule 1: Members only ever see published
+ * Lessons — a pager that stepped into a draft would leak unpublished work to
+ * anyone who pressed the arrow key twice. Returns nulls at the ends and for a
+ * Lesson that is not in this Space.
+ */
+export const adjacentLessons = (
+  spaceId: string,
+  lessonId: string,
+): { prev: Lesson | null; next: Lesson | null } => {
+  const path = publishedLessonsForSpace(spaceId);
+  const i = path.findIndex((l) => l.id === lessonId);
+  if (i === -1) return { prev: null, next: null };
+  return { prev: path[i - 1] ?? null, next: path[i + 1] ?? null };
+};

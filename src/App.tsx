@@ -269,6 +269,8 @@ function AppRoutes() {
             ?mock=empty|loading|error to inspect the other states. */}
         {import.meta.env.DEV && <Route path="/v4/spaces" element={<SpacesScreen />} />}
         {import.meta.env.DEV && <Route path="/v4/space/:spaceId" element={<SpaceRoute />} />}
+        {/* Tabs are URL segments so every one is shareable and deep-linkable. */}
+        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/:tab" element={<SpaceRoute />} />}
         {import.meta.env.DEV && <Route path="/v4/library" element={<V4Library />} />}
         {/* Studio screens hang off Library; Library itself stays Learn. */}
         {import.meta.env.DEV && <Route path="/v4/library/:view" element={<V4LibraryStudio />} />}
