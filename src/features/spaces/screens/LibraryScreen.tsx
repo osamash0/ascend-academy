@@ -14,6 +14,8 @@ import type { LibraryItem, LibraryKind } from '../types';
 import { useLibrary } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
+import { NoteEditor } from '../components/NoteEditor';
+import { updateNote } from '../mocks/notes';
 import { BentoCell } from '../components/BentoCell';
 import { Scene, SURFACES } from '../components/Scene';
 import { EndorsedBadge } from '../components/badges';
@@ -73,6 +75,8 @@ const formatWhen = (iso: string) => {
 
 export default function LibraryScreen() {
   const navigate = useNavigate();
+  /** Bodies edited this session, so the row shows the edit immediately. */
+  const [noteBodies, setNoteBodies] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<Filter>('all');
   const { state, items, notes, pending } = useLibrary();
 
@@ -210,7 +214,20 @@ export default function LibraryScreen() {
         <ul className="mt-6 space-y-2.5">
           {shown.map((item) => (
             <li key={item.id}>
-              <LibraryRow item={item} />
+              {/* Doc 2 rule 5: everything here is a pointer into its Space —
+                  except Notes, which are read *and written* in Library. */}
+              {item.kind === 'note' ? (
+                <NoteEditor
+                  value={noteBodies[item.id] ?? item.title}
+                  onSave={(body) => {
+                    const id = item.id.replace(/^lib-note-/, '');
+                    updateNote(id, body);
+                    setNoteBodies((m) => ({ ...m, [item.id]: body }));
+                  }}
+                />
+              ) : (
+                <LibraryRow item={item} />
+              )}
             </li>
           ))}
         </ul>

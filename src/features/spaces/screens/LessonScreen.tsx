@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,11 +16,12 @@ import type { Concept, Lesson, Space } from '../types';
 import { spaceById } from '../mocks/spaces';
 import { adjacentLessons, lessonsForSpace } from '../mocks/lessons';
 import { contributionsForLesson } from '../mocks/contributions';
-import { notes } from '../mocks/library';
+import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { ContributionCard } from '../components/ContributionCard';
+import { NoteEditor } from '../components/NoteEditor';
 import { LessonPager } from '../components/LessonPager';
 import { AuthorLine, GroundingMarker, OriginBadge } from '../components/badges';
 import { SpacesError } from '../components/states';
@@ -79,9 +80,11 @@ export default function LessonScreen() {
     () => (lesson ? contributionsForLesson(lesson.id).filter((c) => !c.hidden) : []),
     [lesson],
   );
+  // Local tick so writes re-render; the store is the source of truth.
+  const [noteTick, setNoteTick] = useState(0);
   const myNotes = useMemo(
-    () => notes.filter((n) => n.lessonId === lessonId),
-    [lessonId],
+    () => (lessonId ? notesForLesson(lessonId) : []),
+    [lessonId, noteTick],
   );
   /** Published neighbours only — the pager never steps into a draft. */
   const { prev, next } = useMemo(
@@ -280,25 +283,44 @@ export default function LessonScreen() {
 
         {/* ── Your notes: private, and the one thing only you can see ── */}
         <Row title="Your notes" count={myNotes.length}>
-          {myNotes.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/15 px-6 py-8 text-center">
-              <p className="text-[14px] text-quiet">
-                Nothing yet. Notes you write here are private, and gather in your Library.
+          <div className="space-y-2.5">
+            {myNotes.map((n) => (
+              <NoteEditor
+                key={n.id}
+                value={n.body}
+                onSave={(body) => {
+                  updateNote(n.id, body);
+                  setNoteTick((t) => t + 1);
+                }}
+                onDelete={() => {
+                  deleteNote(n.id);
+                  setNoteTick((t) => t + 1);
+                }}
+              />
+            ))}
+
+            {/* Doc 2 Create rule: "New Note — the reader, and in Library." */}
+            <NoteEditor
+              key={`new-${noteTick}`}
+              placeholder="Private to you, and gathered in your Library."
+              onSave={(body) => {
+                addNote({
+                  lessonId: lesson.id,
+                  body,
+                  lessonTitle: lesson.title,
+                  spaceId: space.id,
+                  spaceName: space.name,
+                });
+                setNoteTick((t) => t + 1);
+              }}
+            />
+
+            {myNotes.length === 0 && (
+              <p className="px-1 text-[13px] text-faint">
+                Nothing yet. Notes are private, and only you ever see them.
               </p>
-            </div>
-          ) : (
-            <ul className="space-y-2.5">
-              {myNotes.map((n) => (
-                <li
-                  key={n.id}
-                  className="flex items-start gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-5 py-4"
-                >
-                  <NotebookPen aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-quiet" />
-                  <p className="text-[14.5px] leading-relaxed text-quiet">{n.body}</p>
-                </li>
-              ))}
-            </ul>
-          )}
+            )}
+          </div>
         </Row>
       </div>
 

@@ -20,6 +20,7 @@ import { lessonsForSpace } from './lessons';
 export const notes: Note[] = [
   {
     id: 'n-1',
+    authorId: viewer.id,
     body:
       'BCNF is stricter than 3NF: every determinant has to be a candidate key. The worked example with two overlapping keys is the one that actually shows the difference.',
     lessonId: 'l-s-dbs-4',
@@ -30,6 +31,7 @@ export const notes: Note[] = [
   },
   {
     id: 'n-2',
+    authorId: viewer.id,
     body:
       'Ask about isolation levels — still not clear when READ COMMITTED is actually enough in practice.',
     lessonId: 'l-s-dbs-8',
@@ -40,6 +42,7 @@ export const notes: Note[] = [
   },
   {
     id: 'n-3',
+    authorId: viewer.id,
     body:
       'Eigenvector intuition that finally stuck: the directions the transformation does not rotate, only stretches.',
     lessonId: 'l-s-linalg-2',

@@ -250,6 +250,12 @@ export type LoadState = 'loading' | 'ready' | 'empty' | 'error';
 /** Private, anchored in a Lesson. Only its author ever sees it. */
 export interface Note {
   id: string;
+  /**
+   * Always the viewer. A Note is private and appears nowhere else, so it has
+   * no reader but its author — but storing it makes that a fact the code can
+   * check rather than a convention it relies on.
+   */
+  authorId: string;
   /** Author is always the viewer — a Note appears nowhere else. */
   body: string;
   /** Where it is anchored. The Note is still readable if this is gone. */
