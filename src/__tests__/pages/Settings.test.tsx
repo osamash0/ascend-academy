@@ -6,9 +6,20 @@ vi.mock("@/integrations/supabase/client", async () => {
   return { supabase: createSupabaseMock() };
 });
 
+// `toast` MUST be a single stable reference across renders, because the real
+// module exports it as a module-scope function (use-toast.ts:137) and
+// useToast() returns that same one every time. Returning a fresh vi.fn() per
+// call — as this mock used to — manufactures an unstable dependency that the
+// real app never has, and Settings' notification-preferences loader lists
+// `toast` in its dependency array. The result was a runaway effect: 203
+// notification_preferences reads in 400ms, each one flipping
+// preferencesLoading back to true and re-disabling the toggle, so a click
+// landed on a disabled control roughly two runs in three. That was the whole
+// flake — a mock lying about another module's contract.
+const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: vi.fn() }),
-  toast: vi.fn(),
+  useToast: () => ({ toast: toastMock }),
+  toast: toastMock,
 }));
 
 const useAuthMock = vi.fn();
@@ -119,8 +130,9 @@ describe("Settings page (smoke)", () => {
     expect(toggle).toHaveAttribute("data-state", "checked");
     await userEvent.setup().click(toggle);
 
-    await waitFor(() => {
-      expect(supabaseMock.data.notification_preferences.rows[0].lifecycle_nudges_enabled).toBe(false);
-    });
+    // What the user actually observes comes first: the switch must flip.
+    await waitFor(() => expect(toggle).toHaveAttribute("data-state", "unchecked"));
+    // And the opt-out has to survive a reload, so also pin that it persisted.
+    expect(supabaseMock.data.notification_preferences.rows[0].lifecycle_nudges_enabled).toBe(false);
   });
 });

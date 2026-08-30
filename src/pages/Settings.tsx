@@ -489,7 +489,22 @@ function PreferencesSettings({ user }: { user: { id: string } | null }) {
             }
         })();
         return () => { cancelled = true; };
-    }, [user, toast, t]);
+        // Keyed on the user id ALONE, deliberately.
+        //
+        // `user` is a fresh object on every token refresh, and `toast`/`t` are
+        // only used on the error path — none of them is a reason to re-read
+        // the row. Listing them made this effect re-run whenever any of them
+        // changed identity, and since each run sets preferencesLoading=true
+        // and then false, it re-rendered itself: a self-sustaining fetch loop
+        // (measured at 203 reads in 400ms) that also left the toggle flicking
+        // in and out of its disabled state.
+        //
+        // It only stayed dormant in production because `toast` happens to be
+        // a module-scope function today. That is another module's private
+        // detail, not a guarantee — so don't depend on it.
+        // See src/lib/auth.tsx for the same failure mode caught earlier.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]);
 
     const handleSaveAi = useCallback(() => {
         setAiModel(pendingModel);
