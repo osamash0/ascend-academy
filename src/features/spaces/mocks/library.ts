@@ -162,7 +162,10 @@ const myContributions: LibraryItem[] = myPublished().map((c) => {
 export const noteToItem = (n: Note): LibraryItem => ({
   id: `lib-note-${n.id}`,
   kind: 'note' as const,
+  /* A label for the list. Never what gets saved — see `LibraryItem`. */
   title: n.body.split(/[.:]/)[0].trim(),
+  /* The note itself. Library is where notes are read *and* written. */
+  body: n.body,
   // Notes are the exception: read and written in Library itself, never
   // opened in their Space (Doc 2 rule 5).
   href: null,
