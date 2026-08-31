@@ -12,11 +12,11 @@ passes wrote.*
 **Everything this report previously listed as "still not done" is done**, with
 one exception that is a decision rather than a task — see *Needs your call*.
 
-The last pass closed the six items it had been carrying: the Members tab, the
-never-rendered states, loading and error on every screen, the namespace
-boundary, three unmounted components, and the reader. It also found nine more
-defects on the way, because closing a gap is the most reliable way to discover
-the next one.
+The third pass closed the six items this report had been carrying: the Members
+tab, the never-rendered states, loading and error on every screen, the namespace
+boundary, three unmounted components, and the reader. The fourth then ran the
+question set over everything the earlier passes had written — which nothing had
+looked at — and found twenty-one more.
 
 ---
 
@@ -147,7 +147,7 @@ mechanism as its reason for having no motion switch.
 
 ---
 
-## Three process notes
+## Four process notes
 
 **The four gates are four for a reason.** An icon sweep introduced a JSX syntax
 error that all 154 tests passed straight through — the source-reading guards
