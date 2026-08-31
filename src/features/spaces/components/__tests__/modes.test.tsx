@@ -73,6 +73,7 @@ const MODE: Record<string, Mode> = {
   'PersonScreen.tsx': 'learn',
   // A record of you, browsable, nothing to manage. Reached from Profile.
   'RankScreen.tsx': 'learn',
+  'HistoryScreen.tsx': 'learn',
   // Learn in a *focus* surface: Scene, no top bar, one thing at a time.
   'PracticeScreen.tsx': 'learn',
   'ReaderScreen.tsx': 'learn',
