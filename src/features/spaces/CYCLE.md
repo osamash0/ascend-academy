@@ -140,11 +140,26 @@ npx vitest run src/features/spaces
 node scripts/check-vocabulary.mjs
 ```
 
-**Run them bare.** `node scripts/check-vocabulary.mjs | tail -1` reports the
-failure and exits `0`, because the exit code belongs to `tail` — so a
-`&&`-chained commit goes through with the gate red. That happened once here,
-and the violation was in a fixture written thirty seconds earlier. A gate you
-pipe into something else is a gate you have turned off.
+**Run them bare, and chain them to the commit.** Two ways to turn a gate off
+by accident, both of which happened here:
+
+- `check-vocabulary.mjs | tail -1` prints the failure and exits `0`, because
+  the exit code belongs to `tail`.
+- Putting the gates and the commit on *separate lines* rather than in one
+  `&&` chain. Each line runs regardless of the last one's exit code, so the
+  gate goes red, prints its failure, and the commit lands anyway.
+
+Both times the violation was in something written a minute earlier, and both
+times the failure was visible on screen and simply not acted on. One chain,
+no pipes:
+
+```
+npx tsc -p tsconfig.app.json --noEmit \
+  && npx eslint src/features/spaces --quiet \
+  && npx vitest run src/features/spaces \
+  && node scripts/check-vocabulary.mjs \
+  && git commit ...
+```
 
 Then drive the screen in the browser. Assert with `preview_eval` *first* and
 screenshot second — a screenshot shows you what you expected to see.
