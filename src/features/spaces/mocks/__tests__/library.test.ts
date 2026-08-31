@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { libraryItems, notes, itemsOfKind } from '../library';
 import { viewer } from '../people';
@@ -64,14 +66,73 @@ describe('Library fixtures', () => {
   });
 
   it('never makes a Space an entry point from Library', () => {
-    // The header rule, checked against every destination the screen can offer
-    // rather than trusted. A Lesson or Concept inside a Space is a pointer to
-    // the item; the Space root is a Space card wearing a row's clothes.
+    /*
+     * The header rule, checked against every destination the screen can offer
+     * rather than trusted. A Lesson or Concept inside a Space is a pointer to
+     * the item; the Space root is a Space card wearing a row's clothes.
+     *
+     * `[^/#]` and not `[^/]`. Written the loose way first, this flagged
+     * `/v4/space/s-dbs#contribution-c-9` — the *fix* — because `#` is not `/`,
+     * so the character class swallowed the fragment and the href looked bare.
+     * A guard that cannot tell the repair from the defect blocks the repair.
+     */
     for (const item of libraryItems) {
       expect(item.href ?? '', `${item.title} opens a Space root`).not.toMatch(
-        /^\/v4\/space\/[^/]+$/,
+        /^\/v4\/space\/[^/#]+$/,
       );
     }
+  });
+
+  it('addresses space-anchored work by fragment, so it opens the item', () => {
+    /*
+     * The case that made the rule and the "items are pointers" rule collide:
+     * work posted to a whole Space has no Lesson page and no Concept page, so
+     * the only destination anyone could build was the Space root.
+     *
+     * Asserted against a real row rather than in the abstract — all four
+     * space-level fixtures used to belong to other people, and every Library
+     * path is author-filtered, so this branch was unreachable from here and a
+     * guard over it would have iterated nothing and passed.
+     */
+    const spaceAnchored = libraryItems.filter((i) => i.href?.includes('#contribution-'));
+    expect(
+      spaceAnchored.length,
+      'no viewer-authored space-anchored contribution — this guard would be vacuous',
+    ).toBeGreaterThan(0);
+
+    for (const item of spaceAnchored) {
+      // The fragment names *this* contribution, not merely some fragment.
+      const id = item.id.replace(/^lib-con-/, '');
+      expect(item.href, `${item.title} points at another item`).toContain(`#contribution-${id}`);
+    }
+  });
+
+  it('renders the element those fragments target', () => {
+    /*
+     * The half of the contract that lives in the DOM. A fragment pointing at an
+     * id nothing renders is not an error — the browser silently lands at the
+     * top of the page, which is the exact behaviour the fragment replaced. It
+     * would look fixed in every href assertion above and be broken in use.
+     *
+     * Source-level because rendering the card needs a Space, a viewer role and
+     * the moderation store. What is being asserted is that the one helper is
+     * used on both sides, which is a composition fact.
+     */
+    const card = readFileSync(
+      join(process.cwd(), 'src/features/spaces/components/ContributionCard.tsx'),
+      'utf8',
+    );
+    expect(card, 'the card no longer carries an anchor id').toMatch(
+      /id=\{contributionAnchorId\(/,
+    );
+    // And the Space it sits on has to act on the fragment; React Router will
+    // not scroll to one on its own.
+    const screen = readFileSync(
+      join(process.cwd(), 'src/features/spaces/screens/SpaceScreen.tsx'),
+      'utf8',
+    );
+    expect(screen, 'SpaceScreen ignores the fragment it is sent').toContain('useLocation');
+    expect(screen).toMatch(/getElementById\(hash\.slice\(1\)\)/);
   });
 
   it('covers all three kinds, so the screen is never designed against one', () => {

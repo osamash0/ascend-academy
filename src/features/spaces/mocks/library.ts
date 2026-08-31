@@ -4,6 +4,7 @@ import {
   sharedSpaceIds,
   spaceContributions,
 } from './contributions';
+import { contributionAnchorId } from './contributions';
 import { conceptById, conceptContributions } from './concepts';
 import type { Person } from '../types';
 import { viewer, keller, weber, ferreira, okonkwo, lindqvist } from './people';
@@ -97,9 +98,28 @@ const uploadedMaterials: LibraryItem[] = lessonsForSpace('s-linalg')
  */
 export const resolveContributionAnchor = (
   anchor: ContributionAnchor,
+  /**
+   * The contribution being resolved. Required for space-level anchors, which
+   * are addressed by fragment because they have no page of their own.
+   */
+  contributionId: string,
 ): { spaceId: string | null; lessonTitle?: string; href: string | null } => {
   if (anchor.level === 'space') {
-    return { spaceId: anchor.spaceId, href: `/v4/space/${anchor.spaceId}` };
+    /*
+     * Space-anchored work lives on the Space overview, in the community
+     * section — there is no Lesson page and no Concept page to send you to.
+     * That is why this used to return the Space root, and why doing so broke
+     * LibraryScreen's stated rule: "a Space is never an entry point from here."
+     *
+     * The fragment is what resolves the conflict. `/v4/space/x#contribution-y`
+     * opens *the contribution*, which happens to be rendered on the Space
+     * overview, rather than opening the Space and leaving you to find it.
+     * `SpaceScreen` scrolls to it on arrival.
+     */
+    return {
+      spaceId: anchor.spaceId,
+      href: `/v4/space/${anchor.spaceId}#${contributionAnchorId(contributionId)}`,
+    };
   }
   if (anchor.level === 'lesson') {
     const found = locateLesson(anchor.lessonId);
@@ -129,7 +149,7 @@ const myPublished = (): Contribution[] =>
 
 /** Contributions the viewer published, wherever they landed. */
 const myContributions: LibraryItem[] = myPublished().map((c) => {
-  const at = resolveContributionAnchor(c.anchor);
+  const at = resolveContributionAnchor(c.anchor, c.id);
   return {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
@@ -397,7 +417,7 @@ export interface ImpactRow {
 export const impactRows = (): ImpactRow[] =>
   myPublished()
     .map((c) => {
-      const at = resolveContributionAnchor(c.anchor);
+      const at = resolveContributionAnchor(c.anchor, c.id);
       return {
         id: c.id,
         title: c.title,

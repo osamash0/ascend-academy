@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Plus, Settings2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -121,6 +121,28 @@ export default function SpaceScreen({
     // outside React, so nothing else would tell this list it had changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contributions, lessons, space?.id, writeTick]);
+
+  /*
+   * Arriving at a contribution rather than at the Space it sits in.
+   *
+   * Space-anchored work has no page of its own — this overview is where it
+   * lives — so Library and ⌘K address it by fragment
+   * (`/v4/space/x#contribution-y`). React Router does not scroll to fragments;
+   * without this the link lands at the top of the Space and the person is left
+   * to find the card, which is the behaviour the fragment was meant to replace.
+   *
+   * Depends on `allContributions` as well as the hash: the list is built from
+   * a store read after mount, so on a cold load the element does not exist yet
+   * on the first pass. `block: 'center'` rather than the default, so the card
+   * is not left under the sticky header.
+   */
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash) return;
+    const el = document.getElementById(hash.slice(1));
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+  }, [hash, allContributions]);
 
   const chrome = (body: React.ReactNode) => (
     /*

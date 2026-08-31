@@ -30,6 +30,7 @@ import {
   toggleEndorse,
   toggleHidden,
 } from '../mocks/moderation';
+import { contributionAnchorId } from '../mocks/contributions';
 import type { Contribution, ContributionType, Space } from '../types';
 import { AuthorLine, EndorsedBadge, GroundingMarker } from './badges';
 
@@ -168,6 +169,14 @@ export function ContributionCard({
 
   return (
     <article
+      /*
+       * A stable anchor, so a contribution can be linked to rather than merely
+       * scrolled past. Space-anchored work has no Lesson and no Concept page —
+       * this card, in the Space overview, *is* where it lives — so without an
+       * id the only href anyone could build was the Space root, which is the
+       * thing Library's rules forbid.
+       */
+      id={contributionAnchorId(c.id)}
       className={cn(
         'group relative flex flex-col rounded-2xl border border-l-[3px] transition-colors',
         // The one place colour marks origin structurally rather than as a chip.
