@@ -89,9 +89,10 @@ export function NoteEditor({
   return (
     <AnimatePresence initial={false}>
       <motion.div
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: 'auto' }}
-        exit={{ opacity: 0, height: 0 }}
+        // Opacity and drift, never height — see PracticeScreen.
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
         className={cn(
           'overflow-hidden rounded-2xl border border-primary/30 bg-white/[0.04]',
           className,

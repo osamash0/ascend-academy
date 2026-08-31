@@ -187,21 +187,36 @@ export function NotificationPanel() {
           )}
         </div>
 
-        <AnimatePresence initial={false}>
+        {/*
+          Both branches are Motion elements with a key and an exit. They were
+          a plain `<div>` and a `motion.div` with neither, so the panel's
+          `AnimatePresence` had nothing to animate: clearing the last
+          notification swapped a list for an empty state instantly, inside a
+          wrapper that looked like it was handling exactly that.
+        */}
+        <AnimatePresence mode="wait" initial={false}>
           {groups.length === 0 ? (
-            <div className="px-6 py-12 text-center">
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="px-6 py-12 text-center"
+            >
               <Bell aria-hidden className="mx-auto mb-3 h-5 w-5 text-quiet" />
               <p className="text-[14.5px] font-semibold">Nothing yet</p>
               <p className="mt-1 text-[13px] leading-relaxed text-quiet">
                 When someone likes or endorses your work, or a Space you are in publishes
                 something, it turns up here.
               </p>
-            </div>
+            </motion.div>
           ) : (
             <motion.div
+              key="list"
               variants={listVariants}
               initial="hidden"
               animate="shown"
+              exit={{ opacity: 0 }}
               className="max-h-[26rem] overflow-y-auto p-2"
             >
               {groups.map((g) => (

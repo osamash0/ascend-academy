@@ -10,6 +10,8 @@ import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { SpaceTile } from '../components/SpaceTile';
 import { Scene, SURFACES } from '../components/Scene';
+import { BackdropArt } from '../components/BackdropArt';
+import { EnterGroup, EnterItem } from '../components/Enter';
 import { JoinSpaceDialog, NewSpaceDialog } from '../components/SpaceDialogs';
 import { marburg } from '../mocks/spaces';
 import {
@@ -142,9 +144,19 @@ export default function SpacesScreen() {
       ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }, [focus]);
 
+  /** Whatever the rail is pointing at — what the backdrop is *about*. */
+  const focused = flat[focus] ?? null;
+
   // Spaces is a browse surface: you are choosing, so the console texture stays.
   const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.spaces} status="progress" motionKey={tab}>
+      {/*
+        The focused Space's art, behind everything. Scrubbing the rail changes
+        the whole backdrop, which is what makes choosing feel like moving
+        through a place rather than reading a list. Debounced inside the
+        component so holding an arrow key does not queue a fade per card.
+      */}
+      <BackdropArt id={focused?.id ?? null} index={focus} title={focused?.name} />
       <SpacesTopBar active="spaces" viewer={viewer} />
       {body}
     </Scene>
@@ -272,7 +284,14 @@ export default function SpacesScreen() {
                   )}
                 </div>
 
-                <div
+                {/*
+                  Staggered. `whenVisible` because the second and third rows sit
+                  below the fold, and `once` means scrolling back up does not
+                  replay them — a rail that re-animates every pass reads as a
+                  page that will not settle.
+                */}
+                <EnterGroup
+                  whenVisible
                   className={cn(
                     'flex items-start gap-5 overflow-x-auto px-6 pb-2 lg:px-12',
                     RAIL_SCROLL,
@@ -281,6 +300,7 @@ export default function SpacesScreen() {
                   {g.spaces.map((sp, n) => {
                     const idx = start + n;
                     return (
+                      <EnterItem key={sp.id} className="shrink-0">
                       <SpaceTile
                         key={sp.id}
                         space={sp}
@@ -292,9 +312,10 @@ export default function SpacesScreen() {
                         onFocus={() => setFocus(idx)}
                         onOpen={() => open(sp.id)}
                       />
+                      </EnterItem>
                     );
                   })}
-                </div>
+                </EnterGroup>
               </section>
             );
           });

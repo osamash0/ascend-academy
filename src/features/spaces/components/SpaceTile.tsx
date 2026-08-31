@@ -26,6 +26,7 @@ const SIZE = 200;
 
 interface Props {
   space: Space;
+  /** Position in the rail. Drives keyboard focus, never the art. */
   index: number;
   isActive: boolean;
   /** Dim the whole row while focus has dropped into the Lessons below. */
@@ -83,6 +84,21 @@ export function SpaceTile({
       className="console-focusable shrink-0 rounded-2xl outline-none"
       style={{ width: SIZE }}
     >
+      {/*
+        No `layoutId` here, deliberately.
+        
+        A shared element morphing this tile into the Space screen's hero needs
+        both halves alive in the same frame — and the route transition uses
+        `AnimatePresence mode="wait"`, which unmounts the outgoing screen
+        *before* mounting the incoming one. The two can never coexist, so the
+        pair would render as ordinary divs while looking, in the source, like a
+        working shared element. The spec anticipates this: "if layoutId isn't
+        feasible across the router, fade only."
+        
+        Reinstating it means dropping `mode="wait"`, and then two full pages
+        overlap at half opacity mid-fade, which reads as a glitch. Recorded as
+        a trade rather than quietly left half-done.
+      */}
       <motion.div
         animate={{
           scale: isActive ? 1 : 0.93,
@@ -91,7 +107,15 @@ export function SpaceTile({
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         className={cn(
           'relative overflow-hidden rounded-2xl border bg-gradient-to-br',
-          gradientFor(index),
+          /*
+             Keyed to the Space, not to where it happens to sit in the rail.
+             The Space screen's hero shares this element via `layoutId` and
+             cannot know the rail index — so an index-based gradient meant the
+             tile morphed into a hero of a *different colour*, and the same
+             Space changed colour when a row above it gained a member. A
+             Space's art should be a property of the Space.
+          */
+          gradientFor(space.name.length),
           isActive
             ? 'border-white/45 shadow-[0_0_44px_-10px_rgba(255,255,255,0.4)] ring-1 ring-white/25'
             : 'border-white/10',

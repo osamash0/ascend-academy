@@ -258,10 +258,15 @@ export default function PracticeScreen() {
       <AnimatePresence initial={false}>
         {graded && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
+            /*
+               Opacity and a small drift, not `height: 0 → auto`.
+               Height is a layout property: animating it re-lays-out the page
+               every frame and drags everything below with it. The container
+               takes its size immediately and the content fades into it.
+             */
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
           >
             {/*
               The explanation appears without navigation, so it has to be

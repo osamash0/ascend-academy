@@ -10,6 +10,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { EnterList, EnterListItem } from '../components/Enter';
 import { cn } from '@/lib/utils';
 import { Pressable, PressableLink } from '../components/Pressable';
 import type { LibraryItem, LibraryKind } from '../types';
@@ -236,9 +237,9 @@ export default function LibraryScreen() {
       {shown.length === 0 && !composing ? (
         <EmptyLibrary filter={filter} onWriteNote={() => setComposing(true)} />
       ) : (
-        <ul className="mt-6 space-y-2.5">
+        <EnterList whenVisible className="mt-6 space-y-2.5">
           {shown.map((item) => (
-            <li key={item.id}>
+            <EnterListItem key={item.id}>
               {/* Doc 2 rule 5: everything here is a pointer into its Space —
                   except Notes, which are read *and written* in Library. */}
               {item.kind === 'note' ? (
@@ -253,9 +254,9 @@ export default function LibraryScreen() {
               ) : (
                 <LibraryRow item={item} />
               )}
-            </li>
+            </EnterListItem>
           ))}
-        </ul>
+        </EnterList>
       )}
     </div>,
   );

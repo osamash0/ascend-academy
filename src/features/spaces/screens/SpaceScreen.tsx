@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Plus, Settings2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
@@ -178,7 +178,14 @@ export default function SpaceScreen({
         requires it — but as a quiet link, not a coloured button.
       */}
       <header className="relative">
-        <div
+        {/*
+          Shares its gradient with the Space's tile — `gradientFor(space.name
+          .length)`, a property of the Space rather than of where it sat in the
+          rail. Not a `layoutId` pair: see `SpaceTile` for why a shared element
+          cannot survive `mode="wait"`. Matching the colour still means the cut
+          lands on the same art you were just looking at.
+        */}
+        <motion.div
           aria-hidden
           className={cn(
             'absolute -top-24 left-1/2 h-[320px] w-screen -translate-x-1/2 bg-gradient-to-br opacity-40',
@@ -453,18 +460,40 @@ export default function SpaceScreen({
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
-                {allContributions.map((c, i) => (
-                  <ContributionCard
-                    key={c.id}
-                    contribution={c}
-                    space={space}
-                    isOwn={c.author.id === viewer.id}
-                    onModerated={() => setWriteTick((n) => n + 1)}
-                    /* Likes sort this section — the top one should look it. */
-                    featured={i === 0 && allContributions.length > 1}
-                    className={i === 0 && allContributions.length > 1 ? 'sm:col-span-2' : undefined}
-                  />
-                ))}
+                {/*
+                  A card that leaves is *seen* to leave. Promoting a
+                  contribution moves it into the path and hiding one takes it
+                  out of a Member's view — both remove it from this list, and
+                  without an exit it blinked out of existence while its
+                  neighbours jumped up to fill the gap. `popLayout` takes the
+                  leaving card out of flow so the survivors slide rather than
+                  snap.
+                */}
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {allContributions.map((c, i) => (
+                    <motion.div
+                      key={c.id}
+                      layout
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      // Exit is the reverse of enter, slightly faster.
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={{ duration: 0.14 }}
+                      className={
+                        i === 0 && allContributions.length > 1 ? 'sm:col-span-2' : undefined
+                      }
+                    >
+                      <ContributionCard
+                        contribution={c}
+                        space={space}
+                        isOwn={c.author.id === viewer.id}
+                        onModerated={() => setWriteTick((n) => n + 1)}
+                        /* Likes sort this section — the top one should look it. */
+                        featured={i === 0 && allContributions.length > 1}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             )}
           </section>
