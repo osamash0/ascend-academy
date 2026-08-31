@@ -103,7 +103,9 @@ const READOUTS: Record<string, string[]> = {
    * invented. Building one is what made the cell a control, and the staleness
    * check below is what caught the entry the moment it did.
    */
-  'screens/ProfileScreen.tsx': ['Streak', 'Badges'],
+  // 'Streak' left too, for the same reason 'Rank' did: the screen it
+  // needed now exists (`/v4/profile/history`).
+  'screens/ProfileScreen.tsx': ['Badges'],
 };
 
 /** Every screen that uses a BentoCell, found rather than listed. */
