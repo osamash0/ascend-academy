@@ -134,6 +134,22 @@ describe('the reader is a focus surface', () => {
   });
 
   it('always offers a way out', () => {
-    expect(src).toContain('Leave the reader');
+    /*
+     * The exit used to be a `<Link>` written into the article, so this guard
+     * read the screen for the string. It now lives in the fixed header — the
+     * whole reason the header exists is that a way out which scrolls off the
+     * top of a long Lesson is a way out you have to go looking for.
+     *
+     * So the rule is checked across the composition rather than in one file:
+     * the screen mounts the header, and the header carries the exit. Asserting
+     * only the second half would pass on a reader that had stopped mounting it
+     * at all.
+     */
+    expect(src).toContain('<ReaderHeader');
+    const header = readFileSync(
+      join(process.cwd(), 'src/features/spaces/components/reader/ReaderHeader.tsx'),
+      'utf8',
+    );
+    expect(header).toContain('Leave the reader');
   });
 });
