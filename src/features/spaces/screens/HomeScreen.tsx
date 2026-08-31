@@ -1,13 +1,19 @@
 import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useReducedMotion } from 'motion/react';
+import { LunaAstronaut } from '../../../../learnstation-luna';
 import { cn } from '@/lib/utils';
 import { Pressable, PressableLink } from '../components/Pressable';
 import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
+import { AskBar } from '../components/AskBar';
 import { BentoCell } from '../components/BentoCell';
 import { LessonTile } from '../components/LessonTile';
 import type { HomeItem } from '../mocks/library';
+import { viewerStanding } from '../mocks/library';
+import { standingFor } from '../mocks/rank';
+import { askAcknowledgement, askModel, askSuggestions } from '../mocks/assistant';
 import { useHome } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -76,10 +82,27 @@ const REASON_ICON: Record<HomeItem['reason'], typeof Play> = {
   new: Sparkles,
 };
 
-/** Mock progression — the real values come from the XP engine later. */
-const RANK = 'Rank 1';
-const XP = 60;
-const XP_PER_RANK = 250;
+/*
+ * Progression is read, never restated.
+ *
+ * This file used to carry `RANK = 'Rank 1'`, `XP = 60`, `XP_PER_RANK = 250` as
+ * module constants while `SpacesTopBar` read `viewerStanding()` — so the bar at
+ * the top of Home and the cell in the middle of Home stated the viewer's rank
+ * independently, agreeing only because the two literals happened to match the
+ * fixture. `mocks/library.ts` already fixed exactly this between the bar and
+ * the leaderboard, and says so above `viewerStanding`; Home was the copy left
+ * behind.
+ *
+ * There is nothing to keep in sync now, because there is only one value: the
+ * label and the XP come from `viewerStanding()`, and the thresholds from
+ * `standingFor()`, which the Rank screen also uses.
+ *
+ * The mock this screen was designed from shows "Lvl 3 · 230 XP" in the bar.
+ * That is v3 vocabulary — Foundations Rule 7 locks progression to XP and Rank,
+ * as `SpacesTopBar` notes — and the mock disagrees with its own Rank cell
+ * ("Rank 1 · 60 XP") two rows below, which is the same defect drawn rather than
+ * coded.
+ */
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -91,6 +114,8 @@ const greeting = () => {
 
 export default function HomeScreen() {
   const navigate = useNavigate();
+  /* SMIL ignores MotionConfig, so Luna's breathing is switched at the prop. */
+  const reduceMotion = useReducedMotion();
   const { state, kind, next, feed, recent, streakDays } = useHome();
   const [newOpen, setNewOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -109,6 +134,20 @@ export default function HomeScreen() {
   const fresh = feed.filter((i) => i.reason === 'new');
   const newCount = fresh.length;
   const newest = fresh[0];
+
+  /** One source, shared with the top bar and the Rank screen. */
+  const standing = viewerStanding();
+  const progress = standingFor(standing.xp);
+
+  /*
+   * What you asked Luna, echoed back.
+   *
+   * Deliberately not an answer. There is no assistant behind this yet, and a
+   * fabricated reply from something billed as grounded on your own material is
+   * indistinguishable from a wrong one — the same reason Grounding renders no
+   * marker at all until an Owner switches it on.
+   */
+  const [asked, setAsked] = useState<string | null>(null);
 
   const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.home} status="progress" motionKey="home">
@@ -201,10 +240,81 @@ export default function HomeScreen() {
 
   return chrome(
     <div className="mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
-      <div className="mb-2 flex items-center gap-3">
-        <h1 className="text-[26px] font-bold tracking-[-0.02em]">
-          {greeting()}, {viewer.name}
-        </h1>
+      {/*
+        Luna asks, then gets out of the way.
+
+        The greeting used to be a bare `h1`. It is now spoken by the character
+        the product already ships — `LunaAstronaut` from `learnstation-luna`,
+        the same component `Avatar` renders at `xs`, so the face in the top-left
+        corner and the face here are one implementation rather than two drawings
+        that can drift.
+
+        Luna breathes on a 2–4s cycle, which is the brand kit's motion rule and
+        what the component already does. But it animates with **SMIL** —
+        `<animate>` and `<animateTransform>` inside the SVG — and SMIL is
+        governed by neither `MotionConfig reducedMotion="user"` (which only
+        reaches Motion) nor CSS.
+
+        The first attempt here was a `motion-reduce:` class setting
+        `animation-play-state: paused`. Tailwind emitted the rule correctly and
+        it does nothing at all: `animation-play-state` controls CSS animations,
+        and there are none — the seven SMIL elements ignore it. A comment on
+        this very line claimed it closed the gap.
+
+        The only real lever is not rendering the animation, so the prop carries
+        `useReducedMotion()`, which is the idiom `SpaceScreen` already uses.
+      */}
+      <section
+        aria-labelledby="home-greeting"
+        className="flex flex-col items-center justify-center gap-4 pt-2 text-center sm:flex-row sm:items-center sm:gap-8 sm:text-left"
+      >
+        <div className="shrink-0">
+          <LunaAstronaut size="xl" phase="full" animated={!reduceMotion} />
+        </div>
+        {/*
+          Two lines, each on its own plate rather than floating on the backdrop.
+
+          The backdrop behind Home is a gradient with drifting particles, and
+          §5.3 asks for contrast against what is *actually* behind the text —
+          which here changes pixel to pixel. A plate makes the answer constant
+          instead of "it depends where the particle is", which is the same
+          reason `LessonTile` puts a scrim under its title.
+        */}
+        <div className="min-w-0 space-y-1.5">
+          <p className="inline-block rounded-lg bg-surface-1/80 px-3 py-1.5 text-[15px] font-medium text-quiet backdrop-blur-sm">
+            {greeting()}, {viewer.name}
+          </p>
+          <h1
+            id="home-greeting"
+            className="block rounded-xl bg-surface-1/80 px-3.5 py-2 text-[30px] font-bold leading-tight tracking-[-0.02em] backdrop-blur-sm sm:text-[34px]"
+          >
+            What should we focus on?
+          </h1>
+        </div>
+      </section>
+
+      {/*
+        The prompt, and an honest non-answer.
+
+        `askAcknowledgement` names the question back rather than inventing a
+        reply — see `mocks/assistant.ts`. Wiring later means replacing that one
+        call, not rebuilding this.
+      */}
+      <div className="mt-7">
+        <AskBar
+          placeholder="Ask about your Spaces, Lessons or practice…"
+          suggestions={askSuggestions}
+          model={askModel}
+          onSubmit={(q) => setAsked(q)}
+        />
+        {asked && (
+          <p
+            role="status"
+            className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[13px] leading-6 text-quiet"
+          >
+            {askAcknowledgement(asked)}
+          </p>
+        )}
       </div>
 
       {/*
@@ -280,17 +390,17 @@ export default function HomeScreen() {
 
         <BentoCell icon={TrendingUp} label="Rank">
           <p className="text-[28px] font-semibold leading-none tabular-nums">
-            {RANK}
-            <span className="ml-1.5 text-[16px] text-quiet">{XP} XP</span>
+            {standing.rank}
+            <span className="ml-1.5 text-[16px] text-quiet">{standing.xp} XP</span>
           </p>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
             <div
               className="h-full rounded-full bg-gradient-to-r from-primary to-secondary"
-              style={{ width: `${Math.round((XP / XP_PER_RANK) * 100)}%` }}
+              style={{ width: `${progress.pct}%` }}
             />
           </div>
           <p className="mt-2 text-[12.5px] text-faint tabular-nums">
-            {XP_PER_RANK - XP} XP to the next rank
+            {progress.toNext} XP to the next rank
           </p>
         </BentoCell>
 
