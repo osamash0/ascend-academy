@@ -81,7 +81,10 @@ export const normalizationContributions: Contribution[] = [
     grounding: 'not-grounded',
     likeCount: 4,
     likedByViewer: false,
-    endorsed: false,
+    // Endorsed, because notification n-1 says Asa endorsed it. This said
+    // `false`, so the bell announced an endorsement that Library, the Studio
+    // impact table and the card badge all denied had happened.
+    endorsed: true,
     hidden: false,
     orphaned: false,
     createdAt: '2026-08-28T19:45:00Z',
@@ -109,15 +112,24 @@ export const spaceContributions: Contribution[] = [
   },
   {
     id: 'c-6',
-    // Its anchor was deleted. Surfaced to the Owner *and* the author —
-    // nobody's work vanishes silently (Contributions, Rule 1).
+    /*
+     * Its anchor was deleted. Surfaced to the Owner *and* the author — nobody's
+     * work vanishes silently (Contributions, Rule 1).
+     *
+     * Authored by the **viewer** on purpose. It used to belong to `weber`,
+     * which meant the author half of that rule had no fixture: every orphan
+     * path is author-filtered, so the warning border, the "Your work is safe"
+     * copy and the "Needs a new home" pill were three render paths that had
+     * never once executed, and the guard meant to protect them was iterating
+     * an empty array.
+     */
     title: 'Worked example: the old Lesson 11 join exercise',
     excerpt:
       'Nested loop vs hash join on the same two relations, with the row counts written out at each step.',
     type: 'text',
     anchor: { level: 'lesson', lessonId: 'l-s-dbs-deleted' },
     origin: 'community',
-    author: weber,
+    author: viewer,
     grounding: 'not-grounded',
     likeCount: 6,
     likedByViewer: false,

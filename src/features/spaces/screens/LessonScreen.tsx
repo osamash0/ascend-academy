@@ -14,7 +14,7 @@ import { LaunchButton, gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import type { Concept, Lesson, Space } from '../types';
 import { spaceById } from '../mocks/spaces';
-import { adjacentLessons, lessonsForSpace } from '../mocks/lessons';
+import { adjacentLessons, visibleLesson } from '../mocks/lessons';
 import { contributionsForLesson } from '../mocks/contributions';
 import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
 import { viewer } from '../mocks/people';
@@ -71,9 +71,11 @@ function Row({
 export default function LessonScreen() {
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const space: Space | undefined = spaceId ? spaceById(spaceId) : undefined;
+  // Rule 1 runs through `visibleLesson`, not a raw lookup: a Member asking for
+  // a draft by URL must get "not found", not the draft.
   const lesson: Lesson | undefined = useMemo(
-    () => (spaceId ? lessonsForSpace(spaceId).find((l) => l.id === lessonId) : undefined),
-    [spaceId, lessonId],
+    () => (space && lessonId ? visibleLesson(space, lessonId) : undefined),
+    [space, lessonId],
   );
 
   const contributions = useMemo(

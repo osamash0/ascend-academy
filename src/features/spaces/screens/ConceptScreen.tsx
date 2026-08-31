@@ -6,7 +6,7 @@ import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import type { ConceptProgress } from '../types';
 import { spaceById } from '../mocks/spaces';
-import { lessonsForSpace } from '../mocks/lessons';
+import { visibleLessonsForSpace } from '../mocks/lessons';
 import { conceptById, contributionsForConcept } from '../mocks/concepts';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -57,7 +57,8 @@ export default function ConceptScreen() {
 
   const lessons = useMemo(() => {
     if (!space || !concept) return [];
-    return lessonsForSpace(space.id).filter((l) => concept.lessonIds.includes(l.id));
+    // Rule 1: a Concept must not name a Lesson this viewer cannot open.
+    return visibleLessonsForSpace(space).filter((l) => concept.lessonIds.includes(l.id));
   }, [space, concept]);
 
   const contributions = useMemo(

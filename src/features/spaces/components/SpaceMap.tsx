@@ -23,8 +23,16 @@ import type { Lesson, Space } from '../types';
  * carries Lesson order.
  */
 
-/** Rule 8 — past this the route folds. Raising it is deliberate; a test guards it. */
-const FOLD_THRESHOLD = 20;
+/**
+ * Rule 8 — past this the route folds. Raising it is deliberate; a test guards
+ * it.
+ *
+ * Exported so the guard can read the real value. It used to declare its own
+ * `const FOLD_THRESHOLD = 20` and assert that against itself, which is a
+ * tautology wearing a guard's clothes — worse than no guard, because the
+ * comment above told the next person the number was protected.
+ */
+export const FOLD_THRESHOLD = 20;
 
 const PER_ROW = 5;
 const STEP_X = 176;

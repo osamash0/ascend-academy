@@ -1,4 +1,4 @@
-import type { Concept, Lesson, Material, Person } from '../types';
+import type { Concept, Lesson, Material, Person, Space } from '../types';
 import { viewer, keller, weber, lindqvist, okonkwo, ferreira } from './people';
 
 /**
@@ -259,11 +259,53 @@ export const lessonsForSpace = (spaceId: string): Lesson[] =>
   [...(bySpace[spaceId] ?? [])].sort((a, b) => a.order - b.order);
 
 /**
+ * One Lesson by id, and the Space it belongs to, without knowing the Space
+ * first.
+ *
+ * Library needed this and did not have it, so it hardcoded `'Normalization'`
+ * and `'s-dbs'` as the label for *any* lesson-anchored contribution — in three
+ * separate places. Every such contribution outside that one Lesson would have
+ * been filed under the wrong Lesson, in the wrong Space, in Library, in the
+ * Studio impact table and in ⌘K results independently.
+ */
+export const locateLesson = (
+  lessonId: string,
+): { lesson: Lesson; spaceId: string } | undefined => {
+  for (const [spaceId, lessons] of Object.entries(bySpace)) {
+    const lesson = lessons.find((l) => l.id === lessonId);
+    if (lesson) return { lesson, spaceId };
+  }
+  return undefined;
+};
+
+/**
  * What a Member is allowed to see: published only. Drafts and processing
  * states belong to their author and the Owner/Editors (Rules, 1).
  */
 export const publishedLessonsForSpace = (spaceId: string): Lesson[] =>
   lessonsForSpace(spaceId).filter((l) => l.state === 'published');
+
+/**
+ * What *this viewer* may see in this Space — the Rule 1 filter itself, rather
+ * than the two halves of it.
+ *
+ * This exists because the rule was living in `useSpace` while `LessonScreen`
+ * and `PracticeScreen` did their own `lessonsForSpace(...).find(...)`. Both
+ * therefore rendered a draft to anyone holding the URL, with no Draft marker
+ * anywhere on the screen — `/v4/space/s-linalg/lesson/l-s-linalg-4` was an
+ * unpublished Lesson served to a stranger.
+ *
+ * Passing the Space rather than a role means a caller cannot ask the question
+ * without having established who is asking, which is what made it easy to skip.
+ */
+export const visibleLessonsForSpace = (space: Space): Lesson[] =>
+  space.viewerRole === 'owner' || space.viewerRole === 'editor'
+    ? lessonsForSpace(space.id)
+    : publishedLessonsForSpace(space.id);
+
+/** One Lesson, or undefined if this viewer is not allowed to know it exists. */
+export const visibleLesson = (space: Space, lessonId: string): Lesson | undefined =>
+  visibleLessonsForSpace(space).find((l) => l.id === lessonId);
 
 /**
  * The Lessons either side of one, for the pager.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lessonsForSpace } from '../lessons';
 import { allSpaces } from '../spaces';
+import { FOLD_THRESHOLD } from '../../components/SpaceMap';
 
 /**
  * Map rule guards — docs/design-v4/02-navigation.md, "The map (locked)".
@@ -49,9 +50,9 @@ describe('Map data', () => {
   });
 
   it('folds past roughly twenty Lessons rather than drawing them all', () => {
-    // Rule 8: "Never two hundred dots at once." Guard the threshold the map
-    // implementation uses, so raising it is a deliberate act.
-    const FOLD_THRESHOLD = 20;
+    // Rule 8: "Never two hundred dots at once." The threshold is imported from
+    // the map itself — the previous version declared its own local copy and
+    // compared it to itself, so raising the real one turned nothing red.
     expect(FOLD_THRESHOLD).toBeLessThanOrEqual(20);
     // The largest fixture Space stays under it, so the unfolded path is what
     // gets reviewed by default.

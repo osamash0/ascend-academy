@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Check, RotateCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { spaceById } from '../mocks/spaces';
-import { lessonsForSpace } from '../mocks/lessons';
+import { visibleLesson } from '../mocks/lessons';
 import { gradeAnswer, practiceForLesson } from '../mocks/practice';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesError } from '../components/states';
@@ -30,8 +30,8 @@ export default function PracticeScreen() {
   const navigate = useNavigate();
   const space = spaceId ? spaceById(spaceId) : undefined;
   const lesson = useMemo(
-    () => (spaceId ? lessonsForSpace(spaceId).find((l) => l.id === lessonId) : undefined),
-    [spaceId, lessonId],
+    () => (space && lessonId ? visibleLesson(space, lessonId) : undefined),
+    [space, lessonId],
   );
   const questions = useMemo(() => (lessonId ? practiceForLesson(lessonId) : []), [lessonId]);
 

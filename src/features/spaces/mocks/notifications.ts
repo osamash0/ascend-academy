@@ -1,5 +1,5 @@
 import type { Person } from '../types';
-import { ferreira, lindqvist, okonkwo, weber } from './people';
+import { ferreira, lindqvist, okonkwo } from './people';
 
 /**
  * Notification fixtures.
@@ -93,16 +93,6 @@ export const notifications: AppNotification[] = [
     read: true,
     created_at: '2026-08-29T18:00:00Z',
     target: { kind: 'profile' },
-  },
-  {
-    id: 'n-6',
-    title: 'Jonas promoted your write-up',
-    message: 'It is now part of the path in Advanced Topics in Cryptography, credited to you.',
-    type: 'promoted',
-    read: true,
-    created_at: '2026-08-28T11:30:00Z',
-    actor: weber,
-    target: { kind: 'lesson', lessonId: 'l-s-crypto-1', spaceName: 'Advanced Topics in Cryptography' },
   },
 ];
 

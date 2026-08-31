@@ -55,11 +55,25 @@ describe('Library Studio', () => {
   });
 
   it('surfaces orphaned work to its author rather than hiding it', () => {
-    // Doc 1, Contributions rule 1: orphans go to the Owner *and* the author.
-    // Nothing of yours vanishes silently, so an orphan must still be listed.
+    /*
+     * Doc 1, Contributions rule 1: orphans go to the Owner *and* the author.
+     *
+     * The first version of this test read
+     *   `expect(orphans.every((o) => all.includes(o))).toBe(true)`
+     * over a list that never contained an orphan — the only orphaned fixture
+     * was authored by someone else, and every impact path is author-filtered.
+     * `[].every(...)` is `true`, so it passed and could not fail. The fixture
+     * now belongs to the viewer, and this asserts the orphan is actually
+     * there before asserting anything about it.
+     */
     const all = impactRows();
     const orphans = all.filter((r) => r.orphaned);
-    expect(orphans.every((o) => all.includes(o))).toBe(true);
+    expect(orphans.length, 'no orphaned fixture — this guard would be vacuous').toBeGreaterThan(0);
+    for (const o of orphans) {
+      expect(o.title.trim().length).toBeGreaterThan(0);
+      // It keeps a Space so the row is still reachable and explainable.
+      expect(o.spaceName.trim().length).toBeGreaterThan(0);
+    }
   });
 
   it('lists uploads as Materials, not Lessons', () => {

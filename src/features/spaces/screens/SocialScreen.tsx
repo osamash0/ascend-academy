@@ -223,7 +223,7 @@ export default function SocialScreen() {
                     <div className="min-w-0">
                       <AuthorLine person={r.person} />
                       <p className="mt-1 text-[12.5px] text-faint tabular-nums">
-                        {r.sharedSpaces} Spaces in common
+                        {r.sharedSpaces} {r.sharedSpaces === 1 ? 'Space' : 'Spaces'} in common
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">

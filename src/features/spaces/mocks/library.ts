@@ -1,9 +1,10 @@
-import type { LessonState, LibraryItem, Note } from '../types';
+import type { Contribution, ContributionAnchor, LessonState, LibraryItem, Note } from '../types';
 import { normalizationContributions, spaceContributions } from './contributions';
+import { conceptById, conceptContributions } from './concepts';
 import type { Person } from '../types';
 import { viewer, keller, weber, ferreira, okonkwo, lindqvist } from './people';
 import { allSpaces } from './spaces';
-import { lessonsForSpace } from './lessons';
+import { lessonsForSpace, locateLesson } from './lessons';
 
 /**
  * Library fixtures — what the viewer made, across every Space.
@@ -76,21 +77,55 @@ const uploadedMaterials: LibraryItem[] = lessonsForSpace('s-linalg')
     pending: l.state === 'draft' || l.state === 'processing',
   }));
 
+/**
+ * Where a contribution actually lives — resolved, not assumed.
+ *
+ * All three anchor levels, because Doc 1 defines three. The previous version
+ * handled `space`, hardcoded `'Normalization'` / `'s-dbs'` for `lesson`, and
+ * silently dropped `concept` entirely — so a Concept-anchored contribution by
+ * the viewer existed in the fixtures, was findable in ⌘K, and Library denied
+ * it existed.
+ *
+ * An orphan has no anchor left to resolve; that is what makes it an orphan.
+ */
+const resolveAnchor = (
+  anchor: ContributionAnchor,
+): { spaceId: string | null; lessonTitle?: string } => {
+  if (anchor.level === 'space') return { spaceId: anchor.spaceId };
+  if (anchor.level === 'lesson') {
+    const found = locateLesson(anchor.lessonId);
+    return found
+      ? { spaceId: found.spaceId, lessonTitle: found.lesson.title }
+      : { spaceId: null };
+  }
+  const concept = conceptById(anchor.conceptId);
+  return concept ? { spaceId: concept.spaceId, lessonTitle: concept.name } : { spaceId: null };
+};
+
+/** Everything the viewer published, at any of the three anchor levels. */
+const myPublished = (): Contribution[] =>
+  [...spaceContributions, ...normalizationContributions, ...conceptContributions].filter(
+    (c) => c.author.id === viewer.id,
+  );
+
 /** Contributions the viewer published, wherever they landed. */
-const myContributions: LibraryItem[] = [...spaceContributions, ...normalizationContributions]
-  .filter((c) => c.author.id === viewer.id)
-  .map((c) => ({
+const myContributions: LibraryItem[] = myPublished().map((c) => {
+  const at = resolveAnchor(c.anchor);
+  return {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
     title: c.title,
-    spaceId: c.anchor.level === 'space' ? c.anchor.spaceId : 's-dbs',
-    spaceName: spaceName(c.anchor.level === 'space' ? c.anchor.spaceId : 's-dbs'),
-    lessonTitle: c.anchor.level === 'lesson' ? 'Normalization' : undefined,
+    // An orphan keeps its last known Space so it is still findable; the
+    // `orphaned` flag is what tells the row to explain itself.
+    spaceId: at.spaceId ?? 's-dbs',
+    spaceName: spaceName(at.spaceId ?? 's-dbs'),
+    lessonTitle: at.lessonTitle,
     updatedAt: c.createdAt,
     likeCount: c.likeCount,
     endorsed: c.endorsed,
     orphaned: c.orphaned,
-  }));
+  };
+});
 
 const myNotes: LibraryItem[] = notes.map((n) => ({
   id: `lib-note-${n.id}`,
@@ -289,19 +324,21 @@ export interface ImpactRow {
  * score — Doc 1 rule 7 forbids a second progression beside XP.
  */
 export const impactRows = (): ImpactRow[] =>
-  [...spaceContributions, ...normalizationContributions]
-    .filter((c) => c.author.id === viewer.id)
-    .map((c) => ({
-      id: c.id,
-      title: c.title,
-      spaceId: c.anchor.level === 'space' ? c.anchor.spaceId : 's-dbs',
-      spaceName: spaceName(c.anchor.level === 'space' ? c.anchor.spaceId : 's-dbs'),
-      lessonTitle: c.anchor.level === 'lesson' ? 'Normalization' : undefined,
-      likeCount: c.likeCount,
-      endorsed: c.endorsed,
-      orphaned: c.orphaned,
-      createdAt: c.createdAt,
-    }))
+  myPublished()
+    .map((c) => {
+      const at = resolveAnchor(c.anchor);
+      return {
+        id: c.id,
+        title: c.title,
+        spaceId: at.spaceId ?? 's-dbs',
+        spaceName: spaceName(at.spaceId ?? 's-dbs'),
+        lessonTitle: at.lessonTitle,
+        likeCount: c.likeCount,
+        endorsed: c.endorsed,
+        orphaned: c.orphaned,
+        createdAt: c.createdAt,
+      };
+    })
     .sort((a, b) => b.likeCount - a.likeCount);
 
 /** Everything you uploaded, across every Space. */
