@@ -97,7 +97,9 @@ export const moments = (): Moment[] => {
     out.push({
       id: 'm-lesson',
       title: 'Your first Lesson',
-      detail: firstLearning.label.replace(/^Finished\s+/, 'You finished '),
+      // A sentence, with the stop. The label is a log line ("Finished …");
+      // a moment is something you read.
+      detail: `${firstLearning.label.replace(/^Finished\s+/, 'You finished ')}.`,
       at: firstLearning.at,
     });
   }

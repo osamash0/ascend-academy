@@ -140,11 +140,64 @@ describe('every moment is derived', () => {
   });
 
   it('never records something before the thing it happened to', () => {
-    // A contribution cannot be liked nine days before it is written, which is
-    // what the ledger said until Moments sorted it.
+    /*
+     * Matched to the contribution each event **names**, not to the earliest
+     * one. The loose version compared against `firstContributionAt()` and so
+     * passed a ledger that had "Mnemonic for the normal forms" liked on 2
+     * August against a contribution created on the 28th — twenty-six days
+     * before it was written — because 2 August was still after the *first*
+     * contribution. It caught nothing it was written to catch.
+     */
+    const createdAt = new Map(
+      libraryItems
+        .filter((i) => i.kind === 'contribution')
+        .map((i) => [i.title, i.updatedAt] as const),
+    );
+
+    let checked = 0;
+    for (const e of xpEvents) {
+      const quoted = e.label.match(/“([^”]+)”/)?.[1];
+      if (!quoted) continue;
+      const born = createdAt.get(quoted);
+      if (!born) continue;
+      checked += 1;
+      expect(e.at >= born, `“${quoted}” earned XP on ${e.at.slice(0, 10)}, before it existed on ${born.slice(0, 10)}`).toBe(true);
+    }
+    expect(checked, 'no event names a contribution — this guard would be vacuous').toBeGreaterThan(0);
+
+    // And nothing engagement-related predates the first contribution at all.
     const earliest = firstContributionAt()!;
     for (const e of xpEvents.filter((e) => e.source !== 'learning')) {
       expect(e.at >= earliest, `${e.label} predates your first contribution`).toBe(true);
+    }
+  });
+
+  it('puts the first Lesson before the first contribution', () => {
+    /*
+     * Abi's call: learning comes first. It did not — the orphan contribution
+     * was dated 2 June against a first Lesson on 12 August, so the very first
+     * thing that ever happened to this account was publishing.
+     *
+     * Asserted on the rendered order rather than on the fixtures, because that
+     * is what somebody reads.
+     */
+    const order = moments().map((m) => m.id);
+    expect(order.indexOf('m-lesson')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('m-contribution')).toBeGreaterThan(order.indexOf('m-lesson'));
+  });
+
+  it('gives every finished Lesson the XP that finishing one earns', () => {
+    /*
+     * Five study days begin "Finished" and only two earned XP, in a product
+     * whose first rule about XP is that learning earns it. Three Lessons were
+     * finished for nothing.
+     */
+    const finished = studyDays.filter((d) => d.summary.startsWith('Finished')).map((d) => d.date);
+    const learningDays = new Set(
+      xpEvents.filter((e) => e.source === 'learning').map((e) => e.at.slice(0, 10)),
+    );
+    for (const d of finished) {
+      expect(learningDays.has(d), `a Lesson was finished on ${d} and earned nothing`).toBe(true);
     }
   });
 
@@ -161,7 +214,12 @@ describe('every moment is derived', () => {
     for (const m of moments()) {
       expect(m.title.trim().length, m.id).toBeGreaterThan(0);
       expect(m.detail.trim().length, m.id).toBeGreaterThan(3);
-      expect(m.detail, `${m.id} ends mid-sentence`).toMatch(/[.”]$/);
+      /*
+       * A full stop, not "a full stop or a quote mark". Written the loose way
+       * first, it passed `You finished “Vectors and Matrices”` — a sentence
+       * with no end, because the closing quote satisfied the character class.
+       */
+      expect(m.detail, `${m.id} ends mid-sentence`).toMatch(/\.$/);
     }
   });
 });

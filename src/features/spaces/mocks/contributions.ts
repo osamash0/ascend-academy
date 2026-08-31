@@ -142,7 +142,7 @@ export const spaceContributions: Contribution[] = [
     endorsed: false,
     hidden: false,
     orphaned: false,
-    createdAt: '2026-08-04T09:00:00Z',
+    createdAt: '2026-08-09T09:00:00Z',
   },
   {
     id: 'c-6',
@@ -170,7 +170,7 @@ export const spaceContributions: Contribution[] = [
     endorsed: false,
     hidden: false,
     orphaned: true,
-    createdAt: '2026-06-02T09:00:00Z',
+    createdAt: '2026-08-06T09:00:00Z',
   },
   {
     /*
