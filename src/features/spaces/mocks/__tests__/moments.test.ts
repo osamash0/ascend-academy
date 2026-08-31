@@ -113,7 +113,7 @@ describe('every moment is derived', () => {
      * earliest contribution is dated 2 June — two statements of one fact, and
      * only visible once something sorted them.
      */
-    const contributions = libraryItems
+    const contributions = libraryItems()
       .filter((i) => i.kind === 'contribution')
       .map((i) => i.updatedAt)
       .sort();
@@ -149,7 +149,7 @@ describe('every moment is derived', () => {
      * contribution. It caught nothing it was written to catch.
      */
     const createdAt = new Map(
-      libraryItems
+      libraryItems()
         .filter((i) => i.kind === 'contribution')
         .map((i) => [i.title, i.updatedAt] as const),
     );

@@ -235,7 +235,22 @@ export interface Passage {
 /** Where a contribution attaches. One contribution, one anchor. */
 export type ContributionAnchor =
   | { level: 'space'; spaceId: string }
-  | { level: 'lesson'; lessonId: string }
+  | {
+      level: 'lesson';
+      lessonId: string;
+      /**
+       * The Space that Lesson was in — only needed once the Lesson is gone.
+       *
+       * An orphan cannot resolve its Space through a Lesson that no longer
+       * exists, and `library.ts` filled the hole with a hardcoded `'s-dbs'`
+       * under a comment claiming it fell back to "its last known Space". It
+       * did not: every orphan, from any Space, was attributed to Database
+       * Systems. The one orphan fixture happens to come from there, so the
+       * bug was invisible — and the coherence guard that would have caught it
+       * does `if (row.orphaned) continue`.
+       */
+      spaceId?: string;
+    }
   | { level: 'concept'; conceptId: string };
 
 /** Open model; v1 accepts low-risk types only. No executable artifacts. */
@@ -327,9 +342,17 @@ export type LibraryKind = 'note' | 'material' | 'contribution';
  * Systems" with nowhere to go. A doc comment for a property that does not
  * exist is worse than none: it reads as a decision already made.
  */
-export interface LibraryItem {
+interface LibraryItemBase {
   id: string;
-  kind: LibraryKind;
+  /**
+   * A one-line label for a mixed list.
+   *
+   * For a Note this is a *derived* first clause, not the note. Reading it as
+   * the content is what cost two sentences of every multi-sentence note: the
+   * value reached `NoteEditor`, which saves exactly what it was given, so the
+   * first edit wrote the label back over the body. Hence the union below —
+   * a Note carries `body`, and `title` is never the thing you save.
+   */
   title: string;
   /** Where opening it goes. `null` for a Note — Notes open in place. */
   href: string | null;
@@ -356,6 +379,36 @@ export interface LibraryItem {
   /** Materials only: still ingesting, or a draft not yet published. */
   pending?: boolean;
 }
+
+/**
+ * A Library item, discriminated on `kind` so a Note cannot lose its body.
+ *
+ * A union rather than one more optional field, because an optional `body?`
+ * leaves `item.body ?? item.title` compiling — and that fallback is precisely
+ * the destructive line, just written defensively. With the union, reading a
+ * Note's content off `title` is a type error, and the only value the editor
+ * can be handed is the real one.
+ *
+ * Do **not** add `href: null` to the Note branch, however tempting. This
+ * project compiles with `strict: false`, and under `strictNullChecks: false`
+ * TypeScript strips `null` from types — so `href: null` becomes `href: never`,
+ * which collapses the entire branch to `never` and *silently removes it from
+ * the union*. The symptom is remote from the cause: `LibraryItem['kind']`
+ * quietly narrows to `'material' | 'contribution'` and every `kind === 'note'`
+ * comparison in the codebase becomes an "unintentional comparison" error.
+ * "Notes have no href" is a fixture rule, checked in `library.test.ts`.
+ */
+export type LibraryItem =
+  | (LibraryItemBase & {
+      kind: 'note';
+      /** The whole note, verbatim — what the editor loads and saves. */
+      body: string;
+    })
+  | (LibraryItemBase & {
+      kind: Exclude<LibraryKind, 'note'>;
+      /** Only a Note has a body; everything else is a pointer to one. */
+      body?: never;
+    });
 
 /**
  * A Concept plus where it lives — what the Concept overview needs.

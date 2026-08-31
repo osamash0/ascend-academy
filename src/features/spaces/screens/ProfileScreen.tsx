@@ -48,7 +48,7 @@ export default function ProfileScreen() {
 
   const allMoments = moments();
   const latestMoment = [...allMoments].reverse().find((m) => m.at !== null) ?? allMoments[0];
-  const published = libraryItems.filter((i) => i.kind === 'contribution');
+  const published = libraryItems().filter((i) => i.kind === 'contribution');
   const likesReceived = published.reduce((n, i) => n + (i.likeCount ?? 0), 0);
 
   const chrome = (body: React.ReactNode) => (

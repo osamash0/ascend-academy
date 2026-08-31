@@ -2,6 +2,7 @@ import { allConcepts, conceptContributions } from './concepts';
 import { publishedLessonsForSpace } from './lessons';
 import { spaceContributions, normalizationContributions } from './contributions';
 import { resolveContributionAnchor } from './library';
+import { anchorFor } from './reanchor';
 import { canSeeHidden } from './engagement';
 import { viewer } from './people';
 import { visibleSpaces } from './spaces';
@@ -120,7 +121,7 @@ export const search = (query: string): SearchResults => {
        * contribution elsewhere and ⌘K would name the wrong Space and navigate
        * to it.
        */
-      const at = resolveContributionAnchor(c.anchor, c.id);
+      const at = resolveContributionAnchor(anchorFor(c), c.id);
       if (!at.spaceId) return [];
       const space = visibleSpaces().find((s) => s.id === at.spaceId);
       if (!space) return [];

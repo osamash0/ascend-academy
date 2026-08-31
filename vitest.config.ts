@@ -7,6 +7,21 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     globals: true,
+    /*
+     * 15s, not the 5s default.
+     *
+     * Six render tests in `notes.test.tsx` timed out in a full run and every
+     * one passed on its own — a different six the next run. The suite spends
+     * ~220s in environment setup across 41 files, so on a loaded machine a
+     * render that normally takes a moment can miss a 5s budget while a
+     * `waitFor` inside it is already spending 3s of that.
+     *
+     * A gate that fails randomly is worse than a slow one: it teaches people
+     * to re-run until green, which is how a real failure gets waved through.
+     * Raised rather than the assertions loosened, so a genuine hang still
+     * fails — just not a busy laptop.
+     */
+    testTimeout: 15_000,
     setupFiles: ["./src/test/setup.ts"],
     server: {
       deps: {

@@ -40,11 +40,18 @@ export const notesForLesson = (lessonId: string): Note[] =>
  * not lose the writing. Empty notes are refused: a blank note is an accident,
  * and silently storing one leaves rubbish in the one place that is entirely
  * yours.
+ *
+ * An unanchored note — written in Library, belonging to no Lesson yet — leaves
+ * the anchor fields **empty**. They used to default to `'Unknown Lesson'`,
+ * which read out to the user verbatim as "Unknown Lesson · No Space yet", and
+ * put display copy inside a data field: any check of the form
+ * `spaceName.trim().length > 0` then saw a real Space where there was a
+ * sentence. Absence is absence; naming it is the renderer's job.
  */
 export const addNote = ({
   lessonId,
   body,
-  lessonTitle = 'Unknown Lesson',
+  lessonTitle = '',
   spaceId = '',
   spaceName = '',
 }: {

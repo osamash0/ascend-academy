@@ -78,17 +78,24 @@ describe('Library Studio', () => {
     for (const o of orphans) {
       expect(o.title.trim().length).toBeGreaterThan(0);
       /*
-       * It names *no* Space — the previous line asserted the opposite, that an
-       * orphan "keeps a Space so the row is still reachable". The only way to
-       * keep one was to invent it (`?? 's-dbs'`), and it was right purely by
-       * coincidence: the deleted Lesson's id happens to start `l-s-dbs-`. An
-       * orphan in any other Space would have been labelled with the wrong one.
+       * An orphan **may** name its Space, now that the anchor carries it.
        *
-       * What makes the row explainable is the `orphaned` flag and the copy it
-       * drives, not a Space it no longer belongs to.
+       * This asserted the opposite — that `spaceName` was null — and it was
+       * right at the time: the only way to keep a Space was to invent one
+       * (`?? 's-dbs'`), correct purely by coincidence because the deleted
+       * Lesson's id happens to start `l-s-dbs-`. A parallel session then made
+       * the anchor carry its own `spaceId`, so the Space became a fact rather
+       * than a guess, and forbidding it started forbidding the truth.
+       *
+       * The two halves together are exactly LibraryScreen's header rule:
+       * "Items name the Space they live in as context, but a Space is never an
+       * entry point from here." Name it — never open it.
        */
-      expect(o.spaceName, `${o.title} names a Space it has lost`).toBeNull();
       expect(o.orphaned).toBe(true);
+      if (o.spaceName !== null) {
+        expect(o.spaceName.trim().length, `${o.title} names an empty Space`).toBeGreaterThan(0);
+        expect(o.spaceId, `${o.title} names a Space with no id`).toBeTruthy();
+      }
     }
   });
 

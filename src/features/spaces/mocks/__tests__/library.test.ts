@@ -14,7 +14,7 @@ import { allSpaces } from '../spaces';
 describe('Library fixtures', () => {
   it('is filtered by author — everything in it was made by the viewer', () => {
     // Rule 3: "Library is filtered by author, not by content type."
-    expect(libraryItems.length).toBeGreaterThan(0);
+    expect(libraryItems().length).toBeGreaterThan(0);
     // Notes are private to their author by definition.
     expect(notes.length).toBeGreaterThan(0);
   });
@@ -23,7 +23,7 @@ describe('Library fixtures', () => {
     // Rule 2: "A Space card only ever appears under Spaces." Rule 4: "Library
     // holds no Spaces." An item may *name* its Space as context, never be one.
     const spaceIds = new Set(allSpaces.map((s) => s.id));
-    for (const item of libraryItems) {
+    for (const item of libraryItems()) {
       expect(spaceIds.has(item.id), `${item.title} is a Space`).toBe(false);
       expect(['note', 'material', 'contribution']).toContain(item.kind);
     }
@@ -36,10 +36,9 @@ describe('Library fixtures', () => {
      *
      * This read `item.spaceName.trim()` over *all* items, which made naming a
      * Space unconditional and so forced the orphan to invent one. The guard was
-     * requiring the defect: the only way to satisfy it was `?? 's-dbs'`, and
-     * the row then stated a fabricated Space as fact.
+     * requiring the defect: the only way to satisfy it was `?? 's-dbs'`.
      */
-    for (const item of libraryItems) {
+    for (const item of libraryItems()) {
       if (item.orphaned) continue;
       expect(item.spaceName?.trim().length, item.title).toBeGreaterThan(0);
       expect(item.spaceId?.trim().length, item.title).toBeGreaterThan(0);
@@ -56,7 +55,7 @@ describe('Library fixtures', () => {
      * forbids: "a Space is never an entry point from here." It also landed you
      * on a Space overview where the contribution is not.
      */
-    for (const item of libraryItems) {
+    for (const item of libraryItems()) {
       if (item.spaceId !== null && item.spaceName !== null) continue;
       expect(item.orphaned, `${item.title} has no Space but is not orphaned`).toBe(true);
       expect(item.spaceId, `${item.title}`).toBeNull();
@@ -76,7 +75,7 @@ describe('Library fixtures', () => {
      * so the character class swallowed the fragment and the href looked bare.
      * A guard that cannot tell the repair from the defect blocks the repair.
      */
-    for (const item of libraryItems) {
+    for (const item of libraryItems()) {
       expect(item.href ?? '', `${item.title} opens a Space root`).not.toMatch(
         /^\/v4\/space\/[^/#]+$/,
       );
@@ -94,7 +93,7 @@ describe('Library fixtures', () => {
      * path is author-filtered, so this branch was unreachable from here and a
      * guard over it would have iterated nothing and passed.
      */
-    const spaceAnchored = libraryItems.filter((i) => i.href?.includes('#contribution-'));
+    const spaceAnchored = libraryItems().filter((i) => i.href?.includes('#contribution-'));
     expect(
       spaceAnchored.length,
       'no viewer-authored space-anchored contribution — this guard would be vacuous',
@@ -157,7 +156,7 @@ describe('Library fixtures', () => {
   });
 
   it('sorts newest first', () => {
-    const times = libraryItems.map((i) => +new Date(i.updatedAt));
+    const times = libraryItems().map((i) => +new Date(i.updatedAt));
     expect([...times].sort((a, b) => b - a)).toEqual(times);
   });
 

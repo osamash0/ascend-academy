@@ -71,12 +71,12 @@ const firstBySource = (source: XpSource) =>
 /**
  * The day of your first contribution, from the contribution itself.
  *
- * Read off `libraryItems` rather than the ledger's milestone event, because
+ * Read off `libraryItems()` rather than the ledger's milestone event, because
  * the contribution is the thing that happened and the XP is a consequence of
  * it. When the two disagreed, this was the one telling the truth.
  */
 export const firstContributionAt = (): string | null => {
-  const dates = libraryItems
+  const dates = libraryItems()
     .filter((i) => i.kind === 'contribution')
     .map((i) => i.updatedAt)
     .sort();
@@ -106,7 +106,7 @@ export const moments = (): Moment[] => {
 
   const firstContribution = firstContributionAt();
   if (firstContribution) {
-    const item = libraryItems
+    const item = libraryItems()
       .filter((i) => i.kind === 'contribution')
       .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))[0];
     out.push({

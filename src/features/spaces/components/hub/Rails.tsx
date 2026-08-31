@@ -26,7 +26,41 @@ import { PRESS_SPRING } from '../Pressable';
  */
 
 const GUTTER = 'px-[22px] sm:px-16';
+/**
+ * The same gutter again, as *scroll* padding. Not a duplicate — a fix.
+ *
+ * A snapping track must come to rest on a snap point, and `snap-start` aligns
+ * a card's leading edge to the **scrollport** edge — the padding box, not the
+ * content box. So on mount the browser scrolled each overflowing rail by
+ * exactly its `padding-left` to satisfy the snap, which ate the gutter: the
+ * first card sat flush at x=0 while its own heading sat at x=64, and the last
+ * card was clipped. `scroll-padding-left` insets the snapport instead, so
+ * scrollLeft=0 *is* the snap point and the card lines up under the heading.
+ *
+ * Only the two overflowing rails showed it. "New this week" fits, so it never
+ * snapped and looked correct throughout — which is why reading the geometry
+ * of one rail was not enough to see this.
+ */
+const SCROLL_GUTTER = 'scroll-pl-[22px] sm:scroll-pl-16';
 const TRACK_SCROLL = '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
+
+/**
+ * The thin white outline, on hover as well as on focus.
+ *
+ * `console-focusable` draws a ring on `:focus-visible` only, so a card lifted
+ * on hover had no edge — and the spec's whole selection language is *"thin
+ * white outline + slight scale. Nothing else."* The mock applies it to both
+ * states on all four card types (`.wcard:hover`, `.card:hover .card-img`,
+ * `.banner:hover`, `.ccard:hover`), which is what makes the scale read as
+ * "this one" rather than as the page breathing.
+ *
+ * Transparent by default so the colour fades in rather than snapping on.
+ * `transition-colors` would not do it — Tailwind 3.4 leaves `outline-color`
+ * out of that utility — so this is the bracket form, which the CSS allow-list
+ * in `motion.test.tsx` permits by name for exactly this reason.
+ */
+const CARD_OUTLINE =
+  'outline outline-1 outline-transparent transition-[outline-color] hover:outline-white/90';
 
 /** A rail's heading, with the optional "See all". */
 function RailHead({ title, to }: { title: string; to?: string }) {
@@ -74,6 +108,7 @@ export function Rail({
         className={cn(
           'gap-4 overflow-x-auto pb-[14px] pt-2',
           GUTTER,
+          SCROLL_GUTTER,
           TRACK_SCROLL,
           grid
             ? 'grid grid-flow-col grid-rows-2 gap-x-4 gap-y-[14px]'
@@ -97,20 +132,31 @@ export function Rail({
  */
 export function WideCard({ space }: { space: Space }) {
   return (
-    <motion.div variants={itemVariants} className="flex-none snap-start">
+    <motion.div
+      variants={itemVariants}
+      className="flex-none snap-start"
+      /*
+       * The whole card lifts, not the art inside it.
+       *
+       * The scale was on the absolutely-positioned cover layer, so hovering
+       * zoomed the image *behind* a stationary name, activity line and badges
+       * — the card stayed put while its picture grew inside it. The mock is
+       * unambiguous: `.wcard:hover{transform:scale(1.03)}` moves the card.
+       */
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.98 }}
+      transition={PRESS_SPRING}
+    >
       <Link
         to={`/v4/space/${space.id}`}
         aria-label={`${space.name}${space.lastActivity ? `. ${space.lastActivity}` : ''}`}
-        className="console-focusable group relative block w-[300px] overflow-hidden rounded-[14px] sm:w-[380px]"
+        className={cn(
+          'console-focusable group relative block w-[300px] overflow-hidden rounded-[14px] sm:w-[380px]',
+          CARD_OUTLINE,
+        )}
         style={{ aspectRatio: '16 / 8.6' }}
       >
-        <motion.div
-          className="absolute inset-0"
-          style={{ background: coverFor(space.id) }}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.98 }}
-          transition={PRESS_SPRING}
-        />
+        <div className="absolute inset-0" style={{ background: coverFor(space.id) }} />
         <div
           aria-hidden
           className="absolute inset-0"
@@ -171,7 +217,12 @@ export function FeatureBanner({ space }: { space: Space }) {
       className="mb-[60px]"
     >
       <motion.div variants={itemVariants} className="mx-[22px] sm:mx-16">
-        <div className="relative flex min-h-[190px] items-center overflow-hidden rounded-2xl">
+        <div
+          className={cn(
+            'relative flex min-h-[190px] items-center overflow-hidden rounded-2xl',
+            CARD_OUTLINE,
+          )}
+        >
           <div aria-hidden className="absolute inset-0" style={{ background: coverFor(space.id) }} />
           <div
             aria-hidden
@@ -231,7 +282,7 @@ export function StandardCard({ space }: { space: Space }) {
         className="console-focusable group block w-[190px] rounded-xl sm:w-[250px]"
       >
         <motion.div
-          className="relative overflow-hidden rounded-xl"
+          className={cn('relative overflow-hidden rounded-xl', CARD_OUTLINE)}
           style={{ aspectRatio: '16 / 10', background: coverFor(space.id) }}
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.98 }}
@@ -282,6 +333,7 @@ export function CompactCard({ space }: { space: Space }) {
         className={cn(
           'console-focusable group flex w-[260px] items-center gap-[14px] rounded-xl p-[10px] sm:w-[300px]',
           'bg-[rgba(14,16,20,0.72)] outline-offset-2 transition-colors hover:bg-[rgba(24,26,33,0.85)]',
+          CARD_OUTLINE,
         )}
       >
         <span

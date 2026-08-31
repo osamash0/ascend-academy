@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   CheckCircle2,
+  Compass,
   FileText,
   Heart,
   Loader2,
@@ -15,7 +16,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { draftsAcrossSpaces, impactRows, uploadRows } from '../mocks/library';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
-import { ListSkeleton, SpacesError } from '../components/states';
+import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
 
 /**
@@ -36,18 +37,78 @@ import { useScreenState } from '../data/useSpaces';
 
 type View = 'uploads' | 'drafts' | 'impact';
 
+/**
+ * The three views, and the only three.
+ *
+ * `:view` used to be read straight off the URL and fall through to the impact
+ * screen, so `/v4/library/anything` rendered "How your work landed" — title,
+ * real counts, real rows. Not an error page: a *plausible* one, for a screen
+ * you never asked for. The same mistake `NotFound` was added for, one step
+ * further along, because here there was nothing to notice.
+ *
+ * A table rather than three ternaries. The loading branch had its own copy of
+ * the title logic and defaulted an unknown view to "Manage uploads", so the
+ * skeleton was already mislabelling the screen it was standing in for.
+ */
+const VIEWS = {
+  uploads: { title: 'Manage uploads', icon: Upload },
+  drafts: { title: 'Your drafts', icon: FileText },
+  impact: { title: 'How your work landed', icon: Sparkles },
+} as const;
+
+const isView = (v: string | undefined): v is View => v !== undefined && v in VIEWS;
+
 const formatSize = (b?: number) => (b === undefined ? '—' : `${(b / 1_000_000).toFixed(1)} MB`);
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+/**
+ * A row's title, linked to the object it names.
+ *
+ * The drafts view listed rows reading "Needs review" with nothing to click:
+ * the screen told you work was waiting and gave you no way to reach it. Uploads
+ * were the same, and worse — a `href` to the Lesson was already computed on
+ * every material item and simply never used.
+ *
+ * The **title** is the link, not the row. A row-filling overlay is what Library
+ * uses for its cards, but here the row already owns a checkbox, and an
+ * `absolute inset-0` anchor would swallow every click meant for it. Selection
+ * stays the row's job; opening is the title's.
+ */
+function RowTitle({ to, children, label }: { to?: string; children: string; label: string }) {
+  if (!to) return <p className="truncate text-sm font-semibold text-foreground">{children}</p>;
+  return (
+    <Link
+      to={to}
+      aria-label={label}
+      className="console-focusable block truncate rounded text-sm font-semibold text-foreground hover:underline"
+    >
+      {children}
+    </Link>
+  );
+}
 
 /** Dense list row shared by all three views. */
 function Row({
   selected,
   onToggle,
+  /**
+   * Hold the checkbox's place on a row that has none.
+   *
+   * In a list where *some* rows can be selected, omitting the control shifts
+   * everything after it left by its width — so the drafts view's order numbers
+   * sat at two different x positions depending on whether the row happened to
+   * be publishable. Dense lists are read down the column.
+   *
+   * Not automatic: the impact view has no selection on any row, and reserving
+   * a gutter there would indent every row for a control that does not exist.
+   */
+  reserveToggle,
   children,
 }: {
   selected?: boolean;
   onToggle?: () => void;
+  reserveToggle?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -65,7 +126,7 @@ function Row({
         oversized next to a dense row — the visual size and the hit size are
         allowed to differ, and only one of them is the accessibility rule.
       */}
-      {onToggle && (
+      {onToggle ? (
         <label className="-m-1 flex shrink-0 cursor-pointer p-1">
           <input
             type="checkbox"
@@ -75,7 +136,10 @@ function Row({
           />
           <span className="sr-only">Select this row</span>
         </label>
-      )}
+      ) : reserveToggle ? (
+        /* Same 16px the label nets to — its p-1 and -m-1 cancel out. */
+        <span aria-hidden className="h-4 w-4 shrink-0" />
+      ) : null}
       {children}
     </div>
   );
@@ -135,7 +199,31 @@ export default function LibraryStudioScreen() {
     [removed],
   );
   const impact = useMemo(() => impactRows(), []);
-  void impact;
+
+  /*
+   * Checked before the load states, not after: a skeleton for a screen that
+   * does not exist is still a promise that it does.
+   */
+  if (!isView(view)) {
+    return (
+      /*
+       * The subtitle names the three real screens rather than repeating the
+       * message. `NotFound` already says "That screen isn’t here", and having
+       * the shell say it too printed the same sentence twice, one above the
+       * other. Listing what does exist is the useful thing to say to someone
+       * who has just mistyped one of them.
+       */
+      <StudioShell
+        icon={Compass}
+        title="Library"
+        subtitle={Object.values(VIEWS)
+          .map((v) => v.title)
+          .join(' · ')}
+      >
+        <NotFound what="screen" backTo="/v4/library" backLabel="Back to Library" />
+      </StudioShell>
+    );
+  }
 
   // Studio screens read fixtures synchronously and so had no loading or error
   // state at all — `?mock=` did nothing here. The shell is the chrome, so the
@@ -143,8 +231,8 @@ export default function LibraryStudioScreen() {
   if (screenState === 'loading' || screenState === 'error') {
     return (
       <StudioShell
-        icon={Upload}
-        title={view === 'drafts' ? 'Your drafts' : view === 'impact' ? 'How your work landed' : 'Manage uploads'}
+        icon={VIEWS[view].icon}
+        title={VIEWS[view].title}
         subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
       >
         {screenState === 'error' ? <SpacesError what="your work" /> : <ListSkeleton />}
@@ -207,7 +295,12 @@ export default function LibraryStudioScreen() {
               <Row key={u.id} selected={selected.has(u.id)} onToggle={() => toggle(u.id)}>
                 <FileText aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{u.title}</p>
+                  <RowTitle
+                    to={u.href ?? undefined}
+                    label={`Open ${u.title} in ${u.spaceName}`}
+                  >
+                    {u.title}
+                  </RowTitle>
                   <p className="truncate text-xs text-muted-foreground">
                     {u.lessonTitle ? `${u.lessonTitle} · ` : ''}
                     {u.spaceName}
@@ -282,12 +375,18 @@ export default function LibraryStudioScreen() {
                 key={d.lessonId}
                 selected={selected.has(d.lessonId)}
                 onToggle={d.state === 'draft' ? () => toggle(d.lessonId) : undefined}
+                reserveToggle
               >
                 <span className="w-6 shrink-0 text-xs text-muted-foreground tabular-nums">
                   {d.order}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{d.title}</p>
+                  <RowTitle
+                    to={`/v4/space/${d.spaceId}/lesson/${d.lessonId}`}
+                    label={`Open ${d.title} in ${d.spaceName}`}
+                  >
+                    {d.title}
+                  </RowTitle>
                   <p className="truncate text-xs text-muted-foreground">{d.spaceName}</p>
                 </div>
                 <div className="w-28 shrink-0 text-right">

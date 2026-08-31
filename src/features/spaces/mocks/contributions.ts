@@ -161,7 +161,7 @@ export const spaceContributions: Contribution[] = [
     excerpt:
       'Nested loop vs hash join on the same two relations, with the row counts written out at each step.',
     type: 'text',
-    anchor: { level: 'lesson', lessonId: 'l-s-dbs-deleted' },
+    anchor: { level: 'lesson', lessonId: 'l-s-dbs-deleted', spaceId: 's-dbs' },
     origin: 'community',
     author: viewer,
     grounding: 'not-grounded',

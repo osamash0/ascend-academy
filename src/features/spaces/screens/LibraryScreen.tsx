@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import {
   FileText,
+  FolderInput,
   Heart,
   NotebookPen,
   Plus,
@@ -18,6 +19,8 @@ import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { NoteEditor } from '../components/NoteEditor';
 import { addNote, updateNote } from '../mocks/notes';
+import { myContributionById } from '../mocks/library';
+import { ReanchorDialog } from '../components/ReanchorDialog';
 import { BentoCell } from '../components/BentoCell';
 import { Scene, SURFACES } from '../components/Scene';
 import { EndorsedBadge } from '../components/badges';
@@ -70,6 +73,19 @@ const KIND_LABEL = {
 const formatSize = (bytes?: number) =>
   bytes === undefined ? null : `${(bytes / 1_000_000).toFixed(1)} MB`;
 
+/**
+ * Where a note lives, or an honest admission that it does not live anywhere.
+ *
+ * A note written in Library belongs to no Lesson until you put it in one, so
+ * both anchor fields are empty. Interpolating them regardless produced
+ * "Unknown Lesson · No Space yet" — two invented strings joined by a separator
+ * for a note that had simply not been filed.
+ */
+const noteContext = (lessonTitle?: string, spaceName?: string) => {
+  const parts = [lessonTitle, spaceName].filter((p) => p && p.trim().length > 0);
+  return parts.length > 0 ? parts.join(' · ') : 'Not filed in a Space yet';
+};
+
 const formatWhen = (iso: string) => {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
@@ -85,7 +101,15 @@ export default function LibraryScreen() {
    * directly" could only be read.
    */
   const [composing, setComposing] = useState(false);
-  const [writeTick, setWriteTick] = useState(0);
+  /** The orphan being re-filed, if the dialog is open. */
+  const [reanchoring, setReanchoring] = useState<LibraryItem | null>(null);
+  /*
+   * A re-anchor mutates a store outside React, and `useLibrary` recomputes on
+   * render — so the list needs a nudge to re-read it. `useReducer` rather than
+   * a counter in `useState`: the value is never read, and an unread `useState`
+   * pair is the dead `writeTick` that was just removed from this file.
+   */
+  const [, reread] = useReducer((n: number) => n + 1, 0);
   const { state, items, notes, pending } = useLibrary();
 
   const latestNote = notes[0];
@@ -138,6 +162,16 @@ export default function LibraryScreen() {
     [items, filter],
   );
 
+  /*
+   * The empty state already invites you to write, on the two filters where
+   * writing is the answer — so the toolbar action would be the same button
+   * twice, 270px apart. On Uploads and Published the empty state sends you to
+   * your Spaces instead, which is a different action, so the toolbar keeps its
+   * own.
+   */
+  const emptyAlreadyOffersNote =
+    shown.length === 0 && !composing && (filter === 'note' || filter === 'all');
+
   // Library is a browse surface — you are choosing what to revisit.
   const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.library} status="progress" motionKey="library">
@@ -189,7 +223,7 @@ export default function LibraryScreen() {
               {latestNote.body}
             </p>
             <p className="mt-3 text-[12.5px] text-faint">
-              {latestNote.lessonTitle} · {latestNote.spaceName}
+              {noteContext(latestNote.lessonTitle, latestNote.spaceName)}
             </p>
           </BentoCell>
         )}
@@ -220,7 +254,13 @@ export default function LibraryScreen() {
         <BentoCell
           icon={Sparkles}
           label="How your work landed"
-          className="sm:col-span-2"
+          /*
+           * Spans whatever is left of the row. Four cells over four columns,
+           * and the first is two wide when there is a note: 2+1+1 fills row
+           * one exactly, leaving this alone on row two at half width. With no
+           * note the row is 1+1+2 and already balances.
+           */
+          className={cn('sm:col-span-2', latestNote && 'lg:col-span-4')}
           to="/v4/library/impact"
         >
           <p className="text-[28px] font-semibold leading-none tabular-nums">
@@ -237,7 +277,21 @@ export default function LibraryScreen() {
         </BentoCell>
       </div>
 
-      <div role="tablist" aria-label="Filter" className="mt-8 flex flex-wrap items-center gap-1.5">
+      {/*
+        Filters, and the one action this screen owns.
+
+        "New note" used to exist only inside the empty state, so it disappeared
+        the moment you had a single note — and Library is the surface Doc 2
+        rule 5 says notes are *written* in. Writing your second note meant
+        opening a Lesson to do it.
+
+        Beside the filters rather than in the header, because this is where the
+        list begins and the note appears at the top of it. Same `h-9` white
+        pill as SpaceScreen's "Add Lesson"; the empty state keeps the larger
+        `h-11` form, which is that screen's precedent too.
+      */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+      <div role="tablist" aria-label="Filter" className="flex flex-wrap items-center gap-1.5">
         {FILTERS.map((f) => {
           const count = f.key === 'all' ? items.length : items.filter((i) => i.kind === f.key).length;
           return (
@@ -260,6 +314,19 @@ export default function LibraryScreen() {
         })}
       </div>
 
+        {!emptyAlreadyOffersNote && (
+        <Pressable
+          type="button"
+          onClick={() => setComposing(true)}
+          disabled={composing}
+          className="console-focusable inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
+        >
+          <Plus aria-hidden className="h-4 w-4" />
+          New note
+        </Pressable>
+        )}
+      </div>
+
       {/* Writing a new note. Unanchored: it is yours and belongs to no Lesson
           until you put it in one. */}
       {composing && (
@@ -268,9 +335,8 @@ export default function LibraryScreen() {
             autoOpen
             placeholder="Write it down while it is fresh…"
             onSave={(body) => {
-              addNote({ lessonId: '', body, spaceName: 'No Space yet' });
+              addNote({ lessonId: '', body });
               setComposing(false);
-              setWriteTick((n) => n + 1);
             }}
           />
         </div>
@@ -286,7 +352,7 @@ export default function LibraryScreen() {
                   except Notes, which are read *and written* in Library. */}
               {item.kind === 'note' ? (
                 <NoteEditor
-                  value={noteBodies[item.id] ?? item.title}
+                  value={noteBodies[item.id] ?? item.body}
                   onSave={(body) => {
                     const id = item.id.replace(/^lib-note-/, '');
                     updateNote(id, body);
@@ -294,17 +360,48 @@ export default function LibraryScreen() {
                   }}
                 />
               ) : (
-                <LibraryRow item={item} />
+                <LibraryRow item={item} onReanchor={() => setReanchoring(item)} />
               )}
             </EnterListItem>
           ))}
         </EnterList>
       )}
+
+      {/*
+        Mounted from the id on the row. A Library item is a projection of a
+        contribution, not the contribution itself, so the dialog is given the
+        real one — it needs `orphaned` to refuse a move it should not make.
+      */}
+      {reanchoring &&
+        (() => {
+          const c = myContributionById(reanchoring.id.replace(/^lib-con-/, ''));
+          if (!c) return null;
+          return (
+            <ReanchorDialog
+              contribution={c}
+              spaceId={reanchoring.spaceId}
+              spaceName={reanchoring.spaceName}
+              open
+              onOpenChange={(v) => !v && setReanchoring(null)}
+              onMoved={() => {
+                setReanchoring(null);
+                reread();
+              }}
+            />
+          );
+        })()}
     </div>,
   );
 }
 
-function LibraryRow({ item }: { item: LibraryItem }) {
+function LibraryRow({
+  item,
+  onReanchor,
+}: {
+  item: LibraryItem;
+  /** Only offered on an orphan, and only for your own contributions. */
+  onReanchor?: () => void;
+}) {
   const Icon = KIND_ICON[item.kind];
   // Notes open here; everything else is a pointer into its Space.
 
@@ -359,10 +456,38 @@ function LibraryRow({ item }: { item: LibraryItem }) {
         {item.orphaned && (
           <p className="mt-2 flex items-start gap-2 text-[13px] leading-relaxed text-quiet">
             <Unlink aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-            The Lesson this was attached to was removed. Your work is safe, and it
-            keeps its likes — but it has nowhere to open until it is given a new
-            home.
+            {/*
+              Describes the state; does not instruct.
+
+              This read "Your work is safe — pick a new place for it", and
+              there is no control anywhere in the product that picks a new
+              place. `deadends.test.tsx` states the rule as "a control either
+              does the thing, or says why it cannot" — a sentence telling you
+              to do something unbuildable fails the same test with no control
+              to point at. Re-anchoring an orphan would be a fourth action on
+              contributions, which is Abi's call, not one to invent here.
+            */}
+            The Lesson this was attached to was removed. Your work is safe and still
+            here — it just isn’t attached to a Lesson any more.
           </p>
+        )}
+
+        {/*
+          `relative z-10`, because the row is covered by an `absolute inset-0`
+          link and anything below it is unclickable. This is the same trap the
+          Studio rows hit from the other side, where a title link would have
+          swallowed the checkbox — an overlay makes every later control a
+          layering question.
+        */}
+        {item.orphaned && onReanchor && (
+          <Pressable
+            type="button"
+            onClick={onReanchor}
+            className="console-focusable relative z-10 mt-3 inline-flex h-9 items-center gap-1.5 rounded-full bg-white/[0.10] px-4 text-[13px] font-semibold text-foreground hover:bg-white/[0.16]"
+          >
+            <FolderInput aria-hidden className="h-3.5 w-3.5" />
+            Find it a new home
+          </Pressable>
         )}
       </div>
 
