@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { allSources, readSource } from './sources';
 import { NAV_TABS, navHref } from '../SpacesTopBar';
 
 /**
@@ -13,15 +12,14 @@ import { NAV_TABS, navHref } from '../SpacesTopBar';
  * things, and only one of them is visible in a screenshot.
  */
 
-const SRC = join(process.cwd(), 'src/features/spaces/components');
-const read = (p: string) =>
-  readFileSync(join(SRC, p), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
-
-const files = readdirSync(SRC)
-  .filter((f) => f.endsWith('.tsx') && !f.includes('.test.'))
-  .map((f) => ({ name: f, body: read(f) }));
+/*
+ * This file read `components/` one level deep, which meant two blind spots at
+ * once: every subdirectory (`components/hub/`) and every *screen*. The
+ * pinned-width sweep below had therefore never looked at a single screen —
+ * where full-page layout actually lives — while reporting green.
+ */
+const read = (p: string) => readSource(p.includes('/') ? p : `components/${p}`);
+const files = allSources();
 
 describe('wide content scrolls instead of shrinking', () => {
   it('gives both maps a legible floor and their own scroller', () => {
@@ -111,14 +109,27 @@ describe('nothing forces the page itself to scroll sideways', () => {
        * exactly the kind of false positive that gets a guard switched off.
        */
       const pinned = body.match(/(?<![-\w])w-\[\d{3,}px\]/g) ?? [];
-      for (const w of pinned) {
-        const at = body.indexOf(w);
-        const around = body.slice(Math.max(0, at - 400), at);
-        expect(
-          /overflow-x-auto|overflow-hidden|overflow-x-scroll/.test(around),
-          `${name}: ${w} with nothing to scroll it`,
-        ).toBe(true);
-      }
+      if (!pinned.length) continue;
+      /*
+       * Whole file, not a window of the 400 characters before it.
+       *
+       * The window was a proximity hack that quietly assumed one component per
+       * file. `hub/Rails.tsx` holds the rail track and the card as separate
+       * components, so the card's `w-[300px]` sits ~30 lines below the track's
+       * `overflow-x-auto` — genuinely inside the scroller, and reported as
+       * overflowing the page. The first thing the widened sweep found was a
+       * false positive, which is the failure mode that gets a guard deleted
+       * rather than fixed.
+       *
+       * The cost is honest: a file containing any scroller now excuses every
+       * pinned width in it. This is a regex looking at text, and it cannot see
+       * which element actually contains which. It catches the case it was
+       * written for — a fixed width in a file with no scroller anywhere — and
+       * the real rule is checked where it is observable, in the browser at
+       * 375px. See `CYCLE.md`.
+       */
+      const scroller = /overflow-x-auto|overflow-hidden|overflow-x-scroll/.test(body);
+      expect(scroller, `${name}: ${pinned.join(', ')} with nothing to scroll it`).toBe(true);
     }
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { allSources, readSource } from './sources';
 import { join } from 'node:path';
 import { MOTION_DURATION, MOTION_EASE } from '../MotionRoot';
 import { railVariants, itemVariants } from '../Enter';
@@ -15,34 +15,9 @@ import { railVariants, itemVariants } from '../Enter';
  * configs, what gets animated, and whether anything leaves the DOM abruptly.
  */
 
-const SRC = join(process.cwd(), 'src/features/spaces');
-const read = (p: string) =>
-  readFileSync(join(SRC, p), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+const read = readSource;
 
-/**
- * Every source file under `screens/` and `components/`, **recursively**.
- *
- * These guards used to read one level with `readdirSync`, so an entire
- * subdirectory of new UI — `components/hub/` — was invisible to all of them.
- * It carried a `text-white/40` that `BUILD-PROMPT.md` names by value as a
- * measured AA failure, plus a dozen off-scale alphas, and every check here
- * passed. A guard that silently stops at a directory boundary is worse than a
- * missing one: the green tick says the whole namespace was checked.
- */
-const walkFiles = (dir: string, prefix = dir): { name: string; body: string }[] =>
-  readdirSync(join(SRC, dir), { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory()
-      ? e.name === '__tests__'
-        ? []
-        : walkFiles(`${dir}/${e.name}`, `${prefix}/${e.name}`)
-      : e.name.endsWith('.tsx') && !e.name.includes('.test.')
-        ? [{ name: `${dir}/${e.name}`, body: read(`${dir}/${e.name}`) }]
-        : [],
-  );
-
-const files = (['screens', 'components'] as const).flatMap((dir) => walkFiles(dir));
+const files = allSources();
 
 describe('one library, one config', () => {
   it('imports Motion from motion/react everywhere', () => {
@@ -95,6 +70,13 @@ describe('which CSS transitions are allowed', () => {
     /^transition-colors$/,
     // SVG paint. The same category as colour, on the two maps.
     /^transition-\[fill\]$/,
+    /*
+     * Outline colour — the focus ring warming up rather than snapping on.
+     * Colour again, so it falls under the same ruling; listed separately
+     * because `outline-width` would not, and an allow-list that says
+     * `transition-[outline` would wave through the layout-shifting one.
+     */
+    /^transition-\[outline-color\]$/,
     /^transition-\[fill,stroke\]$/,
     /^transition-\[fill,opacity\]$/,
   ];

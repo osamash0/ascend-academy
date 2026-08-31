@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { allSources, readSource } from './sources';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -19,28 +20,7 @@ const read = (p: string) =>
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
 
-/**
- * Every source file under `screens/` and `components/`, **recursively**.
- *
- * These guards used to read one level with `readdirSync`, so an entire
- * subdirectory of new UI — `components/hub/` — was invisible to all of them.
- * It carried a `text-white/40` that `BUILD-PROMPT.md` names by value as a
- * measured AA failure, plus a dozen off-scale alphas, and every check here
- * passed. A guard that silently stops at a directory boundary is worse than a
- * missing one: the green tick says the whole namespace was checked.
- */
-const walkFiles = (dir: string, prefix = dir): { name: string; body: string }[] =>
-  readdirSync(join(SRC, dir), { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory()
-      ? e.name === '__tests__'
-        ? []
-        : walkFiles(`${dir}/${e.name}`, `${prefix}/${e.name}`)
-      : e.name.endsWith('.tsx') && !e.name.includes('.test.')
-        ? [{ name: `${dir}/${e.name}`, body: read(join(SRC, dir, e.name)) }]
-        : [],
-  );
-
-const files = (['screens', 'components'] as const).flatMap((dir) => walkFiles(dir));
+const files = allSources();
 
 describe('decorative icons are hidden from screen readers', () => {
   it('marks every icon that sits beside its own label', () => {

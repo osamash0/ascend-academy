@@ -156,6 +156,24 @@ describe('Learn and Studio never mix', () => {
       expect(app, 'the v4 routes are not under MotionRoot').toContain('<MotionRoot />');
       // And it must not quietly reintroduce a second config.
       expect(read(f), `${f} mounts its own MotionConfig`).not.toContain('MotionConfig');
+      /*
+       * The duty that was actually dropped. `Scene` pairs the mobile bottom bar
+       * with the spacer that reserves room for it; this screen mounts the bar
+       * (via `SpacesTopBar`) and, until this guard, not the spacer — so the
+       * last rail sat underneath it on every phone. Owning your ground means
+       * owning the bottom of it too.
+       */
+      if (read(f).includes('<SpacesTopBar')) {
+        /*
+         * `<MobileNavSpacer`, with the angle bracket. Written first as a plain
+         * `toContain('MobileNavSpacer')`, which passed with the element deleted
+         * — the leftover `import` line was enough to satisfy it. A guard that a
+         * dangling import can satisfy is not checking that anything renders.
+         */
+        expect(read(f), `${f} mounts the mobile bar with no spacer under it`).toContain(
+          '<MobileNavSpacer',
+        );
+      }
     }
   });
 

@@ -189,3 +189,53 @@ Then drive the screen in the browser. Assert with `preview_eval` *first* and
 screenshot second — a screenshot shows you what you expected to see.
 
 Findings land in `OVERNIGHT-REPORT.md` under the pass that found them.
+
+## How a guard goes blind
+
+Auditing every guard's file-selection turned up more than auditing any screen
+did. The failures were all the same shape — the check ran, passed, and reported
+green while looking at less than it claimed.
+
+**It stops at a directory boundary.** Five files each had their own hand-copied
+`readdirSync`. When `components/hub/` appeared, four learned to recurse and
+`responsive.test.tsx` did not. It was also reading `components/` only, so no
+*screen* had ever been swept for a pinned width — the place full-page layout
+actually lives. The walker now exists once, in `__tests__/sources.ts`. Sharing
+it means the next subdirectory is picked up by every guard at once or by none.
+
+**It works from a list somebody has to remember to update.** `modes.test.tsx`
+held two hand-written arrays of screens, and four had been added without being
+added there — `PersonScreen`, `ReaderScreen`, `SpacesHubScreen`, `SpaceRoute`.
+Two were mine. The list is now read off disk against an exhaustive `MODE` map,
+so a new screen fails the suite until somebody classifies it. A missing entry
+became a question the author must answer rather than a silent exemption.
+
+**Something other than the subject satisfies it.** A new check that the hub
+mounts `MobileNavSpacer` passed with the element deleted: the leftover `import`
+line contained the string. Matching `'<MobileNavSpacer'` — with the angle
+bracket — is what makes it about rendering. Always reintroduce the defect and
+watch the guard go red. A guard never seen failing has not been tested.
+
+**Its first catch is a false positive.** The widened sweep immediately flagged
+`hub/Rails.tsx` for a `w-[300px]` "with nothing to scroll it". The card is
+inside a scroller; the guard looked only 400 characters back, which quietly
+assumed one component per file, and the track is declared ~30 lines above.
+Fixing the code there would have been fixing the wrong thing. A guard whose
+first finding is noise is one that gets deleted rather than repaired.
+
+## What a regex cannot check, check in the browser
+
+The pinned-width guard is a text search standing in for "the page must not
+scroll sideways". It cannot see which element contains which, so it now excuses
+any file that has a scroller anywhere — honest, and weak.
+
+The real rule is observable. At 375px, on every route:
+
+```js
+document.documentElement.scrollWidth - document.documentElement.clientWidth  // 0
+```
+
+Verified 0 across all six top-level routes, which is what actually retired the
+Rails finding. Geometry answers questions the preview's frozen animation clock
+cannot: the hub's spacer was confirmed by measuring it — `h-[68px]`, last child,
+content ending at 2203 against a nav top of 2211 — not by watching anything move.
