@@ -1,8 +1,9 @@
 # Overnight report · Learnstation v4 UI
 
 *Branch `claude/peaceful-rosalind-9d0e67`. Nothing pushed; `main` untouched.
-Three passes: the A–H backlog, the finish-and-review pass, and the pass that
-worked this report's own backlog to zero.*
+Four passes: the A–H backlog, the finish-and-review pass, the pass that worked
+this report's own backlog to zero, and cycle pass 2 over the code the earlier
+passes wrote.*
 
 ---
 
@@ -65,7 +66,44 @@ progression rule, and Doc 1 locks progression to XP awarded by the engine.
 
 ---
 
-## What the cycle found, across all three passes
+## Cycle pass 2 — over the code pass 1 wrote
+
+Pass 1's discovery ran before Practice, ⌘K, Settings, PersonScreen, the reader,
+Ascent, MobileNav and the three writable stores existed. Interrogating exactly
+that produced twenty-one findings. The instructive ones:
+
+**Every profile was wrong.** `PersonScreen` computed "Spaces you are both in"
+with a predicate that named the person nowhere, and a `[]` dependency array —
+which is the tell: a memo with no reactive input, on a screen whose whole
+subject is a route parameter. Every profile listed the same four Spaces.
+
+**Fifteen Lessons promised practice that did not exist.** `practiceCount` was
+stated on seventeen Lessons and wrong on all seventeen. Fifteen rendered an
+enabled Practice button that landed on "No practice here yet". Derived now.
+
+**⌘K had two cursors that disagreed.** Its key handler had *no dependency
+array*, which `exhaustive-deps` cannot see — and the plausible-looking `[open]`
+would have introduced a stale closure that lint would also have approved. Its
+global `preventDefault()` on Enter meant tabbing to the dialog's Close button
+and pressing Enter navigated to a search result instead.
+
+**Three of my own guards were protecting the defects they were written to
+catch.** `maps.test.tsx` asserted each map file *contained* the palette hexes,
+so extracting them into one constant would have turned it red. `a11y.test.tsx`
+matched only `text-white/NN`, missing the reader's prose and a 1.87:1 Delete
+label. `search.test.ts` guarded the visibility rule behind an `if` no fixture
+satisfied, and ended in `expect(true).toBe(true)`.
+
+**Two reset seams had never run.** Labelled "Test seam — each test starts from
+the fixtures", called nowhere. The label was simply false.
+
+That last group is the pass's real lesson: **a guard is code, and code written
+once and never exercised is not known to work.** Four of the six guard defects
+found across both passes were in guards, not in screens.
+
+---
+
+## What the cycle found, across all four passes
 
 `CYCLE.md` documents the method. The ones worth knowing about:
 
@@ -98,13 +136,14 @@ mechanism as its reason for having no motion switch.
 
 | | Start of the night | Now |
 |---|---|---|
-| Tests | 101 | **211** |
-| Test files | 14 | 29 |
+| Tests | 101 | **234** |
+| Test files | 14 | 30 |
 | Routes | 14 | 21 |
 | Dead controls | 18 | 0 |
-| Guards that cannot fail | 4 | 0 |
+| Guards that cannot fail | 7 | 0 |
 | Screens with all four states | 4 | 12 |
 | Unmounted components | 3 | 0 |
+| Guards that locked in a defect | 3 | 0 |
 
 ---
 
@@ -120,11 +159,18 @@ putting the gates and the commit on separate lines instead of one `&&` chain.
 Both times the gate went red, printed its failure on screen, and the commit
 landed anyway. Both are now in `CYCLE.md` with the correct invocation.
 
-**Guards need their false positives fixed on the first run.** Six misfired
+**Guards need their false positives fixed on the first run.** Eight misfired
 initially — a `>` inside a JSX expression, Radix `asChild`, `max-w-[140px]`
-matching a pinned-width rule, and three that fired on the prose explaining
-them. A guard whose false positives outnumber its real ones gets muted within a
-week, which is worse than never writing it.
+matching a pinned-width rule, an SVG shape fill read as text, and three that
+fired on the prose explaining them. A guard whose false positives outnumber its
+real ones gets muted within a week, which is worse than never writing it.
+
+**A guard is code, and unexercised code does not work.** Seven guards could not
+fail and three actively required the defect they were written to prevent. Two
+"test seams" were called nowhere. Across both cycle passes, more defects were
+found *in the guards* than in any single screen — which is an argument for
+proving each one red before trusting it, and for running the cycle over the
+cycle's own output.
 
 ---
 
@@ -154,6 +200,11 @@ fixture and should be removed from the union.
    but the top bar carries notifications, settings and sign-out.
 4. **What reading does to the map.** The reader deliberately changes no
    progress rather than inventing a rule.
+5. **Ascent's ordering.** The route sorts on `lastActiveAt`, so it reorders
+   itself when you open a Space. The intended order is when you joined, and
+   `Space` records no join date — `Membership` has one per person. Marked
+   NEEDS-BACKEND and stated honestly in the component rather than described as
+   something it is not.
 
 ## Genuinely not built
 
@@ -164,6 +215,6 @@ fixture and should be removed from the union.
 
 ## State
 
-Working tree clean · 30 commits ahead of `main` · nothing pushed · `main` still
+Working tree clean · 31 commits ahead of `main` · nothing pushed · `main` still
 at `8c641d4`. Dev server on 5199; `/v4/*` is `import.meta.env.DEV` only and
 cannot be reached in a production build.
