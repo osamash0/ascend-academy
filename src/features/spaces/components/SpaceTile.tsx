@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Archive, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { topicIcon } from '@/lib/topicIcon';
+import { ClassificationChips } from './badges';
 import { gradientFor } from '@/components/console';
 import type { Space } from '../types';
 
@@ -29,14 +30,36 @@ interface Props {
   isActive: boolean;
   /** Dim the whole row while focus has dropped into the Lessons below. */
   isDimmed?: boolean;
+  /**
+   * Show what the Space is about.
+   *
+   * True on Discover, where you are deciding whether to join and the subject
+   * is the thing you are deciding on; false in "Mine", where you already know
+   * and it is furniture. `ClassificationChips` documents exactly this rule —
+   * "right on a Discover card… inside a Space you visit every day it is
+   * furniture" — and the Discover card was the one surface that never mounted
+   * it, so the rule described a screen it did not reach.
+   */
+  showClassification?: boolean;
   onFocus: () => void;
   onOpen: () => void;
 }
 
 /** "1 member", not "1 members". Small, but it is the copy people actually read. */
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many = `${one}s`) =>
+  // Grouped: a Discover card showed "1204 members", and four unbroken digits
+  // read as an id rather than a count.
+  `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
-export function SpaceTile({ space, index, isActive, isDimmed, onFocus, onOpen }: Props) {
+export function SpaceTile({
+  space,
+  index,
+  isActive,
+  isDimmed,
+  showClassification = false,
+  onFocus,
+  onOpen,
+}: Props) {
   const Icon = topicIcon(space.name, space.id);
   const owned = space.viewerRole === 'owner';
   const archived = space.state === 'archived';
@@ -123,8 +146,13 @@ export function SpaceTile({ space, index, isActive, isDimmed, onFocus, onOpen }:
           <p className="mt-0.5 truncate text-[12.5px] text-quiet">
             {owned
               ? `${plural(space.draftsPending ?? 0, 'draft')} · ${plural(space.memberCount, 'member')}`
-              : `${space.viewerProgress}% · ${plural(space.memberCount, 'member')}`}
+              : showClassification
+                ? `${plural(space.memberCount, 'member')} · ${plural(space.starCount, 'star')}`
+                : `${space.viewerProgress}% · ${plural(space.memberCount, 'member')}`}
           </p>
+          {/* Capped at two, most specific first — the cap lives in the
+              component's default, not here. */}
+          {showClassification && <ClassificationChips space={space} className="mt-2" />}
         </div>
 
         {space.viewerProgress > 0 && space.viewerProgress < 100 && (

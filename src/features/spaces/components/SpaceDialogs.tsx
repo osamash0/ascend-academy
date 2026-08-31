@@ -12,10 +12,10 @@ import {
 import { toast } from 'sonner';
 import type { ContributionType, Space, SpaceMode, Visibility } from '../types';
 import { createSpace, joinCodeFor, spaceByJoinCode } from '../mocks/spaces';
-import { addLesson } from '../mocks/lessons';
+import { addLesson, publishedLessonsForSpace } from '../mocks/lessons';
 import { addContribution } from '../mocks/contributions';
 import { viewer } from '../mocks/people';
-import { AuthorLine, ClassificationChips } from './badges';
+import { AuthorLine, ClassificationChips, LessonCount } from './badges';
 
 /**
  * Creating and joining a Space.
@@ -227,10 +227,21 @@ export function JoinSpaceDialog({
               <div className="mt-2">
                 <AuthorLine person={found.owner} prefix="Owner" />
               </div>
-              <p className="mt-2 text-[13px] text-quiet tabular-nums">
-                {found.lessonCount} Lessons · {found.memberCount.toLocaleString()} Members
+              {/*
+                The *published* count, not `lessonCount`. Cryptography has 12
+                Lessons of which one is unpublished, so this preview promised
+                "12 Lessons" and the Space you landed in said "The path · 11".
+                A join preview exists to stop blind joins; overstating what is
+                inside is the thing it is there to prevent.
+              */}
+              <p className="mt-2 flex items-center gap-2 text-[13px] text-quiet tabular-nums">
+                <LessonCount count={publishedLessonsForSpace(found.id).length} />
+                <span aria-hidden className="text-decor">·</span>
+                {found.memberCount.toLocaleString()} Members
               </p>
-              <ClassificationChips space={found} max={2} className="mt-3" />
+              {/* The cap lives in the component; repeating its default here
+                  would be a second place to change it. */}
+              <ClassificationChips space={found} className="mt-3" />
             </div>
           ) : (
             !tooShort && (

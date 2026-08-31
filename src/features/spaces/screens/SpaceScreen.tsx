@@ -22,7 +22,7 @@ import {
   StarButton,
   VisibilityBadge,
 } from '../components/badges';
-import { SpacesError, SpacesSkeleton } from '../components/states';
+import { Notice, SpacesError, SpacesSkeleton } from '../components/states';
 import { AddLessonDialog, ContributeDialog } from '../components/SpaceDialogs';
 
 /**
@@ -197,6 +197,18 @@ export default function SpaceScreen({
               </span>
             )}
           </div>
+
+          {/*
+            What "archived" costs you, said once, quietly. The badge above
+            names the state; this says what follows from it — read-only, and
+            no XP. `Notice` was built for exactly this and nothing had ever
+            mounted it.
+          */}
+          {space.state === 'archived' && (
+            <Notice className="mt-3">
+              This Space is read-only. Your progress is kept, and nothing here earns XP.
+            </Notice>
+          )}
 
           {space.description && (
             <p className="max-w-[62ch] text-[15.5px] leading-[1.75] text-quiet">

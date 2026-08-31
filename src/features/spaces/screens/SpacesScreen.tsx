@@ -285,6 +285,9 @@ export default function SpacesScreen() {
                         space={sp}
                         index={idx}
                         isActive={idx === focus}
+                        // Classification helps you choose, so it shows where
+                        // you are choosing and nowhere else.
+                        showClassification={tab === 'discover'}
                         onFocus={() => setFocus(idx)}
                         onOpen={() => open(sp.id)}
                       />

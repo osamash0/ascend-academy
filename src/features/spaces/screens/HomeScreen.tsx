@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import { BentoCell } from '../components/BentoCell';
+import { LessonTile } from '../components/LessonTile';
 import type { HomeItem } from '../mocks/library';
 import { useHome } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
@@ -282,15 +283,24 @@ export default function HomeScreen() {
                   key={r.lessonId}
                   type="button"
                   onClick={() => navigate(`/v4/space/${r.spaceId}/lesson/${r.lessonId}`)}
-                  className="console-focusable w-[13.5rem] shrink-0 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 text-left transition-colors hover:bg-white/[0.05]"
+                  aria-label={`${r.lessonTitle}, Lesson ${r.lessonOrder} in ${r.spaceName}`}
+                  className="console-focusable h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left transition-transform hover:scale-[1.02]"
                 >
-                  <Icon aria-hidden className="mb-3 h-5 w-5 text-quiet" />
-                  <span className="block truncate text-[14.5px] font-semibold">
-                    {r.lessonTitle}
-                  </span>
-                  <span className="mt-0.5 block truncate text-[12.5px] text-quiet">
-                    {r.spaceName}
-                  </span>
+                  {/*
+                    Cover art, not a plain card. `LessonTile` existed, matched
+                    this product's console language, and nothing in the repo
+                    imported it — so its progress bar, its watermark and its
+                    "Done" badge had never rendered against anything. A
+                    component with no call site is written, not built.
+                  */}
+                  <LessonTile
+                    title={r.lessonTitle}
+                    eyebrow={r.spaceName}
+                    gradientIndex={r.lessonOrder}
+                    progress={r.percentComplete}
+                    done={r.percentComplete === 100}
+                    watermark={<Icon aria-hidden className="h-16 w-16 text-white/[0.10]" />}
+                  />
                 </button>
               );
             })}
