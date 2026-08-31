@@ -3,7 +3,7 @@ import { canSeeHidden, visibleContributions } from '../engagement';
 import { normalizationContributions, spaceContributions } from '../contributions';
 import { conceptContributions } from '../concepts';
 import { allSpaces } from '../spaces';
-import { lessonsForSpace, publishedLessonsForSpace } from '../lessons';
+import { lessonsForSpace, progressAcross, publishedLessonsForSpace } from '../lessons';
 import { viewer } from '../people';
 
 /**
@@ -76,5 +76,28 @@ describe('a Space and its Lessons agree about progress', () => {
     // It sat in an if/else chain with two live branches and had never rendered.
     const finished = allSpaces.filter((s) => s.lessonCount > 0 && s.lessonsDone === s.lessonCount);
     expect(finished.length).toBeGreaterThan(0);
+  });
+});
+
+describe('a Space and its path agree about how far you are', () => {
+  it('states the progress its own Lessons add up to', () => {
+    /*
+     * `Space.viewerProgress` is stated and also derivable. Linear Algebra said
+     * 33% while Ascent computed 50% from the same Lessons — so the tile and the
+     * journey map disagreed on screen, and both looked right. "How far through
+     * the material" and "how many Lessons cleared" are different questions, but
+     * they may not be *inconsistent*.
+     */
+    for (const s of allSpaces) {
+      expect(s.viewerProgress, `${s.name} claims ${s.viewerProgress}%`).toBe(
+        progressAcross(s.id),
+      );
+    }
+  });
+
+  it('never claims progress in a Space you have not joined', () => {
+    for (const s of allSpaces) {
+      if (s.viewerRole === null) expect(s.viewerProgress, s.name).toBe(0);
+    }
   });
 });

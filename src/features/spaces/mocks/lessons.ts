@@ -104,7 +104,10 @@ export const dbsLessons: Lesson[] = [
   lesson('s-dbs', 'Introduction', 1, keller, {
     grounding: 'grounded',
     progress: 'in-progress',
-    percentComplete: 3,
+    // 60 and 80 across the first two Lessons of ten is the 14% the Space
+    // claims. It used to be 3 and 11, which averages to 1% — so the tile said
+    // 14% and the Lessons said 1.4%.
+    percentComplete: 60,
     contributionCount: 12,
     practiceCount: 8,
       concepts: conceptsFor('l-s-dbs-1', ['Why databases', 'The three-level architecture', 'Data independence'], 0, 1),
@@ -112,7 +115,7 @@ export const dbsLessons: Lesson[] = [
   lesson('s-dbs', 'Basics', 2, keller, {
     grounding: 'grounded',
     progress: 'in-progress',
-    percentComplete: 11,
+    percentComplete: 80,
     contributionCount: 31,
     practiceCount: 14,
       concepts: conceptsFor('l-s-dbs-2', ['Entities', 'Attributes', 'Keys', 'Cardinality'], 1, 1),
@@ -226,7 +229,8 @@ export const dbsLessons: Lesson[] = [
 export const cryptoLessons: Lesson[] = [
   lesson('s-crypto', 'Differential Cryptanalysis', 1, weber, {
     progress: 'in-progress',
-    percentComplete: 4,
+    // 11 of one Lesson in eleven is the 1% the Space claims.
+    percentComplete: 11,
     practiceCount: 5,
   }),
   // Duplicate title #1 — real data. Order + author are the only differentiators.
@@ -369,6 +373,25 @@ export const lessonsForSpace = (spaceId: string): Lesson[] =>
   [...(bySpace[spaceId] ?? []), ...addedThisSession.filter((l) => l.spaceId === spaceId)].sort(
     (a, b) => a.order - b.order,
   );
+
+/**
+ * How far through a Space's path the viewer is, 0–100.
+ *
+ * The mean of `percentComplete` across the published path — so a Space where
+ * you have half-read two of ten Lessons is 10% through it, not 20%.
+ *
+ * Derived because it was stated. `Space.viewerProgress` said Linear Algebra
+ * was 33% while Ascent computed 50% from the same Lessons, so the tile and the
+ * journey map disagreed on screen and both looked right. They are different
+ * questions — "how far through the material" versus "how many Lessons
+ * cleared" — but they cannot be *inconsistent*, and 33% was consistent with
+ * nothing.
+ */
+export const progressAcross = (spaceId: string): number => {
+  const path = publishedLessonsForSpace(spaceId);
+  if (!path.length) return 0;
+  return Math.round(path.reduce((n, l) => n + l.percentComplete, 0) / path.length);
+};
 
 /** Test seam — session additions must not leak between tests. */
 export const resetAddedLessons = (): void => {

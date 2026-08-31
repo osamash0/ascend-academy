@@ -113,7 +113,7 @@ export const linearAlgebra: Space = {
   starCount: 0,
   starredByViewer: false,
   viewerRole: 'owner',
-  viewerProgress: 33,
+  viewerProgress: 50,
   lessonCount: 5,
   lessonsDone: 1,
   newSinceLastVisit: 0,
