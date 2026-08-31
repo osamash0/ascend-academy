@@ -56,7 +56,13 @@ const ALLOWED = [
   /^react$/,
   /^react-dom$/,
   /^react-router-dom$/,
-  /^framer-motion$/,
+  /*
+   * Motion (motion.dev). `framer-motion` is the same engine under its old
+   * name and is still imported by 99 files in the old product — this namespace
+   * uses the new entry point, and the old one is deliberately *not* on the
+   * list, so a stray v4 import of it would fail here.
+   */
+  /^motion\/react$/,
   /^lucide-react$/,
   /^sonner$/,
   /^vitest$/,

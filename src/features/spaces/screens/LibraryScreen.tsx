@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { Pressable, PressableLink } from '../components/Pressable';
 import type { LibraryItem, LibraryKind } from '../types';
 import { useLibrary } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
@@ -378,21 +379,21 @@ function EmptyLibrary({ filter, onWriteNote }: { filter: Filter; onWriteNote: ()
           written here, so that one calls back; the rest send you to Spaces,
           because you cannot upload or publish from Library. */}
       {filter === 'note' || filter === 'all' ? (
-        <button
+        <Pressable
           type="button"
           onClick={onWriteNote}
-          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900 lift"
+          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900"
         >
           <Plus aria-hidden className="h-4 w-4" />
           {cta}
-        </button>
+        </Pressable>
       ) : (
-        <Link
+        <PressableLink
           to="/v4/spaces"
-          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900 lift"
+          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900"
         >
           {cta}
-        </Link>
+        </PressableLink>
       )}
     </div>
   );

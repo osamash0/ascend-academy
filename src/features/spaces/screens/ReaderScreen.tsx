@@ -7,6 +7,7 @@ import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
+import { PressableLink } from '../components/Pressable';
 
 /**
  * Reading a Lesson.
@@ -136,13 +137,13 @@ export default function ReaderScreen() {
           move, and it is a Lesson away, not a screen away. */}
       {lesson.practiceCount > 0 && (
         <div className="mt-14 border-t border-white/[0.08] pt-8">
-          <Link
+          <PressableLink
             to={`/v4/space/${space.id}/lesson/${lesson.id}/practice`}
-            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900 lift"
+            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900"
           >
             <ListChecks aria-hidden className="h-4 w-4" />
             Practise what you just read
-          </Link>
+          </PressableLink>
         </div>
       )}
 

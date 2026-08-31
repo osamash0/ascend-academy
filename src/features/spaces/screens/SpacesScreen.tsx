@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowDownWideNarrow, KeyRound, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Pressable } from '../components/Pressable';
 import { ControllerHints } from '@/components/console';
 import type { Space } from '../types';
 import { useSpaces } from '../data/useSpaces';
@@ -210,14 +211,14 @@ export default function SpacesScreen() {
             Join with a code
           </button>
           {/* Create lives on the screen that owns the object. */}
-          <button
+          <Pressable
             type="button"
             onClick={() => setNewOpen(true)}
-            className="console-focusable flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900 lift"
+            className="console-focusable flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
           >
             <Plus aria-hidden className="h-4 w-4" />
             New Space
-          </button>
+          </Pressable>
         </div>
       </div>
 

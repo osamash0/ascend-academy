@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KeyRound, Link2, Lock, Plus, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Pressable } from './Pressable';
 import {
   Dialog,
   DialogContent,
@@ -170,15 +171,15 @@ export function NewSpaceDialog({
           </div>
 
           {/* The button says what it makes and where it lands. */}
-          <button
+          <Pressable
             type="button"
             onClick={create}
             disabled={!name.trim()}
-            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift disabled:cursor-not-allowed disabled:opacity-40 disabled:lift"
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus aria-hidden className="h-4 w-4" />
             Create and open it
-          </button>
+          </Pressable>
         </div>
       </DialogContent>
     </Dialog>
@@ -251,7 +252,7 @@ export function JoinSpaceDialog({
             )
           )}
 
-          <button
+          <Pressable
             type="button"
             disabled={!found}
             onClick={() => {
@@ -260,11 +261,11 @@ export function JoinSpaceDialog({
               setCode('');
               navigate(`/v4/space/${found.id}`);
             }}
-            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift disabled:cursor-not-allowed disabled:opacity-40 disabled:lift"
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <KeyRound aria-hidden className="h-4 w-4" />
             {found ? `Join ${found.name}` : 'Join'}
-          </button>
+          </Pressable>
         </div>
       </DialogContent>
     </Dialog>
@@ -370,15 +371,15 @@ export function AddLessonDialog({
             itself from it. This design build creates the draft and stops there.
           </p>
 
-          <button
+          <Pressable
             type="button"
             onClick={add}
             disabled={!title.trim()}
-            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift disabled:cursor-not-allowed disabled:opacity-40 disabled:lift"
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus aria-hidden className="h-4 w-4" />
             Create the draft and open it
-          </button>
+          </Pressable>
         </div>
       </DialogContent>
     </Dialog>
@@ -490,15 +491,15 @@ export function ContributeDialog({
             />
           </div>
 
-          <button
+          <Pressable
             type="button"
             onClick={publish}
             disabled={!title.trim() || !excerpt.trim()}
-            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift disabled:cursor-not-allowed disabled:opacity-40 disabled:lift"
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus aria-hidden className="h-4 w-4" />
             Publish to {space.name}
-          </button>
+          </Pressable>
         </div>
       </DialogContent>
     </Dialog>

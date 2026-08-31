@@ -2,6 +2,7 @@ import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles, TrendingUp } from '
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { Pressable } from '../components/Pressable';
 import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import { BentoCell } from '../components/BentoCell';
@@ -100,7 +101,7 @@ export default function HomeScreen() {
           {/* Reviewing means reopening something you have finished. With
               nothing left to do, the most recent thing you touched is the
               honest target. */}
-          <button
+          <Pressable
             type="button"
             onClick={() =>
               navigate(
@@ -109,11 +110,11 @@ export default function HomeScreen() {
                   : '/v4/spaces',
               )
             }
-            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 lift"
+            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900"
           >
             <RotateCw aria-hidden className="h-4 w-4" />
             Review something
-          </button>
+          </Pressable>
           <button
             type="button"
             onClick={() => navigate('/v4/spaces')}
@@ -137,14 +138,14 @@ export default function HomeScreen() {
           with a code from someone else.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <button
+          <Pressable
             type="button"
             onClick={() => setNewOpen(true)}
-            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 lift"
+            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900"
           >
             <Plus aria-hidden className="h-4 w-4" />
             Create a Space
-          </button>
+          </Pressable>
           <button
             type="button"
             onClick={() => setJoinOpen(true)}
@@ -279,12 +280,12 @@ export default function HomeScreen() {
             {recent.map((r) => {
               const Icon = topicIcon(r.lessonTitle, r.lessonId);
               return (
-                <button
+                <Pressable
                   key={r.lessonId}
                   type="button"
                   onClick={() => navigate(`/v4/space/${r.spaceId}/lesson/${r.lessonId}`)}
                   aria-label={`${r.lessonTitle}, Lesson ${r.lessonOrder} in ${r.spaceName}`}
-                  className="console-focusable h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left lift"
+                  className="console-focusable h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left"
                 >
                   {/*
                     Cover art, not a plain card. `LessonTile` existed, matched
@@ -301,7 +302,7 @@ export default function HomeScreen() {
                     done={r.percentComplete === 100}
                     watermark={<Icon aria-hidden className="h-16 w-16 text-white/[0.10]" />}
                   />
-                </button>
+                </Pressable>
               );
             })}
           </div>

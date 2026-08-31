@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Download, Settings as SettingsIcon, Trash2 } from 'lucide-react';
@@ -89,11 +90,18 @@ function Toggle({
           value ? 'bg-primary' : 'bg-white/15',
         )}
       >
-        <span
-          className={cn(
-            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-            value ? 'translate-x-[22px]' : 'translate-x-0.5',
-          )}
+        {/*
+          The knob is Motion's, not the stylesheet's. It moved with
+          `transition-transform`, which ignores `prefers-reduced-motion` — on
+          the one screen that tells the reader motion follows their system
+          setting. `initial={false}` so the switch does not slide on mount:
+          this reflects loaded state, and replaying it would animate a value
+          the user never changed.
+        */}
+        <motion.span
+          initial={false}
+          animate={{ x: value ? 22 : 2 }}
+          className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow"
         />
       </button>
     </div>

@@ -1,8 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import { ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { MotionConfig } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { Pressable } from './Pressable';
 
 /**
  * The chrome every Library Studio screen shares.
@@ -48,16 +48,13 @@ export function StudioShell({
   children,
 }: Props) {
   /*
-   * Studio screens do not go through `Scene`, which is where
-   * `reducedMotion="user"` lives — so until now the three of them, and every
-   * dialog opened from one, ignored the operating system's motion setting
-   * entirely. `SettingsScreen` states as fact that "Scene already routes every
-   * screen through reducedMotion" and uses that to justify having no motion
-   * switch; its own file falsified the claim. The shell carries it now, so
-   * both modes obey the same setting.
+   * No `MotionConfig` here. It used to carry its own — Studio screens do not
+   * go through `Scene`, so for a while they ignored the reduced-motion setting
+   * entirely while Settings cited that very mechanism as its reason for having
+   * no motion switch. Fixing it by mounting a second config meant two places
+   * to change one default; `MotionRoot` is the layout route above both modes.
    */
   return (
-    <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-10 border-b border-border bg-card/50 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
@@ -83,7 +80,6 @@ export function StudioShell({
 
       <div className="mx-auto max-w-5xl px-6 py-8">{children}</div>
     </div>
-    </MotionConfig>
   );
 }
 
@@ -100,20 +96,29 @@ export function StudioAction({
   tone?: 'violet' | 'emerald';
 }) {
   return (
-    <button
+    /*
+      `Pressable`, so the disabled fade and the press feel come from Motion
+      rather than a `transition-opacity` utility that ignores reduced motion.
+      Studio is the dense mode, so the nudge is the subtle one — a toolbar
+      button that jumps 4% looks like a mistake next to a table.
+    */
+    <Pressable
+      subtle
       type="button"
       onClick={onClick}
       disabled={disabled}
+      animate={{ opacity: disabled ? 0.4 : 1 }}
+      initial={false}
       className={cn(
-        'console-focusable inline-flex h-9 items-center gap-2 rounded-lg px-4 text-[13px] font-semibold text-white shadow-lg transition-opacity',
+        'console-focusable inline-flex h-9 items-center gap-2 rounded-lg px-4 text-[13px] font-semibold text-white shadow-lg',
         tone === 'violet'
           ? 'bg-gradient-to-r from-violet-600 to-indigo-600 shadow-violet-500/25 hover:from-violet-700 hover:to-indigo-700'
           : 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/25 hover:from-emerald-700 hover:to-teal-700',
-        disabled && 'cursor-not-allowed opacity-40',
+        disabled && 'cursor-not-allowed',
       )}
     >
       {children}
-    </button>
+    </Pressable>
   );
 }
 

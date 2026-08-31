@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { NAV_TABS, navHref, type NavKey } from './SpacesTopBar';
 

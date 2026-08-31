@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Check, RotateCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Pressable } from '../components/Pressable';
 import { spaceById } from '../mocks/spaces';
 import { visibleLesson } from '../mocks/lessons';
 import { gradeAnswer, practiceForLesson } from '../mocks/practice';
@@ -282,17 +283,17 @@ export default function PracticeScreen() {
               <p className="text-[15px] leading-relaxed text-foreground">{graded.explanation}</p>
             </div>
 
-            <button
+            <Pressable
               type="button"
               onClick={() => {
                 if (isLast) return setDone(true);
                 setIndex((i) => i + 1);
                 setPicked(null);
               }}
-              className="console-focusable mt-5 flex h-12 w-full items-center justify-center rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift"
+              className="console-focusable mt-5 flex h-12 w-full items-center justify-center rounded-full bg-white text-[14.5px] font-semibold text-slate-900"
             >
               {isLast ? 'See how you did' : 'Next question'}
-            </button>
+            </Pressable>
           </motion.div>
         )}
       </AnimatePresence>

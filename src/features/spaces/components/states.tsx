@@ -1,6 +1,7 @@
 import { Compass, Plus, RotateCw, TriangleAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { Pressable, PressableLink } from './Pressable';
 
 /**
  * Empty, loading and error surfaces.
@@ -109,9 +110,13 @@ function Shell({
   );
 }
 
+/*
+ * Class names only — no motion. These are shared by buttons and links, and the
+ * nudge belongs to `Pressable`, which is what actually renders them.
+ */
 const PRIMARY =
   'console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 ' +
-  'text-[14px] font-semibold text-slate-900 lift';
+  'text-[14px] font-semibold text-slate-900';
 const SECONDARY =
   'console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 ' +
   'bg-white/[0.04] px-6 text-[14px] font-bold text-foreground transition-colors hover:bg-white/[0.08]';
@@ -140,13 +145,13 @@ export function NoSpacesYet({
       title="No Spaces yet"
       body="A Space is where you keep one subject — its material, its practice, and the people learning it with you."
       >
-      <button type="button" onClick={onCreate} className={PRIMARY}>
+      <Pressable type="button" onClick={onCreate} className={PRIMARY}>
         <Plus aria-hidden className="h-4 w-4" />
         Create your first Space
-      </button>
-      <button type="button" onClick={onJoin} className={SECONDARY}>
+      </Pressable>
+      <Pressable type="button" onClick={onJoin} className={SECONDARY}>
         Join with a code
-      </button>
+      </Pressable>
     </Shell>
   );
 }
@@ -165,9 +170,9 @@ export function NothingToDiscover({
       title={`No public Spaces in ${scopeLabel}`}
       body="Nobody has opened a Space here yet. Widen the search, or start one and let others join you."
     >
-      <button type="button" onClick={onWiden} className={SECONDARY}>
+      <Pressable type="button" onClick={onWiden} className={SECONDARY}>
         Search everywhere
-      </button>
+      </Pressable>
     </Shell>
   );
 }
@@ -197,10 +202,10 @@ export function SpacesError({
       title={`Couldn’t load ${what}`}
       body="The connection dropped on the way. Nothing of yours is lost."
     >
-      <button type="button" onClick={onRetry} className={PRIMARY}>
+      <Pressable type="button" onClick={onRetry} className={PRIMARY}>
         <RotateCw aria-hidden className="h-4 w-4" />
         Try again
-      </button>
+      </Pressable>
     </Shell>
   );
 }
@@ -230,9 +235,9 @@ export function NotFound({
       title={`That ${what} isn’t here`}
       body="It may have been removed, or the link may be wrong. Nothing of yours is affected."
     >
-      <Link to={backTo} className={SECONDARY}>
+      <PressableLink to={backTo} className={SECONDARY}>
         {backLabel}
-      </Link>
+      </PressableLink>
     </Shell>
   );
 }

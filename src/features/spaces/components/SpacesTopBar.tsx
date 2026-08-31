@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import {
   BookOpen,
   ChevronDown,
@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Pressable } from './Pressable';
 import { Avatar } from './Avatar';
 import { NotificationPanel } from './NotificationPanel';
 import { SearchPalette, useSearchPalette } from './SearchPalette';
@@ -101,14 +102,14 @@ export function SpacesTopBar({
       {/* Left: rocket + identity. shrink-0 so a long name can never compress
           this group into the tabs — the bug the old bar had to fix twice. */}
       <div className="flex shrink-0 items-center gap-4">
-        <button
+        <Pressable
           type="button"
           onClick={() => go('home')}
           aria-label="Home"
-          className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary lift"
+          className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary"
         >
           <Rocket aria-hidden className="h-6 w-6 text-white" />
-        </button>
+        </Pressable>
 
         <button
           type="button"

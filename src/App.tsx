@@ -18,6 +18,7 @@ import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes } from "@/li
 import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
+import { MotionRoot } from "@/features/spaces/components/MotionRoot";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
   useLanguagePreference();
@@ -273,28 +274,41 @@ function AppRoutes() {
         {/* v4 Spaces screen — mock data, dev-only. Public (no auth) so the
             design can be reviewed without a session. Append
             ?mock=empty|loading|error to inspect the other states. */}
-        {import.meta.env.DEV && <Route path="/v4/spaces" element={<SpacesScreen />} />}
-        {import.meta.env.DEV && <Route path="/v4/space/:spaceId" element={<SpaceRoute />} />}
-        {/* Studio screen — declared before :tab so it is not swallowed as one. */}
-        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/manage" element={<V4SpaceManage />} />}
-        {/* Tabs are URL segments so every one is shareable and deep-linkable. */}
-        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/:tab" element={<SpaceRoute />} />}
-        {import.meta.env.DEV && <Route path="/v4/library" element={<V4Library />} />}
-        {/* Studio screens hang off Library; Library itself stays Learn. */}
-        {import.meta.env.DEV && <Route path="/v4/library/:view" element={<V4LibraryStudio />} />}
-        {import.meta.env.DEV && <Route path="/v4/home" element={<V4Home />} />}
-        {import.meta.env.DEV && <Route path="/v4/social" element={<V4Social />} />}
-        {import.meta.env.DEV && <Route path="/v4/profile" element={<V4Profile />} />}
-        {/* Settings hangs off Profile — a Studio screen, like Library's three. */}
-        {import.meta.env.DEV && <Route path="/v4/settings" element={<V4Settings />} />}
-        {/* Someone else's public profile — a Social destination, per Doc 2. */}
-        {import.meta.env.DEV && <Route path="/v4/person/:personId" element={<V4Person />} />}
-        {/* Practice before the bare lesson route, so it is not read as a tab. */}
-        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<V4Practice />} />}
-        {/* The reader — a focus surface, like practice. */}
-        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<V4Reader />} />}
-        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />}
-        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/concept/:conceptId" element={<V4Concept />} />}
+        {/*
+          One layout route for the whole v4 namespace, carrying the single
+          MotionConfig. `Scene` and `StudioShell` each mounted their own, which
+          is two places to change a default and two chances to disagree.
+
+          The DEV guard moves here too. It was repeated on all twenty-one
+          routes, and one of them forgetting it would have shipped a design
+          study into production with nothing failing.
+        */}
+        {import.meta.env.DEV && (
+          <Route element={<MotionRoot />}>
+            <Route path="/v4/spaces" element={<SpacesScreen />} />
+            <Route path="/v4/space/:spaceId" element={<SpaceRoute />} />
+            {/* Studio screen — declared before :tab so it is not swallowed as one. */}
+            <Route path="/v4/space/:spaceId/manage" element={<V4SpaceManage />} />
+            {/* Tabs are URL segments so every one is shareable and deep-linkable. */}
+            <Route path="/v4/space/:spaceId/:tab" element={<SpaceRoute />} />
+            <Route path="/v4/library" element={<V4Library />} />
+            {/* Studio screens hang off Library; Library itself stays Learn. */}
+            <Route path="/v4/library/:view" element={<V4LibraryStudio />} />
+            <Route path="/v4/home" element={<V4Home />} />
+            <Route path="/v4/social" element={<V4Social />} />
+            <Route path="/v4/profile" element={<V4Profile />} />
+            {/* Settings hangs off Profile — a Studio screen, like Library's three. */}
+            <Route path="/v4/settings" element={<V4Settings />} />
+            {/* Someone else's public profile — a Social destination, per Doc 2. */}
+            <Route path="/v4/person/:personId" element={<V4Person />} />
+            {/* Practice before the bare lesson route, so it is not read as a tab. */}
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<V4Practice />} />
+            {/* The reader — a focus surface, like practice. */}
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<V4Reader />} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />
+            <Route path="/v4/space/:spaceId/concept/:conceptId" element={<V4Concept />} />
+          </Route>
+        )}
 
         {/* Student routes */}
         <Route

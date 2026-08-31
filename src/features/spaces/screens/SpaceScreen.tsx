@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Plus, Settings2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Pressable } from '../components/Pressable';
 import { LaunchButton, gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import type { Membership, Role, Space } from '../types';
@@ -23,6 +24,7 @@ import {
   VisibilityBadge,
 } from '../components/badges';
 import { Notice, SpacesError, SpacesSkeleton } from '../components/states';
+import { PRESS_SPRING } from '../components/Pressable';
 import { AddLessonDialog, ContributeDialog } from '../components/SpaceDialogs';
 
 /**
@@ -295,13 +297,21 @@ export default function SpaceScreen({
             )}
           >
             {t}
-            <span
-              aria-hidden
-              className={cn(
-                'absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-opacity',
-                tab === t ? 'bg-primary opacity-100' : 'opacity-0',
-              )}
-            />
+            {/*
+              One indicator that *moves*, rather than three that cross-fade.
+              `layoutId` makes Motion morph the same element between tabs, which
+              is both the spec's shared-element rule and what the top bar
+              already does for its pills — the two tab strips in the product now
+              behave the same way instead of one sliding and one fading.
+            */}
+            {tab === t && (
+              <motion.span
+                aria-hidden
+                layoutId="v4SpaceTab"
+                className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary"
+                transition={PRESS_SPRING}
+              />
+            )}
           </button>
         ))}
       </div>
@@ -337,14 +347,14 @@ export default function SpaceScreen({
               {/* Create lives on the screen that owns the object. In an Open
                   Space this is not Owner-only — every Member sees it. */}
               {canAddLesson && space.state === 'active' && (
-                <button
+                <Pressable
                   type="button"
                   onClick={() => setAddingLesson(true)}
-                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900 lift"
+                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
                 >
                   <Plus aria-hidden className="h-4 w-4" />
                   Add Lesson
-                </button>
+                </Pressable>
               )}
             </div>
 

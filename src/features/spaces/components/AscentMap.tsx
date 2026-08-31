@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 import type { Space } from '../types';
 import { publishedLessonsForSpace } from '../mocks/lessons';
 import { FOLD_THRESHOLD, MAP_PALETTE } from './SpaceMap';
@@ -201,10 +202,14 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
             const open = () => navigate(href);
             const r = 9;
             return (
-              <g
+              <motion.g
                 key={p.space.id}
                 role="button"
                 tabIndex={0}
+                initial="rest"
+                animate="rest"
+                whileHover="hover"
+                whileFocus="focus"
                 onClick={open}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -223,7 +228,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                   keyboard user tabbing across the map got no feedback
                   whatsoever, then pressed Enter and navigated somewhere.
                 */
-                className="group cursor-pointer [&_circle]:transition-[fill,opacity] [&_text]:transition-[fill]"
+                className="group cursor-pointer [&_circle]:transition-[fill] [&_text]:transition-[fill]"
               >
                 {/*
                   The visible focus and hover state, drawn rather than
@@ -231,14 +236,22 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                   `group-hover`. `stroke` is animatable and `r` is not, which
                   is what the dead `r-[11]` class was trying to work around.
                 */}
-                <circle
+                {/*
+                  Motion, not `group-hover:opacity-*`. Opacity is the library's
+                  to animate, and a CSS transition here would ignore
+                  `prefers-reduced-motion`. The `<g>` above declares `hover` and
+                  `focus` states and Motion propagates them to this child, which
+                  is the variant equivalent of what `group-hover` was doing.
+                */}
+                <motion.circle
                   cx={p.x}
                   cy={p.y}
                   r={17}
                   fill="none"
                   stroke={MAP_PALETTE.labelLit}
                   strokeWidth={2}
-                  className="opacity-0 transition-opacity group-hover:opacity-60 group-focus-visible:opacity-100"
+                  initial={false}
+                  variants={{ rest: { opacity: 0 }, hover: { opacity: 0.6 }, focus: { opacity: 1 } }}
                 />
 
                 {/* A real target, not an 18px dot. */}
@@ -322,7 +335,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                 >
                   {p.done}/{p.total}
                 </text>
-              </g>
+              </motion.g>
             );
           })}
         </svg>

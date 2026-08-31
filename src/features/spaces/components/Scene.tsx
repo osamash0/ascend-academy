@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { motion, MotionConfig } from 'framer-motion';
+import { motion } from 'motion/react';
 import { MobileNavSpacer } from './MobileNav';
 import { DepthScene } from '@/components/console';
 import type { ConsoleStatus } from '@/components/console';
@@ -89,7 +89,6 @@ export function Scene({ surface, status, gradientIndex, motionKey, children }: S
    * written yet, so the rule cannot be forgotten on the next screen.
    */
   return (
-    <MotionConfig reducedMotion="user">
       <DepthScene status={status} gradientIndex={gradientIndex} motionKey={motionKey}>
         <motion.div
           aria-hidden
@@ -114,6 +113,5 @@ export function Scene({ surface, status, gradientIndex, motionKey, children }: S
           {surface === 'browse' && <MobileNavSpacer />}
         </div>
       </DepthScene>
-    </MotionConfig>
   );
 }

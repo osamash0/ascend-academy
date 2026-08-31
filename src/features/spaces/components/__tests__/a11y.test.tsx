@@ -158,39 +158,70 @@ describe('targets are big enough to hit', () => {
 describe('motion follows the operating system everywhere', () => {
   it('never nudges on hover with a raw CSS transform', () => {
     /*
-     * `MotionConfig reducedMotion="user"` governs framer-motion and nothing
-     * else. A Tailwind `hover:scale-[1.02]` is a plain CSS transform and sails
-     * straight past it — so nineteen controls across the namespace grew on
-     * hover regardless of the OS setting, while Settings told the reader
-     * "motion follows your system setting for reduced motion".
+     * `MotionConfig reducedMotion="user"` governs Motion and nothing else. A
+     * Tailwind `hover:scale-[1.02]` is a plain CSS transform and sails straight
+     * past it — so nineteen controls across the namespace grew on hover
+     * regardless of the OS setting, while Settings told the reader "motion
+     * follows your system setting for reduced motion".
      *
-     * `.lift` does the same nudge and switches itself off under
-     * `prefers-reduced-motion`. Deliberately a class rather than a blanket
-     * `transform: none` in the media query: the same property centres the
-     * Lesson hero and moves the Settings toggle knob, so killing transforms
-     * wholesale would break layout for the people asking for less motion.
+     * The first fix was a `.lift` CSS class with its own media query. The spec
+     * then made the rule simpler: Motion owns animation, full stop. `Pressable`
+     * carries `whileHover` / `whileFocus` / `whileTap`, so reduced motion is
+     * handled once, by the library, and there is no second mechanism to keep in
+     * step.
      */
     for (const { name, body } of files) {
-      expect(body, `${name} scales on hover outside .lift`).not.toMatch(/hover:scale-/);
+      expect(body, `${name} scales on hover in CSS`).not.toMatch(/hover:scale-/);
+      expect(body, `${name} still uses the removed .lift class`).not.toMatch(/["' ]lift["' ]/);
     }
   });
 
-  it('defines .lift so that reduced motion disables it', () => {
-    const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
-    const at = css.indexOf('.lift {');
-    expect(at, '.lift is not defined').toBeGreaterThan(-1);
-    const block = css.slice(at, at + 700);
-    expect(block).toContain('prefers-reduced-motion: reduce');
-    expect(block).toMatch(/transform:\s*none/);
+  it('animates through Motion rather than CSS transitions', () => {
+    /*
+     * Transform and opacity are Motion's. A `transition-transform` or
+     * `transition-opacity` utility is the stylesheet animating something the
+     * library is supposed to own — and, unlike Motion, it ignores
+     * `prefers-reduced-motion` unless somebody remembers a media query.
+     *
+     * Colour transitions are left alone deliberately: `transition-colors` is a
+     * hover affordance on a property the spec does not let Motion animate
+     * anyway, so forbidding it would mean either instant colour swaps or
+     * animating colour through Motion against the rule. Flagged in the report
+     * rather than decided here.
+     */
+    for (const { name, body } of files) {
+      expect(body, `${name} animates transform in CSS`).not.toMatch(/transition-transform/);
+      expect(body, `${name} animates opacity in CSS`).not.toMatch(/transition-opacity/);
+    }
   });
 
-  it('wraps both modes in reducedMotion="user"', () => {
-    // Learn goes through Scene; Studio goes through StudioShell. Until the
-    // shell carried it, three screens ignored the setting entirely — while
-    // Settings cited it as the reason for having no motion switch.
+  it('keeps the press feel in one component', () => {
+    // Fifteen call sites carried their own hover scale. One `Pressable` now
+    // owns the spring, the scale and the disabled case.
+    const press = read(join(SRC, 'components/Pressable.tsx'));
+    expect(press).toContain('whileHover');
+    expect(press).toContain('whileFocus');
+    expect(press).toContain('whileTap');
+    // Transform only — never width, height or margin.
+    expect(press).not.toMatch(/whileHover=\{\{[^}]*\b(width|height|margin|padding)\b/);
+  });
+
+  it('carries reducedMotion once, above both modes', () => {
+    /*
+     * It used to be mounted twice — `Scene` for Learn, `StudioShell` for Studio
+     * — which is two places to change one default. Before *that* it was mounted
+     * once, in `Scene`, and Studio screens ignored the setting entirely while
+     * Settings cited that mechanism as its reason for having no motion switch.
+     *
+     * `MotionRoot` is a layout route above every v4 screen, so there is exactly
+     * one, and this asserts the other two do not grow another.
+     */
+    const root = read(join(SRC, 'components/MotionRoot.tsx'));
+    expect(root).toContain('reducedMotion="user"');
     for (const f of ['components/Scene.tsx', 'components/StudioShell.tsx']) {
-      const body = read(join(SRC, f));
-      expect(body, `${f} does not carry reducedMotion`).toContain('reducedMotion="user"');
+      expect(read(join(SRC, f)), `${f} mounts a second MotionConfig`).not.toContain(
+        '<MotionConfig',
+      );
     }
   });
 });
