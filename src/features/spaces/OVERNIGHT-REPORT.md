@@ -9,8 +9,10 @@ passes wrote.*
 
 ## Read this bit first
 
-**Everything this report previously listed as "still not done" is done**, with
-one exception that is a decision rather than a task — see *Needs your call*.
+**Everything this report previously listed as "still not done" is done**, and
+the one question that was waiting on you is answered — see *Resolved: promotion
+works in Guided Spaces*, which turned out to settle a second open question as a
+side effect.
 
 The third pass closed the six items this report had been carrying: the Members
 tab, the never-rendered states, loading and error on every screen, the namespace
@@ -149,7 +151,7 @@ mechanism as its reason for having no motion switch.
 
 | | Start of the night | Now |
 |---|---|---|
-| Tests | 101 | **236** |
+| Tests | 101 | **241** |
 | Test files | 14 | 30 |
 | Routes | 14 | 21 |
 | Dead controls | 18 | 0 |
@@ -187,33 +189,43 @@ cycle's own output.
 
 ---
 
-## Needs your call
+## Resolved: promotion works in Guided Spaces
 
-**One question, and it is the only thing blocking a clean sweep.**
+*Abi, 2026-08-31.* **Origin says who made something; mode says who may publish
+it** — different questions. A promotion is the Owner publishing a member's
+contribution into the path with the credit intact, so the Lesson is Community
+origin and the Space stays Guided.
 
-`lessons.ts` asserts that a Community-origin Lesson in a Guided Space is
-"impossible by definition". On the strength of that comment I deleted a
-notification announcing exactly that. But a promotion *is* the Owner publishing
-a member's contribution into the path with credit — which is what Guided mode
-allows, and the promotion story Doc 1 describes.
+The notification is back, pointed at a fixture that matches every clause of its
+own sentence, with a guard that checks all five: the Lesson exists, it is
+Community, it is credited to you, the Space is somebody else's, and the actor is
+the person who could have done it.
 
-If the comment is too strict, the notification should come back and the comment
-should go. If it is right, the `promoted` notification kind has no possible
-fixture and should be removed from the union.
+**Two guards were enforcing the belief.** `fixtures.test.ts` required every
+Lesson in a Guided Space to be `official`, so the *correct* fixture failed it.
+Replacing it with the rule that does hold — Community origin means somebody
+other than whoever runs the Space wrote it — immediately caught an existing
+inconsistency: Machine Learning's three Owner-authored Lessons were marked
+Community, and Doc 1 defines Official as Owner/Editors regardless of mode.
+
+**And it resolved open question 3 as a consequence**, which is why it is worth
+recording rather than just fixing. `LessonRow` and `LessonScreen` both gated the
+Origin badge on `space.mode === 'open'`, on the stated grounds that "in a Guided
+Space everything is Official by definition". That premise is exactly what died —
+so the gate would have hidden the Community marker on the one Lesson that most
+needs it, in the Space where nothing else on the row tells you a Member wrote
+it. `badges.tsx` had the rule right all along: "never optional where content
+appears — a badge that sometimes shows is a badge nobody trusts."
 
 ## Still open (reported, not resolved)
 
 1. **Tab order.** Built Overview · Map · Members (your call, 2026-08-30); Doc 2
    says Overview · Members · Map.
-2. **Origin badge visibility.** `badges.tsx` says the badge is "never optional
-   where content appears"; `LessonRow` gates it behind Open mode and argues the
-   opposite in its own comment. In practice "Official" has never rendered on a
-   Lesson row.
-3. **Persistent chrome.** All five destinations are Learn ("minimal chrome"),
+2. **Persistent chrome.** All five destinations are Learn ("minimal chrome"),
    but the top bar carries notifications, settings and sign-out.
-4. **What reading does to the map.** The reader deliberately changes no
+3. **What reading does to the map.** The reader deliberately changes no
    progress rather than inventing a rule.
-5. **Ascent's ordering.** The route sorts on `lastActiveAt`, so it reorders
+4. **Ascent's ordering.** The route sorts on `lastActiveAt`, so it reorders
    itself when you open a Space. The intended order is when you joined, and
    `Space` records no join date — `Membership` has one per person. Marked
    NEEDS-BACKEND and stated honestly in the component rather than described as
@@ -228,6 +240,6 @@ fixture and should be removed from the union.
 
 ## State
 
-Working tree clean · 35 commits ahead of `main` · nothing pushed · `main` still
+Working tree clean · 38 commits ahead of `main` · nothing pushed · `main` still
 at `8c641d4`. Dev server on 5199; `/v4/*` is `import.meta.env.DEV` only and
 cannot be reached in a production build.
