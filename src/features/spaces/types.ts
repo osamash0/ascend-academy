@@ -119,6 +119,30 @@ export interface Space {
 
   /** The viewer's role here, or null when they have not joined. */
   viewerRole: Role | null;
+  /**
+   * You have asked to join and are waiting.
+   *
+   * The hub's primary action has four states and `viewerRole` only expresses
+   * two of them — a private Space you have requested looks identical to one
+   * you have not, so the button would offer "Request access" to somebody who
+   * already had. NEEDS-BACKEND: a join request has no table today.
+   */
+  viewerRequested?: boolean;
+  /**
+   * Members active right now.
+   *
+   * NEEDS-BACKEND: there is no presence anywhere in this product. Optional,
+   * and every surface treats absent as "do not claim a number" rather than as
+   * zero — "0 online" is a statement, and an invented "128 online" is worse.
+   */
+  online?: number;
+  /**
+   * One line of what happened last, for the "Jump back in" rail.
+   *
+   * NEEDS-BACKEND: `newSinceLastVisit` counts Lessons but says nothing about
+   * what changed, and the rail's whole job is to remind you why you were here.
+   */
+  lastActivity?: string;
   /** The viewer's progress across the path, 0–100. */
   viewerProgress: number;
 

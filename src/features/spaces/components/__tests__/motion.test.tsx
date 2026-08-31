@@ -58,6 +58,56 @@ describe('one library, one config', () => {
   });
 });
 
+describe('which CSS transitions are allowed', () => {
+  /*
+   * Abi's call: **keep `transition-colors`.**
+   *
+   * The spec says Motion owns all animation and lets it animate transform and
+   * opacity only. Colour falls in the gap between those two rules — banning it
+   * would mean either instant hover swaps on sixty-odd controls, or animating
+   * colour through Motion against the transform-and-opacity rule. Neither is
+   * an improvement, so colour stays with the stylesheet.
+   *
+   * An allow-list rather than a note, because the interesting case is the
+   * *next* property somebody reaches for. `transition-[width]` was already
+   * here — the practice progress bar animating a layout property in CSS, which
+   * re-laid-out the row on every question — and a comment would not have
+   * caught it.
+   */
+  const ALLOWED = [
+    /^transition-colors$/,
+    // SVG paint. The same category as colour, on the two maps.
+    /^transition-\[fill\]$/,
+    /^transition-\[fill,stroke\]$/,
+    /^transition-\[fill,opacity\]$/,
+  ];
+
+  it('permits colour and nothing else', () => {
+    const offenders: string[] = [];
+    for (const { name, body } of files) {
+      for (const m of body.matchAll(/\btransition-(?:\[[^\]]*\]|[a-z]+)/g)) {
+        const cls = m[0];
+        if (cls === 'transition-colors') continue;
+        if (ALLOWED.some((a) => a.test(cls))) continue;
+        offenders.push(`${name}: ${cls}`);
+      }
+    }
+    expect(offenders, `CSS transitions outside the allow-list:\n${offenders.join('\n')}`).toEqual(
+      [],
+    );
+  });
+
+  it('never animates a layout property in CSS either', () => {
+    // The rule is about the property, not about who animates it. A
+    // `transition-[width]` is as expensive as a Motion `animate={{ width }}`.
+    for (const { name, body } of files) {
+      expect(body, `${name} transitions a layout property`).not.toMatch(
+        /transition-\[(width|height|margin|padding|top|left|right|bottom)/,
+      );
+    }
+  });
+});
+
 describe('only transform and opacity', () => {
   it('never animates a layout property', () => {
     /*

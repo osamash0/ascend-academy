@@ -259,7 +259,18 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
                   navigate(href(lesson));
                 }
               }}
-              className="group cursor-pointer outline-none [&_text]:transition-[fill] [&_circle]:transition-[r,opacity]"
+              /*
+                `transition-[r,opacity]` declared a transition for two
+                properties nothing on this map ever changes — the leftover of a
+                `group-hover:r-[11]` that never compiled, since Tailwind has no
+                `r` utility. `r` is SVG geometry (a layout property) and opacity
+                is Motion's; only `fill` is left, which is colour.
+                
+                `console-focusable` instead of `outline-none`: the ring it
+                removed was the only focus indicator these bodies had, and
+                `AscentMap` had the same pair fixed already.
+              */
+              className="group console-focusable cursor-pointer [&_text]:transition-[fill] [&_circle]:transition-[fill]"
               tabIndex={0}
               role="button"
               aria-label={`${lesson.title}. Lesson ${lesson.order}. ${cleared} of ${total} ideas cleared.`}

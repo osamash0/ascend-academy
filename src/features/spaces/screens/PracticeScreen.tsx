@@ -181,10 +181,30 @@ export default function PracticeScreen() {
         </Link>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] text-quiet">{lesson.title}</p>
-          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-secondary transition-[width] duration-300"
-              style={{ width: `${((index + (picked ? 1 : 0)) / questions.length) * 100}%` }}
+          {/*
+            `scaleX`, not `width`.
+            
+            The bar was a full-width div animating its `width` in CSS — a
+            layout property, so every step re-laid-out the row and the counter
+            beside it. A transform costs nothing: the bar is always full width
+            and is squashed from the left, which looks identical and stays on
+            the compositor. `initial={false}` so it does not sweep in from zero
+            on mount when you are resuming partway through.
+          */}
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={questions.length}
+            aria-valuenow={index + (picked ? 1 : 0)}
+            aria-label="Progress through this practice"
+            className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/10"
+          >
+            <motion.div
+              initial={false}
+              animate={{ scaleX: (index + (picked ? 1 : 0)) / questions.length }}
+              style={{ transformOrigin: 'left' }}
+              transition={{ duration: 0.3 }}
+              className="h-full w-full rounded-full bg-gradient-to-r from-primary to-secondary"
             />
           </div>
         </div>

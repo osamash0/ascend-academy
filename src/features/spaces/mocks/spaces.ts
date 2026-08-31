@@ -55,6 +55,8 @@ export const databaseSystems: Space = {
   lessonCount: 10,
   lessonsDone: 0,
   newSinceLastVisit: 2,
+  online: 34,
+  lastActivity: 'Chidi shared a cheat sheet in Normalization',
   lastActiveAt: '2026-08-29T18:40:00Z',
 };
 
@@ -85,6 +87,8 @@ export const cryptography: Space = {
   lessonCount: 13,
   lessonsDone: 0,
   newSinceLastVisit: 0,
+  online: 11,
+  lastActivity: 'Jonas promoted your write-up',
   lastActiveAt: '2026-08-27T09:15:00Z',
 };
 
@@ -119,6 +123,8 @@ export const linearAlgebra: Space = {
   newSinceLastVisit: 0,
   draftsPending: 2,
   membersActiveThisWeek: 2,
+  online: 2,
+  lastActivity: 'Inês added a determinant diagram',
   lastActiveAt: '2026-08-30T20:05:00Z',
 };
 
@@ -149,6 +155,8 @@ export const numericsProcessing: Space = {
   newSinceLastVisit: 0,
   draftsPending: 6,
   membersActiveThisWeek: 1,
+  online: 1,
+  lastActivity: 'You have 6 drafts waiting',
   lastActiveAt: '2026-08-30T22:44:00Z',
 };
 
@@ -177,6 +185,8 @@ export const statistics: Space = {
   lessonCount: 4,
   lessonsDone: 4,
   newSinceLastVisit: 0,
+  online: 0,
+  lastActivity: 'Archived in March',
   lastActiveAt: '2026-03-11T16:00:00Z',
 };
 
@@ -205,6 +215,7 @@ export const machineLearning: Space = {
   lessonCount: 5,
   lessonsDone: 0,
   newSinceLastVisit: 0,
+  online: 96,
   lastActiveAt: '2026-08-30T11:20:00Z',
 };
 
@@ -230,6 +241,7 @@ export const analysis: Space = {
   lessonCount: 4,
   lessonsDone: 0,
   newSinceLastVisit: 0,
+  online: 18,
   lastActiveAt: '2026-08-28T14:00:00Z',
 };
 
@@ -268,6 +280,8 @@ export const discreteStructures: Space = {
   lessonCount: 3,
   lessonsDone: 3,
   newSinceLastVisit: 0,
+  online: 7,
+  lastActivity: 'You finished the path',
   lastActiveAt: '2026-08-24T11:00:00Z',
 };
 
