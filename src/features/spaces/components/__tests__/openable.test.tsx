@@ -95,7 +95,15 @@ const READOUTS: Record<string, string[]> = {
    * applied only when `to || onClick`, so a readout has no hover state and no
    * focus ring. It does not pretend to be a control.
    */
-  'screens/ProfileScreen.tsx': ['Rank', 'Streak', 'Badges'],
+  /*
+   * 'Rank' has left this list — it opens `/v4/profile/rank` now.
+   *
+   * It was the honest case for an exemption right up until the screen it
+   * needed existed: there was no rank screen, so a destination would have been
+   * invented. Building one is what made the cell a control, and the staleness
+   * check below is what caught the entry the moment it did.
+   */
+  'screens/ProfileScreen.tsx': ['Streak', 'Badges'],
 };
 
 /** Every screen that uses a BentoCell, found rather than listed. */
