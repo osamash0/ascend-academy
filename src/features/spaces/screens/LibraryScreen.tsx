@@ -100,7 +100,6 @@ export default function LibraryScreen() {
    * directly" could only be read.
    */
   const [composing, setComposing] = useState(false);
-  const [writeTick, setWriteTick] = useState(0);
   const { state, items, notes, pending } = useLibrary();
 
   const latestNote = notes[0];
@@ -288,7 +287,6 @@ export default function LibraryScreen() {
             onSave={(body) => {
               addNote({ lessonId: '', body });
               setComposing(false);
-              setWriteTick((n) => n + 1);
             }}
           />
         </div>
