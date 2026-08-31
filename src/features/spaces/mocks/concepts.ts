@@ -133,15 +133,18 @@ export const conceptContributions: Contribution[] = [
 ];
 
 /** Likes sort the community section — never the path. */
+/**
+ * Everything anchored to one idea, sorted by likes.
+ *
+ * Deliberately *not* filtered here. This used to end with
+ * `(!c.hidden || c.author.id === viewer.id)` — an eighth hand-rolled copy of a
+ * rule that has one home in `visibleContributions`, and a weaker one: it knew
+ * about authors but not about Owners and Editors, so a maintainer could not see
+ * hidden work anchored to a Concept while they could see it everywhere else.
+ *
+ * The screen applies the rule now, with the viewer's role in hand.
+ */
 export const contributionsForConcept = (conceptId: string): Contribution[] =>
   conceptContributions
-    .filter(
-      (c) =>
-        c.anchor.level === 'concept' &&
-        c.anchor.conceptId === conceptId &&
-        // Same rule as the Space and Lesson sections: hidden work stays
-        // visible to its author. Concept is Doc 1's third anchor and must not
-        // quietly behave differently from the other two.
-        (!c.hidden || c.author.id === viewer.id),
-    )
+    .filter((c) => c.anchor.level === 'concept' && c.anchor.conceptId === conceptId)
     .sort((a, b) => b.likeCount - a.likeCount);

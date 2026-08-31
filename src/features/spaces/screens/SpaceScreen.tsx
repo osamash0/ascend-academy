@@ -9,7 +9,7 @@ import type { Membership, Role, Space } from '../types';
 import { useSpace } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
 import { contributionsForLesson, contributionsForSpace } from '../mocks/contributions';
-import { canSeeHidden } from '../mocks/engagement';
+import { visibleContributions } from '../mocks/engagement';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonRow } from '../components/LessonRow';
@@ -102,9 +102,19 @@ export default function SpaceScreen({
    */
   const allContributions = useMemo(() => {
     const fromLessons = lessons.flatMap((l) => contributionsForLesson(l.id));
-    return [...contributionsForSpace(space?.id ?? ''), ...fromLessons]
-      .filter((c) => !c.hidden || canSeeHidden(c.author.id, space?.viewerRole ?? null, viewer.id))
-      .sort((a, b) => b.likeCount - a.likeCount);
+    /*
+     * `visibleContributions`, not a hand-written filter.
+     *
+     * This screen kept its own `!c.hidden || canSeeHidden(...)` — the ninth
+     * copy of that rule — and the cost showed up the moment promotion existed:
+     * a promoted contribution created its Lesson, the path went 5 → 6, and the
+     * card stayed sitting in the community section below it. The rule had
+     * grown a second clause and only one of the nine copies knew.
+     */
+    return visibleContributions(
+      [...contributionsForSpace(space?.id ?? ''), ...fromLessons],
+      space?.viewerRole ?? null,
+    ).sort((a, b) => b.likeCount - a.likeCount);
     // `writeTick` re-reads the session store after publishing; the store is
     // outside React, so nothing else would tell this list it had changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -439,6 +449,7 @@ export default function SpaceScreen({
                     contribution={c}
                     space={space}
                     isOwn={c.author.id === viewer.id}
+                    onModerated={() => setWriteTick((n) => n + 1)}
                     /* Likes sort this section — the top one should look it. */
                     featured={i === 0 && allContributions.length > 1}
                     className={i === 0 && allContributions.length > 1 ? 'sm:col-span-2' : undefined}

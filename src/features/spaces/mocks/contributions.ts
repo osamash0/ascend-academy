@@ -179,8 +179,78 @@ export const spaceContributions: Contribution[] = [
   },
 ];
 
+/**
+ * Community work in a Space the viewer **owns**.
+ *
+ * Every other contribution is anchored in Database Systems, where the viewer is
+ * a Member — so once endorse, hide and promote were built, none of them could
+ * be reached in the UI at all. Three documented Owner powers, wired, guarded,
+ * and with no Space to perform them in.
+ *
+ * Intro to Linear Algebra is the viewer's Open Space. Inês is a Member there,
+ * so her work is Community and the Owner's acts apply to it. Åsa is an Editor,
+ * which is what makes the two promotion outcomes visible side by side:
+ * promoting Inês's gives a Community Lesson, promoting Åsa's gives an Official
+ * one.
+ */
+export const linalgContributions: Contribution[] = [
+  {
+    id: 'c-la-1',
+    title: 'The determinant as signed area — one diagram that fixed it for me',
+    excerpt:
+      'Draw the unit square, apply the matrix, and the area of what comes out *is* the determinant. Negative means the square got flipped over. Everything about singular matrices follows: zero area means you cannot get back.',
+    type: 'image',
+    anchor: { level: 'space', spaceId: 's-linalg' },
+    origin: 'community',
+    author: ferreira,
+    grounding: null,
+    likeCount: 34,
+    likedByViewer: false,
+    endorsed: false,
+    hidden: false,
+    orphaned: false,
+    createdAt: '2026-08-21T10:00:00Z',
+  },
+  {
+    id: 'c-la-2',
+    title: 'Practice: eigenvalues of 2×2 matrices, twelve worked examples',
+    excerpt:
+      'Characteristic polynomial each time, including the two cases people trip on — repeated roots, and a rotation matrix with no real eigenvalues at all.',
+    type: 'practice-set',
+    anchor: { level: 'lesson', lessonId: 'l-s-linalg-2' },
+    origin: 'community',
+    author: ferreira,
+    grounding: null,
+    likeCount: 19,
+    likedByViewer: true,
+    endorsed: false,
+    hidden: false,
+    orphaned: false,
+    createdAt: '2026-08-24T14:30:00Z',
+  },
+  {
+    // By an Editor, so promoting this one produces an *Official* Lesson.
+    id: 'c-la-3',
+    title: 'Change of basis, done slowly',
+    excerpt:
+      'The part that confuses everyone is which way round the matrix goes. Write down what each column means before you invert anything and it stops being a coin flip.',
+    type: 'text',
+    anchor: { level: 'lesson', lessonId: 'l-s-linalg-2' },
+    origin: 'community',
+    author: lindqvist,
+    grounding: null,
+    likeCount: 51,
+    likedByViewer: false,
+    endorsed: true,
+    hidden: false,
+    orphaned: false,
+    createdAt: '2026-08-18T09:00:00Z',
+  },
+];
+
 const byLesson: Record<string, Contribution[]> = {
   'l-s-dbs-4': normalizationContributions,
+  'l-s-linalg-2': linalgContributions.filter((c) => c.anchor.level === 'lesson'),
 };
 
 /** Published this session. Kept apart from the fixtures, as elsewhere. */
@@ -239,7 +309,7 @@ export const contributionsForLesson = (lessonId: string): Contribution[] =>
   ].sort((a, b) => b.likeCount - a.likeCount);
 
 export const contributionsForSpace = (spaceId: string): Contribution[] =>
-  [...spaceContributions, ...addedThisSession]
+  [...spaceContributions, ...linalgContributions, ...addedThisSession]
     .filter((c) => c.anchor.level === 'space' && c.anchor.spaceId === spaceId)
     .sort((a, b) => b.likeCount - a.likeCount);
 

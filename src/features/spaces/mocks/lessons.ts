@@ -1,7 +1,7 @@
 import type { Concept, Lesson, Material, Person, Space } from '../types';
 import { viewer, keller, weber, lindqvist, okonkwo, ferreira } from './people';
 import { practiceForLesson } from './practice';
-import { contributionsForLesson } from './contributions';
+import { contributionsForLesson, membersForSpace } from './contributions';
 
 /**
  * Lesson fixtures — titles, order and progress taken verbatim from the
@@ -438,17 +438,42 @@ export const resetAddedLessons = (): void => {
  * Owner/Editors and nobody else — which is what the drafts list in Studio is
  * for, and why "Add Lesson" is not the same act as "publish".
  */
-export const addLesson = (spaceId: string, title: string, author: Person): Lesson => {
+export const addLesson = (
+  spaceId: string,
+  title: string,
+  author: Person,
+  over: Partial<Lesson> = {},
+): Lesson => {
   const order = lessonsForSpace(spaceId).length + 1;
   const created = lesson(spaceId, title.trim(), order, author, {
     state: 'draft',
-    // Community when a Member adds it; the Space's mode decides whether a
-    // Member may, and that check lives on the screen that owns the action.
-    origin: author.id === viewer.id ? 'community' : 'official',
+    /*
+     * Origin follows the author's **role**, not their identity.
+     *
+     * This used to read `author.id === viewer.id ? 'community' : 'official'` —
+     * "mine is Community, everyone else's is Official" — which is not a rule at
+     * all. It broke promotion outright: promoting a member's contribution
+     * created an *Official* Lesson, which is precisely the credit the
+     * promotion is supposed to carry across. Caught by the guard on the day
+     * promotion was built.
+     *
+     * Doc 1: Official is Owner/Editors, Community is Members. Somebody with no
+     * membership row is treated as a Member, which is the safer default — it
+     * marks the content as community-authored rather than passing it off as
+     * part of the official core.
+     */
+    origin: canPublishOfficial(spaceId, author.id) ? 'official' : 'community',
     material: null,
+    ...over,
   });
   addedThisSession.push(created);
   return created;
+};
+
+/** Whether this person's work in this Space counts as Official. */
+const canPublishOfficial = (spaceId: string, personId: string): boolean => {
+  const role = membersForSpace(spaceId).find((m) => m.person.id === personId)?.role;
+  return role === 'owner' || role === 'editor';
 };
 
 /**

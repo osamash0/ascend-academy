@@ -82,16 +82,23 @@ export default function LessonScreen() {
     [space, lessonId],
   );
 
+  /*
+   * One tick for every write on this screen. The note store and the moderation
+   * store both live outside React, so nothing else would tell these lists they
+   * had changed — and hiding or promoting a contribution changes which ones
+   * belong here, which the card cannot re-filter for itself.
+   */
+  const [noteTick, setNoteTick] = useState(0);
+
   const contributions = useMemo(
     () =>
       lesson && space
         ? // Hidden work is still visible to its author and to Owner/Editors.
           visibleContributions(contributionsForLesson(lesson.id), space.viewerRole)
         : [],
-    [lesson],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lesson, space, noteTick],
   );
-  // Local tick so writes re-render; the store is the source of truth.
-  const [noteTick, setNoteTick] = useState(0);
   const myNotes = useMemo(
     () => (lessonId ? notesForLesson(lessonId) : []),
     [lessonId, noteTick],
@@ -315,6 +322,7 @@ export default function LessonScreen() {
                   contribution={c}
                   space={space}
                   isOwn={c.author.id === viewer.id}
+                  onModerated={() => setNoteTick((n) => n + 1)}
                   featured={i === 0 && contributions.length > 1}
                   className={i === 0 && contributions.length > 1 ? 'sm:col-span-2' : undefined}
                 />

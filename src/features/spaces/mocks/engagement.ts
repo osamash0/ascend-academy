@@ -3,6 +3,7 @@ import { conceptContributions } from './concepts';
 import { allSpaces } from './spaces';
 import { viewer } from './people';
 import type { Role } from '../types';
+import { isHidden, isPromoted } from './moderation';
 
 /**
  * Likes and stars, writable.
@@ -112,8 +113,24 @@ export const canSeeHidden = (
   viewerId: string,
 ): boolean => authorId === viewerId || viewerRole === 'owner' || viewerRole === 'editor';
 
-/** Filter a community section for one viewer. */
-export const visibleContributions = <T extends { hidden: boolean; author: { id: string } }>(
+/**
+ * Filter a community section for one viewer.
+ *
+ * Reads the **live** hidden state, not `c.hidden` — the fixture is the seed, so
+ * an Owner hiding something and watching it stay put would be the same defect
+ * as the Like button that announced "Tap to remove" and removed nothing.
+ *
+ * Promoted contributions leave. Doc 1 describes promotion as the contribution
+ * *moving* into the path, so it stops being a card in the section and becomes a
+ * Lesson in the list above it. Two copies of one object in one screen would be
+ * worse than either.
+ */
+export const visibleContributions = <T extends { id: string; hidden: boolean; author: { id: string } }>(
   list: T[],
   viewerRole: Role | null,
-): T[] => list.filter((c) => !c.hidden || canSeeHidden(c.author.id, viewerRole, viewer.id));
+): T[] =>
+  list.filter(
+    (c) =>
+      !isPromoted(c.id) &&
+      (!isHidden(c.id) || canSeeHidden(c.author.id, viewerRole, viewer.id)),
+  );

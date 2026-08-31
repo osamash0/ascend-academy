@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, ListChecks, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -7,6 +7,7 @@ import { topicIcon } from '@/lib/topicIcon';
 import type { ConceptProgress } from '../types';
 import { spaceById } from '../mocks/spaces';
 import { visibleLessonsForSpace } from '../mocks/lessons';
+import { visibleContributions } from '../mocks/engagement';
 import { conceptById, contributionsForConcept } from '../mocks/concepts';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -63,9 +64,16 @@ export default function ConceptScreen() {
     return visibleLessonsForSpace(space).filter((l) => concept.lessonIds.includes(l.id));
   }, [space, concept]);
 
+  /* Moderation writes live outside React; a tick re-reads them. */
+  const [modTick, setModTick] = useState(0);
   const contributions = useMemo(
-    () => (concept ? contributionsForConcept(concept.id) : []),
-    [concept],
+    () =>
+      concept && space
+        ? // Doc 1's third anchor gets the same visibility rule as the other two.
+          visibleContributions(contributionsForConcept(concept.id), space.viewerRole)
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [concept, space, modTick],
   );
 
   const chrome = (body: React.ReactNode, gradientIndex = 0) => (
@@ -233,6 +241,7 @@ export default function ConceptScreen() {
                   contribution={c}
                   space={space}
                   isOwn={c.author.id === viewer.id}
+                  onModerated={() => setModTick((n) => n + 1)}
                   featured={i === 0 && contributions.length > 1}
                   className={i === 0 && contributions.length > 1 ? 'sm:col-span-2' : undefined}
                 />
