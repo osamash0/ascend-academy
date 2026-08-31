@@ -184,6 +184,28 @@ export interface Lesson {
   contributionCount: number;
   /** Questions belonging to this Lesson. */
   practiceCount: number;
+
+  /**
+   * The Lesson itself, in reading order.
+   *
+   * Optional, and mostly absent: writing a Lesson is content work, not design
+   * work, and inventing plausible-looking prose for every fixture would make
+   * the reader look finished while testing nothing. Where it is absent the
+   * Lesson still opens — to its first idea — and says so.
+   *
+   * Each passage names the Concept it explains, so the reader and the map are
+   * describing the same objects rather than two parallel structures.
+   */
+  passages?: Passage[];
+}
+
+/** One section of a Lesson, tied to the idea it explains. */
+export interface Passage {
+  /** The `Concept.id` this passage covers. */
+  conceptId: string;
+  heading: string;
+  /** Plain paragraphs. No markup: the pipeline emits text, not HTML. */
+  body: string[];
 }
 
 /** Where a contribution attaches. One contribution, one anchor. */

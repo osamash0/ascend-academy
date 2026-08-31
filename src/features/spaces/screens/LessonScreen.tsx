@@ -222,19 +222,22 @@ export default function LessonScreen() {
           {/* One primary action. Everything else is subordinate. */}
           <div className="mt-7 flex flex-wrap items-center gap-3">
             {/*
-              Starting a Lesson means reading its first idea. There is no
-              separate reader screen in this build and the fixtures carry no
-              prose, so rather than launch into an empty shell the primary
-              action goes to the first Concept — a screen that exists and has
-              something in it. NEEDS-CONTENT: the real reader replaces this.
+              Start opens the reader where the Lesson has been written, and its
+              first idea where it has not. NEEDS-CONTENT rather than
+              NEEDS-BUILD now: the surface exists, and what is missing is prose
+              — which is content work, not design work. Sending you to an empty
+              reader would be worse than sending you to an idea that has
+              something in it.
             */}
             <LaunchButton
               label={done ? 'Review' : lesson.percentComplete > 0 ? 'Continue' : 'Start'}
               icon={Play}
               onClick={() =>
-                firstConcept
-                  ? navigate(`/v4/space/${space.id}/concept/${firstConcept.id}`)
-                  : navigate(`/v4/space/${space.id}/lesson/${lesson.id}/practice`)
+                lesson.passages?.length
+                  ? navigate(`/v4/space/${space.id}/lesson/${lesson.id}/read`)
+                  : firstConcept
+                    ? navigate(`/v4/space/${space.id}/concept/${firstConcept.id}`)
+                    : navigate(`/v4/space/${space.id}/lesson/${lesson.id}/practice`)
               }
             />
             {lesson.practiceCount > 0 && (

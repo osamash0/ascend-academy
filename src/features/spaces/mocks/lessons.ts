@@ -110,11 +110,66 @@ export const dbsLessons: Lesson[] = [
     practiceCount: 12,
       concepts: conceptsFor('l-s-dbs-3', ['Relations', 'Foreign keys', 'ER to relational'], 0, 0),
   }),
+  /*
+   * The one Lesson with its text written out.
+   *
+   * Real prose, not filler, because the reader is a typography surface and
+   * lorem ipsum lies about line length, paragraph rhythm and how a heading
+   * sits against the paragraph under it. Normalization was chosen because it
+   * already carries the most fixtures — 104 contributions, 20 practice
+   * questions, five Concepts — so the reader is exercised against the busiest
+   * Lesson rather than the emptiest.
+   */
   lesson('s-dbs', 'Normalization', 4, keller, {
     grounding: 'grounded',
     contributionCount: 104,
     practiceCount: 20,
       concepts: conceptsFor('l-s-dbs-4', ['Functional dependency', '1NF', '2NF', '3NF', 'BCNF'], 0, 0),
+    passages: [
+      {
+        conceptId: 'c-l-s-dbs-4-1',
+        heading: 'Functional dependency',
+        body: [
+          'A functional dependency is a promise about the data: given a value for one set of attributes, the value of another set is fixed. Written A → B, it says that any two rows agreeing on A must agree on B. Nothing about the current contents of the table proves this — it is a claim about every row the table will ever hold.',
+          'That last point is the one people skip. You cannot read dependencies off a sample. A table where every member happens to have a distinct surname does not mean surname determines the person; it means you have not met the second Müller yet.',
+        ],
+      },
+      {
+        conceptId: 'c-l-s-dbs-4-2',
+        heading: 'First normal form',
+        body: [
+          'A relation is in 1NF when every attribute holds a single, indivisible value. No repeating groups, no comma-separated lists, no three columns called phone1, phone2 and phone3.',
+          'The reason is not tidiness. A list in a cell cannot be joined against, cannot be constrained, and cannot be indexed usefully — so every query that needs one item out of it has to read all of them and take the database out of the decision.',
+        ],
+      },
+      {
+        conceptId: 'c-l-s-dbs-4-3',
+        heading: 'Second normal form',
+        body: [
+          '2NF removes partial dependencies: a non-key attribute must depend on the whole of a composite key, not part of it.',
+          'The classic shape is an order-line table keyed on (order, product) that also carries the product name. The name depends on the product alone, so it is repeated on every line that mentions the product — and updating it means finding all of them, which is how one row ends up disagreeing with another.',
+          'If the key is a single attribute, 2NF is automatic. There is no part of it to depend on.',
+        ],
+      },
+      {
+        conceptId: 'c-l-s-dbs-4-4',
+        heading: 'Third normal form',
+        body: [
+          '3NF removes transitive dependencies: a non-key attribute must not be determined by another non-key attribute.',
+          'Keep a postcode and a city on the same row and you have one, because the postcode fixes the city. The city is now stored once per row that shares that postcode, and the table can be made to contradict itself by editing one of them.',
+          'The mnemonic is worth the space it takes: every non-key attribute depends on the key, the whole key, and nothing but the key.',
+        ],
+      },
+      {
+        conceptId: 'c-l-s-dbs-4-5',
+        heading: 'Boyce-Codd normal form',
+        body: [
+          'BCNF is stricter than 3NF by one clause: every determinant must be a candidate key, with no exception for determinants that are part of one.',
+          'The difference only shows up when a relation has two overlapping candidate keys, which is why most tables are in BCNF the moment they reach 3NF, and why the counterexample is worth memorising rather than deriving.',
+          'BCNF is also where decomposition stops being free. A BCNF decomposition can lose a functional dependency that 3NF would have kept, and choosing which to give up is a design decision rather than a mechanical step.',
+        ],
+      },
+    ],
   }),
   lesson('s-dbs', 'Relational Algebra', 5, keller, {
     grounding: 'grounded',

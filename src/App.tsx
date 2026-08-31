@@ -108,6 +108,7 @@ const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
 const V4Practice = lazy(() => import("./features/spaces/screens/PracticeScreen"));
 const V4Settings = lazy(() => import("./features/spaces/screens/SettingsScreen"));
 const V4Person = lazy(() => import("./features/spaces/screens/PersonScreen"));
+const V4Reader = lazy(() => import("./features/spaces/screens/ReaderScreen"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
 const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
@@ -290,6 +291,8 @@ function AppRoutes() {
         {import.meta.env.DEV && <Route path="/v4/person/:personId" element={<V4Person />} />}
         {/* Practice before the bare lesson route, so it is not read as a tab. */}
         {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<V4Practice />} />}
+        {/* The reader — a focus surface, like practice. */}
+        {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<V4Reader />} />}
         {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />}
         {import.meta.env.DEV && <Route path="/v4/space/:spaceId/concept/:conceptId" element={<V4Concept />} />}
 
