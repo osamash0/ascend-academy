@@ -107,6 +107,7 @@ const V4SpaceManage = lazy(() => import("./features/spaces/screens/SpaceManageSc
 const V4LibraryStudio = lazy(() => import("./features/spaces/screens/LibraryStudioScreen"));
 const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
 const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
+const V4Rank = lazy(() => import("@/features/spaces/screens/RankScreen"));
 const V4Practice = lazy(() => import("./features/spaces/screens/PracticeScreen"));
 const V4Settings = lazy(() => import("./features/spaces/screens/SettingsScreen"));
 const V4Person = lazy(() => import("./features/spaces/screens/PersonScreen"));
@@ -302,6 +303,8 @@ function AppRoutes() {
             <Route path="/v4/home" element={<V4Home />} />
             <Route path="/v4/social" element={<V4Social />} />
             <Route path="/v4/profile" element={<V4Profile />} />
+            {/* Why your rank is what it is — the XP ledger and the gate. */}
+            <Route path="/v4/profile/rank" element={<V4Rank />} />
             {/* Settings hangs off Profile — a Studio screen, like Library's three. */}
             <Route path="/v4/settings" element={<V4Settings />} />
             {/* Someone else's public profile — a Social destination, per Doc 2. */}
