@@ -51,7 +51,7 @@ flowchart LR
 
     subgraph OUT["OUTPUT — structured"]
         E["Slide records<br/>title, body, summary"]
-        F["Quiz questions<br/>MCQ, Bloom-tagged"]
+        F["Quiz questions<br/>4-option MCQ<br/>cognitive-level tag: stored, never shown"]
         G["Searchable vectors<br/>pgvector, HNSW"]
         H["Lecture metadata<br/>title, summary, key topics"]
     end
@@ -69,6 +69,20 @@ flowchart LR
 *Provenance:* extraction [`unified_orchestrator.py:96`](../../backend/services/parser/unified_orchestrator.py:96),
 synthesis `:673-800`, embedding [`embeddings.py:13`](../../backend/services/ai/embeddings.py:13),
 persistence [`persist.py:214`](../../backend/services/parser/persist.py:214).
+
+**Correction (2026-08-31, see docs/thesis/LEARNING_FEATURES_PRIMER.md §4 for the full trace):**
+this diagram originally read "MCQ, Bloom-tagged." The word "Bloom" does not exist anywhere in
+this codebase's pedagogical logic — a repo-wide grep for it returns exactly one hit, a Three.js
+post-processing *glow* effect, unrelated. What's real is a 3-value `cognitive_level` field
+(`recall`/`apply`/`analyse`, British spelling) written into `quiz_questions.metadata` JSONB by
+the live synthesis prompts (`prompts.py:104,140`), never validated by `quiz_validator.py`, never
+used by exam sampling (which weights on `difficulty`, not `cognitive_level`), and rendered in
+exactly one place in the entire frontend: a dev-only diagnostic page excluded from production
+builds (`PipelineTestPage.tsx:251`, gated by `import.meta.env.DEV` at `App.tsx:529`) — whose own
+type for the field (`parse_models.py:122`, 4 American-spelled values) doesn't even match what the
+live pipeline writes. `thesis/figures/src/f1-transformation.puml:31` has been corrected to match;
+the committed PDF still needs a rebuild via `make -C thesis/figures` once a `plantuml.jar` is
+available in the build environment (not present in the container this correction was made in).
 
 ### D2 — Actors and capabilities
 

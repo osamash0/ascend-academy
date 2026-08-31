@@ -28,7 +28,7 @@ rectangle "**TRANSFORMATION**" as MID #DCDCDC {
 
 rectangle "**OUTPUT** — addressable learning objects" as OUT #F2F2F2 {
   rectangle "**Slide records**\ntitle · body · summary\n//trust flags: needs_review, vision_routed//" as B1
-  rectangle "**Quiz questions**\n4-option MCQ, one per slide\n//tagged by Bloom level + concept//" as B2
+  rectangle "**Quiz questions**\n4-option MCQ, one per slide\n//cognitive-level tag: stored, never shown//" as B2
   rectangle "**Slide embeddings**\npgvector 768, HNSW index" as B3
   rectangle "**Deck metadata**\ntitle · summary · key topics" as B4
 }
