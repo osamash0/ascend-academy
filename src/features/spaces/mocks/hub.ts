@@ -97,7 +97,17 @@ export const spaceOfTheWeek = (): Space | null =>
  */
 export const popularNow = (): Space[] =>
   visibleSpaces()
-    .filter((s) => s.visibility === 'public' && s.state === 'active')
+    /*
+     * Public *and* invite-only, which is the distinction the three-value
+     * `Visibility` exists to draw: `invite` is discoverable and asks for a
+     * request, `private` is not discoverable at all.
+     *
+     * Filtering to `public` alone made the standard card's **lock badge
+     * unreachable** — the spec draws one in this very rail ("check/lock
+     * badge"), and the mock's `explore` list carries a locked "Founders
+     * Circle". A badge with no data path is a badge that has never rendered.
+     */
+    .filter((s) => s.visibility !== 'private' && s.state === 'active')
     .sort((a, b) => b.starCount - a.starCount);
 
 /**

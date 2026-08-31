@@ -327,6 +327,42 @@ export const someoneElsesPrivate: Space = {
   lastActiveAt: '2026-08-20T09:00:00Z',
 };
 
+/**
+ * A private Space you have asked to join and are waiting on.
+ *
+ * The hub's primary action has four states and only three had fixtures, so
+ * "Requested" — the disabled one — could never render. Distinct from
+ * `someoneElsesPrivate`, which is private and *not* requested: keeping both
+ * means the two private cases are visibly different rather than collapsing
+ * into whichever the last edit happened to set.
+ */
+export const requestedPrivate: Space = {
+  id: 's-requested',
+  name: 'Formale Sprachen',
+  shortCode: 'FS',
+  description: 'Automata, grammars and the pumping lemma. Small and deliberately quiet.',
+  owner: weber,
+  universe: marburg,
+  classification: { domain: 'Computer Science', subject: 'Theory of Computation' },
+  mode: 'guided',
+  visibility: 'invite',
+  state: 'active',
+  groundingEnabled: false,
+  strictMode: false,
+  memberCount: 28,
+  starCount: 4,
+  starredByViewer: false,
+  viewerRole: null,
+  // Asked, and waiting on the Owner. The fourth button state.
+  viewerRequested: true,
+  viewerProgress: 0,
+  lessonCount: 0,
+  lessonsDone: 0,
+  newSinceLastVisit: 0,
+  online: 3,
+  lastActiveAt: '2026-08-26T10:00:00Z',
+};
+
 /** Discover — public Spaces the viewer has not joined. Ranked by stars. */
 export const discoverSpaces = [machineLearning, analysis];
 
@@ -336,7 +372,12 @@ export const discoverSpaces = [machineLearning, analysis];
  * Screens must filter this; the visibility rules are what do the filtering,
  * and they need something to exclude or they are guarding nothing.
  */
-export const allSpaces = [...mySpaces, ...discoverSpaces, someoneElsesPrivate];
+export const allSpaces = [
+  ...mySpaces,
+  ...discoverSpaces,
+  someoneElsesPrivate,
+  requestedPrivate,
+];
 
 /**
  * Spaces created during this session.

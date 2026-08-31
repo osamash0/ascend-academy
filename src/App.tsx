@@ -97,6 +97,7 @@ const PixiLab = lazy(() => import("./pages/PixiLab"));
 // v4 design rebuild. Mock data only, no backend, dev-only route — the old
 // product is untouched and the two coexist. See docs/design-v4/.
 const SpacesScreen = lazy(() => import("./features/spaces/screens/SpacesScreen"));
+const V4SpacesHub = lazy(() => import("./features/spaces/screens/SpacesHubScreen"));
 const SpaceRoute = lazy(() => import("./features/spaces/screens/SpaceRoute"));
 const V4Library = lazy(() => import("./features/spaces/screens/LibraryScreen"));
 const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
@@ -285,7 +286,11 @@ function AppRoutes() {
         */}
         {import.meta.env.DEV && (
           <Route element={<MotionRoot />}>
-            <Route path="/v4/spaces" element={<SpacesScreen />} />
+            {/* The hub. Replaces the Mine/Discover tabs, which the handoff
+                deletes — membership is a badge, never a section split. */}
+            <Route path="/v4/spaces" element={<V4SpacesHub />} />
+            {/* The tabbed screen, parked so the two can be compared. */}
+            <Route path="/v4/spaces-legacy" element={<SpacesScreen />} />
             <Route path="/v4/space/:spaceId" element={<SpaceRoute />} />
             {/* Studio screen — declared before :tab so it is not swallowed as one. */}
             <Route path="/v4/space/:spaceId/manage" element={<V4SpaceManage />} />
