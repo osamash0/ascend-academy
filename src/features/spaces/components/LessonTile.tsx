@@ -80,11 +80,26 @@ export function LessonTile({
         </div>
       )}
 
+      {/*
+        The text block is anchored to the bottom edge, so it grows *upward* —
+        which means its height has to be constant or a rail of tiles stops
+        lining up. Both lines were free to wrap: "Advanced Topics in
+        Cryptography" over "Differential Cryptanalysis" took two lines each and
+        shunted that tile's eyebrow 39px and its title 21px above its
+        neighbours', the one card in the row whose text visibly floated.
+
+        So the eyebrow is held to one line and the title to a fixed two. The
+        eyebrow is context and the tile's full identity is in the call site's
+        `aria-label`, so clipping it costs nothing a reader needs; the title
+        keeps both its lines whether or not it uses them. Every tile's block is
+        now the same height for any string in the fixtures.
+      */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent p-4 pt-12">
         {eyebrow && (
-          <p className="mb-1 text-[12px] font-normal text-quiet">{eyebrow}</p>
+          <p className="mb-1 truncate text-[12px] font-normal text-quiet">{eyebrow}</p>
         )}
-        <h3 className="line-clamp-2 text-[15.5px] font-semibold leading-snug text-white">
+        {/* 2 lines × `leading-snug` (1.375em). Reserved, not merely capped. */}
+        <h3 className="line-clamp-2 min-h-[2.75em] text-[15.5px] font-semibold leading-snug text-white">
           {title}
         </h3>
       </div>

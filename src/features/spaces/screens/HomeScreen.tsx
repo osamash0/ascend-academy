@@ -2,7 +2,7 @@ import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles, TrendingUp } from '
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Pressable } from '../components/Pressable';
+import { Pressable, PressableLink } from '../components/Pressable';
 import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import { BentoCell } from '../components/BentoCell';
@@ -66,7 +66,15 @@ export default function HomeScreen() {
   /** The most recent thing you touched — the target for "Review something". */
   const lastTouched = recent[0] ?? feed[0];
 
-  const dueForReview = feed.filter((i) => i.reason === 'review').length;
+  /*
+   * Derived from `feed` and nothing else. A cell that states a count must open
+   * the thing it counted, so each keeps its first item rather than just a
+   * length — otherwise the number and the destination are two facts that can
+   * disagree, which is the §A failure this screen already had once.
+   */
+  const due = feed.filter((i) => i.reason === 'review');
+  const dueForReview = due.length;
+  const firstDue = due[0];
   const fresh = feed.filter((i) => i.reason === 'new');
   const newCount = fresh.length;
   const newest = fresh[0];
@@ -174,15 +182,30 @@ export default function HomeScreen() {
         supporting numbers reported the way the console reports storage or
         trophies — one figure, plainly.
 
-        Every cell here opens a Lesson or practice. Doc 2: "Home links to
-        Lessons and practice, never to a Space card." A cell names its Space as
-        context; none of them is a way *into* a Space.
+        Doc 2: "Home links to Lessons and practice, never to a Space card." A
+        cell names its Space as context; none of them is a way *into* a Space.
+
+        Every cell that *carries* a Lesson opens it, by `to` — the hero, Due for
+        review and New since you were here. Streak and Rank carry no Lesson, so
+        they stay plain `div`s: a readout, not a control. Nothing here invents a
+        destination it does not have.
+
+        This comment used to read "every cell here opens a Lesson or practice",
+        and not one of the five passed anything. `BentoCell` picks its tag from
+        those props, so the hero — the largest thing on the landing screen, the
+        "one thing" — rendered as a `div`: unreachable by keyboard, inert on
+        click, while every smaller item on the page opened fine. The rule was
+        written here and enforced nowhere, which is CYCLE.md §E. Note the shape
+        of the miss: `deadends.test.tsx` asks whether every `<button>` has a
+        handler, so a control that was never made a button in the first place
+        walks straight past it. `openable.test.tsx` is the gate that does see it.
       */}
       <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <BentoCell
           icon={Play}
           label={REASON_LABEL[next.reason]}
           className="sm:col-span-2"
+          to={`/v4/space/${next.spaceId}/lesson/${next.lessonId}`}
           art={
             <>
               <div
@@ -240,8 +263,13 @@ export default function HomeScreen() {
           </p>
         </BentoCell>
 
-        {dueForReview > 0 && (
-          <BentoCell icon={RotateCw} label="Due for review" className="sm:col-span-2">
+        {dueForReview > 0 && firstDue && (
+          <BentoCell
+            icon={RotateCw}
+            label="Due for review"
+            className="sm:col-span-2"
+            to={`/v4/space/${firstDue.spaceId}/lesson/${firstDue.lessonId}`}
+          >
             <p className="text-[28px] font-semibold leading-none tabular-nums">
               {dueForReview}
               <span className="ml-1.5 text-[16px] text-quiet">
@@ -254,16 +282,23 @@ export default function HomeScreen() {
           </BentoCell>
         )}
 
-        {newCount > 0 && (
-          <BentoCell icon={Sparkles} label="New since you were here" className="sm:col-span-2">
+        {newCount > 0 && newest && (
+          <BentoCell
+            icon={Sparkles}
+            label="New since you were here"
+            className="sm:col-span-2"
+            to={`/v4/space/${newest.spaceId}/lesson/${newest.lessonId}`}
+          >
             <p className="text-[28px] font-semibold leading-none tabular-nums">
               {newCount}
               <span className="ml-1.5 text-[16px] text-quiet">
                 {newCount === 1 ? 'Lesson' : 'Lessons'}
               </span>
             </p>
+            {/* Naming the latest is what makes the cell openable honestly: the
+                destination is the Lesson the copy just named. */}
             <p className="mt-2 line-clamp-1 text-[13px] text-quiet">
-              {newest ? `Latest: ${newest.lessonTitle} · ${newest.spaceName}` : ''}
+              Latest: {newest.lessonTitle} · {newest.spaceName}
             </p>
           </BentoCell>
         )}
@@ -280,12 +315,21 @@ export default function HomeScreen() {
             {recent.map((r) => {
               const Icon = topicIcon(r.lessonTitle, r.lessonId);
               return (
-                <Pressable
+                /*
+                 * A link, not a button. Both opened the Lesson, but these four
+                 * covers were the only Lesson targets on Home that carried no
+                 * `href` — "Also waiting" below is already `<Link>`. So the
+                 * same act had two implementations, and the button half lost
+                 * cmd-click, middle-click, open-in-new-tab and the status-bar
+                 * preview. `PressableLink` keeps the identical press feel and
+                 * was already in use on three other screens; Home was the
+                 * outlier, not the pattern.
+                 */
+                <PressableLink
                   key={r.lessonId}
-                  type="button"
-                  onClick={() => navigate(`/v4/space/${r.spaceId}/lesson/${r.lessonId}`)}
+                  to={`/v4/space/${r.spaceId}/lesson/${r.lessonId}`}
                   aria-label={`${r.lessonTitle}, Lesson ${r.lessonOrder} in ${r.spaceName}`}
-                  className="console-focusable h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left"
+                  className="console-focusable block h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left"
                 >
                   {/*
                     Cover art, not a plain card. `LessonTile` existed, matched
@@ -302,7 +346,7 @@ export default function HomeScreen() {
                     done={r.percentComplete === 100}
                     watermark={<Icon aria-hidden className="h-16 w-16 text-white/[0.10]" />}
                   />
-                </Pressable>
+                </PressableLink>
               );
             })}
           </div>
