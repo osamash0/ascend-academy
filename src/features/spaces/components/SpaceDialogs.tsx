@@ -174,7 +174,7 @@ export function NewSpaceDialog({
             type="button"
             onClick={create}
             disabled={!name.trim()}
-            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift disabled:cursor-not-allowed disabled:opacity-40 disabled:lift"
           >
             <Plus aria-hidden className="h-4 w-4" />
             Create and open it
@@ -260,7 +260,7 @@ export function JoinSpaceDialog({
               setCode('');
               navigate(`/v4/space/${found.id}`);
             }}
-            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift disabled:cursor-not-allowed disabled:opacity-40 disabled:lift"
           >
             <KeyRound aria-hidden className="h-4 w-4" />
             {found ? `Join ${found.name}` : 'Join'}
@@ -374,7 +374,7 @@ export function AddLessonDialog({
             type="button"
             onClick={add}
             disabled={!title.trim()}
-            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift disabled:cursor-not-allowed disabled:opacity-40 disabled:lift"
           >
             <Plus aria-hidden className="h-4 w-4" />
             Create the draft and open it
@@ -494,7 +494,7 @@ export function ContributeDialog({
             type="button"
             onClick={publish}
             disabled={!title.trim() || !excerpt.trim()}
-            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift disabled:cursor-not-allowed disabled:opacity-40 disabled:lift"
           >
             <Plus aria-hidden className="h-4 w-4" />
             Publish to {space.name}

@@ -330,7 +330,7 @@ export default function SpaceScreen({
                 <button
                   type="button"
                   onClick={() => setAddingLesson(true)}
-                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
+                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900 lift"
                 >
                   <Plus aria-hidden className="h-4 w-4" />
                   Add Lesson

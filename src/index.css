@@ -708,6 +708,35 @@
       0 0 24px rgba(99, 102, 241, 0.55);
   }
 
+  /*
+   * ── Lift ──
+   * The hover nudge on a primary action, in one place and reduced-motion aware.
+   *
+   * `MotionConfig reducedMotion="user"` only governs framer-motion components.
+   * A Tailwind `hover:scale-[1.02]` is a plain CSS transform and sails straight
+   * past it — so nineteen controls across the v4 namespace grew on hover no
+   * matter what the operating system had been asked for, while the Settings
+   * screen told the reader "motion follows your system setting".
+   *
+   * Deliberately not a blanket `transform: none` under the media query: the
+   * same property centres the Lesson hero (`-translate-x-1/2`) and moves the
+   * Settings toggle knob, so killing transforms wholesale would break layout
+   * for exactly the people asking for less motion.
+   */
+  .lift {
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .lift:hover {
+    transform: scale(1.02);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lift,
+    .lift:hover {
+      transition: none;
+      transform: none;
+    }
+  }
+
   /* ── Animation Utilities ── */
   .animate-float {
     animation: float 6s ease-in-out infinite;

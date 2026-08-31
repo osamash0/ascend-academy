@@ -111,7 +111,7 @@ function Shell({
 
 const PRIMARY =
   'console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 ' +
-  'text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]';
+  'text-[14px] font-semibold text-slate-900 lift';
 const SECONDARY =
   'console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 ' +
   'bg-white/[0.04] px-6 text-[14px] font-bold text-foreground transition-colors hover:bg-white/[0.08]';

@@ -156,6 +156,34 @@ describe('targets are big enough to hit', () => {
 });
 
 describe('motion follows the operating system everywhere', () => {
+  it('never nudges on hover with a raw CSS transform', () => {
+    /*
+     * `MotionConfig reducedMotion="user"` governs framer-motion and nothing
+     * else. A Tailwind `hover:scale-[1.02]` is a plain CSS transform and sails
+     * straight past it — so nineteen controls across the namespace grew on
+     * hover regardless of the OS setting, while Settings told the reader
+     * "motion follows your system setting for reduced motion".
+     *
+     * `.lift` does the same nudge and switches itself off under
+     * `prefers-reduced-motion`. Deliberately a class rather than a blanket
+     * `transform: none` in the media query: the same property centres the
+     * Lesson hero and moves the Settings toggle knob, so killing transforms
+     * wholesale would break layout for the people asking for less motion.
+     */
+    for (const { name, body } of files) {
+      expect(body, `${name} scales on hover outside .lift`).not.toMatch(/hover:scale-/);
+    }
+  });
+
+  it('defines .lift so that reduced motion disables it', () => {
+    const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
+    const at = css.indexOf('.lift {');
+    expect(at, '.lift is not defined').toBeGreaterThan(-1);
+    const block = css.slice(at, at + 700);
+    expect(block).toContain('prefers-reduced-motion: reduce');
+    expect(block).toMatch(/transform:\s*none/);
+  });
+
   it('wraps both modes in reducedMotion="user"', () => {
     // Learn goes through Scene; Studio goes through StudioShell. Until the
     // shell carried it, three screens ignored the setting entirely — while

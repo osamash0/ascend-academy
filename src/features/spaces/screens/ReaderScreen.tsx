@@ -138,7 +138,7 @@ export default function ReaderScreen() {
         <div className="mt-14 border-t border-white/[0.08] pt-8">
           <Link
             to={`/v4/space/${space.id}/lesson/${lesson.id}/practice`}
-            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900 transition-transform hover:scale-[1.02]"
+            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900 lift"
           >
             <ListChecks aria-hidden className="h-4 w-4" />
             Practise what you just read

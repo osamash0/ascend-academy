@@ -289,7 +289,7 @@ export default function PracticeScreen() {
                 setIndex((i) => i + 1);
                 setPicked(null);
               }}
-              className="console-focusable mt-5 flex h-12 w-full items-center justify-center rounded-full bg-white text-[14.5px] font-semibold text-slate-900 transition-transform hover:scale-[1.01]"
+              className="console-focusable mt-5 flex h-12 w-full items-center justify-center rounded-full bg-white text-[14.5px] font-semibold text-slate-900 lift"
             >
               {isLast ? 'See how you did' : 'Next question'}
             </button>

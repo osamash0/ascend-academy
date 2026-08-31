@@ -381,7 +381,7 @@ function EmptyLibrary({ filter, onWriteNote }: { filter: Filter; onWriteNote: ()
         <button
           type="button"
           onClick={onWriteNote}
-          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
+          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900 lift"
         >
           <Plus aria-hidden className="h-4 w-4" />
           {cta}
@@ -389,7 +389,7 @@ function EmptyLibrary({ filter, onWriteNote }: { filter: Filter; onWriteNote: ()
       ) : (
         <Link
           to="/v4/spaces"
-          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
+          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900 lift"
         >
           {cta}
         </Link>

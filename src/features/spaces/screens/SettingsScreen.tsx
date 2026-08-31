@@ -276,8 +276,9 @@ export default function SettingsScreen() {
       {/* No link icon: this paragraph goes nowhere, and an ExternalLink glyph
           beside it told sighted users otherwise. */}
       <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-        Motion follows your system setting for reduced motion. There is no switch here because
-        there is nothing for it to disagree with.
+        Motion follows your system setting for reduced motion — both the animated
+        transitions and the hover effects. There is no switch here because there is
+        nothing for it to disagree with.
       </p>
     </StudioShell>
   );

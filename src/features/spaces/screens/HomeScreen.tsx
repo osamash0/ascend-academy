@@ -109,7 +109,7 @@ export default function HomeScreen() {
                   : '/v4/spaces',
               )
             }
-            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
+            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 lift"
           >
             <RotateCw aria-hidden className="h-4 w-4" />
             Review something
@@ -140,7 +140,7 @@ export default function HomeScreen() {
           <button
             type="button"
             onClick={() => setNewOpen(true)}
-            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
+            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 lift"
           >
             <Plus aria-hidden className="h-4 w-4" />
             Create a Space
@@ -284,7 +284,7 @@ export default function HomeScreen() {
                   type="button"
                   onClick={() => navigate(`/v4/space/${r.spaceId}/lesson/${r.lessonId}`)}
                   aria-label={`${r.lessonTitle}, Lesson ${r.lessonOrder} in ${r.spaceName}`}
-                  className="console-focusable h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left transition-transform hover:scale-[1.02]"
+                  className="console-focusable h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left lift"
                 >
                   {/*
                     Cover art, not a plain card. `LessonTile` existed, matched
