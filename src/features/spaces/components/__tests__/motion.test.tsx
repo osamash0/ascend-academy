@@ -71,10 +71,21 @@ describe('which CSS transitions are allowed', () => {
     // SVG paint. The same category as colour, on the two maps.
     /^transition-\[fill\]$/,
     /*
-     * Outline colour — the focus ring warming up rather than snapping on.
-     * Colour again, so it falls under the same ruling; listed separately
-     * because `outline-width` would not, and an allow-list that says
-     * `transition-[outline` would wave through the layout-shifting one.
+     * The hub cards' **hover** ring fading in rather than snapping on — not
+     * the focus ring, which is a `box-shadow` from `.console-focusable` and
+     * deliberately a different property, so the two never fight. (On keyboard
+     * focus that rule sets `outline: none`, which zeroes `outline-style`, so
+     * the hover colour below simply has nothing to paint. No double ring.)
+     *
+     * `transition-colors` genuinely cannot do this: Tailwind 3.4.17 defines it
+     * as `color, background-color, border-color, text-decoration-color, fill,
+     * stroke` — `outline-color` is absent, and was only folded in for v4. So
+     * the bracket form is necessary here rather than a stylistic preference.
+     *
+     * Listed as the exact longhand, because the reason to keep it narrow is
+     * Abi's ruling — *colour* stays with the stylesheet, everything else is
+     * Motion's. `outline-width` is not colour. A pattern like
+     * `transition-[outline` would wave it through on a spelling coincidence.
      */
     /^transition-\[outline-color\]$/,
     /^transition-\[fill,stroke\]$/,
