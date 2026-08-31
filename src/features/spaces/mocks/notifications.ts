@@ -86,6 +86,20 @@ export const notifications: AppNotification[] = [
     target: { kind: 'lesson', lessonId: 'l-s-dbs-4', spaceName: 'Database Systems' },
   },
   {
+    /*
+     * `achievement` had an icon and a tone in `NotificationPanel` and no
+     * fixture anywhere, so that branch had never rendered. Badges are earned
+     * and each says what earned it — so does this.
+     */
+    id: 'n-7',
+    title: 'Badge earned — Contributor',
+    message: 'You published your first contribution to a Space.',
+    type: 'achievement',
+    read: true,
+    created_at: '2026-08-29T20:10:00Z',
+    target: { kind: 'profile' },
+  },
+  {
     id: 'n-5',
     title: 'Four days running',
     message: 'You have studied four days in a row.',

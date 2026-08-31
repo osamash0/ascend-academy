@@ -9,6 +9,7 @@ import type { Membership, Role, Space } from '../types';
 import { useSpace } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
 import { contributionsForLesson, contributionsForSpace } from '../mocks/contributions';
+import { canSeeHidden } from '../mocks/engagement';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonRow } from '../components/LessonRow';
@@ -102,7 +103,7 @@ export default function SpaceScreen({
   const allContributions = useMemo(() => {
     const fromLessons = lessons.flatMap((l) => contributionsForLesson(l.id));
     return [...contributionsForSpace(space?.id ?? ''), ...fromLessons]
-      .filter((c) => !c.hidden)
+      .filter((c) => !c.hidden || canSeeHidden(c.author.id, space?.viewerRole ?? null, viewer.id))
       .sort((a, b) => b.likeCount - a.likeCount);
     // `writeTick` re-reads the session store after publishing; the store is
     // outside React, so nothing else would tell this list it had changed.

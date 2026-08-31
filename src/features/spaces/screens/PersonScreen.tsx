@@ -40,6 +40,8 @@ export default function PersonScreen() {
   const published = useMemo(
     () =>
       [...normalizationContributions, ...spaceContributions, ...conceptContributions]
+        // Public means published. Hidden work belongs to its author and to
+        // the people who maintain the Space, never to a passing visitor.
         .filter((c) => c.author.id === personId && !c.hidden)
         .sort((a, b) => b.likeCount - a.likeCount),
     [personId],

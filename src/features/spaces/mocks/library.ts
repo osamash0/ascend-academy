@@ -227,7 +227,10 @@ export const nextAction: HomeItem = homeItem('s-dbs', 2, 'continue');
 export const homeFeed: HomeItem[] = [
   homeItem('s-dbs', 1, 'review'),
   homeItem('s-crypto', 1, 'continue'),
-  homeItem('s-dbs', 3, 'new'),
+  // `next` — the Lesson after the one you are on. HomeScreen has a label and
+  // an icon for it and nothing produced one, so that row had never rendered.
+  homeItem('s-dbs', 3, 'next'),
+  homeItem('s-dbs', 5, 'new'),
   homeItem('s-linalg', 2, 'new'),
 ];
 

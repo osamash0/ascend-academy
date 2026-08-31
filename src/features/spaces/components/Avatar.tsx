@@ -53,7 +53,11 @@ export function Avatar({ person, size = 'md', luna, isViewer, className }: Avata
     return (
       <img
         src={person.avatarUrl}
+        // Decorative: the name is always rendered beside it, so announcing the
+        // image would say the person's name twice. `alt=""` is the <img>
+        // equivalent of the `aria-hidden` on the two branches below.
         alt=""
+        aria-hidden
         className={cn(s.box, 'shrink-0 rounded-full object-cover', className)}
       />
     );

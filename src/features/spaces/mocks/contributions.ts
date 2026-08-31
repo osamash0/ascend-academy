@@ -139,6 +139,27 @@ export const spaceContributions: Contribution[] = [
     createdAt: '2026-06-02T09:00:00Z',
   },
   {
+    /*
+     * No excerpt. `excerpt` is optional and all eleven fixtures carried one,
+     * so `{c.excerpt && ...}` had never been false — the title-only card is a
+     * layout that would otherwise have first appeared against real data, where
+     * a link with nothing written about it is the commonest kind there is.
+     */
+    id: 'c-8',
+    title: 'Recordings of all twelve sessions, mirrored',
+    type: 'link',
+    anchor: { level: 'space', spaceId: 's-dbs' },
+    origin: 'community',
+    author: keller,
+    grounding: null,
+    likeCount: 41,
+    likedByViewer: false,
+    endorsed: false,
+    hidden: false,
+    orphaned: false,
+    createdAt: '2026-08-05T10:00:00Z',
+  },
+  {
     id: 'c-7',
     // Hidden by the Owner. Visible to its author and Owner/Editors only.
     title: 'Link dump',
@@ -277,7 +298,14 @@ const statsMembers: Membership[] = [
   { person: okonkwo, role: 'member', progress: 34, joinedAt: '2026-04-22T09:00:00Z' },
 ];
 
+const discreteMembers: Membership[] = [
+  { person: keller, role: 'owner', progress: 100, joinedAt: '2026-01-20T09:00:00Z' },
+  { person: viewer, role: 'member', progress: 100, joinedAt: '2026-02-14T09:00:00Z' },
+  { person: weber, role: 'member', progress: 55, joinedAt: '2026-03-30T09:00:00Z' },
+];
+
 const byMembers: Record<string, Membership[]> = {
+  's-discrete': discreteMembers,
   's-dbs': dbsMembers,
   's-crypto': cryptoMembers,
   's-linalg': linalgMembers,

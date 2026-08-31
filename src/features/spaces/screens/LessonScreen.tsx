@@ -16,6 +16,7 @@ import type { Concept, Lesson, Space } from '../types';
 import { spaceById } from '../mocks/spaces';
 import { adjacentLessons, visibleLesson } from '../mocks/lessons';
 import { contributionsForLesson } from '../mocks/contributions';
+import { visibleContributions } from '../mocks/engagement';
 import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -80,7 +81,11 @@ export default function LessonScreen() {
   );
 
   const contributions = useMemo(
-    () => (lesson ? contributionsForLesson(lesson.id).filter((c) => !c.hidden) : []),
+    () =>
+      lesson && space
+        ? // Hidden work is still visible to its author and to Owner/Editors.
+          visibleContributions(contributionsForLesson(lesson.id), space.viewerRole)
+        : [],
     [lesson],
   );
   // Local tick so writes re-render; the store is the source of truth.

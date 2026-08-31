@@ -2,6 +2,7 @@ import { normalizationContributions, spaceContributions } from './contributions'
 import { conceptContributions } from './concepts';
 import { allSpaces } from './spaces';
 import { viewer } from './people';
+import type { Role } from '../types';
 
 /**
  * Likes and stars, writable.
@@ -88,3 +89,31 @@ export const toggleStar = (spaceId: string, viewerOwns: boolean): boolean => {
   starCounts.set(spaceId, Math.max(0, starCount(spaceId) + (now ? 1 : -1)));
   return now;
 };
+
+/* ── Visibility of hidden work ─────────────────────────────────── */
+
+/**
+ * Who may see a hidden contribution.
+ *
+ * Doc 1 states the rule twice — "Owner hid it. Visible to its author and the
+ * Owner/Editors only" — and five call sites implemented it as an unconditional
+ * `!c.hidden`. So there was no code path at all by which an author could see
+ * their own hidden work: it simply vanished, which is the one thing the rule
+ * exists to prevent.
+ *
+ * Takes the viewer's role so the question cannot be asked without establishing
+ * who is asking — the same shape as `visibleLessonsForSpace`, and for the same
+ * reason: a filter that takes no viewer will be reached for by a call site
+ * that has no viewer.
+ */
+export const canSeeHidden = (
+  authorId: string,
+  viewerRole: Role | null,
+  viewerId: string,
+): boolean => authorId === viewerId || viewerRole === 'owner' || viewerRole === 'editor';
+
+/** Filter a community section for one viewer. */
+export const visibleContributions = <T extends { hidden: boolean; author: { id: string } }>(
+  list: T[],
+  viewerRole: Role | null,
+): T[] => list.filter((c) => !c.hidden || canSeeHidden(c.author.id, viewerRole, viewer.id));

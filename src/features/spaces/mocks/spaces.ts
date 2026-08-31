@@ -113,9 +113,9 @@ export const linearAlgebra: Space = {
   starCount: 0,
   starredByViewer: false,
   viewerRole: 'owner',
-  viewerProgress: 0,
-  lessonCount: 4,
-  lessonsDone: 0,
+  viewerProgress: 33,
+  lessonCount: 5,
+  lessonsDone: 1,
   newSinceLastVisit: 0,
   draftsPending: 2,
   membersActiveThisWeek: 2,
@@ -173,9 +173,9 @@ export const statistics: Space = {
   starCount: 140,
   starredByViewer: true,
   viewerRole: 'member',
-  viewerProgress: 88,
+  viewerProgress: 100,
   lessonCount: 4,
-  lessonsDone: 3,
+  lessonsDone: 4,
   newSinceLastVisit: 0,
   lastActiveAt: '2026-03-11T16:00:00Z',
 };
@@ -238,8 +238,41 @@ export const analysis: Space = {
 /** "Created by you" — cards show drafts pending + members active, not progress. */
 export const createdByViewer = [linearAlgebra, numericsProcessing];
 
+/**
+ * A Space you have finished, still active.
+ *
+ * `SpaceTile`'s corner marker shows one thing at a time — archived, then done,
+ * then "N new" — which is right, but it meant the "Done" badge was unreachable
+ * while the only complete Space was also archived. A finished-but-still-live
+ * Space is the ordinary case for that badge and there was no fixture for it,
+ * so a whole visual state had never been seen.
+ */
+export const discreteStructures: Space = {
+  id: 's-discrete',
+  name: 'Diskrete Strukturen',
+  shortCode: 'DIS',
+  description: 'Mengen, Relationen, Graphen und Induktion. Grundlagen für alles Weitere.',
+  owner: keller,
+  universe: marburg,
+  classification: { domain: 'Mathematics', subject: 'Discrete Mathematics' },
+  mode: 'guided',
+  visibility: 'public',
+  state: 'active',
+  groundingEnabled: true,
+  strictMode: false,
+  memberCount: 96,
+  starCount: 38,
+  starredByViewer: true,
+  viewerRole: 'member',
+  viewerProgress: 100,
+  lessonCount: 3,
+  lessonsDone: 3,
+  newSinceLastVisit: 0,
+  lastActiveAt: '2026-08-24T11:00:00Z',
+};
+
 /** "Joined" — cards show the viewer's own progress. */
-export const joinedByViewer = [databaseSystems, cryptography];
+export const joinedByViewer = [databaseSystems, cryptography, discreteStructures];
 
 /** Archived lives in its own collapsed section, never hidden. */
 export const archivedSpaces = [statistics];

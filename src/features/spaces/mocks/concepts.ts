@@ -135,5 +135,13 @@ export const conceptContributions: Contribution[] = [
 /** Likes sort the community section — never the path. */
 export const contributionsForConcept = (conceptId: string): Contribution[] =>
   conceptContributions
-    .filter((c) => c.anchor.level === 'concept' && c.anchor.conceptId === conceptId && !c.hidden)
+    .filter(
+      (c) =>
+        c.anchor.level === 'concept' &&
+        c.anchor.conceptId === conceptId &&
+        // Same rule as the Space and Lesson sections: hidden work stays
+        // visible to its author. Concept is Doc 1's third anchor and must not
+        // quietly behave differently from the other two.
+        (!c.hidden || c.author.id === viewer.id),
+    )
     .sort((a, b) => b.likeCount - a.likeCount);

@@ -204,6 +204,17 @@ export const linalgLessons: Lesson[] = [
   lesson('s-linalg', 'Determinants', 3, viewer, { state: 'processing' }),
   // Draft — same visibility rule.
   lesson('s-linalg', 'Change of Basis', 4, viewer, { state: 'draft' }),
+  /*
+   * Built, but the extraction came back uncertain and wants a human read.
+   * The only `needs-review` fixture used to belong to `weber` in a Space the
+   * viewer is only a Member of — and every drafts view is author-filtered, so
+   * the amber "Needs review" pill had never rendered on either screen that
+   * handles it.
+   */
+  lesson('s-linalg', 'Orthogonality and Projections', 5, viewer, {
+    state: 'needs-review',
+    practiceCount: 4,
+  }),
 ];
 
 /** ── Discover · not joined ─────────────────────────────────────── */
@@ -240,12 +251,33 @@ export const statisticsLessons: Lesson[] = [
   lesson('s-stats', 'Erwartungswert und Varianz', 3, ferreira, {
     grounding: 'grounded', progress: 'done', percentComplete: 100,
   }),
+  // Finished. Statistik I is the one Space the viewer has completed, which is
+  // what makes `SpaceTile`'s "Done" badge reachable — it sat in an if/else
+  // chain with two live branches and had never rendered against anything.
   lesson('s-stats', 'Schätzer', 4, ferreira, {
-    grounding: 'grounded', progress: 'in-progress', percentComplete: 40,
+    grounding: 'grounded', progress: 'done', percentComplete: 100,
+  }),
+];
+
+/** ── Diskrete Strukturen · finished ─────────────────────────────── */
+
+export const discreteLessons: Lesson[] = [
+  lesson('s-discrete', 'Mengen und Relationen', 1, keller, {
+    grounding: 'grounded', progress: 'done', percentComplete: 100, practiceCount: 7,
+    concepts: conceptsFor('l-s-discrete-1', ['Mengenoperationen', 'Äquivalenzrelationen'], 2),
+  }),
+  lesson('s-discrete', 'Vollständige Induktion', 2, keller, {
+    grounding: 'grounded', progress: 'done', percentComplete: 100, practiceCount: 9,
+    concepts: conceptsFor('l-s-discrete-2', ['Induktionsanfang', 'Induktionsschritt'], 2),
+  }),
+  lesson('s-discrete', 'Graphen', 3, keller, {
+    grounding: 'grounded', progress: 'done', percentComplete: 100, practiceCount: 12,
+    concepts: conceptsFor('l-s-discrete-3', ['Wege und Kreise', 'Bäume', 'Zusammenhang'], 3),
   }),
 ];
 
 const bySpace: Record<string, Lesson[]> = {
+  's-discrete': discreteLessons,
   's-dbs': dbsLessons,
   's-crypto': cryptoLessons,
   's-linalg': linalgLessons,
