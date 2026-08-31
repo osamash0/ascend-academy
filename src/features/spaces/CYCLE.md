@@ -161,6 +161,18 @@ npx tsc -p tsconfig.app.json --noEmit \
   && git commit ...
 ```
 
+**The preview browser does not animate.** Its animation clock is frozen: a
+plain `element.animate(...)` reports `playState: "running"` and never advances
+a single value. So Motion transitions, hover scales and cross-fades cannot be
+checked here at all — a frozen tween looks exactly like a broken one, and I
+spent a while bisecting library versions before testing the browser itself.
+
+What *is* checkable: whether the right element exists, carries the right props,
+and resolves the right **target** for its state — a toggle knob sitting at
+`translateX(22px)` when on and `2px` when off proves the animation's endpoints
+are correct even though the journey between them never runs. Timing and feel
+need a real browser and a human.
+
 Then drive the screen in the browser. Assert with `preview_eval` *first* and
 screenshot second — a screenshot shows you what you expected to see.
 
