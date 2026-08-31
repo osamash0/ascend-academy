@@ -147,14 +147,21 @@ export default function ProfileScreen() {
             </div>
           </BentoCell>
 
-          <BentoCell icon={Orbit} label="Spaces">
+          {/* The hub lists exactly what this counts, so the number is a door. */}
+          <BentoCell icon={Orbit} label="Spaces" to="/v4/spaces">
             <p className="text-[28px] font-semibold leading-none tabular-nums">
               {mySpaces.length}
             </p>
             <p className="mt-2 text-[13px] text-quiet">Created and joined</p>
           </BentoCell>
 
-          <BentoCell icon={Sparkles} label="Published">
+          {/*
+            "How your work landed" *is* this number itemised — every
+            contribution you published, with what happened to it. Counting
+            something on one screen and detailing it on another, with no way
+            across, was the gap.
+          */}
+          <BentoCell icon={Sparkles} label="Published" to="/v4/library/impact">
             <p className="text-[28px] font-semibold leading-none tabular-nums">
               {published.length}
             </p>
@@ -162,7 +169,13 @@ export default function ProfileScreen() {
           </BentoCell>
 
           {/* A fact about your work, never a second progression. */}
-          <BentoCell icon={Heart} label="Likes received" className="sm:col-span-2">
+          {/* Same destination: impact rows carry the per-item likes this sums. */}
+          <BentoCell
+            icon={Heart}
+            label="Likes received"
+            className="sm:col-span-2"
+            to="/v4/library/impact"
+          >
             <p className="text-[28px] font-semibold leading-none tabular-nums">
               {likesReceived}
             </p>
