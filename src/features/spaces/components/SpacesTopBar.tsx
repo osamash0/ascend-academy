@@ -188,12 +188,20 @@ export function SpacesTopBar({
         >
           <Settings className="h-5 w-5" />
         </button>
+        {/*
+          NEEDS-BACKEND: signing out ends a session, and this namespace has
+          none. It stays visible because its absence would misrepresent the
+          chrome, and says plainly that it is not wired rather than looking
+          like a button that silently failed.
+        */}
         <button
           type="button"
-          aria-label="Sign out"
-          className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-quiet transition hover:bg-destructive/10 hover:text-destructive"
+          disabled
+          title="Not wired in this design build"
+          aria-label="Sign out — not wired in this design build"
+          className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-full text-quiet opacity-45"
         >
-          <LogOut className="h-5 w-5" />
+          <LogOut aria-hidden className="h-5 w-5" />
         </button>
       </div>
 

@@ -1,4 +1,5 @@
 import { Compass, Plus, RotateCw, TriangleAlert } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 /**
@@ -73,13 +74,21 @@ const SECONDARY =
 
 /* ── Empty ──────────────────────────────────────────────────────── */
 
-/** Every new account starts here. Two ways in, both plainly named. */
+/**
+ * Every new account starts here. Two ways in, both plainly named.
+ *
+ * The handlers are **required**. They were optional, and the single call site
+ * passed neither — so the state every new account lands in had two exits and
+ * both did nothing, while a working create dialog sat 140 lines away in the
+ * same file. Optional callbacks on a control that is always rendered are how
+ * a dead end gets written without anyone deciding to write one.
+ */
 export function NoSpacesYet({
   onCreate,
   onJoin,
 }: {
-  onCreate?: () => void;
-  onJoin?: () => void;
+  onCreate: () => void;
+  onJoin: () => void;
 }) {
   return (
     <Shell
@@ -99,7 +108,13 @@ export function NoSpacesYet({
 }
 
 /** Discover with nothing in scope — usually a small or brand-new Universe. */
-export function NothingToDiscover({ scopeLabel, onWiden }: { scopeLabel: string; onWiden?: () => void }) {
+export function NothingToDiscover({
+  scopeLabel,
+  onWiden,
+}: {
+  scopeLabel: string;
+  onWiden: () => void;
+}) {
   return (
     <Shell
       icon={<Compass className="h-6 w-6" />}
@@ -119,7 +134,7 @@ export function NothingToDiscover({ scopeLabel, onWiden }: { scopeLabel: string;
  * Distinguishes a genuine failure from a legitimately empty list — otherwise a
  * failed fetch renders as "you have no Spaces", which is a lie.
  */
-export function SpacesError({ onRetry }: { onRetry?: () => void }) {
+export function SpacesError({ onRetry = () => window.location.reload() }: { onRetry?: () => void }) {
   return (
     <Shell
       icon={<TriangleAlert className="h-6 w-6 text-destructive" />}
@@ -130,6 +145,38 @@ export function SpacesError({ onRetry }: { onRetry?: () => void }) {
         <RotateCw className="h-4 w-4" />
         Try again
       </button>
+    </Shell>
+  );
+}
+
+/* ── Not found ──────────────────────────────────────────────────── */
+
+/**
+ * A thing that is not there — as distinct from a thing that failed to load.
+ *
+ * Three screens used `SpacesError` for a bad id, so mistyping a Lesson URL
+ * said "Couldn't load your Spaces. The connection dropped on the way", which
+ * is a wrong diagnosis attached to a retry button that will never work. The
+ * two states need different words because they need different actions.
+ */
+export function NotFound({
+  what,
+  backTo,
+  backLabel,
+}: {
+  what: string;
+  backTo: string;
+  backLabel: string;
+}) {
+  return (
+    <Shell
+      icon={<Compass className="h-6 w-6" />}
+      title={`That ${what} isn’t here`}
+      body="It may have been removed, or the link may be wrong. Nothing of yours is affected."
+    >
+      <Link to={backTo} className={SECONDARY}>
+        {backLabel}
+      </Link>
     </Shell>
   );
 }

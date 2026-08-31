@@ -1,4 +1,5 @@
 import { Award, Check, Flame, Heart, Lock, Orbit, Settings, Sparkles, TrendingUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { badges, libraryItems } from '../mocks/library';
 import { viewer } from '../mocks/people';
@@ -56,13 +57,13 @@ export default function ProfileScreen() {
               <span>{xp.toLocaleString()} XP</span>
             </p>
           </div>
-          <button
-            type="button"
+          <Link
+            to="/v4/settings"
             className="console-focusable ml-auto flex h-9 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
           >
             <Settings aria-hidden className="h-3.5 w-3.5" />
             Settings
-          </button>
+          </Link>
         </header>
 
         {/*

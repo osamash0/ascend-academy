@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Lesson, Space } from '../types';
 
 /**
@@ -94,6 +95,8 @@ function curve(pts: { x: number; y: number }[]): string {
 }
 
 export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }) {
+  const navigate = useNavigate();
+  const href = (l: Lesson) => `/v4/space/${space.id}/lesson/${l.id}`;
   const published = useMemo(
     () => lessons.filter((l) => l.state === 'published'),
     [lessons],
@@ -202,6 +205,20 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
           return (
             <g
               key={lesson.id}
+              /*
+               * A body opens its Lesson. This carried `role="button"`,
+               * `tabIndex={0}` and a hover state with no handler of any kind —
+               * focusable, announced as a button, and inert. Keyboard is wired
+               * too: `role="button"` promises Enter and Space, and an SVG <g>
+               * gives you neither for free.
+               */
+              onClick={() => navigate(href(lesson))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate(href(lesson));
+                }
+              }}
               className="group cursor-pointer outline-none [&_text]:transition-[fill] [&_circle]:transition-[r,opacity]"
               tabIndex={0}
               role="button"

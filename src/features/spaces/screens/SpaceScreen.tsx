@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Plus, Settings2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,7 +8,7 @@ import { topicIcon } from '@/lib/topicIcon';
 import type { Membership, Role, Space } from '../types';
 import { useSpace } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
-import { contributionsForLesson } from '../mocks/contributions';
+import { contributionsForLesson, contributionsForSpace } from '../mocks/contributions';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonRow } from '../components/LessonRow';
@@ -22,6 +22,7 @@ import {
   VisibilityBadge,
 } from '../components/badges';
 import { SpacesError, SpacesSkeleton } from '../components/states';
+import { AddLessonDialog, ContributeDialog } from '../components/SpaceDialogs';
 
 /**
  * One Space.
@@ -78,6 +79,10 @@ export default function SpaceScreen({
    * It is simply closer.
    */
   const [showAllLessons, setShowAllLessons] = useState(false);
+  const [addingLesson, setAddingLesson] = useState(false);
+  const [contributing, setContributing] = useState(false);
+  /* Session writes are outside React state, so a tick re-reads them. */
+  const [writeTick, setWriteTick] = useState(0);
   const communityRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
@@ -96,10 +101,13 @@ export default function SpaceScreen({
    */
   const allContributions = useMemo(() => {
     const fromLessons = lessons.flatMap((l) => contributionsForLesson(l.id));
-    return [...contributions, ...fromLessons]
+    return [...contributionsForSpace(space?.id ?? ''), ...fromLessons]
       .filter((c) => !c.hidden)
       .sort((a, b) => b.likeCount - a.likeCount);
-  }, [contributions, lessons]);
+    // `writeTick` re-reads the session store after publishing; the store is
+    // outside React, so nothing else would tell this list it had changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contributions, lessons, space?.id, writeTick]);
 
   const chrome = (body: React.ReactNode) => (
     /*
@@ -135,13 +143,13 @@ export default function SpaceScreen({
 
   return chrome(
     <div className="mx-auto max-w-4xl px-6 pb-24 pt-6 lg:px-8">
-      <button
-        type="button"
-        className="console-focusable mb-6 -ml-2 inline-flex h-9 items-center gap-2 rounded-full px-2 text-[13px] font-bold text-quiet transition-colors hover:bg-white/[0.05] hover:text-foreground"
+      <Link
+        to="/v4/spaces"
+        className="console-focusable mb-6 -ml-2 inline-flex h-9 items-center gap-2 rounded-full px-2 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.05] hover:text-foreground"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" />
         Spaces
-      </button>
+      </Link>
 
       {/*
         ── Header ──
@@ -202,10 +210,10 @@ export default function SpaceScreen({
             {nextLesson && (
               <LaunchButton
                 label={space.viewerProgress > 0 ? 'Continue' : 'Start'}
-                onClick={() => undefined}
+                onClick={() => navigate(`/v4/space/${space.id}/lesson/${nextLesson.id}`)}
               />
             )}
-            <StarButton count={space.starCount} starred={space.starredByViewer} disabled={owned} />
+            <StarButton spaceId={space.id} viewerOwns={owned} />
 
             {/* Settings is a separate Studio screen, never a fourth tab. */}
             {owned && (
@@ -308,9 +316,10 @@ export default function SpaceScreen({
               {canAddLesson && space.state === 'active' && (
                 <button
                   type="button"
-                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-black text-slate-900 transition-transform hover:scale-[1.03]"
+                  onClick={() => setAddingLesson(true)}
+                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus aria-hidden className="h-4 w-4" />
                   Add Lesson
                 </button>
               )}
@@ -329,9 +338,10 @@ export default function SpaceScreen({
                 {canAddLesson && (
                   <button
                     type="button"
-                    className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-black text-slate-900"
+                    onClick={() => setAddingLesson(true)}
+                    className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus aria-hidden className="h-4 w-4" />
                     Add the first Lesson
                   </button>
                 )}
@@ -387,9 +397,10 @@ export default function SpaceScreen({
               {space.state === 'active' && space.viewerRole !== null && (
                 <button
                   type="button"
-                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-bold text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
+                  onClick={() => setContributing(true)}
+                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus aria-hidden className="h-4 w-4" />
                   Contribute
                 </button>
               )}
@@ -466,8 +477,20 @@ export default function SpaceScreen({
         </section>
       )}
 
-      {/* ── Map: reserved, not designed ── */}
       {tab === 'map' && <SpaceMap space={space} lessons={lessons} />}
+
+      <AddLessonDialog
+        space={space}
+        open={addingLesson}
+        onOpenChange={setAddingLesson}
+        onAdded={() => setWriteTick((n) => n + 1)}
+      />
+      <ContributeDialog
+        space={space}
+        open={contributing}
+        onOpenChange={setContributing}
+        onAdded={() => setWriteTick((n) => n + 1)}
+      />
     </div>,
   );
 }

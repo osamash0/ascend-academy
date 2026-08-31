@@ -107,6 +107,7 @@ const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
 const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
 const V4Practice = lazy(() => import("./features/spaces/screens/PracticeScreen"));
 const V4Settings = lazy(() => import("./features/spaces/screens/SettingsScreen"));
+const V4Person = lazy(() => import("./features/spaces/screens/PersonScreen"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
 const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
@@ -285,6 +286,8 @@ function AppRoutes() {
         {import.meta.env.DEV && <Route path="/v4/profile" element={<V4Profile />} />}
         {/* Settings hangs off Profile — a Studio screen, like Library's three. */}
         {import.meta.env.DEV && <Route path="/v4/settings" element={<V4Settings />} />}
+        {/* Someone else's public profile — a Social destination, per Doc 2. */}
+        {import.meta.env.DEV && <Route path="/v4/person/:personId" element={<V4Person />} />}
         {/* Practice before the bare lesson route, so it is not read as a tab. */}
         {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<V4Practice />} />}
         {import.meta.env.DEV && <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />}

@@ -9,13 +9,14 @@ import {
   Unlink,
   Upload,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { LibraryItem, LibraryKind } from '../types';
 import { useLibrary } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { NoteEditor } from '../components/NoteEditor';
-import { updateNote } from '../mocks/notes';
+import { addNote, updateNote } from '../mocks/notes';
 import { BentoCell } from '../components/BentoCell';
 import { Scene, SURFACES } from '../components/Scene';
 import { EndorsedBadge } from '../components/badges';
@@ -78,6 +79,13 @@ export default function LibraryScreen() {
   /** Bodies edited this session, so the row shows the edit immediately. */
   const [noteBodies, setNoteBodies] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<Filter>('all');
+  /*
+   * Library could edit a note but never write one — the empty state's only
+   * control was inert, so the surface Doc 2 calls "read and written in Library
+   * directly" could only be read.
+   */
+  const [composing, setComposing] = useState(false);
+  const [writeTick, setWriteTick] = useState(0);
   const { state, items, notes, pending } = useLibrary();
 
   const latestNote = notes[0];
@@ -208,8 +216,24 @@ export default function LibraryScreen() {
         })}
       </div>
 
-      {shown.length === 0 ? (
-        <EmptyLibrary filter={filter} />
+      {/* Writing a new note. Unanchored: it is yours and belongs to no Lesson
+          until you put it in one. */}
+      {composing && (
+        <div className="mt-6">
+          <NoteEditor
+            autoOpen
+            placeholder="Write it down while it is fresh…"
+            onSave={(body) => {
+              addNote({ lessonId: '', body, spaceName: 'No Space yet' });
+              setComposing(false);
+              setWriteTick((n) => n + 1);
+            }}
+          />
+        </div>
+      )}
+
+      {shown.length === 0 && !composing ? (
+        <EmptyLibrary filter={filter} onWriteNote={() => setComposing(true)} />
       ) : (
         <ul className="mt-6 space-y-2.5">
           {shown.map((item) => (
@@ -239,7 +263,6 @@ export default function LibraryScreen() {
 function LibraryRow({ item }: { item: LibraryItem }) {
   const Icon = KIND_ICON[item.kind];
   // Notes open here; everything else is a pointer into its Space.
-  const opensHere = item.kind === 'note';
 
   return (
     <article
@@ -298,17 +321,21 @@ function LibraryRow({ item }: { item: LibraryItem }) {
         </span>
       )}
 
-      <button
-        type="button"
-        className="console-focusable absolute inset-0 rounded-2xl"
-        aria-label={
-          opensHere
-            ? `Open note: ${item.title}`
-            : `Open ${KIND_LABEL[item.kind].toLowerCase()} “${item.title}” in ${item.spaceName}`
-        }
-      >
-        <span className="sr-only">Open</span>
-      </button>
+      {/*
+        Notes open in place; everything else opens the object in its Space.
+        This was a full-card target with an aria-label promising
+        "Open … in Database Systems" and no destination of any kind — the
+        `href` its own type comment described did not exist on the type.
+      */}
+      {item.href && (
+        <Link
+          to={item.href}
+          className="console-focusable absolute inset-0 rounded-2xl"
+          aria-label={`Open ${KIND_LABEL[item.kind].toLowerCase()} “${item.title}” in ${item.spaceName}`}
+        >
+          <span className="sr-only">Open</span>
+        </Link>
+      )}
     </article>
   );
 }
@@ -317,7 +344,7 @@ function LibraryRow({ item }: { item: LibraryItem }) {
  * The likely state for a new member for weeks, so it carries an invitation to
  * write a first note — not an error, and not a shrug.
  */
-function EmptyLibrary({ filter }: { filter: Filter }) {
+function EmptyLibrary({ filter, onWriteNote }: { filter: Filter; onWriteNote: () => void }) {
   const copy: Record<Filter, { title: string; body: string; cta: string }> = {
     all: {
       title: 'Nothing here yet',
@@ -347,13 +374,26 @@ function EmptyLibrary({ filter }: { filter: Filter }) {
       <NotebookPen aria-hidden className="mx-auto mb-4 h-6 w-6 text-quiet" />
       <p className="mb-2 text-[17px] font-semibold">{title}</p>
       <p className="mx-auto mb-7 max-w-[48ch] text-[14.5px] leading-relaxed text-quiet">{body}</p>
-      <button
-        type="button"
-        className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
-      >
-        <Plus aria-hidden className="h-4 w-4" />
-        {cta}
-      </button>
+      {/* The only control in this state; it used to do nothing. Notes are
+          written here, so that one calls back; the rest send you to Spaces,
+          because you cannot upload or publish from Library. */}
+      {filter === 'note' || filter === 'all' ? (
+        <button
+          type="button"
+          onClick={onWriteNote}
+          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
+        >
+          <Plus aria-hidden className="h-4 w-4" />
+          {cta}
+        </button>
+      ) : (
+        <Link
+          to="/v4/spaces"
+          className="console-focusable inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
+        >
+          {cta}
+        </Link>
+      )}
     </div>
   );
 }

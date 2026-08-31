@@ -67,6 +67,9 @@ const uploadedMaterials: LibraryItem[] = lessonsForSpace('s-linalg')
     id: `lib-mat-${l.id}`,
     kind: 'material' as const,
     title: l.material!.filename,
+    // A Material opens the Lesson built from it — the file itself is not a
+    // screen, and Library never re-renders Space content.
+    href: `/v4/space/${l.spaceId}/lesson/${l.id}`,
     spaceId: l.spaceId,
     spaceName: spaceName(l.spaceId),
     lessonTitle: l.title,
@@ -90,16 +93,28 @@ const uploadedMaterials: LibraryItem[] = lessonsForSpace('s-linalg')
  */
 const resolveAnchor = (
   anchor: ContributionAnchor,
-): { spaceId: string | null; lessonTitle?: string } => {
-  if (anchor.level === 'space') return { spaceId: anchor.spaceId };
+): { spaceId: string | null; lessonTitle?: string; href: string | null } => {
+  if (anchor.level === 'space') {
+    return { spaceId: anchor.spaceId, href: `/v4/space/${anchor.spaceId}` };
+  }
   if (anchor.level === 'lesson') {
     const found = locateLesson(anchor.lessonId);
     return found
-      ? { spaceId: found.spaceId, lessonTitle: found.lesson.title }
-      : { spaceId: null };
+      ? {
+          spaceId: found.spaceId,
+          lessonTitle: found.lesson.title,
+          href: `/v4/space/${found.spaceId}/lesson/${found.lesson.id}`,
+        }
+      : { spaceId: null, href: null };
   }
   const concept = conceptById(anchor.conceptId);
-  return concept ? { spaceId: concept.spaceId, lessonTitle: concept.name } : { spaceId: null };
+  return concept
+    ? {
+        spaceId: concept.spaceId,
+        lessonTitle: concept.name,
+        href: `/v4/space/${concept.spaceId}/concept/${concept.id}`,
+      }
+    : { spaceId: null, href: null };
 };
 
 /** Everything the viewer published, at any of the three anchor levels. */
@@ -115,8 +130,11 @@ const myContributions: LibraryItem[] = myPublished().map((c) => {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
     title: c.title,
-    // An orphan keeps its last known Space so it is still findable; the
-    // `orphaned` flag is what tells the row to explain itself.
+    // A contribution opens where it is anchored. An orphan has no anchor left
+    // to open, so it falls back to its last known Space and keeps that Space
+    // in the context line; the `orphaned` flag is what makes the row explain
+    // itself rather than look like an ordinary entry.
+    href: at.href ?? `/v4/space/${at.spaceId ?? 's-dbs'}`,
     spaceId: at.spaceId ?? 's-dbs',
     spaceName: spaceName(at.spaceId ?? 's-dbs'),
     lessonTitle: at.lessonTitle,
@@ -127,22 +145,42 @@ const myContributions: LibraryItem[] = myPublished().map((c) => {
   };
 });
 
-const myNotes: LibraryItem[] = notes.map((n) => ({
+/**
+ * A Note as a Library row.
+ *
+ * Exported as a mapper rather than applied to the seed here, because the
+ * writable note store lives in `notes.ts` — which imports this file for its
+ * seed, so importing it back would be a cycle. `useLibrary` owns the join.
+ *
+ * This matters: the list used to be built from the seed array once, at module
+ * load. Notes were writable and Library could never show a new one.
+ */
+export const noteToItem = (n: Note): LibraryItem => ({
   id: `lib-note-${n.id}`,
   kind: 'note' as const,
   title: n.body.split(/[.:]/)[0].trim(),
+  // Notes are the exception: read and written in Library itself, never
+  // opened in their Space (Doc 2 rule 5).
+  href: null,
   spaceId: n.spaceId,
   spaceName: n.spaceName,
   lessonTitle: n.lessonTitle,
   updatedAt: n.updatedAt,
-}));
+});
 
-/** Everything you made, newest first. */
-export const libraryItems: LibraryItem[] = [
-  ...myNotes,
-  ...uploadedMaterials,
-  ...myContributions,
-].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+/** Everything you made that is not a Note, newest first. */
+export const nonNoteItems: LibraryItem[] = [...uploadedMaterials, ...myContributions].sort(
+  (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
+);
+
+/** Everything you made, newest first, given the current notes. */
+export const libraryItemsWith = (currentNotes: Note[]): LibraryItem[] =>
+  [...currentNotes.map(noteToItem), ...nonNoteItems].sort(
+    (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
+  );
+
+/** The seeded view, for fixtures and guards that do not run the note store. */
+export const libraryItems: LibraryItem[] = libraryItemsWith(notes);
 
 export const itemsOfKind = (kind: LibraryItem['kind']) =>
   libraryItems.filter((i) => i.kind === kind);

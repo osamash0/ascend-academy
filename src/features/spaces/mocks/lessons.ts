@@ -254,9 +254,47 @@ const bySpace: Record<string, Lesson[]> = {
   's-stats': statisticsLessons,
 };
 
+/**
+ * Lessons added this session, kept apart from the fixture arrays.
+ *
+ * Separate rather than pushed into `bySpace` for the same reason
+ * `createdThisSession` exists for Spaces: a mutable base array would make
+ * "covers every state" depend on whatever was last clicked, and the fixture
+ * guards would start passing or failing according to click history.
+ */
+const addedThisSession: Lesson[] = [];
+
 /** Every Lesson in a Space, in path order. Order is fixed in both modes. */
 export const lessonsForSpace = (spaceId: string): Lesson[] =>
-  [...(bySpace[spaceId] ?? [])].sort((a, b) => a.order - b.order);
+  [...(bySpace[spaceId] ?? []), ...addedThisSession.filter((l) => l.spaceId === spaceId)].sort(
+    (a, b) => a.order - b.order,
+  );
+
+/** Test seam — session additions must not leak between tests. */
+export const resetAddedLessons = (): void => {
+  addedThisSession.length = 0;
+};
+
+/**
+ * Add a Lesson to a Space's path.
+ *
+ * It lands as a **draft**, always. Uploading material starts a build; it does
+ * not publish. Rule 1 then makes it visible to its author and the
+ * Owner/Editors and nobody else — which is what the drafts list in Studio is
+ * for, and why "Add Lesson" is not the same act as "publish".
+ */
+export const addLesson = (spaceId: string, title: string, author: Person): Lesson => {
+  const order = lessonsForSpace(spaceId).length + 1;
+  const created = lesson(spaceId, title.trim(), order, author, {
+    state: 'draft',
+    // Community when a Member adds it; the Space's mode decides whether a
+    // Member may, and that check lives on the screen that owns the action.
+    origin: author.id === viewer.id ? 'community' : 'official',
+    material: null,
+  });
+  addedThisSession.push(created);
+  return created;
+};
 
 /**
  * One Lesson by id, and the Space it belongs to, without knowing the Space

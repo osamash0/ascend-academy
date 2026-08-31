@@ -1,5 +1,6 @@
 import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles, TrendingUp } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
@@ -9,6 +10,7 @@ import { useHome } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
+import { JoinSpaceDialog, NewSpaceDialog } from '../components/SpaceDialogs';
 import { SpacesError, SpacesSkeleton } from '../components/states';
 
 /**
@@ -57,6 +59,10 @@ const greeting = () => {
 export default function HomeScreen() {
   const navigate = useNavigate();
   const { state, kind, next, feed, recent, streakDays } = useHome();
+  const [newOpen, setNewOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  /** The most recent thing you touched — the target for "Review something". */
+  const lastTouched = recent[0] ?? feed[0];
 
   const dueForReview = feed.filter((i) => i.reason === 'review').length;
   const fresh = feed.filter((i) => i.reason === 'new');
@@ -90,8 +96,18 @@ export default function HomeScreen() {
           something new is published, or go back over what you have already cleared.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          {/* Reviewing means reopening something you have finished. With
+              nothing left to do, the most recent thing you touched is the
+              honest target. */}
           <button
             type="button"
+            onClick={() =>
+              navigate(
+                lastTouched
+                  ? `/v4/space/${lastTouched.spaceId}/lesson/${lastTouched.lessonId}`
+                  : '/v4/spaces',
+              )
+            }
             className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
           >
             <RotateCw aria-hidden className="h-4 w-4" />
@@ -122,6 +138,7 @@ export default function HomeScreen() {
         <div className="flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
+            onClick={() => setNewOpen(true)}
             className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]"
           >
             <Plus aria-hidden className="h-4 w-4" />
@@ -129,11 +146,14 @@ export default function HomeScreen() {
           </button>
           <button
             type="button"
+            onClick={() => setJoinOpen(true)}
             className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium text-foreground transition-colors hover:bg-white/[0.08]"
           >
             Join with a code
           </button>
         </div>
+        <NewSpaceDialog open={newOpen} onOpenChange={setNewOpen} />
+        <JoinSpaceDialog open={joinOpen} onOpenChange={setJoinOpen} />
       </div>,
     );
   }
@@ -311,13 +331,17 @@ export default function HomeScreen() {
                     >
                       <Play aria-hidden className="h-3.5 w-3.5 fill-current" />
                     </span>
-                    <button
-                      type="button"
+                    {/* The whole card is the target — it announced itself as
+                        one and had no handler. The rail above it navigated
+                        correctly, so this was one live row pattern and one
+                        dead one on the same screen. */}
+                    <Link
+                      to={`/v4/space/${item.spaceId}/lesson/${item.lessonId}`}
                       className="console-focusable absolute inset-0 rounded-2xl"
                       aria-label={`${REASON_LABEL[item.reason]}: ${item.lessonTitle}, Lesson ${item.lessonOrder} in ${item.spaceName}`}
                     >
                       <span className="sr-only">Open</span>
-                    </button>
+                    </Link>
                   </article>
                 </li>
               );

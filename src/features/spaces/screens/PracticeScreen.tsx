@@ -7,7 +7,7 @@ import { spaceById } from '../mocks/spaces';
 import { visibleLesson } from '../mocks/lessons';
 import { gradeAnswer, practiceForLesson } from '../mocks/practice';
 import { Scene, SURFACES } from '../components/Scene';
-import { SpacesError } from '../components/states';
+import { NotFound } from '../components/states';
 
 /**
  * Practice for one Lesson.
@@ -47,7 +47,14 @@ export default function PracticeScreen() {
     </Scene>
   );
 
-  if (!space || !lesson) return chrome(<SpacesError />);
+  if (!space || !lesson)
+    return chrome(
+      <NotFound
+        what="Lesson"
+        backTo={space ? `/v4/space/${space.id}` : '/v4/spaces'}
+        backLabel={space ? `Back to ${space.name}` : 'Back to Spaces'}
+      />,
+    );
 
   const backToLesson = `/v4/space/${space.id}/lesson/${lesson.id}`;
 

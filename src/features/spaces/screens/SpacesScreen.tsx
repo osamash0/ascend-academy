@@ -10,6 +10,7 @@ import { SpacesTopBar } from '../components/SpacesTopBar';
 import { SpaceTile } from '../components/SpaceTile';
 import { Scene, SURFACES } from '../components/Scene';
 import { JoinSpaceDialog, NewSpaceDialog } from '../components/SpaceDialogs';
+import { marburg } from '../mocks/spaces';
 import {
   NoSpacesYet,
   NothingToDiscover,
@@ -154,7 +155,22 @@ export default function SpacesScreen() {
   const noneAtAll = !mine.created.length && !mine.joined.length && !mine.archived.length;
   if (state === 'empty' || (tab === 'mine' && noneAtAll)) {
     return chrome(
-      tab === 'discover' ? <NothingToDiscover scopeLabel="Uni Marburg" /> : <NoSpacesYet />,
+      <>
+        {tab === 'discover' ? (
+          <NothingToDiscover
+            // The Universe's name, read from the fixture rather than typed
+            // here — a hardcoded copy would survive a rename.
+            scopeLabel={marburg.name}
+            onWiden={() => setTab('discover')}
+          />
+        ) : (
+          <NoSpacesYet onCreate={() => setNewOpen(true)} onJoin={() => setJoinOpen(true)} />
+        )}
+        {/* The dialogs mount here too: this branch returns early, so the copies
+            at the bottom of the screen are unreachable from the empty state. */}
+        <NewSpaceDialog open={newOpen} onOpenChange={setNewOpen} />
+        <JoinSpaceDialog open={joinOpen} onOpenChange={setJoinOpen} />
+      </>,
     );
   }
 

@@ -17,13 +17,12 @@ import {
 import {
   heroKind,
   homeFeed,
-  itemsOfKind,
-  libraryItems,
+  libraryItemsWith,
   nextAction,
-  notes,
   pendingUploads,
   recentlyViewed,
 } from '../mocks/library';
+import { allNotes } from '../mocks/notes';
 import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
 
 /**
@@ -188,11 +187,18 @@ export function useLibrary(kind?: LibraryItem['kind']): LibraryResult {
   const scenario = useScenario();
   const state = useSettled(scenario);
   const ready = state === 'ready';
-  const items = ready ? (kind ? itemsOfKind(kind) : libraryItems) : [];
+  /*
+   * Read the live note store, not the seed. `libraryItems` is composed once at
+   * module load, so a note written this session never appeared in Library —
+   * the one surface Doc 2 says notes are *written* in.
+   */
+  const currentNotes = ready ? allNotes() : [];
+  const all = ready ? libraryItemsWith(currentNotes) : [];
+  const items = kind ? all.filter((i) => i.kind === kind) : all;
   return {
     state: ready && items.length === 0 ? 'empty' : state,
     items,
-    notes: ready ? notes : [],
+    notes: currentNotes,
     pending: ready ? pendingUploads() : [],
   };
 }

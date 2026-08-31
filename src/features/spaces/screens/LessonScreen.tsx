@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Check,
@@ -24,7 +24,7 @@ import { ContributionCard } from '../components/ContributionCard';
 import { NoteEditor } from '../components/NoteEditor';
 import { LessonPager } from '../components/LessonPager';
 import { AuthorLine, GroundingMarker, OriginBadge } from '../components/badges';
-import { SpacesError } from '../components/states';
+import { NotFound } from '../components/states';
 
 /**
  * A Lesson's own overview.
@@ -70,6 +70,7 @@ function Row({
 
 export default function LessonScreen() {
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
+  const navigate = useNavigate();
   const space: Space | undefined = spaceId ? spaceById(spaceId) : undefined;
   // Rule 1 runs through `visibleLesson`, not a raw lookup: a Member asking for
   // a draft by URL must get "not found", not the draft.
@@ -106,11 +107,22 @@ export default function LessonScreen() {
     </Scene>
   );
 
-  if (!space || !lesson) return chrome(<SpacesError />);
+  // Not found, not a failure — a bad id must not claim the connection dropped.
+  if (!space || !lesson)
+    return chrome(
+      <NotFound
+        what="Lesson"
+        backTo={space ? `/v4/space/${space.id}` : '/v4/spaces'}
+        backLabel={space ? `Back to ${space.name}` : 'Back to Spaces'}
+      />,
+    );
 
   const Icon = topicIcon(lesson.title, lesson.id);
   const cleared = lesson.concepts.filter((c) => c.progress === 'cleared').length;
   const done = lesson.progress === 'done';
+  // Resume where you stopped: the first idea not yet cleared, else the first.
+  const firstConcept =
+    lesson.concepts.find((c) => c.progress !== 'cleared') ?? lesson.concepts[0];
 
   return chrome(
     <div className="pb-36">
@@ -134,13 +146,13 @@ export default function LessonScreen() {
         />
 
         <div className="relative mx-auto max-w-4xl px-6 pt-6 lg:px-8">
-          <button
-            type="button"
+          <Link
+            to={`/v4/space/${space.id}`}
             className="console-focusable -ml-2 mb-8 inline-flex h-9 items-center gap-2 rounded-full px-2 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
           >
             <ArrowLeft aria-hidden className="h-4 w-4" />
             {space.name}
-          </button>
+          </Link>
 
           <p className="text-[13px] text-quiet">
             {space.name} · Lesson {lesson.order}
@@ -197,10 +209,21 @@ export default function LessonScreen() {
 
           {/* One primary action. Everything else is subordinate. */}
           <div className="mt-7 flex flex-wrap items-center gap-3">
+            {/*
+              Starting a Lesson means reading its first idea. There is no
+              separate reader screen in this build and the fixtures carry no
+              prose, so rather than launch into an empty shell the primary
+              action goes to the first Concept — a screen that exists and has
+              something in it. NEEDS-CONTENT: the real reader replaces this.
+            */}
             <LaunchButton
               label={done ? 'Review' : lesson.percentComplete > 0 ? 'Continue' : 'Start'}
               icon={Play}
-              onClick={() => undefined}
+              onClick={() =>
+                firstConcept
+                  ? navigate(`/v4/space/${space.id}/concept/${firstConcept.id}`)
+                  : navigate(`/v4/space/${space.id}/lesson/${lesson.id}/practice`)
+              }
             />
             {lesson.practiceCount > 0 && (
               <Link

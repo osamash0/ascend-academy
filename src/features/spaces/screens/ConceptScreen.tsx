@@ -12,7 +12,7 @@ import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { ContributionCard } from '../components/ContributionCard';
-import { SpacesError } from '../components/states';
+import { NotFound } from '../components/states';
 
 /**
  * One Concept — "a single idea inside a Lesson" (Doc 1). The map's planet.
@@ -78,7 +78,14 @@ export default function ConceptScreen() {
     </Scene>
   );
 
-  if (!space || !concept) return chrome(<SpacesError />);
+  if (!space || !concept)
+    return chrome(
+      <NotFound
+        what="idea"
+        backTo={space ? `/v4/space/${space.id}` : '/v4/spaces'}
+        backLabel={space ? `Back to ${space.name}` : 'Back to Spaces'}
+      />,
+    );
 
   const Icon = topicIcon(concept.name, concept.id);
   const state = STATE[concept.progress];
@@ -167,8 +174,13 @@ export default function ConceptScreen() {
         {practiceTotal > 0 && (
           <section className="mt-9">
             <h2 className="mb-4 text-[14px] font-medium text-quiet">Practice</h2>
-            <button
-              type="button"
+            {/*
+              Practice belongs to a Lesson, so practising an idea means
+              practising the first Lesson it appears in. An idea-level question
+              bank would be a second source for the same questions.
+            */}
+            <Link
+              to={`/v4/space/${space.id}/lesson/${lessons[0].id}/practice`}
               className="console-focusable flex w-full items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-5 py-4 text-left transition-colors hover:bg-white/[0.05]"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-quiet">
@@ -183,7 +195,7 @@ export default function ConceptScreen() {
                   {lessons.length === 1 ? 'its Lesson' : `${lessons.length} Lessons`}
                 </span>
               </span>
-            </button>
+            </Link>
           </section>
         )}
 

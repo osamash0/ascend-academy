@@ -275,11 +275,18 @@ export type LibraryKind = 'note' | 'material' | 'contribution';
  * `href` is where opening it goes. For notes that is Library itself; for
  * everything else it is the object in its Space — Library never re-renders
  * Space content, which is what made the rejected version a duplicate index.
+ *
+ * That paragraph described a field the interface did not have. Every non-Note
+ * row therefore rendered a full-card target announcing "Open … in Database
+ * Systems" with nowhere to go. A doc comment for a property that does not
+ * exist is worse than none: it reads as a decision already made.
  */
 export interface LibraryItem {
   id: string;
   kind: LibraryKind;
   title: string;
+  /** Where opening it goes. `null` for a Note — Notes open in place. */
+  href: string | null;
   /** Context line: which Space, and which Lesson where relevant. */
   spaceId: string;
   spaceName: string;

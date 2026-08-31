@@ -162,12 +162,63 @@ const byLesson: Record<string, Contribution[]> = {
   'l-s-dbs-4': normalizationContributions,
 };
 
+/** Published this session. Kept apart from the fixtures, as elsewhere. */
+const addedThisSession: Contribution[] = [];
+
+export const resetAddedContributions = (): void => {
+  addedThisSession.length = 0;
+};
+
+/**
+ * Publish a contribution.
+ *
+ * Always Community origin — Official content is a Lesson, not a contribution
+ * (Doc 1), so origin is not a parameter. It starts un-endorsed and un-hidden:
+ * endorsing and hiding are Owner acts, and neither is something you can do to
+ * your own work on the way in.
+ *
+ * `grounding` follows the Space, mirroring how the fixtures do it: grounding
+ * is a property of the Space's material, not of who wrote the contribution.
+ */
+export const addContribution = (input: {
+  title: string;
+  excerpt: string;
+  type: Contribution['type'];
+  anchor: Contribution['anchor'];
+  author: Contribution['author'];
+  grounding: Contribution['grounding'];
+}): Contribution => {
+  const created: Contribution = {
+    id: `c-new-${addedThisSession.length + 1}`,
+    title: input.title.trim(),
+    excerpt: input.excerpt.trim(),
+    type: input.type,
+    anchor: input.anchor,
+    origin: 'community',
+    author: input.author,
+    grounding: input.grounding,
+    likeCount: 0,
+    likedByViewer: false,
+    endorsed: false,
+    hidden: false,
+    orphaned: false,
+    createdAt: new Date().toISOString(),
+  };
+  addedThisSession.push(created);
+  return created;
+};
+
 /** Sorted by likes — the community section, never the path. */
 export const contributionsForLesson = (lessonId: string): Contribution[] =>
-  [...(byLesson[lessonId] ?? [])].sort((a, b) => b.likeCount - a.likeCount);
+  [
+    ...(byLesson[lessonId] ?? []),
+    ...addedThisSession.filter(
+      (c) => c.anchor.level === 'lesson' && c.anchor.lessonId === lessonId,
+    ),
+  ].sort((a, b) => b.likeCount - a.likeCount);
 
 export const contributionsForSpace = (spaceId: string): Contribution[] =>
-  spaceContributions
+  [...spaceContributions, ...addedThisSession]
     .filter((c) => c.anchor.level === 'space' && c.anchor.spaceId === spaceId)
     .sort((a, b) => b.likeCount - a.likeCount);
 

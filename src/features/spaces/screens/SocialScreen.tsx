@@ -1,7 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Check, Search, Trophy, UserPlus, Users, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { friendRequests, friends, leaderboard } from '../mocks/library';
+import { leaderboard } from '../mocks/library';
+import {
+  acceptRequest,
+  currentFriends,
+  currentRequests,
+  declineRequest,
+} from '../mocks/social';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
@@ -26,6 +34,17 @@ import { BentoCell } from '../components/BentoCell';
 type Tab = 'ranking' | 'friends' | 'requests';
 
 export default function SocialScreen() {
+  /*
+   * Accepting or declining mutates a store outside React, so a tick re-reads
+   * it. Before this, both buttons were enabled, named the person in their
+   * aria-label, and did nothing — a request you accepted stayed in the list,
+   * which reads as the action having failed.
+   */
+  const [socialTick, setSocialTick] = useState(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const friends = useMemo(() => currentFriends(), [socialTick]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const friendRequests = useMemo(() => currentRequests(), [socialTick]);
   const [tab, setTab] = useState<Tab>('ranking');
 
   const myPosition = leaderboard.findIndex((r) => r.isViewer) + 1;
@@ -189,18 +208,27 @@ export default function SocialScreen() {
                     className="flex items-center justify-between gap-4 rounded-2xl px-5 py-3.5 hover:bg-white/[0.03]"
                   >
                     <AuthorLine person={p} />
-                    <button
-                      type="button"
-                      className="console-focusable h-9 shrink-0 rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08]"
+                    <Link
+                      to={`/v4/person/${p.id}`}
+                      aria-label={`View ${p.name}'s profile`}
+                      className="console-focusable flex h-9 shrink-0 items-center rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08]"
                     >
                       View profile
-                    </button>
+                    </Link>
                   </li>
                 ))}
               </ul>
             )}
+            {/* One search, not two. Finding people goes through the same ⌘K
+                palette as everything else rather than growing a second search
+                box that knows about a different half of the data. */}
             <button
               type="button"
+              onClick={() =>
+                window.dispatchEvent(
+                  new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }),
+                )
+              }
               className="console-focusable mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 text-[14px] font-medium text-quiet transition-colors hover:border-white/30 hover:text-foreground"
             >
               <Search aria-hidden className="h-4 w-4" />
@@ -229,6 +257,11 @@ export default function SocialScreen() {
                     <div className="flex shrink-0 items-center gap-2">
                       <button
                         type="button"
+                        onClick={() => {
+                          acceptRequest(r.person.id);
+                          setSocialTick((n) => n + 1);
+                          toast(`${r.person.name} is now a friend`);
+                        }}
                         aria-label={`Accept ${r.person.name}`}
                         className="console-focusable flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
                       >
@@ -237,6 +270,12 @@ export default function SocialScreen() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => {
+                          declineRequest(r.person.id);
+                          setSocialTick((n) => n + 1);
+                          // Declining is quiet on purpose: they are not told.
+                          toast('Request declined');
+                        }}
                         aria-label={`Decline ${r.person.name}`}
                         className="console-focusable flex h-9 w-9 items-center justify-center rounded-full border border-white/12 text-quiet transition-colors hover:bg-white/[0.08]"
                       >

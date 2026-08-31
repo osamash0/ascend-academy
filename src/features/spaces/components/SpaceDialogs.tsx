@@ -9,8 +9,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { SpaceMode, Visibility } from '../types';
+import { toast } from 'sonner';
+import type { ContributionType, Space, SpaceMode, Visibility } from '../types';
 import { createSpace, joinCodeFor, spaceByJoinCode } from '../mocks/spaces';
+import { addLesson } from '../mocks/lessons';
+import { addContribution } from '../mocks/contributions';
+import { viewer } from '../mocks/people';
 import { AuthorLine, ClassificationChips } from './badges';
 
 /**
@@ -278,5 +282,214 @@ export function JoinCodeBlock({ spaceId }: { spaceId: string }) {
         {copied ? 'Copied' : 'Copy code'}
       </button>
     </div>
+  );
+}
+
+/* ── Add a Lesson ───────────────────────────────────────────────── */
+
+/**
+ * Add a Lesson to a Space's path.
+ *
+ * It lands as a **draft**, and the dialog says so before you press the button.
+ * Uploading material starts a build; it does not publish. Getting that wrong
+ * in the copy would make every new Lesson look like it had gone live to the
+ * whole Space the moment it was named.
+ *
+ * Whether *you* may add one is decided by the screen — Open Spaces let any
+ * Member, Guided Spaces do not — so this dialog does not re-litigate it.
+ */
+export function AddLessonDialog({
+  space,
+  open,
+  onOpenChange,
+  onAdded,
+}: {
+  space: Space;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onAdded?: () => void;
+}) {
+  const navigate = useNavigate();
+  const [title, setTitle] = useState('');
+
+  const add = () => {
+    if (!title.trim()) return;
+    const l = addLesson(space.id, title, viewer);
+    onOpenChange(false);
+    setTitle('');
+    onAdded?.();
+    navigate(`/v4/space/${space.id}/lesson/${l.id}`);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-[20px] font-semibold">Add a Lesson</DialogTitle>
+          <DialogDescription className="text-[14px] leading-relaxed text-quiet">
+            It starts as a draft in {space.name}. Only you and the people who maintain this
+            Space can see a draft — nothing is published until you say so.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 pt-2">
+          <div>
+            <label htmlFor="lesson-title" className="mb-2 block text-[13.5px] font-medium">
+              What is it about
+            </label>
+            <input
+              id="lesson-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && add()}
+              placeholder="Normalization"
+              autoFocus
+              className="console-focusable h-11 w-full rounded-xl border border-white/12 bg-white/[0.04] px-4 text-[15px] outline-none placeholder:text-faint"
+            />
+          </div>
+
+          {/*
+            NEEDS-BACKEND: the real flow uploads material and a Lesson builds
+            itself from it. There is no upload here, so the dialog does not draw
+            a file picker it cannot honour — it names the Lesson and leaves it
+            in the state a real upload would leave it in.
+          */}
+          <p className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-[13px] leading-relaxed text-quiet">
+            In the finished product you would attach material here and the Lesson would build
+            itself from it. This design build creates the draft and stops there.
+          </p>
+
+          <button
+            type="button"
+            onClick={add}
+            disabled={!title.trim()}
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+          >
+            <Plus aria-hidden className="h-4 w-4" />
+            Create the draft and open it
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ── Contribute ─────────────────────────────────────────────────── */
+
+const CONTRIBUTION_TYPES: { key: ContributionType; label: string; blurb: string }[] = [
+  { key: 'text', label: 'A write-up', blurb: 'An explanation, a worked example, a summary.' },
+  { key: 'practice-set', label: 'Practice', blurb: 'Questions with worked answers.' },
+  { key: 'link', label: 'A link', blurb: 'Something useful that lives elsewhere.' },
+];
+
+/**
+ * Publish something into a Space's community section.
+ *
+ * Always Community origin and always un-endorsed on the way in — endorsing is
+ * an Owner's act, and a contribution that arrived pre-endorsed would make the
+ * badge meaningless. The copy is explicit that this is public to the Space,
+ * because the neighbouring object that is *not* public is a Note, and the two
+ * are one click apart in Library.
+ */
+export function ContributeDialog({
+  space,
+  lessonId,
+  open,
+  onOpenChange,
+  onAdded,
+}: {
+  space: Space;
+  /** Anchors to a Lesson when opened from one; to the Space otherwise. */
+  lessonId?: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onAdded?: () => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [excerpt, setExcerpt] = useState('');
+  const [type, setType] = useState<ContributionType>('text');
+
+  const publish = () => {
+    if (!title.trim() || !excerpt.trim()) return;
+    addContribution({
+      title,
+      excerpt,
+      type,
+      anchor: lessonId ? { level: 'lesson', lessonId } : { level: 'space', spaceId: space.id },
+      author: viewer,
+      // Grounding follows the Space's material, not the author.
+      grounding: space.groundingEnabled ? 'not-grounded' : null,
+    });
+    onOpenChange(false);
+    setTitle('');
+    setExcerpt('');
+    onAdded?.();
+    toast('Published to the Space', {
+      description: 'Members can see it now. You cannot like your own work.',
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-[20px] font-semibold">Contribute</DialogTitle>
+          <DialogDescription className="text-[14px] leading-relaxed text-quiet">
+            Everyone in {space.name} will see this, with your name on it. For something
+            private, write a note instead.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 pt-2">
+          <div>
+            <p className="mb-2 text-[13.5px] font-medium">What kind</p>
+            <Choice<ContributionType>
+              name="Kind"
+              options={CONTRIBUTION_TYPES}
+              value={type}
+              onChange={setType}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="con-title" className="mb-2 block text-[13.5px] font-medium">
+              Title
+            </label>
+            <input
+              id="con-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="The one example that made it click"
+              autoFocus
+              className="console-focusable h-11 w-full rounded-xl border border-white/12 bg-white/[0.04] px-4 text-[15px] outline-none placeholder:text-faint"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="con-body" className="mb-2 block text-[13.5px] font-medium">
+              The useful part
+            </label>
+            <textarea
+              id="con-body"
+              value={excerpt}
+              onChange={(e) => setExcerpt(e.target.value)}
+              rows={4}
+              placeholder="Write the thing you wish had been there when you were stuck."
+              className="console-focusable w-full resize-y rounded-xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed outline-none placeholder:text-faint"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={publish}
+            disabled={!title.trim() || !excerpt.trim()}
+            className="console-focusable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-semibold text-slate-900 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+          >
+            <Plus aria-hidden className="h-4 w-4" />
+            Publish to {space.name}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

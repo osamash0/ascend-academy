@@ -6,7 +6,9 @@ import {
   ListChecks,
   Unlink,
 } from 'lucide-react';
+import { useReducer } from 'react';
 import { cn } from '@/lib/utils';
+import { isLiked, likeCount, toggleLike } from '../mocks/engagement';
 import type { Contribution, ContributionType, Space } from '../types';
 import { AuthorLine, EndorsedBadge, GroundingMarker } from './badges';
 
@@ -59,6 +61,14 @@ interface Props {
 
 export function ContributionCard({ contribution: c, space, isOwn, featured, className }: Props) {
   const Icon = TYPE_ICON[c.type];
+  /*
+   * Like state comes from the store, not from the fixture's `likedByViewer`.
+   * The fixture is the seed; reading it directly is what made this button
+   * announce "Tap to remove" and then never change.
+   */
+  const [, force] = useReducer((n: number) => n + 1, 0);
+  const liked = isLiked(c.id);
+  const likes = likeCount(c.id);
 
   return (
     <article
@@ -138,25 +148,29 @@ export function ContributionCard({ contribution: c, space, isOwn, featured, clas
         <button
           type="button"
           disabled={isOwn}
-          aria-pressed={c.likedByViewer}
+          onClick={() => {
+            toggleLike(c.id, c.author.id);
+            force();
+          }}
+          aria-pressed={liked}
           aria-label={
             isOwn
-              ? `${c.likeCount} likes. You can’t like your own contribution.`
-              : c.likedByViewer
-                ? `Liked. ${c.likeCount} likes. Tap to remove.`
-                : `Like this. ${c.likeCount} likes.`
+              ? `${likes} likes. You can’t like your own contribution.`
+              : liked
+                ? `Liked. ${likes} likes. Tap to remove.`
+                : `Like this. ${likes} likes.`
           }
           title={isOwn ? 'You can’t like your own contribution.' : undefined}
           className={cn(
             'console-focusable inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium tabular-nums transition-colors',
-            c.likedByViewer
+            liked
               ? 'border-like/40 bg-like/12 text-like'
               : 'border-white/12 bg-white/[0.04] text-quiet hover:bg-white/[0.08]',
             isOwn && 'cursor-not-allowed opacity-45 hover:bg-white/[0.04]',
           )}
         >
-          <Heart aria-hidden className={cn('h-3.5 w-3.5', c.likedByViewer && 'fill-like')} />
-          {c.likeCount}
+          <Heart aria-hidden className={cn('h-3.5 w-3.5', liked && 'fill-like')} />
+          {likes}
         </button>
       </div>
     </article>

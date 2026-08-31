@@ -1,5 +1,7 @@
 import { BookOpen, Check, Link2, Lock, Quote, Star, Users } from 'lucide-react';
+import { useReducer } from 'react';
 import { cn } from '@/lib/utils';
+import { isStarred, starCount, toggleStar } from '../mocks/engagement';
 import type { Grounding, Origin, Person, Space, SpaceMode, Visibility } from '../types';
 import { Avatar } from './Avatar';
 
@@ -239,22 +241,34 @@ export function AuthorLine({
  * You cannot star your own Space.
  */
 export function StarButton({
-  count,
-  starred,
-  disabled = false,
-  onToggle,
+  spaceId,
+  viewerOwns = false,
   className,
 }: {
-  count: number;
-  starred: boolean;
-  disabled?: boolean;
-  onToggle?: () => void;
+  spaceId: string;
+  /** You cannot star your own Space — refused, and it says so. */
+  viewerOwns?: boolean;
   className?: string;
 }) {
+  /*
+   * Self-wiring on purpose. The previous signature took an optional
+   * `onToggle`, and its one call site omitted it — so the button rendered
+   * enabled, carried `aria-pressed`, announced "Tap to remove" and removed
+   * nothing. Taking the id instead of a callback makes the unwired version
+   * impossible to write.
+   */
+  const [, force] = useReducer((n: number) => n + 1, 0);
+  const starred = isStarred(spaceId);
+  const count = starCount(spaceId);
+  const disabled = viewerOwns;
+
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={() => {
+        toggleStar(spaceId, viewerOwns);
+        force();
+      }}
       disabled={disabled}
       aria-pressed={starred}
       aria-label={
