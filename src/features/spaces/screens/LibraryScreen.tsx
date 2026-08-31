@@ -70,6 +70,19 @@ const KIND_LABEL = {
 const formatSize = (bytes?: number) =>
   bytes === undefined ? null : `${(bytes / 1_000_000).toFixed(1)} MB`;
 
+/**
+ * Where a note lives, or an honest admission that it does not live anywhere.
+ *
+ * A note written in Library belongs to no Lesson until you put it in one, so
+ * both anchor fields are empty. Interpolating them regardless produced
+ * "Unknown Lesson · No Space yet" — two invented strings joined by a separator
+ * for a note that had simply not been filed.
+ */
+const noteContext = (lessonTitle?: string, spaceName?: string) => {
+  const parts = [lessonTitle, spaceName].filter((p) => p && p.trim().length > 0);
+  return parts.length > 0 ? parts.join(' · ') : 'Not filed in a Space yet';
+};
+
 const formatWhen = (iso: string) => {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
@@ -138,6 +151,16 @@ export default function LibraryScreen() {
     [items, filter],
   );
 
+  /*
+   * The empty state already invites you to write, on the two filters where
+   * writing is the answer — so the toolbar action would be the same button
+   * twice, 270px apart. On Uploads and Published the empty state sends you to
+   * your Spaces instead, which is a different action, so the toolbar keeps its
+   * own.
+   */
+  const emptyAlreadyOffersNote =
+    shown.length === 0 && !composing && (filter === 'note' || filter === 'all');
+
   // Library is a browse surface — you are choosing what to revisit.
   const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.library} status="progress" motionKey="library">
@@ -189,7 +212,7 @@ export default function LibraryScreen() {
               {latestNote.body}
             </p>
             <p className="mt-3 text-[12.5px] text-faint">
-              {latestNote.lessonTitle} · {latestNote.spaceName}
+              {noteContext(latestNote.lessonTitle, latestNote.spaceName)}
             </p>
           </BentoCell>
         )}
@@ -220,7 +243,23 @@ export default function LibraryScreen() {
         <BentoCell
           icon={Sparkles}
           label="How your work landed"
-          className="sm:col-span-2"
+          /*
+           * Spans whatever is left of the row.
+           *
+           * Four cells over four columns, and the first one is two wide when
+           * there is a note to show: 2+1+1 fills row one exactly, leaving this
+           * cell alone on row two at half width with 486px of empty grid
+           * beside it. With no note the row is 1+1+2 and already balances — so
+           * a fixed span cannot be right for both, and this one followed the
+           * note.
+           */
+          className={cn('sm:col-span-2', latestNote && 'lg:col-span-4')}
+          /*
+           * Both sides of this merge fixed a different thing here: the trunk
+           * made the span follow the note (above), the Library session made
+           * the cell a real link. `to` rather than a `navigate()` handler so
+           * the cell keeps cmd-click, middle-click and open-in-new-tab.
+           */
           to="/v4/library/impact"
         >
           <p className="text-[28px] font-semibold leading-none tabular-nums">
@@ -237,7 +276,21 @@ export default function LibraryScreen() {
         </BentoCell>
       </div>
 
-      <div role="tablist" aria-label="Filter" className="mt-8 flex flex-wrap items-center gap-1.5">
+      {/*
+        Filters, and the one action this screen owns.
+
+        "New note" used to exist only inside the empty state, so it disappeared
+        the moment you had a single note — and Library is the surface Doc 2
+        rule 5 says notes are *written* in. Writing your second note meant
+        opening a Lesson to do it.
+
+        Beside the filters rather than in the header, because this is where the
+        list begins and the note appears at the top of it. Same `h-9` white
+        pill as SpaceScreen's "Add Lesson"; the empty state keeps the larger
+        `h-11` form, which is that screen's precedent too.
+      */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+      <div role="tablist" aria-label="Filter" className="flex flex-wrap items-center gap-1.5">
         {FILTERS.map((f) => {
           const count = f.key === 'all' ? items.length : items.filter((i) => i.kind === f.key).length;
           return (
@@ -260,6 +313,19 @@ export default function LibraryScreen() {
         })}
       </div>
 
+        {!emptyAlreadyOffersNote && (
+        <Pressable
+          type="button"
+          onClick={() => setComposing(true)}
+          disabled={composing}
+          className="console-focusable inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
+        >
+          <Plus aria-hidden className="h-4 w-4" />
+          New note
+        </Pressable>
+        )}
+      </div>
+
       {/* Writing a new note. Unanchored: it is yours and belongs to no Lesson
           until you put it in one. */}
       {composing && (
@@ -268,7 +334,7 @@ export default function LibraryScreen() {
             autoOpen
             placeholder="Write it down while it is fresh…"
             onSave={(body) => {
-              addNote({ lessonId: '', body, spaceName: 'No Space yet' });
+              addNote({ lessonId: '', body });
               setComposing(false);
               setWriteTick((n) => n + 1);
             }}
@@ -286,7 +352,7 @@ export default function LibraryScreen() {
                   except Notes, which are read *and written* in Library. */}
               {item.kind === 'note' ? (
                 <NoteEditor
-                  value={noteBodies[item.id] ?? item.title}
+                  value={noteBodies[item.id] ?? item.body}
                   onSave={(body) => {
                     const id = item.id.replace(/^lib-note-/, '');
                     updateNote(id, body);
