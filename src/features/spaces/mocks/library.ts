@@ -5,10 +5,13 @@ import {
   sharedSpaceIds,
   spaceContributions,
 } from './contributions';
+import { contributionAnchorId } from './contributions';
 import { conceptById, conceptContributions } from './concepts';
 import type { Person } from '../types';
 import { viewer, keller, weber, ferreira, okonkwo, lindqvist } from './people';
 import { allSpaces } from './spaces';
+import { rankLabel, viewerXp } from './rank';
+import { longestRun } from './history';
 import { lessonsForSpace, locateLesson } from './lessons';
 import { anchorFor, isOrphaned } from './reanchor';
 
@@ -99,9 +102,28 @@ const uploadedMaterials: LibraryItem[] = lessonsForSpace('s-linalg')
  */
 export const resolveContributionAnchor = (
   anchor: ContributionAnchor,
+  /**
+   * The contribution being resolved. Required for space-level anchors, which
+   * are addressed by fragment because they have no page of their own.
+   */
+  contributionId: string,
 ): { spaceId: string | null; lessonTitle?: string; href: string | null } => {
   if (anchor.level === 'space') {
-    return { spaceId: anchor.spaceId, href: `/v4/space/${anchor.spaceId}` };
+    /*
+     * Space-anchored work lives on the Space overview, in the community
+     * section — there is no Lesson page and no Concept page to send you to.
+     * That is why this used to return the Space root, and why doing so broke
+     * LibraryScreen's stated rule: "a Space is never an entry point from here."
+     *
+     * The fragment is what resolves the conflict. `/v4/space/x#contribution-y`
+     * opens *the contribution*, which happens to be rendered on the Space
+     * overview, rather than opening the Space and leaving you to find it.
+     * `SpaceScreen` scrolls to it on arrival.
+     */
+    return {
+      spaceId: anchor.spaceId,
+      href: `/v4/space/${anchor.spaceId}#${contributionAnchorId(contributionId)}`,
+    };
   }
   if (anchor.level === 'lesson') {
     const found = locateLesson(anchor.lessonId);
@@ -148,23 +170,30 @@ export const myContributionById = (id: string): Contribution | undefined =>
  */
 const myContributionItems = (): LibraryItem[] =>
   myPublished().map((c) => {
-  // Resolve through the override, so a re-anchored orphan lands on its Lesson.
-  const at = resolveContributionAnchor(anchorFor(c));
+    // Resolve through the override, so a re-anchored orphan lands on its Lesson.
+    const at = resolveContributionAnchor(anchorFor(c), c.id);
   return {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
     title: c.title,
     /*
-     * A contribution opens where it is anchored. An orphan has no Lesson left
-     * to open, so it falls back to the Space it was in — which the anchor now
-     * carries, rather than the constant `'s-dbs'` that used to stand in for
-     * it. Empty rather than guessed when it is genuinely unknown: the fixture
-     * invariant in `library.test.ts` ("names the Space every item lives in")
-     * then fails loudly instead of the UI naming the wrong Space quietly.
+     * A contribution opens where it is anchored. An orphan has no Lesson left,
+     * so it opens nowhere — `null`, and the row renders no link at all.
+     *
+     * This used to fall back to `/v4/space/${at.spaceId}`, which broke both of
+     * Library's stated rules at once: it made a Space an entry point from
+     * Library, and it landed you on an overview where the contribution is not,
+     * under an aria-label promising to open it there.
+     *
+     * Naming the Space is a separate question from linking to it, and the two
+     * were resolved separately. `spaceName` is still filled in for an orphan,
+     * because the anchor records the Space its deleted Lesson was in — so the
+     * row can say where the work came from without offering to take you
+     * somewhere it isn't.
      */
-    href: at.spaceId ? (at.href ?? `/v4/space/${at.spaceId}`) : null,
-    spaceId: at.spaceId ?? '',
-    spaceName: at.spaceId ? spaceName(at.spaceId) : '',
+    href: at.href,
+    spaceId: at.spaceId,
+    spaceName: at.spaceId ? spaceName(at.spaceId) : null,
     lessonTitle: at.lessonTitle,
     updatedAt: c.createdAt,
     likeCount: c.likeCount,
@@ -294,21 +323,30 @@ export interface RankedPerson {
  */
 const shared = (personId: string) => sharedSpaceIds(viewer.id, personId).length;
 
+/*
+ * XP is the fixture; **rank is derived** from it by `rankLabel`.
+ *
+ * Each row used to carry its own `rank: 'Rank 9'` string beside its XP, and
+ * the two disagreed for everyone except the viewer. At the 250-XP-per-rank
+ * the profile was using, Keller's 12,480 XP is Rank 50, not Rank 9. Nothing
+ * could catch it, because a hand-written label agrees with any curve.
+ */
 export const leaderboard: RankedPerson[] = [
-  { person: keller, xp: 12480, rank: 'Rank 9', sharedSpaces: shared(keller.id) },
-  { person: lindqvist, xp: 8210, rank: 'Rank 7', sharedSpaces: shared(lindqvist.id) },
-  { person: okonkwo, xp: 5140, rank: 'Rank 6', sharedSpaces: shared(okonkwo.id) },
-  { person: ferreira, xp: 3020, rank: 'Rank 5', sharedSpaces: shared(ferreira.id) },
-  { person: weber, xp: 900, rank: 'Rank 3', sharedSpaces: shared(weber.id) },
+  { person: keller, xp: 12480, sharedSpaces: shared(keller.id) },
+  { person: lindqvist, xp: 8210, sharedSpaces: shared(lindqvist.id) },
+  { person: okonkwo, xp: 5140, sharedSpaces: shared(okonkwo.id) },
+  { person: ferreira, xp: 3020, sharedSpaces: shared(ferreira.id) },
+  { person: weber, xp: 900, sharedSpaces: shared(weber.id) },
   {
     person: viewer,
-    xp: 60,
-    rank: 'Rank 1',
+    // From the ledger, not a literal — the Rank screen itemises this exact
+    // number, and a second statement of it is a second thing to get wrong.
+    xp: viewerXp(),
     // Your own row counts the Spaces you are in, not ones "shared with" you.
     sharedSpaces: allSpaces.filter((s) => s.viewerRole !== null).length,
     isViewer: true,
   },
-];
+].map((r) => ({ ...r, rank: rankLabel(r.xp) }));
 
 /**
  * The viewer's own standing — one source for it.
@@ -348,7 +386,18 @@ export interface Badge {
 export const badges: Badge[] = [
   { id: 'b-1', name: 'First steps', earned: true, how: 'Finished your first Lesson' },
   { id: 'b-2', name: 'Contributor', earned: true, how: 'Published your first contribution' },
-  { id: 'b-3', name: 'Four in a row', earned: true, how: 'Four days running' },
+  {
+    id: 'b-3',
+    name: 'Four in a row',
+    /*
+     * Derived. `earned: true` was a third independent claim about the same
+     * run — the badge could sit earned on a record that never reached four.
+     * The threshold stays a literal here beside the copy that names it, so
+     * the criterion and the words are one object rather than two facts.
+     */
+    earned: longestRun() >= 4,
+    how: 'Four days running',
+  },
   { id: 'b-4', name: 'Well received', earned: false, how: 'Get 25 likes on your work' },
   { id: 'b-5', name: 'Cartographer', earned: false, how: 'Clear every idea in one Space' },
   { id: 'b-6', name: 'Founder', earned: true, how: 'Created a Space of your own' },
@@ -419,13 +468,14 @@ export interface ImpactRow {
 export const impactRows = (): ImpactRow[] =>
   myPublished()
     .map((c) => {
-      const at = resolveContributionAnchor(anchorFor(c));
+      const at = resolveContributionAnchor(anchorFor(c), c.id);
       return {
         id: c.id,
         title: c.title,
-        // Same rule as the Library row above — sourced, never assumed.
-        spaceId: at.spaceId ?? '',
-        spaceName: at.spaceId ? spaceName(at.spaceId) : '',
+        // Same rule as the Library row above: named, never linked, never
+        // invented.
+        spaceId: at.spaceId,
+        spaceName: at.spaceId ? spaceName(at.spaceId) : null,
         lessonTitle: at.lessonTitle,
         likeCount: c.likeCount,
         endorsed: c.endorsed,

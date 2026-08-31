@@ -45,7 +45,13 @@ describe('Library Studio', () => {
     // like count as a fact; nothing here aggregates them into a rank.
     for (const r of impactRows()) {
       expect(typeof r.likeCount).toBe('number');
-      expect(r.spaceName.trim().length).toBeGreaterThan(0);
+      /*
+       * Scoped to rows that still have a Space. This was unconditional, which
+       * is how a Space-naming assertion ended up inside a test about scoring —
+       * and it quietly required the orphan to invent one. Whether an orphan
+       * names a Space is asserted where it belongs, below.
+       */
+      if (!r.orphaned) expect(r.spaceName?.trim().length).toBeGreaterThan(0);
     }
   });
 
@@ -71,8 +77,28 @@ describe('Library Studio', () => {
     expect(orphans.length, 'no orphaned fixture — this guard would be vacuous').toBeGreaterThan(0);
     for (const o of orphans) {
       expect(o.title.trim().length).toBeGreaterThan(0);
-      // It keeps a Space so the row is still reachable and explainable.
-      expect(o.spaceName.trim().length).toBeGreaterThan(0);
+      /*
+       * It names the Space it came from, and does not link to it.
+       *
+       * This asserted `spaceName` was **null**, on the reasoning that "the only
+       * way to keep one was to invent it (`?? 's-dbs'`), and it was right purely
+       * by coincidence". That reasoning was correct and the fix was right for
+       * the code as it stood. It is no longer the only way: `ContributionAnchor`
+       * now records the Space a lesson anchor lived in, so an orphan's Space is
+       * *recalled*, not fabricated — and an orphan in another Space is labelled
+       * correctly, which `orphans.test.ts` proves with a constructed
+       * `s-linalg` case.
+       *
+       * Naming and linking were the two halves being decided together. The link
+       * had to go: it made a Space an entry point from Library and landed you
+       * where the contribution is not. The name is worth keeping — "this came
+       * from Database Systems and its Lesson is gone" tells you more than
+       * silence, and re-anchoring needs the Space anyway to know which Lessons
+       * to offer.
+       */
+      expect(o.spaceName, `${o.title} lost the Space it came from`).not.toBeNull();
+      expect(o.spaceId, `${o.title} lost the Space id it came from`).not.toBeNull();
+      expect(o.orphaned).toBe(true);
     }
   });
 

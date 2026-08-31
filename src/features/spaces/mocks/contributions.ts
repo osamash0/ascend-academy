@@ -112,6 +112,40 @@ export const spaceContributions: Contribution[] = [
     createdAt: '2026-07-30T12:00:00Z',
   },
   {
+    /*
+     * A space-anchored contribution by the **viewer**, and the reason it is
+     * here is the same reason `c-6` was reassigned to the viewer above.
+     *
+     * Every Library and impact path is author-filtered, so with all four
+     * space-level fixtures belonging to other people, the `level: 'space'`
+     * branch of `resolveContributionAnchor` was never once reached from
+     * Library. That branch returned a bare `/v4/space/<id>` — the exact link
+     * LibraryScreen's header forbids — and no test could see it, because no
+     * row ever reached it. A guard written against it would have passed by
+     * iterating nothing, which is how the previous three vacuous guards in
+     * this feature passed.
+     *
+     * It also exercises the case honestly: work posted to the whole Space,
+     * belonging to no Lesson, which is why it needs a fragment to be
+     * addressable at all.
+     */
+    id: 'c-9',
+    title: 'How I actually revised for this — a four-week plan',
+    excerpt:
+      'What to read in which order, which practice sets are worth the time, and the two weeks where the normal forms finally have to click.',
+    type: 'text',
+    anchor: { level: 'space', spaceId: 's-dbs' },
+    origin: 'community',
+    author: viewer,
+    grounding: 'not-grounded',
+    likeCount: 4,
+    likedByViewer: false,
+    endorsed: false,
+    hidden: false,
+    orphaned: false,
+    createdAt: '2026-08-04T09:00:00Z',
+  },
+  {
     id: 'c-6',
     /*
      * Its anchor was deleted. Surfaced to the Owner *and* the author — nobody's
@@ -370,6 +404,19 @@ export const orphansForSpace = (spaceId: string): Contribution[] =>
   everyContribution()
     .filter((c) => isOrphaned(c) && homeSpaceOf(c) === spaceId)
     .sort((a, b) => b.likeCount - a.likeCount);
+
+/**
+ * The DOM id a contribution card carries, and the fragment that targets it.
+ *
+ * Lives here rather than in `ContributionCard` so that `mocks/library.ts` can
+ * build the href without a mock importing a component — that direction is a
+ * cycle, since the card already reads its like and moderation state from here.
+ *
+ * One definition, three users: this builds the id, the card renders it, and
+ * `SpaceScreen` scrolls to it. A link to a fragment nothing renders is a link
+ * to the top of the page, silently.
+ */
+export const contributionAnchorId = (id: string) => `contribution-${id}`;
 
 export const contributionsForSpace = (spaceId: string): Contribution[] =>
   [...spaceContributions, ...linalgContributions, ...addedThisSession]

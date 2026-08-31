@@ -1,7 +1,9 @@
 import { Award, Check, Flame, Heart, Lock, Orbit, Settings, Sparkles, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { badges, libraryItems } from '../mocks/library';
+import { badges, libraryItems, viewerStanding } from '../mocks/library';
+import { standingFor } from '../mocks/rank';
+import { currentRun, longestRun } from '../mocks/history';
 import { viewer } from '../mocks/people';
 import { mySpaces, visibleSpaces } from '../mocks/spaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -27,16 +29,21 @@ import { AscentMap, ascentSpaces } from '../components/AscentMap';
  * never a sixth destination.
  */
 
-const XP_IN_RANK = 250;
-/** Mock. Typed as number, not the literal, so the plural check stays honest. */
-const STREAK: number = 4;
+
 
 export default function ProfileScreen() {
   const screenState = useScreenState();
-  const xp = 60;
-  const rank = 1;
-  const intoRank = xp % XP_IN_RANK;
-  const pct = Math.round((intoRank / XP_IN_RANK) * 100);
+  /*
+   * From the one standing, not from two literals sitting here.
+   *
+   * This screen carried `const xp = 60; const rank = 1;` and never read the
+   * leaderboard — so Profile, the top bar and Social each stated the viewer's
+   * rank independently, and the local `XP_IN_RANK = 250` drove a progress bar
+   * on a fourth curve that matched none of them.
+   */
+  const { xp } = viewerStanding();
+  const { rank, toNext, pct } = standingFor(xp);
+  const streak = currentRun();
 
   const earned = badges.filter((b) => b.earned);
   const published = libraryItems().filter((i) => i.kind === 'contribution');
@@ -95,6 +102,7 @@ export default function ProfileScreen() {
             icon={TrendingUp}
             label="Rank"
             className="sm:col-span-2"
+            to="/v4/profile/rank"
             art={
               <div className="absolute inset-0 bg-gradient-to-l from-primary/35 via-secondary/20 to-transparent" />
             }
@@ -112,18 +120,20 @@ export default function ProfileScreen() {
               />
             </div>
             <p className="mt-2 text-[12.5px] text-faint tabular-nums">
-              {XP_IN_RANK - intoRank} XP to Rank {rank + 1}
+              {toNext} XP to Rank {rank + 1}
             </p>
           </BentoCell>
 
-          <BentoCell icon={Flame} label="Streak">
+          <BentoCell icon={Flame} label="Streak" to="/v4/profile/history">
             <p className="text-[28px] font-semibold leading-none tabular-nums">
-              {STREAK}
+              {streak}
               <span className="ml-1.5 text-[16px] text-quiet">
-                {STREAK === 1 ? 'day' : 'days'}
+                {streak === 1 ? 'day' : 'days'}
               </span>
             </p>
-            <p className="mt-2 text-[13px] text-quiet">Longest run yet</p>
+            {/* Was "Longest run yet" under the *current* number — false as soon as an
+                earlier run was longer, which it is: four now, six in August. */}
+          <p className="mt-2 text-[13px] text-quiet">Longest so far, {longestRun()} days</p>
           </BentoCell>
 
           <BentoCell icon={Award} label="Badges">
@@ -147,14 +157,21 @@ export default function ProfileScreen() {
             </div>
           </BentoCell>
 
-          <BentoCell icon={Orbit} label="Spaces">
+          {/* The hub lists exactly what this counts, so the number is a door. */}
+          <BentoCell icon={Orbit} label="Spaces" to="/v4/spaces">
             <p className="text-[28px] font-semibold leading-none tabular-nums">
               {mySpaces.length}
             </p>
             <p className="mt-2 text-[13px] text-quiet">Created and joined</p>
           </BentoCell>
 
-          <BentoCell icon={Sparkles} label="Published">
+          {/*
+            "How your work landed" *is* this number itemised — every
+            contribution you published, with what happened to it. Counting
+            something on one screen and detailing it on another, with no way
+            across, was the gap.
+          */}
+          <BentoCell icon={Sparkles} label="Published" to="/v4/library/impact">
             <p className="text-[28px] font-semibold leading-none tabular-nums">
               {published.length}
             </p>
@@ -162,7 +179,13 @@ export default function ProfileScreen() {
           </BentoCell>
 
           {/* A fact about your work, never a second progression. */}
-          <BentoCell icon={Heart} label="Likes received" className="sm:col-span-2">
+          {/* Same destination: impact rows carry the per-item likes this sums. */}
+          <BentoCell
+            icon={Heart}
+            label="Likes received"
+            className="sm:col-span-2"
+            to="/v4/library/impact"
+          >
             <p className="text-[28px] font-semibold leading-none tabular-nums">
               {likesReceived}
             </p>

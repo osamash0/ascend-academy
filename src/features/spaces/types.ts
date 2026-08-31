@@ -356,9 +356,17 @@ interface LibraryItemBase {
   title: string;
   /** Where opening it goes. `null` for a Note — Notes open in place. */
   href: string | null;
-  /** Context line: which Space, and which Lesson where relevant. */
-  spaceId: string;
-  spaceName: string;
+  /**
+   * Context line: which Space, and which Lesson where relevant.
+   *
+   * Nullable because an orphan genuinely has none. These were `string`, so the
+   * only way to build an orphan was to invent a Space — `?? 's-dbs'` — and the
+   * row then stated it as fact. It was right by coincidence: the deleted
+   * Lesson's id happens to start `l-s-dbs-`. Delete a Lesson in any other
+   * Space and the row would have confidently named the wrong one.
+   */
+  spaceId: string | null;
+  spaceName: string | null;
   lessonTitle?: string;
   updatedAt: string;
   /** Contributions only — Library doubles as your creator record. */

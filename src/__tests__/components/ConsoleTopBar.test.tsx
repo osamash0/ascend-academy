@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 
+const { signOutFn } = vi.hoisted(() => ({ signOutFn: vi.fn() }));
+
 vi.mock('@/lib/featureFlags', () => ({
   FEATURES: { studentUploads: true, globalSearch: false, reviewEngine: false },
 }));
 
 vi.mock('@/lib/auth', () => ({
-  useAuth: () => ({ role: 'student', signOut: vi.fn() }),
+  useAuth: () => ({ role: 'student', signOut: signOutFn }),
 }));
 
 vi.mock('@/components/NotificationBell', () => ({ NotificationBell: () => null }));

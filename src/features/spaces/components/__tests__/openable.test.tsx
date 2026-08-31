@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -73,7 +73,93 @@ const labelOf = (tag: string) =>
  * nothing for a click to open, and inventing a destination for them would be
  * deciding a question the design docs have left open.
  */
-const READOUTS = new Set(['Streak', 'Rank', 'Your latest note', 'Badges']);
+const READOUTS: Record<string, string[]> = {
+  'screens/HomeScreen.tsx': ['Streak', 'Rank'],
+  /*
+   * The three on Profile that genuinely have nowhere to go.
+   *
+   * 'Spaces', 'Published' and 'Likes received' were here too, and they were
+   * the wrong kind of exemption: each names a screen that already exists and
+   * itemises exactly what it counts — the hub for Spaces, "How your work
+   * landed" for the other two. Counting something on one screen and detailing
+   * it on another with no way across is a gap, not a readout.
+   *
+   * These three are different, and the distinction is the point of the list.
+   * There is no rank screen, no streak screen, and the badge wall is rendered
+   * inside the Badges cell itself. Giving them a destination would mean
+   * inventing one — the same move as the `?? 's-dbs'` Space that Library's
+   * orphan row used to state as fact. A cell that opens somewhere arbitrary is
+   * worse than one that opens nothing, because it looks answered.
+   *
+   * `BentoCell` earns this: `console-focusable hover:bg-white/[0.06]` is
+   * applied only when `to || onClick`, so a readout has no hover state and no
+   * focus ring. It does not pretend to be a control.
+   */
+  /*
+   * 'Rank' has left this list — it opens `/v4/profile/rank` now.
+   *
+   * It was the honest case for an exemption right up until the screen it
+   * needed existed: there was no rank screen, so a destination would have been
+   * invented. Building one is what made the cell a control, and the staleness
+   * check below is what caught the entry the moment it did.
+   */
+  // 'Streak' left too, for the same reason 'Rank' did: the screen it
+  // needed now exists (`/v4/profile/history`).
+  'screens/ProfileScreen.tsx': ['Badges'],
+};
+
+/** Every screen that uses a BentoCell, found rather than listed. */
+const SCREENS_WITH_CELLS = readdirSync(join(SRC, 'screens'))
+  .filter((f) => f.endsWith('.tsx'))
+  .map((f) => `screens/${f}`)
+  .filter((f) => read(f).includes('<BentoCell'));
+
+describe('every screen with cells is swept, not just Home', () => {
+  /*
+   * This file used one flat `Set` of labels and read `HomeScreen.tsx` alone.
+   * Two of the four entries — 'Your latest note' and 'Badges' — name cells on
+   * *Library* and *Profile*, screens it never opened. They exempted nothing,
+   * and their presence implied those screens had been considered. They had
+   * not: Library's four cells had never been checked for dead ends at all,
+   * and three of them were buttons faking navigation with `navigate()`.
+   *
+   * Keying by screen is what makes an entry falsifiable. A label that names no
+   * cell on the screen it claims now fails, so the list cannot quietly rot
+   * into a description of a layout that has moved on.
+   */
+  it('finds them all', () => {
+    expect(SCREENS_WITH_CELLS).toContain('screens/HomeScreen.tsx');
+    expect(SCREENS_WITH_CELLS).toContain('screens/LibraryScreen.tsx');
+    expect(SCREENS_WITH_CELLS.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('gives every cell a destination, an action, or a named exemption', () => {
+    const inert: string[] = [];
+    for (const f of SCREENS_WITH_CELLS) {
+      const allowed = READOUTS[f] ?? [];
+      for (const tag of bentoCells(read(f))) {
+        if (/\bto=|onClick=/.test(tag)) continue;
+        const label = labelOf(tag);
+        if (allowed.includes(label)) continue;
+        inert.push(`${f}: ${label}`);
+      }
+    }
+    expect(inert, `cells that look like controls and do nothing:\n${inert.join('\n')}`).toEqual([]);
+  });
+
+  it('has no exemption for a cell that is gone or now a control', () => {
+    const stale: string[] = [];
+    for (const [f, labels] of Object.entries(READOUTS)) {
+      const tags = bentoCells(read(f));
+      for (const label of labels) {
+        const cell = tags.find((t) => labelOf(t) === label);
+        if (!cell) stale.push(`${f}: "${label}" names no cell`);
+        else if (/\bto=|onClick=/.test(cell)) stale.push(`${f}: "${label}" is now a control`);
+      }
+    }
+    expect(stale, `READOUTS is out of date:\n${stale.join('\n')}`).toEqual([]);
+  });
+});
 
 describe('a cell that names a Lesson opens it', () => {
   const home = read('screens/HomeScreen.tsx');
@@ -88,7 +174,7 @@ describe('a cell that names a Lesson opens it', () => {
     const inert = cells
       .filter((tag) => !/\bto=|onClick=/.test(tag))
       .map(labelOf)
-      .filter((label) => !READOUTS.has(label));
+      .filter((label) => !READOUTS['screens/HomeScreen.tsx'].includes(label));
 
     expect(
       inert,
@@ -97,8 +183,17 @@ describe('a cell that names a Lesson opens it', () => {
   });
 
   it('opens the hero, not just the small print', () => {
-    // The regression that started this file: the widest cell was the dead one.
-    const hero = cells.find((tag) => /REASON_LABEL\[next\.reason\]/.test(tag));
+    /*
+     * The regression that started this file: the widest cell was the dead one.
+     *
+     * Identified by `next.reason` rather than by the map that supplies its
+     * label. This originally matched `REASON_LABEL[next.reason]` and broke the
+     * moment the hero stopped sharing the rows' label map — a true failure
+     * about a stale detail, which is the least useful kind. What this test
+     * actually cares about is that a cell keyed to `next` exists and opens
+     * `next`'s Lesson; which map phrases it is `labels.test.tsx`'s business.
+     */
+    const hero = cells.find((tag) => /next\.reason/.test(tag));
     expect(hero, 'Home no longer has a hero cell keyed to `next`').toBeDefined();
     expect(/\bto=/.test(hero!), 'the hero cell is inert again').toBe(true);
     expect(

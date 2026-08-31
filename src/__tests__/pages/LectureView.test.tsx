@@ -12,6 +12,8 @@ import { ApiError } from "@/lib/apiErrors";
 // can never omit the param). Delegate to the real implementation by default
 // so every other test in this file is unaffected; only the R39 test below
 // overrides it (and restores the real implementation immediately after).
+const { setAiModelFn } = vi.hoisted(() => ({ setAiModelFn: vi.fn() }));
+
 vi.mock("react-router-dom", async (orig) => {
   const actual = (await orig()) as typeof import("react-router-dom");
   return { ...actual, useParams: vi.fn(actual.useParams) };
@@ -81,13 +83,21 @@ vi.mock("@/integrations/supabase/client", async () => {
   return { supabase: m.sharedSupabaseMock };
 });
 
+/*
+ * One `toast`, not a new one per render. The real hook returns a fresh wrapper
+ * object each render but its `toast` is module-level, so the identity is
+ * stable — and components list it in effect dependency arrays on that basis.
+ * See `Settings.test.tsx` for the flake this shape caused there.
+ */
+const { toastFn } = vi.hoisted(() => ({ toastFn: vi.fn() }));
+
 vi.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: vi.fn() }),
-  toast: vi.fn(),
+  useToast: () => ({ toast: toastFn }),
+  toast: toastFn,
 }));
 
 vi.mock("@/hooks/use-ai-model", () => ({
-  useAiModel: () => ({ aiModel: "groq", setAiModel: vi.fn() }),
+  useAiModel: () => ({ aiModel: "groq", setAiModel: setAiModelFn }),
 }));
 
 vi.mock("@/lib/auth", () => {

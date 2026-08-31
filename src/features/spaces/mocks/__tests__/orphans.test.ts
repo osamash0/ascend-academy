@@ -40,11 +40,10 @@ const everyContribution = [
 
 describe('a dead Lesson anchor still knows its Space', () => {
   it('reports the Space the anchor carries, not a constant', () => {
-    const at = resolveContributionAnchor({
-      level: 'lesson',
-      lessonId: 'l-s-linalg-long-gone',
-      spaceId: 's-linalg',
-    });
+    const at = resolveContributionAnchor(
+      { level: 'lesson', lessonId: 'l-s-linalg-long-gone', spaceId: 's-linalg' },
+      'c-probe',
+    );
     expect(at.href, 'a deleted Lesson must not resolve to a Lesson link').toBeNull();
     expect(
       at.spaceId,
@@ -54,7 +53,7 @@ describe('a dead Lesson anchor still knows its Space', () => {
   });
 
   it('admits it does not know, rather than guessing', () => {
-    const at = resolveContributionAnchor({ level: 'lesson', lessonId: 'l-nowhere' });
+    const at = resolveContributionAnchor({ level: 'lesson', lessonId: 'l-nowhere' }, 'c-probe');
     expect(at.spaceId, 'an unknown Space was filled in with a guess').toBeNull();
   });
 
@@ -66,8 +65,8 @@ describe('a dead Lesson anchor still knows its Space', () => {
     );
     expect(live, 'no live Lesson-anchored contribution to check against').toBeTruthy();
     const anchor = live!.anchor as { level: 'lesson'; lessonId: string };
-    const honest = resolveContributionAnchor(anchor);
-    const lied = resolveContributionAnchor({ ...anchor, spaceId: 's-crypto' });
+    const honest = resolveContributionAnchor(anchor, live!.id);
+    const lied = resolveContributionAnchor({ ...anchor, spaceId: 's-crypto' }, live!.id);
     expect(lied.spaceId, 'a live anchor took the hint over its real Lesson').toBe(
       honest.spaceId,
     );
