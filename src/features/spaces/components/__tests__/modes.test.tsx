@@ -28,7 +28,11 @@ const read = (p: string) =>
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
 
-const STUDIO_SCREENS = ['screens/LibraryStudioScreen.tsx', 'screens/SpaceManageScreen.tsx'];
+const STUDIO_SCREENS = [
+  'screens/LibraryStudioScreen.tsx',
+  'screens/SpaceManageScreen.tsx',
+  'screens/SettingsScreen.tsx',
+];
 const LEARN_SCREENS = [
   'screens/HomeScreen.tsx',
   'screens/SpacesScreen.tsx',
@@ -38,6 +42,8 @@ const LEARN_SCREENS = [
   'screens/LibraryScreen.tsx',
   'screens/SocialScreen.tsx',
   'screens/ProfileScreen.tsx',
+  // Practice is Learn in a *focus* surface: Scene, no top bar, one question.
+  'screens/PracticeScreen.tsx',
 ];
 
 describe('Learn and Studio never mix', () => {

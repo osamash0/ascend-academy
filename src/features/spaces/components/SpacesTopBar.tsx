@@ -15,6 +15,8 @@ import {
 import { cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
 import { NotificationPanel } from './NotificationPanel';
+import { SearchPalette, useSearchPalette } from './SearchPalette';
+import { viewerStanding } from '../mocks/library';
 import type { Person } from '../types';
 
 /**
@@ -46,22 +48,30 @@ const TABS: { key: NavKey; label: string; icon: typeof Home }[] = [
 interface Props {
   active: NavKey;
   viewer: Person;
-  /** Mock progression — the real values come from the XP engine later. */
+  /**
+   * Mock progression — the real values come from the XP engine later.
+   * Defaults read `viewerStanding()` so the bar and Social cannot disagree.
+   */
   rank?: string;
   xp?: number;
   onNavigate?: (key: NavKey) => void;
-  onSearch?: () => void;
 }
 
 export function SpacesTopBar({
   active,
   viewer,
-  rank = 'Rank 1',
-  xp = 60,
+  rank = viewerStanding().rank,
+  xp = viewerStanding().xp,
   onNavigate,
-  onSearch,
 }: Props) {
   const navigate = useNavigate();
+  /*
+   * The bar owns the palette rather than each screen passing an `onSearch`.
+   * ⌘K is global by definition — threading a callback through nine screens
+   * would mean nine chances for one of them to forget, and the shortcut would
+   * silently work everywhere except there.
+   */
+  const { open: searchOpen, setOpen: setSearchOpen } = useSearchPalette();
   /** The five destinations, as routes. Deep-linkable, per Doc 2. */
   const go = (key: NavKey) => {
     if (onNavigate) return onNavigate(key);
@@ -146,7 +156,7 @@ export function SpacesTopBar({
       <div className="flex items-center gap-2 lg:gap-3">
         <button
           type="button"
-          onClick={onSearch}
+          onClick={() => setSearchOpen(true)}
           aria-label="Search"
           className="console-focusable flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-quiet transition hover:bg-white/10 hover:text-foreground"
         >
@@ -165,8 +175,14 @@ export function SpacesTopBar({
         */}
 
         <NotificationPanel />
+        {/*
+          The gear navigates; it does not open a panel. Settings is dense enough
+          to be a Studio screen, and a panel would have to be dismissed before
+          you could act on anything you read in it.
+        */}
         <button
           type="button"
+          onClick={() => navigate('/v4/settings')}
           aria-label="Settings"
           className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-quiet transition hover:bg-white/10 hover:text-foreground"
         >
@@ -180,6 +196,8 @@ export function SpacesTopBar({
           <LogOut className="h-5 w-5" />
         </button>
       </div>
+
+      <SearchPalette open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   );
 }

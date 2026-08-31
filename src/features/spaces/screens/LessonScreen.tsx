@@ -201,13 +201,13 @@ export default function LessonScreen() {
               onClick={() => undefined}
             />
             {lesson.practiceCount > 0 && (
-              <button
-                type="button"
+              <Link
+                to={`/v4/space/${space.id}/lesson/${lesson.id}/practice`}
                 className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-6 text-[14px] font-medium transition-colors hover:bg-white/[0.09]"
               >
                 <ListChecks aria-hidden className="h-4 w-4" />
                 Practice
-              </button>
+              </Link>
             )}
           </div>
 

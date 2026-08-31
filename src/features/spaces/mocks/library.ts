@@ -184,6 +184,20 @@ export const leaderboard: RankedPerson[] = [
   { person: viewer, xp: 60, rank: 'Rank 1', sharedSpaces: 4, isViewer: true },
 ];
 
+/**
+ * The viewer's own standing — one source for it.
+ *
+ * The top bar used to carry `rank = 'Rank 1', xp = 60` as prop defaults while
+ * the leaderboard stated the same two numbers independently, so the bar and
+ * Social could disagree about the viewer's rank and both look correct. A guard
+ * asserts this row exists and is the only one flagged `isViewer`.
+ */
+export const viewerStanding = (): RankedPerson => {
+  const mine = leaderboard.find((r) => r.isViewer);
+  if (!mine) throw new Error('leaderboard has no viewer row');
+  return mine;
+};
+
 export interface FriendRequest {
   person: Person;
   sharedSpaces: number;

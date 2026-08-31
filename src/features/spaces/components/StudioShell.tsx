@@ -26,18 +26,34 @@ interface Props {
   subtitle: string;
   /** Batch actions and toolbar controls, right-aligned in the sticky bar. */
   actions?: React.ReactNode;
+  /**
+   * Where the back arrow goes. Studio screens hang off the Learn destination
+   * that owns them — the three Library ones off Library, Settings off Profile —
+   * so a Studio screen always returns you to where you opened it, never to a
+   * shared "Studio" root that nobody navigated from.
+   */
+  backTo?: string;
+  backLabel?: string;
   children: React.ReactNode;
 }
 
-export function StudioShell({ icon: Icon, title, subtitle, actions, children }: Props) {
+export function StudioShell({
+  icon: Icon,
+  title,
+  subtitle,
+  actions,
+  backTo = '/v4/library',
+  backLabel = 'Back to Library',
+  children,
+}: Props) {
   return (
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-10 border-b border-border bg-card/50 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <Link
-              to="/v4/library"
-              aria-label="Back to Library"
+              to={backTo}
+              aria-label={backLabel}
               className="console-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
             >
               <ChevronLeft aria-hidden className="h-5 w-5" />
