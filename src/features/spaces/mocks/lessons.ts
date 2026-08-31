@@ -1,6 +1,7 @@
 import type { Concept, Lesson, Material, Person, Space } from '../types';
 import { viewer, keller, weber, lindqvist, okonkwo, ferreira } from './people';
 import { practiceForLesson } from './practice';
+import { contributionsForLesson } from './contributions';
 
 /**
  * Lesson fixtures — titles, order and progress taken verbatim from the
@@ -83,8 +84,18 @@ const lesson = (
     progress: 'not-started',
     percentComplete: 0,
     concepts: [],
-    contributionCount: 0,
     ...over,
+    /*
+     * Derived, like `practiceCount`, and for the same reason — it was stated
+     * and it lied. Normalization claimed 104 contributions and served 4, so the
+     * hero read "104 contributions" two sections above a community section
+     * headed "4". I then added a *fresh* instance of it while wiring the
+     * promoted Lesson: `contributionCount: 3` over "From the community 0".
+     *
+     * A stated count next to the list it counts will always drift. Deriving
+     * both kills the class rather than the instance.
+     */
+    contributionCount: contributionsForLesson(id).length,
     /*
      * Derived, and deliberately after the spread so no fixture can override
      * it. Seventeen Lessons stated a `practiceCount` and every single one was
@@ -108,7 +119,6 @@ export const dbsLessons: Lesson[] = [
     // claims. It used to be 3 and 11, which averages to 1% — so the tile said
     // 14% and the Lessons said 1.4%.
     percentComplete: 60,
-    contributionCount: 12,
     practiceCount: 8,
       concepts: conceptsFor('l-s-dbs-1', ['Why databases', 'The three-level architecture', 'Data independence'], 0, 1),
   }),
@@ -116,13 +126,11 @@ export const dbsLessons: Lesson[] = [
     grounding: 'grounded',
     progress: 'in-progress',
     percentComplete: 80,
-    contributionCount: 31,
     practiceCount: 14,
       concepts: conceptsFor('l-s-dbs-2', ['Entities', 'Attributes', 'Keys', 'Cardinality'], 1, 1),
   }),
   lesson('s-dbs', 'Relational Design', 3, keller, {
     grounding: 'grounded',
-    contributionCount: 7,
     practiceCount: 12,
       concepts: conceptsFor('l-s-dbs-3', ['Relations', 'Foreign keys', 'ER to relational'], 0, 0),
   }),
@@ -138,7 +146,6 @@ export const dbsLessons: Lesson[] = [
    */
   lesson('s-dbs', 'Normalization', 4, keller, {
     grounding: 'grounded',
-    contributionCount: 104,
     practiceCount: 20,
       concepts: conceptsFor('l-s-dbs-4', ['Functional dependency', '1NF', '2NF', '3NF', 'BCNF'], 0, 0),
     passages: [
@@ -189,13 +196,11 @@ export const dbsLessons: Lesson[] = [
   }),
   lesson('s-dbs', 'Relational Algebra', 5, keller, {
     grounding: 'grounded',
-    contributionCount: 18,
     practiceCount: 16,
       concepts: conceptsFor('l-s-dbs-5', ['Selection', 'Projection', 'Join', 'Set operations'], 0, 0),
   }),
   lesson('s-dbs', 'SQL', 6, keller, {
     grounding: 'grounded',
-    contributionCount: 56,
     practiceCount: 24,
       concepts: conceptsFor('l-s-dbs-6', ['SELECT', 'JOIN', 'GROUP BY', 'Subqueries'], 0, 0),
   }),
@@ -206,7 +211,6 @@ export const dbsLessons: Lesson[] = [
   }),
   lesson('s-dbs', 'Transactions', 8, keller, {
     grounding: 'grounded',
-    contributionCount: 9,
     practiceCount: 18,
       concepts: conceptsFor('l-s-dbs-8', ['ACID', 'Isolation levels', 'Deadlock'], 0, 0),
   }),
@@ -253,9 +257,23 @@ export const cryptoLessons: Lesson[] = [
   ),
   lesson('s-crypto', 'Linearisation and Fast Linear Algebra', 10, weber),
   lesson('s-crypto', 'Post-Quantum Cryptography', 11, weber),
-  // Community-origin Lesson in a *Guided* Space is impossible by definition,
-  // so this last one is Official too — the Open case lives in Linear Algebra.
   lesson('s-crypto', 'Lattice Problems', 12, weber, { state: 'needs-review' }),
+  /*
+   * A **promoted** Lesson: Community origin, in a *Guided* Space.
+   *
+   * A comment here used to say this was "impossible by definition", and a
+   * notification describing it was deleted on that basis. Abi's call,
+   * 2026-08-31: promotion is possible in Guided mode — which is right, because
+   * origin says who *made* something and mode says who may *publish* it, and
+   * those are different questions. A promotion is the Owner publishing a
+   * member's contribution into the path with the credit intact, so the Lesson
+   * is Community-origin and the Space is still Guided.
+   *
+   * Authored by the viewer, because the notification is about you.
+   */
+  lesson('s-crypto', 'Lattice Sieving in Practice', 13, viewer, {
+    origin: 'community',
+  }),
 ];
 
 /** ── Intro to Linear Algebra · Open · owned by the viewer ───────── */
@@ -269,7 +287,6 @@ export const linalgLessons: Lesson[] = [
   // Open mode: a Member published this. Community origin, author always shown.
   lesson('s-linalg', 'Eigenvalues, intuitively', 2, lindqvist, {
     origin: 'community',
-    contributionCount: 4,
     practiceCount: 3,
   }),
   // Still ingesting — visible to its author and Owner/Editors only (Rule 1).
@@ -297,12 +314,27 @@ export const linalgLessons: Lesson[] = [
  * cause churn." A Discover card that promises 23 Lessons and shows none is the
  * blind join the rule exists to prevent.
  */
+/*
+ * Origin follows the *role*, not the mode.
+ *
+ * All five of these were `community`, including the three by Chidi — who owns
+ * this Space. Doc 1 defines Official as Owner/Editors and Community as
+ * Members, so an Owner's own Lesson is Official even in an Open Space where
+ * everybody publishes. Caught by the guard that replaced the one asserting
+ * Community-in-Guided was impossible, about a minute after writing it.
+ */
 export const mlLessons: Lesson[] = [
-  lesson('s-ml', 'Linear regression, by hand', 1, okonkwo, { origin: 'community' }),
-  lesson('s-ml', 'Gradient descent', 2, okonkwo, { origin: 'community' }),
-  lesson('s-ml', 'Backpropagation from first principles', 3, lindqvist, { origin: 'community' }),
-  lesson('s-ml', 'Attention is all you need — a read-through', 4, lindqvist, { origin: 'community' }),
-  lesson('s-ml', 'Tokenizers', 5, okonkwo, { origin: 'community' }),
+  lesson('s-ml', 'Linear regression, by hand', 1, okonkwo),
+  lesson('s-ml', 'Gradient descent', 2, okonkwo),
+  // Åsa is a Member here, so hers are Community — which is the distinction
+  // the Origin badge exists to draw, and this is the Space that shows both.
+  lesson('s-ml', 'Backpropagation from first principles', 3, lindqvist, {
+    origin: 'community',
+  }),
+  lesson('s-ml', 'Attention is all you need — a read-through', 4, lindqvist, {
+    origin: 'community',
+  }),
+  lesson('s-ml', 'Tokenizers', 5, okonkwo),
 ];
 
 export const analysisLessons: Lesson[] = [

@@ -1,5 +1,5 @@
 import type { Person } from '../types';
-import { ferreira, lindqvist, okonkwo } from './people';
+import { ferreira, lindqvist, okonkwo, weber } from './people';
 
 /**
  * Notification fixtures.
@@ -98,6 +98,32 @@ export const notifications: AppNotification[] = [
     read: true,
     created_at: '2026-08-29T20:10:00Z',
     target: { kind: 'profile' },
+  },
+  {
+    /*
+     * Restored. This was deleted because a fixture comment asserted that a
+     * Community-origin Lesson in a Guided Space was impossible by definition —
+     * Abi overturned that on 2026-08-31, and it was the comment that was
+     * wrong. Origin is who made the content; mode is who may publish it.
+     *
+     * It targets `l-s-crypto-13`, which is exactly what it describes: a
+     * Community-origin Lesson in a Guided Space, authored by the viewer,
+     * published into the path by the Owner. `coherence.test.ts` asserts all
+     * four of those things rather than trusting the sentence.
+     */
+    id: 'n-6',
+    title: 'Jonas promoted your write-up',
+    message:
+      'It is now part of the path in Advanced Topics in Cryptography, credited to you.',
+    type: 'promoted',
+    read: true,
+    created_at: '2026-08-28T11:30:00Z',
+    actor: weber,
+    target: {
+      kind: 'lesson',
+      lessonId: 'l-s-crypto-13',
+      spaceName: 'Advanced Topics in Cryptography',
+    },
   },
   {
     id: 'n-5',

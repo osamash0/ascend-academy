@@ -89,13 +89,42 @@ describe('Lesson fixtures', () => {
     }
   });
 
-  it('keeps Community-origin Lessons out of Guided Spaces', () => {
-    // Only Owner/Editors publish into a Guided path.
-    for (const s of allSpaces.filter((x) => x.mode === 'guided')) {
+  it('never credits a Community Lesson to the Owner', () => {
+    /*
+     * This guard used to assert the opposite of the rule.
+     *
+     * It required every Lesson in a Guided Space to be `official`, on the
+     * belief — stated as fact in a fixture comment — that a Community-origin
+     * Lesson in a Guided Space was "impossible by definition". Abi overturned
+     * that on 2026-08-31, and the belief was wrong: **origin says who made
+     * something, mode says who may publish it.** A promotion is the Owner
+     * publishing a member's contribution into the path with the credit intact,
+     * so the Lesson is Community and the Space stays Guided. The guard was
+     * enforcing a constraint the model does not have, and a notification
+     * describing a real product behaviour was deleted on its authority.
+     *
+     * The rule that *does* hold: Community origin means somebody other than
+     * whoever runs the Space wrote it. If the Owner wrote it, it is Official —
+     * that is the whole distinction, and it holds in both modes.
+     */
+    for (const s of allSpaces) {
       for (const l of lessonsForSpace(s.id)) {
-        expect(l.origin, `${s.name} / ${l.title}`).toBe('official');
+        if (l.origin !== 'community') continue;
+        expect(l.author.id, `${s.name} / ${l.title} is Community but Owner-written`).not.toBe(
+          s.owner.id,
+        );
       }
     }
+  });
+
+  it('has a promoted Lesson — Community origin inside a Guided Space', () => {
+    // The case the old guard forbade. Without a fixture, the promotion story
+    // has nothing to describe and the `promoted` notification is unprovable.
+    const promoted = allSpaces
+      .filter((s) => s.mode === 'guided')
+      .flatMap((s) => lessonsForSpace(s.id))
+      .filter((l) => l.origin === 'community');
+    expect(promoted.length, 'no promoted Lesson to test against').toBeGreaterThan(0);
   });
 
   it('gives every Lesson an author, whatever its origin', () => {

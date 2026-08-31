@@ -61,10 +61,19 @@ export function LessonRow({ lesson, space, isNext }: Props) {
               Next
             </span>
           )}
-          {/* In an Open Space the path itself holds both origins, so the badge
-              is what separates them. In a Guided Space everything is Official
-              by definition and the badge would be noise on every row. */}
-          {space.mode === 'open' && <OriginBadge origin={lesson.origin} />}
+          {/*
+            Always. `badges.tsx` states the rule — "never optional where
+            content appears — separation is the whole point, and a badge that
+            sometimes shows is a badge nobody trusts" — and this line argued
+            the opposite, gating it on Open mode because "in a Guided Space
+            everything is Official by definition".
+            
+            That premise died with Abi's call of 2026-08-31: a promoted Lesson
+            is Community origin inside a Guided Space. So the gate would have
+            hidden the marker on exactly the Lesson that most needs it, in the
+            Space where nothing else on the row tells you a Member wrote it.
+          */}
+          <OriginBadge origin={lesson.origin} />
           <GroundingMarker
             grounding={lesson.grounding}
             spaceGroundingEnabled={space.groundingEnabled}

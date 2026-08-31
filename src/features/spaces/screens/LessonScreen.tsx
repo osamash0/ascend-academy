@@ -174,7 +174,9 @@ export default function LessonScreen() {
           </h1>
 
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
-            {space.mode === 'open' && <OriginBadge origin={lesson.origin} />}
+            {/* Always — see LessonRow. A promoted Lesson is Community origin
+                in a Guided Space, so gating on mode hid it where it mattered. */}
+            <OriginBadge origin={lesson.origin} />
             <GroundingMarker
               grounding={lesson.grounding}
               spaceGroundingEnabled={space.groundingEnabled}

@@ -82,7 +82,7 @@ export const cryptography: Space = {
   starredByViewer: false,
   viewerRole: 'member',
   viewerProgress: 1,
-  lessonCount: 12,
+  lessonCount: 13,
   lessonsDone: 0,
   newSinceLastVisit: 0,
   lastActiveAt: '2026-08-27T09:15:00Z',

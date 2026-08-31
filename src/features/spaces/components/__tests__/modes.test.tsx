@@ -82,3 +82,26 @@ describe('Learn and Studio never mix', () => {
     }
   });
 });
+
+describe('Origin is never optional where content appears', () => {
+  /*
+   * `badges.tsx` states it: "never optional where content appears — separation
+   * is the whole point, and a badge that sometimes shows is a badge nobody
+   * trusts." Two surfaces gated it on `space.mode === 'open'`, arguing that in
+   * a Guided Space everything is Official by definition.
+   *
+   * That premise is gone (Abi, 2026-08-31): a promoted Lesson is Community
+   * origin inside a Guided Space. The gate would therefore have hidden the
+   * marker on precisely the Lesson that needs it — in the Space where nothing
+   * else on the row says a Member wrote it.
+   */
+  for (const f of ['components/LessonRow.tsx', 'screens/LessonScreen.tsx']) {
+    it(`shows it unconditionally in ${f}`, () => {
+      const body = read(f);
+      expect(body, `${f} does not show Origin at all`).toContain('<OriginBadge');
+      expect(body, `${f} gates Origin on the Space's mode`).not.toMatch(
+        /mode === 'open'\s*&&\s*<OriginBadge/,
+      );
+    });
+  }
+});
