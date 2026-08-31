@@ -58,7 +58,7 @@ function Shell({
       <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.05] text-quiet">
         {icon}
       </div>
-      <h2 className="mb-2 text-2xl font-black tracking-tight">{title}</h2>
+      <h2 className="mb-2 text-2xl font-bold tracking-tight">{title}</h2>
       <p className="mb-7 max-w-[42ch] text-[14.5px] leading-relaxed text-quiet">{body}</p>
       {children ? <div className="flex flex-wrap items-center justify-center gap-3">{children}</div> : null}
     </div>
@@ -67,7 +67,7 @@ function Shell({
 
 const PRIMARY =
   'console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 ' +
-  'text-[14px] font-black text-slate-900 transition-transform hover:scale-[1.03]';
+  'text-[14px] font-semibold text-slate-900 transition-transform hover:scale-[1.03]';
 const SECONDARY =
   'console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 ' +
   'bg-white/[0.04] px-6 text-[14px] font-bold text-foreground transition-colors hover:bg-white/[0.08]';
@@ -92,12 +92,12 @@ export function NoSpacesYet({
 }) {
   return (
     <Shell
-      icon={<Plus className="h-6 w-6" />}
+      icon={<Plus aria-hidden className="h-6 w-6" />}
       title="No Spaces yet"
       body="A Space is where you keep one subject — its material, its practice, and the people learning it with you."
       >
       <button type="button" onClick={onCreate} className={PRIMARY}>
-        <Plus className="h-4 w-4" />
+        <Plus aria-hidden className="h-4 w-4" />
         Create your first Space
       </button>
       <button type="button" onClick={onJoin} className={SECONDARY}>
@@ -117,7 +117,7 @@ export function NothingToDiscover({
 }) {
   return (
     <Shell
-      icon={<Compass className="h-6 w-6" />}
+      icon={<Compass aria-hidden className="h-6 w-6" />}
       title={`No public Spaces in ${scopeLabel}`}
       body="Nobody has opened a Space here yet. Widen the search, or start one and let others join you."
     >
@@ -137,12 +137,12 @@ export function NothingToDiscover({
 export function SpacesError({ onRetry = () => window.location.reload() }: { onRetry?: () => void }) {
   return (
     <Shell
-      icon={<TriangleAlert className="h-6 w-6 text-destructive" />}
+      icon={<TriangleAlert aria-hidden className="h-6 w-6 text-destructive" />}
       title="Couldn’t load your Spaces"
       body="The connection dropped on the way. Your Spaces and your progress are safe."
     >
       <button type="button" onClick={onRetry} className={PRIMARY}>
-        <RotateCw className="h-4 w-4" />
+        <RotateCw aria-hidden className="h-4 w-4" />
         Try again
       </button>
     </Shell>
@@ -170,7 +170,7 @@ export function NotFound({
 }) {
   return (
     <Shell
-      icon={<Compass className="h-6 w-6" />}
+      icon={<Compass aria-hidden className="h-6 w-6" />}
       title={`That ${what} isn’t here`}
       body="It may have been removed, or the link may be wrong. Nothing of yours is affected."
     >

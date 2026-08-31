@@ -12,6 +12,8 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Avatar } from './Avatar';
+import { viewer } from '../mocks/people';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { AppNotification, NotificationKind } from '../mocks/notifications';
 import { groupedByDay, markAllRead, unreadCount } from '../mocks/notifications';
@@ -70,11 +72,6 @@ function Row({
   onOpen: (n: AppNotification) => void;
 }) {
   const Icon = KIND_ICON[n.type];
-  const initials = n.actor?.name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('');
 
   return (
     <motion.button
@@ -89,8 +86,10 @@ function Row({
     >
       {/* A person's face where a person did it; the kind's icon otherwise. */}
       {n.actor ? (
-        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-quiet">
-          {initials}
+        <span className="relative flex shrink-0">
+          {/* One person, one face — this drew its own initials, so a
+              notification you caused showed "Ab" where the top bar shows Luna. */}
+          <Avatar person={n.actor} size="md" isViewer={n.actor.id === viewer.id} />
           <span
             aria-hidden
             className={cn(
@@ -98,7 +97,7 @@ function Row({
               KIND_TONE[n.type],
             )}
           >
-            <Icon className="h-2.5 w-2.5" />
+            <Icon aria-hidden className="h-2.5 w-2.5" />
           </span>
         </span>
       ) : (

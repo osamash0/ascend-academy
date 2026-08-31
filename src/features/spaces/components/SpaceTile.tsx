@@ -83,14 +83,14 @@ export function SpaceTile({ space, index, isActive, isDimmed, onFocus, onOpen }:
         {/* The art: the topic icon, large and faint, plus the Space's code. */}
         <div aria-hidden className="absolute inset-0 flex items-center justify-center">
           {processing ? (
-            <Loader2 className="h-10 w-10 animate-spin text-white/70" />
+            <Loader2 aria-hidden className="h-10 w-10 animate-spin text-white/70" />
           ) : (
-            <Icon className="h-16 w-16 text-white/25" />
+            <Icon aria-hidden className="h-16 w-16 text-white/25" />
           )}
         </div>
         <span
           aria-hidden
-          className="absolute left-4 top-3.5 text-[15px] font-semibold tracking-wide text-white/45"
+          className="absolute left-4 top-3.5 text-[15px] font-semibold tracking-wide text-label"
         >
           {space.shortCode}
         </span>
@@ -99,7 +99,7 @@ export function SpaceTile({ space, index, isActive, isDimmed, onFocus, onOpen }:
 
         {/* Corner marker — one at a time, so it always means something. */}
         {archived ? (
-          <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/65 px-2 py-[3px] text-[11px] font-medium text-white/80">
+          <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/65 px-2 py-[3px] text-[11px] font-medium text-white">
             <Archive aria-hidden className="h-3 w-3" />
             Archived
           </span>
@@ -120,7 +120,7 @@ export function SpaceTile({ space, index, isActive, isDimmed, onFocus, onOpen }:
           <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-white">
             {space.name}
           </h3>
-          <p className="mt-0.5 truncate text-[12.5px] text-white/65">
+          <p className="mt-0.5 truncate text-[12.5px] text-quiet">
             {owned
               ? `${plural(space.draftsPending ?? 0, 'draft')} · ${plural(space.memberCount, 'member')}`
               : `${space.viewerProgress}% · ${plural(space.memberCount, 'member')}`}

@@ -186,7 +186,7 @@ export default function HomeScreen() {
               <div
                 className={cn('absolute inset-0 bg-gradient-to-l opacity-35', gradientFor(next.lessonOrder))}
               />
-              <NextIcon className="absolute right-5 top-1/2 h-20 w-20 -translate-y-1/2 text-white/10" />
+              <NextIcon aria-hidden className="absolute right-5 top-1/2 h-20 w-20 -translate-y-1/2 text-white/10" />
             </>
           }
         >

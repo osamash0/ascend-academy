@@ -57,13 +57,22 @@ function Row({
           : 'border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.04]',
       )}
     >
+      {/*
+        The box is 16px, which fails the 24×24 minimum. Padding the label
+        around it gives a 24px target without making the control look
+        oversized next to a dense row — the visual size and the hit size are
+        allowed to differ, and only one of them is the accessibility rule.
+      */}
       {onToggle && (
-        <input
-          type="checkbox"
-          checked={!!selected}
-          onChange={onToggle}
-          className="h-4 w-4 shrink-0 cursor-pointer accent-primary"
-        />
+        <label className="-m-1 flex shrink-0 cursor-pointer p-1">
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={onToggle}
+            className="h-4 w-4 cursor-pointer accent-primary"
+          />
+          <span className="sr-only">Select this row</span>
+        </label>
       )}
       {children}
     </div>

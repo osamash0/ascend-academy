@@ -3,6 +3,8 @@ import { cn } from '@/lib/utils';
 import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import { BentoCell } from './BentoCell';
+import { Avatar } from './Avatar';
+import { viewer } from '../mocks/people';
 import type { Contribution, Lesson, Membership, Space } from '../types';
 
 /**
@@ -62,7 +64,7 @@ export function SpaceBento({
               <div
                 className={cn('absolute inset-0 bg-gradient-to-l opacity-35', gradientFor(nextLesson.order))}
               />
-              <NextIcon className="absolute right-5 top-1/2 h-16 w-16 -translate-y-1/2 text-white/10" />
+              <NextIcon aria-hidden className="absolute right-5 top-1/2 h-16 w-16 -translate-y-1/2 text-white/10" />
             </>
           }
         >
@@ -103,19 +105,20 @@ export function SpaceBento({
         <p className="text-[28px] font-semibold leading-none tabular-nums">
           {space.memberCount.toLocaleString()}
         </p>
+        {/*
+          Avatar, not hand-rolled initials. Three call sites drew their own,
+          and the viewer — the one person who has a Luna — rendered as "Ab"
+          here while rendering as Luna in the top bar two inches away.
+        */}
         <div className="mt-3 flex -space-x-2">
           {members.slice(0, 5).map((m) => (
-            <span
+            <Avatar
               key={m.person.id}
-              title={m.person.name}
-              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0d111c] bg-white/10 text-[10px] font-semibold text-quiet"
-            >
-              {m.person.name
-                .split(' ')
-                .map((w) => w[0])
-                .slice(0, 2)
-                .join('')}
-            </span>
+              person={m.person}
+              size="sm"
+              isViewer={m.person.id === viewer.id}
+              className="border-2 border-[#0d111c]"
+            />
           ))}
         </div>
       </BentoCell>

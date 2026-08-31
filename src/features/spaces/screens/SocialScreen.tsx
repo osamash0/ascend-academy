@@ -14,6 +14,7 @@ import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { AuthorLine } from '../components/badges';
+import { Avatar } from '../components/Avatar';
 import { BentoCell } from '../components/BentoCell';
 
 /**
@@ -102,13 +103,13 @@ export default function SocialScreen() {
             </p>
             <div className="mt-3 flex -space-x-2">
               {friends.slice(0, 5).map((f) => (
-                <span
+                <Avatar
                   key={f.id}
-                  title={f.name}
-                  className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0d111c] bg-white/10 text-[10px] font-semibold text-quiet"
-                >
-                  {f.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
-                </span>
+                  person={f}
+                  size="sm"
+                  isViewer={f.id === viewer.id}
+                  className="border-2 border-[#0d111c]"
+                />
               ))}
             </div>
           </BentoCell>

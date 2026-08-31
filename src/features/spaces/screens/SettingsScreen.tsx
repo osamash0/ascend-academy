@@ -23,9 +23,15 @@ import { Avatar } from '../components/Avatar';
  *     anything — each row says what it does, and export/delete link out to the
  *     real flows instead of faking them.
  *   • **Reduced motion is the operating system's call.** There is no
- *     "animations" switch, because `Scene` already routes every screen through
- *     `reducedMotion="user"`. A second switch that could disagree with the OS
- *     is a bug with a label on it.
+ *     "animations" switch: `Scene` carries `reducedMotion="user"` for Learn
+ *     screens and `StudioShell` carries it for Studio ones, so both modes obey
+ *     the same setting. A second switch that could disagree with the OS is a
+ *     bug with a label on it.
+ *
+ *     This paragraph used to name only `Scene` — which this screen does not go
+ *     through, so the justification for having no switch was false in its own
+ *     file. Studio screens ignored the setting entirely until the shell took
+ *     it on.
  */
 
 /** One switch row. Label carries the meaning; the description carries the cost. */
@@ -75,7 +81,7 @@ function Toggle({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-8">
-      <h2 className="mb-1 text-[13px] font-bold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-1 text-[13px] font-semibold text-muted-foreground">
         {title}
       </h2>
       <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] px-5">{children}</div>

@@ -82,7 +82,7 @@ export function LessonTile({
 
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent p-4 pt-12">
         {eyebrow && (
-          <p className="mb-1 text-[12px] font-normal text-white/60">{eyebrow}</p>
+          <p className="mb-1 text-[12px] font-normal text-quiet">{eyebrow}</p>
         )}
         <h3 className="line-clamp-2 text-[15.5px] font-semibold leading-snug text-white">
           {title}

@@ -411,7 +411,7 @@ export default function SpaceScreen({
 
             {allContributions.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/15 px-6 py-10 text-center">
-                <Sparkles className="mx-auto mb-3 h-5 w-5 text-quiet" />
+                <Sparkles aria-hidden className="mx-auto mb-3 h-5 w-5 text-quiet" />
                 <p className="mb-1.5 text-[15px] font-bold">Nothing from the community yet</p>
                 <p className="mx-auto max-w-[44ch] text-[14px] leading-relaxed text-quiet">
                   Summaries, worked examples, mnemonics — anything that helped you will

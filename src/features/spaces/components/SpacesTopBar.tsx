@@ -94,7 +94,7 @@ export function SpacesTopBar({
           aria-label="Home"
           className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary transition-transform hover:scale-105"
         >
-          <Rocket className="h-6 w-6 text-white" />
+          <Rocket aria-hidden className="h-6 w-6 text-white" />
         </button>
 
         <button
@@ -105,9 +105,9 @@ export function SpacesTopBar({
         >
           <Avatar person={viewer} size="lg" isViewer className="shadow-glow-primary" />
           <span className="min-w-0 text-left leading-tight">
-            <span className="flex items-center gap-1 text-sm font-black text-foreground">
+            <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
               <span className="max-w-[140px] truncate">{viewer.name}</span>
-              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-quiet transition-colors group-hover:text-foreground" />
+              <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-quiet transition-colors group-hover:text-foreground" />
             </span>
             {/*
               Rank, not Level. Foundations Rule 7 locks progression to XP and
@@ -115,7 +115,7 @@ export function SpacesTopBar({
             */}
             <span className="flex items-center gap-1.5 text-xs font-bold text-quiet tabular-nums">
               <span className="text-primary">{rank}</span>
-              <span className="text-white/20">·</span>
+              <span aria-hidden className="text-decor">·</span>
               <span>{xp.toLocaleString()} XP</span>
             </span>
           </span>
@@ -160,9 +160,9 @@ export function SpacesTopBar({
           aria-label="Search"
           className="console-focusable flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-quiet transition hover:bg-white/10 hover:text-foreground"
         >
-          <Search className="h-3.5 w-3.5" />
+          <Search aria-hidden className="h-3.5 w-3.5" />
           <span className="hidden lg:inline">Ask anything</span>
-          <kbd className="hidden rounded border border-white/10 bg-white/5 px-1 text-[10px] font-black lg:inline">
+          <kbd className="hidden rounded border border-white/10 bg-white/5 px-1 text-[10px] font-semibold lg:inline">
             ⌘K
           </kbd>
         </button>
@@ -186,7 +186,7 @@ export function SpacesTopBar({
           aria-label="Settings"
           className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-quiet transition hover:bg-white/10 hover:text-foreground"
         >
-          <Settings className="h-5 w-5" />
+          <Settings aria-hidden className="h-5 w-5" />
         </button>
         {/*
           NEEDS-BACKEND: signing out ends a session, and this namespace has

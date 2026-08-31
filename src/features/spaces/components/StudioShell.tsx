@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { MotionConfig } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 /**
@@ -46,7 +47,17 @@ export function StudioShell({
   backLabel = 'Back to Library',
   children,
 }: Props) {
+  /*
+   * Studio screens do not go through `Scene`, which is where
+   * `reducedMotion="user"` lives — so until now the three of them, and every
+   * dialog opened from one, ignored the operating system's motion setting
+   * entirely. `SettingsScreen` states as fact that "Scene already routes every
+   * screen through reducedMotion" and uses that to justify having no motion
+   * switch; its own file falsified the claim. The shell carries it now, so
+   * both modes obey the same setting.
+   */
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-10 border-b border-border bg-card/50 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
@@ -72,6 +83,7 @@ export function StudioShell({
 
       <div className="mx-auto max-w-5xl px-6 py-8">{children}</div>
     </div>
+    </MotionConfig>
   );
 }
 
