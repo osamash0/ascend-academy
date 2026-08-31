@@ -45,7 +45,13 @@ describe('Library Studio', () => {
     // like count as a fact; nothing here aggregates them into a rank.
     for (const r of impactRows()) {
       expect(typeof r.likeCount).toBe('number');
-      expect(r.spaceName.trim().length).toBeGreaterThan(0);
+      /*
+       * Scoped to rows that still have a Space. This was unconditional, which
+       * is how a Space-naming assertion ended up inside a test about scoring —
+       * and it quietly required the orphan to invent one. Whether an orphan
+       * names a Space is asserted where it belongs, below.
+       */
+      if (!r.orphaned) expect(r.spaceName?.trim().length).toBeGreaterThan(0);
     }
   });
 
@@ -71,8 +77,18 @@ describe('Library Studio', () => {
     expect(orphans.length, 'no orphaned fixture — this guard would be vacuous').toBeGreaterThan(0);
     for (const o of orphans) {
       expect(o.title.trim().length).toBeGreaterThan(0);
-      // It keeps a Space so the row is still reachable and explainable.
-      expect(o.spaceName.trim().length).toBeGreaterThan(0);
+      /*
+       * It names *no* Space — the previous line asserted the opposite, that an
+       * orphan "keeps a Space so the row is still reachable". The only way to
+       * keep one was to invent it (`?? 's-dbs'`), and it was right purely by
+       * coincidence: the deleted Lesson's id happens to start `l-s-dbs-`. An
+       * orphan in any other Space would have been labelled with the wrong one.
+       *
+       * What makes the row explainable is the `orphaned` flag and the copy it
+       * drives, not a Space it no longer belongs to.
+       */
+      expect(o.spaceName, `${o.title} names a Space it has lost`).toBeNull();
+      expect(o.orphaned).toBe(true);
     }
   });
 

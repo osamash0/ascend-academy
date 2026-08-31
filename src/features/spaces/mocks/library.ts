@@ -134,13 +134,20 @@ const myContributions: LibraryItem[] = myPublished().map((c) => {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
     title: c.title,
-    // A contribution opens where it is anchored. An orphan has no anchor left
-    // to open, so it falls back to its last known Space and keeps that Space
-    // in the context line; the `orphaned` flag is what makes the row explain
-    // itself rather than look like an ordinary entry.
-    href: at.href ?? `/v4/space/${at.spaceId ?? 's-dbs'}`,
-    spaceId: at.spaceId ?? 's-dbs',
-    spaceName: spaceName(at.spaceId ?? 's-dbs'),
+    /*
+     * A contribution opens where it is anchored. An orphan has no anchor left,
+     * so it opens nowhere — `null`, and the row renders no link at all.
+     *
+     * This used to fall back to `/v4/space/${spaceId ?? 's-dbs'}`, which broke
+     * both of Library's stated rules at once. It made a Space an entry point
+     * from Library — the thing the screen's own header forbids — and it landed
+     * you on a Space overview where the contribution is not, under an
+     * aria-label promising to "open it in Database Systems". The row directly
+     * above said the work had lost its home; the link said otherwise.
+     */
+    href: at.href,
+    spaceId: at.spaceId,
+    spaceName: at.spaceId ? spaceName(at.spaceId) : null,
     lessonTitle: at.lessonTitle,
     updatedAt: c.createdAt,
     likeCount: c.likeCount,
@@ -394,8 +401,10 @@ export const impactRows = (): ImpactRow[] =>
       return {
         id: c.id,
         title: c.title,
-        spaceId: at.spaceId ?? 's-dbs',
-        spaceName: spaceName(at.spaceId ?? 's-dbs'),
+        // Same fabrication as the Library row had, in the Studio view of the
+        // same contributions. An orphan names no Space here either.
+        spaceId: at.spaceId,
+        spaceName: at.spaceId ? spaceName(at.spaceId) : null,
         lessonTitle: at.lessonTitle,
         likeCount: c.likeCount,
         endorsed: c.endorsed,

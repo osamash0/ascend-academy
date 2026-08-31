@@ -27,11 +27,50 @@ describe('Library fixtures', () => {
     }
   });
 
-  it('names the Space every item lives in', () => {
-    // Items are pointers into their Space, so context is mandatory.
+  it('names the Space every item that has one lives in', () => {
+    /*
+     * Items are pointers into their Space, so context is mandatory — for every
+     * item that still has a Space.
+     *
+     * This read `item.spaceName.trim()` over *all* items, which made naming a
+     * Space unconditional and so forced the orphan to invent one. The guard was
+     * requiring the defect: the only way to satisfy it was `?? 's-dbs'`, and
+     * the row then stated a fabricated Space as fact.
+     */
     for (const item of libraryItems) {
-      expect(item.spaceName.trim().length, item.title).toBeGreaterThan(0);
-      expect(item.spaceId.trim().length, item.title).toBeGreaterThan(0);
+      if (item.orphaned) continue;
+      expect(item.spaceName?.trim().length, item.title).toBeGreaterThan(0);
+      expect(item.spaceId?.trim().length, item.title).toBeGreaterThan(0);
+    }
+  });
+
+  it('lets only an orphan go without one, and gives it nowhere to open', () => {
+    /*
+     * The inverse, so `null` cannot leak in as sloppiness. A missing Space is
+     * meaningful — it means the anchor is gone — and nothing else may claim it.
+     *
+     * The destination matters as much as the label. An orphan used to link to
+     * `/v4/space/<id>`, which is the one thing LibraryScreen's own header
+     * forbids: "a Space is never an entry point from here." It also landed you
+     * on a Space overview where the contribution is not.
+     */
+    for (const item of libraryItems) {
+      if (item.spaceId !== null && item.spaceName !== null) continue;
+      expect(item.orphaned, `${item.title} has no Space but is not orphaned`).toBe(true);
+      expect(item.spaceId, `${item.title}`).toBeNull();
+      expect(item.spaceName, `${item.title}`).toBeNull();
+      expect(item.href, `${item.title} is orphaned but still opens somewhere`).toBeNull();
+    }
+  });
+
+  it('never makes a Space an entry point from Library', () => {
+    // The header rule, checked against every destination the screen can offer
+    // rather than trusted. A Lesson or Concept inside a Space is a pointer to
+    // the item; the Space root is a Space card wearing a row's clothes.
+    for (const item of libraryItems) {
+      expect(item.href ?? '', `${item.title} opens a Space root`).not.toMatch(
+        /^\/v4\/space\/[^/]+$/,
+      );
     }
   });
 
