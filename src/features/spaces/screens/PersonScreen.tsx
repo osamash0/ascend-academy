@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { people, viewer } from '../mocks/people';
 import { spaceById } from '../mocks/spaces';
 import {
@@ -98,6 +99,17 @@ export default function PersonScreen() {
     return chrome(<NotFound what="person" backTo="/v4/social" backLabel="Back to Social" />);
   }
 
+  /*
+   * Your own profile is Profile, not a public page about you.
+   *
+   * `/v4/person/p-viewer` was reachable by URL and rendered you as a stranger
+   * — "Spaces you are both in" listing Spaces you share with yourself, and
+   * "What they have published" for your own work. Redirecting rather than
+   * 404ing: the page you were asking for does exist, it is just called
+   * something else.
+   */
+  if (person.id === viewer.id) return <Navigate to="/v4/profile" replace />;
+
   return chrome(
     <div className="mx-auto max-w-3xl px-6 pb-24 pt-6 lg:px-8">
       <Link
@@ -189,9 +201,17 @@ export default function PersonScreen() {
                       {row}
                     </Link>
                   ) : (
-                    // No anchor left to open. Shown, because their work does
-                    // not vanish, but not made to look like a link.
-                    <div className={cls}>{row}</div>
+                    /*
+                      No anchor left to open. Shown, because their work does
+                      not vanish — but it used to carry the *same* border,
+                      background and transition as the links around it, so it
+                      read as one and did nothing when clicked. It says what it
+                      is now, the way Library's equivalent does.
+                    */
+                    <div className={cn(cls, 'border-dashed opacity-80')}>
+                      {row}
+                      <span className="shrink-0 text-[12px] text-quiet">Needs a new home</span>
+                    </div>
                   )}
                 </li>
               );

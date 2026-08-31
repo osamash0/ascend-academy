@@ -123,12 +123,24 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
         radial wash rather than a bordered panel, so this reads as part of
         Profile and not as a widget dropped into it.
       */}
+      {/*
+        `farthest-side`, not `closest-side`.
+        
+        `closest-side` sizes the radius to half the *shorter* axis — so on a
+        wide, short map the wash was a circle in the middle and the leftmost
+        and rightmost labels sat on the raw console backdrop, which carries a
+        40%-opacity gradient and two accent glows. I could not settle that by
+        measurement: compositing in the browser only reads `backgroundColor`,
+        and every layer above the base is a `background-image`. So the
+        dependency is removed rather than measured — the wash now reaches the
+        full width and every label has the same ground under it, at both ends.
+      */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-x-6 -inset-y-3"
+        className="pointer-events-none absolute -inset-x-8 -inset-y-4"
         style={{
           background:
-            'radial-gradient(closest-side at 50% 50%, rgba(6,7,12,0.96) 0%, rgba(6,7,12,0.86) 55%, rgba(6,7,12,0) 100%)',
+            'radial-gradient(farthest-side at 50% 50%, rgba(6,7,12,0.97) 0%, rgba(6,7,12,0.93) 60%, rgba(6,7,12,0.55) 88%, rgba(6,7,12,0) 100%)',
         }}
       />
 
