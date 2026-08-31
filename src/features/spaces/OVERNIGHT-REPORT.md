@@ -1,32 +1,32 @@
 # Overnight report · Learnstation v4 UI
 
-*Run of `OVERNIGHT-PROMPT.md` backlog A–H, 2026-08-31. Branch
-`claude/peaceful-rosalind-9d0e67`. Nothing pushed; `main` untouched.*
+*Branch `claude/peaceful-rosalind-9d0e67`. Nothing pushed; `main` untouched.
+Two sessions: the A–H backlog (2026-08-30), then the finish-and-review pass
+(2026-08-31).*
 
 ---
 
-## Status: all eight letters shipped
+## Read this bit first
 
-| | Backlog item | Commit |
-|---|---|---|
-| **A** | Space tab routing + Lesson pager | `1608991` |
-| **B** | Concept overview | `244724b` |
-| **C** | Create, join and manage a Space | `2bc36ad` |
-| **D** | Notifications | `72760cd` |
-| **E** | Luna avatar + Rank ring | `004b1f3` |
-| **F** | Home hero kinds + Recently viewed | `a30a575` |
-| **G** | Writable Notes | `a95eeb7` |
-| **H** | Studio row actions + mode guard | `7d9b4ce` |
+The backlog A–H shipped in the first session. The second session did three
+things: **finished the three missing screens**, **ran a discovery cycle over
+everything**, and **fixed what it found**.
 
-Plus `70f760b` — the plan itself, at
-`docs/superpowers/plans/2026-08-31-v4-ui-backlog.md`.
+The discovery cycle is the part worth your attention. It found 18 controls that
+rendered enabled and did nothing, a draft Lesson that was being served to
+anyone with the URL, three guards that could not fail, and a map that "fit" a
+phone by becoming unreadable. None of it was visible in a screenshot and none
+of it failed a test — which is exactly why the cycle exists.
 
-**Gates, all green at every commit:** `tsc -p tsconfig.app.json` · `eslint
-src/features/spaces --quiet` · `vitest` · `check-vocabulary.mjs`.
+Four questions you answered, all of which shaped the night:
+Ascent inherits the map rules · full responsive pass · practice grants nothing ·
+auto-fix and log.
 
-**Tests: 47 → 101.** Every new rule a screen touches has an assertion.
+---
 
-## Routes — 14, all reachable by clicking
+## What is now built
+
+**Twenty routes**, every one reachable by clicking.
 
 ```
 /v4/home                              /v4/space/:id
@@ -34,105 +34,197 @@ src/features/spaces --quiet` · `vitest` · `check-vocabulary.mjs`.
 /v4/library                           /v4/space/:id/members
 /v4/library/{uploads,drafts,impact}   /v4/space/:id/manage
 /v4/social                            /v4/space/:id/lesson/:lessonId
-/v4/profile                           /v4/space/:id/concept/:conceptId
+/v4/profile                           /v4/space/:id/lesson/:lessonId/practice
+/v4/settings          NEW             /v4/space/:id/concept/:conceptId
+/v4/person/:personId  NEW             ⌘K palette (global)
 ```
 
-Walked end to end without typing a URL:
-`Spaces → Database Systems → Lesson 1 → pager → Lesson 2 → Concept → back`,
-then all five destinations from the top bar. All 14 return 200.
+### The three screens that were missing
 
-## What the browser caught that the tests did not
+**Practice** — a focus surface. Console texture off, top bar off, one question
+at a time. It explains every answer, right or wrong, because practice that only
+says "wrong" teaches nothing. Per your call it **grants no XP and clears
+nothing on the map**: it is a place to be wrong safely, and the moment it
+scores you, you stop guessing honestly. A guard asserts the screen never
+touches XP, rank, or map state.
 
-Three defects, each found by driving the UI rather than by a passing suite.
-Each now has a guard.
+**⌘K** — mounted once by the top bar rather than threaded through nine screens
+as a prop, so the shortcut cannot silently work everywhere except the screen
+that forgot. Groups by type, names the Space on every hit, never renders
+content inline, and searches only what you can already see.
 
-1. **Creating a Space navigated to a Space that did not exist.** `draftSpace`
-   built the object and returned it; nothing registered it, so the landing
-   404'd. Now `createSpace` registers into a session list kept *separate* from
-   the fixture array — a mutable base array would make "covers every state"
-   depend on whatever was last clicked.
-2. **A saved Note hid its own text.** It collapsed to a button reading "Edit
-   this note", so reading your notes meant opening every one. Closed is a
-   note's *reading* state; it now shows the writing.
-3. **The mode guard's first run was a false positive** — it matched
-   `SpaceManageScreen`'s own doc comment saying the Learn bar is "deliberately
-   absent". Comments are stripped before matching now, exactly as the
-   vocabulary checker does. A rule that fires on the prose explaining it is a
-   rule people switch off.
+**Settings** — a Studio screen off Profile. No reduced-motion switch, because
+one that could disagree with the OS is a bug with a label on it. Account
+deletion is visibly not wired rather than faked.
 
-## NEEDS-BACKEND
+### Ascent
 
-Only one genuinely new capability was needed. Everything else mirrors a shape
-the backend already serves.
+Profile's labelled empty slot is filled. Your call was that it inherits the ten
+map rules, so: a body is a Space, its light is the fraction of its path you
+have cleared, order is time so the route reads as a history, and the palette is
+identical — two maps disagreeing about what gold means would be worse than one
+map. It does *not* inherit the boustrophedon layout, because rows would imply
+an order between subjects that does not exist.
 
-- **Member roles (Owner / Editor / Member)** — `SpaceManageScreen`, marked in
-  source. No counterpart in the current schema. Join codes *do* exist on
-  courses today, so the invite half of that screen mirrors something real and
-  the role half does not.
+`maps.test.tsx` is what makes "inherits" mean anything rather than being a
+comment the second map drifts away from.
 
-Mirrored rather than invented:
+### Mobile
 
-| v4 | Existing shape |
-|---|---|
-| Concepts, `weight`, "appears in" | `conceptsService.LectureConcept` + `RelatedLecture` |
-| Notifications | the `notifications` row `{id,title,message,type,read,created_at}` |
-| New notification kinds | new **values** of `type`, not a schema change |
-| Avatar | `profiles.avatar_url` + `luna_suit_color/visor_tint/patch` |
-| Uploads / drafts | `myMaterialsService`, `uploadBatchService` |
+Bottom bar with the same five destinations; the top bar drops its pills at the
+same breakpoint. Every screen checked at 375×812.
 
-## Doc conflicts and open questions
+---
 
-Reported, not resolved — per §7 of the build prompt.
+## What the cycle found
 
-1. **Tab order.** Built as **Overview · Map · Members** (Abi's call,
-   2026-08-30). Doc 2 §"Tabs inside a Space" says Overview · Members · Map.
-   The docs should be amended or the build changed; the divergence is
-   deliberate and recorded in the source.
-2. **The two maps.** Doc 2's ten map rules are written for the per-Space map.
-   `Ascent` holds a cross-Space journey (`FullJourneyPath`, `SkillTreeView`).
-   Whether one inherits the other's rules is undecided, so Profile carries a
-   **labelled empty slot** rather than a guess. This is the single largest
-   piece of deliberately unbuilt UI.
-3. **Concept-level contributions had no fixtures until now.** Doc 1 defines
-   three anchors — Space, Lesson, Concept — but only the first two had data, so
-   the Concept community section had never rendered against anything. It has
-   fixtures now, which is what surfaced that the anchor was untested.
+`CYCLE.md` documents the method. Findings, by severity.
+
+### 1. Drafts were served to anyone with the URL
+
+Rule 1 — Members only see published Lessons — was real and enforced, in
+`useSpace`. But `LessonScreen`, `ConceptScreen` and `PracticeScreen` each did
+their own `lessonsForSpace(id).find(...)`, so `/v4/space/s-linalg/lesson/
+l-s-linalg-4` rendered an unpublished Lesson to a stranger, with no Draft
+marker anywhere on the screen. Three screens, one rule, and the rule lived
+somewhere none of them looked.
+
+Fixed at the level it lives at: `visibleLessonsForSpace(space)` takes the Space
+rather than an id, so a caller cannot ask the question without having
+established who is asking.
+
+### 2. Eighteen controls did nothing
+
+Not one was a typo. Each was written as a real control, styled as one, given an
+`aria-label`, and left unwired because its destination did not exist yet. Two
+carried `aria-pressed` and "Tap to remove" — a screen reader being told about a
+state change that never happened.
+
+Seven of the eighteen came from **three optional callbacks** in `states.tsx`.
+Making them required turned all seven into compile errors at once. That is the
+shape of most of these: a prop that was optional so it could be added later,
+and later never came.
+
+Like and Star are now self-wiring — they take an id instead of an optional
+`onToggle`, so the unwired version cannot be written. Add Lesson and Contribute
+open real dialogs that create real objects. Accept and Decline move people
+between lists.
+
+### 3. Three guards could not fail
+
+- `map.test.ts` declared its own `const FOLD_THRESHOLD = 20` and asserted it
+  against itself. Changing the real one turned nothing red — and the source
+  comment told the next person the number was protected.
+- The orphan guard ran `orphans.every(...)` over a list that never contained an
+  orphan. `[].every()` is `true`. Three render paths — the warning border,
+  "Your work is safe", "Needs a new home" — had never once executed.
+- `studio.test.ts` sorted a one-element array against itself.
+
+**Every guard written tonight was proved by reintroducing the defect and
+watching it go red.** A test that passes is not the same as a test that works.
+
+### 4. Fixtures contradicted each other
+
+The bell announced an endorsement the contribution recorded as `endorsed:
+false`, so Library, the impact table and the card badge all said it had not
+happened. A second notification described a promotion into a Guided Space,
+which `lessons.ts` states is impossible by definition, pointing at an Official
+Lesson by someone else.
+
+Library also hardcoded `'Normalization'` and `'s-dbs'` as the label for *any*
+lesson-anchored contribution, in three places, and dropped Concept anchors
+entirely — so ⌘K found a contribution that Library denied existed.
+
+### 5. Accessibility had decayed
+
+Sixteen icons exposed to screen readers, each beside the word it depicts.
+`font-black` and `uppercase` back in five places. Raw `text-white/45` carrying a
+Space tile's own progress line.
+
+Two worth naming:
+
+- **Studio ignored reduced motion entirely.** `reducedMotion="user"` lives in
+  `Scene`, which only Learn screens go through. Settings cited that very
+  mechanism as its reason for having no motion switch — in a file the mechanism
+  did not cover.
+- **The viewer had two faces.** Three call sites drew their own initials
+  instead of mounting `Avatar`, whose own doc comment names this exact failure
+  mode. You rendered as "Ab" in the Social friends stack and as Luna in the top
+  bar two inches away.
+
+### 6. The map "fit" a phone by becoming unreadable
+
+The most interesting finding, because it passes every check that asks "does it
+fit". At 375px the per-Space map scaled its 896-unit viewBox by 0.36 and turned
+every label into **4.7px** of type. No overflow, no clipping, nothing to see in
+a screenshot. Both maps now hold a legible floor and scroll in their own
+container; labels read at ~11.5px.
+
+---
+
+## Numbers
+
+| | Then | Now |
+|---|---|---|
+| Tests | 101 | **169** |
+| Test files | 14 | 23 |
+| Routes | 14 | 20 |
+| Dead controls | 18 | 0 |
+| Guards that cannot fail | 3 | 0 |
+
+Four gates green at every commit: `tsc -p tsconfig.app.json` · `eslint
+src/features/spaces --quiet` · `vitest` · `check-vocabulary.mjs`.
+
+---
+
+## Two process notes
+
+**The four gates are four for a reason.** The icon sweep introduced a JSX
+syntax error that all 154 tests passed straight through — the source-reading
+guards read files as text and never compile them. `tsc` caught it.
+
+**Guards need their false positives fixed immediately.** Three of the new ones
+misfired on first run: a `>` inside a JSX expression, Radix `asChild`, and
+`max-w-[140px]` matching a "pinned width" rule. A guard whose false positives
+outnumber its real ones gets muted within a week, which is worse than not
+having written it.
+
+---
+
+## Open questions and conflicts
+
+Reported, not resolved.
+
+1. **Promotion may be possible in Guided Spaces.** `lessons.ts` asserts a
+   Community-origin Lesson in a Guided Space is "impossible by definition". But
+   a promotion *is* the Owner publishing a member's contribution with credit,
+   which is exactly what Guided mode allows. If the comment is too strict, the
+   notification I deleted should come back. **This needs your call.**
+2. **Tab order.** Built Overview · Map · Members (your call, 2026-08-30). Doc 2
+   says Overview · Members · Map. Docs should be amended or the build changed.
+3. **Origin badge visibility.** `badges.tsx` says the Origin badge is "never
+   optional where content appears"; `LessonRow` gates it behind Open mode and
+   argues the opposite in its own comment. Two comments, incompatible rules,
+   nothing adjudicating. In practice no Guided Space shows an origin marker, so
+   "Official" has never rendered on a Lesson row at all.
 4. **Persistent chrome is unruled.** All five destinations are Learn ("minimal
-   chrome"), but the top bar carries notifications, settings and sign-out.
-   Still unanswered from the previous session.
+   chrome"), but the top bar carries notifications, settings and sign-out. Open
+   since two sessions ago.
 
-## Deliberately not done
+## Still not done
 
-- **Practice** — every practice affordance is a button that does nothing. It is
-  its own doc (Doc 6) and was not in the backlog.
-- **⌘K search** — the trigger exists and is inert. `searchService.ts` exists, so
-  this is wiring, not design.
-- **Settings** — the top-bar gear is inert; Doc 2 puts Settings under Profile as
-  a Studio screen.
-- **Mobile** — nothing here has been checked below `sm`. Doc 2 lists the bottom
-  bar and ⌘K-without-a-keyboard as open.
-- **`FullJourneyPath` / `SkillTreeView`** — not ported, see conflict 2.
-
-## Method notes
-
-- **Fixture guards keep earning their place.** They have now caught eight real
-  defects across two sessions. The pattern is: assert the *mock data* obeys the
-  locked rules, because a fixture that breaks one produces a screen that looks
-  right and is wrong.
-- **`modes.test.tsx` is a new kind of guard** — it reads source rather than
-  rendering, because the Learn/Studio rule is about *composition*: which chrome
-  a screen may mount. A render test would need every screen's data and would
-  still miss the one that imports the wrong bar.
-- **Motion follows motion.dev** as instructed: variant propagation with
-  `staggerChildren` instead of per-item delays, declarative `whileHover` /
-  `whileTap`, `AnimatePresence` for anything that unmounts, animated
-  `height: "auto"` for the note editor. All of it still passes through
-  `reducedMotion="user"` in `Scene`, which drops transforms and keeps opacity.
+- **A reader.** There is no reading view and the fixtures carry no prose, so a
+  Lesson's "Start" opens its first idea instead. Marked `NEEDS-CONTENT`.
+- **`LessonTile`** exists and nothing imports it. Its five states have never
+  rendered.
+- **States with no fixture** — the map's fold, `SpaceTile`'s "Done" badge, the
+  `achievement` notification kind, `Avatar`'s image branch, six of seven
+  Members tabs (which currently print "1,204 Members" over an empty list).
+  These are code paths that have never executed; the full list is in the
+  session transcript.
+- **NEEDS-BACKEND** — member roles, account deletion, sign-out, real uploads.
 
 ## State
 
-Working tree clean · 9 commits ahead of `main` on
-`claude/peaceful-rosalind-9d0e67` · nothing pushed · `main` still at `8c641d4`.
-
-Dev server on **5199**; `/v4/*` routes are `import.meta.env.DEV` only and cannot
-be reached in a production build.
+Working tree clean · 20 commits ahead of `main` · nothing pushed · `main` still
+at `8c641d4`. Dev server on 5199; `/v4/*` is `import.meta.env.DEV` only.
