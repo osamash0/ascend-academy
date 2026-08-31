@@ -1,7 +1,9 @@
 import { BookOpen, Check, Link2, Lock, Quote, Star, Users } from 'lucide-react';
 import { useReducer } from 'react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { isStarred, starCount, toggleStar } from '../mocks/engagement';
+import { viewer } from '../mocks/people';
 import type { Grounding, Origin, Person, Space, SpaceMode, Visibility } from '../types';
 import { Avatar } from './Avatar';
 
@@ -217,19 +219,45 @@ export function ClassificationChips({
 export function AuthorLine({
   person,
   prefix,
+  /**
+   * Link the name to that person's public profile.
+   *
+   * Opt-in rather than always-on, because a byline often sits inside a card
+   * that is itself one big link — a Library row, a Home card — and a link
+   * inside a link is invalid HTML that browsers resolve by guessing. The
+   * caller knows whether it is nesting; this component cannot.
+   */
+  linkToProfile = false,
   className,
 }: {
   person: Person;
   prefix?: string;
+  linkToProfile?: boolean;
   className?: string;
 }) {
-  return (
-    <span className={cn('inline-flex items-center gap-2 text-[13px] text-quiet', className)}>
+  const body = (
+    <>
       {/* One avatar component everywhere — see Avatar.tsx. */}
-      <Avatar person={person} size="xs" isViewer={person.id === 'p-viewer'} />
+      <Avatar person={person} size="xs" isViewer={person.id === viewer.id} />
       {prefix ? <span className="text-faint">{prefix}</span> : null}
       <span className="font-semibold">{person.name}</span>
-    </span>
+    </>
+  );
+
+  const cls = cn('inline-flex items-center gap-2 text-[13px] text-quiet', className);
+
+  // Your own name is not a link to someone else's profile.
+  if (!linkToProfile || person.id === viewer.id) {
+    return <span className={cls}>{body}</span>;
+  }
+
+  return (
+    <Link
+      to={`/v4/person/${person.id}`}
+      className={cn(cls, 'console-focusable rounded-md hover:text-foreground')}
+    >
+      {body}
+    </Link>
   );
 }
 

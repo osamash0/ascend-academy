@@ -441,16 +441,33 @@ export default function SpaceScreen({
       {tab === 'members' && (
         <section className="mt-8">
           <h2 className="mb-5 text-[14px] font-medium text-quiet">
-            {space.memberCount.toLocaleString()} Members
+            {space.memberCount.toLocaleString()} {space.memberCount === 1 ? 'Member' : 'Members'}
           </h2>
+
+          {/*
+            A Space you have not joined shows what is *inside* it — Lessons, so
+            you are not joining blind — but not who is in it. That is a real
+            state, not missing data. Without this branch, Discover Spaces
+            printed "1,204 Members" over an empty list and then
+            "Showing 0 of 1,204".
+          */}
+          {members.length === 0 && (
+            <p className="rounded-2xl border border-dashed border-white/12 px-6 py-10 text-center text-[14px] leading-relaxed text-quiet">
+              {space.viewerRole === null
+                ? 'Who is in this Space is visible to its members. Join to see them.'
+                : 'Nobody else is here yet.'}
+            </p>
+          )}
+
           <ul className="space-y-1">
             {members.map((m: Membership) => (
               <li
                 key={m.person.id}
                 className="flex items-center justify-between gap-4 rounded-xl px-3 py-3 hover:bg-white/[0.03]"
               >
-                {/* Every byline links to that person's public profile. */}
-                <AuthorLine person={m.person} />
+                {/* Every byline links to that person's public profile — a
+                    claim this comment made before the screen existed. */}
+                <AuthorLine person={m.person} linkToProfile />
                 <div className="flex items-center gap-3">
                   <span className="text-[12.5px] text-faint tabular-nums">{m.progress}%</span>
                   <span
@@ -469,7 +486,7 @@ export default function SpaceScreen({
               </li>
             ))}
           </ul>
-          {members.length < space.memberCount && (
+          {members.length > 0 && members.length < space.memberCount && (
             <p className="mt-4 text-[13px] text-faint">
               Showing {members.length} of {space.memberCount.toLocaleString()}.
             </p>

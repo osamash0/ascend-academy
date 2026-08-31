@@ -237,5 +237,60 @@ export const dbsMembers: Membership[] = [
   { person: okonkwo, role: 'member', progress: 0, joinedAt: '2026-08-29T21:00:00Z' },
 ];
 
-export const membersForSpace = (spaceId: string): Membership[] =>
-  spaceId === 's-dbs' ? dbsMembers : [];
+/**
+ * Members of the other Spaces.
+ *
+ * Only Database Systems had any, and the Members tab has no empty branch — so
+ * `/v4/space/s-ml/members` printed "1,204 Members", an empty list, and then
+ * "Showing 0 of 1,204". Six of the seven Spaces rendered that.
+ *
+ * These are samples, not complete lists: a Space with 1,204 members does not
+ * ship 1,204 rows, and the "Showing N of M" line exists precisely because the
+ * list is a sample. Every Space has an Owner, because a Space without one is
+ * not a state the model allows.
+ */
+const cryptoMembers: Membership[] = [
+  { person: weber, role: 'owner', progress: 100, joinedAt: '2026-01-15T09:00:00Z' },
+  { person: keller, role: 'editor', progress: 62, joinedAt: '2026-02-20T09:00:00Z' },
+  { person: viewer, role: 'member', progress: 1, joinedAt: '2026-08-20T14:00:00Z' },
+  { person: lindqvist, role: 'member', progress: 88, joinedAt: '2026-03-02T09:00:00Z' },
+];
+
+/** The viewer's own Open Space. Asa is an Editor, which is why she can publish. */
+const linalgMembers: Membership[] = [
+  { person: viewer, role: 'owner', progress: 50, joinedAt: '2026-05-01T09:00:00Z' },
+  { person: lindqvist, role: 'editor', progress: 71, joinedAt: '2026-05-04T09:00:00Z' },
+  { person: ferreira, role: 'member', progress: 12, joinedAt: '2026-07-19T09:00:00Z' },
+];
+
+/**
+ * A Space of one. The viewer created it and nobody has joined — the ordinary
+ * state of a new Space, and one the Members tab had never rendered.
+ */
+const numericsMembers: Membership[] = [
+  { person: viewer, role: 'owner', progress: 0, joinedAt: '2026-08-29T09:00:00Z' },
+];
+
+const statsMembers: Membership[] = [
+  { person: ferreira, role: 'owner', progress: 100, joinedAt: '2026-01-08T09:00:00Z' },
+  { person: viewer, role: 'member', progress: 75, joinedAt: '2026-06-11T09:00:00Z' },
+  { person: okonkwo, role: 'member', progress: 34, joinedAt: '2026-04-22T09:00:00Z' },
+];
+
+const byMembers: Record<string, Membership[]> = {
+  's-dbs': dbsMembers,
+  's-crypto': cryptoMembers,
+  's-linalg': linalgMembers,
+  's-numerics': numericsMembers,
+  's-stats': statsMembers,
+};
+
+/**
+ * Who is in a Space.
+ *
+ * Empty for Spaces the viewer has not joined: a Discover Space shows what is
+ * *inside* it — its Lessons — so you are not joining blind, but its member
+ * list is not public. That is a real empty state, not missing data, and the
+ * screen now says which one it is.
+ */
+export const membersForSpace = (spaceId: string): Membership[] => byMembers[spaceId] ?? [];
