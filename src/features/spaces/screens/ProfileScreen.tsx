@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { badges, libraryItems } from '../mocks/library';
 import { viewer } from '../mocks/people';
-import { mySpaces } from '../mocks/spaces';
+import { mySpaces, visibleSpaces } from '../mocks/spaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Avatar, RankRing } from '../components/Avatar';
 import { BentoCell } from '../components/BentoCell';
 import { Scene, SURFACES } from '../components/Scene';
+import { AscentMap, ascentSpaces } from '../components/AscentMap';
 
 /**
  * Profile — "how far have I come?"
@@ -161,16 +162,16 @@ export default function ProfileScreen() {
         <section className="mt-10">
           <h2 className="mb-1 text-[14px] font-medium text-quiet">Your journey</h2>
           <p className="mb-4 text-[13.5px] text-faint">
-            Where you have been across every Space.
+            Every Space you are in, oldest first. Height is how far you have got.
           </p>
-          <div className="rounded-2xl border border-dashed border-white/12 px-6 py-10 text-center">
-            <p className="mb-1.5 text-[15px] font-semibold">Not built yet</p>
-            <p className="mx-auto max-w-[52ch] text-[14px] leading-relaxed text-quiet">
-              There are two candidate maps — the per-Space one inside a Space, and a
-              cross-Space journey. Doc 2 lists which rules apply to which as an open
-              question, so this slot is reserved rather than guessed.
-            </p>
-          </div>
+          {/*
+            Abi's call, 2026-08-31: Ascent inherits the per-Space map's ten
+            rules, scaled up a level — a body is a Space, its light is the
+            fraction of its path you have cleared, and the palette is
+            identical. Two maps with different colour meanings would be worse
+            than one map.
+          */}
+          <AscentMap spaces={ascentSpaces(visibleSpaces())} />
         </section>
 
         <section className="mt-10">
