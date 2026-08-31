@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { currentRun, daysStudied, lastStudied, longestRun, recentWeeks, studyDays, TODAY } from '../history';
-import { badges } from '../library';
 
 const strip = (p: string) =>
   readFileSync(join(process.cwd(), 'src/features/spaces', p), 'utf8')
@@ -23,15 +22,16 @@ describe('one run, derived from the days', () => {
     expect(strip('screens/ProfileScreen.tsx'), 'Profile holds its own STREAK').not.toMatch(
       /STREAK/,
     );
-    expect(strip('mocks/library.ts'), 'the run badge claims to be earned').not.toMatch(
-      /name: 'Four in a row',\s*earned: true/,
+    /*
+     * The third and fourth sources were prose, not numbers: badge b-3 "Four in
+     * a row · Four days running" and a notification reading "You have studied
+     * four days in a row." The badge has since been retired outright — see
+     * `mocks/moments.ts` — so what this guards now is that no achievement
+     * fixture comes back restating a run in its name.
+     */
+    expect(strip('mocks/library.ts'), 'an achievement fixture states a run again').not.toMatch(
+      /earned:\s*(true|false)/,
     );
-  });
-
-  it('earns the run badge from the record, not from a claim', () => {
-    const badge = badges.find((b) => b.id === 'b-3');
-    expect(badge, 'the run badge is gone').toBeDefined();
-    expect(badge!.earned).toBe(longestRun() >= 4);
   });
 
   it('counts consecutive days and stops at the first gap', () => {

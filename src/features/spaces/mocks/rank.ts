@@ -113,6 +113,16 @@ export interface XpEvent {
  * is worth is a Gamification-doc number nobody has decided, and inventing a
  * constant here would put a made-up rule in front of people.
  */
+/*
+ * The dates are not decoration — Moments reads firsts off them.
+ *
+ * Three were wrong when written. Both learning events sat on June days the
+ * study record does not contain; the milestone claimed 14 June while the
+ * viewer's earliest contribution is dated 2 June; and "Mnemonic for the normal
+ * forms" was liked on 21 July, nine days before the contribution was created.
+ * All four only became visible once a screen derived an ordering from them —
+ * a ledger nobody sorts can hold any dates at all.
+ */
 export const xpEvents: XpEvent[] = [
   {
     id: 'xp-1',
@@ -120,7 +130,7 @@ export const xpEvents: XpEvent[] = [
     label: 'Finished “Vectors and Matrices”',
     spaceName: 'Intro to Linear Algebra',
     amount: 10,
-    at: '2026-06-02T10:00:00Z',
+    at: '2026-08-12T10:00:00Z',
   },
   {
     id: 'xp-2',
@@ -128,7 +138,7 @@ export const xpEvents: XpEvent[] = [
     label: 'Finished “Orthogonality and Projections”',
     spaceName: 'Intro to Linear Algebra',
     amount: 10,
-    at: '2026-06-09T16:30:00Z',
+    at: '2026-08-17T16:30:00Z',
   },
   {
     id: 'xp-3',
@@ -136,7 +146,7 @@ export const xpEvents: XpEvent[] = [
     label: 'Your first contribution — once, ever',
     spaceName: null,
     amount: 20,
-    at: '2026-06-14T09:15:00Z',
+    at: '2026-06-02T09:00:00Z',
   },
   {
     id: 'xp-4',
@@ -144,7 +154,7 @@ export const xpEvents: XpEvent[] = [
     label: '“Mnemonic for the normal forms” was liked',
     spaceName: 'Database Systems',
     amount: 6,
-    at: '2026-07-21T12:00:00Z',
+    at: '2026-08-02T12:00:00Z',
   },
   {
     id: 'xp-5',
@@ -152,7 +162,7 @@ export const xpEvents: XpEvent[] = [
     label: 'An Owner endorsed “Mnemonic for the normal forms”',
     spaceName: 'Database Systems',
     amount: 8,
-    at: '2026-07-30T12:00:00Z',
+    at: '2026-08-06T12:00:00Z',
   },
   {
     id: 'xp-6',

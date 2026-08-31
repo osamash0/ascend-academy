@@ -1,7 +1,8 @@
 import { Award, Check, Flame, Heart, Lock, Orbit, Settings, Sparkles, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { badges, libraryItems, viewerStanding } from '../mocks/library';
+import { libraryItems, viewerStanding } from '../mocks/library';
+import { moments } from '../mocks/moments';
 import { standingFor } from '../mocks/rank';
 import { currentRun, longestRun } from '../mocks/history';
 import { viewer } from '../mocks/people';
@@ -45,7 +46,8 @@ export default function ProfileScreen() {
   const { rank, toNext, pct } = standingFor(xp);
   const streak = currentRun();
 
-  const earned = badges.filter((b) => b.earned);
+  const allMoments = moments();
+  const latestMoment = [...allMoments].reverse().find((m) => m.at !== null) ?? allMoments[0];
   const published = libraryItems.filter((i) => i.kind === 'contribution');
   const likesReceived = published.reduce((n, i) => n + (i.likeCount ?? 0), 0);
 
@@ -136,25 +138,18 @@ export default function ProfileScreen() {
           <p className="mt-2 text-[13px] text-quiet">Longest so far, {longestRun()} days</p>
           </BentoCell>
 
-          <BentoCell icon={Award} label="Badges">
+          {/*
+            Was `3/6` with a filled dot per badge — a completion gauge, which
+            is the second progression rule 4 excludes from the Ascent profile.
+            A moment has no total, so this names the most recent one instead.
+          */}
+          <BentoCell icon={Award} label="Moments" to="/v4/profile/moments">
             <p className="text-[28px] font-semibold leading-none tabular-nums">
-              {earned.length}
-              <span className="text-[18px] text-quiet">/{badges.length}</span>
+              {allMoments.length}
             </p>
-            {/* One dot per badge, filled as earned — the same gauge idea the
-                map uses for Concepts. */}
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              {badges.map((b) => (
-                <span
-                  key={b.id}
-                  title={b.name}
-                  className={cn(
-                    'h-2.5 w-2.5 rounded-full',
-                    b.earned ? 'bg-success' : 'border border-white/20 bg-transparent',
-                  )}
-                />
-              ))}
-            </div>
+            <p className="mt-2 line-clamp-2 text-[13px] text-quiet">
+              {latestMoment ? latestMoment.title : 'Nothing yet'}
+            </p>
           </BentoCell>
 
           {/* The hub lists exactly what this counts, so the number is a door. */}
@@ -210,53 +205,35 @@ export default function ProfileScreen() {
           <AscentMap spaces={ascentSpaces(visibleSpaces())} />
         </section>
 
+        {/*
+          The badge wall is gone — six rows, three of them padlocked goals.
+          "Get 25 likes on your work" was an instruction to farm likes, which
+          is what Doc 1 rule 3's anti-farming clauses exist to suppress. The
+          full record lives on its own screen; this links to it rather than
+          dangling anything.
+        */}
         <section className="mt-10">
-          <h2 className="mb-1 text-[14px] font-medium text-quiet">
-            Badges
-            <span className="ml-2 text-quiet tabular-nums">
-              {earned.length}/{badges.length}
-            </span>
-          </h2>
+          <h2 className="mb-1 text-[14px] font-medium text-quiet">Moments</h2>
           <p className="mb-4 text-[13.5px] text-faint">
-            Each one says what earned it — nothing here is decoration.
+            The first time each thing happened. Not a set to complete.
           </p>
-          <ul className="grid gap-2.5 sm:grid-cols-2">
-            {badges.map((b) => (
+          <ul className="space-y-2.5">
+            {allMoments.slice(-3).reverse().map((m) => (
               <li
-                key={b.id}
-                className={cn(
-                  'flex items-start gap-3 rounded-2xl border px-4 py-3.5',
-                  b.earned
-                    ? 'border-white/[0.10] bg-white/[0.04]'
-                    : 'border-dashed border-white/[0.10] bg-transparent',
-                )}
+                key={m.id}
+                className="rounded-2xl border border-white/[0.10] bg-white/[0.04] px-4 py-3.5"
               >
-                <span
-                  className={cn(
-                    'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
-                    b.earned ? 'bg-success/15 text-success' : 'bg-white/[0.05] text-faint',
-                  )}
-                >
-                  {b.earned ? (
-                    <Check aria-hidden className="h-4 w-4" />
-                  ) : (
-                    <Lock aria-hidden className="h-3.5 w-3.5" />
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <p
-                    className={cn(
-                      'text-[14.5px] font-semibold',
-                      b.earned ? 'text-foreground' : 'text-quiet',
-                    )}
-                  >
-                    {b.name}
-                  </p>
-                  <p className="mt-0.5 text-[13px] leading-relaxed text-faint">{b.how}</p>
-                </div>
+                <p className="text-[14.5px] font-semibold">{m.title}</p>
+                <p className="mt-1 text-[13px] text-quiet">{m.detail}</p>
               </li>
             ))}
           </ul>
+          <Link
+            to="/v4/profile/moments"
+            className="console-focusable mt-4 inline-flex items-center gap-2 rounded-full text-[13.5px] text-quiet transition-colors hover:text-foreground"
+          >
+            All moments
+          </Link>
         </section>
       </div>
     </>,
