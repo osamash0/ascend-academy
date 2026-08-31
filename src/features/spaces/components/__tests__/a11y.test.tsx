@@ -73,13 +73,36 @@ describe('the calm table holds', () => {
      * Icons are exempt: they are decorative, `aria-hidden`, and carry no
      * information that contrast could hide.
      */
+    /*
+     * The first version matched only `text-white/NN`, and pass 2 found four
+     * things it therefore could not see: `text-foreground/90` on the reader's
+     * body prose, `text-destructive/50` on the Delete label (1.87:1, the worst
+     * number in the build), and two raw `fill="rgba(...)"` values carrying the
+     * map's counts. A guard scoped to one spelling of a mistake finds one
+     * spelling of it.
+     */
     const offenders: string[] = [];
     for (const { name, body } of files) {
-      const lines = body.split('\n');
-      lines.forEach((line, i) => {
-        if (!/text-white\/\d/.test(line)) return;
-        // An icon line — decorative, exempt.
+      body.split('\n').forEach((line, i) => {
+        const alphaClass = /\btext-(white|foreground|primary|secondary|destructive|success|warning)\/\d/.test(
+          line,
+        );
+        const alphaFill = /fill="rgba\(\d+,\s*\d+,\s*\d+,\s*0?\.\d+\)"/.test(line);
+        if (!alphaClass && !alphaFill) return;
+        // A decorative glyph — exempt, it carries no information.
         if (/<[A-Z]\w*\b/.test(line) && /\bh-\d/.test(line)) return;
+        if (/aria-hidden/.test(line)) return;
+        /*
+         * An SVG *shape* fill is not text. The rule is about contrast of
+         * things you read, and `<circle fill="rgba(255,255,255,0.05)">` is a
+         * hit target. Only `<text>` fills count — checked by looking at the
+         * surrounding element rather than the line alone.
+         */
+        if (alphaFill && !alphaClass) {
+          const at = body.indexOf(line);
+          const around = body.slice(Math.max(0, at - 220), at);
+          if (!/<text\b/.test(around)) return;
+        }
         offenders.push(`${name}:${i + 1} ${line.trim().slice(0, 76)}`);
       });
     }
@@ -88,7 +111,29 @@ describe('the calm table holds', () => {
 });
 
 describe('targets are big enough to hit', () => {
-  it('never renders a bare 16px control', () => {
+  it('never renders a small icon-only button without padding', () => {
+    /*
+     * The first version inspected `<input type="checkbox">` only, so it could
+     * not see the 16×16 dialog close button that pass 2 found — a control
+     * sitting on top of the search input and eating clicks at the right end of
+     * the field. Any button whose only child is a small glyph needs either a
+     * fixed box of 24px+ or padding to get there.
+     */
+    for (const { name, body } of files) {
+      const tags = body.match(/<button[^>]*className="[^"]*"[^>]*>/gs) ?? [];
+      for (const tag of tags) {
+        const cls = tag.match(/className="([^"]*)"/)?.[1] ?? '';
+        const box = cls.match(/\bh-(\d+(?:\.\d+)?)\b/);
+        if (!box) continue;
+        const rem = Number(box[1]);
+        if (rem >= 6) continue; // h-6 = 24px
+        const padded = /\b[pm][xy]?-\d/.test(cls);
+        expect(padded, `${name}: h-${box[1]} button with no padding — under 24px`).toBe(true);
+      }
+    }
+  });
+
+  it('never renders a bare 16px checkbox', () => {
     /*
      * 24×24 CSS px minimum. A 16px checkbox is fine *if* something around it
      * makes the target bigger — a padded <label> counts, and the two on the

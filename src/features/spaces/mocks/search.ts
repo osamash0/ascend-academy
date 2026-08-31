@@ -1,7 +1,10 @@
 import { allConcepts, conceptContributions } from './concepts';
 import { publishedLessonsForSpace } from './lessons';
 import { spaceContributions, normalizationContributions } from './contributions';
-import { allSpaces } from './spaces';
+import { resolveContributionAnchor } from './library';
+import { canSeeHidden } from './engagement';
+import { viewer } from './people';
+import { visibleSpaces } from './spaces';
 
 /**
  * Search — the ⌘K jump tool.
@@ -22,7 +25,14 @@ import { allSpaces } from './spaces';
 export interface Hit {
   id: string;
   title: string;
-  spaceName: string;
+  /**
+   * The Space this lives in — Doc 2 rule 2, every result names it.
+   *
+   * `null` only for a Space hit, which *is* its own context. It used to be
+   * `s.name`, so a Space result printed its own name on both lines: query
+   * "data" gave "Database Systems / Database Systems".
+   */
+  spaceName: string | null;
   href: string;
   /** Present on Lesson hits so the published-only rule is checkable. */
   state?: string;
@@ -45,12 +55,29 @@ export const search = (query: string): SearchResults => {
   // dumping the whole product into it is not a search result.
   if (!q) return EMPTY;
 
-  // Rule 4: only what you can already see.
-  const reachable = allSpaces.filter((s) => s.viewerRole !== null || s.visibility === 'public');
+  /*
+   * Rule 4: only what you can already see — and `visibleSpaces()`, not
+   * `allSpaces`. `allSpaces` is the frozen fixture list, so a Space created
+   * this session was unfindable: you could open it by URL and it did not exist
+   * in ⌘K. `spaces.ts` states the rule in words — "everything that reads
+   * Spaces consults both".
+   */
+  const reachable = visibleSpaces().filter(
+    (s) => s.viewerRole !== null || s.visibility === 'public',
+  );
+  const nameOf = (id: string) => visibleSpaces().find((s) => s.id === id)?.name ?? '';
 
   const spaces: Hit[] = reachable
     .filter((s) => matches(s.name, q))
-    .map((s) => ({ id: s.id, title: s.name, spaceName: s.name, href: `/v4/space/${s.id}` }));
+    .map((s) => ({
+      id: s.id,
+      title: s.name,
+      // A Space *is* its own context, so there is no second line to print.
+      // Setting `spaceName: s.name` rendered its name twice — query "data"
+      // gave "Database Systems / Database Systems".
+      spaceName: null,
+      href: `/v4/space/${s.id}`,
+    }));
 
   const lessons: Hit[] = reachable.flatMap((s) =>
     // Published only — a draft must never leak through a search box.
@@ -71,7 +98,7 @@ export const search = (query: string): SearchResults => {
     .map((c) => ({
       id: c.id,
       title: c.name,
-      spaceName: allSpaces.find((s) => s.id === c.spaceId)?.name ?? '',
+      spaceName: nameOf(c.spaceId),
       href: `/v4/space/${c.spaceId}/concept/${c.id}`,
     }));
 
@@ -80,15 +107,32 @@ export const search = (query: string): SearchResults => {
     ...normalizationContributions,
     ...conceptContributions,
   ]
-    .filter((c) => !c.hidden && matches(c.title, q))
-    .map((c) => {
-      const spaceId = c.anchor.level === 'space' ? c.anchor.spaceId : 's-dbs';
-      return {
-        id: c.id,
-        title: c.title,
-        spaceName: allSpaces.find((s) => s.id === spaceId)?.name ?? '',
-        href: `/v4/space/${spaceId}`,
-      };
+    // Hidden work stays findable by its author and by Owner/Editors, which is
+    // the rule everywhere else. Written out as `!c.hidden` here, this was the
+    // seventh unconditional copy — and it meant an author could not find their
+    // own hidden contribution, the exact vanishing the rule forbids.
+    .filter((c) => matches(c.title, q))
+    .flatMap((c) => {
+      /*
+       * Resolved, not assumed. `'s-dbs'` was hardcoded for any anchor that was
+       * not space-level — correct today only because every lesson- and
+       * concept-anchored fixture happens to live in Database Systems. One
+       * contribution elsewhere and ⌘K would name the wrong Space and navigate
+       * to it.
+       */
+      const at = resolveContributionAnchor(c.anchor);
+      if (!at.spaceId) return [];
+      const space = visibleSpaces().find((s) => s.id === at.spaceId);
+      if (!space) return [];
+      if (!canSeeHidden(c.author.id, space.viewerRole, viewer.id) && c.hidden) return [];
+      return [
+        {
+          id: c.id,
+          title: c.title,
+          spaceName: space.name,
+          href: at.href ?? `/v4/space/${at.spaceId}`,
+        },
+      ];
     });
 
   return { spaces, lessons, concepts, contributions };

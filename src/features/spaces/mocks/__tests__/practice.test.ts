@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { practiceForLesson, gradeAnswer } from '../practice';
 import { allSpaces } from '../spaces';
 import { lessonsForSpace } from '../lessons';
+import { practiceForLesson, gradeAnswer } from '../practice';
 
 /**
  * Practice guards.
@@ -53,5 +53,42 @@ describe('Practice', () => {
 
   it('returns nothing for a Lesson with no practice', () => {
     expect(practiceForLesson('l-does-not-exist')).toEqual([]);
+  });
+});
+
+describe('what a Lesson promises is what practice delivers', () => {
+  it('never advertises a question that does not exist', () => {
+    /*
+     * The cross-fixture check that was missing. `practiceCount` was stated on
+     * seventeen Lessons and wrong on all seventeen — fifteen of them offered
+     * an enabled Practice button that landed on the empty state. It is derived
+     * now, so this asserts the derivation rather than the numbers.
+     */
+    for (const space of allSpaces) {
+      for (const l of lessonsForSpace(space.id)) {
+        expect(l.practiceCount, `${l.title} advertises the wrong count`).toBe(
+          practiceForLesson(l.id).length,
+        );
+      }
+    }
+  });
+
+  it('has practice in more than one corner of the path', () => {
+    // With two Lessons carrying questions, every guard about practice was
+    // really a guard about Normalization.
+    const withPractice = allSpaces
+      .flatMap((s) => lessonsForSpace(s.id))
+      .filter((l) => l.practiceCount > 0);
+    expect(withPractice.length).toBeGreaterThan(2);
+  });
+
+  it('leaves most Lessons honestly empty rather than falsely stocked', () => {
+    // The empty state is the majority path and that is fine — what is not
+    // fine is a button promising otherwise.
+    const empty = allSpaces
+      .flatMap((s) => lessonsForSpace(s.id))
+      .filter((l) => l.practiceCount === 0);
+    expect(empty.length).toBeGreaterThan(0);
+    for (const l of empty) expect(practiceForLesson(l.id)).toHaveLength(0);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { search } from '../search';
+import { hitCount, search } from '../search';
 import { allSpaces } from '../spaces';
 
 /**
@@ -33,15 +33,22 @@ describe('Search', () => {
   });
 
   it('searches only what you can already see — never a private Space you are not in', () => {
-    // Doc 2 rule 4: "published content in your Spaces, plus public Spaces."
+    /*
+     * Doc 2 rule 4: "published content in your Spaces, plus public Spaces."
+     *
+     * This used to end in `expect(true).toBe(true)` behind an
+     * `if (privateNotMine)` that no fixture satisfied — a guard for the rule
+     * with the most at stake, unable to fail. There is a fixture now, and the
+     * assertion is unconditional.
+     */
     const privateNotMine = allSpaces.find(
       (s) => s.visibility === 'private' && s.viewerRole === null,
     );
-    // The fixture set has no such Space; if one is ever added this must hold.
-    if (privateNotMine) {
-      expect(search(privateNotMine.name).spaces.some((h) => h.id === privateNotMine.id)).toBe(false);
-    }
-    expect(true).toBe(true);
+    expect(privateNotMine, 'no private-not-mine fixture — this guard is vacuous').toBeDefined();
+    const hits = search(privateNotMine!.name);
+    expect(hits.spaces.some((h) => h.id === privateNotMine!.id)).toBe(false);
+    // Nor by any of its content, through any group.
+    expect(hitCount(hits)).toBe(0);
   });
 
   it('never returns an unpublished Lesson', () => {

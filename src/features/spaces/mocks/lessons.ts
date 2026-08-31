@@ -1,5 +1,6 @@
 import type { Concept, Lesson, Material, Person, Space } from '../types';
 import { viewer, keller, weber, lindqvist, okonkwo, ferreira } from './people';
+import { practiceForLesson } from './practice';
 
 /**
  * Lesson fixtures — titles, order and progress taken verbatim from the
@@ -67,23 +68,35 @@ const lesson = (
   order: number,
   author: Person,
   over: Partial<Lesson> = {},
-): Lesson => ({
-  id: `l-${spaceId}-${order}`,
-  material: materialFor(spaceId, order, author),
-  spaceId,
-  title,
-  order,
-  state: 'published',
-  origin: 'official',
-  author,
-  grounding: null,
-  progress: 'not-started',
-  percentComplete: 0,
-  concepts: [],
-  contributionCount: 0,
-  practiceCount: 0,
-  ...over,
-});
+): Lesson => {
+  const id = `l-${spaceId}-${order}`;
+  return {
+    id,
+    material: materialFor(spaceId, order, author),
+    spaceId,
+    title,
+    order,
+    state: 'published',
+    origin: 'official',
+    author,
+    grounding: null,
+    progress: 'not-started',
+    percentComplete: 0,
+    concepts: [],
+    contributionCount: 0,
+    ...over,
+    /*
+     * Derived, and deliberately after the spread so no fixture can override
+     * it. Seventeen Lessons stated a `practiceCount` and every single one was
+     * wrong: Normalization claimed 20 against 3, and fifteen claimed a
+     * non-zero count against an empty bank — so fifteen Lessons rendered an
+     * enabled, primary-weight "Practice" button that landed on "No practice
+     * here yet". Two sources for one fact, disagreeing everywhere, and the
+     * practice guards only ever queried the one Lesson that half worked.
+     */
+    practiceCount: practiceForLesson(id).length,
+  };
+};
 
 /** ── Database Systems · Guided · grounding ON ───────────────────── */
 

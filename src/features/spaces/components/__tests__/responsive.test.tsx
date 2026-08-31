@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { NAV_TABS, navHref } from '../SpacesTopBar';
 
 /**
  * Rules for the small end.
@@ -43,11 +44,37 @@ describe('the bottom bar and the top bar never both navigate', () => {
     expect(mobile).toContain('md:hidden');
   });
 
-  it('carries the same five destinations, in the same order', () => {
-    const keys = (src: string) =>
-      [...src.matchAll(/key:\s*'(home|spaces|library|social|profile)'/g)].map((m) => m[1]);
-    expect(keys(mobile)).toEqual(keys(bar));
-    expect(keys(mobile)).toHaveLength(5);
+  it('carries the same five destinations, from one source', () => {
+    /*
+     * This used to grep `key: '...'` out of both files and compare the two
+     * lists — which passed while `MobileNav` held a full byte-for-byte copy of
+     * the table *and* its own copy of the route rule. Renaming a label,
+     * swapping an icon or changing where a tab goes left the two navs
+     * disagreeing and the guard green.
+     *
+     * There is one table now, so the assertion is that the copy is gone.
+     */
+    expect(bar).toContain('export const NAV_TABS');
+    expect(mobile).toContain('NAV_TABS');
+    expect(mobile, 'MobileNav declares its own table again').not.toMatch(/const\s+\w*TABS\s*[:=]/);
+    expect(mobile, 'MobileNav derives its own routes again').not.toMatch(/'\/v4\/spaces'/);
+    expect(NAV_TABS).toHaveLength(5);
+    expect(NAV_TABS.map((t) => t.key)).toEqual([
+      'home',
+      'spaces',
+      'library',
+      'social',
+      'profile',
+    ]);
+  });
+
+  it('sends every destination somewhere that exists', () => {
+    // The route rule lives in `navHref`, so it is checkable rather than
+    // restated in two components.
+    for (const t of NAV_TABS) {
+      expect(navHref(t.key)).toMatch(/^\/v4\//);
+    }
+    expect(navHref('spaces')).toBe('/v4/spaces');
   });
 
   it('portals out of the scene rather than sitting inside it', () => {

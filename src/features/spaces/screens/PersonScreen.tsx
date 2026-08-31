@@ -2,10 +2,15 @@ import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { people, viewer } from '../mocks/people';
-import { leaderboard } from '../mocks/library';
-import { normalizationContributions, spaceContributions } from '../mocks/contributions';
+import { spaceById } from '../mocks/spaces';
+import {
+  normalizationContributions,
+  sharedSpaceIds,
+  spaceContributions,
+} from '../mocks/contributions';
 import { conceptContributions } from '../mocks/concepts';
-import { allSpaces } from '../mocks/spaces';
+import { leaderboard } from '../mocks/library';
+import { likeCount, visibleContributions } from '../mocks/engagement';
 import { locateLesson } from '../mocks/lessons';
 import { isFriend } from '../mocks/social';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -41,18 +46,40 @@ export default function PersonScreen() {
   /** Everything they published, at any anchor level. */
   const published = useMemo(
     () =>
-      [...normalizationContributions, ...spaceContributions, ...conceptContributions]
-        // Public means published. Hidden work belongs to its author and to
-        // the people who maintain the Space, never to a passing visitor.
-        .filter((c) => c.author.id === personId && !c.hidden)
-        .sort((a, b) => b.likeCount - a.likeCount),
+      // Public means published. Hidden work belongs to its author and to the
+      // people who maintain the Space, never to a passing visitor — so this
+      // asks with no role, which is the strictest answer `visibleContributions`
+      // gives. Written out longhand here was the seventh copy of that rule.
+      visibleContributions(
+        [...normalizationContributions, ...spaceContributions, ...conceptContributions].filter(
+          (c) => c.author.id === personId,
+        ),
+        null,
+      )
+        // Likes come from the store, not the fixture. Reading `c.likeCount`
+        // meant a like made on a Lesson screen never showed here, and could
+        // never reorder this list — the mistake `ContributionCard` names in
+        // its own comment, made again on a newer screen.
+        .sort((a, b) => likeCount(b.id) - likeCount(a.id)),
     [personId],
   );
 
-  /** Spaces you are both in — the reason they are on your Social screen. */
+  /**
+   * Spaces you are both in — the reason they are on your Social screen.
+   *
+   * Read from the member lists, both ways. This used to be
+   * `allSpaces.filter(s => s.viewerRole !== null && s.owner.id !== viewer.id)`
+   * with a `[]` dependency array — "Spaces I am in that I do not own", which
+   * names the person nowhere. Every profile listed the same four.
+   */
   const shared = useMemo(
-    () => allSpaces.filter((s) => s.viewerRole !== null && s.owner.id !== viewer.id),
-    [],
+    () =>
+      personId
+        ? sharedSpaceIds(viewer.id, personId)
+            .map((id) => spaceById(id))
+            .filter((s): s is NonNullable<typeof s> => Boolean(s))
+        : [],
+    [personId],
   );
 
   const chrome = (body: React.ReactNode) => (
@@ -147,7 +174,9 @@ export default function PersonScreen() {
                   {c.endorsed && <EndorsedBadge />}
                   <span className="flex shrink-0 items-center gap-1.5 text-[13px] text-quiet tabular-nums">
                     <Heart aria-hidden className="h-3.5 w-3.5" />
-                    {c.likeCount}
+                    {likeCount(c.id)}
+                    {/* A bare number announced as "148" says nothing. */}
+                    <span className="sr-only">likes</span>
                   </span>
                 </>
               );

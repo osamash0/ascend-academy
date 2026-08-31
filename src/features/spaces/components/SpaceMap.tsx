@@ -35,6 +35,38 @@ import type { Lesson, Space } from '../types';
  */
 export const FOLD_THRESHOLD = 20;
 
+/**
+ * The map palette. One source, both maps.
+ *
+ * These six values were written out in `SpaceMap` and again in `AscentMap`,
+ * whose own docblock says the palette "is identical" — and `maps.test.tsx`
+ * asserted that *each file body contains* the hexes, so extracting them into a
+ * shared constant would have turned the guard red. A guard that requires the
+ * duplication it was written to prevent is worse than no guard: it makes the
+ * fix look like a regression.
+ *
+ *   gold   — earned. A cleared body emits light; nothing else does.
+ *   violet — where you are now. Present, not yet earned.
+ *   ember  — the route you have already travelled.
+ *   ink    — everything you have not learned. This is the content.
+ */
+export const MAP_PALETTE = {
+  goldCore: '#ffcf7a',
+  goldEdge: '#ffe9b8',
+  violetCore: '#6c5ce7',
+  violetEdge: '#8d7bff',
+  violetRim: '#a898ff',
+  ember: '#5b4a2e',
+  ink: '#12151f',
+  /** Labels. `lit` is full strength; `unlit` measured 4.18:1 once and must not. */
+  labelLit: '#f2f3f7',
+  labelUnlit: 'rgba(242,243,247,0.78)',
+  /** `text-label` (0.58) — the lowest tier allowed for information. */
+  labelMeta: 'rgba(242,243,247,0.58)',
+  route: 'rgba(255,255,255,0.13)',
+  bodyStroke: 'rgba(255,255,255,0.28)',
+} as const;
+
 const PER_ROW = 5;
 const STEP_X = 176;
 const ROW_H = 210;
@@ -179,26 +211,26 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
         <defs>
           {/* Earned. The only warm light on the screen. */}
           <radialGradient id="lm-halo-gold">
-            <stop offset="0%" stopColor="#ffe9b8" stopOpacity="0.55" />
-            <stop offset="45%" stopColor="#ffcf7a" stopOpacity="0.14" />
-            <stop offset="100%" stopColor="#ffcf7a" stopOpacity="0" />
+            <stop offset="0%" stopColor={MAP_PALETTE.goldEdge} stopOpacity="0.55" />
+            <stop offset="45%" stopColor={MAP_PALETTE.goldCore} stopOpacity="0.14" />
+            <stop offset="100%" stopColor={MAP_PALETTE.goldCore} stopOpacity="0" />
           </radialGradient>
           {/* Where you are. Present, not yet earned. */}
           <radialGradient id="lm-halo-violet">
-            <stop offset="0%" stopColor="#8d7bff" stopOpacity="0.45" />
-            <stop offset="50%" stopColor="#6c5ce7" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="#6c5ce7" stopOpacity="0" />
+            <stop offset="0%" stopColor={MAP_PALETTE.violetEdge} stopOpacity="0.45" />
+            <stop offset="50%" stopColor={MAP_PALETTE.violetCore} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={MAP_PALETTE.violetCore} stopOpacity="0" />
           </radialGradient>
         </defs>
 
         {/* The whole route, dim. */}
-        <path d={curve(placed)} fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth={1.5} />
+        <path d={curve(placed)} fill="none" stroke={MAP_PALETTE.route} strokeWidth={1.5} />
         {/* The part you have travelled, warm. */}
         {lastTouched >= 1 && (
           <path
             d={curve(placed.slice(0, lastTouched + 1))}
             fill="none"
-            stroke="#5b4a2e"
+            stroke={MAP_PALETTE.ember}
             strokeWidth={1.5}
           />
         )}
@@ -314,8 +346,8 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
                 <circle cx={x} cy={y} r={8} fill="#fff3d6" />
               ) : touched ? (
                 <>
-                  <circle cx={x} cy={y} r={8.5} fill="none" stroke="#8d7bff" strokeWidth={1.6} />
-                  <circle cx={x} cy={y} r={3} fill="#8d7bff" />
+                  <circle cx={x} cy={y} r={8.5} fill="none" stroke={MAP_PALETTE.violetEdge} strokeWidth={1.6} />
+                  <circle cx={x} cy={y} r={3} fill={MAP_PALETTE.violetEdge} />
                 </>
               ) : (
                 <>
@@ -344,7 +376,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
                     cy={y - 13}
                     r={6}
                     fill="#0b0d14"
-                    stroke="#6c5ce7"
+                    stroke={MAP_PALETTE.violetCore}
                     strokeWidth={1}
                   />
                   <text
@@ -402,7 +434,15 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
           <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-[#fff3d6]" /> Cleared
         </li>
         <li className="flex items-center gap-2">
-          <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-[#8d7bff]" /> You are here
+          {/* Inline, because a Tailwind arbitrary value cannot read a constant —
+              and the legend swatch must be the same violet as the body it
+              explains, or the legend is decoration. */}
+          <span
+            aria-hidden
+            className="h-2.5 w-2.5 rounded-full"
+            style={{ background: MAP_PALETTE.violetEdge }}
+          />{' '}
+          You are here
         </li>
         <li className="flex items-center gap-2">
           <span

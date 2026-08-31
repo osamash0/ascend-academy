@@ -1,9 +1,8 @@
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Compass, Home, Orbit, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { NavKey } from './SpacesTopBar';
+import { NAV_TABS, navHref, type NavKey } from './SpacesTopBar';
 
 /**
  * The five destinations, on a phone.
@@ -17,6 +16,10 @@ import type { NavKey } from './SpacesTopBar';
  * a five-tab bar needs, which is knowing what the fourth tab is before you tap
  * it. There is room for both at 375px.
  *
+ * The destinations and the route rule come from `SpacesTopBar`. This file held
+ * a byte-for-byte copy of both, and the guard compared only the keys — so a
+ * renamed label or a changed route left the two navs disagreeing, green.
+ *
  * Safe-area padding is real, not decorative: without it the bar sits under the
  * home indicator on every iPhone since the X, and the two rightmost tabs are
  * the ones you cannot hit.
@@ -28,14 +31,6 @@ import type { NavKey } from './SpacesTopBar';
  * scene instead of the bottom of the viewport. It looked like a second header.
  * Nothing in the CSS was wrong; the tree was.
  */
-
-const TABS: { key: NavKey; label: string; icon: typeof Home }[] = [
-  { key: 'home', label: 'Home', icon: Home },
-  { key: 'spaces', label: 'Spaces', icon: Orbit },
-  { key: 'library', label: 'Library', icon: BookOpen },
-  { key: 'social', label: 'Social', icon: Users },
-  { key: 'profile', label: 'Profile', icon: Compass },
-];
 
 export function MobileNav({ active }: { active: NavKey }) {
   const navigate = useNavigate();
@@ -49,13 +44,13 @@ export function MobileNav({ active }: { active: NavKey }) {
         'pb-[env(safe-area-inset-bottom)]',
       )}
     >
-      {TABS.map((tab) => {
+      {NAV_TABS.map((tab) => {
         const isActive = tab.key === active;
         return (
           <button
             key={tab.key}
             type="button"
-            onClick={() => navigate(tab.key === 'spaces' ? '/v4/spaces' : `/v4/${tab.key}`)}
+            onClick={() => navigate(navHref(tab.key))}
             aria-label={tab.label}
             aria-current={isActive ? 'page' : undefined}
             className={cn(

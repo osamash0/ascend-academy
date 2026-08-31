@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Check, RotateCw, X } from 'lucide-react';
@@ -41,6 +41,47 @@ export default function PracticeScreen() {
   const [picked, setPicked] = useState<string | null>(null);
   const [right, setRight] = useState(0);
   const [done, setDone] = useState(false);
+
+  /*
+   * Answer state belongs to one Lesson, and React does not know that.
+   *
+   * `Scene` guarantees no remount ("one tree, always"), and both practice URLs
+   * resolve to the same element at the same router position — so moving from
+   * one Lesson's practice to another reused the mount and kept the old
+   * `index`, `right` and `done`. You landed on a tally reading "3/1" without
+   * ever seeing question one, and with `index` past the end of a shorter set,
+   * `questions[index]` was `undefined` and reading `.prompt` threw.
+   *
+   * Resetting in an effect rather than with a `key` on the route, because the
+   * no-remount guarantee is load-bearing elsewhere and worth keeping.
+   */
+  useEffect(() => {
+    setIndex(0);
+    setPicked(null);
+    setRight(0);
+    setDone(false);
+  }, [lessonId]);
+
+  const explanationRef = useRef<HTMLDivElement>(null);
+  // Answering replaces what matters on screen; move focus to it.
+  useEffect(() => {
+    if (picked) explanationRef.current?.focus();
+  }, [picked]);
+
+  /*
+   * Escape leaves. This is a full-bleed surface with the chrome stripped and
+   * one X to exit — Escape is what a hand reaches for, and it cost nothing to
+   * honour.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && space && lesson) {
+        navigate(`/v4/space/${space.id}/lesson/${lesson.id}`);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navigate, space, lesson]);
 
   const chrome = (body: React.ReactNode) => (
     // Focus: plain near-black, no parallax, nothing to look at but the question.
@@ -162,27 +203,49 @@ export default function PracticeScreen() {
           const reveal = picked !== null;
           return (
             <li key={c}>
+              {/*
+                `aria-disabled`, not `disabled`. A real `disabled` removed the
+                button from the tab order the instant you activated it, so
+                focus fell to <body> and reaching "Next question" meant tabbing
+                from the top of the document — twice per question. This keeps
+                the answered choices readable and reviewable by keyboard while
+                refusing a second answer.
+              */}
               <button
                 type="button"
-                disabled={reveal}
+                aria-disabled={reveal}
                 onClick={() => {
+                  if (reveal) return;
                   setPicked(c);
                   if (c === q.correctAnswer) setRight((n) => n + 1);
                 }}
                 className={cn(
                   'console-focusable flex w-full items-center gap-3 rounded-2xl border px-5 py-4 text-left text-[15px] transition-colors',
                   !reveal && 'border-white/[0.10] bg-white/[0.03] hover:bg-white/[0.06]',
+                  reveal && 'cursor-default',
                   reveal && isAnswer && 'border-success/45 bg-success/[0.10]',
                   reveal && chosen && !isAnswer && 'border-destructive/45 bg-destructive/[0.08]',
-                  reveal && !isAnswer && !chosen && 'border-white/[0.06] opacity-50',
+                  reveal && !isAnswer && !chosen && 'border-white/[0.06] text-quiet',
                 )}
               >
                 <span className="min-w-0 flex-1">{c}</span>
+                {/*
+                  Which choice was right was carried by border colour and an
+                  aria-hidden glyph — so re-reading the list with a screen
+                  reader after answering told you nothing (SC 1.4.1). The
+                  words are there now; the colour is the redundant part.
+                */}
                 {reveal && isAnswer && (
-                  <Check aria-hidden className="h-4 w-4 shrink-0 text-success" />
+                  <>
+                    <span className="sr-only">Correct answer</span>
+                    <Check aria-hidden className="h-4 w-4 shrink-0 text-success" />
+                  </>
                 )}
                 {reveal && chosen && !isAnswer && (
-                  <X aria-hidden className="h-4 w-4 shrink-0 text-destructive" />
+                  <>
+                    <span className="sr-only">Your answer, incorrect</span>
+                    <X aria-hidden className="h-4 w-4 shrink-0 text-destructive" />
+                  </>
                 )}
               </button>
             </li>
@@ -199,7 +262,20 @@ export default function PracticeScreen() {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
+            {/*
+              The explanation appears without navigation, so it has to be
+              announced. `role="status"` rather than `aria-live="assertive"`:
+              it is information you asked for by answering, not an alert.
+              Focus moves here too, so the next Tab lands on "Next question"
+              instead of restarting from the top of the document.
+            */}
+            <div
+              ref={explanationRef}
+              role="status"
+              aria-live="polite"
+              tabIndex={-1}
+              className="console-focusable mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5"
+            >
               <p className="mb-1.5 text-[13px] font-medium text-quiet">
                 {graded.correct ? 'Right' : 'Not quite'}
               </p>

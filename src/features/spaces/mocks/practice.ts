@@ -79,6 +79,69 @@ const QUESTIONS: Record<string, PracticeQuestion[]> = {
       explanation:
         'Uniqueness alone is not enough — drop any attribute and it must stop identifying. That "nothing spare" part is minimality, and it is the whole definition.',
     },
+    {
+      id: 'q-basics-2',
+      lessonId: 'l-s-dbs-2',
+      prompt: 'A relationship is one-to-many. Where does the foreign key go?',
+      choices: [
+        'On the "many" side',
+        'On the "one" side',
+        'In a separate join table',
+        'On whichever side is queried more often',
+      ],
+      correctAnswer: 'On the "many" side',
+      explanation:
+        'Each row on the many side points at exactly one row on the one side, so it can hold a single value. Putting it the other way round would need a list in a cell, which is the 1NF violation.',
+    },
+  ],
+  /*
+   * Transactions. Added so that practice exists in more than one corner of the
+   * path: with only two Lessons carrying questions, every guard about practice
+   * was really a guard about Normalization.
+   */
+  'l-s-dbs-8': [
+    {
+      id: 'q-tx-1',
+      lessonId: 'l-s-dbs-8',
+      prompt: 'Two transactions each read a row, then write it. What is lost?',
+      choices: [
+        'One update, because the second write overwrites the first',
+        'Nothing — the database serialises them',
+        'Both writes, because the row locks',
+        'The read, because it happened first',
+      ],
+      correctAnswer: 'One update, because the second write overwrites the first',
+      explanation:
+        'This is the lost update problem, and READ COMMITTED does not prevent it: both reads are legal and both writes are legal. You need repeatable reads, or to write the update as a single statement that reads and writes at once.',
+    },
+    {
+      id: 'q-tx-2',
+      lessonId: 'l-s-dbs-8',
+      prompt: 'Which isolation anomaly does SERIALIZABLE allow?',
+      choices: [
+        'None of them',
+        'Phantom reads',
+        'Non-repeatable reads',
+        'Dirty reads',
+      ],
+      correctAnswer: 'None of them',
+      explanation:
+        'SERIALIZABLE is defined as the level at which the result is indistinguishable from running the transactions one after another, so by definition it permits none of the three. What it costs is concurrency, which is why it is rarely the default.',
+    },
+    {
+      id: 'q-tx-3',
+      lessonId: 'l-s-dbs-8',
+      prompt: 'A transaction fails halfway through. Which ACID property covers it?',
+      choices: [
+        'Atomicity',
+        'Consistency',
+        'Isolation',
+        'Durability',
+      ],
+      correctAnswer: 'Atomicity',
+      explanation:
+        'Atomicity is all-or-nothing: a failed transaction leaves no partial effect. Durability is the neighbouring promise — that once it commits, the result survives a crash.',
+    },
   ],
 };
 

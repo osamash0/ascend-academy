@@ -322,3 +322,20 @@ const byMembers: Record<string, Membership[]> = {
  * screen now says which one it is.
  */
 export const membersForSpace = (spaceId: string): Membership[] => byMembers[spaceId] ?? [];
+
+/** Whether a person is in a Space, by the member list rather than by guess. */
+export const isMemberOf = (spaceId: string, personId: string): boolean =>
+  membersForSpace(spaceId).some((m) => m.person.id === personId);
+
+/**
+ * Space ids two people are both in.
+ *
+ * `PersonScreen` computed this as "Spaces I am in that I do not own" and never
+ * looked at the other person at all — so every profile listed the same four
+ * Spaces under the heading "Spaces you are both in", including Chidi's, whose
+ * one shared Space was not among them. The `[]` dependency array was the tell:
+ * a memo with no reactive input, on a screen whose whole subject is a route
+ * parameter.
+ */
+export const sharedSpaceIds = (a: string, b: string): string[] =>
+  Object.keys(byMembers).filter((id) => isMemberOf(id, a) && isMemberOf(id, b));

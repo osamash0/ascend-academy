@@ -38,7 +38,19 @@ import type { Person } from '../types';
 
 export type NavKey = 'home' | 'spaces' | 'library' | 'social' | 'profile';
 
-const TABS: { key: NavKey; label: string; icon: typeof Home }[] = [
+/**
+ * The five destinations, and where each one goes. One source.
+ *
+ * `MobileNav` held a byte-for-byte copy of this list *and* its own copy of the
+ * route rule, and `responsive.test.tsx` compared only the `key:` strings — so
+ * renaming a label, swapping an icon or changing the route mapping in one file
+ * left the two navs disagreeing with the guard green.
+ */
+/** Where a destination lives. Spaces is the one that is not `/v4/<key>`. */
+export const navHref = (key: NavKey): string =>
+  key === 'spaces' ? '/v4/spaces' : `/v4/${key}`;
+
+export const NAV_TABS: { key: NavKey; label: string; icon: typeof Home }[] = [
   { key: 'home', label: 'Home', icon: Home },
   { key: 'spaces', label: 'Spaces', icon: Orbit },
   { key: 'library', label: 'Library', icon: BookOpen },
@@ -76,7 +88,7 @@ export function SpacesTopBar({
   /** The five destinations, as routes. Deep-linkable, per Doc 2. */
   const go = (key: NavKey) => {
     if (onNavigate) return onNavigate(key);
-    navigate(key === 'spaces' ? '/v4/spaces' : `/v4/${key}`);
+    navigate(navHref(key));
   };
 
   return (
@@ -131,7 +143,7 @@ export function SpacesTopBar({
         two things that have to agree about which tab is active.
       */}
       <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-        {TABS.map((tab) => {
+        {NAV_TABS.map((tab) => {
           const isActive = tab.key === active;
           return (
             <button

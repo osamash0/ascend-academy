@@ -124,7 +124,7 @@ export default function ReaderScreen() {
                 because the article's own `max-w-2xl` was the binding
                 constraint and the `ch` cap never applied.
               */
-              className="mb-5 max-w-[52ch] text-[17px] leading-[1.75] text-foreground/90 last:mb-0"
+              className="mb-5 max-w-[52ch] text-[17px] leading-[1.75] text-foreground last:mb-0"
             >
               {para}
             </p>

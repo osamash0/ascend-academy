@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { FOLD_THRESHOLD } from '../SpaceMap';
+import { FOLD_THRESHOLD, MAP_PALETTE } from '../SpaceMap';
 import { ascentSpaces } from '../AscentMap';
 import { allSpaces } from '../../mocks/spaces';
 import { lessonsForSpace } from '../../mocks/lessons';
@@ -25,15 +25,25 @@ const spaceMap = read('SpaceMap.tsx');
 const ascent = read('AscentMap.tsx');
 
 describe('both maps mean the same thing by the same colour', () => {
-  it('uses gold for earned and violet for where you are, in both', () => {
-    // Rule: gold is earned, violet is present, near-black is everything you
-    // have not learned. Two maps disagreeing on this is worse than one map.
+  it('reads the palette from one place instead of restating it', () => {
+    /*
+     * This used to assert that each file *contained* the hex literals — so it
+     * required the duplication it was written to prevent, and extracting the
+     * palette into `MAP_PALETTE` would have turned it red. A guard that makes
+     * the fix look like a regression is worse than no guard at all.
+     *
+     * It now asserts the opposite: neither map may carry a raw map hex.
+     */
+    expect(MAP_PALETTE.goldCore).toBe('#ffcf7a');
+    expect(MAP_PALETTE.violetCore).toBe('#6c5ce7');
     for (const [name, body] of [
-      ['SpaceMap', spaceMap],
+      ['SpaceMap', spaceMap.slice(spaceMap.indexOf('export function'))],
       ['AscentMap', ascent],
     ] as const) {
-      expect(body, `${name} lost the gold`).toContain('#ffcf7a');
-      expect(body, `${name} lost the violet`).toContain('#6c5ce7');
+      expect(body, `${name} restates a palette colour`).not.toMatch(
+        /#(ffcf7a|ffe9b8|6c5ce7|8d7bff|a898ff|5b4a2e|12151f)/i,
+      );
+      expect(body, `${name} does not use the shared palette`).toContain('MAP_PALETTE');
     }
   });
 

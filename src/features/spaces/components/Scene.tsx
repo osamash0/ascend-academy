@@ -102,11 +102,16 @@ export function Scene({ surface, status, gradientIndex, motionKey, children }: S
         <div className="relative" style={{ zIndex: 1 }}>
           {children}
           {/*
-            Room for the fixed bottom bar. Mounted here rather than by each
-            screen, because a screen that forgets it looks correct until you
-            scroll to the very bottom — the kind of bug that survives review.
+            Room for the fixed bottom bar — on the surfaces that have one.
+            
+            Mounted here rather than by each screen, because a screen that
+            forgets it looks correct until you scroll to the very bottom. But
+            the bar itself is mounted by `SpacesTopBar`, which focus surfaces
+            deliberately omit: so Practice and the reader reserved 68px on a
+            phone for a bar that was not there. The condition is the surface,
+            which is the same thing that decides whether the bar exists.
           */}
-          <MobileNavSpacer />
+          {surface === 'browse' && <MobileNavSpacer />}
         </div>
       </DepthScene>
     </MotionConfig>

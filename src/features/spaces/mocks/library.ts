@@ -1,5 +1,9 @@
 import type { Contribution, ContributionAnchor, LessonState, LibraryItem, Note } from '../types';
-import { normalizationContributions, spaceContributions } from './contributions';
+import {
+  normalizationContributions,
+  sharedSpaceIds,
+  spaceContributions,
+} from './contributions';
 import { conceptById, conceptContributions } from './concepts';
 import type { Person } from '../types';
 import { viewer, keller, weber, ferreira, okonkwo, lindqvist } from './people';
@@ -91,7 +95,7 @@ const uploadedMaterials: LibraryItem[] = lessonsForSpace('s-linalg')
  *
  * An orphan has no anchor left to resolve; that is what makes it an orphan.
  */
-const resolveAnchor = (
+export const resolveContributionAnchor = (
   anchor: ContributionAnchor,
 ): { spaceId: string | null; lessonTitle?: string; href: string | null } => {
   if (anchor.level === 'space') {
@@ -125,7 +129,7 @@ const myPublished = (): Contribution[] =>
 
 /** Contributions the viewer published, wherever they landed. */
 const myContributions: LibraryItem[] = myPublished().map((c) => {
-  const at = resolveAnchor(c.anchor);
+  const at = resolveContributionAnchor(c.anchor);
   return {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
@@ -251,13 +255,30 @@ export interface RankedPerson {
   isViewer?: boolean;
 }
 
+/**
+ * `sharedSpaces` is derived, not stated.
+ *
+ * It used to be a literal per row, and `PersonScreen` computes the same fact
+ * from the member lists — so Social said Chidi shared 1 Space and his profile
+ * listed 2, both looking right. The member lists are the source; a count that
+ * can disagree with the list it counts is not a count.
+ */
+const shared = (personId: string) => sharedSpaceIds(viewer.id, personId).length;
+
 export const leaderboard: RankedPerson[] = [
-  { person: keller, xp: 12480, rank: 'Rank 9', sharedSpaces: 1 },
-  { person: lindqvist, xp: 8210, rank: 'Rank 7', sharedSpaces: 2 },
-  { person: okonkwo, xp: 5140, rank: 'Rank 6', sharedSpaces: 1 },
-  { person: ferreira, xp: 3020, rank: 'Rank 5', sharedSpaces: 2 },
-  { person: weber, xp: 900, rank: 'Rank 3', sharedSpaces: 1 },
-  { person: viewer, xp: 60, rank: 'Rank 1', sharedSpaces: 4, isViewer: true },
+  { person: keller, xp: 12480, rank: 'Rank 9', sharedSpaces: shared(keller.id) },
+  { person: lindqvist, xp: 8210, rank: 'Rank 7', sharedSpaces: shared(lindqvist.id) },
+  { person: okonkwo, xp: 5140, rank: 'Rank 6', sharedSpaces: shared(okonkwo.id) },
+  { person: ferreira, xp: 3020, rank: 'Rank 5', sharedSpaces: shared(ferreira.id) },
+  { person: weber, xp: 900, rank: 'Rank 3', sharedSpaces: shared(weber.id) },
+  {
+    person: viewer,
+    xp: 60,
+    rank: 'Rank 1',
+    // Your own row counts the Spaces you are in, not ones "shared with" you.
+    sharedSpaces: allSpaces.filter((s) => s.viewerRole !== null).length,
+    isViewer: true,
+  },
 ];
 
 /**
@@ -280,7 +301,9 @@ export interface FriendRequest {
 }
 
 export const friendRequests: FriendRequest[] = [
-  { person: okonkwo, sharedSpaces: 1 },
+  // Derived, for the same reason as the leaderboard: this number and the list
+  // on the person's profile were two statements of one fact.
+  { person: okonkwo, sharedSpaces: shared(okonkwo.id) },
 ];
 
 export const friends = [lindqvist, ferreira];
@@ -367,7 +390,7 @@ export interface ImpactRow {
 export const impactRows = (): ImpactRow[] =>
   myPublished()
     .map((c) => {
-      const at = resolveAnchor(c.anchor);
+      const at = resolveContributionAnchor(c.anchor);
       return {
         id: c.id,
         title: c.title,

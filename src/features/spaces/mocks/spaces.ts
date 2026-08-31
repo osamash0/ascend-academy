@@ -280,10 +280,49 @@ export const archivedSpaces = [statistics];
 /** Everything under Mine, in section order. */
 export const mySpaces = [...createdByViewer, ...joinedByViewer, ...archivedSpaces];
 
+/**
+ * Someone else's private Space.
+ *
+ * Not in `mySpaces` and not in `discoverSpaces` — it exists in the world and
+ * the viewer cannot see it. Its only job is to give the visibility rules
+ * something real to exclude: `search.test.ts` had a branch for exactly this
+ * case, guarded by `if (privateNotMine)`, and no fixture satisfied it — so the
+ * test ended in `expect(true).toBe(true)` and could not fail.
+ */
+export const someoneElsesPrivate: Space = {
+  id: 's-private',
+  name: 'Numerische Lineare Algebra',
+  shortCode: 'NLA',
+  description: 'Someone else’s Space. You cannot see this.',
+  owner: keller,
+  universe: marburg,
+  classification: { domain: 'Mathematics', subject: 'Numerical Analysis' },
+  mode: 'guided',
+  visibility: 'private',
+  state: 'active',
+  groundingEnabled: false,
+  strictMode: false,
+  memberCount: 12,
+  starCount: 0,
+  starredByViewer: false,
+  viewerRole: null,
+  viewerProgress: 0,
+  lessonCount: 0,
+  lessonsDone: 0,
+  newSinceLastVisit: 0,
+  lastActiveAt: '2026-08-20T09:00:00Z',
+};
+
 /** Discover — public Spaces the viewer has not joined. Ranked by stars. */
 export const discoverSpaces = [machineLearning, analysis];
 
-export const allSpaces = [...mySpaces, ...discoverSpaces];
+/**
+ * Every Space in the fixture world, including ones the viewer cannot see.
+ *
+ * Screens must filter this; the visibility rules are what do the filtering,
+ * and they need something to exclude or they are guarding nothing.
+ */
+export const allSpaces = [...mySpaces, ...discoverSpaces, someoneElsesPrivate];
 
 /**
  * Spaces created during this session.

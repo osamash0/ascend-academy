@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Space } from '../types';
-import { lessonsForSpace, publishedLessonsForSpace } from '../mocks/lessons';
-import { FOLD_THRESHOLD } from './SpaceMap';
+import { publishedLessonsForSpace } from '../mocks/lessons';
+import { FOLD_THRESHOLD, MAP_PALETTE } from './SpaceMap';
 
 /**
  * Ascent — the cross-Space journey.
@@ -18,9 +18,18 @@ import { FOLD_THRESHOLD } from './SpaceMap';
  *   • A **body is a Space**, not a Lesson. Its light is the fraction of its
  *     path you have cleared, exactly as a Lesson's light is the fraction of
  *     its ideas.
- *   • **Position carries order**, and here the order is time — when you joined
- *     or created it. A Space you started last year sits before one you joined
- *     last week, so the route reads as a history.
+ *   • **Position carries order**, and here the order is time. It sorts on
+ *     `lastActiveAt`, which is the only time the model records — so the route
+ *     reads most-dormant to most-recent, and it *reorders itself* when you open
+ *     a Space.
+ *
+ *     This paragraph used to claim the order was "when you joined or created
+ *     it… so the route reads as a history", which is the better rule and is
+ *     currently unbuildable: `Space` carries no join or create date
+ *     (`types.ts`). The code had silently substituted a different fact. Stated
+ *     honestly here rather than described as something it is not.
+ *     NEEDS-BACKEND: `joinedAt` on the Space, which `Membership` already has
+ *     per person.
  *   • The **palette is identical**: gold for earned, violet for where you are
  *     now, near-black for everything else. Two maps with different colour
  *     meanings would be worse than one map.
@@ -54,8 +63,11 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
   const navigate = useNavigate();
 
   const placed: Placed[] = useMemo(() => {
-    // Oldest first: the route is a history, so it reads left to right in time.
-    const ordered = [...spaces].sort((a, b) => +new Date(a.lastActiveAt) - +new Date(b.lastActiveAt));
+    // Least recently active first. See the docblock: the intended order is
+    // when you joined, and the model does not record it yet.
+    const ordered = [...spaces].sort(
+      (a, b) => +new Date(a.lastActiveAt) - +new Date(b.lastActiveAt),
+    );
     const visible = ordered.slice(0, FOLD_THRESHOLD);
     return visible.map((space, i) => {
       const path = publishedLessonsForSpace(space.id);
@@ -140,28 +152,34 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
           viewBox={`0 0 ${width} ${height}`}
           className="w-full min-w-[560px] select-none sm:min-w-0"
           style={{ maxHeight: '40vh' }}
-          role="img"
+          /*
+            `role="group"`, not `role="img"`. An image is presentational and
+            cannot contain controls, and this one holds five tab-focusable
+            buttons — screen readers disagree about what to do with that, and
+            some flatten the whole map to its label.
+          */
+          role="group"
           aria-label={`Your journey: ${clearedSpaces} of ${placed.length} Spaces cleared, ${lessonsDone} of ${lessonsTotal} Lessons.`}
         >
           <defs>
             <radialGradient id="am-halo-gold">
-              <stop offset="0%" stopColor="#ffe9b8" stopOpacity="0.55" />
-              <stop offset="45%" stopColor="#ffcf7a" stopOpacity="0.14" />
-              <stop offset="100%" stopColor="#ffcf7a" stopOpacity="0" />
+              <stop offset="0%" stopColor={MAP_PALETTE.goldEdge} stopOpacity="0.55" />
+              <stop offset="45%" stopColor={MAP_PALETTE.goldCore} stopOpacity="0.14" />
+              <stop offset="100%" stopColor={MAP_PALETTE.goldCore} stopOpacity="0" />
             </radialGradient>
             <radialGradient id="am-halo-violet">
-              <stop offset="0%" stopColor="#8d7bff" stopOpacity="0.45" />
-              <stop offset="50%" stopColor="#6c5ce7" stopOpacity="0.12" />
-              <stop offset="100%" stopColor="#6c5ce7" stopOpacity="0" />
+              <stop offset="0%" stopColor={MAP_PALETTE.violetEdge} stopOpacity="0.45" />
+              <stop offset="50%" stopColor={MAP_PALETTE.violetCore} stopOpacity="0.12" />
+              <stop offset="100%" stopColor={MAP_PALETTE.violetCore} stopOpacity="0" />
             </radialGradient>
           </defs>
 
-          <path d={line(placed)} fill="none" stroke="rgba(255,255,255,0.13)" strokeWidth={1.5} />
+          <path d={line(placed)} fill="none" stroke={MAP_PALETTE.route} strokeWidth={1.5} />
           {lastTouched >= 1 && (
             <path
               d={line(placed.slice(0, lastTouched + 1))}
               fill="none"
-              stroke="#5b4a2e"
+              stroke={MAP_PALETTE.ember}
               strokeWidth={1.5}
             />
           )}
@@ -183,8 +201,34 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                   }
                 }}
                 aria-label={`${p.space.name}. ${p.done} of ${p.total} Lessons cleared.`}
-                className="group cursor-pointer outline-none [&_circle]:transition-[r,opacity] [&_text]:transition-[fill]"
+                /*
+                  `console-focusable` rather than `outline-none`. The previous
+                  version removed the outline and replaced it with a 6% white
+                  wash on near-black — nowhere near the 3:1 a focus indicator
+                  needs — and the enlargement meant to accompany it was
+                  `group-hover:r-[11]`, which compiles to nothing at all:
+                  Tailwind has no `r` utility and this config adds none. So a
+                  keyboard user tabbing across the map got no feedback
+                  whatsoever, then pressed Enter and navigated somewhere.
+                */
+                className="group cursor-pointer [&_circle]:transition-[fill,opacity] [&_text]:transition-[fill]"
               >
+                {/*
+                  The visible focus and hover state, drawn rather than
+                  declared: a ring that appears on `group-focus-visible` and
+                  `group-hover`. `stroke` is animatable and `r` is not, which
+                  is what the dead `r-[11]` class was trying to work around.
+                */}
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={17}
+                  fill="none"
+                  stroke={MAP_PALETTE.labelLit}
+                  strokeWidth={2}
+                  className="opacity-0 transition-opacity group-hover:opacity-60 group-focus-visible:opacity-100"
+                />
+
                 {/* A real target, not an 18px dot. */}
                 <circle
                   cx={p.x}
@@ -210,16 +254,21 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                   cx={p.x}
                   cy={p.y}
                   r={r}
-                  fill={p.light === 1 ? '#ffcf7a' : p.current ? '#8d7bff' : '#12151f'}
+                  fill={
+                    p.light === 1
+                      ? MAP_PALETTE.goldCore
+                      : p.current
+                        ? MAP_PALETTE.violetEdge
+                        : MAP_PALETTE.ink
+                  }
                   stroke={
                     p.light === 1
-                      ? '#ffe9b8'
+                      ? MAP_PALETTE.goldEdge
                       : p.current
-                        ? '#a898ff'
-                        : 'rgba(255,255,255,0.28)'
+                        ? MAP_PALETTE.violetRim
+                        : MAP_PALETTE.bodyStroke
                   }
                   strokeWidth={1.5}
-                  className="group-hover:r-[11] group-focus-visible:r-[11]"
                 />
 
                 {/* Progress as an arc, so partial work is visible before it is finished. */}
@@ -229,7 +278,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                     cy={p.y}
                     r={15}
                     fill="none"
-                    stroke="#8d7bff"
+                    stroke={MAP_PALETTE.violetEdge}
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeDasharray={`${p.light * 2 * Math.PI * 15} ${2 * Math.PI * 15}`}
@@ -245,7 +294,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                   className="pointer-events-none text-[13px] font-medium"
                   // Unlit labels measured 4.18:1 on the per-Space map — an AA
                   // failure that looked deliberate. Same floor here.
-                  fill={p.light > 0 || p.current ? '#f2f3f7' : 'rgba(242,243,247,0.78)'}
+                  fill={p.light > 0 || p.current ? MAP_PALETTE.labelLit : MAP_PALETTE.labelUnlit}
                 >
                   {p.space.shortCode}
                 </text>
@@ -254,7 +303,10 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
                   y={p.y + 59}
                   textAnchor="middle"
                   className="pointer-events-none text-[11px] tabular-nums"
-                  fill="rgba(242,243,247,0.55)"
+                  // `text-label` (0.58), the lowest tier the scale allows for
+                  // information-bearing text. This was a raw 0.55 — a value
+                  // between two tokens, invented at the call site.
+                  fill={MAP_PALETTE.labelMeta}
                 >
                   {p.done}/{p.total}
                 </text>
@@ -270,4 +322,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
 
 /** Every Space the viewer is in — what Ascent draws. */
 export const ascentSpaces = (spaces: Space[]): Space[] =>
-  spaces.filter((s) => s.viewerRole !== null && lessonsForSpace(s.id).length > 0);
+  // `publishedLessonsForSpace`, matching what the body measures. Filtering on
+  // *all* Lessons admitted a Space holding only drafts, which then drew as
+  // `0/0` — permanently unlit, with no way to light it.
+  spaces.filter((s) => s.viewerRole !== null && publishedLessonsForSpace(s.id).length > 0);
