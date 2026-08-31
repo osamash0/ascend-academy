@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   CheckCircle2,
   Compass,
@@ -62,14 +62,53 @@ const formatSize = (b?: number) => (b === undefined ? '—' : `${(b / 1_000_000)
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
+/**
+ * A row's title, linked to the object it names.
+ *
+ * The drafts view listed rows reading "Needs review" with nothing to click:
+ * the screen told you work was waiting and gave you no way to reach it. Uploads
+ * were the same, and worse — a `href` to the Lesson was already computed on
+ * every material item and simply never used.
+ *
+ * The **title** is the link, not the row. A row-filling overlay is what Library
+ * uses for its cards, but here the row already owns a checkbox, and an
+ * `absolute inset-0` anchor would swallow every click meant for it. Selection
+ * stays the row's job; opening is the title's.
+ */
+function RowTitle({ to, children, label }: { to?: string; children: string; label: string }) {
+  if (!to) return <p className="truncate text-sm font-semibold text-foreground">{children}</p>;
+  return (
+    <Link
+      to={to}
+      aria-label={label}
+      className="console-focusable block truncate rounded text-sm font-semibold text-foreground hover:underline"
+    >
+      {children}
+    </Link>
+  );
+}
+
 /** Dense list row shared by all three views. */
 function Row({
   selected,
   onToggle,
+  /**
+   * Hold the checkbox's place on a row that has none.
+   *
+   * In a list where *some* rows can be selected, omitting the control shifts
+   * everything after it left by its width — so the drafts view's order numbers
+   * sat at two different x positions depending on whether the row happened to
+   * be publishable. Dense lists are read down the column.
+   *
+   * Not automatic: the impact view has no selection on any row, and reserving
+   * a gutter there would indent every row for a control that does not exist.
+   */
+  reserveToggle,
   children,
 }: {
   selected?: boolean;
   onToggle?: () => void;
+  reserveToggle?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -87,7 +126,7 @@ function Row({
         oversized next to a dense row — the visual size and the hit size are
         allowed to differ, and only one of them is the accessibility rule.
       */}
-      {onToggle && (
+      {onToggle ? (
         <label className="-m-1 flex shrink-0 cursor-pointer p-1">
           <input
             type="checkbox"
@@ -97,7 +136,10 @@ function Row({
           />
           <span className="sr-only">Select this row</span>
         </label>
-      )}
+      ) : reserveToggle ? (
+        /* Same 16px the label nets to — its p-1 and -m-1 cancel out. */
+        <span aria-hidden className="h-4 w-4 shrink-0" />
+      ) : null}
       {children}
     </div>
   );
@@ -253,7 +295,12 @@ export default function LibraryStudioScreen() {
               <Row key={u.id} selected={selected.has(u.id)} onToggle={() => toggle(u.id)}>
                 <FileText aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{u.title}</p>
+                  <RowTitle
+                    to={u.href ?? undefined}
+                    label={`Open ${u.title} in ${u.spaceName}`}
+                  >
+                    {u.title}
+                  </RowTitle>
                   <p className="truncate text-xs text-muted-foreground">
                     {u.lessonTitle ? `${u.lessonTitle} · ` : ''}
                     {u.spaceName}
@@ -328,12 +375,18 @@ export default function LibraryStudioScreen() {
                 key={d.lessonId}
                 selected={selected.has(d.lessonId)}
                 onToggle={d.state === 'draft' ? () => toggle(d.lessonId) : undefined}
+                reserveToggle
               >
                 <span className="w-6 shrink-0 text-xs text-muted-foreground tabular-nums">
                   {d.order}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{d.title}</p>
+                  <RowTitle
+                    to={`/v4/space/${d.spaceId}/lesson/${d.lessonId}`}
+                    label={`Open ${d.title} in ${d.spaceName}`}
+                  >
+                    {d.title}
+                  </RowTitle>
                   <p className="truncate text-xs text-muted-foreground">{d.spaceName}</p>
                 </div>
                 <div className="w-28 shrink-0 text-right">

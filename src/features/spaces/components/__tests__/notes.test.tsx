@@ -6,6 +6,8 @@ import LibraryStudioScreen from '../../screens/LibraryStudioScreen';
 import { NoteEditor } from '../NoteEditor';
 import { noteToItem } from '../../mocks/library';
 import { allNotes, noteById, resetNotes } from '../../mocks/notes';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * Editing a note must not throw the rest of it away.
@@ -335,4 +337,155 @@ describe('Library Studio only has the screens it has', () => {
       unmount();
     });
   }
+});
+
+describe('Library Studio lets you reach the work it lists', () => {
+  /*
+   * "Your drafts" listed rows reading "Needs review" with nothing to click, so
+   * the screen named work waiting on you and offered no way to do it. Uploads
+   * were the same, except an `href` to the Lesson was already computed on every
+   * material item and simply unused.
+   *
+   * Impact rows are deliberately exempt: an `ImpactRow` carries no `lessonId`
+   * and there is no per-contribution route, so there is nothing to link to yet.
+   * Asserted below so the exemption stays a decision rather than an oversight.
+   */
+  const studio = async (view: string) => {
+    const r = render(
+      <MemoryRouter initialEntries={[`/v4/library/${view}`]}>
+        <Routes>
+          <Route path="/v4/library/:view" element={<LibraryStudioScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(document.querySelectorAll('a[href^="/v4/"]').length + 1).toBeGreaterThan(0),
+    );
+    return r;
+  };
+
+  const titleLinks = () =>
+    [...document.querySelectorAll('a[href*="/lesson/"]')].map((a) => a.getAttribute('href')!);
+
+  for (const view of ['uploads', 'drafts']) {
+    it(`links every ${view} row to its Lesson`, async () => {
+      const { unmount } = await studio(view);
+      await waitFor(() => {
+        const rows = document.querySelectorAll('input[type="checkbox"]').length;
+        expect(rows, `${view} rendered no rows, so this proves nothing`).toBeGreaterThan(0);
+      });
+      const links = titleLinks();
+      expect(links.length, `${view} has rows but no way into any of them`).toBeGreaterThan(0);
+      for (const href of links) expect(href).toMatch(/^\/v4\/space\/[^/]+\/lesson\/[^/]+$/);
+      unmount();
+    });
+  }
+
+  it('reaches a draft that says it needs review', async () => {
+    const { unmount } = await studio('drafts');
+    await waitFor(() => expect(document.body.textContent).toMatch(/Needs review|Draft/));
+    /*
+     * The specific dead end: a row whose pill says "Needs review" cannot be
+     * selected — publishing it is not the answer — so a link is the only way
+     * it is reachable at all.
+     */
+    if (/Needs review/.test(document.body.textContent ?? '')) {
+      const row = [...document.querySelectorAll('div')].find(
+        (d) => /Needs review/.test(d.textContent ?? '') && d.querySelector('a[href*="/lesson/"]'),
+      );
+      expect(row, 'a "Needs review" draft has no way in').toBeTruthy();
+    }
+    unmount();
+  });
+
+  it('never covers the row with the title link', () => {
+    /*
+     * A source check, because no render test can catch this: happy-dom has no
+     * layout and no hit-testing, so `fireEvent.click` reaches the checkbox
+     * however completely a sibling covers it. I wrote the click test below
+     * first and it passed with `absolute inset-0 z-10` on the link — a guard
+     * that cannot fail for the reason it names.
+     *
+     * Library's cards legitimately use a row-filling overlay; a Studio row
+     * cannot, because it owns a checkbox.
+     */
+    const src = readFileSync(
+      join(process.cwd(), 'src/features/spaces/screens/LibraryStudioScreen.tsx'),
+      'utf8',
+    ).replace(/\/\*[\s\S]*?\*\//g, '');
+    const rowTitle = src.slice(src.indexOf('function RowTitle'));
+    const body = rowTitle.slice(0, rowTitle.indexOf('\n}'));
+    expect(body, 'the title link covers the row and will eat checkbox clicks').not.toMatch(
+      /absolute[^"']*inset-0|inset-0[^"']*absolute/,
+    );
+  });
+
+  it('keeps selection working', async () => {
+    const { unmount } = await studio('uploads');
+    await waitFor(() =>
+      expect(document.querySelectorAll('input[type="checkbox"]').length).toBeGreaterThan(0),
+    );
+    const box = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    await waitFor(() => expect((document.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true));
+    // And the toolbar noticed, so the row's own handler ran.
+    expect(document.body.textContent).toMatch(/1 selected/);
+    unmount();
+  });
+
+  it('leaves impact rows unlinked, on purpose', async () => {
+    const { unmount } = await studio('impact');
+    await waitFor(() => expect(document.body.textContent).toMatch(/published contributions/));
+    expect(
+      titleLinks().length,
+      'impact rows gained a Lesson link — if there is now a destination, drop this guard',
+    ).toBe(0);
+    unmount();
+  });
+});
+
+describe('a dense list reads down its columns', () => {
+  /*
+   * The drafts view puts a checkbox only on rows that can be published, and
+   * omitting it shifted everything after it left by its width — so the order
+   * numbers sat at two different x positions depending on whether a row
+   * happened to be publishable. Measured in the browser: 281 vs 299.
+   *
+   * Asserted structurally rather than by measurement, because happy-dom has no
+   * layout: every row must have the same number of leading slots, which is
+   * what the reserved spacer provides. Same reasoning as the overlay guard
+   * above — where a render test cannot see the property, check the structure
+   * that produces it.
+   */
+  it('gives every drafts row the same leading slots', async () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/v4/library/drafts']}>
+        <Routes>
+          <Route path="/v4/library/:view" element={<LibraryStudioScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(document.querySelectorAll('a[href*="/lesson/"]').length).toBeGreaterThan(0),
+    );
+
+    const rows = [...document.querySelectorAll('a[href*="/lesson/"]')]
+      .map((a) => a.closest('div[class*="rounded-xl"]'))
+      .filter((r): r is HTMLElement => !!r);
+
+    expect(rows.length, 'no drafts rows found — this guard is vacuous').toBeGreaterThan(1);
+    // The list must actually mix selectable and unselectable rows, or the
+    // misalignment this guards against could not occur.
+    const withBox = rows.filter((r) => r.querySelector('input[type="checkbox"]')).length;
+    expect(withBox, 'every row is selectable — no shift is possible').toBeGreaterThan(0);
+    expect(withBox, 'no row is unselectable — no shift is possible').toBeLessThan(rows.length);
+
+    const counts = rows.map((r) => r.children.length);
+    expect(
+      new Set(counts).size,
+      `rows have different numbers of columns (${counts.join(', ')}) — the missing checkbox shifts the row`,
+    ).toBe(1);
+    unmount();
+  });
 });
