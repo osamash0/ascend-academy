@@ -140,14 +140,26 @@ npx vitest run src/features/spaces
 node scripts/check-vocabulary.mjs
 ```
 
-**Run them bare, and chain them to the commit.** Two ways to turn a gate off
-by accident, both of which happened here:
+**Never `git add -A` in this tree.** Other Claude sessions work in the same
+worktree at the same time, by choice. `add -A` swept five files of another
+session's in-progress Spaces hub into a commit about CSS transitions and pushed
+it — nothing was lost, but their work is now half-committed under someone
+else's message and half still on disk. Stage explicit paths, always, and run
+`git status` first to see whose changes are actually in the tree.
+
+**Run them bare, and chain them to the commit.** Three ways to turn a gate off
+by accident, all of which happened here:
 
 - `check-vocabulary.mjs | tail -1` prints the failure and exits `0`, because
   the exit code belongs to `tail`.
 - Putting the gates and the commit on *separate lines* rather than in one
   `&&` chain. Each line runs regardless of the last one's exit code, so the
   gate goes red, prints its failure, and the commit lands anyway.
+- `npx vitest run … | grep -E "Tests "` inside an otherwise-correct `&&`
+  chain. Same defect as the first, and it survived being written down twice:
+  the chain reads `grep`'s exit code, `grep` found the word "Tests", so a red
+  suite committed *and pushed*. If you want to see a summary line, run the gate
+  bare and read the output — do not put a filter between the gate and `&&`.
 
 Both times the violation was in something written a minute earlier, and both
 times the failure was visible on screen and simply not acted on. One chain,
