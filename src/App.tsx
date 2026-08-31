@@ -18,6 +18,7 @@ import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes } from "@/li
 import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
+import { MotionRoot } from "@/features/spaces/components/MotionRoot";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
   useLanguagePreference();
@@ -93,6 +94,23 @@ const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PipelineTestPage = lazy(() => import("./pages/PipelineTestPage"));
 const PixiLab = lazy(() => import("./pages/PixiLab"));
+// v4 design rebuild. Mock data only, no backend, dev-only route — the old
+// product is untouched and the two coexist. See docs/design-v4/.
+const SpacesScreen = lazy(() => import("./features/spaces/screens/SpacesScreen"));
+const V4SpacesHub = lazy(() => import("./features/spaces/screens/SpacesHubScreen"));
+const SpaceRoute = lazy(() => import("./features/spaces/screens/SpaceRoute"));
+const V4Library = lazy(() => import("./features/spaces/screens/LibraryScreen"));
+const V4Home = lazy(() => import("./features/spaces/screens/HomeScreen"));
+const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
+const V4Concept = lazy(() => import("./features/spaces/screens/ConceptScreen"));
+const V4SpaceManage = lazy(() => import("./features/spaces/screens/SpaceManageScreen"));
+const V4LibraryStudio = lazy(() => import("./features/spaces/screens/LibraryStudioScreen"));
+const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
+const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
+const V4Practice = lazy(() => import("./features/spaces/screens/PracticeScreen"));
+const V4Settings = lazy(() => import("./features/spaces/screens/SettingsScreen"));
+const V4Person = lazy(() => import("./features/spaces/screens/PersonScreen"));
+const V4Reader = lazy(() => import("./features/spaces/screens/ReaderScreen"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
 const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
@@ -254,6 +272,48 @@ function AppRoutes() {
         <Route path={PublicRoutes.DATENSCHUTZ} element={<Datenschutz />} />
         {/* Experimental PixiJS playground — dev-only; never reachable in a production build. */}
         {import.meta.env.DEV && <Route path="/pixi-lab" element={<PixiLab />} />}
+        {/* v4 Spaces screen — mock data, dev-only. Public (no auth) so the
+            design can be reviewed without a session. Append
+            ?mock=empty|loading|error to inspect the other states. */}
+        {/*
+          One layout route for the whole v4 namespace, carrying the single
+          MotionConfig. `Scene` and `StudioShell` each mounted their own, which
+          is two places to change a default and two chances to disagree.
+
+          The DEV guard moves here too. It was repeated on all twenty-one
+          routes, and one of them forgetting it would have shipped a design
+          study into production with nothing failing.
+        */}
+        {import.meta.env.DEV && (
+          <Route element={<MotionRoot />}>
+            {/* The hub. Replaces the Mine/Discover tabs, which the handoff
+                deletes — membership is a badge, never a section split. */}
+            <Route path="/v4/spaces" element={<V4SpacesHub />} />
+            {/* The tabbed screen, parked so the two can be compared. */}
+            <Route path="/v4/spaces-legacy" element={<SpacesScreen />} />
+            <Route path="/v4/space/:spaceId" element={<SpaceRoute />} />
+            {/* Studio screen — declared before :tab so it is not swallowed as one. */}
+            <Route path="/v4/space/:spaceId/manage" element={<V4SpaceManage />} />
+            {/* Tabs are URL segments so every one is shareable and deep-linkable. */}
+            <Route path="/v4/space/:spaceId/:tab" element={<SpaceRoute />} />
+            <Route path="/v4/library" element={<V4Library />} />
+            {/* Studio screens hang off Library; Library itself stays Learn. */}
+            <Route path="/v4/library/:view" element={<V4LibraryStudio />} />
+            <Route path="/v4/home" element={<V4Home />} />
+            <Route path="/v4/social" element={<V4Social />} />
+            <Route path="/v4/profile" element={<V4Profile />} />
+            {/* Settings hangs off Profile — a Studio screen, like Library's three. */}
+            <Route path="/v4/settings" element={<V4Settings />} />
+            {/* Someone else's public profile — a Social destination, per Doc 2. */}
+            <Route path="/v4/person/:personId" element={<V4Person />} />
+            {/* Practice before the bare lesson route, so it is not read as a tab. */}
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<V4Practice />} />
+            {/* The reader — a focus surface, like practice. */}
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<V4Reader />} />
+            <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />
+            <Route path="/v4/space/:spaceId/concept/:conceptId" element={<V4Concept />} />
+          </Route>
+        )}
 
         {/* Student routes */}
         <Route
