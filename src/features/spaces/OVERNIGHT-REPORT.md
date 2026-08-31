@@ -97,6 +97,19 @@ satisfied, and ended in `expect(true).toBe(true)`.
 **Two reset seams had never run.** Labelled "Test seam — each test starts from
 the fixtures", called nowhere. The label was simply false.
 
+**A Space and its path disagreed about progress.** Linear Algebra read 33% on
+its tile and 50% on Ascent, from the same two Lessons. And 33% was consistent
+with nothing: Database Systems claimed 14% while its Lessons averaged 1.4%.
+Derived now, with the fixtures adjusted to keep the intended story rather than
+flatten it.
+
+**One finding I could not settle by measuring, and said so.** Ascent's darkening
+wash used `closest-side`, which sizes the radius to half the *shorter* axis — so
+on a wide map the end labels sat on the raw console backdrop. Compositing in the
+browser only reads `backgroundColor`, and every layer above the base is a
+`background-image`, so any measurement would have been confidently wrong in the
+reassuring direction. The dependency was removed instead of measured.
+
 That last group is the pass's real lesson: **a guard is code, and code written
 once and never exercised is not known to work.** Four of the six guard defects
 found across both passes were in guards, not in screens.
@@ -136,7 +149,7 @@ mechanism as its reason for having no motion switch.
 
 | | Start of the night | Now |
 |---|---|---|
-| Tests | 101 | **234** |
+| Tests | 101 | **236** |
 | Test files | 14 | 30 |
 | Routes | 14 | 21 |
 | Dead controls | 18 | 0 |
@@ -215,6 +228,6 @@ fixture and should be removed from the union.
 
 ## State
 
-Working tree clean · 31 commits ahead of `main` · nothing pushed · `main` still
+Working tree clean · 35 commits ahead of `main` · nothing pushed · `main` still
 at `8c641d4`. Dev server on 5199; `/v4/*` is `import.meta.env.DEV` only and
 cannot be reached in a production build.
