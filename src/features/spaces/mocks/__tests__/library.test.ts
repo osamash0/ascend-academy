@@ -12,7 +12,7 @@ import { allSpaces } from '../spaces';
 describe('Library fixtures', () => {
   it('is filtered by author — everything in it was made by the viewer', () => {
     // Rule 3: "Library is filtered by author, not by content type."
-    expect(libraryItems.length).toBeGreaterThan(0);
+    expect(libraryItems().length).toBeGreaterThan(0);
     // Notes are private to their author by definition.
     expect(notes.length).toBeGreaterThan(0);
   });
@@ -21,7 +21,7 @@ describe('Library fixtures', () => {
     // Rule 2: "A Space card only ever appears under Spaces." Rule 4: "Library
     // holds no Spaces." An item may *name* its Space as context, never be one.
     const spaceIds = new Set(allSpaces.map((s) => s.id));
-    for (const item of libraryItems) {
+    for (const item of libraryItems()) {
       expect(spaceIds.has(item.id), `${item.title} is a Space`).toBe(false);
       expect(['note', 'material', 'contribution']).toContain(item.kind);
     }
@@ -29,7 +29,7 @@ describe('Library fixtures', () => {
 
   it('names the Space every item lives in', () => {
     // Items are pointers into their Space, so context is mandatory.
-    for (const item of libraryItems) {
+    for (const item of libraryItems()) {
       expect(item.spaceName.trim().length, item.title).toBeGreaterThan(0);
       expect(item.spaceId.trim().length, item.title).toBeGreaterThan(0);
     }
@@ -57,7 +57,7 @@ describe('Library fixtures', () => {
   });
 
   it('sorts newest first', () => {
-    const times = libraryItems.map((i) => +new Date(i.updatedAt));
+    const times = libraryItems().map((i) => +new Date(i.updatedAt));
     expect([...times].sort((a, b) => b - a)).toEqual(times);
   });
 

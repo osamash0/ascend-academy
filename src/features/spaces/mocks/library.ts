@@ -1,5 +1,6 @@
 import type { Contribution, ContributionAnchor, LessonState, LibraryItem, Note } from '../types';
 import {
+  linalgContributions,
   normalizationContributions,
   sharedSpaceIds,
   spaceContributions,
@@ -9,6 +10,7 @@ import type { Person } from '../types';
 import { viewer, keller, weber, ferreira, okonkwo, lindqvist } from './people';
 import { allSpaces } from './spaces';
 import { lessonsForSpace, locateLesson } from './lessons';
+import { anchorFor, isOrphaned } from './reanchor';
 
 /**
  * Library fixtures — what the viewer made, across every Space.
@@ -124,13 +126,30 @@ export const resolveContributionAnchor = (
 
 /** Everything the viewer published, at any of the three anchor levels. */
 const myPublished = (): Contribution[] =>
-  [...spaceContributions, ...normalizationContributions, ...conceptContributions].filter(
-    (c) => c.author.id === viewer.id,
-  );
+  [
+    ...spaceContributions,
+    ...normalizationContributions,
+    ...linalgContributions,
+    ...conceptContributions,
+  ].filter((c) => c.author.id === viewer.id);
 
-/** Contributions the viewer published, wherever they landed. */
-const myContributions: LibraryItem[] = myPublished().map((c) => {
-  const at = resolveContributionAnchor(c.anchor);
+/** One of yours, by id — Library rows carry `lib-con-<id>`. */
+export const myContributionById = (id: string): Contribution | undefined =>
+  myPublished().find((c) => c.id === id);
+
+/**
+ * Contributions the viewer published, wherever they landed.
+ *
+ * A function, not a `const`. It was composed once at module load, so
+ * re-anchoring an orphan changed the store and Library went on showing the old
+ * row — the exact bug `noteToItem`'s comment records for notes ("the list used
+ * to be built from the seed array once, at module load"). Twice is a pattern:
+ * anything downstream of a mutable store has to be recomputed on read.
+ */
+const myContributionItems = (): LibraryItem[] =>
+  myPublished().map((c) => {
+  // Resolve through the override, so a re-anchored orphan lands on its Lesson.
+  const at = resolveContributionAnchor(anchorFor(c));
   return {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
@@ -150,7 +169,8 @@ const myContributions: LibraryItem[] = myPublished().map((c) => {
     updatedAt: c.createdAt,
     likeCount: c.likeCount,
     endorsed: c.endorsed,
-    orphaned: c.orphaned,
+    // Derived: a row must stop warning the moment it has somewhere to live.
+    orphaned: isOrphaned(c),
   };
 });
 
@@ -181,24 +201,25 @@ export const noteToItem = (n: Note): LibraryItem => ({
 });
 
 /** Everything you made that is not a Note, newest first. */
-export const nonNoteItems: LibraryItem[] = [...uploadedMaterials, ...myContributions].sort(
-  (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
-);
+export const nonNoteItems = (): LibraryItem[] =>
+  [...uploadedMaterials, ...myContributionItems()].sort(
+    (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
+  );
 
 /** Everything you made, newest first, given the current notes. */
 export const libraryItemsWith = (currentNotes: Note[]): LibraryItem[] =>
-  [...currentNotes.map(noteToItem), ...nonNoteItems].sort(
+  [...currentNotes.map(noteToItem), ...nonNoteItems()].sort(
     (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
   );
 
 /** The seeded view, for fixtures and guards that do not run the note store. */
-export const libraryItems: LibraryItem[] = libraryItemsWith(notes);
+export const libraryItems = (): LibraryItem[] => libraryItemsWith(notes);
 
 export const itemsOfKind = (kind: LibraryItem['kind']) =>
-  libraryItems.filter((i) => i.kind === kind);
+  libraryItems().filter((i) => i.kind === kind);
 
 /** Studio: uploads still processing or sitting as drafts, across every Space. */
-export const pendingUploads = () => libraryItems.filter((i) => i.pending);
+export const pendingUploads = () => libraryItems().filter((i) => i.pending);
 
 /* ── Home ─────────────────────────────────────────────────────────
    Doc 2: "Home is your next action, assembled across every Space." It ranks
@@ -398,7 +419,7 @@ export interface ImpactRow {
 export const impactRows = (): ImpactRow[] =>
   myPublished()
     .map((c) => {
-      const at = resolveContributionAnchor(c.anchor);
+      const at = resolveContributionAnchor(anchorFor(c));
       return {
         id: c.id,
         title: c.title,
@@ -408,14 +429,14 @@ export const impactRows = (): ImpactRow[] =>
         lessonTitle: at.lessonTitle,
         likeCount: c.likeCount,
         endorsed: c.endorsed,
-        orphaned: c.orphaned,
+        orphaned: isOrphaned(c),
         createdAt: c.createdAt,
       };
     })
     .sort((a, b) => b.likeCount - a.likeCount);
 
 /** Everything you uploaded, across every Space. */
-export const uploadRows = () => libraryItems.filter((i) => i.kind === 'material');
+export const uploadRows = () => libraryItems().filter((i) => i.kind === 'material');
 
 /**
  * Which hero Home shows.

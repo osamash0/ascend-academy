@@ -95,7 +95,7 @@ describe('every orphan the fixtures carry can name its Space', () => {
   });
 
   it('never leaves an orphan row without a Space in either surface', () => {
-    for (const item of libraryItems.filter((i) => i.orphaned)) {
+    for (const item of libraryItems().filter((i) => i.orphaned)) {
       expect(item.spaceId.trim(), `Library row "${item.title}" has no Space`).not.toBe('');
       expect(item.spaceName.trim(), `Library row "${item.title}" has no Space name`).not.toBe('');
     }

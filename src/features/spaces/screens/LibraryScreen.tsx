@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
+  FolderInput,
   Heart,
   NotebookPen,
   Plus,
@@ -19,6 +20,8 @@ import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { NoteEditor } from '../components/NoteEditor';
 import { addNote, updateNote } from '../mocks/notes';
+import { myContributionById } from '../mocks/library';
+import { ReanchorDialog } from '../components/ReanchorDialog';
 import { BentoCell } from '../components/BentoCell';
 import { Scene, SURFACES } from '../components/Scene';
 import { EndorsedBadge } from '../components/badges';
@@ -100,6 +103,15 @@ export default function LibraryScreen() {
    * directly" could only be read.
    */
   const [composing, setComposing] = useState(false);
+  /** The orphan being re-filed, if the dialog is open. */
+  const [reanchoring, setReanchoring] = useState<LibraryItem | null>(null);
+  /*
+   * A re-anchor mutates a store outside React, and `useLibrary` recomputes on
+   * render — so the list needs a nudge to re-read it. `useReducer` rather than
+   * a counter in `useState`: the value is never read, and an unread `useState`
+   * pair is the dead `writeTick` that was just removed from this file.
+   */
+  const [, reread] = useReducer((n: number) => n + 1, 0);
   const { state, items, notes, pending } = useLibrary();
 
   const latestNote = notes[0];
@@ -310,17 +322,48 @@ export default function LibraryScreen() {
                   }}
                 />
               ) : (
-                <LibraryRow item={item} />
+                <LibraryRow item={item} onReanchor={() => setReanchoring(item)} />
               )}
             </EnterListItem>
           ))}
         </EnterList>
       )}
+
+      {/*
+        Mounted from the id on the row. A Library item is a projection of a
+        contribution, not the contribution itself, so the dialog is given the
+        real one — it needs `orphaned` to refuse a move it should not make.
+      */}
+      {reanchoring &&
+        (() => {
+          const c = myContributionById(reanchoring.id.replace(/^lib-con-/, ''));
+          if (!c) return null;
+          return (
+            <ReanchorDialog
+              contribution={c}
+              spaceId={reanchoring.spaceId}
+              spaceName={reanchoring.spaceName}
+              open
+              onOpenChange={(v) => !v && setReanchoring(null)}
+              onMoved={() => {
+                setReanchoring(null);
+                reread();
+              }}
+            />
+          );
+        })()}
     </div>,
   );
 }
 
-function LibraryRow({ item }: { item: LibraryItem }) {
+function LibraryRow({
+  item,
+  onReanchor,
+}: {
+  item: LibraryItem;
+  /** Only offered on an orphan, and only for your own contributions. */
+  onReanchor?: () => void;
+}) {
   const Icon = KIND_ICON[item.kind];
   // Notes open here; everything else is a pointer into its Space.
 
@@ -381,6 +424,24 @@ function LibraryRow({ item }: { item: LibraryItem }) {
             The Lesson this was attached to was removed. Your work is safe and still
             here — it just isn’t attached to a Lesson any more.
           </p>
+        )}
+
+        {/*
+          `relative z-10`, because the row is covered by an `absolute inset-0`
+          link and anything below it is unclickable. This is the same trap the
+          Studio rows hit from the other side, where a title link would have
+          swallowed the checkbox — an overlay makes every later control a
+          layering question.
+        */}
+        {item.orphaned && onReanchor && (
+          <Pressable
+            type="button"
+            onClick={onReanchor}
+            className="console-focusable relative z-10 mt-3 inline-flex h-9 items-center gap-1.5 rounded-full bg-white/[0.10] px-4 text-[13px] font-semibold text-foreground hover:bg-white/[0.16]"
+          >
+            <FolderInput aria-hidden className="h-3.5 w-3.5" />
+            Find it a new home
+          </Pressable>
         )}
       </div>
 
