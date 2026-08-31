@@ -36,7 +36,7 @@ function RailHead({ title, to }: { title: string; to?: string }) {
       {to && (
         <Link
           to={to}
-          className="console-focusable rounded text-[13.5px] text-white/40 transition-colors hover:text-white"
+          className="console-focusable rounded text-[13.5px] text-quiet transition-colors hover:text-foreground"
         >
           See all
         </Link>
@@ -121,7 +121,7 @@ export function WideCard({ space }: { space: Space }) {
         />
         <span
           aria-hidden
-          className="absolute right-4 top-[-6px] font-bold leading-none text-white/[0.13]"
+          className="absolute right-4 top-[-6px] font-bold leading-none text-decor"
           style={{ fontSize: 88, letterSpacing: -3 }}
         >
           {initialFor(space.name)}
@@ -139,7 +139,7 @@ export function WideCard({ space }: { space: Space }) {
           invented count is worse than a missing one.
         */}
         {space.online !== undefined && space.online > 0 && (
-          <span className="absolute right-[14px] top-[14px] z-[2] flex items-center gap-1.5 text-[11.5px] text-white/[0.62]">
+          <span className="absolute right-[14px] top-[14px] z-[2] flex items-center gap-1.5 text-[11.5px] text-quiet">
             <i aria-hidden className="h-[7px] w-[7px] rounded-full bg-[#57d98a]" />
             {space.online} online
           </span>
@@ -148,7 +148,7 @@ export function WideCard({ space }: { space: Space }) {
         <span className="absolute bottom-[14px] left-[18px] right-[18px] z-[2] block">
           <span className="mb-1 block text-[16.5px] font-semibold">{space.name}</span>
           {space.lastActivity && (
-            <span className="block truncate text-[12.5px] text-white/[0.62]">
+            <span className="block truncate text-[12.5px] text-quiet">
               {space.lastActivity}
             </span>
           )}
@@ -182,13 +182,20 @@ export function FeatureBanner({ space }: { space: Space }) {
             }}
           />
           <div className="relative z-[2] max-w-[520px] p-[26px] sm:px-[42px] sm:py-[34px]">
-            <p className="mb-[10px] text-[12px] font-semibold uppercase tracking-[1.4px] text-white/[0.62]">
+            {/*
+              Sentence case. The calm table forbids `uppercase` outright — it
+              was the single biggest contributor to the first pass reading as
+              "very robotic", and an eyebrow set in caps with 1.4px tracking is
+              exactly the shouting it names. The label still reads as an
+              eyebrow from its size and weight.
+            */}
+            <p className="mb-[10px] text-[12.5px] font-semibold tracking-[0.2px] text-quiet">
               Space of the week
             </p>
             {/* Weight 300, like the hero. The banner is the hero's echo. */}
             <h3 className="mb-2 text-[30px] font-light tracking-[-0.3px]">{space.name}</h3>
             {space.description && (
-              <p className="mb-[18px] max-w-[44ch] text-[14px] text-white/[0.62]">
+              <p className="mb-[18px] max-w-[44ch] text-[14px] text-quiet">
                 {space.description}
               </p>
             )}
@@ -232,7 +239,7 @@ export function StandardCard({ space }: { space: Space }) {
         >
           <span
             aria-hidden
-            className="absolute bottom-0.5 right-[14px] font-bold leading-none text-white/[0.14]"
+            className="absolute bottom-0.5 right-[14px] font-bold leading-none text-decor"
             style={{ fontSize: 64, letterSpacing: -2 }}
           >
             {initialFor(space.name)}
@@ -256,7 +263,7 @@ export function StandardCard({ space }: { space: Space }) {
         <span className="mx-0.5 mb-[3px] mt-[11px] block truncate text-[15px] font-medium">
           {space.name}
         </span>
-        <span className="mx-0.5 block text-[13px] text-white/40 transition-colors group-hover:text-white/[0.62]">
+        <span className="mx-0.5 block text-[13px] text-quiet transition-colors group-hover:text-foreground">
           {space.memberCount.toLocaleString()} members
           {isPrivate && ' · invite only'}
         </span>
@@ -286,7 +293,7 @@ export function CompactCard({ space }: { space: Space }) {
         </span>
         <span className="min-w-0">
           <span className="block truncate text-[14px] font-medium">{space.name}</span>
-          <span className="mt-0.5 block text-[12.5px] text-white/40">
+          <span className="mt-0.5 block text-[12.5px] text-quiet">
             {space.memberCount.toLocaleString()} members
           </span>
         </span>
@@ -330,7 +337,7 @@ export function HubPill({
     'inline-flex items-center justify-center rounded-full font-semibold backdrop-blur-[14px]',
     small ? 'px-7 py-[11px] text-[14px]' : 'px-10 py-[14px] text-[15px]',
     disabled
-      ? 'cursor-not-allowed bg-white/[0.08] text-white/40'
+      ? 'cursor-not-allowed bg-white/[0.08] text-quiet'
       : 'console-focusable bg-white/[0.16] hover:bg-white/[0.26]',
   );
 

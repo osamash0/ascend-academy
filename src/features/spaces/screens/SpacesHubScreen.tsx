@@ -111,7 +111,7 @@ export default function SpacesHubScreen() {
           desc: 'Browse Spaces across every subject people here are learning. Join in one click — leave whenever you want.',
           meta: (
             <>
-              <b className="font-medium text-white/[0.62]">{popular.length}</b> public Spaces ·
+              <b className="font-medium text-quiet">{popular.length}</b> public Spaces ·
               curated weekly
             </>
           ),
@@ -124,14 +124,14 @@ export default function SpacesHubScreen() {
           meta: (
             <>
               {space.visibility === 'public' ? 'Public' : 'Invite only'} ·{' '}
-              <b className="font-medium text-white/[0.62]">
+              <b className="font-medium text-quiet">
                 {space.memberCount.toLocaleString()}
               </b>{' '}
               members
               {space.online !== undefined && space.online > 0 && (
                 <>
                   {' · '}
-                  <b className="font-medium text-white/[0.62]">{space.online}</b> online
+                  <b className="font-medium text-quiet">{space.online}</b> online
                 </>
               )}
               {' · '}
@@ -200,7 +200,7 @@ export default function SpacesHubScreen() {
                   {hero.title}
                 </h1>
                 {hero.desc && (
-                  <p className="mb-2 max-w-[44ch] text-[16px] leading-[1.6] text-white/[0.62]">
+                  <p className="mb-2 max-w-[44ch] text-[16px] leading-[1.6] text-quiet">
                     {hero.desc}
                   </p>
                 )}

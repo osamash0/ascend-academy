@@ -108,7 +108,7 @@ function Art({ id, name }: { id: string; name: string }) {
         letter anywhere outside here.
       */}
       <div
-        className="absolute bottom-[2%] right-[6%] font-bold leading-none text-white/10"
+        className="absolute bottom-[2%] right-[6%] font-bold leading-none text-decor"
         style={{ fontSize: '24vw', letterSpacing: '-1vw' }}
       >
         {initialFor(name)}

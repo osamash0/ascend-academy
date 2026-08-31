@@ -75,7 +75,7 @@ export function SpaceChipRow({
 
   return (
     <div className="pb-[34px]">
-      <p className="mb-[14px] text-[13.5px] text-white/[0.62]">Your spaces</p>
+      <p className="mb-[14px] text-[13.5px] text-quiet">Your spaces</p>
       <div
         ref={rowRef}
         role="listbox"
@@ -114,12 +114,19 @@ export function SpaceChipRow({
                 isSelected ? 'outline outline-[1.5px] outline-white/90' : 'outline-none',
               )}
             >
-              <div
+              {/*
+                Motion, not `transition-opacity`. Opacity is the library's to
+                animate — a CSS transition sails past
+                `MotionConfig reducedMotion="user"` and animates for people who
+                asked the OS for less. `initial={false}` so the chips do not
+                all fade in on mount.
+              */}
+              <motion.div
                 aria-hidden
-                className={cn(
-                  'absolute inset-0 transition-opacity duration-150',
-                  isSelected ? 'opacity-[0.85]' : 'opacity-50',
-                )}
+                initial={false}
+                animate={{ opacity: isSelected ? 0.85 : 0.5 }}
+                transition={{ duration: 0.15 }}
+                className="absolute inset-0"
                 style={{ background: coverFor(s.id) }}
               />
               <div
@@ -154,7 +161,7 @@ export function SpaceChipRow({
               <span
                 className={cn(
                   'absolute bottom-[9px] left-3 right-[10px] z-[2] truncate text-[12.5px] font-medium',
-                  isSelected ? 'text-white' : 'text-white/[0.62]',
+                  isSelected ? 'text-white' : 'text-quiet',
                 )}
               >
                 {s.name}
