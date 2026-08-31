@@ -367,8 +367,19 @@ function LibraryRow({ item }: { item: LibraryItem }) {
         {item.orphaned && (
           <p className="mt-2 flex items-start gap-2 text-[13px] leading-relaxed text-quiet">
             <Unlink aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-            The Lesson this was attached to was removed. Your work is safe — pick a new
-            place for it.
+            {/*
+              Describes the state; does not instruct.
+
+              This read "Your work is safe — pick a new place for it", and
+              there is no control anywhere in the product that picks a new
+              place. `deadends.test.tsx` states the rule as "a control either
+              does the thing, or says why it cannot" — a sentence telling you
+              to do something unbuildable fails the same test with no control
+              to point at. Re-anchoring an orphan would be a fourth action on
+              contributions, which is Abi's call, not one to invent here.
+            */}
+            The Lesson this was attached to was removed. Your work is safe and still
+            here — it just isn’t attached to a Lesson any more.
           </p>
         )}
       </div>

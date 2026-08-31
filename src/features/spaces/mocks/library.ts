@@ -109,7 +109,8 @@ export const resolveContributionAnchor = (
           lessonTitle: found.lesson.title,
           href: `/v4/space/${found.spaceId}/lesson/${found.lesson.id}`,
         }
-      : { spaceId: null, href: null };
+      : // The Lesson is gone; the anchor still knows which Space it was in.
+        { spaceId: anchor.spaceId ?? null, href: null };
   }
   const concept = conceptById(anchor.conceptId);
   return concept
@@ -134,13 +135,17 @@ const myContributions: LibraryItem[] = myPublished().map((c) => {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
     title: c.title,
-    // A contribution opens where it is anchored. An orphan has no anchor left
-    // to open, so it falls back to its last known Space and keeps that Space
-    // in the context line; the `orphaned` flag is what makes the row explain
-    // itself rather than look like an ordinary entry.
-    href: at.href ?? `/v4/space/${at.spaceId ?? 's-dbs'}`,
-    spaceId: at.spaceId ?? 's-dbs',
-    spaceName: spaceName(at.spaceId ?? 's-dbs'),
+    /*
+     * A contribution opens where it is anchored. An orphan has no Lesson left
+     * to open, so it falls back to the Space it was in — which the anchor now
+     * carries, rather than the constant `'s-dbs'` that used to stand in for
+     * it. Empty rather than guessed when it is genuinely unknown: the fixture
+     * invariant in `library.test.ts` ("names the Space every item lives in")
+     * then fails loudly instead of the UI naming the wrong Space quietly.
+     */
+    href: at.spaceId ? (at.href ?? `/v4/space/${at.spaceId}`) : null,
+    spaceId: at.spaceId ?? '',
+    spaceName: at.spaceId ? spaceName(at.spaceId) : '',
     lessonTitle: at.lessonTitle,
     updatedAt: c.createdAt,
     likeCount: c.likeCount,
@@ -397,8 +402,9 @@ export const impactRows = (): ImpactRow[] =>
       return {
         id: c.id,
         title: c.title,
-        spaceId: at.spaceId ?? 's-dbs',
-        spaceName: spaceName(at.spaceId ?? 's-dbs'),
+        // Same rule as the Library row above — sourced, never assumed.
+        spaceId: at.spaceId ?? '',
+        spaceName: at.spaceId ? spaceName(at.spaceId) : '',
         lessonTitle: at.lessonTitle,
         likeCount: c.likeCount,
         endorsed: c.endorsed,
