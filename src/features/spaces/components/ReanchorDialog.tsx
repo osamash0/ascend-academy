@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Pressable } from './Pressable';
-import type { Contribution } from '../types';
+import type { Contribution, Role } from '../types';
 import { reanchor, reanchorTargets } from '../mocks/reanchor';
 
 /**
@@ -32,6 +32,7 @@ export function ReanchorDialog({
   contribution,
   spaceId,
   spaceName,
+  viewerRole,
   open,
   onOpenChange,
   onMoved,
@@ -39,6 +40,12 @@ export function ReanchorDialog({
   contribution: Contribution;
   spaceId: string;
   spaceName: string;
+  /**
+   * Who is asking. The author may re-file their own work; an Owner or Editor
+   * may re-file anyone's. Passed down rather than inferred here so the check
+   * is the same one `canReanchor` makes.
+   */
+  viewerRole: Role | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onMoved?: () => void;
@@ -59,7 +66,7 @@ export function ReanchorDialog({
      * "Moved" after a refusal would be the most convincing kind of wrong —
      * the row behind the dialog would still say the work has no home.
      */
-    const moved = reanchor(contribution, chosen);
+    const moved = reanchor(contribution, chosen, viewerRole);
     if (!moved) {
       toast('Could not move it', {
         description: 'That Lesson is no longer available. Nothing was changed.',

@@ -343,6 +343,13 @@ export default function LibraryScreen() {
               contribution={c}
               spaceId={reanchoring.spaceId}
               spaceName={reanchoring.spaceName}
+              /*
+               * Library only ever lists your own work, so the author branch of
+               * `canReanchor` is what authorises this. The Space's role is not
+               * known on this screen and must not be guessed at — passing
+               * `null` says exactly that.
+               */
+              viewerRole={null}
               open
               onOpenChange={(v) => !v && setReanchoring(null)}
               onMoved={() => {

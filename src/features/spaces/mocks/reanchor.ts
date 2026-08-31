@@ -1,59 +1,29 @@
-import type { Contribution, ContributionAnchor } from '../types';
+import type { Contribution, Role } from '../types';
 import { locateLesson, publishedLessonsForSpace } from './lessons';
+import { canModerate } from './moderation';
+import { viewer } from './people';
+import { homeSpaceOf, isOrphaned, setReanchor } from './reanchor-store';
 
 /**
  * Giving an orphaned contribution a new Lesson.
  *
  * Doc 1, Contributions rule 1 surfaces an orphan to the Owner *and* the author
- * so it can be re-filed; until now Library only reported the state, and its
- * copy told you to "pick a new place for it" with nothing anywhere that
- * picked one.
+ * so it can be re-filed. Both halves can act on it: the author because it is
+ * their work, the Owner and Editors because keeping the Space tidy is their
+ * job and an author may never come back.
  *
- * **Its own module, because of an import cycle.** The obvious home is
- * `contributions.ts`, but validating the destination needs `locateLesson`, and
- * `lessons.ts` already imports `contributions.ts` — so the store would have
- * closed a loop. Nothing imports this file except the read paths in
- * `library.ts` / `search.ts` and the dialog, so the arrow only points one way.
- *
- * An overlay keyed by id rather than a mutation of the fixture, for the same
- * reason `moderation.ts` keeps endorsed/hidden/promoted as id sets: the
- * fixtures are the seed and have to stay reproducible between tests.
+ * The store is `reanchor-store.ts` — see the note there for why the state and
+ * the validation live in different files.
  */
 
-const reanchoredTo = new Map<string, string>();
-
-/** Test seam — the overlay is mutable, so each test starts from the seed. */
-export const resetReanchors = (): void => {
-  reanchoredTo.clear();
-};
-
-/** The Lesson an orphan was moved to this session, if any. */
-export const reanchoredLessonId = (contributionId: string): string | undefined =>
-  reanchoredTo.get(contributionId);
-
-/** True once an orphan has been given a home. */
-export const isReanchored = (c: Contribution): boolean => reanchoredTo.has(c.id);
-
-/**
- * The anchor to actually use — the override if there is one, else the fixture's.
- *
- * Every read path resolves through this rather than reading `c.anchor`
- * directly, which is what makes one re-anchor show up in Library, the impact
- * view and search together instead of in whichever surface remembered to ask.
- */
-export const anchorFor = (c: Contribution): ContributionAnchor => {
-  const lessonId = reanchoredTo.get(c.id);
-  return lessonId ? { level: 'lesson', lessonId } : c.anchor;
-};
-
-/**
- * Whether this contribution still needs a home.
- *
- * Derived, not read off the fixture: `c.orphaned` says how it started, and
- * stays true forever. A row must stop calling itself orphaned the moment it
- * has somewhere to live, or the warning outlives the problem.
- */
-export const isOrphaned = (c: Contribution): boolean => c.orphaned && !reanchoredTo.has(c.id);
+/** The overlay's read API, re-exported so callers have one import to reach for. */
+export {
+  anchorFor,
+  isOrphaned,
+  isReanchored,
+  reanchoredLessonId,
+  resetReanchors,
+} from './reanchor-store';
 
 /**
  * The Lessons an orphan may be moved to.
@@ -65,13 +35,28 @@ export const isOrphaned = (c: Contribution): boolean => c.orphaned && !reanchore
 export const reanchorTargets = (spaceId: string) => publishedLessonsForSpace(spaceId);
 
 /**
+ * Who may re-file an orphan: its author, or someone who moderates the Space.
+ *
+ * Takes the role rather than a boolean, matching `canModerate` and
+ * `canEndorse` — "so a caller cannot ask the question without having
+ * established who is asking". That shape earned itself here immediately: the
+ * first version of `reanchor` had no permission check at all, because Library
+ * is author-filtered and every caller was the author by construction. Safe by
+ * accident is not safe; the Owner surface is exactly the second caller that
+ * would have made it false.
+ */
+export const canReanchor = (c: Contribution, role: Role | null): boolean =>
+  isOrphaned(c) && (c.author.id === viewer.id || canModerate(role));
+
+/**
  * Give an orphaned contribution a new Lesson.
  *
- * Refuses four things, and returns whether it took so no caller can report a
+ * Refuses five things, and returns whether it took so no caller can report a
  * success it did not get:
  *
  *   • anything that is not currently an orphan — this is repair, not a general
  *     "move", which would be a different feature and a permissions question;
+ *   • a viewer who is neither the author nor a moderator of the Space;
  *   • a Lesson that does not exist, because re-pointing dangling work at
  *     another dangling id looks like a fix and is the same problem;
  *   • a Lesson that is not published, for the reason in `reanchorTargets`;
@@ -84,20 +69,13 @@ export const reanchorTargets = (spaceId: string) => publishedLessonsForSpace(spa
  * suddenly read it), which is emphatically not what "find it a new home"
  * means.
  */
-export const reanchor = (c: Contribution, lessonId: string): boolean => {
-  if (!isOrphaned(c)) return false;
+export const reanchor = (c: Contribution, lessonId: string, role: Role | null): boolean => {
+  if (!canReanchor(c, role)) return false;
   const found = locateLesson(lessonId);
   if (!found) return false;
   if (found.lesson.state !== 'published') return false;
   const home = homeSpaceOf(c);
   if (home && found.spaceId !== home) return false;
-  reanchoredTo.set(c.id, lessonId);
+  setReanchor(c.id, lessonId);
   return true;
-};
-
-/** The Space an orphan belongs to — from the anchor, which still records it. */
-const homeSpaceOf = (c: Contribution): string | undefined => {
-  if (c.anchor.level === 'space') return c.anchor.spaceId;
-  if (c.anchor.level === 'lesson') return c.anchor.spaceId;
-  return undefined;
 };

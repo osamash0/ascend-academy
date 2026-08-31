@@ -9,10 +9,11 @@ import {
   Image as ImageIcon,
   Link2,
   ListChecks,
+  FolderInput,
   Unlink,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useReducer } from 'react';
+import { useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -30,6 +31,8 @@ import {
   toggleEndorse,
   toggleHidden,
 } from '../mocks/moderation';
+import { canReanchor, isOrphaned } from '../mocks/reanchor';
+import { ReanchorDialog } from './ReanchorDialog';
 import type { Contribution, ContributionType, Space } from '../types';
 import { AuthorLine, EndorsedBadge, GroundingMarker } from './badges';
 
@@ -162,6 +165,15 @@ export function ContributionCard({
   const endorsed = isEndorsed(c.id);
   const hidden = isHidden(c.id);
   const moderator = canModerate(space.viewerRole);
+  /*
+   * Derived, never `c.orphaned`. The fixture flag records how the contribution
+   * started and stays true forever, so a card reading it raw kept the warning
+   * border and the warning text after the work had been given a home — which
+   * this card was still doing after the first pass at re-anchoring.
+   */
+  const orphaned = isOrphaned(c);
+  const mayRehome = canReanchor(c, space.viewerRole);
+  const [rehoming, setRehoming] = useState(false);
   const reported = isReported(c.id);
   const promoted = isPromoted(c.id);
   const navigate = useNavigate();
@@ -173,7 +185,7 @@ export function ContributionCard({
         // The one place colour marks origin structurally rather than as a chip.
         'border-l-origin-community/45',
         featured ? 'gap-4 p-6' : 'gap-3 p-5',
-        c.orphaned
+        orphaned
           ? 'border-warning/25 bg-warning/[0.04]'
           : featured
             ? 'border-white/[0.12] bg-white/[0.05] hover:bg-white/[0.07]'
@@ -217,13 +229,22 @@ export function ContributionCard({
         </p>
       )}
 
-      {/* Orphaned: the anchor was deleted. Surfaced to the Owner *and* to the
-          author — nobody's work vanishes silently (Doc 1, Contributions 1). */}
-      {c.orphaned && (
+      {/*
+        Orphaned: the anchor was deleted. Surfaced to the Owner *and* to the
+        author — nobody's work vanishes silently (Doc 1, Contributions 1).
+
+        The wording follows who is reading. It said "Your work is safe" to
+        everyone, including Members looking at somebody else's contribution,
+        which is both wrong and slightly alarming — it reads as though their
+        own work were involved. The author gets the reassurance; everyone else
+        gets the fact.
+      */}
+      {orphaned && (
         <p className="flex items-start gap-2 text-[13px] leading-relaxed text-quiet">
           <Unlink aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-          The Lesson this was attached to was removed. Your work is safe — pick a new
-          place for it.
+          {isOwn
+            ? 'The Lesson this was attached to was removed. Your work is safe and still here — it just isn’t attached to a Lesson any more.'
+            : `The Lesson this was attached to was removed. Nothing of ${c.author.name}’s is lost — it just isn’t attached to a Lesson any more.`}
         </p>
       )}
 
@@ -239,8 +260,21 @@ export function ContributionCard({
         minimal chrome — so the controls are text-weight and sit under the
         content rather than competing with it.
       */}
-      {(moderator || canReport(c)) && (
+      {(moderator || canReport(c) || mayRehome) && (
         <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.06] pt-3">
+          {/*
+            Re-filing sits with the Owner's acts because it is one — Doc 1
+            surfaces an orphan to the Owner *and* the author, and both may fix
+            it. `canReanchor` is what decides, so a Member looking at someone
+            else's orphan sees the explanation and no button.
+          */}
+          {mayRehome && (
+            <CardAction
+              icon={FolderInput}
+              label="Find it a new home"
+              onClick={() => setRehoming(true)}
+            />
+          )}
           {moderator && (
             <>
               <CardAction
@@ -363,6 +397,23 @@ export function ContributionCard({
           {likes}
         </button>
       </div>
+      {rehoming && (
+        <ReanchorDialog
+          contribution={c}
+          spaceId={space.id}
+          spaceName={space.name}
+          viewerRole={space.viewerRole}
+          open
+          onOpenChange={(v) => !v && setRehoming(false)}
+          onMoved={() => {
+            setRehoming(false);
+            force();
+            // The Space's lists change shape — the card may no longer belong
+            // in the section that rendered it.
+            onModerated?.();
+          }}
+        />
+      )}
     </article>
   );
 }
