@@ -120,7 +120,7 @@ export const search = (query: string): SearchResults => {
        * contribution elsewhere and ⌘K would name the wrong Space and navigate
        * to it.
        */
-      const at = resolveContributionAnchor(c.anchor);
+      const at = resolveContributionAnchor(c.anchor, c.id);
       if (!at.spaceId) return [];
       const space = visibleSpaces().find((s) => s.id === at.spaceId);
       if (!space) return [];
@@ -130,7 +130,14 @@ export const search = (query: string): SearchResults => {
           id: c.id,
           title: c.title,
           spaceName: space.name,
-          href: at.href ?? `/v4/space/${at.spaceId}`,
+          /*
+           * No `?? '/v4/space/…'` fallback. Every anchor level now resolves to
+           * the item itself — space-level by fragment — and the only anchors
+           * that resolve to `null` are orphans, whose Lesson is gone. ⌘K drops
+           * those above (`if (!at.spaceId) return []`) rather than offering a
+           * result that opens a Space the work is no longer part of.
+           */
+          href: at.href,
         },
       ];
     });

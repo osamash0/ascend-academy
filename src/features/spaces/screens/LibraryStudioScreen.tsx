@@ -334,8 +334,9 @@ export default function LibraryStudioScreen() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-foreground">{r.title}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {r.lessonTitle ? `${r.lessonTitle} · ` : ''}
-                  {r.spaceName} · {formatDate(r.createdAt)}
+                  {[r.lessonTitle, r.spaceName].filter(Boolean).join(' · ')}
+                  {[r.lessonTitle, r.spaceName].some(Boolean) ? ' · ' : ''}
+                  {formatDate(r.createdAt)}
                 </p>
               </div>
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -73,7 +73,82 @@ const labelOf = (tag: string) =>
  * nothing for a click to open, and inventing a destination for them would be
  * deciding a question the design docs have left open.
  */
-const READOUTS = new Set(['Streak', 'Rank', 'Your latest note', 'Badges']);
+const READOUTS: Record<string, string[]> = {
+  'screens/HomeScreen.tsx': ['Streak', 'Rank'],
+  /*
+   * Profile is a record of you, not a set of doors: every cell is a count or a
+   * wall of what you have earned, and none names a Lesson.
+   *
+   * Flagged rather than settled — 'Published' and 'Likes received' are the two
+   * that read like doors, and `/v4/library/impact` is exactly the screen they
+   * describe. Whether Profile links into Library is the Spaces/Library boundary
+   * question in `UI-SESSION-BRIEF.md`, which is deliberately open, so this
+   * records them as readouts instead of quietly answering it.
+   */
+  'screens/ProfileScreen.tsx': [
+    'Badges',
+    'Rank',
+    'Streak',
+    'Spaces',
+    'Published',
+    'Likes received',
+  ],
+  // Standing against the room — a fact about you, with nothing to open.
+  'screens/SocialScreen.tsx': ['Where you stand'],
+};
+
+/** Every screen that uses a BentoCell, found rather than listed. */
+const SCREENS_WITH_CELLS = readdirSync(join(SRC, 'screens'))
+  .filter((f) => f.endsWith('.tsx'))
+  .map((f) => `screens/${f}`)
+  .filter((f) => read(f).includes('<BentoCell'));
+
+describe('every screen with cells is swept, not just Home', () => {
+  /*
+   * This file used one flat `Set` of labels and read `HomeScreen.tsx` alone.
+   * Two of the four entries — 'Your latest note' and 'Badges' — name cells on
+   * *Library* and *Profile*, screens it never opened. They exempted nothing,
+   * and their presence implied those screens had been considered. They had
+   * not: Library's four cells had never been checked for dead ends at all,
+   * and three of them were buttons faking navigation with `navigate()`.
+   *
+   * Keying by screen is what makes an entry falsifiable. A label that names no
+   * cell on the screen it claims now fails, so the list cannot quietly rot
+   * into a description of a layout that has moved on.
+   */
+  it('finds them all', () => {
+    expect(SCREENS_WITH_CELLS).toContain('screens/HomeScreen.tsx');
+    expect(SCREENS_WITH_CELLS).toContain('screens/LibraryScreen.tsx');
+    expect(SCREENS_WITH_CELLS.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('gives every cell a destination, an action, or a named exemption', () => {
+    const inert: string[] = [];
+    for (const f of SCREENS_WITH_CELLS) {
+      const allowed = READOUTS[f] ?? [];
+      for (const tag of bentoCells(read(f))) {
+        if (/\bto=|onClick=/.test(tag)) continue;
+        const label = labelOf(tag);
+        if (allowed.includes(label)) continue;
+        inert.push(`${f}: ${label}`);
+      }
+    }
+    expect(inert, `cells that look like controls and do nothing:\n${inert.join('\n')}`).toEqual([]);
+  });
+
+  it('has no exemption for a cell that is gone or now a control', () => {
+    const stale: string[] = [];
+    for (const [f, labels] of Object.entries(READOUTS)) {
+      const tags = bentoCells(read(f));
+      for (const label of labels) {
+        const cell = tags.find((t) => labelOf(t) === label);
+        if (!cell) stale.push(`${f}: "${label}" names no cell`);
+        else if (/\bto=|onClick=/.test(cell)) stale.push(`${f}: "${label}" is now a control`);
+      }
+    }
+    expect(stale, `READOUTS is out of date:\n${stale.join('\n')}`).toEqual([]);
+  });
+});
 
 describe('a cell that names a Lesson opens it', () => {
   const home = read('screens/HomeScreen.tsx');
@@ -88,7 +163,7 @@ describe('a cell that names a Lesson opens it', () => {
     const inert = cells
       .filter((tag) => !/\bto=|onClick=/.test(tag))
       .map(labelOf)
-      .filter((label) => !READOUTS.has(label));
+      .filter((label) => !READOUTS['screens/HomeScreen.tsx'].includes(label));
 
     expect(
       inert,

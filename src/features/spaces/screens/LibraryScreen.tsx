@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FileText,
   Heart,
@@ -77,7 +76,6 @@ const formatWhen = (iso: string) => {
 };
 
 export default function LibraryScreen() {
-  const navigate = useNavigate();
   /** Bodies edited this session, so the row shows the edit immediately. */
   const [noteBodies, setNoteBodies] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<Filter>('all');
@@ -91,6 +89,45 @@ export default function LibraryScreen() {
   const { state, items, notes, pending } = useLibrary();
 
   const latestNote = notes[0];
+
+  /*
+   * The cell previews a note that is also a row below, and until now it was the
+   * only cell here that did nothing when clicked. Three lines of a note, cut
+   * off mid-sentence, with the full editable copy 200px further down — people
+   * click the thing they are reading.
+   *
+   * `onClick` rather than `to`, per BentoCell's own rule: this happens on the
+   * screen and has no URL to point at. Notes are read *and written* in Library
+   * — they exist nowhere else — so there is nothing to navigate to.
+   *
+   * The filter reset is the part that is easy to miss: under "Uploads" the note
+   * is not rendered, so focusing it would silently do nothing and the cell
+   * would be a dead end again in three of the four filter states.
+   */
+  const [focusNote, setFocusNote] = useState<string | null>(null);
+
+  const openLatestNote = () => {
+    if (filter !== 'all' && filter !== 'note') setFilter('all');
+    setFocusNote(latestNote ? `item-lib-note-${latestNote.id}` : null);
+  };
+
+  /*
+   * An effect, not a `requestAnimationFrame` inside the handler.
+   *
+   * The rAF version looked right and did not work: React batches the state
+   * updates and commits the new list *after* the frame callback runs, so it
+   * looked for a row that did not exist yet, found nothing, and left focus on
+   * the page. Verified in the browser — the filter changed and the note
+   * appeared, and `activeElement` was still the document. An effect runs after
+   * the commit, which is the only point at which the row is there to focus.
+   */
+  useEffect(() => {
+    if (!focusNote) return;
+    const el = document.getElementById(focusNote);
+    el?.scrollIntoView({ block: 'center' });
+    el?.querySelector('button')?.focus();
+    setFocusNote(null);
+  }, [focusNote]);
   const uploadCount = items.filter((i) => i.kind === 'material').length;
   const contributions = items.filter((i) => i.kind === 'contribution');
   const likesReceived = contributions.reduce((n, i) => n + (i.likeCount ?? 0), 0);
@@ -142,7 +179,12 @@ export default function LibraryScreen() {
       */}
       <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {latestNote && (
-          <BentoCell icon={NotebookPen} label="Your latest note" className="sm:col-span-2">
+          <BentoCell
+            icon={NotebookPen}
+            label="Your latest note"
+            className="sm:col-span-2"
+            onClick={openLatestNote}
+          >
             <p className="line-clamp-3 text-[14.5px] leading-relaxed text-foreground">
               {latestNote.body}
             </p>
@@ -152,7 +194,7 @@ export default function LibraryScreen() {
           </BentoCell>
         )}
 
-        <BentoCell icon={Upload} label="Manage uploads" onClick={() => navigate('/v4/library/uploads')}>
+        <BentoCell icon={Upload} label="Manage uploads" to="/v4/library/uploads">
           <p className="text-[28px] font-semibold leading-none tabular-nums">
             {uploadCount}
           </p>
@@ -168,7 +210,7 @@ export default function LibraryScreen() {
           </p>
         </BentoCell>
 
-        <BentoCell icon={FileText} label="Your drafts" onClick={() => navigate('/v4/library/drafts')}>
+        <BentoCell icon={FileText} label="Your drafts" to="/v4/library/drafts">
           <p className="text-[28px] font-semibold leading-none tabular-nums">
             {pending.length}
           </p>
@@ -179,7 +221,7 @@ export default function LibraryScreen() {
           icon={Sparkles}
           label="How your work landed"
           className="sm:col-span-2"
-          onClick={() => navigate('/v4/library/impact')}
+          to="/v4/library/impact"
         >
           <p className="text-[28px] font-semibold leading-none tabular-nums">
             {likesReceived}
@@ -239,7 +281,7 @@ export default function LibraryScreen() {
       ) : (
         <EnterList whenVisible className="mt-6 space-y-2.5">
           {shown.map((item) => (
-            <EnterListItem key={item.id}>
+            <EnterListItem key={item.id} id={`item-${item.id}`}>
               {/* Doc 2 rule 5: everything here is a pointer into its Space —
                   except Notes, which are read *and written* in Library. */}
               {item.kind === 'note' ? (
@@ -297,10 +339,18 @@ function LibraryRow({ item }: { item: LibraryItem }) {
         </h3>
 
         {/* Context, never a Space card — this names where it lives. */}
+        {/*
+          Built from the parts that exist rather than concatenated blindly. An
+          orphan has no Space to name, and the previous form left its separator
+          behind — a row opening "· 12 Mar", punctuation for a word that is not
+          there.
+        */}
         <p className="mt-1.5 text-[13.5px] text-quiet">
-          {item.lessonTitle ? `${item.lessonTitle} · ` : ''}
-          {item.spaceName}
-          <span className="text-faint"> · {formatWhen(item.updatedAt)}</span>
+          {[item.lessonTitle, item.spaceName].filter(Boolean).join(' · ')}
+          <span className="text-faint">
+            {[item.lessonTitle, item.spaceName].some(Boolean) ? ' · ' : ''}
+            {formatWhen(item.updatedAt)}
+          </span>
           {item.sizeBytes !== undefined && (
             <span className="text-faint"> · {formatSize(item.sizeBytes)}</span>
           )}
@@ -309,8 +359,9 @@ function LibraryRow({ item }: { item: LibraryItem }) {
         {item.orphaned && (
           <p className="mt-2 flex items-start gap-2 text-[13px] leading-relaxed text-quiet">
             <Unlink aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-            The Lesson this was attached to was removed. Your work is safe — pick a new
-            place for it.
+            The Lesson this was attached to was removed. Your work is safe, and it
+            keeps its likes — but it has nowhere to open until it is given a new
+            home.
           </p>
         )}
       </div>
@@ -333,7 +384,11 @@ function LibraryRow({ item }: { item: LibraryItem }) {
         <Link
           to={item.href}
           className="console-focusable absolute inset-0 rounded-2xl"
-          aria-label={`Open ${KIND_LABEL[item.kind].toLowerCase()} “${item.title}” in ${item.spaceName}`}
+          aria-label={
+            item.spaceName
+              ? `Open ${KIND_LABEL[item.kind].toLowerCase()} “${item.title}” in ${item.spaceName}`
+              : `Open ${KIND_LABEL[item.kind].toLowerCase()} “${item.title}”`
+          }
         >
           <span className="sr-only">Open</span>
         </Link>
