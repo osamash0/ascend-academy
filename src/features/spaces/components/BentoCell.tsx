@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 /**
@@ -12,11 +13,25 @@ import { cn } from '@/lib/utils';
  * belongs to the old product and must not be imported. This is the same
  * language in the v4 namespace, shared by Home and the Space overview so the
  * two cannot drift apart.
+ *
+ * Three tags, chosen by what the cell actually is:
+ *
+ *   `to`      → a `Link`.   It goes somewhere. Give it an href.
+ *   `onClick` → a `button`. It does something here — switches a tab, opens a
+ *                           dialog. There is no URL to point at.
+ *   neither   → a `div`.    It reports a number. Not a control at all.
+ *
+ * `to` was added because the alternative was a button whose handler called
+ * `navigate()`, and that quietly costs a person cmd-click, middle-click,
+ * open-in-new-tab and the status-bar preview — four behaviours a link gives for
+ * free and a handler cannot give back. Existing callers pass `onClick` for tab
+ * switches, which stays exactly right; navigation is what changes.
  */
 export function BentoCell({
   icon: Icon,
   label,
   className,
+  to,
   onClick,
   art,
   children,
@@ -24,6 +39,8 @@ export function BentoCell({
   icon: LucideIcon;
   label: string;
   className?: string;
+  /** Where this cell goes. Mutually exclusive with `onClick` in practice. */
+  to?: string;
   onClick?: () => void;
   /**
    * Background art. Rendered as a direct child of the cell so it fills the
@@ -34,16 +51,14 @@ export function BentoCell({
   art?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const Tag = onClick ? 'button' : 'div';
-  return (
-    <Tag
-      {...(onClick ? { type: 'button' as const, onClick } : {})}
-      className={cn(
-        'group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 text-left transition-colors',
-        onClick && 'console-focusable hover:bg-white/[0.06]',
-        className,
-      )}
-    >
+  const shared = cn(
+    'group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 text-left transition-colors',
+    (to || onClick) && 'console-focusable hover:bg-white/[0.06]',
+    className,
+  );
+
+  const body = (
+    <>
       {art && (
         <div
           aria-hidden
@@ -57,6 +72,33 @@ export function BentoCell({
         <span className="text-[13px] font-medium">{label}</span>
       </div>
       <div className="relative z-10">{children}</div>
-    </Tag>
+    </>
   );
+
+  /*
+   * Three returns rather than one `<Tag>` with a spread. A union tag type makes
+   * TypeScript check the props against the *union* of all three elements'
+   * attributes, so `to` reads as missing on the button branch and the whole
+   * spread is rejected — the sort of error usually settled with a cast. Writing
+   * the branches out keeps every prop checked against the element that actually
+   * receives it, and costs three lines.
+   *
+   * `block` only on the Link: an anchor is inline by default, which would
+   * collapse the cell to a text-line height inside the grid.
+   */
+  if (to) {
+    return (
+      <Link to={to} className={cn(shared, 'block')}>
+        {body}
+      </Link>
+    );
+  }
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={shared}>
+        {body}
+      </button>
+    );
+  }
+  return <div className={shared}>{body}</div>;
 }

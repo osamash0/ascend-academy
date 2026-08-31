@@ -15,6 +15,7 @@ import {
 import { useScreenState } from '../data/useSpaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { HeroCover } from '../components/hub/HeroCover';
+import { MobileNavSpacer } from '../components/MobileNav';
 import { DISCOVER_ID, SpaceChipRow } from '../components/hub/SpaceChipRow';
 import {
   CompactCard,
@@ -267,6 +268,15 @@ export default function SpacesHubScreen() {
           )}
         </div>
       </div>
+      {/*
+        This screen builds its own full-bleed chrome instead of rendering
+        through `Scene` — deliberate, since the console texture would fight the
+        hero art. But bypassing Scene means inheriting none of its duties, and
+        one of those is real: `SpacesTopBar` mounts the mobile bottom bar, and
+        the spacer that reserves room for it lives in Scene. Without this, the
+        last rail sits under the bar on every phone.
+      */}
+      <MobileNavSpacer />
     </div>
   );
 }
