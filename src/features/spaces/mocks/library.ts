@@ -9,6 +9,7 @@ import { conceptById, conceptContributions } from './concepts';
 import type { Person } from '../types';
 import { viewer, keller, weber, ferreira, okonkwo, lindqvist } from './people';
 import { allSpaces } from './spaces';
+import { rankLabel, viewerXp } from './rank';
 import { lessonsForSpace, locateLesson } from './lessons';
 
 /**
@@ -295,21 +296,30 @@ export interface RankedPerson {
  */
 const shared = (personId: string) => sharedSpaceIds(viewer.id, personId).length;
 
+/*
+ * XP is the fixture; **rank is derived** from it by `rankLabel`.
+ *
+ * Each row used to carry its own `rank: 'Rank 9'` string beside its XP, and
+ * the two disagreed for everyone except the viewer. At the 250-XP-per-rank
+ * the profile was using, Keller's 12,480 XP is Rank 50, not Rank 9. Nothing
+ * could catch it, because a hand-written label agrees with any curve.
+ */
 export const leaderboard: RankedPerson[] = [
-  { person: keller, xp: 12480, rank: 'Rank 9', sharedSpaces: shared(keller.id) },
-  { person: lindqvist, xp: 8210, rank: 'Rank 7', sharedSpaces: shared(lindqvist.id) },
-  { person: okonkwo, xp: 5140, rank: 'Rank 6', sharedSpaces: shared(okonkwo.id) },
-  { person: ferreira, xp: 3020, rank: 'Rank 5', sharedSpaces: shared(ferreira.id) },
-  { person: weber, xp: 900, rank: 'Rank 3', sharedSpaces: shared(weber.id) },
+  { person: keller, xp: 12480, sharedSpaces: shared(keller.id) },
+  { person: lindqvist, xp: 8210, sharedSpaces: shared(lindqvist.id) },
+  { person: okonkwo, xp: 5140, sharedSpaces: shared(okonkwo.id) },
+  { person: ferreira, xp: 3020, sharedSpaces: shared(ferreira.id) },
+  { person: weber, xp: 900, sharedSpaces: shared(weber.id) },
   {
     person: viewer,
-    xp: 60,
-    rank: 'Rank 1',
+    // From the ledger, not a literal — the Rank screen itemises this exact
+    // number, and a second statement of it is a second thing to get wrong.
+    xp: viewerXp(),
     // Your own row counts the Spaces you are in, not ones "shared with" you.
     sharedSpaces: allSpaces.filter((s) => s.viewerRole !== null).length,
     isViewer: true,
   },
-];
+].map((r) => ({ ...r, rank: rankLabel(r.xp) }));
 
 /**
  * The viewer's own standing — one source for it.

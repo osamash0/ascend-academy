@@ -4,6 +4,9 @@ import { toast } from 'sonner';
 import { Check, Search, Trophy, UserPlus, Users, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { leaderboard } from '../mocks/library';
+
+/** Your row on the board — what the "Where you stand" cell opens. */
+const STANDING_ROW_ID = 'your-standing';
 import {
   acceptRequest,
   currentFriends,
@@ -52,6 +55,18 @@ export default function SocialScreen() {
   const [tab, setTab] = useState<Tab>('ranking');
 
   const myPosition = leaderboard.findIndex((r) => r.isViewer) + 1;
+
+  /*
+   * No state and no effect here, unlike Library's equivalent: the board is
+   * rendered unconditionally on this screen, so the row already exists when
+   * the click happens. Library had to change a filter first, which is why that
+   * one needed an effect to wait for the commit.
+   */
+  const showMyStanding = () => {
+    const row = document.getElementById(STANDING_ROW_ID);
+    row?.scrollIntoView({ block: 'center' });
+    row?.focus();
+  };
   const me = leaderboard.find((r) => r.isViewer);
   /** The person immediately above you — the only gap worth reporting. */
   const ahead = leaderboard[myPosition - 2];
@@ -88,10 +103,17 @@ export default function SocialScreen() {
           below is a count on a person, not a way into a Space.
         */}
         <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/*
+            A summary of a list on this same screen, which until now did
+            nothing when clicked — the same shape as Library's "Your latest
+            note" cell. `onClick`, not `to`: the board is already here, so
+            there is no URL to point at, only a place to go on the page.
+          */}
           <BentoCell
             icon={Trophy}
             label="Where you stand"
             className="sm:col-span-2"
+            onClick={showMyStanding}
             art={
               <div className="absolute inset-0 bg-gradient-to-l from-primary/30 via-secondary/15 to-transparent" />
             }
@@ -179,6 +201,15 @@ export default function SocialScreen() {
               {leaderboard.map((r, i) => (
                 <li
                   key={r.person.id}
+                  /*
+                   * Your own row is the target of the "Where you stand" cell
+                   * above. `tabIndex={-1}` because a `li` cannot take focus
+                   * otherwise — it makes the row focusable *programmatically*
+                   * without inserting it into the tab order, so keyboard users
+                   * are not made to tab through the board to reach it.
+                   */
+                  id={r.isViewer ? STANDING_ROW_ID : undefined}
+                  tabIndex={r.isViewer ? -1 : undefined}
                   className={cn(
                     'flex items-center gap-4 rounded-2xl border px-5 py-3.5',
                     r.isViewer
