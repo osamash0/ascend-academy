@@ -77,6 +77,22 @@ function useSettled(scenario: Scenario, delay = 600): LoadState {
   return state;
 }
 
+/**
+ * Loading and error for a screen that reads fixtures synchronously.
+ *
+ * Eight of the twelve screens never called `useScenario`, so `?mock=loading`
+ * and `?mock=error` were silently no-ops on them — while §5.4 requires all
+ * four states rendered and screenshotted per screen. Worse, three of those
+ * eight used the *error* state for "not found", so a mistyped Lesson id
+ * claimed the connection had dropped.
+ *
+ * Exported separately from the data hooks because these screens have nothing
+ * to fetch: what they need is the round-trip, not the data.
+ */
+export function useScreenState(): LoadState {
+  return useSettled(useScenario());
+}
+
 export interface MySpaces {
   /** Cards here show drafts pending + members active, not personal progress. */
   created: Space[];

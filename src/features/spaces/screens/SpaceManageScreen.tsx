@@ -15,6 +15,8 @@ import { canDelete, spaceById } from '../mocks/spaces';
 import { membersForSpace } from '../mocks/contributions';
 import { viewer } from '../mocks/people';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
+import { ListSkeleton, SpacesError } from '../components/states';
+import { useScreenState } from '../data/useSpaces';
 import { JoinCodeBlock } from '../components/SpaceDialogs';
 import { AuthorLine } from '../components/badges';
 
@@ -57,6 +59,7 @@ function Section({
 }
 
 export default function SpaceManageScreen() {
+  const screenState = useScreenState();
   const { spaceId } = useParams<{ spaceId: string }>();
   const navigate = useNavigate();
   const space = spaceId ? spaceById(spaceId) : undefined;
@@ -67,6 +70,21 @@ export default function SpaceManageScreen() {
   const [grounding, setGrounding] = useState(space?.groundingEnabled ?? false);
   const [strict, setStrict] = useState(space?.strictMode ?? false);
   const [confirmName, setConfirmName] = useState('');
+
+  // `?mock=loading|error` did nothing on this screen. Not-found already had
+  // its own branch below and stays separate — a missing Space and a failed
+  // load need different words and different actions.
+  if (screenState === 'loading' || screenState === 'error') {
+    return (
+      <StudioShell
+        icon={Settings2}
+        title="Manage"
+        subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
+      >
+        {screenState === 'error' ? <SpacesError what="this Space" /> : <ListSkeleton />}
+      </StudioShell>
+    );
+  }
 
   if (!space) {
     return (

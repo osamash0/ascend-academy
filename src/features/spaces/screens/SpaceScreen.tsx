@@ -128,7 +128,7 @@ export default function SpaceScreen({
   );
 
   if (state === 'loading') return chrome(<SpacesSkeleton />);
-  if (state === 'error' || !space) return chrome(<SpacesError />);
+  if (state === 'error' || !space) return chrome(<SpacesError what="this Space" />);
 
   const owned = space.viewerRole === 'owner';
   const isEditor = owned || space.viewerRole === 'editor';

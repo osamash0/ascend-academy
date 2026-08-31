@@ -13,6 +13,8 @@ import {
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
+import { useScreenState } from '../data/useSpaces';
+import { ListSkeleton, SpacesError } from '../components/states';
 import { AuthorLine } from '../components/badges';
 import { Avatar } from '../components/Avatar';
 import { BentoCell } from '../components/BentoCell';
@@ -35,6 +37,7 @@ import { BentoCell } from '../components/BentoCell';
 type Tab = 'ranking' | 'friends' | 'requests';
 
 export default function SocialScreen() {
+  const screenState = useScreenState();
   /*
    * Accepting or declining mutates a store outside React, so a tick re-reads
    * it. Before this, both buttons were enabled, named the person in their
@@ -53,9 +56,19 @@ export default function SocialScreen() {
   /** The person immediately above you — the only gap worth reporting. */
   const ahead = leaderboard[myPosition - 2];
 
-  return (
+  const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.social} status="progress" motionKey="social">
       <SpacesTopBar active="social" viewer={viewer} />
+      {body}
+    </Scene>
+  );
+
+  // All four states. `?mock=loading|error` was a no-op on this screen.
+  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading social" />);
+  if (screenState === 'error') return chrome(<SpacesError what="your people" />);
+
+  return chrome(
+    <>
 
       <div className="mx-auto max-w-5xl px-6 pb-24 pt-8 lg:px-8">
         <header className="space-y-3">
@@ -290,7 +303,7 @@ export default function SocialScreen() {
           </section>
         )}
       </div>
-    </Scene>
+    </>,
   );
 }
 

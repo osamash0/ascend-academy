@@ -13,28 +13,72 @@ import { cn } from '@/lib/utils';
 /* ── Loading ────────────────────────────────────────────────────── */
 
 /**
- * Skeletons mirror the real geometry — 96px tiles, then the hero block — so
- * nothing shifts when the content lands.
+ * A skeleton mirrors the geometry it replaces, or it is worse than nothing.
+ *
+ * There used to be one skeleton for every screen, drawing 96px tiles — while
+ * `SpaceTile` is 200px, so the rail jumped every time it loaded — and it was
+ * also the loading state for Home, Library and a Space, three screens with no
+ * tile rail at all, where it mirrored nothing. The doc comment claimed
+ * "nothing shifts when the content lands"; everything shifted.
+ *
+ * Three shapes now, one per real layout. Picking the wrong one is still
+ * possible, but it is now a visible mistake rather than the default.
  */
+const bar = (cls: string) => `animate-pulse rounded-full bg-white/[0.05] ${cls}`;
+
+/** The Spaces rail: 200px tiles, matching `SpaceTile`. */
 export function SpacesSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading your Spaces" className="px-6 pt-5 lg:px-12">
-      <div className="flex gap-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex flex-col items-center gap-2">
-            <div className="h-24 w-24 animate-pulse rounded-3xl bg-white/[0.05]" />
-            <div className="h-2.5 w-14 animate-pulse rounded-full bg-white/[0.04]" />
+    <div aria-busy="true" aria-label="Loading your Spaces" className="px-6 pt-8 lg:px-12">
+      <div className={bar('mb-6 h-7 w-32 rounded-xl')} />
+      <div className="mb-4 flex gap-2">
+        <div className={bar('h-4 w-16')} />
+        <div className={bar('h-4 w-20')} />
+      </div>
+      <div className="flex gap-5 overflow-hidden">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="shrink-0 space-y-3">
+            <div className="h-[200px] w-[200px] animate-pulse rounded-2xl bg-white/[0.05]" />
           </div>
         ))}
       </div>
-      <div className="mt-12 max-w-2xl space-y-4">
-        <div className="h-3 w-20 animate-pulse rounded-full bg-white/[0.05]" />
-        <div className="h-12 w-3/4 animate-pulse rounded-2xl bg-white/[0.05]" />
-        <div className="h-4 w-1/2 animate-pulse rounded-full bg-white/[0.04]" />
-        <div className="flex gap-3 pt-2">
-          <div className="h-12 w-40 animate-pulse rounded-full bg-white/[0.05]" />
-          <div className="h-12 w-32 animate-pulse rounded-full bg-white/[0.04]" />
-        </div>
+    </div>
+  );
+}
+
+/**
+ * A hero, then rows beneath it — Space, Lesson, Concept, Person.
+ * The block sizes match the real headers so the title does not jump.
+ */
+export function DetailSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading" className="mx-auto max-w-4xl px-6 pt-6 lg:px-8">
+      <div className={bar('mb-8 h-5 w-24')} />
+      <div className={bar('mb-4 h-3 w-40')} />
+      <div className="mb-5 h-12 w-3/4 animate-pulse rounded-2xl bg-white/[0.05]" />
+      <div className="mb-8 flex gap-3">
+        <div className={bar('h-12 w-36')} />
+        <div className={bar('h-12 w-28')} />
+      </div>
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-[72px] animate-pulse rounded-2xl bg-white/[0.03]" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** A list of rows — Library, Social, Settings, the Studio screens. */
+export function ListSkeleton({ label = 'Loading' }: { label?: string }) {
+  return (
+    <div aria-busy="true" aria-label={label} className="mx-auto max-w-4xl px-6 pt-8 lg:px-8">
+      <div className={bar('mb-3 h-7 w-40 rounded-xl')} />
+      <div className={bar('mb-8 h-4 w-64')} />
+      <div className="space-y-2.5">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/[0.03]" />
+        ))}
       </div>
     </div>
   );
@@ -134,12 +178,24 @@ export function NothingToDiscover({
  * Distinguishes a genuine failure from a legitimately empty list — otherwise a
  * failed fetch renders as "you have no Spaces", which is a lie.
  */
-export function SpacesError({ onRetry = () => window.location.reload() }: { onRetry?: () => void }) {
+export function SpacesError({
+  /** What failed to load. Defaults to Spaces, which is where this started. */
+  what = 'your Spaces',
+  onRetry = () => window.location.reload(),
+}: {
+  what?: string;
+  onRetry?: () => void;
+}) {
   return (
     <Shell
       icon={<TriangleAlert aria-hidden className="h-6 w-6 text-destructive" />}
-      title="Couldn’t load your Spaces"
-      body="The connection dropped on the way. Your Spaces and your progress are safe."
+      /*
+        Naming what failed. This is now the error state for twelve screens, and
+        "Couldn't load your Spaces" on a Lesson is a sentence about something
+        the reader did not ask for.
+      */
+      title={`Couldn’t load ${what}`}
+      body="The connection dropped on the way. Nothing of yours is lost."
     >
       <button type="button" onClick={onRetry} className={PRIMARY}>
         <RotateCw aria-hidden className="h-4 w-4" />

@@ -77,7 +77,7 @@ export default function HomeScreen() {
   );
 
   if (state === 'loading') return chrome(<SpacesSkeleton />);
-  if (state === 'error') return chrome(<SpacesError />);
+  if (state === 'error') return chrome(<SpacesError what="your next thing" />);
 
   // Brand-new account: nothing to continue. One action, join or create — and
   // this is the only place Home may point at Spaces rather than a Lesson,

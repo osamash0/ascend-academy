@@ -108,7 +108,7 @@ export default function LibraryScreen() {
   );
 
   if (state === 'loading') return chrome(<SpacesSkeleton />);
-  if (state === 'error') return chrome(<SpacesError />);
+  if (state === 'error') return chrome(<SpacesError what="your Library" />);
 
   return chrome(
     <div className="mx-auto max-w-5xl px-6 pb-24 pt-8 lg:px-8">

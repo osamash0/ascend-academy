@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { draftsAcrossSpaces, impactRows, uploadRows } from '../mocks/library';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
+import { ListSkeleton, SpacesError } from '../components/states';
+import { useScreenState } from '../data/useSpaces';
 
 /**
  * Library's Studio screens.
@@ -90,6 +92,7 @@ function EmptyState({ icon: Icon, title, body }: { icon: typeof Upload; title: s
 }
 
 export default function LibraryStudioScreen() {
+  const screenState = useScreenState();
   const { view } = useParams<{ view: View }>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   /**
@@ -133,6 +136,21 @@ export default function LibraryStudioScreen() {
   );
   const impact = useMemo(() => impactRows(), []);
   void impact;
+
+  // Studio screens read fixtures synchronously and so had no loading or error
+  // state at all — `?mock=` did nothing here. The shell is the chrome, so the
+  // states render inside it rather than replacing it.
+  if (screenState === 'loading' || screenState === 'error') {
+    return (
+      <StudioShell
+        icon={Upload}
+        title={view === 'drafts' ? 'Your drafts' : view === 'impact' ? 'How your work landed' : 'Manage uploads'}
+        subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
+      >
+        {screenState === 'error' ? <SpacesError what="your work" /> : <ListSkeleton />}
+      </StudioShell>
+    );
+  }
 
   /* ── Manage uploads ── */
   if (view === 'uploads') {

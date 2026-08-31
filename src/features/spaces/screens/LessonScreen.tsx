@@ -21,11 +21,12 @@ import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes'
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
+import { useScreenState } from '../data/useSpaces';
 import { ContributionCard } from '../components/ContributionCard';
 import { NoteEditor } from '../components/NoteEditor';
 import { LessonPager } from '../components/LessonPager';
 import { AuthorLine, GroundingMarker, OriginBadge } from '../components/badges';
-import { NotFound } from '../components/states';
+import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 
 /**
  * A Lesson's own overview.
@@ -70,6 +71,7 @@ function Row({
 }
 
 export default function LessonScreen() {
+  const screenState = useScreenState();
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const navigate = useNavigate();
   const space: Space | undefined = spaceId ? spaceById(spaceId) : undefined;
@@ -113,6 +115,11 @@ export default function LessonScreen() {
   );
 
   // Not found, not a failure — a bad id must not claim the connection dropped.
+  // All four states, on every screen. `?mock=loading|error` used to be a
+  // no-op here, so these two had never been seen.
+  if (screenState === 'loading') return chrome(<DetailSkeleton />);
+  if (screenState === 'error') return chrome(<SpacesError what="this Lesson" />);
+
   if (!space || !lesson)
     return chrome(
       <NotFound

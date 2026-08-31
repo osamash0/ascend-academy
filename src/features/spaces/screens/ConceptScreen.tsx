@@ -11,8 +11,9 @@ import { conceptById, contributionsForConcept } from '../mocks/concepts';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
+import { useScreenState } from '../data/useSpaces';
 import { ContributionCard } from '../components/ContributionCard';
-import { NotFound } from '../components/states';
+import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 
 /**
  * One Concept — "a single idea inside a Lesson" (Doc 1). The map's planet.
@@ -51,6 +52,7 @@ const STATE: Record<ConceptProgress, { label: string; blurb: string; cls: string
 };
 
 export default function ConceptScreen() {
+  const screenState = useScreenState();
   const { spaceId, conceptId } = useParams<{ spaceId: string; conceptId: string }>();
   const space = spaceId ? spaceById(spaceId) : undefined;
   const concept = conceptId ? conceptById(conceptId) : undefined;
@@ -77,6 +79,11 @@ export default function ConceptScreen() {
       {body}
     </Scene>
   );
+
+  // All four states, on every screen. `?mock=loading|error` used to be a
+  // no-op here, so these two had never been seen.
+  if (screenState === 'loading') return chrome(<DetailSkeleton />);
+  if (screenState === 'error') return chrome(<SpacesError what="this idea" />);
 
   if (!space || !concept)
     return chrome(

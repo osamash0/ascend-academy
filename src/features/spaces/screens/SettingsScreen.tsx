@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import { viewer } from '../mocks/people';
 import { viewerStanding } from '../mocks/library';
 import { StudioShell } from '../components/StudioShell';
+import { ListSkeleton, SpacesError } from '../components/states';
+import { useScreenState } from '../data/useSpaces';
 import { Avatar } from '../components/Avatar';
 
 /**
@@ -90,12 +92,27 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function SettingsScreen() {
+  const screenState = useScreenState();
   const standing = viewerStanding();
   const [notifyMentions, setNotifyMentions] = useState(true);
   const [notifyEndorsed, setNotifyEndorsed] = useState(true);
   const [notifyNewLessons, setNotifyNewLessons] = useState(false);
   const [publicProfile, setPublicProfile] = useState(true);
   const [showActivity, setShowActivity] = useState(false);
+
+  if (screenState === 'loading' || screenState === 'error') {
+    return (
+      <StudioShell
+        icon={SettingsIcon}
+        title="Settings"
+        subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
+        backTo="/v4/profile"
+        backLabel="Back to Profile"
+      >
+        {screenState === 'error' ? <SpacesError what="your settings" /> : <ListSkeleton />}
+      </StudioShell>
+    );
+  }
 
   return (
     <StudioShell

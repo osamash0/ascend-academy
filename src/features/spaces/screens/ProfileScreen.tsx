@@ -8,6 +8,8 @@ import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Avatar, RankRing } from '../components/Avatar';
 import { BentoCell } from '../components/BentoCell';
 import { Scene, SURFACES } from '../components/Scene';
+import { useScreenState } from '../data/useSpaces';
+import { ListSkeleton, SpacesError } from '../components/states';
 import { AscentMap, ascentSpaces } from '../components/AscentMap';
 
 /**
@@ -30,6 +32,7 @@ const XP_IN_RANK = 250;
 const STREAK: number = 4;
 
 export default function ProfileScreen() {
+  const screenState = useScreenState();
   const xp = 60;
   const rank = 1;
   const intoRank = xp % XP_IN_RANK;
@@ -39,9 +42,19 @@ export default function ProfileScreen() {
   const published = libraryItems.filter((i) => i.kind === 'contribution');
   const likesReceived = published.reduce((n, i) => n + (i.likeCount ?? 0), 0);
 
-  return (
+  const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.profile} status="progress" motionKey="profile">
       <SpacesTopBar active="profile" viewer={viewer} />
+      {body}
+    </Scene>
+  );
+
+  // All four states. `?mock=loading|error` was a no-op on this screen.
+  if (screenState === 'loading') return chrome(<ListSkeleton label="Loading profile" />);
+  if (screenState === 'error') return chrome(<SpacesError what="your profile" />);
+
+  return chrome(
+    <>
 
       <div className="mx-auto max-w-5xl px-6 pb-24 pt-8 lg:px-8">
         <header className="flex flex-wrap items-center gap-5">
@@ -223,6 +236,6 @@ export default function ProfileScreen() {
           </ul>
         </section>
       </div>
-    </Scene>
+    </>,
   );
 }

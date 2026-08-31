@@ -10,9 +10,10 @@ import { locateLesson } from '../mocks/lessons';
 import { isFriend } from '../mocks/social';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
+import { useScreenState } from '../data/useSpaces';
 import { Avatar } from '../components/Avatar';
 import { EndorsedBadge } from '../components/badges';
-import { NotFound } from '../components/states';
+import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 
 /**
  * Someone else's public profile.
@@ -31,6 +32,7 @@ import { NotFound } from '../components/states';
  */
 
 export default function PersonScreen() {
+  const screenState = useScreenState();
   const { personId } = useParams<{ personId: string }>();
   const person = people.find((p) => p.id === personId);
 
@@ -59,6 +61,11 @@ export default function PersonScreen() {
       {body}
     </Scene>
   );
+
+  // All four states, on every screen. `?mock=loading|error` used to be a
+  // no-op here, so these two had never been seen.
+  if (screenState === 'loading') return chrome(<DetailSkeleton />);
+  if (screenState === 'error') return chrome(<SpacesError what="this profile" />);
 
   if (!person) {
     return chrome(<NotFound what="person" backTo="/v4/social" backLabel="Back to Social" />);

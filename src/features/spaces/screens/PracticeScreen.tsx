@@ -7,7 +7,8 @@ import { spaceById } from '../mocks/spaces';
 import { visibleLesson } from '../mocks/lessons';
 import { gradeAnswer, practiceForLesson } from '../mocks/practice';
 import { Scene, SURFACES } from '../components/Scene';
-import { NotFound } from '../components/states';
+import { useScreenState } from '../data/useSpaces';
+import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 
 /**
  * Practice for one Lesson.
@@ -26,6 +27,7 @@ import { NotFound } from '../components/states';
  */
 
 export default function PracticeScreen() {
+  const screenState = useScreenState();
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const navigate = useNavigate();
   const space = spaceId ? spaceById(spaceId) : undefined;
@@ -46,6 +48,11 @@ export default function PracticeScreen() {
       {body}
     </Scene>
   );
+
+  // All four states, on every screen. `?mock=loading|error` used to be a
+  // no-op here, so these two had never been seen.
+  if (screenState === 'loading') return chrome(<DetailSkeleton />);
+  if (screenState === 'error') return chrome(<SpacesError what="this practice" />);
 
   if (!space || !lesson)
     return chrome(
