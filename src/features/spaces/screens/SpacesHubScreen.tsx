@@ -10,8 +10,14 @@ import {
   myHubSpaces,
   newThisWeek,
   popularNow,
+  sortSpaces,
   spaceOfTheWeek,
+  type SpaceSort,
 } from '../mocks/hub';
+import { archivedForViewer } from '../mocks/hub';
+import { Archive } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Pressable } from '../components/Pressable';
 import { useScreenState } from '../data/useSpaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { HeroCover } from '../components/hub/HeroCover';
@@ -20,6 +26,7 @@ import { DISCOVER_ID, SpaceChipRow } from '../components/hub/SpaceChipRow';
 import {
   CompactCard,
   FeatureBanner,
+  GUTTER,
   HubPill,
   Rail,
   StandardCard,
@@ -76,6 +83,9 @@ export default function SpacesHubScreen() {
   const mine = useMemo(() => (asNewAccount ? [] : myHubSpaces()), [asNewAccount]);
   const backIn = useMemo(() => (asNewAccount ? [] : jumpBackIn()), [asNewAccount]);
   const popular = useMemo(() => popularNow(), []);
+  const archived = useMemo(() => archivedForViewer(), []);
+  const [sort, setSort] = useState<SpaceSort>('active');
+  const sortedMine = useMemo(() => sortSpaces(mine, sort), [mine, sort]);
   const fresh = useMemo(() => newThisWeek(), []);
   const featured = useMemo(() => spaceOfTheWeek(), []);
 
@@ -227,7 +237,36 @@ export default function SpacesHubScreen() {
             the window — it belongs to the hero, and a fixed row would sit over
             the rails you scrolled down to read.
           */}
-          <SpaceChipRow spaces={mine} selected={selected} onSelect={setSelected} />
+          {/*
+            Sorted, with the control beside the row rather than gated on a
+            count.
+            `notes-spaces-screen.md` says "sort control … past ~8 Spaces", and
+            a threshold was the first thing I wrote. Two problems: the viewer
+            has five, so the control would never have rendered and the whole
+            path would have shipped unexercised — and a control that appears at
+            eight and vanishes at seven is a moving target in a row whose job
+            is to be the one stable thing on the page.
+          */}
+          <div className={cn('flex items-center justify-end gap-1', GUTTER)}>
+            {(['active', 'name'] as const).map((by) => (
+              <Pressable
+                key={by}
+                subtle
+                type="button"
+                aria-pressed={sort === by}
+                onClick={() => setSort(by)}
+                className={cn(
+                  'console-focusable rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors',
+                  sort === by
+                    ? 'bg-white/[0.14] text-foreground'
+                    : 'text-quiet hover:bg-white/[0.06] hover:text-foreground',
+                )}
+              >
+                {by === 'active' ? 'Last active' : 'A–Z'}
+              </Pressable>
+            ))}
+          </div>
+          <SpaceChipRow spaces={sortedMine} selected={selected} onSelect={setSelected} />
         </section>
 
         {/*
@@ -265,6 +304,36 @@ export default function SpacesHubScreen() {
                 <CompactCard key={s.id} space={s} />
               ))}
             </Rail>
+          )}
+
+          {/*
+            Archived Spaces — collapsed, at the bottom, never absent.
+            `myHubSpaces` filters on `state === 'active'`, so these appeared
+            nowhere on this screen: not in the chip row, not in a rail. The
+            viewer's "Statistik I" was unreachable from Spaces entirely, and
+            Doc 1 defines archived as "read-only, **keeps progress**, earns no
+            XP" — so the progress recorded there was unreachable with it.
+            `notes-spaces-screen.md`: "collapsed section at bottom, never
+            hidden (progress lives there)".
+            A `<details>` rather than state: it is a disclosure, it works
+            before hydration, and the browser gives it the right semantics for
+            free.
+          */}
+          {archived.length > 0 && (
+            <details className={cn('mt-4', GUTTER)}>
+              <summary className="console-focusable inline-flex cursor-pointer items-center gap-2 rounded-full text-[13.5px] text-quiet transition-colors hover:text-foreground">
+                <Archive aria-hidden className="h-4 w-4" />
+                Archived · {archived.length}
+              </summary>
+              <p className="mt-3 max-w-[60ch] text-[13px] text-faint">
+                Read-only, and they keep everything you did. Nothing here earns XP.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-4">
+                {archived.map((s) => (
+                  <CompactCard key={s.id} space={s} />
+                ))}
+              </div>
+            </details>
           )}
         </div>
       </div>
