@@ -224,8 +224,12 @@ export default function SpacesScreen() {
       {/* ── Sort ── */}
       <div className="mt-5 flex items-center gap-3 px-6 lg:px-12">
         <ArrowDownWideNarrow aria-hidden className="h-4 w-4 shrink-0 text-faint" />
-        <span className="text-[13.5px] text-faint">Sort by</span>
-        <div className="flex flex-wrap items-center gap-1">
+        {/* `shrink-0` + nowrap: at 375px this label was breaking into
+            "Sort" / "by" on two lines and pushing the chips into a second row. */}
+        <span className="shrink-0 whitespace-nowrap text-[13.5px] text-faint">Sort by</span>
+        {/* The chips scroll rather than wrap — three of them plus the label do
+            not fit on one line at 375px, and a wrapped row reads as a mistake. */}
+        <div className="-mr-6 flex items-center gap-1 overflow-x-auto pr-6 lg:mr-0 lg:pr-0">
           {SORTS.map((o) => (
             <button
               key={o.key}
@@ -233,7 +237,7 @@ export default function SpacesScreen() {
               aria-pressed={sort === o.key}
               onClick={() => setSort(o.key)}
               className={cn(
-                'console-focusable h-8 rounded-full px-3 text-[13px] transition-colors',
+                'console-focusable h-8 shrink-0 whitespace-nowrap rounded-full px-3 text-[13px] transition-colors',
                 sort === o.key
                   ? 'bg-white/[0.10] font-medium text-foreground'
                   : 'text-quiet hover:bg-white/[0.05] hover:text-foreground',

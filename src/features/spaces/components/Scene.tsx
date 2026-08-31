@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { motion, MotionConfig } from 'framer-motion';
+import { MobileNavSpacer } from './MobileNav';
 import { DepthScene } from '@/components/console';
 import type { ConsoleStatus } from '@/components/console';
 
@@ -100,6 +101,12 @@ export function Scene({ surface, status, gradientIndex, motionKey, children }: S
         />
         <div className="relative" style={{ zIndex: 1 }}>
           {children}
+          {/*
+            Room for the fixed bottom bar. Mounted here rather than by each
+            screen, because a screen that forgets it looks correct until you
+            scroll to the very bottom — the kind of bug that survives review.
+          */}
+          <MobileNavSpacer />
         </div>
       </DepthScene>
     </MotionConfig>

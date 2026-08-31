@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
 import { NotificationPanel } from './NotificationPanel';
 import { SearchPalette, useSearchPalette } from './SearchPalette';
+import { MobileNav } from './MobileNav';
 import { viewerStanding } from '../mocks/library';
 import type { Person } from '../types';
 
@@ -122,8 +123,14 @@ export function SpacesTopBar({
         </button>
       </div>
 
-      {/* Center: pill tabs with the shared sliding indicator. */}
-      <nav aria-label="Main" className="flex items-center gap-1">
+      {/*
+        Center: pill tabs with the shared sliding indicator.
+
+        Hidden below `md`, where `MobileNav` carries the same five
+        destinations at the bottom. Two navigation controls on one screen is
+        two things that have to agree about which tab is active.
+      */}
+      <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
         {TABS.map((tab) => {
           const isActive = tab.key === active;
           return (
@@ -206,6 +213,7 @@ export function SpacesTopBar({
       </div>
 
       <SearchPalette open={searchOpen} onOpenChange={setSearchOpen} />
+      <MobileNav active={active} />
     </header>
   );
 }

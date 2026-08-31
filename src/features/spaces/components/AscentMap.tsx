@@ -134,9 +134,11 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
           {folded > 0 && <span className="text-faint"> · {folded} further folded</span>}
         </p>
 
+        {/* Same reason as the per-Space map: legible, then scrollable. */}
+        <div className="-mx-6 overflow-x-auto px-6 sm:mx-0 sm:overflow-visible sm:px-0">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="w-full select-none"
+          className="w-full min-w-[560px] select-none sm:min-w-0"
           style={{ maxHeight: '40vh' }}
           role="img"
           aria-label={`Your journey: ${clearedSpaces} of ${placed.length} Spaces cleared, ${lessonsDone} of ${lessonsTotal} Lessons.`}
@@ -260,6 +262,7 @@ export function AscentMap({ spaces }: { spaces: Space[] }) {
             );
           })}
         </svg>
+        </div>
       </div>
     </div>
   );

@@ -161,9 +161,17 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
         </p>
       </div>
 
+      {/*
+        On a phone the map must not shrink to fit.
+        A 896-unit viewBox rendered into 327px scales everything by 0.36, which
+        turns a 13px label into 4.7px — the map still "fits" and is unreadable.
+        Below `sm` it keeps a legible minimum width and scrolls sideways inside
+        its own container, so the page never scrolls horizontally.
+      */}
+      <div className="-mx-6 overflow-x-auto px-6 sm:mx-0 sm:overflow-visible sm:px-0">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full select-none"
+        className="w-full min-w-[790px] select-none sm:min-w-0"
         style={{ maxHeight: '70vh' }}
         role="img"
         aria-label={`Progress map for ${space.name}: ${doneCount} of ${placed.length} Lessons cleared, ${clearedTotal} of ${conceptTotal} ideas.`}
@@ -386,6 +394,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
           );
         })}
       </svg>
+      </div>
 
       {/* Colour alone must not carry meaning. */}
       <ul className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-quiet">
