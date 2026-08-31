@@ -23,6 +23,7 @@ import {
   recentlyViewed,
 } from '../mocks/library';
 import { allNotes } from '../mocks/notes';
+import { currentRun } from '../mocks/history';
 import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
 
 /**
@@ -258,6 +259,8 @@ export function useHome(): HomeResult {
     next: ready && kind !== 'onboard' ? nextAction : null,
     feed: ready && kind === 'resume' ? homeFeed : [],
     recent: ready && kind === 'resume' ? recentlyViewed() : [],
-    streakDays: ready ? 4 : 0,
+    // Derived. This was a literal `4` that Profile also held independently,
+    // so Home and Profile could disagree about the same run and both look right.
+    streakDays: ready ? currentRun() : 0,
   };
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { badges, libraryItems, viewerStanding } from '../mocks/library';
 import { standingFor } from '../mocks/rank';
+import { currentRun, longestRun } from '../mocks/history';
 import { viewer } from '../mocks/people';
 import { mySpaces, visibleSpaces } from '../mocks/spaces';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -28,8 +29,7 @@ import { AscentMap, ascentSpaces } from '../components/AscentMap';
  * never a sixth destination.
  */
 
-/** Mock. Typed as number, not the literal, so the plural check stays honest. */
-const STREAK: number = 4;
+
 
 export default function ProfileScreen() {
   const screenState = useScreenState();
@@ -43,6 +43,7 @@ export default function ProfileScreen() {
    */
   const { xp } = viewerStanding();
   const { rank, toNext, pct } = standingFor(xp);
+  const streak = currentRun();
 
   const earned = badges.filter((b) => b.earned);
   const published = libraryItems.filter((i) => i.kind === 'contribution');
@@ -123,14 +124,16 @@ export default function ProfileScreen() {
             </p>
           </BentoCell>
 
-          <BentoCell icon={Flame} label="Streak">
+          <BentoCell icon={Flame} label="Streak" to="/v4/profile/history">
             <p className="text-[28px] font-semibold leading-none tabular-nums">
-              {STREAK}
+              {streak}
               <span className="ml-1.5 text-[16px] text-quiet">
-                {STREAK === 1 ? 'day' : 'days'}
+                {streak === 1 ? 'day' : 'days'}
               </span>
             </p>
-            <p className="mt-2 text-[13px] text-quiet">Longest run yet</p>
+            {/* Was "Longest run yet" under the *current* number — false as soon as an
+                earlier run was longer, which it is: four now, six in August. */}
+          <p className="mt-2 text-[13px] text-quiet">Longest so far, {longestRun()} days</p>
           </BentoCell>
 
           <BentoCell icon={Award} label="Badges">
