@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   CheckCircle2,
+  Compass,
   FileText,
   Heart,
   Loader2,
@@ -15,7 +16,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { draftsAcrossSpaces, impactRows, uploadRows } from '../mocks/library';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
-import { ListSkeleton, SpacesError } from '../components/states';
+import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
 
 /**
@@ -35,6 +36,27 @@ import { useScreenState } from '../data/useSpaces';
  */
 
 type View = 'uploads' | 'drafts' | 'impact';
+
+/**
+ * The three views, and the only three.
+ *
+ * `:view` used to be read straight off the URL and fall through to the impact
+ * screen, so `/v4/library/anything` rendered "How your work landed" — title,
+ * real counts, real rows. Not an error page: a *plausible* one, for a screen
+ * you never asked for. The same mistake `NotFound` was added for, one step
+ * further along, because here there was nothing to notice.
+ *
+ * A table rather than three ternaries. The loading branch had its own copy of
+ * the title logic and defaulted an unknown view to "Manage uploads", so the
+ * skeleton was already mislabelling the screen it was standing in for.
+ */
+const VIEWS = {
+  uploads: { title: 'Manage uploads', icon: Upload },
+  drafts: { title: 'Your drafts', icon: FileText },
+  impact: { title: 'How your work landed', icon: Sparkles },
+} as const;
+
+const isView = (v: string | undefined): v is View => v !== undefined && v in VIEWS;
 
 const formatSize = (b?: number) => (b === undefined ? '—' : `${(b / 1_000_000).toFixed(1)} MB`);
 const formatDate = (iso: string) =>
@@ -135,7 +157,31 @@ export default function LibraryStudioScreen() {
     [removed],
   );
   const impact = useMemo(() => impactRows(), []);
-  void impact;
+
+  /*
+   * Checked before the load states, not after: a skeleton for a screen that
+   * does not exist is still a promise that it does.
+   */
+  if (!isView(view)) {
+    return (
+      /*
+       * The subtitle names the three real screens rather than repeating the
+       * message. `NotFound` already says "That screen isn’t here", and having
+       * the shell say it too printed the same sentence twice, one above the
+       * other. Listing what does exist is the useful thing to say to someone
+       * who has just mistyped one of them.
+       */
+      <StudioShell
+        icon={Compass}
+        title="Library"
+        subtitle={Object.values(VIEWS)
+          .map((v) => v.title)
+          .join(' · ')}
+      >
+        <NotFound what="screen" backTo="/v4/library" backLabel="Back to Library" />
+      </StudioShell>
+    );
+  }
 
   // Studio screens read fixtures synchronously and so had no loading or error
   // state at all — `?mock=` did nothing here. The shell is the chrome, so the
@@ -143,8 +189,8 @@ export default function LibraryStudioScreen() {
   if (screenState === 'loading' || screenState === 'error') {
     return (
       <StudioShell
-        icon={Upload}
-        title={view === 'drafts' ? 'Your drafts' : view === 'impact' ? 'How your work landed' : 'Manage uploads'}
+        icon={VIEWS[view].icon}
+        title={VIEWS[view].title}
         subtitle={screenState === 'error' ? 'Something went wrong' : 'Loading…'}
       >
         {screenState === 'error' ? <SpacesError what="your work" /> : <ListSkeleton />}

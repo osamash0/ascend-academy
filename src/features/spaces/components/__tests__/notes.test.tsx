@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import LibraryScreen from '../../screens/LibraryScreen';
+import LibraryStudioScreen from '../../screens/LibraryStudioScreen';
 import { NoteEditor } from '../NoteEditor';
 import { noteToItem } from '../../mocks/library';
 import { allNotes, noteById, resetNotes } from '../../mocks/notes';
@@ -269,4 +270,69 @@ describe('an unfiled note says so', () => {
       expect(screen.getAllByText(/Not filed in a Space yet/).length).toBeGreaterThan(0);
     });
   });
+});
+
+describe('Library Studio only has the screens it has', () => {
+  /*
+   * `/v4/library/:view` fell through to the impact screen for any unknown
+   * value, so a typo rendered "How your work landed" with its real title and
+   * real rows. A wrong screen that looks right is worse than an error, because
+   * there is nothing to notice — and this route takes a free-text segment.
+   */
+  const renderStudio = async (view: string) => {
+    const r = render(
+      <MemoryRouter initialEntries={[`/v4/library/${view}`]}>
+        <Routes>
+          <Route path="/v4/library/:view" element={<LibraryStudioScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(document.body.textContent).toBeTruthy());
+    return r;
+  };
+
+  for (const view of ['uploads', 'drafts', 'impact']) {
+    it(`renders the ${view} screen`, async () => {
+      const { unmount } = await renderStudio(view);
+      await waitFor(() =>
+        expect(document.body.textContent, `${view} did not render`).not.toMatch(/isn’t here/),
+      );
+      unmount();
+    });
+  }
+
+  /*
+   * Realistic wrong values: a stale link, a plural, the wrong case, and the
+   * string "undefined", which is what a missing variable interpolated into a
+   * template URL actually produces. `../uploads` is deliberately not here —
+   * the router resolves it before it ever reaches the param, so it tests
+   * react-router rather than this screen.
+   */
+  for (const bogus of ['not-a-real-view', 'impacts', 'Impact', 'undefined']) {
+    it(`refuses "${bogus}" instead of quietly showing another screen`, async () => {
+      const { unmount } = await renderStudio(bogus);
+      await waitFor(() => {
+        /*
+         * The *heading* is the claim about which screen you are on — checked
+         * there rather than across the whole body, because the not-found
+         * subtitle deliberately lists the three real screen names to orient
+         * someone who has just mistyped one. Matching the body flagged that
+         * as the bug it was describing.
+         */
+        expect(
+          screen.getByRole('heading', { level: 1 }).textContent,
+          `"${bogus}" rendered a real screen`,
+        ).not.toMatch(/How your work landed|Manage uploads|Your drafts/);
+        // And none of the three screens' own content is on the page.
+        expect(
+          document.body.textContent,
+          `"${bogus}" leaked a real screen's rows`,
+        ).not.toMatch(/published contributions|files across your Spaces|unpublished across/);
+        expect(document.body.textContent, `"${bogus}" gave no not-found state`).toMatch(
+          /isn’t here/,
+        );
+      });
+      unmount();
+    });
+  }
 });
