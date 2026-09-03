@@ -1,0 +1,63 @@
+\chapter{Requirements Analysis}
+\label{ch:requirements}
+
+\section{Stakeholders and Roles}
+\label{sec:stakeholders}
+
+\thesisfigure{f4-use-case}
+  {Actors and goals as implemented. Shaded use cases are unreachable in a
+   default deployment because every feature flag defaults to off.}
+  {fig:use-case}
+
+\TODO{Two things in \cref{fig:use-case} deserve prose rather than being left to
+the diagram. First, content authoring is gated on \emph{ownership}, not role:
+\code{require\_creator} admits both professors and students, and the code
+comment states the intent explicitly. Second, that decision has a direct
+security consequence --- a student-uploaded PDF can reach another student's
+tutor context --- which is why retrieved text is treated as untrusted in
+\cref{sec:injection}. Requirements decisions with downstream security
+consequences are exactly what an examiner looks for.}
+
+\section{Functional Requirements}
+\label{sec:functional-requirements}
+
+\TODO{Derive from the use cases, numbered FR1..FRn so \cref{ch:evaluation} can
+reference them. Keep each testable --- "the system shall reject an upload
+exceeding the configured page limit" is testable; "the system shall be
+user-friendly" is not.}
+
+\section{Non-Functional Requirements}
+\label{sec:nonfunctional-requirements}
+
+\TODO{The ones this system actually takes a position on, with the real values
+from \cref{app:constants}: upload limits, page limits, queue backpressure
+threshold, per-user LLM cost cap, and the resilience target for provider
+failure. Numbered NFR1..NFRn.}
+
+\TODO{Include idempotency as an explicit non-functional requirement. It is
+unusual for a bachelor thesis to name it, and it is the property
+\cref{sec:idempotency} shows is satisfied by six independent mechanisms --- so
+stating the requirement here makes that section an answer rather than a
+digression.}
+
+\section{Domain Model}
+\label{sec:domain-model}
+
+\thesisfigure{f5-domain-model}
+  {Conceptual domain model. Analysis-level vocabulary, deliberately distinct
+   from the physical schema in \cref{fig:er}.}
+  {fig:domain-model}
+
+\TODO{Note explicitly that \emph{Quiz} appears in \cref{fig:domain-model} as
+domain vocabulary but has no table behind it --- a quiz is the set of questions
+reachable through a lecture's slides. Naming a concept that deliberately has no
+persistent representation shows the distinction between analysis and
+implementation model is understood, rather than accidental.}
+
+\section{Constraints}
+\label{sec:constraints}
+
+\TODO{The real ones, because they shaped the design and make the trade-offs in
+\cref{ch:design} legible: a single small virtual machine (4\,GB RAM, 2 vCPU),
+free-tier or low-cost LLM provider quotas, a managed Postgres instance with no
+backups on the free tier, and a one-person development team.}
