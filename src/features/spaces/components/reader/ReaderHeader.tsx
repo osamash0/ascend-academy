@@ -117,6 +117,46 @@ function ScrollProgress() {
   );
 }
 
+/** The control itself, so the two places it appears cannot drift apart. */
+function ExitLink({ to }: { to: string }) {
+  return (
+    <Link
+      to={to}
+      aria-label="Leave the reader"
+      className="console-focusable flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
+    >
+      <X aria-hidden className="h-4 w-4" />
+    </Link>
+  );
+}
+
+/**
+ * The way out where there is no bar to hang it in.
+ *
+ * The reader has three branches with no Lesson behind them — a skeleton, a
+ * failed load and a missing one — and RULING F4 keeps the header off all
+ * three: everything else in the bar is derived from a Lesson, and inventing a
+ * breadcrumb for an error screen would be chrome telling a story the screen
+ * cannot back up.
+ *
+ * The exit is the one part that needs no Lesson. It only needs somewhere to
+ * go, and the URL always has that. Splitting it out lets those branches keep
+ * the bare chrome F4 gave them *and* stop being traps: a focus surface with no
+ * top bar, no exit and a load that never resolves is a page you can leave only
+ * with the browser's own controls.
+ *
+ * Fixed in the corner the header's own exit occupies, so the control does not
+ * move when the Lesson lands — a way out that jumps as the page resolves is a
+ * way out you have to find twice.
+ */
+export function ReaderExit({ to }: { to: string }) {
+  return (
+    <div className="fixed left-4 top-2.5 z-40">
+      <ExitLink to={to} />
+    </div>
+  );
+}
+
 export function ReaderHeader({
   spaceName,
   lessonOrder,
@@ -158,13 +198,7 @@ export function ReaderHeader({
 
           {/* Where you are, and the way out — first in the tab order. */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Link
-              to={backTo}
-              aria-label="Leave the reader"
-              className="console-focusable flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
-            >
-              <X aria-hidden className="h-4 w-4" />
-            </Link>
+            <ExitLink to={backTo} />
             {/*
               Two elements for one sentence, and the split is about width, not
               taste.

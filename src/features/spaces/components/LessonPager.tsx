@@ -28,6 +28,24 @@ interface Props {
   spaceId: string;
   prev: Lesson | null;
   next: Lesson | null;
+  /**
+   * A panel is occupying the right 384px of the window, so span the rest.
+   *
+   * The reader's companion rail, today. It is a prop rather than something
+   * this component works out for itself because the pager cannot see what is
+   * beside it: `fixed inset-x-0` means "the whole window", and the window is
+   * the one thing that does not change when a panel opens over part of it.
+   *
+   * Measured, on the reader at 1016px with the rail out: the next card sat at
+   * 664–904 against a rail starting at 632 — the whole card behind it, at
+   * equal `z-30`, with nothing to click. Not a docking artefact either; it was
+   * still inside the rail's rectangle with the dock switched off.
+   *
+   * `sm` because that is where the rail stops being the whole screen
+   * (`ReaderRail` is `w-full sm:w-96`). Below it the panel covers everything
+   * and there is nothing to make room from.
+   */
+  companionOpen?: boolean;
 }
 
 function PagerCard({
@@ -84,7 +102,7 @@ function PagerCard({
   );
 }
 
-export function LessonPager({ spaceId, prev, next }: Props) {
+export function LessonPager({ spaceId, prev, next, companionOpen = false }: Props) {
   const navigate = useNavigate();
 
   /** ←/→ walk the path, matching the console navigation everywhere else. */
@@ -106,7 +124,16 @@ export function LessonPager({ spaceId, prev, next }: Props) {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex items-center justify-between px-2 lg:px-4"
+      className={cn(
+        'pointer-events-none fixed inset-x-0 bottom-6 z-30 flex items-center justify-between px-2 lg:px-4',
+        /*
+          Written out rather than composed. Tailwind scans source text, so a
+          class built from a variable is a class it never generates — the DOM
+          reads correctly and no rule exists behind it, which this namespace
+          has already shipped once.
+        */
+        companionOpen && 'sm:right-96',
+      )}
       aria-label="Lesson pager"
     >
       {/* Half off-screen at rest, so each card reads as the path continuing

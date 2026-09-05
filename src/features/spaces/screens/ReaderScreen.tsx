@@ -11,7 +11,7 @@ import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
 import { PressableLink } from '../components/Pressable';
-import { ReaderHeader } from '../components/reader/ReaderHeader';
+import { ReaderExit, ReaderHeader } from '../components/reader/ReaderHeader';
 import type { RailTab, ReaderView } from '../components/reader/ReaderHeader';
 import { ReaderRail } from '../components/reader/ReaderRail';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
@@ -279,8 +279,46 @@ export default function ReaderScreen() {
     </Scene>
   );
 
-  if (screenState === 'loading') return chrome(<DetailSkeleton />);
-  if (screenState === 'error') return chrome(<SpacesError what="this Lesson" />);
+  /*
+   * Where the exit points before there is a Lesson to point at.
+   *
+   * The URL always knows, even when the load does not: the Lesson overview is
+   * where this reader was opened from, and if the id in the URL is wrong that
+   * screen says so properly rather than hanging. Falling back to the Spaces
+   * list covers a route with no params, which the router does not currently
+   * produce.
+   */
+  const exitTo =
+    spaceId && lessonId ? `/v4/space/${spaceId}/lesson/${lessonId}` : '/v4/spaces';
+
+  /*
+   * A skeleton and a failure both keep the bare chrome RULING F4 gave them —
+   * and both now carry the exit, because they had none at all.
+   *
+   * `SpacesError` offers "Try again", which reloads; `DetailSkeleton` offers
+   * nothing, and `?mock=loading` never resolves. On a surface with no top bar
+   * and no bottom nav that left two of the reader's four branches with no way
+   * out of the product's own chrome, under a guard named "always offers a way
+   * out" that was only ever looking at the branch that reads.
+   *
+   * The exit is a sibling rather than something passed into those components:
+   * they are shared by a dozen screens that have their own chrome, and the
+   * reader is the one that took its chrome off.
+   */
+  if (screenState === 'loading')
+    return chrome(
+      <>
+        <ReaderExit to={exitTo} />
+        <DetailSkeleton />
+      </>,
+    );
+  if (screenState === 'error')
+    return chrome(
+      <>
+        <ReaderExit to={exitTo} />
+        <SpacesError what="this Lesson" />
+      </>,
+    );
 
   if (!space || !lesson)
     return chrome(
@@ -310,6 +348,53 @@ export default function ReaderScreen() {
    */
   const showToggle = passages.length > 0 && pages.length > 0;
   const effectiveView: ReaderView = showToggle ? view : passages.length > 0 ? 'read' : 'source';
+
+  /*
+   * What to do when the reading is done — under both views, not just the one
+   * that happened to be built first.
+   *
+   * The Read view has had this since the beginning: practice is the obvious
+   * next move and it is a Lesson away rather than a screen away. The Material
+   * had nothing, which was invisible while every Material sat behind a text
+   * you could toggle back to — and a dead end on the Lesson where it does
+   * not. `l-s-dbs-10` has a file, no prose, no practice bank and no Lesson
+   * after it: the reader could open it and find the header's X the only live
+   * control on the screen. That is the dead end the Source view was built to
+   * remove, at the far end of the same screen.
+   *
+   * Two independent conditions rather than a branch per Lesson shape. The
+   * practice link appears wherever there is practice. The way back appears
+   * wherever there is no prose to return to — with a text, the Read/Source
+   * segment is already that, and a second copy of it under the card would be
+   * chrome repeating itself.
+   *
+   * Rendered as nothing at all when neither applies, because an empty rule
+   * line under the last paragraph is a promise of something below it.
+   */
+  const practiceLink = lesson.practiceCount > 0 && (
+    <PressableLink
+      to={`/v4/space/${space.id}/lesson/${lesson.id}/practice`}
+      className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900"
+    >
+      <ListChecks aria-hidden className="h-4 w-4" />
+      Practise what you just read
+    </PressableLink>
+  );
+  const backLink = passages.length === 0 && (
+    <Link
+      to={back}
+      className="console-focusable inline-flex h-12 items-center rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium"
+    >
+      Back to the Lesson
+    </Link>
+  );
+  const whatNext =
+    practiceLink || backLink ? (
+      <div className="mt-14 flex flex-wrap items-center gap-3 border-t border-white/[0.08] pt-8">
+        {practiceLink}
+        {backLink}
+      </div>
+    ) : null;
 
   /*
    * The sync line's other half: a page names its Concept, and pressing that
@@ -512,7 +597,15 @@ export default function ReaderScreen() {
    * positioned against the shifted column instead of the viewport, and would
    * drift by the dock's offset the moment the rail opened.
    */
-  const readerChrome = (body: React.ReactNode, docked: string = DOCKED_READ) =>
+  const readerChrome = (
+    body: React.ReactNode,
+    docked: string = DOCKED_READ,
+    /*
+     * Fixed chrome that belongs to a branch, kept out of the wrapper on
+     * purpose — see the pager below.
+     */
+    floating: React.ReactNode = null,
+  ) =>
     chrome(
       <>
         {selectionAsk}
@@ -525,6 +618,7 @@ export default function ReaderScreen() {
           allowed to, never more.
         */}
         <div className={cn(railTab !== null && docked)}>{body}</div>
+        {floating}
         <ReaderRail
           open={railTab !== null}
           /* Meaningless while closed — the rail renders nothing at all then. */
@@ -574,6 +668,7 @@ export default function ReaderScreen() {
           */
           onJumpToPassage={passages.length > 0 ? jumpToPassage : undefined}
         />
+        {whatNext}
       </div>,
       DOCKED_SOURCE,
     );
@@ -647,25 +742,34 @@ export default function ReaderScreen() {
           </section>
         ))}
 
-        {/* What to do when the reading is done. Practice is the obvious next
-            move, and it is a Lesson away, not a screen away. */}
-        {lesson.practiceCount > 0 && (
-          <div className="mt-14 border-t border-white/[0.08] pt-8">
-            <PressableLink
-              to={`/v4/space/${space.id}/lesson/${lesson.id}/practice`}
-              className="console-focusable inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[14.5px] font-semibold text-slate-900"
-            >
-              <ListChecks aria-hidden className="h-4 w-4" />
-              Practise what you just read
-            </PressableLink>
-          </div>
-        )}
-
-        {/* The pager walks published Lessons only — Rule 1 holds here too. */}
-        <div className="mt-12">
-          <LessonPager spaceId={space.id} prev={prev} next={next} />
-        </div>
+        {whatNext}
       </article>
     </>,
+    DOCKED_READ,
+    /*
+     * The pager, outside the article and outside the wrapper the dock moves.
+     *
+     * It is `position: fixed` chrome that happened to be written inside the
+     * column, and a transformed ancestor becomes the containing block for its
+     * fixed descendants — so docking the column for the rail dragged the pager
+     * with it. Measured at 1016px with the rail out: the previous card sat at
+     * −272 to −32, entirely off the left of the window, and content left of the
+     * origin creates no scroll area, so it was unreachable rather than merely
+     * out of sight.
+     *
+     * Being a sibling fixes the left card. The right one needed the other half
+     * — `companionOpen` — because the card was inside the rail's rectangle with
+     * the dock switched off too: `inset-x-0` spans the window and the rail owns
+     * the last 384px of it. The pager now spans the page minus the companion,
+     * so both cards peek from the edge of what is actually visible.
+     *
+     * The pager walks published Lessons only — Rule 1 holds here too.
+     */
+    <LessonPager
+      spaceId={space.id}
+      prev={prev}
+      next={next}
+      companionOpen={railTab !== null}
+    />,
   );
 }
