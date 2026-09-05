@@ -67,13 +67,12 @@ const RAIL: { tab: RailTab; label: string; icon: typeof Sparkles }[] = [
 ];
 
 /**
- * How far down the document you are, and nothing else.
+ * How far down the page you are, and nothing else.
  *
- * Read from the scroll position on every frame the browser gives us rather
- * than animated: there is nothing to ease, the bar simply *is* the position.
- * `scaleX` on a fixed-width strip so the only property that changes is a
- * transform — a `width` transition would re-lay-out a line of the page on
- * every scroll event.
+ * Event-driven, not animated: there is nothing to ease, the bar simply *is*
+ * the position. `scaleX` on a fixed-width strip so the only property that
+ * changes is a transform — a `width` transition would re-lay-out a line of
+ * the page on every scroll event.
  */
 function ScrollProgress() {
   const [ratio, setRatio] = useState(0);
@@ -87,9 +86,24 @@ function ScrollProgress() {
     read();
     window.addEventListener('scroll', read, { passive: true });
     window.addEventListener('resize', read);
+    /*
+     * The third way the ratio can change, and the one `scroll` and `resize`
+     * both miss: the *content* changing height under a viewport that did not
+     * move. Flipping to the Material swaps the whole body of the reader for
+     * something of a different length.
+     *
+     * Shrinking happens to self-correct — the browser clamps `scrollTop` to
+     * the new height and that clamp fires `scroll`. Growing does not: read to
+     * the bottom of a short view, switch to a long one, and the bar stays
+     * full while you are a third of the way down. So the document element is
+     * observed, and every height change is a reading whichever way it went.
+     */
+    const observer = new ResizeObserver(read);
+    observer.observe(document.documentElement);
     return () => {
       window.removeEventListener('scroll', read);
       window.removeEventListener('resize', read);
+      observer.disconnect();
     };
   }, []);
 
@@ -122,12 +136,18 @@ export function ReaderHeader({
       <ScrollProgress />
       <header className="fixed inset-x-0 top-0 z-40 h-14 border-b border-white/[0.07] bg-[#070b14]/85 backdrop-blur-md">
         {/*
-          Three flexible columns rather than one absolutely-centred segment.
+          Two flexible side columns with the segment between them, rather than
+          one absolutely-centred segment. The middle column is there only for
+          the Lessons that have both a text and a Material; most have one, and
+          the row is genuinely two columns then.
+
           Absolute centring puts the toggle on the viewport's midpoint, which
           is prettier at 1440px and overlaps a long Space name at 375px — and
           the overlap is invisible until somebody opens the one Space whose
           name is long. Equal side columns keep the segment near the middle and
-          make collision impossible: the breadcrumb truncates instead.
+          make collision impossible: the breadcrumb truncates instead. That the
+          middle column comes and goes is also why the sides are `flex-1`
+          rather than a fixed width — they close the gap themselves.
         */}
         <div className="mx-auto flex h-full items-center gap-3 px-4">
 
