@@ -16,9 +16,11 @@ import { sourceFiles } from '../../components/__tests__/sources';
  * would look wrong.
  */
 
-const written = allSpaces
-  .flatMap((s) => lessonsForSpace(s.id))
-  .filter((l) => (l.passages?.length ?? 0) > 0);
+const everyLesson = allSpaces.flatMap((s) => lessonsForSpace(s.id));
+
+const written = everyLesson.filter((l) => (l.passages?.length ?? 0) > 0);
+
+const paginated = everyLesson.filter((l) => (l.material?.pages?.length ?? 0) > 0);
 
 describe('passages describe the ideas the Lesson actually has', () => {
   it('has at least one written Lesson, so none of this is vacuous', () => {
@@ -85,6 +87,112 @@ describe('passages describe the ideas the Lesson actually has', () => {
       }
     }
   });
+});
+
+describe('the Material describes the same ideas the Lesson does', () => {
+  it('has at least one paginated Material, so none of this is vacuous', () => {
+    expect(paginated.length).toBeGreaterThan(0);
+  });
+
+  it('names a real Concept on every page', () => {
+    /*
+     * The same rule the passages keep, for the same reason. A page pointing at
+     * an id the Lesson does not have renders "This page belongs to …" with
+     * nothing to name, and the only two screens that could notice are the two
+     * that both read this fixture.
+     */
+    for (const l of paginated) {
+      const ids = new Set(l.concepts.map((c) => c.id));
+      for (const p of l.material!.pages!) {
+        expect(ids.has(p.conceptId), `${l.title} p${p.page}: unknown ${p.conceptId}`).toBe(true);
+      }
+    }
+  });
+
+  it('numbers the pages contiguously from 1', () => {
+    // The number on the card is the number in the file. A gap means the pager
+    // says "7 / 12" on the eighth page, and nothing else would ever say so.
+    for (const l of paginated) {
+      const numbers = l.material!.pages!.map((p) => p.page);
+      expect(numbers, `${l.title} is not paged 1..n`).toEqual(
+        Array.from({ length: numbers.length }, (_, i) => i + 1),
+      );
+    }
+  });
+
+  it('walks the Concepts in order and does not come back to one', () => {
+    /*
+     * Pages are grouped by idea and the groups run in Concept order — which is
+     * passage order too, since the passages are guarded to be. Interleaved
+     * pages would still resolve, and the sync line would flicker between two
+     * ideas as you turned a page, describing a file nobody has.
+     */
+    for (const l of paginated) {
+      const order = l.concepts.map((c) => c.id);
+      const groups = l.material!.pages!.map((p) => p.conceptId).filter((id, i, a) => id !== a[i - 1]);
+      expect(new Set(groups).size, `${l.title} returns to an idea it left`).toBe(groups.length);
+      expect(groups, `${l.title} pages its ideas out of order`).toEqual(
+        order.filter((id) => groups.includes(id)),
+      );
+    }
+  });
+
+  it('writes real lines rather than a placeholder', () => {
+    for (const l of paginated) {
+      for (const p of l.material!.pages!) {
+        expect(p.title.trim().length, `${l.title} p${p.page} has no title`).toBeGreaterThan(0);
+        // Three or four. One bullet is a sentence with a dot in front of it,
+        // and a card of eight is a wall the layout was never sized for.
+        expect(p.bullets.length, `${l.title} p${p.page} bullet count`).toBeGreaterThanOrEqual(3);
+        expect(p.bullets.length, `${l.title} p${p.page} bullet count`).toBeLessThanOrEqual(4);
+        for (const b of p.bullets) {
+          expect(b.length, `${l.title} p${p.page} has a stub bullet`).toBeGreaterThan(20);
+          expect(b, `${l.title} p${p.page} contains filler`).not.toMatch(/lorem ipsum|TODO|TBD/i);
+        }
+      }
+    }
+  });
+
+  it('loses the pages with the file, because they belong to it', () => {
+    /*
+     * The whole argument for `pages` living on `Material` rather than on
+     * `Lesson`. This asserts the exact expression the screen derives its
+     * Source view from — `lesson.material?.pages ?? []` — comes back empty for
+     * a Lesson whose source was deleted, so "is there a Source view" has one
+     * answer rather than two that can drift apart.
+     */
+    const deleted = everyLesson.filter((l) => l.material === null);
+    expect(deleted.length, 'no deleted-source fixture to check').toBeGreaterThan(0);
+    for (const l of deleted) {
+      expect(l.material?.pages ?? [], `${l.title} kept pages past its file`).toHaveLength(0);
+    }
+  });
+});
+
+describe('the reader has a fixture for each shape it renders', () => {
+  /*
+   * Four shapes, and three of them used to render the same apology. Each needs
+   * a fixture or the branch that handles it has never executed — the Material-
+   * without-prose case in particular exists *because* the dead end was wrong,
+   * so it is the one most likely to be built and never seen.
+   */
+  const shape = (l: (typeof everyLesson)[number]) =>
+    `${(l.passages?.length ?? 0) > 0 ? 'text' : '-'}/${
+      (l.material?.pages?.length ?? 0) > 0 ? 'pages' : '-'
+    }`;
+
+  it('has a Lesson with both a text and a Material', () => {
+    expect(everyLesson.filter((l) => shape(l) === 'text/pages').length).toBeGreaterThan(0);
+  });
+
+  it('has a Lesson with a Material and no text — the one that replaces a dead end', () => {
+    expect(everyLesson.filter((l) => shape(l) === '-/pages').length).toBeGreaterThan(0);
+  });
+
+  it('has a Lesson with neither, which is still honestly unwritten', () => {
+    expect(everyLesson.filter((l) => shape(l) === '-/-').length).toBeGreaterThan(0);
+  });
+
 });
 
 describe('the reader is a focus surface', () => {
