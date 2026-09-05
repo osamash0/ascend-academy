@@ -130,6 +130,8 @@ export function ReaderHeader({
   onRailToggle,
 }: Props) {
   const cleared = concepts.filter((c) => c.progress === 'cleared').length;
+  /* Said once so the visible copy and the spoken copy cannot drift apart. */
+  const where = `${spaceName} · Lesson ${lessonOrder}`;
 
   return (
     <>
@@ -160,8 +162,36 @@ export function ReaderHeader({
             >
               <X aria-hidden className="h-4 w-4" />
             </Link>
-            <p className="min-w-0 truncate text-[13px] text-quiet">
-              {spaceName} · Lesson {lessonOrder}
+            {/*
+              Two elements for one sentence, and the split is about width, not
+              taste.
+
+              At 375px the row is 319px of usable space and the Read/Source
+              segment takes 147 of it, so the breadcrumb was left 38px and
+              rendered "Dat…" — which says less than nothing and looks like a
+              bug. Nothing rearranges out of that: the Space name alone wants
+              114px, and even trimming the segment's padding leaves it short.
+
+              So the visible copy steps out below `sm` *only when the segment
+              is there to crowd it*. Most Lessons have one view, the middle
+              column is absent, and the full breadcrumb fits on a phone with
+              room to spare. The narrow case is the exception, not the rule.
+
+              The sentence itself never leaves. The `sr-only` span carries it
+              at every width and the visible `p` is `aria-hidden`, so it is
+              announced once rather than twice — hiding it outright would have
+              cost a screen reader the only statement on this screen of which
+              Space it is in.
+            */}
+            <span className="sr-only">{where}</span>
+            <p
+              aria-hidden
+              className={cn(
+                'min-w-0 truncate text-[13px] text-quiet',
+                showToggle && 'hidden sm:block',
+              )}
+            >
+              {where}
             </p>
           </div>
 
@@ -191,7 +221,20 @@ export function ReaderHeader({
             </div>
           )}
 
-          <div className="flex flex-1 shrink-0 items-center justify-end gap-3">
+          {/*
+            `flex-1` here only when there is a segment to centre. Two equal
+            flexible sides is what holds the middle column in the middle — but
+            with no middle column it holds nothing, and it still reserved half
+            the row for 84px of buttons. Measured at 375px on a Lesson with one
+            view: the right column took 165px to render 84, and the breadcrumb
+            truncated at 118 with 81px sitting unused beside it.
+          */}
+          <div
+            className={cn(
+              'flex shrink-0 items-center justify-end gap-3',
+              showToggle && 'flex-1',
+            )}
+          >
             {/*
               A readout of what the engine already cleared. The group carries
               the sentence; the dots themselves are shape, and a screen reader

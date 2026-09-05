@@ -56,7 +56,43 @@ const mount = (over: Partial<React.ComponentProps<typeof ReaderHeader>> = {}) =>
 describe('the header says where you are and how to leave', () => {
   it('names the Space and the Lesson', () => {
     mount();
-    expect(screen.getByText(`${SPACE.name} · Lesson ${LESSON.order}`)).toBeTruthy();
+    expect(screen.getAllByText(`${SPACE.name} · Lesson ${LESSON.order}`).length).toBeGreaterThan(0);
+  });
+
+  it('says where you are exactly once, however narrow the row gets', () => {
+    /*
+     * The sentence is written twice on purpose and must be *heard* once. At
+     * 375px a Lesson with both views has 38px for the breadcrumb and renders
+     * "Dat…", so the visible copy steps out below `sm` — but hiding it
+     * outright would take the only statement of which Space this is away from
+     * a screen reader, at exactly the width where the surrounding chrome is
+     * thinnest. So one copy is `sr-only` and always announced, and the copy
+     * that comes and goes is `aria-hidden`.
+     *
+     * Asserting the count is the point. Drop the `aria-hidden` and the header
+     * reads its own location twice on every desktop visit, which no render
+     * test that only looks for presence would notice.
+     */
+    mount({ showToggle: true });
+    const both = screen.getAllByText(`${SPACE.name} · Lesson ${LESSON.order}`);
+    expect(both).toHaveLength(2);
+    const spoken = both.filter((el) => el.closest('[aria-hidden="true"]') === null);
+    expect(spoken).toHaveLength(1);
+    expect(spoken[0].className).toContain('sr-only');
+  });
+
+  it('keeps the visible breadcrumb when there is no segment to crowd it', () => {
+    /*
+     * The narrow case is the exception. Most Lessons have one view, the middle
+     * column is absent, and 375px has room for the whole breadcrumb — so it
+     * must not be hidden there too. A responsive rule that fires on every
+     * Lesson would be a plain regression wearing a media query.
+     */
+    mount({ showToggle: false });
+    const visible = screen
+      .getAllByText(`${SPACE.name} · Lesson ${LESSON.order}`)
+      .find((el) => el.getAttribute('aria-hidden') === 'true');
+    expect(visible?.className).not.toContain('hidden');
   });
 
   it('offers a way out, pointed at the Lesson it came from', () => {
