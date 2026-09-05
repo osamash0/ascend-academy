@@ -153,19 +153,25 @@ describe('the Material describes the same ideas the Lesson does', () => {
     }
   });
 
-  it('loses the pages with the file, because they belong to it', () => {
+  it('has a Lesson whose file was deleted, so the fourth shape is reachable', () => {
     /*
-     * The whole argument for `pages` living on `Material` rather than on
-     * `Lesson`. This asserts the exact expression the screen derives its
-     * Source view from — `lesson.material?.pages ?? []` — comes back empty for
-     * a Lesson whose source was deleted, so "is there a Source view" has one
-     * answer rather than two that can drift apart.
+     * That deleting the Material takes the pages with it is the whole argument
+     * for `pages` living on `Material` rather than on `Lesson`, and it is
+     * enforced by the type: `material: null` has no `pages` to read, so
+     * `lesson.material?.pages ?? []` is `[]` and the Source view cannot exist.
+     * There is nothing here for a test to catch — an earlier version of this
+     * one looped over the deleted Lessons asserting that constant `[]` was
+     * empty, which tested optional chaining and reported it as fixture
+     * coverage.
+     *
+     * What is worth pinning is that such a Lesson exists at all. Without one
+     * the fourth shape has never rendered, and three of the four branches
+     * would be carrying a test suite that looks complete.
      */
-    const deleted = everyLesson.filter((l) => l.material === null);
-    expect(deleted.length, 'no deleted-source fixture to check').toBeGreaterThan(0);
-    for (const l of deleted) {
-      expect(l.material?.pages ?? [], `${l.title} kept pages past its file`).toHaveLength(0);
-    }
+    expect(
+      everyLesson.filter((l) => l.material === null).length,
+      'no deleted-source fixture, so the fourth shape is untested',
+    ).toBeGreaterThan(0);
   });
 });
 

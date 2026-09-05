@@ -81,6 +81,36 @@ describe('the header says where you are and how to leave', () => {
     expect(spoken[0].className).toContain('sr-only');
   });
 
+  /*
+   * The two halves of one fix, asserted in both directions.
+   *
+   * At 375px a Lesson with both views has 319px of row, of which the segment
+   * takes 147; the breadcrumb wants 182 and rendered "Dat…". So the visible
+   * copy steps out below `sm` — and the right column stops reserving half the
+   * row for 84px of buttons, which is what starved the breadcrumb to 118px on
+   * the Lessons that have no segment at all.
+   *
+   * The first version of these tests checked only that the sentence was still
+   * announced once and that the *exception* held. Both `showToggle &&` clauses
+   * could be deleted — reverting the whole visible change — with every test
+   * still green. Guarding the exception and not the rule is worse than not
+   * guarding it, because the green tick claims the regression is covered.
+   */
+  const visibleCopy = () =>
+    screen
+      .getAllByText(`${SPACE.name} · Lesson ${LESSON.order}`)
+      .find((el) => el.getAttribute('aria-hidden') === 'true');
+
+  /** The controls column — the thing that was flexible when it had no reason to be. */
+  const rightColumn = () => screen.getByRole('button', { name: 'Tutor' }).parentElement;
+
+  it('yields the row to the segment when there is one', () => {
+    mount({ showToggle: true });
+    expect(visibleCopy()?.className).toContain('hidden');
+    expect(visibleCopy()?.className).toContain('sm:block');
+    expect(rightColumn()?.className).toContain('flex-1');
+  });
+
   it('keeps the visible breadcrumb when there is no segment to crowd it', () => {
     /*
      * The narrow case is the exception. Most Lessons have one view, the middle
@@ -89,10 +119,10 @@ describe('the header says where you are and how to leave', () => {
      * Lesson would be a plain regression wearing a media query.
      */
     mount({ showToggle: false });
-    const visible = screen
-      .getAllByText(`${SPACE.name} · Lesson ${LESSON.order}`)
-      .find((el) => el.getAttribute('aria-hidden') === 'true');
-    expect(visible?.className).not.toContain('hidden');
+    expect(visibleCopy()?.className).not.toContain('hidden');
+    // With nothing in the middle, a flexible right column centres nothing and
+    // still reserves the space that the breadcrumb needs.
+    expect(rightColumn()?.className).not.toContain('flex-1');
   });
 
   it('offers a way out, pointed at the Lesson it came from', () => {

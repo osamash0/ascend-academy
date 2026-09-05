@@ -147,9 +147,12 @@ export function ReaderHeader({
           is prettier at 1440px and overlaps a long Space name at 375px — and
           the overlap is invisible until somebody opens the one Space whose
           name is long. Equal side columns keep the segment near the middle and
-          make collision impossible: the breadcrumb truncates instead. That the
-          middle column comes and goes is also why the sides are `flex-1`
-          rather than a fixed width — they close the gap themselves.
+          make collision impossible: the breadcrumb truncates instead.
+
+          Equal only while there is something to centre. When the segment is
+          absent the right column is sized to its contents — see the note above
+          it — so the left column takes the rest of the row rather than the two
+          sides splitting it and leaving the breadcrumb short.
         */}
         <div className="mx-auto flex h-full items-center gap-3 px-4">
 
