@@ -178,20 +178,26 @@ export const myContributionById = (id: string): Contribution | undefined =>
  */
 const myContributionItems = (): LibraryItem[] =>
   myPublished().map((c) => {
-  // Resolve through the override, so a re-anchored orphan lands on its Lesson.
-  const at = resolveContributionAnchor(anchorFor(c), c.id);
+    // Resolve through the override, so a re-anchored orphan lands on its Lesson.
+    const at = resolveContributionAnchor(anchorFor(c), c.id);
   return {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
     title: c.title,
     /*
-     * A contribution opens where it is anchored. An orphan has no anchor left,
-     * so it opens nowhere — `null`, and the row renders no link at all. Once
-     * it is re-anchored the override gives it a real Lesson to open.
+     * A contribution opens where it is anchored. An orphan has no Lesson left,
+     * so it opens nowhere — `null`, and the row renders no link at all.
      *
-     * Not a fallback to `/v4/space/<id>`: that makes a Space an entry point
-     * from Library, which this screen's own header forbids, and it lands you
-     * on an overview the contribution is not on. `library.test.ts` guards it.
+     * This used to fall back to `/v4/space/${at.spaceId}`, which broke both of
+     * Library's stated rules at once: it made a Space an entry point from
+     * Library, and it landed you on an overview where the contribution is not,
+     * under an aria-label promising to open it there.
+     *
+     * Naming the Space is a separate question from linking to it, and the two
+     * were resolved separately. `spaceName` is still filled in for an orphan,
+     * because the anchor records the Space its deleted Lesson was in — so the
+     * row can say where the work came from without offering to take you
+     * somewhere it isn't.
      */
     href: at.href,
     spaceId: at.spaceId,
@@ -453,7 +459,8 @@ export const impactRows = (): ImpactRow[] =>
       return {
         id: c.id,
         title: c.title,
-        // Sourced from the anchor, never assumed. An orphan names no Space.
+        // Same rule as the Library row above: named, never linked, never
+        // invented.
         spaceId: at.spaceId,
         spaceName: at.spaceId ? spaceName(at.spaceId) : null,
         lessonTitle: at.lessonTitle,

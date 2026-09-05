@@ -31,12 +31,43 @@ import { SpacesError, SpacesSkeleton } from '../components/states';
  * primary action, and everything else subordinate to it.
  */
 
+/**
+ * What a row *is*. Every entry names a state, never an instruction.
+ *
+ * `continue` used to read "Pick up where you left off", and that one word of
+ * difference put the same sentence on two items at once: the hero said it about
+ * `Basics`, and a row in "Also waiting" said it about `Differential
+ * Cryptanalysis`. Both were true — you can be part-way through two Lessons —
+ * which is why the fix is not to drop one of them. The hero's Lesson was never
+ * in the feed to begin with, so there was nothing to deduplicate.
+ *
+ * The tell is the register. "Up next", "Due for review" and "New since you were
+ * here" all name a state; "Pick up where you left off" issues a command. It was
+ * written for the hero, where an instruction is exactly right, and then reused
+ * as a row label by one shared map read at two altitudes. A list says what
+ * something is and lets you choose; the hero says what to do, because its whole
+ * job is to be "the one thing".
+ */
 const REASON_LABEL: Record<HomeItem['reason'], string> = {
-  continue: 'Pick up where you left off',
+  continue: 'In progress',
   next: 'Up next',
   review: 'Due for review',
   new: 'New since you were here',
 };
+
+/**
+ * What the hero says instead, where it differs.
+ *
+ * Only `continue` needs its own phrasing — the other three read the same at
+ * either altitude, and duplicating them here would create the second place that
+ * can disagree. Falls back to `REASON_LABEL`, so a new reason is a row label
+ * first and gains a hero voice only if it earns one.
+ */
+const HERO_LABEL: Partial<Record<HomeItem['reason'], string>> = {
+  continue: 'Pick up where you left off',
+};
+
+const heroLabel = (reason: HomeItem['reason']) => HERO_LABEL[reason] ?? REASON_LABEL[reason];
 
 const REASON_ICON: Record<HomeItem['reason'], typeof Play> = {
   continue: Play,
@@ -203,7 +234,7 @@ export default function HomeScreen() {
       <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <BentoCell
           icon={Play}
-          label={REASON_LABEL[next.reason]}
+          label={heroLabel(next.reason)}
           className="sm:col-span-2"
           to={`/v4/space/${next.spaceId}/lesson/${next.lessonId}`}
           art={

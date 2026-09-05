@@ -1,5 +1,6 @@
 import type { Contribution, Membership } from '../types';
 import { viewer, keller, weber, ferreira, okonkwo, lindqvist } from './people';
+import { anchorFor, homeSpaceOf, isOrphaned } from './reanchor-store';
 
 /**
  * Contribution fixtures.
@@ -229,6 +230,36 @@ export const spaceContributions: Contribution[] = [
  */
 export const linalgContributions: Contribution[] = [
   {
+    /*
+     * The Owner's half of the orphan rule, which had no fixture.
+     *
+     * Doc 1 surfaces an orphan to the Owner *and* the author, and the only
+     * orphan in the fixtures was written by the viewer — so every Owner-facing
+     * orphan path (the non-author wording, and the Owner's right to re-file
+     * somebody else's work) was unreachable and could only be tested against
+     * hand-built objects. The same gap the viewer-authored orphan below in
+     * `spaceContributions` was added to close, one role over.
+     *
+     * Linear Algebra because the viewer is its Owner; authored by Ferreira so
+     * the author branch cannot be what authorises it.
+     */
+    id: 'c-la-orphan',
+    title: 'Change-of-basis worksheet from the old Lesson 4',
+    excerpt:
+      'Six matrices, each written in two bases, with the transition matrix worked out both ways round so you can see which one you actually need.',
+    type: 'pdf',
+    anchor: { level: 'lesson', lessonId: 'l-s-linalg-removed', spaceId: 's-linalg' },
+    origin: 'community',
+    author: ferreira,
+    grounding: null,
+    likeCount: 11,
+    likedByViewer: false,
+    endorsed: false,
+    hidden: false,
+    orphaned: true,
+    createdAt: '2026-07-30T11:00:00Z',
+  },
+  {
     id: 'c-la-1',
     title: 'The determinant as signed area — one diagram that fixed it for me',
     excerpt:
@@ -282,10 +313,25 @@ export const linalgContributions: Contribution[] = [
   },
 ];
 
-const byLesson: Record<string, Contribution[]> = {
-  'l-s-dbs-4': normalizationContributions,
-  'l-s-linalg-2': linalgContributions.filter((c) => c.anchor.level === 'lesson'),
-};
+/**
+ * Every contribution, in one place, so a Lesson can be asked what is on it.
+ *
+ * This replaced a hand-written `byLesson` index (`'l-s-dbs-4'` →
+ * `normalizationContributions`, and so on). Two problems with that: it had to
+ * be kept in step with the anchors by hand, and it could not see a re-anchored
+ * orphan at all — so a contribution moved to a Lesson never appeared *on* that
+ * Lesson, which is the one thing the move promises.
+ *
+ * Behaviour-preserving on the fixtures: every `normalizationContribution` is
+ * anchored to `l-s-dbs-4` and both lesson-anchored `linalgContributions` to
+ * `l-s-linalg-2`, which is exactly what the index said.
+ */
+const everyContribution = (): Contribution[] => [
+  ...normalizationContributions,
+  ...spaceContributions,
+  ...linalgContributions,
+  ...addedThisSession,
+];
 
 /** Published this session. Kept apart from the fixtures, as elsewhere. */
 const addedThisSession: Contribution[] = [];
@@ -335,12 +381,29 @@ export const addContribution = (input: {
 
 /** Sorted by likes — the community section, never the path. */
 export const contributionsForLesson = (lessonId: string): Contribution[] =>
-  [
-    ...(byLesson[lessonId] ?? []),
-    ...addedThisSession.filter(
-      (c) => c.anchor.level === 'lesson' && c.anchor.lessonId === lessonId,
-    ),
-  ].sort((a, b) => b.likeCount - a.likeCount);
+  everyContribution()
+    .filter((c) => {
+      // The *effective* anchor: a re-anchored orphan belongs to its new Lesson.
+      const at = anchorFor(c);
+      return at.level === 'lesson' && at.lessonId === lessonId;
+    })
+    .sort((a, b) => b.likeCount - a.likeCount);
+
+/**
+ * Work in this Space whose Lesson was deleted.
+ *
+ * Doc 1, Contributions rule 1 surfaces an orphan to the Owner *and* the
+ * author. The author half was Library; the Owner half did not exist — and not
+ * because a button was missing, but because an orphan appears in **no** Space
+ * list at all. Its anchor points at a Lesson that is gone, so
+ * `contributionsForLesson` cannot find it and `contributionsForSpace` only
+ * matches space-level anchors. The Owner could not have seen one if they had
+ * looked.
+ */
+export const orphansForSpace = (spaceId: string): Contribution[] =>
+  everyContribution()
+    .filter((c) => isOrphaned(c) && homeSpaceOf(c) === spaceId)
+    .sort((a, b) => b.likeCount - a.likeCount);
 
 /**
  * The DOM id a contribution card carries, and the fragment that targets it.
@@ -357,7 +420,10 @@ export const contributionAnchorId = (id: string) => `contribution-${id}`;
 
 export const contributionsForSpace = (spaceId: string): Contribution[] =>
   [...spaceContributions, ...linalgContributions, ...addedThisSession]
-    .filter((c) => c.anchor.level === 'space' && c.anchor.spaceId === spaceId)
+    .filter((c) => {
+      const at = anchorFor(c);
+      return at.level === 'space' && at.spaceId === spaceId;
+    })
     .sort((a, b) => b.likeCount - a.likeCount);
 
 /**

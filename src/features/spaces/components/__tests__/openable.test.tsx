@@ -172,8 +172,17 @@ describe('a cell that names a Lesson opens it', () => {
   });
 
   it('opens the hero, not just the small print', () => {
-    // The regression that started this file: the widest cell was the dead one.
-    const hero = cells.find((tag) => /REASON_LABEL\[next\.reason\]/.test(tag));
+    /*
+     * The regression that started this file: the widest cell was the dead one.
+     *
+     * Identified by `next.reason` rather than by the map that supplies its
+     * label. This originally matched `REASON_LABEL[next.reason]` and broke the
+     * moment the hero stopped sharing the rows' label map — a true failure
+     * about a stale detail, which is the least useful kind. What this test
+     * actually cares about is that a cell keyed to `next` exists and opens
+     * `next`'s Lesson; which map phrases it is `labels.test.tsx`'s business.
+     */
+    const hero = cells.find((tag) => /next\.reason/.test(tag));
     expect(hero, 'Home no longer has a hero cell keyed to `next`').toBeDefined();
     expect(/\bto=/.test(hero!), 'the hero cell is inert again').toBe(true);
     expect(

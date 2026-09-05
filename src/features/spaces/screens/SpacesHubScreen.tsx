@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { viewer } from '../mocks/people';
 import {
@@ -11,6 +11,7 @@ import {
   newThisWeek,
   popularNow,
   sortSpaces,
+  worthALook,
   spaceOfTheWeek,
   type SpaceSort,
 } from '../mocks/hub';
@@ -88,6 +89,7 @@ export default function SpacesHubScreen() {
   const sortedMine = useMemo(() => sortSpaces(mine, sort), [mine, sort]);
   const fresh = useMemo(() => newThisWeek(), []);
   const featured = useMemo(() => spaceOfTheWeek(), []);
+  const discoverable = useMemo(() => worthALook(), []);
 
   /*
    * With no memberships the chip row cannot hold the selection, so the hero
@@ -112,6 +114,23 @@ export default function SpacesHubScreen() {
   const space = shown === DISCOVER_ID ? undefined : hubSpaceById(shown);
 
   /*
+   * Discover is a scope for the whole page, not a section inside it.
+   *
+   * "chip row selects → hero reacts → rails discover" is the page's stated
+   * order, and the rails were the part that never reacted: selecting Discover
+   * changed the hero copy and the cover art while "Jump back in" carried on
+   * listing the Spaces you are already in. The spec says what this state holds
+   * for a new account — "rails = discover content only" — and the chip is the
+   * same scope chosen deliberately rather than reached by having joined
+   * nothing.
+   *
+   * Keyed off `shown` rather than `selected` so the rails turn over on the
+   * same 180ms beat as the hero copy instead of a frame ahead of it.
+   */
+  const onDiscover = shown === DISCOVER_ID;
+  const railsRef = useRef<HTMLDivElement>(null);
+
+  /*
    * The hero's copy. Discover is a state of this page, not a Space, so it gets
    * its own content rather than a Space-shaped placeholder.
    */
@@ -120,14 +139,30 @@ export default function SpacesHubScreen() {
       ? {
           title: 'Find your next space',
           desc: 'Browse Spaces across every subject people here are learning. Join in one click — leave whenever you want.',
+          /*
+           * Counts what the rails below actually hold.
+           *
+           * This read `popular.length` and called them "public Spaces", and
+           * `popularNow` includes both invite-only Spaces and ones you are
+           * already a member of — so the number was wrong twice over, on the
+           * one line whose whole job is to say how much there is to look at.
+           * "curated weekly" went with it: nothing curates anything weekly.
+           */
           meta: (
             <>
-              <b className="font-medium text-quiet">{popular.length}</b> public Spaces ·
-              curated weekly
+              <b className="font-medium text-quiet">{discoverable.length}</b>{' '}
+              {discoverable.length === 1 ? 'Space' : 'Spaces'} you have not joined
             </>
           ),
-          action: { label: 'Browse all', disabled: false },
-          to: '/v4/spaces-legacy',
+          /*
+           * Stays on this page. It used to be a Link to `/v4/spaces-legacy` —
+           * the screen this hub replaced — so the one action on Discover was
+           * to leave. The content is the rails below the fold, and this is the
+           * hero's only affordance for reaching them on a 100vh stage.
+           */
+          action: { label: 'Browse Spaces', disabled: discoverable.length === 0 },
+          to: undefined,
+          onPress: () => railsRef.current?.scrollIntoView({ block: 'start' }),
         }
       : {
           title: space.name,
@@ -151,6 +186,7 @@ export default function SpacesHubScreen() {
           ),
           action: actionFor(membershipOf(space)),
           to: `/v4/space/${space.id}`,
+          onPress: undefined,
         };
 
   const chrome = (body: React.ReactNode) => (
@@ -226,6 +262,7 @@ export default function SpacesHubScreen() {
                 <p className="mb-[30px] text-[13.5px] text-label">{hero.meta}</p>
                 <HubPill
                   to={hero.to}
+                  onPress={hero.onPress}
                   label={hero.action.label}
                   disabled={hero.action.disabled}
                 />
@@ -275,12 +312,17 @@ export default function SpacesHubScreen() {
           section boundary.
         */}
         <div
+          ref={railsRef}
           className="relative z-[2] bg-[#0a0b0d] pb-[110px] pt-14"
           style={{ boxShadow: '0 -60px 80px -20px rgba(10,11,13,.9)' }}
         >
           {/* Empty rails are not rendered. Each of these can legitimately be
               empty — a new account has no Spaces and nothing to jump back to. */}
-          {backIn.length > 0 && (
+          {/*
+            "Jump back in" is your Spaces, which is the one thing Discover is
+            not. It is the rail that made selecting Discover read as a no-op.
+          */}
+          {!onDiscover && backIn.length > 0 && (
             <Rail title="Jump back in">
               {backIn.map((s) => (
                 <WideCard key={s.id} space={s} />
@@ -288,15 +330,24 @@ export default function SpacesHubScreen() {
             </Rail>
           )}
 
+          {/* Already discover content: the most-starred Space you are not in. */}
           {featured && <FeatureBanner space={featured} />}
 
-          {popular.length > 0 && (
-            <Rail title="Popular right now">
-              {popular.map((s) => (
-                <StandardCard key={s.id} space={s} />
-              ))}
-            </Rail>
-          )}
+          {onDiscover
+            ? discoverable.length > 0 && (
+                <Rail title="Worth a look">
+                  {discoverable.map((s) => (
+                    <StandardCard key={s.id} space={s} />
+                  ))}
+                </Rail>
+              )
+            : popular.length > 0 && (
+                <Rail title="Popular right now">
+                  {popular.map((s) => (
+                    <StandardCard key={s.id} space={s} />
+                  ))}
+                </Rail>
+              )}
 
           {fresh.length > 0 && (
             <Rail title="New this week" grid>

@@ -78,19 +78,26 @@ describe('Library Studio', () => {
     for (const o of orphans) {
       expect(o.title.trim().length).toBeGreaterThan(0);
       /*
-       * An orphan **may** name its Space, now that the anchor carries it.
+       * It names the Space it came from, and does not link to it.
        *
-       * This asserted the opposite — that `spaceName` was null — and it was
-       * right at the time: the only way to keep a Space was to invent one
-       * (`?? 's-dbs'`), correct purely by coincidence because the deleted
-       * Lesson's id happens to start `l-s-dbs-`. A parallel session then made
-       * the anchor carry its own `spaceId`, so the Space became a fact rather
-       * than a guess, and forbidding it started forbidding the truth.
+       * This asserted `spaceName` was **null**, on the reasoning that "the only
+       * way to keep one was to invent it (`?? 's-dbs'`), and it was right purely
+       * by coincidence". That reasoning was correct and the fix was right for
+       * the code as it stood. It is no longer the only way: `ContributionAnchor`
+       * now records the Space a lesson anchor lived in, so an orphan's Space is
+       * *recalled*, not fabricated — and an orphan in another Space is labelled
+       * correctly, which `orphans.test.ts` proves with a constructed
+       * `s-linalg` case.
        *
-       * The two halves together are exactly LibraryScreen's header rule:
-       * "Items name the Space they live in as context, but a Space is never an
-       * entry point from here." Name it — never open it.
+       * Naming and linking were the two halves being decided together. The link
+       * had to go: it made a Space an entry point from Library and landed you
+       * where the contribution is not. The name is worth keeping — "this came
+       * from Database Systems and its Lesson is gone" tells you more than
+       * silence, and re-anchoring needs the Space anyway to know which Lessons
+       * to offer.
        */
+      expect(o.spaceName, `${o.title} lost the Space it came from`).not.toBeNull();
+      expect(o.spaceId, `${o.title} lost the Space id it came from`).not.toBeNull();
       expect(o.orphaned).toBe(true);
       if (o.spaceName !== null) {
         expect(o.spaceName.trim().length, `${o.title} names an empty Space`).toBeGreaterThan(0);

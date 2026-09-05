@@ -29,17 +29,22 @@ describe('Library fixtures', () => {
     }
   });
 
-  it('names the Space every item that has one lives in', () => {
+  it('names the Space every item lives in, orphans included', () => {
     /*
-     * Items are pointers into their Space, so context is mandatory — for every
-     * item that still has a Space.
+     * Every item, orphans included — which is a deliberate departure from the
+     * version of this guard that landed on main.
      *
-     * This read `item.spaceName.trim()` over *all* items, which made naming a
-     * Space unconditional and so forced the orphan to invent one. The guard was
-     * requiring the defect: the only way to satisfy it was `?? 's-dbs'`.
+     * That one added `if (item.orphaned) continue`, correctly, for a design
+     * where an orphan has no Space to name. Here it has one: the anchor
+     * records the Space its deleted Lesson was in, so the row can say where
+     * the work came from without offering a link to somewhere it isn't.
+     *
+     * Keeping orphans inside the loop is the point. `if (orphaned) continue`
+     * is precisely the blindness that let `?? 's-dbs'` live for as long as it
+     * did — the coherence guard skipped them too, so nothing ever checked the
+     * one row whose Space was fabricated.
      */
     for (const item of libraryItems()) {
-      if (item.orphaned) continue;
       expect(item.spaceName?.trim().length, item.title).toBeGreaterThan(0);
       expect(item.spaceId?.trim().length, item.title).toBeGreaterThan(0);
     }

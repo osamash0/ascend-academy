@@ -7,22 +7,28 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     globals: true,
-    /*
-     * 15s, not the 5s default.
-     *
-     * Six render tests in `notes.test.tsx` timed out in a full run and every
-     * one passed on its own — a different six the next run. The suite spends
-     * ~220s in environment setup across 41 files, so on a loaded machine a
-     * render that normally takes a moment can miss a 5s budget while a
-     * `waitFor` inside it is already spending 3s of that.
-     *
-     * A gate that fails randomly is worse than a slow one: it teaches people
-     * to re-run until green, which is how a real failure gets waved through.
-     * Raised rather than the assertions loosened, so a genuine hang still
-     * fails — just not a busy laptop.
-     */
-    testTimeout: 15_000,
     setupFiles: ["./src/test/setup.ts"],
+    /*
+     * Raised from the 5000ms default because the suite outgrew it.
+     *
+     * The v4 namespace took the suite from 90 files / 634 tests to 125 / 950,
+     * and wall-clock from ~91s to ~326s. Past that point sixteen tests failed
+     * in a full run while passing in isolation — `StudentDashboard.test.tsx`
+     * timed out at 5000ms in the suite and finished in 417ms alone. Nothing
+     * was wrong with them; they were starved of CPU by their neighbours, and a
+     * `waitFor` cannot tell contention from a hang.
+     *
+     * This matters in CI, not just locally: the frontend job runs
+     * `npx vitest run --coverage`, and v8 coverage instrumentation makes every
+     * test slower than the run that already failed here. Left alone, a PR from
+     * this branch would go red for a reason unrelated to the code in it — the
+     * worst kind of red, because it teaches people to ignore CI.
+     *
+     * A timeout is a guard against a hang, not a performance budget. 20s is
+     * still far below any real deadlock and well above the slowest honest test.
+     */
+    testTimeout: 20000,
+    hookTimeout: 20000,
     server: {
       deps: {
         inline: ["@exodus/bytes"],
