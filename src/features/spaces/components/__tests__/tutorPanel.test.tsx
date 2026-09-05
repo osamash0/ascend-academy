@@ -1,7 +1,8 @@
+import { useRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { QUICK_PROMPTS, TutorPanel } from '../reader/TutorPanel';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
+import { QUICK_PROMPTS, TutorPanel, type Turn } from '../reader/TutorPanel';
 import ReaderScreen from '../../screens/ReaderScreen';
 import { spaceById } from '../../mocks/spaces';
 import { visibleLesson } from '../../mocks/lessons';
@@ -53,20 +54,40 @@ vi.mock('../../mocks/tutor', async (importOriginal) => {
 
 const SPACE = 's-dbs';
 const WRITTEN = 'l-s-dbs-4';
+const RAIL = { name: 'Reader companions' } as const;
 
 const normalization = () => visibleLesson(spaceById(SPACE)!, WRITTEN)!;
 
-const mount = (over: Partial<React.ComponentProps<typeof TutorPanel>> = {}) =>
-  render(
+/**
+ * The thread belongs to the screen now, so a component test has to bring one.
+ *
+ * A stateful harness rather than a fixed array, because half of what is
+ * checked here is a turn *changing* — pending to answered, error to retried —
+ * and a panel handed a frozen list would render the first frame of each of
+ * those forever. The harness is the smallest possible stand-in for
+ * `ReaderScreen`: a `useState` and a counter, which is exactly what the screen
+ * holds.
+ */
+function Harness(props: Partial<React.ComponentProps<typeof TutorPanel>>) {
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const id = useRef(0);
+  return (
     <TutorPanel
       lesson={normalization()}
       groundingEnabled
       onCiteConcept={() => {}}
       onCiteMaterial={() => {}}
       onQuoteConsumed={() => {}}
-      {...over}
-    />,
+      turns={turns}
+      onTurnsChange={setTurns}
+      mintTurnId={() => id.current++}
+      {...props}
+    />
   );
+}
+
+const mount = (over: Partial<React.ComponentProps<typeof TutorPanel>> = {}) =>
+  render(<Harness {...over} />);
 
 const MARKER = 'Grounded — answers draw on this Space’s Lessons and name where they came from.';
 const EMPTY = 'Ask about anything in this Lesson — or select a sentence in the text and start from there.';
@@ -306,35 +327,6 @@ describe('when the answer does not come back', () => {
   });
 });
 
-describe('the thread belongs to one Lesson', () => {
-  it('clears when the Lesson changes', async () => {
-    /*
-     * No cross-Lesson memory in v1. The reader's pager moves between Lessons
-     * without unmounting anything, so a thread that did not clear would be
-     * answering about Normalization under the next Lesson's title, with
-     * citations pointing at ideas it does not have.
-     */
-    const expected = await askTutor(WRITTEN, 'Concrete example');
-    const { rerender } = mount();
-    fireEvent.click(screen.getByRole('button', { name: 'Concrete example' }));
-    await screen.findByText(expected.text);
-
-    const other = visibleLesson(spaceById(SPACE)!, 'l-s-dbs-5')!;
-    rerender(
-      <TutorPanel
-        lesson={other}
-        groundingEnabled
-        onCiteConcept={() => {}}
-        onCiteMaterial={() => {}}
-        onQuoteConsumed={() => {}}
-      />,
-    );
-
-    expect(screen.queryByText(expected.text)).toBeNull();
-    expect(screen.getByText(EMPTY)).toBeTruthy();
-  });
-});
-
 describe('the rejected ideas stay rejected', () => {
   it('offers no model picker, no vendor, no regenerate and no rating', () => {
     /*
@@ -356,11 +348,27 @@ describe('the rejected ideas stay rejected', () => {
 
 /* ── The chips, pressed on the screen they point into ─────────────── */
 
+/**
+ * A handle on the router, so a test can move the reader without a link.
+ *
+ * The one navigation that keeps `ReaderScreen` mounted — `/read` to `/read`,
+ * same route, different param — is one no link in the app performs today:
+ * `LessonPager` goes to the Lesson *overview*, a different route, which
+ * unmounts the screen outright and resets everything by itself. The screen's
+ * reset block is written for the shape anyway, and this is the only way to
+ * make it execute.
+ */
+let go: ReturnType<typeof useNavigate> | undefined;
+function Reader() {
+  go = useNavigate();
+  return <ReaderScreen />;
+}
+
 const renderReader = async (spaceId: string, lessonId: string) => {
   const r = render(
     <MemoryRouter initialEntries={[`/v4/space/${spaceId}/lesson/${lessonId}/read`]}>
       <Routes>
-        <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<ReaderScreen />} />
+        <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<Reader />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -466,5 +474,91 @@ describe('the tutor sits in the rail, on the reader', () => {
     } finally {
       Element.prototype.scrollIntoView = original;
     }
+  });
+});
+
+/**
+ * The thread outlives the panel that draws it.
+ *
+ * Both halves, because the bug had two and a fix for one looks exactly like a
+ * fix for both from the tab that was tested. The rail renders one companion
+ * and unmounts the other (`tab === 'tutor' ? tutor : notes`), and it unmounts
+ * everything when it closes (`if (!open) return null`) — so state owned by
+ * `TutorPanel` died on a glance at the notes *and* on closing the rail, and
+ * keeping both panels mounted would have fixed only the first.
+ */
+describe('the conversation survives the rail', () => {
+  const askOnce = async () => {
+    await openTutor();
+    const rail = screen.getByRole('complementary', RAIL);
+    fireEvent.click(within(rail).getByRole('button', { name: 'Concrete example' }));
+    const expected = await askTutor(WRITTEN, 'Concrete example');
+    await screen.findByText(expected.text);
+    return expected;
+  };
+
+  it('is still there after a look at the notes', async () => {
+    const expected = await askOnce();
+    const rail = screen.getByRole('complementary', RAIL);
+    fireEvent.click(within(rail).getByRole('tab', { name: 'Notes' }));
+    expect(screen.queryByText(expected.text), 'the tutor is not even showing').toBeNull();
+
+    fireEvent.click(within(rail).getByRole('tab', { name: 'Tutor' }));
+    expect(screen.getByText(expected.text)).toBeTruthy();
+    expect(screen.getByText('Concrete example', { selector: 'span' })).toBeTruthy();
+  });
+
+  it('is still there after the rail is closed and summoned again', async () => {
+    const expected = await askOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Close companions' }));
+    expect(screen.queryByRole('complementary', RAIL)).toBeNull();
+
+    const again = screen.getByRole('button', { name: 'Tutor' });
+    again.focus();
+    fireEvent.click(again);
+    expect(screen.getByText(expected.text)).toBeTruthy();
+  });
+
+  it('gives the next question an id no turn in the thread is using', async () => {
+    /*
+     * Why the counter had to move up with the turns, and it is not academic.
+     * Left in the panel it restarts on every remount — so the question asked
+     * after a look at the notes gets the id the first question is still
+     * holding, and `onTurnsChange` matches on that id: the answer is written
+     * into *both* turns, and the first exchange silently becomes a copy of the
+     * second. Nothing throws, and the thread reads as though the tutor said
+     * the same thing twice.
+     */
+    const first = await askOnce();
+    const rail = screen.getByRole('complementary', RAIL);
+    fireEvent.click(within(rail).getByRole('tab', { name: 'Notes' }));
+    fireEvent.click(within(rail).getByRole('tab', { name: 'Tutor' }));
+
+    fireEvent.click(within(rail).getByRole('button', { name: 'Explain more simply' }));
+    const second = await askTutor(WRITTEN, 'Explain more simply');
+    await screen.findByText(second.text);
+
+    expect(screen.getAllByText(first.text), 'the first answer was overwritten').toHaveLength(1);
+    expect(screen.getAllByText(second.text)).toHaveLength(1);
+  });
+
+  it('does not follow the reader to another Lesson', async () => {
+    /*
+     * No cross-Lesson memory in v1, and lifting the thread is what put that
+     * rule at risk: state on the screen outlives everything the rail does.
+     * Answering about Normalization under the next Lesson's title, with
+     * citations pointing at ideas it does not have, is the failure.
+     */
+    const expected = await askOnce();
+    await act(async () => {
+      go!('/v4/space/s-dbs/lesson/l-s-dbs-5/read');
+    });
+    await waitFor(() => expect(screen.getByRole('banner')).toBeTruthy(), { timeout: 3000 });
+
+    const open = screen.getByRole('button', { name: 'Tutor' });
+    open.focus();
+    fireEvent.click(open);
+    expect(screen.queryByText(expected.text)).toBeNull();
+    expect(screen.getByText(EMPTY)).toBeTruthy();
   });
 });

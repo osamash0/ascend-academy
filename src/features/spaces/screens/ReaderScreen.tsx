@@ -17,6 +17,7 @@ import { ReaderRail } from '../components/reader/ReaderRail';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
 import { SourceView } from '../components/reader/SourceView';
 import { TutorPanel } from '../components/reader/TutorPanel';
+import type { Turn } from '../components/reader/TutorPanel';
 
 /**
  * Reading a Lesson.
@@ -216,6 +217,30 @@ export default function ReaderScreen() {
    */
   const articleRef = useRef<HTMLElement>(null);
 
+  /*
+   * The tutor's thread, up here rather than inside the panel that renders it.
+   *
+   * The rail shows one companion at a time and unmounts the other, and it
+   * unmounts both when it closes. A thread owned by `TutorPanel` therefore
+   * died the moment you glanced at your own notes and again every time you
+   * shut the rail — measured, both paths — which is a conversation lost to the
+   * most ordinary thing a two-tab rail invites anybody to do.
+   *
+   * It sits beside the view, the rail and the page for the same reason those
+   * do: it is *where you are* in this Lesson, and the rail is chrome that owns
+   * nothing. Keeping the fix here rather than in `ReaderRail` is what lets the
+   * rail go on knowing nothing about a tutor — the alternative, mounting both
+   * panels and hiding one, would have taught it what it was hiding and still
+   * lost the thread on close.
+   *
+   * The counter comes with it. Ids have to be unique across the whole thread's
+   * life, and one restarting with the panel would hand a new question the id
+   * of a turn already in the list — which is what the resolution handler
+   * matches on, so an answer would land under somebody else's question.
+   */
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const turnId = useRef(0);
+  const mintTurnId = useCallback(() => turnId.current++, []);
 
   /*
    * Reset the lot when the Lesson changes.
@@ -227,8 +252,12 @@ export default function ReaderScreen() {
    * itself. Only a move from one `/read` to another — same route, different
    * param — keeps the screen alive, and nothing links that way today.
    *
-   * It is kept anyway: page 9 of one Material opening as page 9 of the next
-   * is cheap to prevent and invisible to notice.
+   * It is kept, and the tutor thread is what makes it worth keeping. That
+   * thread moved up here so it could survive the rail closing, which makes it
+   * also the state most able to outlive a Lesson the day such a link exists.
+   * Page 9 of one Material opening as page 9 of the next is the cheap version
+   * of the same mistake; a thread answering about Normalization under the next
+   * Lesson's title is the expensive one.
    *
    * Set during render rather than in an effect: React's documented way to
    * adjust state when a prop changes, and it avoids the frame where the wrong
@@ -241,6 +270,7 @@ export default function ReaderScreen() {
     setRailTab(null);
     setPage(1);
     setQuote(undefined);
+    setTurns([]);
   }
 
   const chrome = (body: React.ReactNode) => (
@@ -415,6 +445,9 @@ export default function ReaderScreen() {
       }}
       pendingQuote={quote}
       onQuoteConsumed={() => setQuote(undefined)}
+      turns={turns}
+      onTurnsChange={setTurns}
+      mintTurnId={mintTurnId}
     />
   );
 

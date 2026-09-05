@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { ArrowUp, ArrowUpRight, Quote, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { askTutor, type TutorCitation, type TutorReply } from '../../mocks/tutor';
@@ -32,9 +32,17 @@ import type { Lesson } from '../../types';
  *     while an answer is coming. Two overlapping asks would interleave in a
  *     thread that reads top to bottom, and a reader would have no way to tell
  *     which answer belonged to which question.
- *   • **The thread is per Lesson.** It clears when the Lesson does. Carrying
- *     it across would make "this Lesson" — the thing the empty state promises
- *     and the citations rely on — quietly untrue on the second Lesson.
+ *   • **The thread is not the panel's.** It lives on `ReaderScreen`, beside
+ *     the view and the rail, and arrives here as a prop. This panel is
+ *     unmounted every time the rail switches to Notes and every time the rail
+ *     closes — so a thread owned here was a conversation destroyed by glancing
+ *     at your own notes, which is data loss on the most ordinary thing a
+ *     two-tab rail invites. It is still per Lesson: the screen clears it when
+ *     the Lesson changes, because carrying it across would make "this Lesson"
+ *     — the thing the empty state promises and the citations rely on — quietly
+ *     untrue on the second one. The draft in the composer is the one piece
+ *     still held here, and deliberately: a half-typed question surviving a
+ *     trip to the notes is not obviously wanted either way.
  *
  * Asking is not progress. Nothing here touches `progress` or awards anything,
  * for the same reason reading does not: what learning does to the map is an
@@ -54,6 +62,20 @@ interface Props {
   pendingQuote?: string;
   /** Called when that sentence has been sent, or dropped. */
   onQuoteConsumed: () => void;
+  /** The conversation so far. Held by the screen — see the note above. */
+  turns: Turn[];
+  onTurnsChange: Dispatch<SetStateAction<Turn[]>>;
+  /**
+   * An id no turn has had before.
+   *
+   * It comes from the screen for the same reason the turns do, and the reason
+   * is sharper: a counter that restarted whenever this panel remounted would
+   * hand a new question the id a turn already in the thread is using, and
+   * `onTurnsChange` matches on that id — so the answer would land on somebody
+   * else's question. Monotonic for as long as the reader is open, so a stale
+   * resolution matches nothing and falls on the floor.
+   */
+  mintTurnId: () => number;
 }
 
 /**
@@ -63,7 +85,7 @@ interface Props {
  * three states the panel renders differently, and `reply === undefined` can
  * only tell two of them apart.
  */
-interface Turn {
+export interface Turn {
   id: number;
   question: string;
   quote?: string;
@@ -78,33 +100,11 @@ export function TutorPanel({
   onCiteMaterial,
   pendingQuote,
   onQuoteConsumed,
+  turns,
+  onTurnsChange,
+  mintTurnId,
 }: Props) {
-  const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
-
-  /*
-   * Ids that never restart, even though the thread does.
-   *
-   * A counter reset alongside the thread would hand the next Lesson's first
-   * question the id an in-flight request from the previous one is still
-   * holding, and that answer would land in the wrong thread under the wrong
-   * question. Monotonic across the panel's life, so a stale resolution matches
-   * nothing and falls on the floor, which is exactly what it should do.
-   */
-  const nextId = useRef(0);
-
-  /*
-   * Clear on a change of Lesson, during render rather than in an effect —
-   * React's documented way to adjust state when a prop changes, and it avoids
-   * the frame where the previous Lesson's thread is still on screen under the
-   * new Lesson's title.
-   */
-  const [threadFor, setThreadFor] = useState(lesson.id);
-  if (threadFor !== lesson.id) {
-    setThreadFor(lesson.id);
-    setTurns([]);
-    setDraft('');
-  }
 
   const busy = turns.some((t) => t.status === 'pending');
 
@@ -122,19 +122,26 @@ export function TutorPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }, [turns]);
 
+  /*
+   * The answer is written into state the *screen* owns, which is what lets it
+   * arrive at a panel that is no longer mounted. Ask a question, switch to the
+   * notes while it thinks, come back: the reply is there. Owned here, the turn
+   * it belonged to would have died with the panel and the answer would have
+   * had nowhere to land.
+   */
   const run = (id: number, question: string, quote?: string) => {
     askTutor(lesson.id, question, quote).then(
       (reply) =>
-        setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, status: 'done', reply } : t))),
-      () => setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, status: 'error' } : t))),
+        onTurnsChange((ts) => ts.map((t) => (t.id === id ? { ...t, status: 'done', reply } : t))),
+      () => onTurnsChange((ts) => ts.map((t) => (t.id === id ? { ...t, status: 'error' } : t))),
     );
   };
 
   const ask = (question: string) => {
     if (busy) return;
     const quote = pendingQuote;
-    const id = nextId.current++;
-    setTurns((ts) => [...ts, { id, question, quote, status: 'pending' }]);
+    const id = mintTurnId();
+    onTurnsChange((ts) => [...ts, { id, question, quote, status: 'pending' }]);
     if (quote) onQuoteConsumed();
     run(id, question, quote);
   };
@@ -148,7 +155,7 @@ export function TutorPanel({
   };
 
   const retry = (turn: Turn) => {
-    setTurns((ts) => ts.map((t) => (t.id === turn.id ? { ...t, status: 'pending' } : t)));
+    onTurnsChange((ts) => ts.map((t) => (t.id === turn.id ? { ...t, status: 'pending' } : t)));
     run(turn.id, turn.question, turn.quote);
   };
 
