@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { allSpaces } from '../spaces';
 import { lessonsForSpace } from '../lessons';
 import { SURFACES } from '../../components/Scene';
+import { sourceFiles } from '../../components/__tests__/sources';
 
 /**
  * The reader, and the passages it renders.
@@ -124,13 +125,42 @@ describe('the reader is a focus surface', () => {
     expect(ch, 'the measure is too wide to read comfortably').toBeLessThanOrEqual(66);
   });
 
-  it('changes no progress', () => {
+  it('changes no progress, in any file the reader is made of', () => {
     /*
      * Marking a Concept read on scroll would invent a progression rule, and
      * Doc 1 locks progression to XP awarded by the engine. What reading does
      * to the map is an open question; a screen must not quietly answer one.
+     *
+     * This guard used to read `ReaderScreen.tsx` and nothing else, which was
+     * the whole reader right up until it wasn't. The chrome moved out to
+     * `components/reader/`, and the rule silently stopped covering the code it
+     * was written for — `sources.ts` says why that failure mode is worse than
+     * having no guard at all. So it sweeps the directory, and every file added
+     * beside the header is inside the net on the day it lands.
      */
-    expect(src).not.toMatch(/setProgress|markRead|grantXp|cleared/i);
+    const reader = [
+      { name: 'screens/ReaderScreen.tsx', body: src },
+      ...sourceFiles('components/reader'),
+    ];
+    expect(reader.length, 'the sweep found nothing, so it proves nothing').toBeGreaterThan(1);
+    for (const { name, body } of reader) {
+      expect(body, `${name} moves progress`).not.toMatch(
+        /setProgress|markRead|grantXp|awardBadge/i,
+      );
+    }
+  });
+
+  it('never says a Concept is cleared from the screen itself', () => {
+    /*
+     * Narrower than the sweep above and deliberately kept apart from it. The
+     * header *displays* what the engine already cleared — `progress ===
+     * 'cleared'`, and "N of M ideas cleared" — so the word is legitimate there
+     * and folding the two rules together would redden correct code.
+     *
+     * On the screen it is still a smell: `ReaderScreen` composes and routes,
+     * and has no reason to reason about a Concept's standing.
+     */
+    expect(src).not.toMatch(/cleared/i);
   });
 
   it('always offers a way out', () => {
