@@ -15,6 +15,7 @@ import { ReaderHeader } from '../components/reader/ReaderHeader';
 import type { RailTab, ReaderView } from '../components/reader/ReaderHeader';
 import { ReaderRail } from '../components/reader/ReaderRail';
 import { SourceView } from '../components/reader/SourceView';
+import { TutorPanel } from '../components/reader/TutorPanel';
 
 /**
  * Reading a Lesson.
@@ -156,7 +157,18 @@ export default function ReaderScreen() {
   const [page, setPage] = useState(1);
 
   /*
-   * Reset all three when the Lesson changes.
+   * A sentence carried out of the text and into the tutor's composer.
+   *
+   * Nothing writes to it yet — selecting a sentence in the article is what
+   * will, and that popover is not built. It is real state rather than a no-op
+   * handed to the panel because the clearing half is the half that gets
+   * forgotten: a quote that survived being asked about would ride along on
+   * the next question too.
+   */
+  const [quote, setQuote] = useState<string | undefined>(undefined);
+
+  /*
+   * Reset the lot when the Lesson changes.
    *
    * The pager navigates between Lessons without unmounting this screen — same
    * route, different param — so nothing resets on its own. Without this, page
@@ -174,6 +186,7 @@ export default function ReaderScreen() {
     setView('read');
     setRailTab(null);
     setPage(1);
+    setQuote(undefined);
   }
 
   const chrome = (body: React.ReactNode) => (
@@ -319,13 +332,36 @@ export default function ReaderScreen() {
   );
 
   /*
-   * The tutor's seat, held open. Task 4 replaces this node and nothing else —
-   * which is the whole point of the rail taking its panels as props.
+   * The tutor, in the other half of the rail.
+   *
+   * It arrives as a node for the same reason the notes do, and the payoff is
+   * visible here: the rail did not have to change to gain a second companion.
+   *
+   * Its two citation handlers are the two jumps this screen already knows how
+   * to make. `onCiteConcept` **is** the sync line's jump rather than a second
+   * copy of it — a citation and a page's "belongs to" line are one movement
+   * ("take me to the passage explaining this"), and two implementations of it
+   * would drift, with the untested one winning. `onCiteMaterial` is the same
+   * movement in the other direction, and it is why the page number lives up
+   * here beside the view: a chip has to be able to turn the page of a view
+   * that is not even mounted yet.
+   *
+   * Grounding is the Space's setting, passed down rather than looked up: the
+   * panel renders the marker or renders nothing, and it has no business
+   * knowing what a Space is.
    */
   const tutorPanel = (
-    <p className="px-5 py-6 text-[13px] text-faint">
-      The tutor is not here yet. Notes are, one tab across.
-    </p>
+    <TutorPanel
+      lesson={lesson}
+      groundingEnabled={space.groundingEnabled}
+      onCiteConcept={jumpToPassage}
+      onCiteMaterial={(p) => {
+        setPage(p);
+        setView('source');
+      }}
+      pendingQuote={quote}
+      onQuoteConsumed={() => setQuote(undefined)}
+    />
   );
 
   /*
