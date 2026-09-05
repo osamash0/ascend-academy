@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import LibraryScreen from '../../screens/LibraryScreen';
 import LibraryStudioScreen from '../../screens/LibraryStudioScreen';
 import { NoteEditor } from '../NoteEditor';
 import { noteToItem } from '../../mocks/library';
 import { allNotes, noteById, resetNotes } from '../../mocks/notes';
+import { resetReanchors } from '../../mocks/reanchor';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -30,8 +31,14 @@ import { join } from 'node:path';
 
 const MULTI = 'n-1';
 
-beforeEach(() => resetNotes());
-afterEach(() => resetNotes());
+beforeEach(() => {
+  resetNotes();
+  resetReanchors();
+});
+afterEach(() => {
+  resetNotes();
+  resetReanchors();
+});
 
 /**
  * Renders Library and waits for it to settle.
@@ -486,6 +493,109 @@ describe('a dense list reads down its columns', () => {
       new Set(counts).size,
       `rows have different numbers of columns (${counts.join(', ')}) — the missing checkbox shifts the row`,
     ).toBe(1);
+    unmount();
+  });
+});
+
+describe('Library can re-home an orphan', () => {
+  /*
+   * The row said "pick a new place for it" and nothing in the product picked
+   * one. These drive the real screen, because the interesting part is not the
+   * mutation (covered in `mocks/__tests__/reanchor.test.ts`) but whether the
+   * control is reachable at all: it sits under the row's `absolute inset-0`
+   * link, so it needs `relative z-10` to be clickable, and nothing about that
+   * is visible in the mock tests.
+   */
+  const orphanRow = () =>
+    [...document.querySelectorAll('article')].find((a) =>
+      /was removed/.test(a.textContent ?? ''),
+    );
+
+  const openLibrary = async () => {
+    const r = render(
+      <MemoryRouter>
+        <LibraryScreen />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(orphanRow()).toBeTruthy(), { timeout: 3000 });
+    return r;
+  };
+
+  it('offers the action on an orphan and nowhere else', async () => {
+    const { unmount } = await openLibrary();
+    const buttons = screen.queryAllByRole('button', { name: /Find it a new home/i });
+    expect(buttons.length, 'the orphan has no way to be re-filed').toBe(1);
+    // And it lives inside the orphan row, not loose on the screen.
+    expect(orphanRow()!.contains(buttons[0]), 'the action is not on the orphan row').toBe(true);
+    unmount();
+  });
+
+  it('does not put the action on a settled row', async () => {
+    const { unmount } = await openLibrary();
+    const settled = [...document.querySelectorAll('article')].filter(
+      (a) => !/was removed/.test(a.textContent ?? ''),
+    );
+    expect(settled.length, 'no settled rows to check against').toBeGreaterThan(0);
+    for (const row of settled) {
+      expect(
+        row.querySelector('button'),
+        'a settled row offers a move it does not need',
+      ).toBeNull();
+    }
+    unmount();
+  });
+
+  it('is not buried under the row link', () => {
+    /*
+     * Source-checked, because happy-dom has no layout: `fireEvent.click`
+     * reaches a button however completely the row's `absolute inset-0` anchor
+     * covers it. The click test below would pass with the stacking broken.
+     */
+    /*
+     * Comments stripped first. The JSX above this control carries a comment
+     * explaining why it needs `relative z-10`, and the first version of this
+     * guard scanned the raw text — so deleting the class from the className
+     * left the *explanation* in the window and the guard went green. Every
+     * other source guard in this suite strips comments for exactly this
+     * reason; this one had to learn it too.
+     */
+    const src = readFileSync(
+      join(process.cwd(), 'src/features/spaces/screens/LibraryScreen.tsx'),
+      'utf8',
+    )
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    const at = src.indexOf('Find it a new home');
+    expect(at, 'the action is gone — retarget this guard').toBeGreaterThan(-1);
+    const control = src.slice(Math.max(0, at - 700), at);
+    expect(control, 'the re-home action sits under the row overlay').toMatch(/relative z-10/);
+  });
+
+  it('moves it, and the row stops warning', async () => {
+    const { unmount } = await openLibrary();
+    fireEvent.click(screen.getByRole('button', { name: /Find it a new home/i }));
+
+    const lessons = await screen.findByRole('radiogroup', { name: 'Lessons' });
+    const options = within(lessons).getAllByRole('radio');
+    expect(options.length, 'no Lessons offered').toBeGreaterThan(0);
+
+    // Confirm is refused until something is chosen.
+    const confirm = screen.getByRole('button', { name: /Move it here/i });
+    expect((confirm as HTMLButtonElement).disabled, 'can confirm without choosing').toBe(true);
+
+    fireEvent.click(options[0]);
+    expect((screen.getByRole('button', { name: /Move it here/i }) as HTMLButtonElement).disabled)
+      .toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: /Move it here/i }));
+
+    await waitFor(() => {
+      expect(orphanRow(), 'the row still says the Lesson was removed').toBeFalsy();
+      expect(
+        screen.queryByRole('button', { name: /Find it a new home/i }),
+        'the action is still offered after the move',
+      ).toBeNull();
+    });
     unmount();
   });
 });

@@ -78,16 +78,26 @@ describe('Library Studio', () => {
     for (const o of orphans) {
       expect(o.title.trim().length).toBeGreaterThan(0);
       /*
-       * It names *no* Space — the previous line asserted the opposite, that an
-       * orphan "keeps a Space so the row is still reachable". The only way to
-       * keep one was to invent it (`?? 's-dbs'`), and it was right purely by
-       * coincidence: the deleted Lesson's id happens to start `l-s-dbs-`. An
-       * orphan in any other Space would have been labelled with the wrong one.
+       * It names the Space it came from, and does not link to it.
        *
-       * What makes the row explainable is the `orphaned` flag and the copy it
-       * drives, not a Space it no longer belongs to.
+       * This asserted `spaceName` was **null**, on the reasoning that "the only
+       * way to keep one was to invent it (`?? 's-dbs'`), and it was right purely
+       * by coincidence". That reasoning was correct and the fix was right for
+       * the code as it stood. It is no longer the only way: `ContributionAnchor`
+       * now records the Space a lesson anchor lived in, so an orphan's Space is
+       * *recalled*, not fabricated — and an orphan in another Space is labelled
+       * correctly, which `orphans.test.ts` proves with a constructed
+       * `s-linalg` case.
+       *
+       * Naming and linking were the two halves being decided together. The link
+       * had to go: it made a Space an entry point from Library and landed you
+       * where the contribution is not. The name is worth keeping — "this came
+       * from Database Systems and its Lesson is gone" tells you more than
+       * silence, and re-anchoring needs the Space anyway to know which Lessons
+       * to offer.
        */
-      expect(o.spaceName, `${o.title} names a Space it has lost`).toBeNull();
+      expect(o.spaceName, `${o.title} lost the Space it came from`).not.toBeNull();
+      expect(o.spaceId, `${o.title} lost the Space id it came from`).not.toBeNull();
       expect(o.orphaned).toBe(true);
     }
   });
