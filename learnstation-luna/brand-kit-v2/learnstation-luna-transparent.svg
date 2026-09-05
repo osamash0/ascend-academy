@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="180" viewBox="0 0 160 180" role="img" aria-label="LearnStation Luna transparent mascot">
+  <title>LearnStation Luna transparent mascot</title>
+  <desc>Source-faithful LearnStation Luna artwork derived from the original Luna design-system geometry and identity rules.</desc>
+  <defs>
+  <radialGradient id="face-transparent" cx="40%" cy="35%"><stop offset="0" stop-color="#FFFEF5"/><stop offset="65%" stop-color="#FFF8E7"/><stop offset="100%" stop-color="#E8E4F0"/></radialGradient>
+  <radialGradient id="glow-transparent" cx="50%" cy="50%"><stop offset="0" stop-color="#FFD93D" stop-opacity=".15"/><stop offset="1" stop-color="#FFD93D" stop-opacity="0"/></radialGradient>
+</defs><g id="luna-canonical" stroke-linecap="round" stroke-linejoin="round">
+    
+    <rect x="52" y="102" width="56" height="52" rx="24" fill="#FFF8E7" stroke="#4A3F6B" stroke-width="2.5"/>
+    <path d="M54 112 Q40 120 36 134" stroke="#4A3F6B" stroke-width="2.5" fill="none"/>
+    <circle cx="35" cy="138" r="6.5" fill="#FFF8E7" stroke="#4A3F6B" stroke-width="1.8"/>
+    <path d="M106 112 Q120 120 124 134" stroke="#4A3F6B" stroke-width="2.5" fill="none"/>
+    <circle cx="125" cy="138" r="6.5" fill="#FFF8E7" stroke="#4A3F6B" stroke-width="1.8"/>
+    <ellipse cx="66" cy="160" rx="9" ry="7" fill="#4A3F6B" stroke="#2D2445" stroke-width="1.2"/>
+    <ellipse cx="94" cy="160" rx="9" ry="7" fill="#4A3F6B" stroke="#2D2445" stroke-width="1.2"/>
+    <rect x="66" y="118" width="28" height="18" rx="7" fill="#E8E4F0" stroke="#4A3F6B" stroke-width="1.4"/>
+    <path d="M80 121 L82 126 L87 126.5 L83.2 129.7 L84.4 134.5 L80 131.8 L75.6 134.5 L76.8 129.7 L73 126.5 L78 126 Z" fill="#FFD93D" stroke="#D4A017" stroke-width="0.6"/>
+    <circle cx="80" cy="62" r="38" fill="none" stroke="#88B0B5" stroke-width="2.5" opacity=".9"/>
+    <circle cx="80" cy="62" r="30" fill="url(#face-transparent)" stroke="#4A3F6B" stroke-width="1.8"/>
+    <ellipse cx="64" cy="50" rx="4" ry="3" fill="#000" opacity=".07"/>
+    <ellipse cx="94" cy="72" rx="3.5" ry="2.6" fill="#000" opacity=".06"/>
+    <ellipse cx="60" cy="68" rx="2.4" ry="1.8" fill="#000" opacity=".06"/>
+    <circle cx="70" cy="60" r="7" fill="#FFF" stroke="#4A3F6B" stroke-width="1.4"/>
+    <circle cx="70" cy="61" r="3.4" fill="#3B3352"/><circle cx="68.5" cy="58.5" r="1.4" fill="#FFF" opacity=".95"/>
+    <path d="M63 55 Q70 51 77 55" stroke="#4A3F6B" stroke-width="1.6" fill="none" opacity=".6"/>
+    <circle cx="90" cy="60" r="7" fill="#FFF" stroke="#4A3F6B" stroke-width="1.4"/>
+    <circle cx="90" cy="61" r="3.4" fill="#3B3352"/><circle cx="88.5" cy="58.5" r="1.4" fill="#FFF" opacity=".95"/>
+    <path d="M83 55 Q90 51 97 55" stroke="#4A3F6B" stroke-width="1.6" fill="none" opacity=".6"/>
+    <path d="M74 71 Q80 76 86 71" stroke="#4A3F6B" stroke-width="2" fill="none"/>
+    <circle cx="62" cy="68" r="3.6" fill="#E8A598" opacity=".5"/><circle cx="98" cy="68" r="3.6" fill="#E8A598" opacity=".5"/>
+    <path d="M52 42 Q64 32 82 36" stroke="#FFF" stroke-width="2.4" fill="none" opacity=".45"/>
+  </g>
+</svg>

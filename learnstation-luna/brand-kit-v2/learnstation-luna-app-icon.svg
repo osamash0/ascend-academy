@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="LearnStation Luna simplified app icon">
+  <title>LearnStation Luna simplified app icon</title>
+  <desc>Source-faithful LearnStation Luna artwork derived from the original Luna design-system geometry and identity rules.</desc>
+  <defs>
+  <radialGradient id="face-app" cx="40%" cy="35%"><stop offset="0" stop-color="#FFFEF5"/><stop offset="65%" stop-color="#FFF8E7"/><stop offset="100%" stop-color="#E8E4F0"/></radialGradient>
+  <radialGradient id="glow-app" cx="50%" cy="50%"><stop offset="0" stop-color="#FFD93D" stop-opacity=".15"/><stop offset="1" stop-color="#FFD93D" stop-opacity="0"/></radialGradient>
+</defs>
+  <rect x="22" y="22" width="980" height="980" rx="248" fill="#0D0A14"/>
+  <circle cx="512" cy="506" r="304" fill="#1A1425" stroke="#88B0B5" stroke-width="25"/>
+  <circle cx="512" cy="506" r="240" fill="url(#face-app)" stroke="#4A3F6B" stroke-width="15"/>
+  <ellipse cx="395" cy="410" rx="34" ry="25" fill="#000" opacity=".07"/><ellipse cx="635" cy="585" rx="31" ry="23" fill="#000" opacity=".06"/>
+  <circle cx="430" cy="500" r="58" fill="#FFF" stroke="#4A3F6B" stroke-width="12"/><circle cx="594" cy="500" r="58" fill="#FFF" stroke="#4A3F6B" stroke-width="12"/>
+  <circle cx="430" cy="508" r="28" fill="#3B3352"/><circle cx="594" cy="508" r="28" fill="#3B3352"/><circle cx="419" cy="493" r="11" fill="#FFF"/><circle cx="583" cy="493" r="11" fill="#FFF"/>
+  <path d="M455 600 Q512 655 569 600" fill="none" stroke="#4A3F6B" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="350" cy="570" r="29" fill="#E8A598" opacity=".5"/><circle cx="674" cy="570" r="29" fill="#E8A598" opacity=".5"/>
+  <circle cx="782" cy="254" r="92" fill="#FFF8E7" stroke="#4A3F6B" stroke-width="11"/><path d="M782 195 L800 238 L847 241 L811 272 L822 318 L782 293 L742 318 L753 272 L717 241 L764 238 Z" fill="#FFD93D" stroke="#D4A017" stroke-width="8"/>
+
+</svg>
