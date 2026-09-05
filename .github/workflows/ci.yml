@@ -204,17 +204,80 @@ jobs:
           # currently published Starlette fix for these advisories is 1.x.
           # Keep the exceptions specific and temporary; remove them once a
           # compatible FastAPI release permits a patched Starlette.
-          pip-audit -r backend/requirements.txt \
-            --ignore-vuln PYSEC-2026-161 \
+          #
+          # PYSEC-2026-3740 (nltk) is the same shape: CVE-2026-81726, a path
+          # traversal where model-artifact APIs treat caller-controlled model
+          # paths as ordinary filenames. It affects every nltk up to and
+          # including 3.10.3 and **has no published fix**, so there is no
+          # version to move to.
+          #
+          # nltk is not ours to pin: nothing in `backend/` imports it, and it
+          # arrives transitively through `llama-cloud-services` →
+          # `llama-index-core`. The vector needs a caller-controlled model path,
+          # which is reachable only if that chain is fed one — nothing here
+          # does. High attack complexity (CVSS AV:N/AC:H/PR:N/UI:N).
+          #
+          # Remove this line when nltk publishes a fixed release, or when
+          # llama-index-core stops requiring nltk. Re-check on any bump of
+          # `llama-cloud-services`.
+          #
+          # BOTH requirement sets are audited, and **separately**.
+          #
+          # `requirements-docker.txt` is a deliberately leaner list — it drops
+          # docling, ollama, fastembed and llama-cloud-services — and it is what
+          # the production image is built from. It was never scanned, so the
+          # dependency set being checked and the set actually deployed were two
+          # different things, and the deployed one had no coverage at all.
+          #
+          # Two invocations, not `-r a -r b` in one. They are *alternative*
+          # environments, not additive: passing both to a single run makes pip
+          # resolve them together, and they conflict on purpose —
+          # `requirements.txt` pins `asyncpg==0.31.0` where the docker set
+          # allows `>=0.29,<0.31`. That is a ResolutionImpossible, which fails
+          # the job for a reason that has nothing to do with security.
+          #
+          # The docker file declares ranges rather than pins ("a safety net,
+          # NOT a reproducible lockfile", per its own header), so pip-audit
+          # resolves the newest version each range permits. That is the right
+          # thing to check: it is what a fresh image build installs today. It
+          # also means this job can go red without any commit touching the
+          # repo, when a new advisory lands on a package the ranges float over.
+          #
+          # `status` rather than letting the first failure abort. Under
+          # `bash -e` a failing audit would stop the step and the second set
+          # would never be scanned — which is exactly the masking that hid the
+          # frontend audit behind this one for however long. Both always run;
+          # the step fails at the end if either did.
+          status=0
+          AUDIT_IGNORES="--ignore-vuln PYSEC-2026-161 \
             --ignore-vuln PYSEC-2026-248 \
             --ignore-vuln PYSEC-2026-249 \
             --ignore-vuln PYSEC-2026-2280 \
-            --ignore-vuln PYSEC-2026-2281
+            --ignore-vuln PYSEC-2026-2281 \
+            --ignore-vuln PYSEC-2026-3740"
+          echo "::group::pip-audit — requirements.txt (local dev / venv)"
+          pip-audit -r backend/requirements.txt $AUDIT_IGNORES || status=1
+          echo "::endgroup::"
+          echo "::group::pip-audit — requirements-docker.txt (what ships)"
+          pip-audit -r backend/requirements-docker.txt $AUDIT_IGNORES || status=1
+          echo "::endgroup::"
+          exit $status
       - uses: actions/setup-node@v4
+        if: always()
         with:
           node-version: "20"
           cache: npm
       - name: npm audit (frontend)
+        # `always()`, so a backend finding cannot hide a frontend one.
+        #
+        # This is not hypothetical. pip-audit failed on `main` for seven-plus
+        # consecutive runs, and because a failing step ends the job, this step
+        # had **never executed once**. When the backend was finally fixed this
+        # ran for the first time and failed immediately, on a high-severity
+        # browserslist advisory. The red check was hiding a second red check.
+        #
+        # Both audits now always report. The job still fails if either does.
+        if: always()
         run: |
           npm ci --legacy-peer-deps
           # --audit-level=high: fail on high/critical only so low/moderate
