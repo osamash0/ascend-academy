@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ReaderRail } from '../reader/ReaderRail';
 import ReaderScreen from '../../screens/ReaderScreen';
 import { allNotes, notesForLesson, resetNotes } from '../../mocks/notes';
+import { readSource } from './sources';
 
 /**
  * The rail, and the rule it exists to keep.
@@ -226,6 +227,34 @@ describe('the column is the same column, open or closed', () => {
     expect(clampEdge(container.querySelector('[class*="translate-x-"]'))).toBe(
       contentBox('max-w-2xl'),
     );
+  });
+
+  it('writes both clamps as literals Tailwind can actually find', () => {
+    /*
+     * The one failure in this file that no rendered assertion can see, and the
+     * worse of the two it has had.
+     *
+     * The clamps were briefly built by a helper — `dockShift(edge)`, one
+     * template literal instead of two near-identical strings. Tailwind scans
+     * source *text* for class names, so a class assembled at runtime is never
+     * generated. Both wrappers carried a class that did not exist: the DOM
+     * class lists were exactly right, `getComputedStyle` said
+     * `transform: none`, and the dock silently did not happen at all.
+     *
+     * The two tests below stayed green through it, and so did the other 24 —
+     * they compare class strings, and there is no stylesheet behind jsdom to
+     * disagree with. Only a browser saw it, and only because someone looked.
+     * So this asserts against the source text, which is the one place the
+     * difference between "a class" and "a class Tailwind emits" is visible
+     * without a build.
+     */
+    const src = readSource('screens/ReaderScreen.tsx');
+    for (const edge of [624, 812]) {
+      expect(
+        src,
+        `the ${edge}px clamp is assembled rather than written out — Tailwind will not emit it`,
+      ).toContain(`[@media(min-width:900px)]:translate-x-[calc(-1*min(192px,(100%_-_${edge}px)/2))]`);
+    }
   });
 
   it('clamps the Source view to its whole column, not to the page card', async () => {
