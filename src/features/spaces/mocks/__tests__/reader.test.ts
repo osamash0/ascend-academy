@@ -181,6 +181,13 @@ describe('the reader has a fixture for each shape it renders', () => {
    * a fixture or the branch that handles it has never executed — the Material-
    * without-prose case in particular exists *because* the dead end was wrong,
    * so it is the one most likely to be built and never seen.
+   *
+   * There were three `it`s under this comment for a while, and the fourth
+   * shape was assumed to be covered by the deleted-source assertion above.
+   * It was not: that one pins `material === null`, and *both* such fixtures
+   * also had no passages, so it was a second reading of the `-/-` row. The
+   * text-and-no-Material branch had no fixture at all while the count in this
+   * comment said otherwise.
    */
   const shape = (l: (typeof everyLesson)[number]) =>
     `${(l.passages?.length ?? 0) > 0 ? 'text' : '-'}/${
@@ -199,6 +206,21 @@ describe('the reader has a fixture for each shape it renders', () => {
     expect(everyLesson.filter((l) => shape(l) === '-/-').length).toBeGreaterThan(0);
   });
 
+  it('has a Lesson with a text and no Material, with the file genuinely gone', () => {
+    /*
+     * `material: null` rather than merely "a Material nobody has paged", and
+     * the distinction is the point: the second is a pipeline that has not
+     * finished, the first is a source that was deleted. Only the first proves
+     * the reader survives losing the file it was built from.
+     */
+    const readOnly = everyLesson.filter((l) => shape(l) === 'text/-');
+    expect(readOnly.length, 'no text-only fixture, so the Read-only branch is untested')
+      .toBeGreaterThan(0);
+    expect(
+      readOnly.some((l) => l.material === null),
+      'every text-only fixture still has its Material, so the deleted-source case is unread',
+    ).toBe(true);
+  });
 });
 
 describe('the reader is a focus surface', () => {
@@ -277,7 +299,7 @@ describe('the reader is a focus surface', () => {
     expect(src).not.toMatch(/cleared/i);
   });
 
-  it('always offers a way out', () => {
+  it('keeps the way out in the bar, where it cannot scroll away', () => {
     /*
      * The exit used to be a `<Link>` written into the article, so this guard
      * read the screen for the string. It now lives in the fixed header — the
@@ -288,6 +310,14 @@ describe('the reader is a focus surface', () => {
      * the screen mounts the header, and the header carries the exit. Asserting
      * only the second half would pass on a reader that had stopped mounting it
      * at all.
+     *
+     * It used to be called "always offers a way out", and it did not check
+     * that. The header exists on one of the reader's four branches; the
+     * skeleton and the failure had no exit at all while this sat green above
+     * them. "Always" is now asserted where it can be — per branch, rendered,
+     * in `components/__tests__/readerStates.test.tsx` — and this keeps the
+     * narrower rule it actually holds: that the branch which reads carries its
+     * exit in chrome that does not move.
      */
     expect(src).toContain('<ReaderHeader');
     const header = readFileSync(

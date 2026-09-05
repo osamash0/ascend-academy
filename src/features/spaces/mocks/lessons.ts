@@ -474,9 +474,51 @@ export const cryptoLessons: Lesson[] = [
   // Duplicate title #2.
   lesson('s-crypto', 'Advanced Topics in Cryptography', 4, weber),
   lesson('s-crypto', 'Impossible Differentials', 5, weber),
+  /*
+   * The fourth shape: written prose and no Material at all.
+   *
+   * The source file was deleted and the Lesson keeps working (Objects, Rule
+   * 4) — which is the whole argument for `pages` hanging off the Material,
+   * and it was only ever shown on Lessons that had nothing to read either.
+   * Both `material: null` fixtures were also passage-less, so "a Lesson with
+   * a text and no Material" and "a Lesson with neither" were being exercised
+   * by the same rows and the reader's Read-only branch had never had a
+   * fixture of its own.
+   *
+   * The prose is here rather than on a new Lesson because a new row moves
+   * Space-level counts (`lessonCount`, `viewerProgress`) that a dozen guards
+   * hold to; putting a new shape on an existing Lesson moves nothing but the
+   * Lesson.
+   *
+   * It also lands the reading surface in the one Space with grounding OFF, so
+   * the dormant-marker branch finally has something to read while it is off.
+   */
   lesson('s-crypto', 'The Sage Computer Algebra System', 6, weber, {
-    // The source file was deleted; the Lesson keeps working (Objects, Rule 4).
     material: null,
+    concepts: conceptsFor(
+      'l-s-crypto-6',
+      ['Symbolic expressions', 'The preparser'],
+      0,
+      0,
+    ),
+    passages: [
+      {
+        conceptId: 'c-l-s-crypto-6-1',
+        heading: 'Symbolic expressions',
+        body: [
+          'A symbolic expression in Sage is an object in the symbolic ring, not a piece of text waiting to be parsed. Names have to be brought into being before they can be used — `var("x, y")` creates them — and from that point `x^2 - y` is a value you can differentiate, substitute into and compare, in the same way an integer is a value you can add.',
+          'The consequence people trip over is that nothing simplifies itself. Sage will hold an expression in exactly the shape you built it in until you ask otherwise, because two expressions that are mathematically equal are rarely equally useful, and choosing between them is your decision rather than the system’s.',
+        ],
+      },
+      {
+        conceptId: 'c-l-s-crypto-6-2',
+        heading: 'The preparser',
+        body: [
+          'Sage is Python with one layer in front of it. Before Python sees a line, the preparser rewrites it: `2` becomes a Sage integer rather than a machine int, `^` becomes exponentiation rather than exclusive-or, and `1/3` becomes an exact rational rather than a truncated division.',
+          'That layer is why `2^10` is 1024 here and 8 in plain Python, and why arithmetic stays exact until you ask for a decimal. It is also the first thing to remember when pasting code the other way: what runs in Sage will not always run in a bare Python interpreter, and the difference is a rewrite you never see.',
+        ],
+      },
+    ],
   }),
   lesson('s-crypto', 'Multivariate polynomial rings', 7, weber),
   lesson('s-crypto', 'Gröbner Bases', 8, weber),
