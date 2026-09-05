@@ -5,14 +5,15 @@ import { cn } from '@/lib/utils';
 import { people, viewer } from '../mocks/people';
 import { spaceById } from '../mocks/spaces';
 import {
+  linalgContributions,
   normalizationContributions,
   sharedSpaceIds,
   spaceContributions,
 } from '../mocks/contributions';
 import { conceptContributions } from '../mocks/concepts';
-import { leaderboard } from '../mocks/library';
+import { leaderboard, resolveContributionAnchor } from '../mocks/library';
 import { likeCount, visibleContributions } from '../mocks/engagement';
-import { locateLesson } from '../mocks/lessons';
+import { anchorFor, isOrphaned } from '../mocks/reanchor';
 import { isFriend } from '../mocks/social';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
@@ -52,9 +53,19 @@ export default function PersonScreen() {
       // asks with no role, which is the strictest answer `visibleContributions`
       // gives. Written out longhand here was the seventh copy of that rule.
       visibleContributions(
-        [...normalizationContributions, ...spaceContributions, ...conceptContributions].filter(
-          (c) => c.author.id === personId,
-        ),
+        [
+          ...normalizationContributions,
+          ...spaceContributions,
+          /*
+           * `linalgContributions` was missing. Every list of "all the
+           * contributions" in this codebase has been assembled by hand, and
+           * this is the fourth one found short of the same group — so Inês
+           * Ferreira's two Linear Algebra pieces were absent from her own
+           * page, on a screen whose heading counts what she has published.
+           */
+          ...linalgContributions,
+          ...conceptContributions,
+        ].filter((c) => c.author.id === personId),
         null,
       )
         // Likes come from the store, not the fixture. Reading `c.likeCount`
@@ -165,21 +176,33 @@ export default function PersonScreen() {
         ) : (
           <ul className="space-y-2.5">
             {published.map((c) => {
-              const at =
-                c.anchor.level === 'lesson' ? locateLesson(c.anchor.lessonId) : undefined;
-              const href =
-                c.anchor.level === 'space'
-                  ? `/v4/space/${c.anchor.spaceId}`
-                  : at
-                    ? `/v4/space/${at.spaceId}/lesson/${at.lesson.id}`
-                    : null;
+              /*
+               * One resolver, like every other surface.
+               *
+               * This hand-rolled the anchor and handled two of the three
+               * levels, so a **concept**-anchored contribution fell through to
+               * `href: null` and rendered as "Needs a new home" — four
+               * fixtures, by four different people, each shown on their own
+               * page as work that had lost its Lesson when nothing had
+               * happened to it. `resolveContributionAnchor`'s own comment
+               * records the previous version of that exact bug: it "silently
+               * dropped `concept` entirely".
+               *
+               * Going through it also picks up two things this copy never had:
+               * a space-level anchor now opens *the contribution* by fragment
+               * rather than dumping you on the Space, and `anchorFor` means a
+               * re-anchored orphan points at its new Lesson instead of the
+               * deleted one.
+               */
+              const at = resolveContributionAnchor(anchorFor(c), c.id);
+              const href = at.href;
               const row = (
                 <>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-semibold">{c.title}</span>
-                    {at && (
+                    {at.lessonTitle && (
                       <span className="mt-0.5 block truncate text-[12.5px] text-quiet">
-                        {at.lesson.title}
+                        {at.lessonTitle}
                       </span>
                     )}
                   </span>
@@ -207,10 +230,18 @@ export default function PersonScreen() {
                       background and transition as the links around it, so it
                       read as one and did nothing when clicked. It says what it
                       is now, the way Library's equivalent does.
+
+                      The label follows `isOrphaned`, not "href came back
+                      null". Those are different questions: an orphan has lost
+                      its Lesson, while a concept anchor can fail to resolve
+                      for its own reasons — and this branch used to answer the
+                      second by asserting the first.
                     */
                     <div className={cn(cls, 'border-dashed opacity-80')}>
                       {row}
-                      <span className="shrink-0 text-[12px] text-quiet">Needs a new home</span>
+                      {isOrphaned(c) && (
+                        <span className="shrink-0 text-[12px] text-quiet">Needs a new home</span>
+                      )}
                     </div>
                   )}
                 </li>
