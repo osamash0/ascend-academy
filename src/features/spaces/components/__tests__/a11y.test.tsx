@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import { allSources, readSource } from './sources';
+import { ReaderRail } from '../reader/ReaderRail';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -220,6 +222,44 @@ describe('motion follows the operating system everywhere', () => {
         '<MotionConfig',
       );
     }
+  });
+});
+
+describe('every landmark says which one it is', () => {
+  it('names every aside in the namespace', () => {
+    /*
+     * An `<aside>` is a `complementary` landmark, and a landmark's whole value
+     * is that it can be jumped to from a list. Unnamed, it appears in that list
+     * as "complementary" — one of possibly several, distinguishable only by
+     * entering each in turn, which is the navigation it was supposed to save.
+     *
+     * A source guard rather than a render test because the rule is about every
+     * aside this namespace ever grows, not about the one that exists today.
+     */
+    for (const { name, body } of files) {
+      for (const tag of body.match(/<aside[^>]*>/gs) ?? []) {
+        expect(
+          /aria-label(?:ledby)?=/.test(tag),
+          `${name}: an unnamed complementary landmark`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('gives the rail the name a landmark list will show', () => {
+    // Asserted as a rendered role, not as a string in a file: `<aside>` inside
+    // sectioning content is not a landmark at all, and only the tree knows.
+    render(
+      <ReaderRail
+        open
+        tab="notes"
+        onTabChange={() => {}}
+        onClose={() => {}}
+        tutor={null}
+        notes={null}
+      />,
+    );
+    expect(screen.getByRole('complementary', { name: 'Reader companions' })).toBeTruthy();
   });
 });
 
