@@ -10,6 +10,7 @@ import { useScreenState } from '../data/useSpaces';
 import { PressableLink } from '../components/Pressable';
 import { ReaderHeader } from '../components/reader/ReaderHeader';
 import type { RailTab, ReaderView } from '../components/reader/ReaderHeader';
+import { SourceView } from '../components/reader/SourceView';
 
 /**
  * Reading a Lesson.
@@ -45,6 +46,13 @@ import type { RailTab, ReaderView } from '../components/reader/ReaderHeader';
  * that move except for the top padding it needs to clear the bar — with the
  * rail closed it is the same 52ch inside the same `max-w-2xl` it has always
  * been, which is the "summoned, never squatting" rule stated as a diff.
+ *
+ * There are now two views of one Lesson: the prose, and the Material it was
+ * written from. Which of the four shapes a Lesson has is derived rather than
+ * remembered — see `effectiveView` below. The important one is the third: a
+ * Lesson with a file and no text used to render "Not written yet" while
+ * holding the thing you came to read. It opens in the Material instead, and
+ * the dead end is gone without anybody having to write prose to remove it.
  */
 
 export default function ReaderScreen() {
@@ -70,6 +78,39 @@ export default function ReaderScreen() {
   const [railTab, setRailTab] = useState<RailTab | null>(null);
   const toggleRail = (tab: RailTab) => setRailTab((open) => (open === tab ? null : tab));
 
+  /*
+   * Which page of the Material is showing — held here, beside the view and the
+   * rail, rather than inside `SourceView`.
+   *
+   * All three are the same kind of thing: where you are in this Lesson, across
+   * both views of it. The tutor cites a page, and a citation has to be able to
+   * turn the page from outside the Source view; internal state would leave it
+   * reaching for a ref or remounting the component with a new `key`, which is
+   * a workaround for having put the state in the wrong place.
+   */
+  const [page, setPage] = useState(1);
+
+  /*
+   * Reset all three when the Lesson changes.
+   *
+   * The pager navigates between Lessons without unmounting this screen — same
+   * route, different param — so nothing resets on its own. Without this, page
+   * 9 of one Material opens as page 9 of the next, and a rail summoned here
+   * would be squatting on the next Lesson's column, which the focus-surface
+   * rule forbids in as many words.
+   *
+   * Set during render rather than in an effect: React's documented way to
+   * adjust state when a prop changes, and it avoids the frame where the wrong
+   * page is on screen.
+   */
+  const [readingId, setReadingId] = useState(lessonId);
+  if (readingId !== lessonId) {
+    setReadingId(lessonId);
+    setView('read');
+    setRailTab(null);
+    setPage(1);
+  }
+
   const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.lessonReader} motionKey={`read-${lessonId}`}>
       {body}
@@ -91,6 +132,52 @@ export default function ReaderScreen() {
   const back = `/v4/space/${space.id}/lesson/${lesson.id}`;
   const { prev, next } = adjacentLessons(space.id, lesson.id);
   const passages = lesson.passages ?? [];
+  /*
+   * `material === null` is the deleted source file, and it takes the pages
+   * with it — which is the reason they hang off the Material and not the
+   * Lesson. There is nothing to show and so nothing to toggle to.
+   */
+  const pages = lesson.material?.pages ?? [];
+
+  /*
+   * Four shapes, one derivation. A Lesson has prose, a Material with pages,
+   * both, or neither — and only *both* leaves anything for the reader to
+   * choose, so the stored `view` is consulted only then. Deriving it rather
+   * than trusting the state means a Lesson with one view cannot be left
+   * showing the other by whatever the last Lesson was set to.
+   */
+  const showToggle = passages.length > 0 && pages.length > 0;
+  const effectiveView: ReaderView = showToggle ? view : passages.length > 0 ? 'read' : 'source';
+
+  /*
+   * The sync line's other half: a page names its Concept, and pressing that
+   * name lands you on the passage explaining it.
+   *
+   * The scroll happens a frame later because the passage is not in the
+   * document at the moment `setView` is called — React has not re-rendered
+   * yet, so `getElementById` would find nothing and the jump would silently
+   * do nothing at all.
+   *
+   * `behavior` is stated rather than left to the stylesheet. `index.css` sets
+   * `scroll-behavior: smooth` on `html` for the whole app, and that CSS
+   * property does not consult the operating system — so leaving it implicit
+   * animates a 900px scroll at somebody who has asked for less motion. The
+   * `MotionConfig` above only governs Motion, and this is the browser.
+   *
+   * `scroll-mt-24` on the section is what keeps the heading you jumped to
+   * clear of the fixed header, which would otherwise cover it exactly.
+   */
+  const jumpToPassage = (conceptId: string) => {
+    setView('read');
+    requestAnimationFrame(() => {
+      document.getElementById(`passage-${conceptId}`)?.scrollIntoView({
+        block: 'start',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'auto'
+          : 'smooth',
+      });
+    });
+  };
 
   /*
    * The header exists wherever a Lesson does — including the unwritten one
@@ -98,9 +185,6 @@ export default function ReaderScreen() {
    * The three branches above it are not: a skeleton, a failure and a missing
    * Lesson have no Space name to show, no ideas to count and nothing to
    * summon a tutor about, so they keep the bare chrome they have always had.
-   *
-   * `showToggle` is false until the Source view exists. A segmented control
-   * whose second half does nothing is a worse dead end than no control.
    */
   const header = (
     <ReaderHeader
@@ -108,9 +192,9 @@ export default function ReaderScreen() {
       lessonOrder={lesson.order}
       backTo={back}
       concepts={lesson.concepts}
-      view={view}
+      view={effectiveView}
       onViewChange={setView}
-      showToggle={false}
+      showToggle={showToggle}
       railOpen={railTab !== null}
       railTab={railTab}
       onRailToggle={toggleRail}
@@ -118,10 +202,58 @@ export default function ReaderScreen() {
   );
 
   /*
+   * The Material, when there is one to show.
+   *
+   * Its own measure: a page card is a landscape thing and reads badly forced
+   * into the article's 52ch, which is a column sized for running prose. Two
+   * views, two right answers — the constraint is that the *article* keeps
+   * its measure, not that everything shares it.
+   *
+   * No `LessonPager` here, deliberately, and it was tried. The pager binds ←
+   * and → to the previous and next *Lesson*, and this view's own ‹ and › are
+   * the previous and next *page* — so mounting it would leave one pair of
+   * arrow keys meaning two things on one screen. It is the same absence the
+   * unwritten branch below has always had, so nothing regresses; which of the
+   * two the arrows should walk is a decision, not a drive-by.
+   */
+  if (pages.length > 0 && effectiveView === 'source') {
+    return chrome(
+      <>
+        {header}
+        <div className="mx-auto max-w-[860px] px-6 pb-32 pt-24">
+          <div className="mb-6">
+            <h1 className="text-[15px] font-semibold">{lesson.title}</h1>
+            <p className="mt-0.5 text-[12.5px] text-faint">
+              The Material this Lesson was built from
+            </p>
+          </div>
+          <SourceView
+            pages={pages}
+            concepts={lesson.concepts}
+            page={page}
+            onPageChange={setPage}
+            /*
+              No handler when there is no text to jump into. Passing one
+              anyway made the sync line a button that called back, derived
+              its way straight back to this view, and did nothing — which is
+              the dead end this branch exists to remove, one line lower down.
+            */
+            onJumpToPassage={passages.length > 0 ? jumpToPassage : undefined}
+          />
+        </div>
+      </>,
+    );
+  }
+
+  /*
    * Written Lessons are the exception, not the rule, and the screen says which
    * one this is rather than rendering an empty column. Writing a Lesson is
    * content work; pretending otherwise would make the reader look finished
    * while testing nothing.
+   *
+   * This is now the *last* resort rather than the answer to "no passages": a
+   * Lesson holding a Material opened here too, apologising for having nothing
+   * while the file it was built from sat one branch above.
    */
   if (passages.length === 0) {
     return chrome(
@@ -155,8 +287,15 @@ export default function ReaderScreen() {
       <article className="mx-auto max-w-2xl px-6 pb-32 pt-28">
         <h1 className="text-[34px] font-bold leading-[1.15] tracking-[-0.02em]">{lesson.title}</h1>
 
+        {/*
+          The id is what the Source view's sync line aims at, and `scroll-mt-24`
+          is what stops it landing under the fixed header — `scrollIntoView`
+          puts the element's top edge at the viewport's top, which is 56px of
+          backdrop-blurred bar, so the heading you jumped to would be the one
+          thing you could not see.
+        */}
         {passages.map((p) => (
-          <section key={p.conceptId} className="mt-12">
+          <section key={p.conceptId} id={`passage-${p.conceptId}`} className="mt-12 scroll-mt-24">
             <h2 className="mb-4 text-[20px] font-semibold tracking-[-0.01em]">{p.heading}</h2>
             {p.body.map((para, i) => (
               <p

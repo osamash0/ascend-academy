@@ -196,12 +196,20 @@ export function ReaderHeader({
               A readout of what the engine already cleared. The group carries
               the sentence; the dots themselves are shape, and a screen reader
               that announced five of them would be reading punctuation.
+
+              Hidden below `sm`, and it is the middle column that forced the
+              choice. A phone fits the exit, the Read/Source segment and the
+              two companions with nothing to spare — measured at 375px, with
+              the dots in the row the breadcrumb truncated to *nothing*, so
+              the reader lost which Space and which Lesson it was in. Of the
+              five things in the bar the dots are the only pure readout, and
+              the state they report is shown in full one screen back.
             */}
             {concepts.length > 0 && (
               <div
                 role="img"
                 aria-label={`${cleared} of ${concepts.length} ideas cleared`}
-                className="flex items-center gap-1.5"
+                className="hidden items-center gap-1.5 sm:flex"
               >
                 {concepts.map((c) => (
                   <span
