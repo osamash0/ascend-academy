@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="180" viewBox="0 0 160 180" role="img" aria-label="LearnStation Luna monochrome mascot">
+  <title>LearnStation Luna monochrome mascot</title>
+  <desc>Source-faithful LearnStation Luna artwork derived from the original Luna design-system geometry and identity rules.</desc>
+  <g stroke="#4A3F6B" stroke-width="1.7" fill="#4A3F6B" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="52" y="102" width="56" height="52" rx="24"/>
+    <path d="M54 112 Q40 120 36 134" fill="none" stroke-width="2.5"/><circle cx="35" cy="138" r="6.5"/>
+    <path d="M106 112 Q120 120 124 134" fill="none" stroke-width="2.5"/><circle cx="125" cy="138" r="6.5"/>
+    <ellipse cx="66" cy="160" rx="9" ry="7"/><ellipse cx="94" cy="160" rx="9" ry="7"/>
+    <rect x="66" y="118" width="28" height="18" rx="7"/>
+    <circle cx="80" cy="62" r="38" fill="none" stroke-width="2.5"/><circle cx="80" cy="62" r="30"/>
+    <circle cx="70" cy="60" r="7" fill="#FFF8E7"/><circle cx="90" cy="60" r="7" fill="#FFF8E7"/>
+    <circle cx="70" cy="61" r="3.4"/><circle cx="90" cy="61" r="3.4"/>
+    <path d="M74 71 Q80 76 86 71" fill="none" stroke="#FFF8E7" stroke-width="2"/>
+    <path d="M80 121 L82 126 L87 126.5 L83.2 129.7 L84.4 134.5 L80 131.8 L75.6 134.5 L76.8 129.7 L73 126.5 L78 126 Z" fill="#FFF8E7"/>
+  </g>
+</svg>
