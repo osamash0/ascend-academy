@@ -197,19 +197,52 @@ jobs:
       - name: pip-audit (backend)
         run: |
           pip install --quiet pip-audit
-          # Fails the job on any known vulnerability in backend/requirements.txt.
-          # Informational advisories with no fix available yet can be ignored
-          # with `--ignore-vuln <id>` once triaged — do not blanket-suppress.
+          # Fails the job on any known vulnerability in the backend requirement
+          # files. Informational advisories with no fix available yet can be
+          # ignored with `--ignore-vuln <id>` once triaged — do not
+          # blanket-suppress.
+          #
+          # BOTH files are audited, and the second one is the one that ships.
+          # This job used to scan only requirements.txt while the Dockerfile
+          # installs requirements-docker.txt, so the scan was green about a
+          # file that never reaches production. The image was carrying
+          # pypdf 5.9.0 (77 advisories) and Pillow 11.3.0 (36) — in both cases
+          # a `<major` ceiling in that file pinned the library below its own
+          # security fix. Keep every backend requirement file listed here; a
+          # scanner pointed at the wrong file is worse than no scanner,
+          # because it reports success.
+          #
+          # requirements-dev.txt is deliberately not in this list: it is
+          # `-r requirements.txt` plus test tooling, so the shipped surface is
+          # already covered and adding it would fail PRs on advisories in
+          # pytest/ruff plugins that never leave CI. That is a decision, not
+          # an oversight — revisit if dev tooling starts shipping.
+          #
           # FastAPI 0.136.x constrains Starlette to <0.53, while every
           # currently published Starlette fix for these advisories is 1.x.
           # Keep the exceptions specific and temporary; remove them once a
           # compatible FastAPI release permits a patched Starlette.
-          pip-audit -r backend/requirements.txt \
-            --ignore-vuln PYSEC-2026-161 \
-            --ignore-vuln PYSEC-2026-248 \
-            --ignore-vuln PYSEC-2026-249 \
-            --ignore-vuln PYSEC-2026-2280 \
-            --ignore-vuln PYSEC-2026-2281
+          #
+          # PYSEC-2026-3740 (nltk 3.10.3, path traversal in model-artifact
+          # APIs) has no fix: 3.10.3 is the latest release and is itself
+          # affected. Triaged rather than assumed harmless — nltk arrives
+          # transitively via llama-cloud-services -> llama-index-core, nothing
+          # in this repo imports it, and the advisory needs caller-controlled
+          # paths into TransitionParser / PerceptronTagger / maxent model
+          # loading, which no code path here reaches. It is also absent from
+          # the Docker image entirely (llama-cloud-services is excluded).
+          # Drop this exception the moment upstream ships a fix.
+          for req in backend/requirements.txt backend/requirements-docker.txt; do
+            echo "::group::pip-audit $req"
+            pip-audit -r "$req" \
+              --ignore-vuln PYSEC-2026-161 \
+              --ignore-vuln PYSEC-2026-248 \
+              --ignore-vuln PYSEC-2026-249 \
+              --ignore-vuln PYSEC-2026-2280 \
+              --ignore-vuln PYSEC-2026-2281 \
+              --ignore-vuln PYSEC-2026-3740
+            echo "::endgroup::"
+          done
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
