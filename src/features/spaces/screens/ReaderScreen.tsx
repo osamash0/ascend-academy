@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ import { PressableLink } from '../components/Pressable';
 import { ReaderHeader } from '../components/reader/ReaderHeader';
 import type { RailTab, ReaderView } from '../components/reader/ReaderHeader';
 import { ReaderRail } from '../components/reader/ReaderRail';
+import { SelectionAsk } from '../components/reader/SelectionAsk';
 import { SourceView } from '../components/reader/SourceView';
 import { TutorPanel } from '../components/reader/TutorPanel';
 
@@ -196,22 +197,38 @@ export default function ReaderScreen() {
   /*
    * A sentence carried out of the text and into the tutor's composer.
    *
-   * Nothing writes to it yet — selecting a sentence in the article is what
-   * will, and that popover is not built. It is real state rather than a no-op
-   * handed to the panel because the clearing half is the half that gets
-   * forgotten: a quote that survived being asked about would ride along on
-   * the next question too.
+   * Written by the selection popover, read by the tutor, and cleared by the
+   * tutor the moment it is asked with — the clearing half is the half that
+   * gets forgotten, and a quote that survived being asked about would ride
+   * along on the next question too.
    */
   const [quote, setQuote] = useState<string | undefined>(undefined);
 
   /*
+   * The article, so a selection can be told from every other selectable thing
+   * on the screen.
+   *
+   * A ref rather than a query, because "inside the prose" is a fact about a
+   * particular element and `querySelector('article')` would silently start
+   * meaning something else the day the reader grows a second one. Null on the
+   * branches that render no article at all, which is exactly right: there is
+   * nothing to select from on a Lesson with no text.
+   */
+  const articleRef = useRef<HTMLElement>(null);
+
+
+  /*
    * Reset the lot when the Lesson changes.
    *
-   * The pager navigates between Lessons without unmounting this screen — same
-   * route, different param — so nothing resets on its own. Without this, page
-   * 9 of one Material opens as page 9 of the next, and a rail summoned here
-   * would be squatting on the next Lesson's column, which the focus-surface
-   * rule forbids in as many words.
+   * Defensive against a navigation the assembled app does not currently
+   * produce, and worth saying plainly rather than claiming otherwise:
+   * `LessonPager` links to the Lesson *overview*, which is a different route,
+   * so React Router unmounts this screen and every value above resets by
+   * itself. Only a move from one `/read` to another — same route, different
+   * param — keeps the screen alive, and nothing links that way today.
+   *
+   * It is kept anyway: page 9 of one Material opening as page 9 of the next
+   * is cheap to prevent and invisible to notice.
    *
    * Set during render rather than in an effect: React's documented way to
    * adjust state when a prop changes, and it avoids the frame where the wrong
@@ -402,16 +419,70 @@ export default function ReaderScreen() {
   );
 
   /*
+   * Selecting a sentence, and the two things it can become.
+   *
+   * Both are the panels the header already opens — nothing new is reachable
+   * this way, only reachable *from the sentence*. That is what makes the
+   * popover safe to leave as a pointer affordance: a keyboard has the same two
+   * doors, one Tab away, and always has.
+   *
+   * The note's body is the quote and nothing else. The brief asks for a blank
+   * line after it, and there is deliberately none: `addNote` trims the body,
+   * because a store that silently keeps blank notes leaves rubbish in the one
+   * place that is entirely yours — so a trailing newline is unrepresentable
+   * here, and writing one anyway would be a line of code that provably does
+   * nothing. Loosening that guard to buy a cosmetic gutter is the wrong trade.
+   * What the rule is actually about survives: the quote lives *in the body*,
+   * not in a new field and not in an anchor, and the quotation marks are what
+   * say it is not your own writing.
+   */
+  const selectionAsk = (
+    <SelectionAsk
+      articleRef={articleRef}
+      onAsk={(text) => {
+        setQuote(text);
+        setRailTab('tutor');
+      }}
+      onSaveNote={(text) => {
+        addNote({
+          lessonId: lesson.id,
+          body: `“${text}”`,
+          lessonTitle: lesson.title,
+          spaceId: space.id,
+          spaceName: space.name,
+        });
+        setNoteTick((t) => t + 1);
+        setRailTab('notes');
+      }}
+    />
+  );
+
+  /*
    * Header, body, rail — for every shape of Lesson below.
    *
    * The rail hangs off the composition rather than off one branch because the
    * two companions are about the *Lesson*, not about which of its two views
    * happens to be showing. Notes on an unwritten Lesson are exactly the notes
    * somebody would want.
+   *
+   * The popover comes first, and the order is the whole of its keyboard story.
+   * It is `position: fixed`, so nothing about the page moves either way; what
+   * DOM order buys is the tab order. After a selection, focus is on the body,
+   * and the next Tab goes to the first focusable thing in the document — which
+   * is this, when it is showing, and the header's exit when it is not. It
+   * renders nothing at all while there is no selection, so the reader's tab
+   * order is untouched for everybody who never selects anything.
+   *
+   * It is also *outside* the docked wrapper, and that is load-bearing rather
+   * than tidy: a CSS transform makes an element the containing block for its
+   * `position: fixed` descendants, so a popover inside the wrapper would be
+   * positioned against the shifted column instead of the viewport, and would
+   * drift by the dock's offset the moment the rail opened.
    */
   const readerChrome = (body: React.ReactNode, docked: string = DOCKED_READ) =>
     chrome(
       <>
+        {selectionAsk}
         {header}
         {/*
           The clamp is the caller's, because only the caller knows how wide the
@@ -510,7 +581,7 @@ export default function ReaderScreen() {
         row left above the title. It is the only thing about this column the
         header changed: the width and the measure are exactly what they were.
       */}
-      <article className="mx-auto max-w-2xl px-6 pb-32 pt-28">
+      <article ref={articleRef} className="mx-auto max-w-2xl px-6 pb-32 pt-28">
         <h1 className="text-[34px] font-bold leading-[1.15] tracking-[-0.02em]">{lesson.title}</h1>
 
         {/*
