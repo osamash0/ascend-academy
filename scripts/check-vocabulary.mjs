@@ -31,6 +31,7 @@ import { join, relative } from 'node:path';
 const BANNED = [
   'professor', 'student', 'teacher', 'instructor', 'course',
   'classroom', 'module', 'folder', 'lecture', 'lms',
+  'slide', 'deck', 'document',
 ];
 
 const ROOTS = process.argv.slice(2).length
@@ -54,8 +55,24 @@ function extractCopy(src) {
   for (const m of src.matchAll(/(['"`])((?:\\.|(?!\1)[^\\])*)\1/g)) {
     out.push({ text: m[2], index: m.index });
   }
-  // JSX text nodes: between > and < , excluding braces.
-  for (const m of src.matchAll(/>\s*([^<>{}]{3,}?)\s*</g)) {
+  /*
+   * JSX text nodes.
+   *
+   * A run of text ends at `<` *or* at `{`, and begins after `>` *or* after
+   * `}` — because interpolation splits one sentence into several text nodes,
+   * and the earlier version only recognised the shape `>text<`.
+   *
+   * That is not a corner case, it is the common one. `This page belongs to{' '}`
+   * is text terminated by an expression, so the whole phrase was skipped, and
+   * `lecture` — banned since the first version of this file — went undetected
+   * there. The gate reported "vocabulary clean" over seventy files while a rule
+   * the project calls its most important was unenforced on every line of copy
+   * that happens to be followed by a value.
+   *
+   * The terminator is a lookahead so it stays available as the next run's
+   * opener: in `}a{b}c<`, consuming the `{` would swallow the start of `b`.
+   */
+  for (const m of src.matchAll(/[>}]\s*([^<>{}]{3,}?)\s*(?=[<{])/g)) {
     out.push({ text: m[1], index: m.index });
   }
   return out;
