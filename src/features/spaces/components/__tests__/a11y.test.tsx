@@ -290,9 +290,16 @@ describe('every control the reader grew shows where the keyboard is', () => {
    *
    * Swept over the reader specifically rather than the whole namespace,
    * because the reader is what this pass added to and a namespace-wide version
-   * would be a different, larger claim to make good on. Every file that makes
-   * up the reader is in the list by directory, so the next one added is inside
-   * it on the day it lands — the failure `sources.ts` was written about.
+   * would be a different, larger claim to make good on.
+   *
+   * Two of the three entries are hand-named files and only the third is a
+   * directory, so what is actually covered is: a new control under
+   * `components/reader/` is swept on the day it lands, and a new reader file
+   * anywhere else is not. That is not hypothetical — `LessonPager.tsx` is a
+   * reader control living outside `components/reader/` and had to be added
+   * here by hand. Said plainly because the comment used to claim the whole
+   * reader was in by directory, which is the coverage this list would like to
+   * have rather than the coverage it has.
    */
   const surface = [
     { name: 'screens/ReaderScreen.tsx', body: readSource('screens/ReaderScreen.tsx') },

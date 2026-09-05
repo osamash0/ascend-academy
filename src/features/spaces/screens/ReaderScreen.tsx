@@ -136,7 +136,7 @@ import type { Turn } from '../components/reader/TutorPanel';
  * and both wrappers carried a rule that had never been generated. The class
  * lists in the DOM were correct and `getComputedStyle` said `transform: none`.
  *
- * The jsdom guards below did not catch it either, because they compare class
+ * The DOM guards below did not catch it either, because they compare class
  * strings and there is no stylesheet behind them. Only the browser saw it.
  */
 const DOCKED_READ =

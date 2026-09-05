@@ -17,12 +17,12 @@ import { readSource } from './sources';
  * a rail and a note store, at which point it is the screen test with more
  * setup and fewer guarantees.
  *
- * The rectangle is the one thing that cannot be checked here — jsdom has no
- * layout, so every `getBoundingClientRect` is zeros and the clamp has nothing
- * to clamp. That half was measured in a browser at four widths and against all
- * four edges; the report says what came back. What is checkable in jsdom is
- * everything about *when* the popover exists, *what* it carries, and where
- * that lands.
+ * The rectangle is the one thing that cannot be checked here — the suite runs
+ * on happy-dom (`vitest.config.ts`), which has no layout, so every
+ * `getBoundingClientRect` is zeros and the clamp has nothing to clamp. That
+ * half was measured in a browser at four widths and against all four edges;
+ * the report says what came back. What is checkable here is everything about
+ * *when* the popover exists, *what* it carries, and where that lands.
  */
 
 const SPACE = 's-dbs';
@@ -68,9 +68,16 @@ const renderReader = async (lessonId = WRITTEN) => {
 /**
  * Make a selection the way a drag does.
  *
- * jsdom fires `selectionchange` synchronously from `addRange`, so the whole
- * thing goes inside `act` — otherwise React applies the state update outside a
- * batch and warns, and the assertion runs against the pre-render tree.
+ * happy-dom fires `selectionchange` synchronously from `addRange`
+ * (`selection/Selection.js`, `#associateRange`), so the whole thing goes
+ * inside `act` — otherwise React applies the state update outside a batch and
+ * warns, and the assertion runs against the pre-render tree.
+ *
+ * The engine matters and this comment used to name the wrong one. jsdom
+ * queues `selectionchange` as a task; happy-dom dispatches it inline, and it
+ * is happy-dom the suite runs on. A reader chasing the D1 intermittent lost an
+ * hour to the difference, because the jsdom behaviour would have explained it
+ * and the real behaviour does not.
  */
 const selectRange = (start: Node, startOffset: number, end: Node, endOffset: number) => {
   const range = document.createRange();
@@ -415,7 +422,7 @@ describe('the position is a style, because a computed class is not CSS', () => {
     /*
      * Tailwind scans source text. A class built from a number at runtime is a
      * class it never emits, so the DOM looks perfect, `getComputedStyle` says
-     * nothing happened, and every jsdom test passes — which is exactly how the
+     * nothing happened, and every DOM-only test passes — which is exactly how the
      * reader's dock shipped broken once already.
      */
     const { container } = await renderReader();

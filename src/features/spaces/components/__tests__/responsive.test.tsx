@@ -199,7 +199,7 @@ describe('the pager and the companion divide the window between them', () => {
      * left of the origin creates no scroll area, so it was unreachable rather
      * than merely out of sight.
      *
-     * Checked as a fact about the source's shape because jsdom has no layout
+     * Checked as a fact about the source's shape because happy-dom has no layout
      * and cannot see a containing block: the pager is passed to `readerChrome`
      * as the floating argument, and `</article>` closes before it.
      */

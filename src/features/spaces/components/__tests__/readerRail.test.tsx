@@ -203,7 +203,7 @@ describe('the column is the same column, open or closed', () => {
    * off-screen but unreachable, because content left of the origin creates no
    * scroll area.
    *
-   * jsdom has no layout, so the shift itself cannot be observed. What *can* be
+   * happy-dom has no layout, so the shift itself cannot be observed. What *can* be
    * checked is the derivation — that the number in the clamp is still the
    * number the classes imply. Both halves are pinned, because the previous
    * guard pinned `max-w-2xl` and not `px-6`, and a padding change would have
@@ -242,7 +242,7 @@ describe('the column is the same column, open or closed', () => {
      * `transform: none`, and the dock silently did not happen at all.
      *
      * The two tests below stayed green through it, and so did the other 24 —
-     * they compare class strings, and there is no stylesheet behind jsdom to
+     * they compare class strings, and there is no stylesheet behind the test DOM to
      * disagree with. Only a browser saw it, and only because someone looked.
      * So this asserts against the source text, which is the one place the
      * difference between "a class" and "a class Tailwind emits" is visible

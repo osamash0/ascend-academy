@@ -59,7 +59,7 @@ const SHAPES = {
 /**
  * `?mock=` is read off `window.location`, not off the router — the flag is a
  * design-review switch and has to work from the address bar on any screen.
- * `MemoryRouter` therefore cannot set it and jsdom's own history must.
+ * `MemoryRouter` therefore cannot set it and the environment's own history must.
  */
 const forceScenario = (v: string | null) =>
   window.history.replaceState({}, '', v ? `/?mock=${v}` : '/');
@@ -164,6 +164,29 @@ const exits = (container: HTMLElement) =>
     (a) => !(a.getAttribute('href') ?? '').endsWith('/read'),
   );
 
+/**
+ * The way out, named and pointed at the Lesson it was opened from.
+ *
+ * `exits(...).length > 0` was what three of the five branches asserted, and it
+ * is much weaker than the describe above it reads: on the branch that is
+ * reading, the practice CTA satisfies it on its own, so deleting the header's
+ * exit outright left that test green. A count of links is not a way out —
+ * being able to name it and say where it goes is.
+ *
+ * The not-found branch is deliberately not held to this: it renders
+ * `NotFound`, whose way out is "Back to {Space}" and points at the Space
+ * rather than at a Lesson that does not exist. It keeps its own assertion.
+ */
+const wayOut = (container: HTMLElement, space: string, lesson: string) => {
+  const out = exits(container).find(
+    (a) => a.getAttribute('aria-label') === 'Leave the reader',
+  );
+  expect(out, 'no control on this branch is the way out').toBeTruthy();
+  expect(out!.getAttribute('href'), 'the way out does not lead back to the Lesson').toBe(
+    `/v4/space/${space}/lesson/${lesson}`,
+  );
+};
+
 describe('every branch offers a way out', () => {
   /*
    * The name is now true of every branch, which it was not.
@@ -180,24 +203,22 @@ describe('every branch offers a way out', () => {
    */
   it('from the branch that is reading', async () => {
     const { container } = await open(SHAPES.both.space, SHAPES.both.lesson);
-    expect(exits(container).length).toBeGreaterThan(0);
+    wayOut(container, SHAPES.both.space, SHAPES.both.lesson);
   });
 
   it('from a Lesson with nothing written', async () => {
     const { container } = await open(SHAPES.neither.space, SHAPES.neither.lesson);
-    expect(exits(container).length).toBeGreaterThan(0);
+    wayOut(container, SHAPES.neither.space, SHAPES.neither.lesson);
   });
 
   it('from the skeleton, which never resolves', async () => {
     forceScenario('loading');
     const { container } = mount(SHAPES.both.space, SHAPES.both.lesson);
     await new Promise((r) => setTimeout(r, 900));
-    const out = exits(container);
-    expect(out.length, 'a load that never lands and no way off it').toBeGreaterThan(0);
-    expect(out[0].getAttribute('aria-label')).toBe('Leave the reader');
-    expect(out[0].getAttribute('href')).toBe(
-      `/v4/space/${SHAPES.both.space}/lesson/${SHAPES.both.lesson}`,
+    expect(exits(container).length, 'a load that never lands and no way off it').toBeGreaterThan(
+      0,
     );
+    wayOut(container, SHAPES.both.space, SHAPES.both.lesson);
   });
 
   it('from the failure, which offers only a reload otherwise', async () => {
@@ -206,13 +227,21 @@ describe('every branch offers a way out', () => {
     await waitFor(() => expect(screen.getByText('Couldn’t load this Lesson')).toBeTruthy(), {
       timeout: 3000,
     });
-    expect(exits(container).length).toBeGreaterThan(0);
+    wayOut(container, SHAPES.both.space, SHAPES.both.lesson);
   });
 
   it('from a Lesson id that is not there', async () => {
     const { container } = mount('s-dbs', 'l-s-dbs-nope');
     await waitFor(() => expect(screen.getByText(/isn’t here/)).toBeTruthy(), { timeout: 3000 });
-    expect(exits(container).length).toBeGreaterThan(0);
+    /*
+     * The one branch with a different way out, and correctly so: there is no
+     * Lesson to go back to, so `NotFound` points at the Space and names it.
+     * Pinned to that rather than to a count, for the same reason as the four
+     * above.
+     */
+    const out = exits(container);
+    expect(out.map((a) => a.getAttribute('href'))).toContain('/v4/space/s-dbs');
+    expect(out.map((a) => a.textContent?.trim())).toContain('Back to Database Systems');
   });
 });
 
