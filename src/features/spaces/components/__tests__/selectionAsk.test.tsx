@@ -42,6 +42,26 @@ const renderReader = async (lessonId = WRITTEN) => {
   );
   // Every screen holds a skeleton for 600ms so the loading state is real.
   await waitFor(() => expect(screen.getByRole('banner')).toBeTruthy(), { timeout: 3000 });
+  /*
+   * And then wait for the *effects* of that commit, not only its DOM.
+   *
+   * `SelectionAsk` registers its `selectionchange` listener in a passive
+   * effect. `waitFor` resolves on the mutation that put the header on screen,
+   * and the passive effects of that same commit are flushed by React's
+   * scheduler afterwards — so there is a window in which the reader is fully
+   * rendered and nothing is listening for a selection yet. Selecting inside it
+   * dispatches the event at no one, and because the selection does not change
+   * again, no later event recovers it: the popover simply never appears.
+   *
+   * That window is the whole of the intermittent recorded as D1. Traced: the
+   * event fires with `rangeCount 1`, uncollapsed, 357 characters, inside the
+   * article — and the popover is absent from the DOM at the end of the `act`.
+   * Re-selecting the identical range after a flush shows it immediately, which
+   * is what names the listener rather than the selection as the missing half.
+   * Nothing is wrong with the component: in a browser the flush follows paint
+   * by a frame and no hand is that fast.
+   */
+  await act(async () => {});
   return r;
 };
 
