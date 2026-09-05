@@ -94,8 +94,34 @@ export function SelectionAsk({ articleRef, onAsk, onSaveNote }: Props) {
 
   const shown = anchor !== null;
 
+  /*
+   * Read by a document listener that is registered once, so the value it
+   * closes over has to be a ref rather than the state — see its one use below.
+   */
+  const confirming = useRef(false);
+  confirming.current = saved;
+
   useEffect(() => {
     const onSelectionChange = () => {
+      /*
+       * The confirmation is a beat about something that has already happened,
+       * and losing the selection does not un-happen it.
+       *
+       * This is not hypothetical tidiness. Below `sm` the rail covers the page
+       * and `ReaderScreen` marks what it covers inert — and inert content is
+       * not selectable, so opening the rail on the "Save as note" path
+       * collapses the very selection the note was made from. Without this, the
+       * only announcement that the save succeeded ("Saved to your notes.", in
+       * the live region below) was destroyed by the panel it opened, at
+       * exactly the width where the note list is behind a full-screen sheet
+       * rather than beside the text. Measured at 375px before the guard: the
+       * popover was gone and the selection was zero characters.
+       *
+       * It cannot strand anything: the 2.2s timer clears `saved` and the
+       * anchor together, and Escape and an outside press still dismiss it.
+       */
+      if (confirming.current) return;
+
       const article = articleRef.current;
       const sel = document.getSelection();
       if (!article || !sel || sel.rangeCount === 0 || sel.isCollapsed) return setAnchor(null);

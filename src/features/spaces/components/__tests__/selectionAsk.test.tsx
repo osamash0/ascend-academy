@@ -264,6 +264,34 @@ describe('what the two actions do with the sentence', () => {
     expect(screen.queryByRole('button', { name: SAVE })).toBeNull();
   });
 
+  it('survives losing the sentence it was made from', async () => {
+    /*
+     * The panel the save opens is what destroys the selection, at the one
+     * width where the confirmation matters most.
+     *
+     * Below `sm` the rail covers the page, so `ReaderScreen` marks what it
+     * covers inert — and inert content is not selectable, so the selection
+     * collapses the moment the rail arrives. Before the guard this drives, the
+     * live region announcing "Saved to your notes." was destroyed by the panel
+     * that proved the save worked, and the note list behind it is not a live
+     * region: a screen-reader user got no announcement at all at 375px.
+     * Measured there: popover absent, selection zero characters.
+     *
+     * Driven by collapsing the selection directly rather than by stubbing the
+     * breakpoint, because the rule is "a confirmation outlives its selection"
+     * and not "a confirmation outlives inert" — the same thing happens if the
+     * reader clicks elsewhere in the 2.2 seconds.
+     */
+    const { container } = await renderReader();
+    twoParagraphs(container);
+    fireEvent.click(screen.getByRole('button', { name: SAVE }));
+    expect(screen.getByText('Saved to your notes.')).toBeTruthy();
+
+    clearSelection();
+    expect(popover(), 'the confirmation went with the selection').not.toBeNull();
+    expect(screen.getByText('Saved to your notes.')).toBeTruthy();
+  });
+
   it('does not let the press that triggers it destroy the sentence it is about', async () => {
     /*
      * The bug this prevents is total, not cosmetic: `mousedown` on a button
