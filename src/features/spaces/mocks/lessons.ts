@@ -506,7 +506,17 @@ export const cryptoLessons: Lesson[] = [
         conceptId: 'c-l-s-crypto-6-1',
         heading: 'Symbolic expressions',
         body: [
-          'A symbolic expression in Sage is an object in the symbolic ring, not a piece of text waiting to be parsed. Names have to be brought into being before they can be used — `var("x, y")` creates them — and from that point `x^2 - y` is a value you can differentiate, substitute into and compare, in the same way an integer is a value you can add.',
+          /*
+           * Written without code spans, and it is not a style choice.
+           * `ReaderScreen` renders each paragraph as a plain text node — there
+           * is no Markdown in the passage path — so a backtick is a backtick on
+           * screen. This paragraph shipped twelve of them, visible at
+           * /v4/space/s-crypto/lesson/l-s-crypto-6/read. Giving passages code
+           * spans is a change to the `Passage` type and its renderer, not
+           * something a fixture may assume; `reader.test.ts` now refuses the
+           * assumption on every fixture rather than on this one.
+           */
+          'A symbolic expression in Sage is an object in the symbolic ring, not a piece of text waiting to be parsed. Names have to be brought into being before they can be used — var("x, y") creates them — and from that point x^2 − y is a value you can differentiate, substitute into and compare, in the same way an integer is a value you can add.',
           'The consequence people trip over is that nothing simplifies itself. Sage will hold an expression in exactly the shape you built it in until you ask otherwise, because two expressions that are mathematically equal are rarely equally useful, and choosing between them is your decision rather than the system’s.',
         ],
       },
@@ -514,8 +524,8 @@ export const cryptoLessons: Lesson[] = [
         conceptId: 'c-l-s-crypto-6-2',
         heading: 'The preparser',
         body: [
-          'Sage is Python with one layer in front of it. Before Python sees a line, the preparser rewrites it: `2` becomes a Sage integer rather than a machine int, `^` becomes exponentiation rather than exclusive-or, and `1/3` becomes an exact rational rather than a truncated division.',
-          'That layer is why `2^10` is 1024 here and 8 in plain Python, and why arithmetic stays exact until you ask for a decimal. It is also the first thing to remember when pasting code the other way: what runs in Sage will not always run in a bare Python interpreter, and the difference is a rewrite you never see.',
+          'Sage is Python with one layer in front of it. Before Python sees a line, the preparser rewrites it: a bare 2 becomes a Sage integer rather than a machine int, the caret becomes exponentiation rather than exclusive-or, and 1/3 becomes an exact rational rather than a truncated division.',
+          'That layer is why 2^10 is 1024 here and 8 in plain Python, and why arithmetic stays exact until you ask for a decimal. It is also the first thing to remember when pasting code the other way: what runs in Sage will not always run in a bare Python interpreter, and the difference is a rewrite you never see.',
         ],
       },
     ],

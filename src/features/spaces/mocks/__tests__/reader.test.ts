@@ -87,6 +87,42 @@ describe('passages describe the ideas the Lesson actually has', () => {
       }
     }
   });
+
+  it('writes no markup the renderer cannot honour', () => {
+    /*
+     * Found on screen, not in a review: `l-s-crypto-6` shipped twelve literal
+     * grave accents. Its author wrote Markdown code spans — `var("x, y")`,
+     * `2^10` — and `ReaderScreen` renders a paragraph as a plain text node, so
+     * every one of them was a backtick a reader could see. The length and
+     * filler rules above have no opinion about punctuation, and neither did
+     * anything else in the suite.
+     *
+     * The rule belongs to the renderer rather than to that fixture, which is
+     * why it sweeps every written Lesson: whoever writes the next passage will
+     * reach for the same convention. The day passages *do* render code spans
+     * is the day this test is deleted on purpose, rather than the day it
+     * quietly stopped meaning anything.
+     *
+     * The Material's pages take the same plain-text path, so they are held to
+     * the same rule.
+     */
+    const MARKUP = /`|\*\*|\[[^\]]+\]\([^)]+\)/;
+    const say = (where: string, text: string) =>
+      expect(text, `${where} carries markup that renders as itself`).not.toMatch(MARKUP);
+
+    for (const l of written) {
+      for (const p of l.passages ?? []) {
+        say(`${l.title} / ${p.heading}`, p.heading);
+        for (const para of p.body) say(`${l.title} / ${p.heading}`, para);
+      }
+    }
+    for (const l of paginated) {
+      for (const page of l.material?.pages ?? []) {
+        say(`${l.title} / page ${page.page}`, page.title);
+        for (const b of page.bullets) say(`${l.title} / page ${page.page}`, b);
+      }
+    }
+  });
 });
 
 describe('the Material describes the same ideas the Lesson does', () => {
