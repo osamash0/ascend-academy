@@ -1,15 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ListChecks } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { spaceById } from '../mocks/spaces';
 import { adjacentLessons, visibleLesson } from '../mocks/lessons';
+import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
+import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
 import { PressableLink } from '../components/Pressable';
 import { ReaderHeader } from '../components/reader/ReaderHeader';
 import type { RailTab, ReaderView } from '../components/reader/ReaderHeader';
+import { ReaderRail } from '../components/reader/ReaderRail';
 import { SourceView } from '../components/reader/SourceView';
 
 /**
@@ -47,6 +51,12 @@ import { SourceView } from '../components/reader/SourceView';
  * rail closed it is the same 52ch inside the same `max-w-2xl` it has always
  * been, which is the "summoned, never squatting" rule stated as a diff.
  *
+ * The companions hang off the same bar. They are *summoned*: closed, there is
+ * no rail in the document at all, and the column is byte-for-byte the column
+ * it was before any of this existed. Open, the wrapper around the column steps
+ * aside — the column itself never learns that anything happened to it, which
+ * is the only way that rule can survive somebody editing this file later.
+ *
  * There are now two views of one Lesson: the prose, and the Material it was
  * written from. Which of the four shapes a Lesson has is derived rather than
  * remembered — see `effectiveView` below. The important one is the third: a
@@ -54,6 +64,45 @@ import { SourceView } from '../components/reader/SourceView';
  * holding the thing you came to read. It opens in the Material instead, and
  * the dead end is gone without anybody having to write prose to remove it.
  */
+
+/**
+ * The dock, as one class on a wrapper the article knows nothing about.
+ *
+ * "Summoned, never squatting" is a rule about the *column*, so the column may
+ * not be the thing that moves: its class list has to be byte-identical open
+ * and closed. The wrapper around it takes the shift instead.
+ *
+ * It is a shift and never a squeeze. Narrowing the wrapper — `mr-96`, the
+ * obvious first idea — reads correctly down to about 1056px and then starts
+ * eating the measure: at 900px the column would come out 460px of text wide
+ * against a 555px line, which is the one thing the reader is not allowed to
+ * lose.
+ *
+ * The number is the rail's half-width, so a column centred in the page ends up
+ * centred in what is left of it. It is clamped by the room actually available
+ * on the left — `(100% - 624px)/2` is the distance from the page edge to the
+ * first character — because a flat 192px pushes the first few characters off
+ * the left edge of a 900px window, which is a worse failure than the one it
+ * fixes. Between 900 and 939px neither is fully avoidable, and the arithmetic
+ * says why: 384 of rail plus 555 of measure is 939, and a 900px window offers
+ * 892. The two numbers this reader was given are simply inconsistent down
+ * there, so the clamp spends the shortfall on the right — the last few
+ * characters of the longest lines pass under the rail's edge — rather than on
+ * the left, where they would be cut off the page entirely. Under 900 the rail
+ * stops docking and overlays instead.
+ *
+ * `100%` rather than `100vw`, and it was measured: a translate percentage
+ * resolves against this wrapper, which is the page, while `100vw` includes the
+ * scrollbar the page does not have. At 900px that eight-pixel lie became four
+ * pixels of the first character column hanging off the left edge — the exact
+ * failure the clamp is here to prevent, reintroduced by the unit.
+ *
+ * No transition on it, deliberately: `transition-transform` is banned across
+ * this namespace because it animates past `prefers-reduced-motion`, and the
+ * honest alternative — Motion — cannot interpolate a `calc` of percentages.
+ * So the column steps aside rather than gliding.
+ */
+const DOCKED = '[@media(min-width:900px)]:translate-x-[calc(-1*min(192px,(100%_-_624px)/2))]';
 
 export default function ReaderScreen() {
   const screenState = useScreenState();
@@ -77,6 +126,22 @@ export default function ReaderScreen() {
   const [view, setView] = useState<ReaderView>('read');
   const [railTab, setRailTab] = useState<RailTab | null>(null);
   const toggleRail = (tab: RailTab) => setRailTab((open) => (open === tab ? null : tab));
+  /*
+   * Stable, because the rail listens for Escape on the document and would
+   * otherwise tear the listener down and put it back on every render of the
+   * screen — including every keystroke into a note.
+   */
+  const closeRail = useCallback(() => setRailTab(null), []);
+
+  /*
+   * One tick per write, the same shape `LessonScreen` uses: the note store
+   * lives outside React, so nothing else would tell this list it had changed.
+   */
+  const [noteTick, setNoteTick] = useState(0);
+  const myNotes = useMemo(
+    () => (lessonId ? notesForLesson(lessonId) : []),
+    [lessonId, noteTick],
+  );
 
   /*
    * Which page of the Material is showing — held here, beside the view and the
@@ -202,6 +267,93 @@ export default function ReaderScreen() {
   );
 
   /*
+   * Notes, in the rail, written against the same store Library reads.
+   *
+   * Composed here rather than inside `ReaderRail` for the same reason the
+   * tutor will be: the rail owns chrome, and a panel that knew which Lesson it
+   * was anchored to would make the rail a thing you have to edit to add a
+   * third companion.
+   */
+  const notesPanel = (
+    <div className="space-y-2.5 px-4 py-4">
+      {myNotes.map((n) => (
+        <NoteEditor
+          key={n.id}
+          value={n.body}
+          onSave={(body) => {
+            updateNote(n.id, body);
+            setNoteTick((t) => t + 1);
+          }}
+          onDelete={() => {
+            deleteNote(n.id);
+            setNoteTick((t) => t + 1);
+          }}
+        />
+      ))}
+
+      {/*
+        Remounted on every write — the key carries the tick — so the composer
+        empties itself after a save instead of holding the note you just wrote.
+      */}
+      <NoteEditor
+        key={`new-${noteTick}`}
+        placeholder="Private to you, and gathered in your Library."
+        onSave={(body) => {
+          addNote({
+            lessonId: lesson.id,
+            body,
+            lessonTitle: lesson.title,
+            spaceId: space.id,
+            spaceName: space.name,
+          });
+          setNoteTick((t) => t + 1);
+        }}
+      />
+
+      {myNotes.length === 0 && (
+        <p className="px-1 text-[13px] text-faint">
+          Nothing yet. Notes are private, and only you ever see them.
+        </p>
+      )}
+    </div>
+  );
+
+  /*
+   * The tutor's seat, held open. Task 4 replaces this node and nothing else —
+   * which is the whole point of the rail taking its panels as props.
+   */
+  const tutorPanel = (
+    <p className="px-5 py-6 text-[13px] text-faint">
+      The tutor is not here yet. Notes are, one tab across.
+    </p>
+  );
+
+  /*
+   * Header, body, rail — for every shape of Lesson below.
+   *
+   * The rail hangs off the composition rather than off one branch because the
+   * two companions are about the *Lesson*, not about which of its two views
+   * happens to be showing. Notes on an unwritten Lesson are exactly the notes
+   * somebody would want.
+   */
+  const readerChrome = (body: React.ReactNode) =>
+    chrome(
+      <>
+        {header}
+        <div className={cn(railTab !== null && DOCKED)}>{body}</div>
+        <ReaderRail
+          open={railTab !== null}
+          /* Meaningless while closed — the rail renders nothing at all then. */
+          tab={railTab ?? 'notes'}
+          onTabChange={setRailTab}
+          onClose={closeRail}
+          tutor={tutorPanel}
+          notes={notesPanel}
+        />
+      </>,
+    );
+
+  /*
    * The Material, when there is one to show.
    *
    * Its own measure: a page card is a landscape thing and reads badly forced
@@ -217,31 +369,28 @@ export default function ReaderScreen() {
    * two the arrows should walk is a decision, not a drive-by.
    */
   if (pages.length > 0 && effectiveView === 'source') {
-    return chrome(
-      <>
-        {header}
-        <div className="mx-auto max-w-[860px] px-6 pb-32 pt-24">
-          <div className="mb-6">
-            <h1 className="text-[15px] font-semibold">{lesson.title}</h1>
-            <p className="mt-0.5 text-[12.5px] text-faint">
-              The Material this Lesson was built from
-            </p>
-          </div>
-          <SourceView
-            pages={pages}
-            concepts={lesson.concepts}
-            page={page}
-            onPageChange={setPage}
-            /*
-              No handler when there is no text to jump into. Passing one
-              anyway made the sync line a button that called back, derived
-              its way straight back to this view, and did nothing — which is
-              the dead end this branch exists to remove, one line lower down.
-            */
-            onJumpToPassage={passages.length > 0 ? jumpToPassage : undefined}
-          />
+    return readerChrome(
+      <div className="mx-auto max-w-[860px] px-6 pb-32 pt-24">
+        <div className="mb-6">
+          <h1 className="text-[15px] font-semibold">{lesson.title}</h1>
+          <p className="mt-0.5 text-[12.5px] text-faint">
+            The Material this Lesson was built from
+          </p>
         </div>
-      </>,
+        <SourceView
+          pages={pages}
+          concepts={lesson.concepts}
+          page={page}
+          onPageChange={setPage}
+          /*
+            No handler when there is no text to jump into. Passing one anyway
+            made the sync line a button that called back, derived its way
+            straight back to this view, and did nothing — which is the dead
+            end this branch exists to remove, one line lower down.
+          */
+          onJumpToPassage={passages.length > 0 ? jumpToPassage : undefined}
+        />
+      </div>,
     );
   }
 
@@ -256,29 +405,25 @@ export default function ReaderScreen() {
    * while the file it was built from sat one branch above.
    */
   if (passages.length === 0) {
-    return chrome(
-      <>
-        {header}
-        <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center px-6 pt-14 text-center">
-          <p className="mb-2 text-[17px] font-semibold">Not written yet</p>
-          <p className="mb-7 max-w-[46ch] text-[14.5px] leading-relaxed text-quiet">
-            {lesson.title} has its ideas and its practice, but the text itself has not been
-            built from the material yet.
-          </p>
-          <Link
-            to={back}
-            className="console-focusable inline-flex h-11 items-center rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium"
-          >
-            Back to the Lesson
-          </Link>
-        </div>
-      </>,
+    return readerChrome(
+      <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center px-6 pt-14 text-center">
+        <p className="mb-2 text-[17px] font-semibold">Not written yet</p>
+        <p className="mb-7 max-w-[46ch] text-[14.5px] leading-relaxed text-quiet">
+          {lesson.title} has its ideas and its practice, but the text itself has not been
+          built from the material yet.
+        </p>
+        <Link
+          to={back}
+          className="console-focusable inline-flex h-11 items-center rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium"
+        >
+          Back to the Lesson
+        </Link>
+      </div>,
     );
   }
 
-  return chrome(
+  return readerChrome(
     <>
-      {header}
       {/*
         `pt-28` is the fixed header's 56px plus the 56px of air the old inline
         row left above the title. It is the only thing about this column the

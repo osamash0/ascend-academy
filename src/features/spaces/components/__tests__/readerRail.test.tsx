@@ -1,0 +1,347 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ReaderRail } from '../reader/ReaderRail';
+import ReaderScreen from '../../screens/ReaderScreen';
+import { allNotes, notesForLesson, resetNotes } from '../../mocks/notes';
+
+/**
+ * The rail, and the rule it exists to keep.
+ *
+ * *Summoned, never squatting.* Two halves, and both are asserted here because
+ * only one of them is visible: the rail must leave no trace in the document
+ * when it is closed, and the article column must be the same column with it
+ * open. A rail that merely slid off-screen would pass a screenshot and fail a
+ * keyboard — it would still be in the accessibility tree and still take a Tab
+ * — so "absent" is checked against the tree, not against a transform.
+ *
+ * The focus contract is tested down all three exits on purpose. It is the part
+ * most easily written to work for the one path the author happened to try:
+ * Escape, the close button, and pressing the header toggle a second time are
+ * three different callers of the same close, and a return that only survives
+ * one of them is a return that will be found by a keyboard user rather than by
+ * a test.
+ */
+
+const LESSON = 'l-s-dbs-4';
+
+const mountRail = (over: Partial<React.ComponentProps<typeof ReaderRail>> = {}) =>
+  render(
+    <ReaderRail
+      open
+      tab="notes"
+      onTabChange={() => {}}
+      onClose={() => {}}
+      tutor={<p>tutor panel</p>}
+      notes={<p>notes panel</p>}
+      {...over}
+    />,
+  );
+
+describe('the rail is chrome around panels it does not own', () => {
+  it('is a landmark with a name', () => {
+    // `<aside>` alone is an unnamed region — one of several on a page, and
+    // indistinguishable from the others in a landmark list.
+    mountRail();
+    expect(screen.getByRole('complementary', { name: 'Reader companions' })).toBeTruthy();
+  });
+
+  it('shows the panel it was asked for, and not the other one', () => {
+    mountRail({ tab: 'notes' });
+    expect(screen.getByText('notes panel')).toBeTruthy();
+    expect(screen.queryByText('tutor panel')).toBeNull();
+  });
+
+  it('reports the tab that was pressed rather than switching itself', () => {
+    // Which companion is out is screen state — the same state the header's
+    // two buttons write. A rail holding its own copy would let the two
+    // disagree about what is showing.
+    const onTabChange = vi.fn();
+    mountRail({ tab: 'notes', onTabChange });
+    fireEvent.click(screen.getByRole('tab', { name: 'Tutor' }));
+    expect(onTabChange).toHaveBeenCalledWith('tutor');
+  });
+
+  it('says which tab is showing', () => {
+    mountRail({ tab: 'tutor' });
+    const tabs = screen.getByRole('tablist', { name: 'Companions' });
+    expect(within(tabs).getByRole('tab', { name: 'Tutor' }).getAttribute('aria-selected')).toBe(
+      'true',
+    );
+    expect(within(tabs).getByRole('tab', { name: 'Notes' }).getAttribute('aria-selected')).toBe(
+      'false',
+    );
+  });
+
+  it('leaves nothing in the document when it is closed', () => {
+    /*
+     * The whole of RULING F3 in one assertion. "Fully translated off" was the
+     * other option and is not equivalent: a rail parked at `translateX(100%)`
+     * is still focusable, still announced, and still between the article and
+     * the end of the tab order.
+     */
+    const { container } = mountRail({ open: false });
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByRole('complementary')).toBeNull();
+  });
+
+  it('closes on Escape', () => {
+    const onClose = vi.fn();
+    mountRail({ onClose });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('leaves Escape to a field that is already using it', () => {
+    /*
+     * `NoteEditor` cancels an edit with Escape. One key must not both throw
+     * away what you were writing and take the panel away — the second press,
+     * with the editor closed, is the one that closes the rail.
+     */
+    const onClose = vi.fn();
+    mountRail({ notes: <textarea data-testid="field" /> });
+    fireEvent.keyDown(screen.getByTestId('field'), { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('stops listening for Escape once it is gone', () => {
+    // A document-level listener that outlives its component is a rail that
+    // closes something that is not there, on a screen it no longer belongs to.
+    const onClose = vi.fn();
+    const { unmount } = mountRail({ onClose });
+    unmount();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+/* ── The rail on the screen that summons it ──────────────────────── */
+
+const renderReader = async (lessonId = LESSON) => {
+  const r = render(
+    <MemoryRouter initialEntries={[`/v4/space/s-dbs/lesson/${lessonId}/read`]}>
+      <Routes>
+        <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<ReaderScreen />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  // Every screen holds a skeleton for 600ms so the loading state is real.
+  await waitFor(() => expect(screen.getByRole('banner')).toBeTruthy(), { timeout: 3000 });
+  return r;
+};
+
+/**
+ * Press a header button the way a pointer does.
+ *
+ * `fireEvent.click` does not focus what it clicks, and the focus return reads
+ * `document.activeElement` at the moment the rail opens — so a plain click
+ * would leave the rail with nothing to hand focus back to and the assertion
+ * would be testing the test harness. A real browser focuses on mousedown.
+ */
+const press = (name: string) => {
+  const btn = screen.getByRole('button', { name });
+  btn.focus();
+  fireEvent.click(btn);
+  return btn;
+};
+
+beforeEach(resetNotes);
+
+describe('the column is the same column, open or closed', () => {
+  it('never changes a class on the article itself', async () => {
+    /*
+     * The "summoned, never squatting" guard, and the reason the shift lives on
+     * a wrapper. Byte-identical, not merely "still contains max-w-2xl": a rail
+     * that narrowed the measure to make room would keep that substring while
+     * taking exactly the thing the reader was built around.
+     */
+    const { container } = await renderReader();
+    const closed = container.querySelector('article')!.className;
+    const measures = [...container.querySelectorAll('article section p')].map((p) => p.className);
+
+    press('Notes');
+    const open = container.querySelector('article')!.className;
+
+    expect(open).toBe(closed);
+    expect([...container.querySelectorAll('article section p')].map((p) => p.className)).toEqual(
+      measures,
+    );
+    expect(open).toContain('max-w-2xl');
+    expect(measures[0]).toContain('max-w-[52ch]');
+  });
+
+  it('shifts a wrapper instead, and only where there is room for one', async () => {
+    /*
+     * The dock is a media query at 900px, so it cannot be observed in a DOM
+     * with no layout. What is checkable here is that the moving part is *not*
+     * the article — the wrapper carries the transform, the article's ancestors
+     * change, its own class list does not — and that the shift is gone again
+     * when the rail is.
+     */
+    const { container } = await renderReader();
+    const shifted = () => container.querySelector('[class*="translate-x-"]');
+    expect(shifted()).toBeNull();
+
+    press('Notes');
+    const wrapper = shifted();
+    expect(wrapper, 'nothing steps aside for the rail').not.toBeNull();
+    expect(wrapper!.tagName).not.toBe('ARTICLE');
+    expect(wrapper!.className).toContain('min-width:900px');
+
+    press('Notes');
+    expect(shifted()).toBeNull();
+  });
+});
+
+describe('the rail comes and goes with the header buttons', () => {
+  it('is not in the document until it is asked for', async () => {
+    await renderReader();
+    expect(screen.queryByRole('complementary', { name: 'Reader companions' })).toBeNull();
+  });
+
+  it('opens on the tab that summoned it', async () => {
+    await renderReader();
+    press('Tutor');
+    const rail = screen.getByRole('complementary', { name: 'Reader companions' });
+    expect(within(rail).getByRole('tab', { name: 'Tutor' }).getAttribute('aria-selected')).toBe(
+      'true',
+    );
+  });
+
+  it('swaps panels from inside the rail, and the header agrees', async () => {
+    await renderReader();
+    press('Tutor');
+    const rail = screen.getByRole('complementary', { name: 'Reader companions' });
+    fireEvent.click(within(rail).getByRole('tab', { name: 'Notes' }));
+    expect(within(rail).getByRole('tab', { name: 'Notes' }).getAttribute('aria-selected')).toBe(
+      'true',
+    );
+    // The header's two buttons are the same state, seen from outside.
+    expect(screen.getByRole('button', { name: 'Notes' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Tutor' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+  });
+
+  it('goes away entirely on Escape', async () => {
+    await renderReader();
+    press('Notes');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('complementary', { name: 'Reader companions' })).toBeNull();
+  });
+
+  it('is summoned on a Lesson that has no text to read', async () => {
+    // Notes on an unwritten Lesson are exactly the notes somebody would want.
+    await renderReader('l-s-dbs-3');
+    expect(screen.getByText('Not written yet')).toBeTruthy();
+    press('Notes');
+    expect(screen.getByRole('complementary', { name: 'Reader companions' })).toBeTruthy();
+  });
+});
+
+describe('focus goes in, and comes back the way it went', () => {
+  it('moves into the rail when it opens', async () => {
+    await renderReader();
+    press('Notes');
+    const rail = screen.getByRole('complementary', { name: 'Reader companions' });
+    expect(rail.contains(document.activeElement)).toBe(true);
+  });
+
+  it('returns to the button that opened it — closed with Escape', async () => {
+    await renderReader();
+    const opener = press('Notes');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('returns to the button that opened it — closed from the rail', async () => {
+    await renderReader();
+    const opener = press('Tutor');
+    fireEvent.click(screen.getByRole('button', { name: 'Close companions' }));
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('returns to the button that opened it — closed by pressing it again', async () => {
+    /*
+     * The path most likely to be missed, and the one where getting it wrong is
+     * invisible: the button already has focus, so a return that never fires
+     * looks exactly like a return that did.
+     */
+    await renderReader();
+    const opener = press('Notes');
+    fireEvent.click(opener);
+    expect(screen.queryByRole('complementary', { name: 'Reader companions' })).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+});
+
+describe('notes are written from the rail', () => {
+  const openNotes = async () => {
+    await renderReader();
+    press('Notes');
+    return screen.getByRole('complementary', { name: 'Reader companions' });
+  };
+
+  it('lists the Lesson’s existing notes', async () => {
+    const seeded = notesForLesson(LESSON);
+    expect(seeded.length, 'no seeded note on the fixture').toBeGreaterThan(0);
+    const rail = await openNotes();
+    for (const n of seeded) expect(within(rail).getByText(n.body)).toBeTruthy();
+  });
+
+  it('offers the composer with the established promise on it', async () => {
+    const rail = await openNotes();
+    fireEvent.click(within(rail).getByRole('button', { name: 'Write a note' }));
+    expect(
+      within(rail).getByPlaceholderText('Private to you, and gathered in your Library.'),
+    ).toBeTruthy();
+  });
+
+  it('writes to the store and to the list, without a reload', async () => {
+    /*
+     * Both halves matter. The note store lives outside React, so a rail that
+     * saved correctly and never re-read would look broken until you navigated
+     * away and back — which is the bug the `noteTick` pattern exists to
+     * prevent, and it is invisible unless the list is asserted too.
+     */
+    const before = allNotes().length;
+    const rail = await openNotes();
+    fireEvent.click(within(rail).getByRole('button', { name: 'Write a note' }));
+    const field = within(rail).getByPlaceholderText(
+      'Private to you, and gathered in your Library.',
+    );
+    fireEvent.change(field, { target: { value: 'BCNF is 3NF with no exceptions.' } });
+    fireEvent.blur(field);
+
+    expect(allNotes().length).toBe(before + 1);
+    expect(allNotes()[0].body).toBe('BCNF is 3NF with no exceptions.');
+    expect(allNotes()[0].lessonId).toBe(LESSON);
+    expect(within(rail).getByText('BCNF is 3NF with no exceptions.')).toBeTruthy();
+  });
+
+  it('anchors what it writes to the Lesson it was written on', async () => {
+    // A note outlives its anchor, so the anchor has to be stored rather than
+    // resolved later — and an unanchored note reads as "No Space yet".
+    const rail = await openNotes();
+    fireEvent.click(within(rail).getByRole('button', { name: 'Write a note' }));
+    const field = within(rail).getByPlaceholderText(
+      'Private to you, and gathered in your Library.',
+    );
+    fireEvent.change(field, { target: { value: 'A dependency on part of a key.' } });
+    fireEvent.blur(field);
+    const written = allNotes()[0];
+    expect(written.spaceId).toBe('s-dbs');
+    expect(written.lessonTitle).toBe('Normalization');
+    expect(written.spaceName.length).toBeGreaterThan(0);
+  });
+
+  it('says what is not there yet, when nothing is', async () => {
+    await renderReader('l-s-dbs-3');
+    press('Notes');
+    const rail = screen.getByRole('complementary', { name: 'Reader companions' });
+    expect(notesForLesson('l-s-dbs-3')).toHaveLength(0);
+    expect(
+      within(rail).getByText('Nothing yet. Notes are private, and only you ever see them.'),
+    ).toBeTruthy();
+  });
+});
