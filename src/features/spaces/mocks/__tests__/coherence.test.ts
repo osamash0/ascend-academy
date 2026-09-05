@@ -6,6 +6,7 @@ import {
   contributionsForLesson,
   normalizationContributions,
   spaceContributions,
+  linalgContributions,
 } from '../contributions';
 import { conceptContributions } from '../concepts';
 import { impactRows } from '../library';
@@ -33,9 +34,22 @@ import { viewer } from '../people';
  *     clause of its own sentence.
  */
 
+/*
+ * All four fixture groups. `linalgContributions` was missing — the app indexes
+ * it in `byLesson` and returns it from `contributionsForSpace`, so a variable
+ * called `everyContribution` was a quarter short.
+ *
+ * Honest about the effect: this changes no result today. None of the three are
+ * viewer-authored, so the `mine` filter below is unaffected, and no endorsement
+ * notification quotes one. The lookups at lines below `expect(c).toBeDefined()`
+ * rather than skipping, so the omission was a latent *false failure* waiting
+ * for the first notification about a Linear Algebra contribution — not a hole
+ * letting something through.
+ */
 const everyContribution = [
   ...normalizationContributions,
   ...spaceContributions,
+  ...linalgContributions,
   ...conceptContributions,
 ];
 

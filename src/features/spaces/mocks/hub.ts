@@ -61,6 +61,39 @@ export const actionFor = (m: Membership): { label: string; disabled: boolean } =
 export const myHubSpaces = (): Space[] =>
   visibleSpaces().filter((s) => s.viewerRole !== null && s.state === 'active');
 
+/**
+ * Your archived Spaces.
+ *
+ * `myHubSpaces` filters on `state === 'active'`, so an archived Space appeared
+ * nowhere on this screen at all — not in the chip row, not in a rail. The
+ * viewer's "Statistik I" was simply unreachable from Spaces, and the progress
+ * recorded in it with it.
+ *
+ * `notes-spaces-screen.md` is explicit about why that is not a detail:
+ * "Archived: collapsed section at bottom, **never hidden (progress lives
+ * there)**." Archiving a Space is not deleting it — Doc 1 calls archived
+ * "read-only, keeps progress, earns no XP" — so the one thing the screen must
+ * not do is behave as though it were gone.
+ */
+export const archivedForViewer = (): Space[] =>
+  visibleSpaces().filter((s) => s.viewerRole !== null && s.state === 'archived');
+
+/** How your Spaces can be ordered. */
+export type SpaceSort = 'active' | 'name';
+
+/**
+ * Your Spaces, ordered.
+ *
+ * Sorting lives here rather than in the screen so the chip row and anything
+ * else showing the same set cannot disagree about the order.
+ */
+export const sortSpaces = (spaces: Space[], by: SpaceSort): Space[] =>
+  [...spaces].sort((a, b) =>
+    by === 'name'
+      ? a.name.localeCompare(b.name)
+      : (b.lastActiveAt ?? '').localeCompare(a.lastActiveAt ?? ''),
+  );
+
 /* ── The rails ─────────────────────────────────────────────────── */
 
 /**
@@ -121,6 +154,30 @@ export const newThisWeek = (): Space[] =>
   visibleSpaces()
     .filter((s) => s.viewerRole === null && s.visibility === 'public')
     .sort((a, b) => +new Date(b.lastActiveAt) - +new Date(a.lastActiveAt));
+
+/**
+ * "Worth a look" — the Discover scope: every Space you are not in.
+ *
+ * The spec already states this for a brand-new account — "rails = discover
+ * content only" — and the Discover chip is that same scope, chosen on purpose
+ * rather than arrived at by having joined nothing. Selecting it used to change
+ * the hero copy and the cover art and nothing else: the rails underneath went
+ * on showing "Jump back in", which is the exact opposite of discovering.
+ *
+ * **One rail, mixed visibility.** Public and invite-only sit together and the
+ * card carries the lock, for the same reason `popularNow` mixes joined and
+ * unjoined: the concept note's law is that membership is a property of a card,
+ * never a section split, and visibility is no different. Splitting "join in one
+ * click" from "ask first" into two rails would reintroduce exactly the sorting
+ * the hub deleted the Mine/Discover tabs to avoid.
+ *
+ * `private` is excluded because it is not discoverable at all — that is what
+ * the third `Visibility` value means.
+ */
+export const worthALook = (): Space[] =>
+  visibleSpaces()
+    .filter((s) => s.viewerRole === null && s.visibility !== 'private' && s.state === 'active')
+    .sort((a, b) => b.starCount - a.starCount);
 
 /** Whether the hub has anything at all to show. Used for the empty state. */
 export const hubHasContent = (): boolean =>

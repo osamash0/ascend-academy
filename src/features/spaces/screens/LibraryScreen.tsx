@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import {
   FileText,
+  FolderInput,
   Heart,
   NotebookPen,
   Plus,
@@ -18,6 +19,8 @@ import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { NoteEditor } from '../components/NoteEditor';
 import { addNote, updateNote } from '../mocks/notes';
+import { myContributionById } from '../mocks/library';
+import { ReanchorDialog } from '../components/ReanchorDialog';
 import { BentoCell } from '../components/BentoCell';
 import { Scene, SURFACES } from '../components/Scene';
 import { EndorsedBadge } from '../components/badges';
@@ -98,6 +101,15 @@ export default function LibraryScreen() {
    * directly" could only be read.
    */
   const [composing, setComposing] = useState(false);
+  /** The orphan being re-filed, if the dialog is open. */
+  const [reanchoring, setReanchoring] = useState<LibraryItem | null>(null);
+  /*
+   * A re-anchor mutates a store outside React, and `useLibrary` recomputes on
+   * render — so the list needs a nudge to re-read it. `useReducer` rather than
+   * a counter in `useState`: the value is never read, and an unread `useState`
+   * pair is the dead `writeTick` that was just removed from this file.
+   */
+  const [, reread] = useReducer((n: number) => n + 1, 0);
   const { state, items, notes, pending } = useLibrary();
 
   const latestNote = notes[0];
@@ -243,14 +255,10 @@ export default function LibraryScreen() {
           icon={Sparkles}
           label="How your work landed"
           /*
-           * Spans whatever is left of the row.
-           *
-           * Four cells over four columns, and the first one is two wide when
-           * there is a note to show: 2+1+1 fills row one exactly, leaving this
-           * cell alone on row two at half width with 486px of empty grid
-           * beside it. With no note the row is 1+1+2 and already balances — so
-           * a fixed span cannot be right for both, and this one followed the
-           * note.
+           * Spans whatever is left of the row. Four cells over four columns,
+           * and the first is two wide when there is a note: 2+1+1 fills row
+           * one exactly, leaving this alone on row two at half width. With no
+           * note the row is 1+1+2 and already balances.
            */
           className={cn('sm:col-span-2', latestNote && 'lg:col-span-4')}
           /*
@@ -358,17 +366,55 @@ export default function LibraryScreen() {
                   }}
                 />
               ) : (
-                <LibraryRow item={item} />
+                <LibraryRow item={item} onReanchor={() => setReanchoring(item)} />
               )}
             </EnterListItem>
           ))}
         </EnterList>
       )}
+
+      {/*
+        Mounted from the id on the row. A Library item is a projection of a
+        contribution, not the contribution itself, so the dialog is given the
+        real one — it needs `orphaned` to refuse a move it should not make.
+      */}
+      {reanchoring &&
+        (() => {
+          const c = myContributionById(reanchoring.id.replace(/^lib-con-/, ''));
+          if (!c) return null;
+          return (
+            <ReanchorDialog
+              contribution={c}
+              spaceId={reanchoring.spaceId}
+              spaceName={reanchoring.spaceName}
+              /*
+               * Library only ever lists your own work, so the author branch of
+               * `canReanchor` is what authorises this. The Space's role is not
+               * known on this screen and must not be guessed at — passing
+               * `null` says exactly that.
+               */
+              viewerRole={null}
+              open
+              onOpenChange={(v) => !v && setReanchoring(null)}
+              onMoved={() => {
+                setReanchoring(null);
+                reread();
+              }}
+            />
+          );
+        })()}
     </div>,
   );
 }
 
-function LibraryRow({ item }: { item: LibraryItem }) {
+function LibraryRow({
+  item,
+  onReanchor,
+}: {
+  item: LibraryItem;
+  /** Only offered on an orphan, and only for your own contributions. */
+  onReanchor?: () => void;
+}) {
   const Icon = KIND_ICON[item.kind];
   // Notes open here; everything else is a pointer into its Space.
 
@@ -423,10 +469,36 @@ function LibraryRow({ item }: { item: LibraryItem }) {
         {item.orphaned && (
           <p className="mt-2 flex items-start gap-2 text-[13px] leading-relaxed text-quiet">
             <Unlink aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+            {/*
+              Main's wording, kept over mine. I had written it to avoid
+              instructing an action that did not exist — there was no control
+              anywhere that gave an orphan a new home, so "pick a new place for
+              it" failed `deadends.test.tsx`'s rule with no control to point
+              at. That is no longer true: the button directly below this does
+              exactly what the sentence describes, so the sentence can say so.
+            */}
             The Lesson this was attached to was removed. Your work is safe, and it
             keeps its likes — but it has nowhere to open until it is given a new
             home.
           </p>
+        )}
+
+        {/*
+          `relative z-10`, because the row is covered by an `absolute inset-0`
+          link and anything below it is unclickable. This is the same trap the
+          Studio rows hit from the other side, where a title link would have
+          swallowed the checkbox — an overlay makes every later control a
+          layering question.
+        */}
+        {item.orphaned && onReanchor && (
+          <Pressable
+            type="button"
+            onClick={onReanchor}
+            className="console-focusable relative z-10 mt-3 inline-flex h-9 items-center gap-1.5 rounded-full bg-white/[0.10] px-4 text-[13px] font-semibold text-foreground hover:bg-white/[0.16]"
+          >
+            <FolderInput aria-hidden className="h-3.5 w-3.5" />
+            Find it a new home
+          </Pressable>
         )}
       </div>
 

@@ -113,54 +113,100 @@ export interface XpEvent {
  * is worth is a Gamification-doc number nobody has decided, and inventing a
  * constant here would put a made-up rule in front of people.
  */
+/*
+ * The dates are not decoration — Moments reads firsts off them.
+ *
+ * Three were wrong when written. Both learning events sat on June days the
+ * study record does not contain; the milestone claimed 14 June while the
+ * viewer's earliest contribution is dated 2 June; and "Mnemonic for the normal
+ * forms" was liked on 21 July, nine days before the contribution was created.
+ * All four only became visible once a screen derived an ordering from them —
+ * a ledger nobody sorts can hold any dates at all.
+ */
 export const xpEvents: XpEvent[] = [
+  /*
+   * One learning event per Lesson actually finished, at 4 XP each.
+   *
+   * There were two, at 10 XP, while `studyDays` recorded *five* days whose
+   * summary begins "Finished" — so three Lessons were finished and earned
+   * nothing, in a product whose first rule about XP is that learning earns it.
+   * Five at four keeps the total at 20 and the ledger honest.
+   */
   {
     id: 'xp-1',
     source: 'learning',
-    label: 'Finished “Vectors and Matrices”',
+    label: 'Finished your first Lesson',
     spaceName: 'Intro to Linear Algebra',
-    amount: 10,
-    at: '2026-06-02T10:00:00Z',
+    amount: 4,
+    at: '2026-08-05T10:00:00Z',
   },
   {
     id: 'xp-2',
     source: 'learning',
-    label: 'Finished “Orthogonality and Projections”',
+    label: 'Finished “Vectors and Matrices”',
     spaceName: 'Intro to Linear Algebra',
-    amount: 10,
-    at: '2026-06-09T16:30:00Z',
+    amount: 4,
+    at: '2026-08-12T10:00:00Z',
   },
   {
     id: 'xp-3',
+    source: 'learning',
+    label: 'Finished “Eigenvalues”',
+    spaceName: 'Intro to Linear Algebra',
+    amount: 4,
+    at: '2026-08-14T10:00:00Z',
+  },
+  {
+    id: 'xp-4',
+    source: 'learning',
+    label: 'Finished “Orthogonality and Projections”',
+    spaceName: 'Intro to Linear Algebra',
+    amount: 4,
+    at: '2026-08-17T16:30:00Z',
+  },
+  {
+    id: 'xp-5',
+    source: 'learning',
+    label: 'Finished “Normalization”',
+    spaceName: 'Database Systems',
+    amount: 4,
+    at: '2026-08-29T11:00:00Z',
+  },
+  {
+    id: 'xp-6',
     source: 'milestone',
     label: 'Your first contribution — once, ever',
     spaceName: null,
     amount: 20,
-    at: '2026-06-14T09:15:00Z',
+    // The day of the first contribution itself, not a date of its own.
+    at: '2026-08-06T09:00:00Z',
   },
   {
-    id: 'xp-4',
+    id: 'xp-7',
     source: 'liked',
     label: '“Mnemonic for the normal forms” was liked',
     spaceName: 'Database Systems',
     amount: 6,
-    at: '2026-07-21T12:00:00Z',
+    // After the contribution existed. This said 2 August against a
+    // contribution created on the 28th — liked twenty-six days before it
+    // was written.
+    at: '2026-08-29T12:00:00Z',
   },
   {
-    id: 'xp-5',
+    id: 'xp-8',
     source: 'endorsed',
     label: 'An Owner endorsed “Mnemonic for the normal forms”',
     spaceName: 'Database Systems',
     amount: 8,
-    at: '2026-07-30T12:00:00Z',
+    at: '2026-08-30T12:00:00Z',
   },
   {
-    id: 'xp-6',
+    id: 'xp-9',
     source: 'used',
     label: 'Someone completed your practice set',
     spaceName: 'Database Systems',
     amount: 6,
-    at: '2026-08-11T18:40:00Z',
+    at: '2026-08-30T18:40:00Z',
   },
 ];
 
