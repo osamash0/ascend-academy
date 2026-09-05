@@ -191,6 +191,61 @@ describe('the column is the same column, open or closed', () => {
     press('Notes');
     expect(shifted()).toBeNull();
   });
+
+  /*
+   * The clamp is a number derived from Tailwind classes on a different
+   * element, and nothing connected the two. That is how the Source view ended
+   * up shifted past its own left edge: the constant was derived from the
+   * article, applied to a wrapper that also carries the 760px page card, and
+   * measured only at 1440px — the one width where the bug does not show. At
+   * 1024 the card sat at -60 and its first characters were not merely
+   * off-screen but unreachable, because content left of the origin creates no
+   * scroll area.
+   *
+   * jsdom has no layout, so the shift itself cannot be observed. What *can* be
+   * checked is the derivation — that the number in the clamp is still the
+   * number the classes imply. Both halves are pinned, because the previous
+   * guard pinned `max-w-2xl` and not `px-6`, and a padding change would have
+   * de-tuned the clamp with every test green.
+   */
+  /** Tailwind's scale, for the two classes the clamps are derived from. */
+  const PX = { 'max-w-2xl': 672, 'max-w-[860px]': 860, 'px-6': 24 };
+
+  const clampEdge = (el: Element | null) =>
+    Number(el?.className.match(/100%_-_(\d+)px/)?.[1] ?? NaN);
+
+  /** The content box of a column — where its first character actually sits. */
+  const contentBox = (maxW: keyof typeof PX) => PX[maxW] - 2 * PX['px-6'];
+
+  it('clamps the Read view to the first character of the article', async () => {
+    const { container } = await renderReader();
+    press('Notes');
+    const article = container.querySelector('article')!;
+    expect(article.className).toContain('max-w-2xl');
+    expect(article.className).toContain('px-6');
+    expect(clampEdge(container.querySelector('[class*="translate-x-"]'))).toBe(
+      contentBox('max-w-2xl'),
+    );
+  });
+
+  it('clamps the Source view to its whole column, not to the page card', async () => {
+    /*
+     * The column, because the column is the wider thing. Clamping to the card
+     * (760) puts the card at exactly 0 and the heading above it — which runs
+     * the full column width — at -26. It reads as correct in the place the eye
+     * goes first, which is what made it worth a test rather than a comment.
+     */
+    const { container } = await renderReader();
+    fireEvent.click(screen.getByRole('tab', { name: 'Source' }));
+    press('Notes');
+    const column = container.querySelector('[data-source-column]');
+    expect(column, 'no Source column to clamp to').not.toBeNull();
+    expect(column!.className).toContain('max-w-[860px]');
+    expect(column!.className).toContain('px-6');
+    expect(clampEdge(container.querySelector('[class*="translate-x-"]'))).toBe(
+      contentBox('max-w-[860px]'),
+    );
+  });
 });
 
 describe('the rail comes and goes with the header buttons', () => {

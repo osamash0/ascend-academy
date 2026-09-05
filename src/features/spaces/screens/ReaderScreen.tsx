@@ -102,8 +102,45 @@ import { TutorPanel } from '../components/reader/TutorPanel';
  * this namespace because it animates past `prefers-reduced-motion`, and the
  * honest alternative — Motion — cannot interpolate a `calc` of percentages.
  * So the column steps aside rather than gliding.
+ *
+ * One clamp per view, and the second one is why. The first version had a
+ * single constant derived from the article and put it on the wrapper — which
+ * wraps both views. Read was correct; Source is a wider column, so the clamp
+ * let it travel further left than its own edge allowed. Measured at 1024px:
+ * the page card sat at -60 and its heading at -20, and because content left of
+ * the origin creates no scroll area, the first character of every line was not
+ * off-screen but *unreachable*. Negative from about 900 to 1244, which is most
+ * laptops.
+ *
+ * The rule is identical for both views and only the width differs: clamp to
+ * the distance from the page edge to the first character, which is the
+ * column's content box — its `max-w` less both sides of its `px-6`. Read is
+ * 672 − 48 = 624; Source is 860 − 48 = 812.
+ *
+ * The tempting wrong answer is the page card's own 760, and it was tried: the
+ * card is centred inside the column, so clamping to it lands the card at
+ * exactly 0 and pushes the *heading above it* — which is full column width —
+ * to -26. It looked right in the one place the eye goes first. Clamp to the
+ * widest thing in the column, not the most prominent one.
+ *
+ * Both numbers are pinned by tests against the classes they come from, because
+ * a constant that quietly stops matching its class is how this bug got here.
  */
-const DOCKED = '[@media(min-width:900px)]:translate-x-[calc(-1*min(192px,(100%_-_624px)/2))]';
+/*
+ * Written out in full, twice, and it has to be. The first attempt built these
+ * from `dockShift(edge)` — one template literal, no repetition, obviously
+ * nicer. It also silently produced no CSS at all: Tailwind scans source text
+ * for class names, so a class assembled at runtime is a class it never sees,
+ * and both wrappers carried a rule that had never been generated. The class
+ * lists in the DOM were correct and `getComputedStyle` said `transform: none`.
+ *
+ * The jsdom guards below did not catch it either, because they compare class
+ * strings and there is no stylesheet behind them. Only the browser saw it.
+ */
+const DOCKED_READ =
+  '[@media(min-width:900px)]:translate-x-[calc(-1*min(192px,(100%_-_624px)/2))]';
+const DOCKED_SOURCE =
+  '[@media(min-width:900px)]:translate-x-[calc(-1*min(192px,(100%_-_812px)/2))]';
 
 export default function ReaderScreen() {
   const screenState = useScreenState();
@@ -372,11 +409,18 @@ export default function ReaderScreen() {
    * happens to be showing. Notes on an unwritten Lesson are exactly the notes
    * somebody would want.
    */
-  const readerChrome = (body: React.ReactNode) =>
+  const readerChrome = (body: React.ReactNode, docked: string = DOCKED_READ) =>
     chrome(
       <>
         {header}
-        <div className={cn(railTab !== null && DOCKED)}>{body}</div>
+        {/*
+          The clamp is the caller's, because only the caller knows how wide the
+          column it is passing actually is. Defaulting to the Read clamp is
+          safe for the narrower branches — a larger edge constant yields a
+          smaller shift, so the unwritten column can only move less than it is
+          allowed to, never more.
+        */}
+        <div className={cn(railTab !== null && docked)}>{body}</div>
         <ReaderRail
           open={railTab !== null}
           /* Meaningless while closed — the rail renders nothing at all then. */
@@ -406,7 +450,7 @@ export default function ReaderScreen() {
    */
   if (pages.length > 0 && effectiveView === 'source') {
     return readerChrome(
-      <div className="mx-auto max-w-[860px] px-6 pb-32 pt-24">
+      <div className="mx-auto max-w-[860px] px-6 pb-32 pt-24" data-source-column>
         <div className="mb-6">
           <h1 className="text-[15px] font-semibold">{lesson.title}</h1>
           <p className="mt-0.5 text-[12.5px] text-faint">
@@ -427,6 +471,7 @@ export default function ReaderScreen() {
           onJumpToPassage={passages.length > 0 ? jumpToPassage : undefined}
         />
       </div>,
+      DOCKED_SOURCE,
     );
   }
 
