@@ -359,6 +359,158 @@ describe('focus goes in, and comes back the way it went', () => {
   });
 });
 
+describe('a panel beside the page and a panel over it are different things', () => {
+  /**
+   * Which side of `sm` the window is on.
+   *
+   * `src/test/setup.ts` stubs `matchMedia` with `matches: false` for every
+   * query, so the *narrow* branch is what a test gets for free and the wide
+   * one only ever runs if somebody asks for it. Both halves are driven here on
+   * purpose: a responsive rule verified on one side of its breakpoint is the
+   * shape of finding this branch has already had three times (F8, B1, C3).
+   */
+  const atWidth = (wide: boolean) => {
+    const original = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: query.includes('min-width: 640px') ? wide : false,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    });
+    return () => {
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        configurable: true,
+        value: original,
+      });
+    };
+  };
+
+  /*
+   * `inert` is asserted as an attribute rather than as behaviour, and the
+   * limit is stated rather than glossed: happy-dom does not implement inertness
+   * — it will not take an inert subtree out of the tab order — so a test that
+   * tabbed around would report success no matter what. What is checkable here
+   * is that the attribute lands on the two nodes the rail covers and on
+   * neither the header nor anything else. That it *works* was measured in a
+   * browser at 375px: `elementFromPoint` at both pager cards returns a rail
+   * descendant, and after the fix `.focus()` on either leaves
+   * `document.activeElement` unchanged while all five header controls still
+   * take focus.
+   */
+  const inertNodes = (container: HTMLElement) => [...container.querySelectorAll('[inert]')];
+
+  it('takes the page out of reach when the companion covers all of it', async () => {
+    const restore = atWidth(false);
+    try {
+      const { container } = await renderReader();
+      expect(inertNodes(container), 'inert before anything was summoned').toHaveLength(0);
+
+      press('Tutor');
+      const inert = inertNodes(container);
+      expect(inert.length, 'the covered page is still reachable').toBeGreaterThan(0);
+      expect(
+        inert.some((n) => n.querySelector('article')),
+        'the column behind the panel is not the thing taken out of reach',
+      ).toBe(true);
+      /*
+       * The pager is fixed chrome outside the wrapper, so it is the half a
+       * partial fix would miss — and it is exactly the half the browser
+       * measurement found sitting behind the panel and still tabbable.
+       */
+      expect(
+        inert.some((n) => n.textContent?.includes('Lesson 3')),
+        'the pager is not covered by the rule',
+      ).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  it('leaves the header alone, because the way out lives there', async () => {
+    /*
+     * The header is `z-40` above a rail that starts at `top-14`, so it is
+     * visible at 375px and it carries the exit *and* the two toggles — and
+     * re-pressing a toggle is one of the three documented ways to close the
+     * rail. A focus trap, or inerting everything, would strand that path and
+     * take the way out away from a keyboard user: a worse bug than the one
+     * this rule fixes.
+     */
+    const restore = atWidth(false);
+    try {
+      const { container } = await renderReader();
+      press('Tutor');
+      expect(container.querySelector('header[inert]'), 'the way out went inert').toBeNull();
+      expect(
+        inertNodes(container).some((n) => n.querySelector('header')),
+        'the header is inside something inert',
+      ).toBe(false);
+      expect(screen.getByRole('link', { name: 'Leave the reader' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Tutor' })).toBeTruthy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('leaves the page alone where the companion sits beside it', async () => {
+    /*
+     * The other half, and the reason the rule is not simply "inert whenever
+     * the rail is open". Between 640 and 900 the panel overlays a column that
+     * is still readable, and at 900 and up it does not overlay at all — in
+     * both the article is the thing being read and selecting a sentence in it
+     * is the ordinary case. Making it inert there would delete
+     * selection-to-ask outright.
+     */
+    const restore = atWidth(true);
+    try {
+      const { container } = await renderReader();
+      press('Tutor');
+      expect(screen.getByRole('complementary', { name: 'Reader companions' })).toBeTruthy();
+      expect(inertNodes(container), 'the docked reader was taken out of reach').toHaveLength(0);
+    } finally {
+      restore();
+    }
+  });
+
+  it('gives the page back when the companion goes', async () => {
+    const restore = atWidth(false);
+    try {
+      const { container } = await renderReader();
+      const opener = press('Notes');
+      expect(inertNodes(container).length).toBeGreaterThan(0);
+      fireEvent.click(opener);
+      expect(inertNodes(container), 'the reader stayed inert after the panel left').toHaveLength(
+        0,
+      );
+    } finally {
+      restore();
+    }
+  });
+
+  it('never writes the attribute as a word', () => {
+    /*
+     * `inert` is a boolean attribute: `inert="false"` is *present*, and
+     * therefore true. Spelling it `inert={covering}` would make the reader
+     * permanently unreachable while every rendered assertion above went on
+     * passing, because `[inert]` matches either spelling. React 18's typings
+     * predate the attribute, so nothing in the compiler catches it either.
+     */
+    const screenSource = readSource('screens/ReaderScreen.tsx');
+    expect(screenSource, 'inert is being passed a boolean').not.toMatch(/inert=\{/);
+    expect(screenSource, "inert is not written as a present-or-absent attribute").toMatch(
+      /inert: ''/,
+    );
+  });
+});
+
 describe('notes are written from the rail', () => {
   const openNotes = async () => {
     await renderReader();

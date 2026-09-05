@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -144,6 +144,70 @@ const DOCKED_READ =
 const DOCKED_SOURCE =
   '[@media(min-width:900px)]:translate-x-[calc(-1*min(192px,(100%_-_812px)/2))]';
 
+/**
+ * The width at and above which the rail is a panel rather than the screen.
+ *
+ * `ReaderRail` is `w-full sm:w-96`. At `sm` and up it is a 384px column beside
+ * the article — docked at 900+, overlaying a still-readable measure between
+ * 640 and 900. Below `sm` it is neither: it covers everything under the header,
+ * and Task 3's reason for not trapping focus ("the article is still the thing
+ * being read") stops being true rather than becoming debatable.
+ *
+ * Stated as the *panel* case, not the covering one, so it reads the same way
+ * as `ReaderRail`'s own `sm:` and there is no off-by-one boundary to explain.
+ * The coupling between the two files is real and nothing else holds it, so
+ * `responsive.test.tsx` reads both and asserts they name the same edge.
+ */
+const RAIL_IS_A_PANEL = '(min-width: 640px)';
+
+/**
+ * Is the companion sitting beside the page, rather than over all of it?
+ *
+ * Answered in JS because what it decides is an attribute, and no media query
+ * can write one. Everything else about the rail's width stays in CSS.
+ */
+function useRailIsAPanel() {
+  const [panel, setPanel] = useState(() => window.matchMedia(RAIL_IS_A_PANEL).matches);
+  useEffect(() => {
+    const mql = window.matchMedia(RAIL_IS_A_PANEL);
+    const read = () => setPanel(mql.matches);
+    read();
+    mql.addEventListener('change', read);
+    return () => mql.removeEventListener('change', read);
+  }, []);
+  return panel;
+}
+
+/**
+ * Take the page out of reach while a panel is covering all of it.
+ *
+ * Below `sm` the rail is opaque and full-bleed, and everything it hides stayed
+ * in the tab order: measured at 375px, `elementFromPoint` at the centre of
+ * both `LessonPager` cards returns a descendant of the rail while both remain
+ * focusable. That is WCAG 2.2 SC 2.4.11 — a focused control entirely hidden by
+ * author content — and a screen reader browsing the document still reads the
+ * whole covered article as though it were on screen.
+ *
+ * `inert` and not a focus trap, and the reason is specific rather than a
+ * preference. The rail is `top-14`; the header sits above it at `z-40`, is
+ * visible at 375px, and carries both the exit and the two toggles — and
+ * re-pressing a toggle is one of the rail's three documented close paths. A
+ * trap confined to the rail would strand that path and take the way out away
+ * from a keyboard user, which is a worse bug than the one it fixes. So the
+ * header is deliberately *not* inert, `ReaderRail` is untouched, and the rail
+ * stays a `complementary` landmark rather than becoming a dialog that would
+ * promise focus management it does not do.
+ *
+ * Written as present-or-absent rather than `inert={covering}`: `inert={false}`
+ * renders `inert="false"`, and a boolean attribute is true whenever it is
+ * present, so that spelling would make the reader permanently unreachable.
+ * React 18's DOM typings predate the attribute — it passes any lowercase
+ * attribute with a string value straight through — so the cast is about the
+ * types, and the emitted attribute was checked in a browser rather than
+ * assumed, the way the Tailwind-literal trap taught this file to.
+ */
+const INERT = { inert: '' } as unknown as React.HTMLAttributes<HTMLDivElement>;
+
 export default function ReaderScreen() {
   const screenState = useScreenState();
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
@@ -165,6 +229,8 @@ export default function ReaderScreen() {
    */
   const [view, setView] = useState<ReaderView>('read');
   const [railTab, setRailTab] = useState<RailTab | null>(null);
+  /* Below `sm` the companion is not beside the reader, it is over all of it. */
+  const railIsAPanel = useRailIsAPanel();
   const toggleRail = (tab: RailTab) => setRailTab((open) => (open === tab ? null : tab));
   /*
    * Stable, because the rail listens for Escape on the document and would
@@ -605,8 +671,16 @@ export default function ReaderScreen() {
      * purpose — see the pager below.
      */
     floating: React.ReactNode = null,
-  ) =>
-    chrome(
+  ) => {
+    /*
+     * Everything the rail is covering, when it is covering everything — see
+     * the note on `INERT`. Both nodes or neither: the pager is fixed chrome
+     * outside the wrapper, so a half-applied rule would leave exactly the two
+     * cards the measurement found behind the panel and still tabbable.
+     */
+    const covered = railTab !== null && !railIsAPanel ? INERT : undefined;
+
+    return chrome(
       <>
         {selectionAsk}
         {header}
@@ -617,8 +691,10 @@ export default function ReaderScreen() {
           smaller shift, so the unwritten column can only move less than it is
           allowed to, never more.
         */}
-        <div className={cn(railTab !== null && docked)}>{body}</div>
-        {floating}
+        <div className={cn(railTab !== null && docked)} {...covered}>
+          {body}
+        </div>
+        {floating && <div {...covered}>{floating}</div>}
         <ReaderRail
           open={railTab !== null}
           /* Meaningless while closed — the rail renders nothing at all then. */
@@ -630,6 +706,7 @@ export default function ReaderScreen() {
         />
       </>,
     );
+  };
 
   /*
    * The Material, when there is one to show.
