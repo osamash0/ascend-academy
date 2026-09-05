@@ -6,7 +6,9 @@ pydantic==2.13.3
 pydantic-settings==2.14.2
 python-dotenv==1.2.2
 asyncpg==0.31.0
-pypdf==6.15.0
+pypdf==6.17.0  # 6.15.0 carried CVE-2026-84309/84310/84311 (infinite loop in
+               # TreeObject.insert_child; unbounded runtime/memory retrieving
+               # outlines and extracting XForm objects) — all fixed by 6.16.1.
 PyMuPDF==1.24.0
 Pillow==12.3.0
 python-multipart==0.0.31
