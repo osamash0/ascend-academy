@@ -111,6 +111,14 @@ def survey_lectures(min_slides: int = 5, limit: int = 200) -> List[Dict[str, Any
             "slides": slide_count,
             "embeddings": embedding_count,
             "coverage": (embedding_count / slide_count) if slide_count else 0.0,
+            # More embedding rows than slides means duplicates. The upsert
+            # constraint (migration 20260719000002) is evidently not in force:
+            # store_slide_embedding emulated an upsert with delete-then-insert,
+            # which races, and that migration's own header warns a prod backfill
+            # must dedup FIRST or the ALTER TABLE fails. Such a lecture is unfit
+            # for the golden set — a duplicated slide occupies several top-k
+            # slots and depresses precision for reasons unrelated to retrieval.
+            "duplicated": embedding_count > slide_count,
             "reported_total_slides": lec.get("total_slides"),
         })
 
@@ -120,22 +128,97 @@ def survey_lectures(min_slides: int = 5, limit: int = 200) -> List[Dict[str, Any
 
 def print_survey(rows: List[Dict[str, Any]]) -> None:
     print(f"\n{len(rows)} candidate lectures (sorted by embedding coverage)\n")
-    print(f"{'coverage':>9}  {'slides':>6}  {'emb':>6}  {'drift':>6}  lecture_id / title")
-    print("-" * 100)
+    print(f"{'coverage':>9} {'dup':>4}  {'slides':>6}  {'emb':>6}  {'drift':>6}  "
+          f"{'course':>8}  lecture_id / title")
+    print("-" * 118)
     for r in rows:
         reported = r["reported_total_slides"]
         drift = "" if reported == r["slides"] else f"{reported}!"
+        dup = "DUP" if r["duplicated"] else ""
+        course = (r["course_id"] or "")[:8]
         print(
-            f"{r['coverage']*100:8.1f}%  {r['slides']:6d}  {r['embeddings']:6d}  "
-            f"{drift:>6}  {r['lecture_id']}  {r['title'][:48]}"
+            f"{r['coverage']*100:8.1f}% {dup:>4}  {r['slides']:6d}  {r['embeddings']:6d}  "
+            f"{drift:>6}  {course:>8}  {r['lecture_id']}  {r['title'][:44]}"
         )
     print(
-        "\nPick decks at or near 100% coverage. A `drift` value means "
-        "`lectures.total_slides` disagrees with the real slide count "
-        "(a finding in its own right — see the thesis's built-vs-deployed section)."
+        "\nPick decks at 100% coverage and WITHOUT a DUP marker. `DUP` means more "
+        "embedding rows than slides, so a slide can occupy several top-k slots and "
+        "depress precision for reasons unrelated to retrieval. `drift` means "
+        "`lectures.total_slides` disagrees with the real slide count. Both are "
+        "findings in their own right — see the built-vs-deployed section."
     )
-    print("Prefer several lectures from ONE course so the course-scoped "
-          "hybrid regime has a meaningful search space.\n")
+    print("Group by the `course` column: several lectures from ONE course give the "
+          "course-scoped hybrid regime a meaningful search space.\n")
+
+
+def print_corpus_stats(rows: List[Dict[str, Any]]) -> None:
+    """Corpus-level embedding coverage — reproducible evidence for the thesis.
+
+    Two findings are quantified here rather than counted by hand, so the
+    numbers in the Evaluation chapter can be regenerated from a committed
+    script instead of trusted:
+
+    1. Lectures with ZERO embeddings. Embeddings are written fire-and-forget
+       during ingestion (`unified_orchestrator.py`, the embedding call is not
+       awaited), so a parse can report success with its vectors still in
+       flight or lost. Such a lecture holds slides and is invisible to every
+       retrieval path in the system.
+
+    2. Lectures with MORE embeddings than slides. `store_slide_embedding`
+       emulated an upsert with delete-then-insert, which races; migration
+       20260719000002 added UNIQUE(pdf_hash, slide_index, pipeline_version)
+       to close it, and warns in its own header that a production backfill
+       must dedup first or the ALTER TABLE fails. Duplicates surviving in
+       production are evidence the constraint is not in force there.
+
+    Note this surveys non-archived lectures only, which is the population the
+    retrieval paths can actually reach.
+    """
+    if not rows:
+        print("no lectures surveyed")
+        return
+
+    total = len(rows)
+    total_slides = sum(r["slides"] for r in rows)
+    zero = [r for r in rows if r["embeddings"] == 0]
+    dup = [r for r in rows if r["duplicated"]]
+    full = [r for r in rows if not r["duplicated"] and r["coverage"] >= 1.0]
+    partial = [r for r in rows if 0 < r["coverage"] < 1.0]
+    drift = [r for r in rows if r["reported_total_slides"] != r["slides"]]
+
+    def pct(n: int) -> str:
+        return f"{n / total * 100:.1f}%"
+
+    print("\n=== Corpus embedding coverage ===")
+    print(f"lectures surveyed              {total:5d}   ({total_slides} slides)")
+    print(f"  zero embeddings              {len(zero):5d}   {pct(len(zero)):>7}   "
+          f"{sum(r['slides'] for r in zero)} slides unreachable by retrieval")
+    print(f"  partial coverage (0<c<1)     {len(partial):5d}   {pct(len(partial)):>7}")
+    print(f"  complete, no duplicates      {len(full):5d}   {pct(len(full)):>7}   <- usable for the golden set")
+    print(f"  MORE embeddings than slides  {len(dup):5d}   {pct(len(dup)):>7}   <- upsert constraint not in force")
+    print(f"  total_slides drift           {len(drift):5d}   {pct(len(drift)):>7}")
+
+    if dup:
+        print("\nDuplicated lectures (embeddings / slides):")
+        for r in sorted(dup, key=lambda x: -x["coverage"]):
+            print(f"  {r['coverage']*100:7.1f}%  {r['embeddings']:4d}/{r['slides']:<4d}  "
+                  f"{r['lecture_id']}  {r['title'][:44]}")
+
+    # Courses that could supply a corpus: several clean lectures in one course.
+    by_course: Dict[str, List[Dict[str, Any]]] = {}
+    for r in full:
+        by_course.setdefault(r["course_id"] or "(none)", []).append(r)
+    viable = {c: v for c, v in by_course.items() if len(v) >= 4 and c != "(none)"}
+    if viable:
+        print("\nCourses with >=4 clean lectures (candidate corpora):")
+        for c, v in sorted(viable.items(), key=lambda kv: -sum(x["slides"] for x in kv[1])):
+            print(f"\n  course {c}  —  {len(v)} lectures, {sum(x['slides'] for x in v)} slides")
+            for r in sorted(v, key=lambda x: -x["slides"]):
+                print(f"    {r['slides']:4d} slides  {r['lecture_id']}  {r['title'][:44]}")
+    else:
+        print("\nNo single course has >=4 clean lectures. Widen to >=97% coverage, "
+              "or accept a corpus spanning courses and state it as a threat to validity.")
+    print()
 
 
 def build_template(
@@ -238,6 +321,8 @@ def main() -> None:
     )
     parser.add_argument("--list", action="store_true",
                         help="list candidate lectures with embedding coverage and exit")
+    parser.add_argument("--stats", action="store_true",
+                        help="print corpus-level coverage statistics and candidate corpora")
     parser.add_argument("--lectures", default="",
                         help="comma-separated lecture UUIDs to build a template for")
     parser.add_argument("--per-lecture", type=int, default=8,
@@ -251,11 +336,19 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,
                         format="%(levelname)s %(message)s")
 
+    if args.stats:
+        # Survey everything, not just decks big enough to write questions about:
+        # the coverage finding is about the whole corpus.
+        print_corpus_stats(survey_lectures(min_slides=1))
+        if not args.lectures:
+            return
+
     if args.list or not args.lectures:
         rows = survey_lectures(min_slides=args.min_slides)
         print_survey(rows)
         if not args.lectures:
-            print("Re-run with --lectures <uuid>,<uuid>,... to emit a template.")
+            print("Re-run with --stats for corpus statistics, or "
+                  "--lectures <uuid>,<uuid>,... to emit a template.")
             return
 
     lecture_ids = [x.strip() for x in args.lectures.split(",") if x.strip()]

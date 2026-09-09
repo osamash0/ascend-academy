@@ -207,6 +207,13 @@ class ConfigResult:
     refusal_rate: float = 0.0
     false_refusal_rate: float = 0.0
     false_refusal_share: float = 0.0
+    # Queries whose top-k contained the SAME (lecture_id, slide_index) twice.
+    # Aggregate embedding coverage can look healthy while hiding duplicates —
+    # a lecture at 98.9% may be "2 slides duplicated, 3 missing", not "3
+    # missing". A duplicated slide consumes several top-k slots and depresses
+    # precision for reasons that have nothing to do with retrieval quality, so
+    # this must be visible rather than silently averaged away.
+    queries_with_duplicate_hits: int = 0
     errors: int = 0
     per_question: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -224,6 +231,7 @@ class ConfigResult:
             "refusal": round(self.refusal_rate, 4),
             "false_refusal": round(self.false_refusal_rate, 4),
             "false_refusal_share": round(self.false_refusal_share, 4),
+            "dup_hits": self.queries_with_duplicate_hits,
             "errors": self.errors,
         }
 
@@ -261,6 +269,9 @@ def score_config(
         texts = out.get("texts", [])
         sims = out.get("similarities", [])
 
+        if len(keys) != len(set(keys)):
+            result.queries_with_duplicate_hits += 1
+
         hit = slide_found(keys, case.key)
         anchor_hit = anchor_found(texts, case.anchor)
         rr = reciprocal_rank(keys, case.key)
@@ -293,6 +304,7 @@ def score_config(
             "reciprocal_rank": round(rr, 4),
             "grounded": grounded,
             "top_similarity": round(max(sims), 4) if sims else 0.0,
+            "duplicate_hits": len(keys) - len(set(keys)),
         })
 
     n = len(cases)
