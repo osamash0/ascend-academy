@@ -1,0 +1,561 @@
+{
+  "_provenance": [
+    "Questions and anchors drafted from the 320-character slide previews emitted by",
+    "make_golden_template, then reviewed by the author. Every anchor is a verbatim",
+    "substring of the preview text it was taken from, so anchor matching is sound.",
+    "AUTHOR ACTION REQUIRED: spot-check the expected_answer fields against the full",
+    "slides. Previews are truncated, so an expected answer may be incomplete where",
+    "the slide continued past 320 characters. expected_answer is not auto-scored by",
+    "the retrieval grid — it matters only for the faithfulness pass — but it must be",
+    "correct before it is used there, and the drafting method must be stated in the",
+    "thesis's threats to validity.",
+    "Title slides, agenda dividers and course-organisation slides were dropped: 50",
+    "questions kept from 60 stubs."
+  ],
+  "_corpus": [
+    {
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "title": "Relational Algebra",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "questions": 9,
+      "course_scoped_runnable": true
+    },
+    {
+      "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
+      "title": "Database Systems: Transactions",
+      "course_id": "",
+      "questions": 7,
+      "course_scoped_runnable": false
+    },
+    {
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "title": "Database Systems - Query Processing",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "questions": 9,
+      "course_scoped_runnable": true
+    },
+    {
+      "lecture_id": "447baff4-dabd-43cc-9f45-7ac1b91c29c3",
+      "title": "Database Systems Introduction",
+      "course_id": "",
+      "questions": 7,
+      "course_scoped_runnable": false
+    },
+    {
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "title": "Data Integration",
+      "course_id": "",
+      "questions": 9,
+      "course_scoped_runnable": false
+    },
+    {
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "title": "Integrity Constraints",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "questions": 9,
+      "course_scoped_runnable": true
+    }
+  ],
+  "questions": [
+    {
+      "id": "58d20720-s8",
+      "question": "When a SQL query is translated into the algebra, what does each operator consume and return?",
+      "anchor": "produces again a relation as output",
+      "category": "text",
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 8,
+      "expected_answer": "Each operator takes a relation as input and produces a relation as output."
+    },
+    {
+      "id": "58d20720-s16",
+      "question": "Which operator keeps a relation's schema unchanged but returns only some of its tuples?",
+      "anchor": "unary operator that produces a new relation with the same schema",
+      "category": "text",
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 16,
+      "expected_answer": "Selection."
+    },
+    {
+      "id": "58d20720-s24",
+      "question": "Can you show a worked example of subtracting one relation from another?",
+      "anchor": "123 Maple St., Hollywood",
+      "category": "text",
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 24,
+      "expected_answer": "The difference example over the actor relations."
+    },
+    {
+      "id": "58d20720-s32",
+      "question": "Which join variant pairs tuples using an arbitrary boolean predicate instead of equality?",
+      "anchor": "theta join",
+      "category": "text",
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 32,
+      "expected_answer": "The theta join."
+    },
+    {
+      "id": "58d20720-s40",
+      "question": "Which operator returns exactly those tuples of the left relation that find no match on the right?",
+      "anchor": "have no join partners in s",
+      "category": "text",
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 40,
+      "expected_answer": "The anti join."
+    },
+    {
+      "id": "58d20720-s48",
+      "question": "Which aggregate function yields the alphabetically first film title?",
+      "anchor": "Alphabetically the first film",
+      "category": "text",
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 48,
+      "expected_answer": "MIN(Title)."
+    },
+    {
+      "id": "58d20720-s56",
+      "question": "Which union variant applies when the two relations do not share a schema?",
+      "anchor": "schemas of r and s must be different",
+      "category": "text",
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 56,
+      "expected_answer": "The outer union."
+    },
+    {
+      "id": "58d20720-s64",
+      "question": "How is a query combining a length condition and a studio condition written as one algebra expression?",
+      "anchor": "are at least 100 minutes long",
+      "category": "text",
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 64,
+      "expected_answer": "Projection over the join of the two selections on Film."
+    },
+    {
+      "id": "58d20720-s72",
+      "question": "Why is a union cheaper to compute when duplicate tuples are permitted?",
+      "anchor": "Concatenation + Deduplication",
+      "category": "text",
+      "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 72,
+      "expected_answer": "Set semantics needs concatenation plus deduplication; multiset semantics needs only concatenation."
+    },
+    {
+      "id": "e4c1cf2f-s7",
+      "question": "Which elementary operations of a transaction actually touch the database?",
+      "anchor": "Elementary operations with respect to database",
+      "category": "text",
+      "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
+      "course_id": "",
+      "slide_index": 7,
+      "expected_answer": "read() and write()."
+    },
+    {
+      "id": "e4c1cf2f-s14",
+      "question": "Which component orders concurrent operations and enforces the consistency guarantees?",
+      "anchor": "Order of the operations in an execution plan",
+      "category": "text",
+      "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
+      "course_id": "",
+      "slide_index": 14,
+      "expected_answer": "The transaction manager."
+    },
+    {
+      "id": "e4c1cf2f-s21",
+      "question": "What anomaly occurs when reading the same value twice in one transaction returns different results?",
+      "anchor": "Read of A again provides another",
+      "category": "text",
+      "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
+      "course_id": "",
+      "slide_index": 21,
+      "expected_answer": "A nonrepeatable read."
+    },
+    {
+      "id": "e4c1cf2f-s28",
+      "question": "Which isolation level permits reading data that has not been committed yet?",
+      "anchor": "Access to not fixed data possible",
+      "category": "text",
+      "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
+      "course_id": "",
+      "slide_index": 28,
+      "expected_answer": "read uncommitted."
+    },
+    {
+      "id": "e4c1cf2f-s49",
+      "question": "When can an interleaved execution be treated as equivalent to running the transactions one after another?",
+      "anchor": "conflict equivalent to a serial schedule",
+      "category": "text",
+      "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
+      "course_id": "",
+      "slide_index": 49,
+      "expected_answer": "When it is conflict equivalent to a serial schedule."
+    },
+    {
+      "id": "e4c1cf2f-s56",
+      "question": "Which property of the conflict graph proves serialisability, and how is that proof structured?",
+      "anchor": "Induction over the number of transactions",
+      "category": "text",
+      "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
+      "course_id": "",
+      "slide_index": 56,
+      "expected_answer": "A cycle-free conflict graph, proved by induction over the number of transactions."
+    },
+    {
+      "id": "e4c1cf2f-s63",
+      "question": "Can you show an example where two transactions lock and release the same objects in turn?",
+      "anchor": "a1 := a1 + 100",
+      "category": "text",
+      "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
+      "course_id": "",
+      "slide_index": 63,
+      "expected_answer": "The T1/T3 trace with l(A), write, u(A) on A and B."
+    },
+    {
+      "id": "4e69f0bb-s6",
+      "question": "How is the basic SELECT-FROM-WHERE form expressed in the grammar used for parsing?",
+      "anchor": "SELECT <SelList> FROM <FromList> WHERE <Condition>",
+      "category": "text",
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 6,
+      "expected_answer": "<SFW> ::= SELECT <SelList> FROM <FromList> WHERE <Condition>"
+    },
+    {
+      "id": "4e69f0bb-s12",
+      "question": "What is produced from a parse tree in the stage before physical planning?",
+      "anchor": "Translate a parse tree to",
+      "category": "text",
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 12,
+      "expected_answer": "An optimal logical query plan."
+    },
+    {
+      "id": "4e69f0bb-s18",
+      "question": "What has to stay unchanged when a query plan is rewritten for efficiency?",
+      "anchor": "may not change semantics",
+      "category": "text",
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 18,
+      "expected_answer": "The semantics of the query."
+    },
+    {
+      "id": "4e69f0bb-s24",
+      "question": "Which selection rewriting rule stops being valid once duplicates are allowed?",
+      "anchor": "Not for multisets",
+      "category": "text",
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 24,
+      "expected_answer": "The disjunction rule rewriting a selection into a union."
+    },
+    {
+      "id": "4e69f0bb-s30",
+      "question": "Which rewriting turns a cross product followed by a filter into a single operator?",
+      "anchor": "Combine selections and",
+      "category": "visual",
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 30,
+      "expected_answer": "Combining selections with cross products to form joins."
+    },
+    {
+      "id": "4e69f0bb-s36",
+      "question": "How can you inspect the plan a database chose for a query?",
+      "anchor": "displays the logical query plans",
+      "category": "text",
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 36,
+      "expected_answer": "Through the optimiser's explain() function."
+    },
+    {
+      "id": "4e69f0bb-s42",
+      "question": "What does proving NP-hardness establish about a problem?",
+      "anchor": "Proof of the NP-hardness is a",
+      "category": "text",
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 42,
+      "expected_answer": "It is a sufficient criterion for characterising the problem's difficulty."
+    },
+    {
+      "id": "4e69f0bb-s48",
+      "question": "In what units can the optimiser express its cost estimates?",
+      "anchor": "Energy in kWh",
+      "category": "text",
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 48,
+      "expected_answer": "Abstract units such as I/O operations, energy in kWh or cloud cost."
+    },
+    {
+      "id": "4e69f0bb-s54",
+      "question": "Which quantity estimates how many tuples survive an operator relative to its input?",
+      "anchor": "estimates the number of the qualifying",
+      "category": "text",
+      "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 54,
+      "expected_answer": "The selectivity (sf)."
+    },
+    {
+      "id": "447baff4-s6",
+      "question": "How large was the market cited in the motivation, and how fast was it growing?",
+      "anchor": "$122 billion in 2016",
+      "category": "text",
+      "lecture_id": "447baff4-dabd-43cc-9f45-7ac1b91c29c3",
+      "course_id": "",
+      "slide_index": 6,
+      "expected_answer": "$122 billion in 2016, growing 11.3% per year."
+    },
+    {
+      "id": "447baff4-s12",
+      "question": "Where can a ranking of database management systems be looked up?",
+      "anchor": "db-engines.com",
+      "category": "visual",
+      "lecture_id": "447baff4-dabd-43cc-9f45-7ac1b91c29c3",
+      "course_id": "",
+      "slide_index": 12,
+      "expected_answer": "At db-engines.com/en/ranking."
+    },
+    {
+      "id": "447baff4-s18",
+      "question": "Which scenario illustrates how data was handled before database systems existed?",
+      "anchor": "Three client advisors Alfred, Beate, and Carlo",
+      "category": "text",
+      "lecture_id": "447baff4-dabd-43cc-9f45-7ac1b91c29c3",
+      "course_id": "",
+      "slide_index": 18,
+      "expected_answer": "Data processing in an insurance company with three client advisors."
+    },
+    {
+      "id": "447baff4-s24",
+      "question": "What caveat is given about the data-volume figures shown?",
+      "anchor": "Outdated values so far",
+      "category": "visual",
+      "lecture_id": "447baff4-dabd-43cc-9f45-7ac1b91c29c3",
+      "course_id": "",
+      "slide_index": 24,
+      "expected_answer": "They are outdated; actual volumes are much larger now."
+    },
+    {
+      "id": "447baff4-s30",
+      "question": "What goes wrong when several programs work on the same files at once without a database?",
+      "anchor": "cannot work on the same data in parallel without interfering",
+      "category": "text",
+      "lecture_id": "447baff4-dabd-43cc-9f45-7ac1b91c29c3",
+      "course_id": "",
+      "slide_index": 30,
+      "expected_answer": "They interfere with one another."
+    },
+    {
+      "id": "447baff4-s42",
+      "question": "Which mechanisms does a database provide to keep stored data valid?",
+      "anchor": "Foreign keys",
+      "category": "text",
+      "lecture_id": "447baff4-dabd-43cc-9f45-7ac1b91c29c3",
+      "course_id": "",
+      "slide_index": 42,
+      "expected_answer": "Data types, keys and UNIQUE, foreign keys, and access rights."
+    },
+    {
+      "id": "447baff4-s48",
+      "question": "In which direction is a query plan evaluated?",
+      "anchor": "Execution from the sources to the root",
+      "category": "text",
+      "lecture_id": "447baff4-dabd-43cc-9f45-7ac1b91c29c3",
+      "course_id": "",
+      "slide_index": 48,
+      "expected_answer": "From the sources at the leaves up to the root."
+    },
+    {
+      "id": "37fbaf56-s6",
+      "question": "Which tables make up the example order schema used to introduce distributed data?",
+      "anchor": "Bookgroup",
+      "category": "text",
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "course_id": "",
+      "slide_index": 6,
+      "expected_answer": "Orders, Order, Bookgroup, Book, Customer, Day, Month and Year."
+    },
+    {
+      "id": "37fbaf56-s12",
+      "question": "Which metric characterises the performance of an operational transaction workload?",
+      "anchor": "transactions per second",
+      "category": "text",
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "course_id": "",
+      "slide_index": 12,
+      "expected_answer": "Transactions per second."
+    },
+    {
+      "id": "37fbaf56-s18",
+      "question": "How does a federated system differ from copying data into a separate analytical store?",
+      "anchor": "analytical views that fetch the data on demand",
+      "category": "text",
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "course_id": "",
+      "slide_index": 18,
+      "expected_answer": "A federated system fetches on demand through analytical views; the alternative copies data across periodically."
+    },
+    {
+      "id": "37fbaf56-s24",
+      "question": "Which regulation-driven request motivates integrating data held across separate shop systems?",
+      "anchor": "Please show me what",
+      "category": "visual",
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "course_id": "",
+      "slide_index": 24,
+      "expected_answer": "A GDPR/DSGVO subject access request."
+    },
+    {
+      "id": "37fbaf56-s30",
+      "question": "Which application of data integration is illustrated by searching across web tables?",
+      "anchor": "Find any information",
+      "category": "visual",
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "course_id": "",
+      "slide_index": 30,
+      "expected_answer": "Information retrieval over web tables."
+    },
+    {
+      "id": "37fbaf56-s36",
+      "question": "Which two broad categories of obstacle make combining data sources hard?",
+      "anchor": "Different platforms, query languages",
+      "category": "text",
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "course_id": "",
+      "slide_index": 36,
+      "expected_answer": "System-level reasons and logical reasons."
+    },
+    {
+      "id": "37fbaf56-s42",
+      "question": "What distinguishes the warehouse-style pipeline from the lake-style one?",
+      "anchor": "copied from disparate sources into a joint representation",
+      "category": "text",
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "course_id": "",
+      "slide_index": 42,
+      "expected_answer": "ETL transforms while copying (warehouse); ELT loads first and transforms later (lake)."
+    },
+    {
+      "id": "37fbaf56-s48",
+      "question": "Which publication is cited as the reference for federated database systems?",
+      "anchor": "Distributed, Heterogeneous",
+      "category": "text",
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "course_id": "",
+      "slide_index": 48,
+      "expected_answer": "Sheth and Larson, on managing distributed, heterogeneous and autonomous databases."
+    },
+    {
+      "id": "37fbaf56-s54",
+      "question": "Which topics do the four practical assignments cover?",
+      "anchor": "Assignment 2: Data Profiling",
+      "category": "text",
+      "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
+      "course_id": "",
+      "slide_index": 54,
+      "expected_answer": "Similarity measures, data profiling, data matching and duplicate detection."
+    },
+    {
+      "id": "54357028-s4",
+      "question": "What makes a set of attributes usable as a key?",
+      "anchor": "the same values in all key attributes",
+      "category": "text",
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 4,
+      "expected_answer": "No two entities of the type share values across all key attributes."
+    },
+    {
+      "id": "54357028-s8",
+      "question": "Which statements can violate a key constraint, and which cannot?",
+      "anchor": "Nothing can happen with DELETE",
+      "category": "text",
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 8,
+      "expected_answer": "INSERT and UPDATE can; DELETE cannot."
+    },
+    {
+      "id": "54357028-s12",
+      "question": "Can you show a table definition declaring both a composite primary key and a foreign key?",
+      "anchor": "FOREIGN KEY (DepID) REFERENCES",
+      "category": "text",
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 12,
+      "expected_answer": "The Employee table example."
+    },
+    {
+      "id": "54357028-s16",
+      "question": "Besides rejecting or cascading, what third response to a foreign-key violation is available?",
+      "anchor": "try to solve violation with null",
+      "category": "text",
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 16,
+      "expected_answer": "Setting the referencing value to null, rejecting otherwise."
+    },
+    {
+      "id": "54357028-s20",
+      "question": "How can constraint checking be postponed until the end of a transaction, and what is the default?",
+      "anchor": "Check the constraint for each update of the database",
+      "category": "text",
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 20,
+      "expected_answer": "DEFERRABLE INITIALLY DEFERRED; the default is NOT DEFERRABLE."
+    },
+    {
+      "id": "54357028-s24",
+      "question": "Which clause expresses an arbitrary condition on a single column's values?",
+      "anchor": "Built like WHERE",
+      "category": "text",
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 24,
+      "expected_answer": "An attribute-based CHECK constraint."
+    },
+    {
+      "id": "54357028-s28",
+      "question": "Why should a constraint be given an explicit name when it is created?",
+      "anchor": "names must be given",
+      "category": "text",
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 28,
+      "expected_answer": "Because it can only be altered later by name; otherwise the DBMS assigns a cryptic internal one."
+    },
+    {
+      "id": "54357028-s32",
+      "question": "What is the trade-off between a database-wide boolean condition and an event-driven action?",
+      "anchor": "Difficult to implement efficiently",
+      "category": "text",
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 32,
+      "expected_answer": "Assertions are simple for admins but hard to implement efficiently; triggers are event-driven and harder to author."
+    },
+    {
+      "id": "54357028-s36",
+      "question": "How do attribute-based and tuple-based checks differ in when they are evaluated?",
+      "anchor": "During INSERT into a",
+      "category": "text",
+      "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
+      "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
+      "slide_index": 36,
+      "expected_answer": "Attribute-based checks fire on insert or update of that attribute; tuple-based checks on the whole relation."
+    }
+  ]
+}
