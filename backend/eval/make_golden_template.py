@@ -151,7 +151,7 @@ def print_survey(rows: List[Dict[str, Any]]) -> None:
           "course-scoped hybrid regime a meaningful search space.\n")
 
 
-def print_corpus_stats(rows: List[Dict[str, Any]]) -> None:
+def print_corpus_stats(rows: List[Dict[str, Any]], min_coverage: float = 0.97) -> None:
     """Corpus-level embedding coverage — reproducible evidence for the thesis.
 
     Two findings are quantified here rather than counted by hand, so the
@@ -182,8 +182,15 @@ def print_corpus_stats(rows: List[Dict[str, Any]]) -> None:
     total_slides = sum(r["slides"] for r in rows)
     zero = [r for r in rows if r["embeddings"] == 0]
     dup = [r for r in rows if r["duplicated"]]
-    full = [r for r in rows if not r["duplicated"] and r["coverage"] >= 1.0]
+    complete = [r for r in rows if not r["duplicated"] and r["coverage"] >= 1.0]
     partial = [r for r in rows if 0 < r["coverage"] < 1.0]
+    # Usable is NOT the same as complete. A lecture at 98.9% is missing one or
+    # two slides out of eighty-seven; excluding it wastes most of the corpus.
+    # The only consequence is a small ceiling: a question about an unembedded
+    # slide can never be answered, which shows up as a handful of misses rather
+    # than as a distortion. Duplicates are excluded outright, because those DO
+    # distort — a repeated slide consumes several top-k slots.
+    usable = [r for r in rows if not r["duplicated"] and r["coverage"] >= min_coverage]
     drift = [r for r in rows if r["reported_total_slides"] != r["slides"]]
 
     def pct(n: int) -> str:
@@ -194,7 +201,8 @@ def print_corpus_stats(rows: List[Dict[str, Any]]) -> None:
     print(f"  zero embeddings              {len(zero):5d}   {pct(len(zero)):>7}   "
           f"{sum(r['slides'] for r in zero)} slides unreachable by retrieval")
     print(f"  partial coverage (0<c<1)     {len(partial):5d}   {pct(len(partial)):>7}")
-    print(f"  complete, no duplicates      {len(full):5d}   {pct(len(full)):>7}   <- usable for the golden set")
+    print(f"  complete (100%), no dupes    {len(complete):5d}   {pct(len(complete)):>7}")
+    print(f"  usable (>={min_coverage:.0%}), no dupes      {len(usable):5d}   {pct(len(usable)):>7}   <- corpus candidates")
     print(f"  MORE embeddings than slides  {len(dup):5d}   {pct(len(dup)):>7}   <- upsert constraint not in force")
     print(f"  total_slides drift           {len(drift):5d}   {pct(len(drift)):>7}")
 
@@ -206,7 +214,7 @@ def print_corpus_stats(rows: List[Dict[str, Any]]) -> None:
 
     # Courses that could supply a corpus: several clean lectures in one course.
     by_course: Dict[str, List[Dict[str, Any]]] = {}
-    for r in full:
+    for r in usable:
         by_course.setdefault(r["course_id"] or "(none)", []).append(r)
     viable = {c: v for c, v in by_course.items() if len(v) >= 4 and c != "(none)"}
     if viable:
@@ -216,8 +224,10 @@ def print_corpus_stats(rows: List[Dict[str, Any]]) -> None:
             for r in sorted(v, key=lambda x: -x["slides"]):
                 print(f"    {r['slides']:4d} slides  {r['lecture_id']}  {r['title'][:44]}")
     else:
-        print("\nNo single course has >=4 clean lectures. Widen to >=97% coverage, "
-              "or accept a corpus spanning courses and state it as a threat to validity.")
+        print(f"\nNo single course has >=4 lectures at >={min_coverage:.0%} coverage. "
+              f"Re-run with a lower --min-coverage, or accept a corpus spanning "
+              f"courses and state that as a threat to validity — the course-scoped "
+              f"hybrid regime then searches a narrower space than it would in use.")
     print()
 
 
@@ -323,6 +333,9 @@ def main() -> None:
                         help="list candidate lectures with embedding coverage and exit")
     parser.add_argument("--stats", action="store_true",
                         help="print corpus-level coverage statistics and candidate corpora")
+    parser.add_argument("--min-coverage", type=float, default=0.97,
+                        help="embedding coverage a lecture needs to count as a corpus "
+                             "candidate (default 0.97; 1.0 demands every slide embedded)")
     parser.add_argument("--lectures", default="",
                         help="comma-separated lecture UUIDs to build a template for")
     parser.add_argument("--per-lecture", type=int, default=8,
@@ -339,7 +352,7 @@ def main() -> None:
     if args.stats:
         # Survey everything, not just decks big enough to write questions about:
         # the coverage finding is about the whole corpus.
-        print_corpus_stats(survey_lectures(min_slides=1))
+        print_corpus_stats(survey_lectures(min_slides=1), min_coverage=args.min_coverage)
         if not args.lectures:
             return
 
