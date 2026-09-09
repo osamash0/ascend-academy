@@ -1,16 +1,17 @@
 {
   "_provenance": [
-    "Questions and anchors drafted from the 320-character slide previews emitted by",
-    "make_golden_template, then reviewed by the author. Every anchor is a verbatim",
-    "substring of the preview text it was taken from, so anchor matching is sound.",
-    "AUTHOR ACTION REQUIRED: spot-check the expected_answer fields against the full",
-    "slides. Previews are truncated, so an expected answer may be incomplete where",
-    "the slide continued past 320 characters. expected_answer is not auto-scored by",
-    "the retrieval grid — it matters only for the faithfulness pass — but it must be",
-    "correct before it is used there, and the drafting method must be stated in the",
-    "thesis's threats to validity.",
-    "Title slides, agenda dividers and course-organisation slides were dropped: 50",
-    "questions kept from 60 stubs."
+    "Questions and anchors drafted from slide previews, then REVISED against the full",
+    "slide text (make_golden_template --dump). Four questions were rewritten at that",
+    "stage: one was factually wrong (37fbaf56-s36 said two categories where the slide",
+    "lists four), and three rested on the first 320 characters when the slide's real",
+    "content lay past the cut.",
+    "Every anchor is a verbatim substring of its slide, machine-checked by",
+    "backend/eval/verify_anchors.py.",
+    "Drafting used AI assistance from the slide text and was reviewed by the author.",
+    "State this in the thesis's threats to validity: the phrasing may be more",
+    "retrieval-friendly than a student's own wording would be.",
+    "50 questions kept from 60 stubs; title slides, agenda dividers and",
+    "course-organisation slides were dropped rather than forced."
   ],
   "_corpus": [
     {
@@ -85,7 +86,7 @@
       "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
       "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
       "slide_index": 24,
-      "expected_answer": "The difference example over the actor relations."
+      "expected_answer": "R minus S leaves Mark Hamill; Carrie Fisher appears in both and is removed."
     },
     {
       "id": "58d20720-s32",
@@ -105,7 +106,7 @@
       "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
       "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
       "slide_index": 40,
-      "expected_answer": "The anti join."
+      "expected_answer": "The anti join. The slide's example is 'find all kids that have no pets at all'."
     },
     {
       "id": "58d20720-s48",
@@ -135,7 +136,7 @@
       "lecture_id": "58d20720-4337-498e-9fdf-1f64f118a295",
       "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
       "slide_index": 64,
-      "expected_answer": "Projection over the join of the two selections on Film."
+      "expected_answer": "A projection on Title and Year over the join of the two selections on Film; the slide also gives the single-selection conjunction as an alternative."
     },
     {
       "id": "58d20720-s72",
@@ -185,7 +186,7 @@
       "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
       "course_id": "",
       "slide_index": 28,
-      "expected_answer": "read uncommitted."
+      "expected_answer": "read uncommitted, the weakest of the four levels; serializable is the default."
     },
     {
       "id": "e4c1cf2f-s49",
@@ -209,13 +210,13 @@
     },
     {
       "id": "e4c1cf2f-s63",
-      "question": "Can you show an example where two transactions lock and release the same objects in turn?",
+      "question": "Can a schedule obey the locking rules and still fail to be serialisable?",
       "anchor": "a1 := a1 + 100",
       "category": "text",
       "lecture_id": "e4c1cf2f-f2bf-4598-9a2b-311b4b4c9efb",
       "course_id": "",
       "slide_index": 63,
-      "expected_answer": "The T1/T3 trace with l(A), write, u(A) on A and B."
+      "expected_answer": "Yes. The T1/T3 example is legal, but neither serialisable nor conflict serialisable."
     },
     {
       "id": "4e69f0bb-s6",
@@ -229,13 +230,13 @@
     },
     {
       "id": "4e69f0bb-s12",
-      "question": "What is produced from a parse tree in the stage before physical planning?",
-      "anchor": "Translate a parse tree to",
+      "question": "In the direct translation of a query, which algebra operator does each SQL clause become?",
+      "anchor": "FROM becomes cross product",
       "category": "text",
       "lecture_id": "4e69f0bb-f213-4445-b679-2378816271a4",
       "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
       "slide_index": 12,
-      "expected_answer": "An optimal logical query plan."
+      "expected_answer": "SELECT becomes a projection, FROM a cross product, WHERE a selection."
     },
     {
       "id": "4e69f0bb-s18",
@@ -329,13 +330,13 @@
     },
     {
       "id": "447baff4-s18",
-      "question": "Which scenario illustrates how data was handled before database systems existed?",
-      "anchor": "Three client advisors Alfred, Beate, and Carlo",
+      "question": "Which data problems arise when every advisor keeps their own client files?",
+      "anchor": "Disconnectedness (no mutual links)",
       "category": "text",
       "lecture_id": "447baff4-dabd-43cc-9f45-7ac1b91c29c3",
       "course_id": "",
       "slide_index": 18,
-      "expected_answer": "Data processing in an insurance company with three client advisors."
+      "expected_answer": "Redundancy, inconsistency, heterogeneity and disconnectedness."
     },
     {
       "id": "447baff4-s24",
@@ -385,7 +386,7 @@
       "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
       "course_id": "",
       "slide_index": 6,
-      "expected_answer": "Orders, Order, Bookgroup, Book, Customer, Day, Month and Year."
+      "expected_answer": "Orders, Order, Bookgroup, Book, Customer, Day, Month and Year, joined to answer how many orders fell in the months before Christmas by product group."
     },
     {
       "id": "37fbaf56-s12",
@@ -429,13 +430,13 @@
     },
     {
       "id": "37fbaf56-s36",
-      "question": "Which two broad categories of obstacle make combining data sources hard?",
+      "question": "Which categories of reason are given for why integrating data sources is hard?",
       "anchor": "Different platforms, query languages",
       "category": "text",
       "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
       "course_id": "",
       "slide_index": 36,
-      "expected_answer": "System-level reasons and logical reasons."
+      "expected_answer": "Four: system-level, logical, social and political reasons."
     },
     {
       "id": "37fbaf56-s42",
@@ -455,7 +456,7 @@
       "lecture_id": "37fbaf56-e85b-40bb-96c7-882e092554de",
       "course_id": "",
       "slide_index": 48,
-      "expected_answer": "Sheth and Larson, on managing distributed, heterogeneous and autonomous databases."
+      "expected_answer": "Sheth and Larson, 1990, on managing distributed, heterogeneous and autonomous databases."
     },
     {
       "id": "37fbaf56-s54",
@@ -545,7 +546,7 @@
       "lecture_id": "54357028-220e-4472-a5c0-cd3e0bfbbfb0",
       "course_id": "3354c0a7-f15c-4fe0-8034-71dfbd81f52e",
       "slide_index": 32,
-      "expected_answer": "Assertions are simple for admins but hard to implement efficiently; triggers are event-driven and harder to author."
+      "expected_answer": "An assertion is simple for admins but hard to implement efficiently; a trigger is harder to formulate but easier to implement efficiently."
     },
     {
       "id": "54357028-s36",
