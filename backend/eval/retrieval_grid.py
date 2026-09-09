@@ -38,25 +38,43 @@ most to the thesis — its `false_refusal_rate`: questions the corpus
 demonstrably answers (the expected slide *was* retrieved) that the gate
 rejected anyway. That quantifies the cost of the safety threshold.
 
+Trusting what it produces
+-------------------------
+Twice now this harness has written a plausible-looking table from a run that
+measured the environment rather than the retriever, so it now refuses on two
+independent grounds. One counts failures. The other checks the numbers against
+themselves: `slide_found` must not fall as k rises, and (in `lecture_dense`)
+must not rise as the threshold tightens. Both follow from the retrieval SQL, so
+a run that violates either is rejected on arithmetic alone — no need to have
+anticipated how it would break. Production catches its own provider failures by
+design and never raises, so counting exceptions alone would keep missing this.
+
 Running it
 ----------
     python -m backend.eval.retrieval_grid --golden backend/eval/data/golden_set.json
 
-Needs real provider API keys (for query embedding) and database access.
-The sweep embeds queries and runs ANN/FTS search; it calls NO generation
-model, so a full grid is cheap.
+Needs real provider API keys (for query embedding) and database access. The
+sweep runs ANN/FTS search and calls NO generation model. Query embeddings are
+computed once per DISTINCT question before the sweep and served to every cell,
+so a full grid costs 50 embedding calls rather than the 1232 the naive loop
+paid — which is what exhausted a 1000/day free tier on 2026-09-09. Results go
+to a timestamped subdirectory of `--outdir` with a provenance header.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import logging
+import re
 import statistics
+import subprocess
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -320,6 +338,8 @@ def score_config(
             "grounded": grounded,
             "top_similarity": round(max(sims), 4) if sims else 0.0,
             "duplicate_hits": len(keys) - len(set(keys)),
+            "latency_ms": round(float(out["latency_ms"]), 1)
+            if out.get("latency_ms") is not None else None,
         })
 
     # `n` counts only cases this regime actually attempted. Skipped cases are
@@ -351,6 +371,256 @@ def score_config(
     return result
 
 
+# ── Reading the failures production is designed not to raise ─────────────
+#
+# The 2026-09-09 quota incident is the reason this section exists. A grid run
+# completed, reported `Err 0` on all 32 rows, and named a best configuration of
+# `MRR 0.806, slide_found 0.940` — while Gemini was returning
+# `429 RESOURCE_EXHAUSTED` for most of the sweep. Nothing raised, because
+# nothing is supposed to:
+#
+#   retrieval.py:120-124  catches the embedding failure, logs a WARNING, and
+#                         returns `_current_only(...)` — `[]` here, since the
+#                         harness deliberately passes no current slide.
+#   retrieval.py:206-213  catches embed *and* search together, leaving
+#                         `vector_hits = []`, then runs keyword search and RRF
+#                         as though the dense arm had simply matched nothing.
+#   cache.py:380-382      catches the RPC failure, logs an ERROR, returns `[]`.
+#
+# That is correct behaviour for a student-facing tutor: degrade, do not 500.
+# It is exactly wrong for a measurement harness, which then cannot distinguish
+# an exhausted quota from an honest "nothing was similar enough". Counting
+# exceptions measures nothing when the code under test is built never to throw.
+#
+# So the harness reads the warnings those handlers already emit. This requires
+# no change to the production code — which is deployed, and which is behaving
+# as designed.
+
+# Loggers whose WARNING+ records mean a lookup silently degraded. Prefix match,
+# so a swallow point added later under `backend.` is caught without edits here.
+_FAILURE_LOGGER_PREFIX = "backend."
+
+
+class _BackendLogCapture(logging.Handler):
+    """Collect WARNING+ records emitted by `backend.*` while it is installed."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.records: List[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if not record.name.startswith(_FAILURE_LOGGER_PREFIX):
+            return
+        try:
+            self.records.append(record.getMessage())
+        except Exception:  # noqa: BLE001 — a broken format string must not end the sweep
+            self.records.append(str(record.msg))
+
+
+@contextlib.contextmanager
+def capture_backend_failures() -> Iterator[_BackendLogCapture]:
+    """Capture `backend.*` WARNING+ records for the duration of one query.
+
+    The handler is attached to the `backend` logger rather than to root so the
+    harness's own logging is not swept up with it. Its level is forced to
+    WARNING for the duration: a record is filtered at its originating logger's
+    *effective* level, so a caller who set the root logger to ERROR would
+    otherwise suppress exactly the warnings this exists to read.
+    """
+    handler = _BackendLogCapture()
+    backend_logger = logging.getLogger("backend")
+    previous_level = backend_logger.level
+    if backend_logger.getEffectiveLevel() > logging.WARNING:
+        backend_logger.setLevel(logging.WARNING)
+    backend_logger.addHandler(handler)
+    try:
+        yield handler
+    finally:
+        backend_logger.removeHandler(handler)
+        backend_logger.setLevel(previous_level)
+
+
+# ── Query embeddings: computed once, before the sweep ────────────────────
+
+@dataclass
+class EmbeddingPrecompute:
+    """Outcome of embedding every distinct question exactly once."""
+    embeddings: Dict[str, List[float]] = field(default_factory=dict)
+    failures: Dict[str, str] = field(default_factory=dict)
+    calls: int = 0
+    median_latency_ms: float = 0.0
+
+    @property
+    def ok(self) -> bool:
+        return not self.failures
+
+
+async def precompute_query_embeddings(
+    cases: Sequence[GoldenQuestion],
+    *,
+    rate_limit_per_second: float = 0.0,
+    max_attempts: int = 3,
+) -> EmbeddingPrecompute:
+    """Embed each DISTINCT question once, before any configuration is scored.
+
+    This is the fix for the quota incident, and it is arithmetic rather than
+    cleverness. `run_grid` loops regime -> k -> threshold -> case, and a query's
+    embedding depends on none of those three, so the old code paid for the same
+    50 vectors 32 times over:
+
+        lecture_dense   16 cells x 50 cases = 800
+        course_hybrid   16 cells x 27 cases = 432   (23 lack a course_id)
+                                              ----
+                                              1232 calls per grid
+
+    against a free-tier ceiling of 1000 embed_content requests per day. Nothing
+    absorbed the repetition: the Redis cache in front of `_embed_query_cached`
+    (retrieval.py:81-89) needs `init_redis()` to have been awaited, which a
+    standalone script never does, so every lookup missed and re-embedded.
+
+    Embedding the 50 distinct questions once costs 50 calls — a full grid is
+    then re-runnable twenty times a day inside the same free tier, and grid size
+    stops driving quota entirely.
+
+    The second benefit matters as much as the first: this fails *fast*.
+    `generate_embeddings` propagates rather than swallowing (embeddings.py:101),
+    so a 429 surfaces here, before a single cell is scored. The caller aborts
+    with a named cause and writes nothing, so there is no half-corrupted table
+    to notice later — or to miss.
+    """
+    from backend.services.ai.embeddings import generate_embeddings
+
+    distinct: List[str] = []
+    for case in cases:
+        if case.question not in distinct:
+            distinct.append(case.question)
+
+    out = EmbeddingPrecompute()
+    latencies: List[float] = []
+
+    for i, question in enumerate(distinct):
+        # Serialised on purpose. The whole point is to stay far inside the
+        # provider's per-minute ceiling; concurrency would buy seconds on a
+        # 50-call pass and risk the exact failure this function exists to stop.
+        if rate_limit_per_second > 0 and i:
+            await asyncio.sleep(1.0 / rate_limit_per_second)
+
+        last_error = ""
+        for attempt in range(1, max_attempts + 1):
+            started = time.perf_counter()
+            try:
+                out.calls += 1
+                vector = await generate_embeddings(question)
+                latencies.append((time.perf_counter() - started) * 1000.0)
+                out.embeddings[question] = vector
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_error = f"{type(exc).__name__}: {exc}"
+                # Retry only what retrying can fix. A per-minute 429 clears in
+                # seconds; a per-day quota, a bad key or a missing module does
+                # not, and sleeping through those wastes the author's time
+                # before delivering the same failure.
+                if attempt < max_attempts and _is_transient(last_error):
+                    await asyncio.sleep(_retry_delay_seconds(last_error, attempt))
+                    continue
+                out.failures[question] = last_error
+                break
+
+    out.median_latency_ms = statistics.median(latencies) if latencies else 0.0
+    return out
+
+
+# Failures a wait cannot fix. Checked first, because several of them contain
+# words that also appear in genuinely transient errors — `EmbeddingUnavailable`
+# is a missing API key, not a busy server, and retrying it three times costs the
+# author a minute to deliver the identical failure.
+_PERMANENT_SIGNALS = (
+    "perday",                 # a spent daily allowance, not a per-minute throttle
+    "embeddingunavailable",
+    "modulenotfounderror",
+    "no module named",
+    "importerror",
+    "not configured",
+    "api_key",
+    "api key",
+    "permission",
+    "invalid",
+    " 401",
+    " 403",
+    " 404",
+)
+
+_TRANSIENT_SIGNALS = (
+    r"\b429\b", r"\b503\b", r"\bunavailable\b", r"\bdeadline\b",
+    r"\btimeout\b", r"\btimed out\b", r"rate[ _]limit", r"too many requests",
+)
+
+
+def _is_transient(message: str) -> bool:
+    """Is this worth retrying? Per-minute throttling yes, spent quota no.
+
+    Word boundaries matter here rather than being pedantry: a bare substring
+    test for "unavailable" matches `EmbeddingUnavailableError`, which is what a
+    missing `GEMINI_API_KEY` raises and is the least retryable failure there is.
+    """
+    lowered = message.lower()
+    flattened = lowered.replace("_", "").replace("-", "")
+    if any(signal in flattened or signal in lowered for signal in _PERMANENT_SIGNALS):
+        return False
+    return any(re.search(pattern, lowered) for pattern in _TRANSIENT_SIGNALS)
+
+
+def _retry_delay_seconds(message: str, attempt: int) -> float:
+    """Honour the provider's own `retryDelay` when it names one.
+
+    Google returns `'retryDelay': '7s'` alongside a 429. Obeying it beats
+    guessing, and it is already in the message the exception carried.
+    """
+    match = re.search(r"'retryDelay':\s*'(\d+)s'", message)
+    if match:
+        return float(match.group(1)) + 1.0
+    return float(2 ** attempt)
+
+
+@contextlib.contextmanager
+def serve_embeddings_from(precomputed: Dict[str, List[float]]) -> Iterator[None]:
+    """Serve `retrieval._embed_query_cached` from `precomputed` for the sweep.
+
+    Swapping the module attribute is what makes the precompute reach the
+    production retriever without touching it: `retrieve_relevant_slides` looks
+    the name up on its own module at call time, so the substitution is complete
+    for both regimes and is undone in `finally` whatever happens.
+
+    Consequence to report honestly: `latency_ms` in the results then measures
+    ANN/FTS search plus slide enrichment, NOT the embedding round trip. That is
+    the better number for comparing configurations — embedding cost is constant
+    across every cell, so including it only adds noise — but the results table
+    says so in its provenance header, and the embedding latency is reported
+    separately from the precompute pass.
+    """
+    from backend.services.ai import retrieval as _retrieval
+
+    original = _retrieval._embed_query_cached
+
+    async def _from_precomputed(query: str) -> List[float]:
+        try:
+            return precomputed[query]
+        except KeyError:
+            # Unreachable when the precompute covered this golden set, and loud
+            # rather than silent if it ever is reached: returning [] here would
+            # reintroduce precisely the failure mode this module fixes.
+            raise RuntimeError(
+                f"no precomputed embedding for query {query[:60]!r} — the "
+                "precompute pass and the sweep disagree about the case list"
+            )
+
+    _retrieval._embed_query_cached = _from_precomputed
+    try:
+        yield
+    finally:
+        _retrieval._embed_query_cached = original
+
+
 # ── Live retrieval (needs DB + API keys) ─────────────────────────────────
 
 async def _retrieve(case: GoldenQuestion, regime: str, k: int, threshold: float) -> Dict[str, Any]:
@@ -362,34 +632,48 @@ async def _retrieve(case: GoldenQuestion, regime: str, k: int, threshold: float)
     the expected slide happened to be the one on screen.
     """
     started = time.perf_counter()
-    try:
-        if regime == REGIME_LECTURE_DENSE:
-            from backend.services.ai.retrieval import retrieve_relevant_slides
-            hits = await retrieve_relevant_slides(
-                case.question, lecture_id=case.lecture_id, k=k, threshold=threshold
-            )
-            keys = [(case.lecture_id, int(h["slide_index"])) for h in hits]
-        elif regime == REGIME_COURSE_HYBRID:
-            if not case.course_id:
-                # NOT an error: the case is unrunnable in this regime because
-                # `lectures.course_id` is null, which is a property of the data
-                # and not of the retriever. Counting it as a miss would make the
-                # course-scoped regime look worse for a reason that has nothing
-                # to do with retrieval, and the regime comparison is the whole
-                # point of running both. Excluded from every denominator.
-                return {"skipped": f"lecture has no course_id, so {regime} cannot be scoped"}
-            from backend.services.ai.retrieval import retrieve_relevant_slides_course_scoped
-            hits = await retrieve_relevant_slides_course_scoped(
-                case.question, course_ids=[case.course_id], k=k, threshold=threshold
-            )
-            keys = [(str(h["lecture_id"]), int(h["slide_index"])) for h in hits]
-        else:
-            return {"error": f"unknown regime {regime!r}"}
-    except Exception as exc:  # noqa: BLE001 — one bad query must not end the sweep
-        logger.warning("retrieval failed for case %s (%s): %s", case.id, regime, exc)
-        return {"error": f"{type(exc).__name__}: {exc}"}
+    with capture_backend_failures() as captured:
+        try:
+            if regime == REGIME_LECTURE_DENSE:
+                from backend.services.ai.retrieval import retrieve_relevant_slides
+                hits = await retrieve_relevant_slides(
+                    case.question, lecture_id=case.lecture_id, k=k, threshold=threshold
+                )
+                keys = [(case.lecture_id, int(h["slide_index"])) for h in hits]
+            elif regime == REGIME_COURSE_HYBRID:
+                if not case.course_id:
+                    # NOT an error: the case is unrunnable in this regime because
+                    # `lectures.course_id` is null, which is a property of the data
+                    # and not of the retriever. Counting it as a miss would make the
+                    # course-scoped regime look worse for a reason that has nothing
+                    # to do with retrieval, and the regime comparison is the whole
+                    # point of running both. Excluded from every denominator.
+                    return {"skipped": f"lecture has no course_id, so {regime} cannot be scoped"}
+                from backend.services.ai.retrieval import retrieve_relevant_slides_course_scoped
+                hits = await retrieve_relevant_slides_course_scoped(
+                    case.question, course_ids=[case.course_id], k=k, threshold=threshold
+                )
+                keys = [(str(h["lecture_id"]), int(h["slide_index"])) for h in hits]
+            else:
+                return {"error": f"unknown regime {regime!r}"}
+        except Exception as exc:  # noqa: BLE001 — one bad query must not end the sweep
+            logger.warning("retrieval failed for case %s (%s): %s", case.id, regime, exc)
+            return {"error": f"{type(exc).__name__}: {exc}"}
 
     latency_ms = (time.perf_counter() - started) * 1000.0
+
+    # A lookup that degraded silently is an error, not a miss. Without this the
+    # run scores an exhausted quota as "the retriever found nothing" — the exact
+    # shape that produced a citable table of plausible numbers on 2026-09-09.
+    # The captured text carries the real cause (the provider's own
+    # `429 RESOURCE_EXHAUSTED ...` line) into `error_messages`, where
+    # `credibility_report` already knows how to surface it.
+    if captured.records:
+        return {
+            "error": f"silent degradation: {captured.records[0]}",
+            "latency_ms": latency_ms,
+        }
+
     return {
         "keys": keys,
         "texts": [f"{h.get('title', '')} {h.get('content', '')}" for h in hits],
@@ -458,16 +742,151 @@ def _parse_ints(text: str) -> List[int]:
     return [int(x) for x in text.split(",") if x.strip()]
 
 
-def credibility_report(results: Sequence[ConfigResult], max_error_rate: float):
+# ── Invariants the retriever provably satisfies ──────────────────────────
+
+def _cells(results: Sequence[ConfigResult]) -> List[ConfigResult]:
+    """Cells with at least one attempted case. A fully-skipped cell scores 0.0
+    by definition, and comparing that against a scored cell would manufacture a
+    violation out of the `course_id` gap in the golden set."""
+    return [r for r in results if (r.n - r.skipped) > 0]
+
+
+def monotonicity_violations(
+    results: Sequence[ConfigResult], tolerance: float = 0.02
+) -> List[str]:
+    """Report cells that contradict a property the retrieval code guarantees.
+
+    These are not heuristics. Each follows from the retrieval semantics, which
+    is what makes them safe to reject a run on:
+
+    **k-monotonicity — both regimes.** For a fixed (regime, threshold), a larger
+    top-k returns a superset of a smaller one, so `slide_found` cannot fall as k
+    rises. `retrieve_relevant_slides` truncates one ordered candidate list at k
+    (retrieval.py:150); `rrf_fuse` takes `ordered_keys[:k]` from a pool sized
+    `max(k * 2, 8)`, which also grows with k (retrieval.py:210,218,275).
+
+    **Threshold-monotonicity — `lecture_dense` ONLY.** Verified in the SQL of
+    `match_slides_by_lecture` (migration 20260719020001, lines 45-53): the
+    function filters on `1 - (embedding <=> query) > match_threshold`, THEN
+    orders by distance ascending, THEN applies `LIMIT match_count`. Because the
+    ordering is by the same quantity the filter tests, a stricter threshold
+    removes exactly a *suffix* of the ranked list — it can never promote a
+    lower-ranked slide into the top-k. So `slide_found` cannot rise as the
+    threshold rises. It is deliberately NOT checked for `course_hybrid`: there the
+    threshold filters only the vector arm (retrieval.py:210) while the keyword
+    arm is unfiltered, so shrinking the vector list changes the RRF ranking and
+    can *promote* a keyword-only slide into the fused top-k. That regime is
+    legitimately non-monotone in threshold, and asserting otherwise would
+    reject healthy runs.
+
+    `tolerance` exists because two things can legitimately move one case: HNSW
+    is approximate, and `_fetch_slide` drops an enriched hit when the slide row
+    is missing (retrieval.py:155-157). The default 0.02 is one case in fifty —
+    large enough for that, far too small to hide a real failure. Against the
+    2026-09-09 quota-corrupted run these checks fire eight times, the largest
+    at 0.940.
+    """
+    scored = _cells(results)
+    violations: List[str] = []
+    # Compare against a hair over the tolerance. `0.86 - 0.84` is
+    # 0.020000000000000018 in binary floating point, so a bare `> tolerance`
+    # rejects a movement of exactly one case in fifty — the very size the
+    # tolerance exists to permit.
+    limit = tolerance + 1e-9
+
+    by_regime_threshold: Dict[Tuple[str, float], List[ConfigResult]] = {}
+    for r in scored:
+        by_regime_threshold.setdefault((r.regime, r.threshold), []).append(r)
+    for (regime, threshold), group in sorted(by_regime_threshold.items()):
+        ordered = sorted(group, key=lambda r: r.k)
+        for lower, higher in zip(ordered, ordered[1:]):
+            drop = lower.slide_found_rate - higher.slide_found_rate
+            if drop > limit:
+                violations.append(
+                    f"{regime} thr={threshold:.2f}: slide_found FELL from "
+                    f"{lower.slide_found_rate:.3f} at k={lower.k} to "
+                    f"{higher.slide_found_rate:.3f} at k={higher.k} "
+                    f"(-{drop:.3f}). A larger top-k is a superset of a smaller "
+                    f"one, so this cannot happen to a retriever that ran."
+                )
+
+    by_regime_k: Dict[Tuple[str, int], List[ConfigResult]] = {}
+    for r in scored:
+        if r.regime != REGIME_LECTURE_DENSE:
+            continue
+        by_regime_k.setdefault((r.regime, r.k), []).append(r)
+    for (regime, k), group in sorted(by_regime_k.items()):
+        ordered = sorted(group, key=lambda r: r.threshold)
+        for looser, stricter in zip(ordered, ordered[1:]):
+            rise = stricter.slide_found_rate - looser.slide_found_rate
+            if rise > limit:
+                violations.append(
+                    f"{regime} k={k}: slide_found ROSE from "
+                    f"{looser.slide_found_rate:.3f} at thr={looser.threshold:.2f} to "
+                    f"{stricter.slide_found_rate:.3f} at thr={stricter.threshold:.2f} "
+                    f"(+{rise:.3f}). The threshold is a hard SQL filter on one "
+                    f"candidate list, so a stricter one cannot return more."
+                )
+    return violations
+
+
+def latency_anomalies(results: Sequence[ConfigResult], ratio: float = 5.0) -> List[str]:
+    """Flag a regime whose per-cell median latencies split by an order of magnitude.
+
+    A deliberate WARNING rather than a rejection: a cold cache, a noisy VM or a
+    single slow lecture can all stretch the spread, so this is the one signal
+    here that is genuinely a heuristic. It earns its place because it is what
+    made the 2026-09-09 corruption legible by eye — the dead cells clustered at
+    53-59 ms because no network embedding call was made at all, against
+    463-817 ms for the cells that really ran, a 15x spread.
+    """
+    notes: List[str] = []
+    by_regime: Dict[str, List[ConfigResult]] = {}
+    for r in _cells(results):
+        if r.median_latency_ms > 0:
+            by_regime.setdefault(r.regime, []).append(r)
+    for regime, group in sorted(by_regime.items()):
+        if len(group) < 2:
+            continue
+        fastest = min(group, key=lambda r: r.median_latency_ms)
+        slowest = max(group, key=lambda r: r.median_latency_ms)
+        if slowest.median_latency_ms >= ratio * fastest.median_latency_ms:
+            notes.append(
+                f"{regime}: median latency spans "
+                f"{fastest.median_latency_ms:.0f} ms (k={fastest.k} thr={fastest.threshold:.2f}) "
+                f"to {slowest.median_latency_ms:.0f} ms (k={slowest.k} thr={slowest.threshold:.2f}), "
+                f"a {slowest.median_latency_ms / fastest.median_latency_ms:.1f}x spread. "
+                f"Cells far below the rest often made no network call at all."
+            )
+    return notes
+
+
+def credibility_report(
+    results: Sequence[ConfigResult],
+    max_error_rate: float,
+    monotonicity_tolerance: float = 0.02,
+):
     """Decide whether a run is worth reporting, and say why if it is not.
 
-    Returns (ok, message). Counting an errored lookup as a miss is right when a
-    few queries fail; it is wrong when most of them do, because the score then
-    measures the environment rather than the retriever. A grid that errored
-    everywhere still renders as a clean table of zeros — indistinguishable at a
-    glance from a real result showing catastrophic retrieval — so the run must
-    refuse to produce that artefact rather than leave it lying in the results
-    directory where it can be read into a thesis as a finding.
+    Returns (ok, message). Two independent grounds for rejection, because the
+    two failures this harness has actually produced were caught by neither the
+    same signal nor the same reasoning:
+
+    **Error rate.** Counting an errored lookup as a miss is right when a few
+    queries fail and wrong when most do, because the score then measures the
+    environment rather than the retriever. This caught the 2026-09-08
+    `No module named 'fastapi'` run, where every lookup raised.
+
+    **Invariant violations.** The 2026-09-09 quota run raised nothing at all —
+    production catches its own failures by design — so it reported `Err 0` on
+    every row and passed the error-rate check cleanly. What gave it away was
+    that the numbers contradicted each other: `slide_found` fell as k rose, and
+    rose as the threshold tightened. Both are impossible for a retriever that
+    ran, so a run that does either is rejected on the arithmetic alone, with no
+    need to have detected the cause.
+
+    The second check is the one that matters most, because it does not depend
+    on anticipating *how* a run will break.
     """
     attempted = sum(r.n - r.skipped for r in results)
     errored = sum(r.errors for r in results)
@@ -475,39 +894,158 @@ def credibility_report(results: Sequence[ConfigResult], max_error_rate: float):
         return False, ("Every case was skipped: no regime could run any question. "
                        "Check that the golden set's lectures have a course_id for "
                        "course-scoped regimes.")
-    rate = errored / attempted
-    if rate <= max_error_rate:
-        return True, ""
 
     seen: List[str] = []
     for r in results:
         for m in r.error_messages:
             if m not in seen:
                 seen.append(m)
-    lines = [
-        f"{errored} of {attempted} attempted lookups failed ({rate:.0%}).",
+
+    sections: List[str] = []
+
+    rate = errored / attempted
+    if rate > max_error_rate:
+        lines = [f"{errored} of {attempted} attempted lookups failed ({rate:.0%}).",
+                 "", "Distinct errors:"]
+        lines += [f"  - {m[:400]}" for m in seen[:8]]
+        if any("No module named" in m for m in seen):
+            lines += ["", "A missing module means the backend dependencies are not installed "
+                          "in this interpreter. Install the lean set and re-run:",
+                      "    pip install -r backend/requirements-docker.txt"]
+        if any(_is_quota_message(m) for m in seen):
+            lines += ["", "The provider refused on quota. With the query embeddings "
+                          "precomputed a full grid costs one call per DISTINCT question "
+                          "(50, not 1232), so this should now only mean the daily "
+                          "allowance was already spent before the run started. Wait for "
+                          "the reset, or pass --rate-limit to pace the precompute."]
+        sections.append("\n".join(lines))
+
+    violations = monotonicity_violations(results, monotonicity_tolerance)
+    if violations:
+        lines = [f"{len(violations)} result(s) contradict a property the retriever "
+                 f"provably satisfies:", ""]
+        lines += [f"  - {v}" for v in violations[:8]]
+        if len(violations) > 8:
+            lines.append(f"  ... and {len(violations) - 8} more")
+        lines += ["", "A run whose own numbers are mutually impossible measured "
+                      "something other than retrieval quality — most likely a provider "
+                      "or database failure that the production code caught and logged "
+                      "rather than raised. Check the WARNING lines above for "
+                      "`429`, `RPC failed`, or `embedding failed`."]
+        sections.append("\n".join(lines))
+
+    if not sections:
+        return True, ""
+
+    sections.append("No results were written: a plausible-looking table produced by a "
+                    "broken run is worse than no table at all. Re-run once the cause is "
+                    "fixed, or pass --allow-errors to write it anyway.")
+    return False, "\n\n".join(sections)
+
+
+def _is_quota_message(message: str) -> bool:
+    lowered = message.lower()
+    return "429" in lowered or "resource_exhausted" in lowered or "quota" in lowered
+
+
+def _git_sha() -> str:
+    """Short HEAD sha, so a table can be traced back to the code that made it."""
+    try:
+        out = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                             capture_output=True, text=True, timeout=5)
+        sha = out.stdout.strip()
+        dirty = subprocess.run(["git", "status", "--porcelain"],
+                               capture_output=True, text=True, timeout=5).stdout.strip()
+        return f"{sha}{'-dirty' if dirty else ''}" if sha else "unknown"
+    except Exception:  # noqa: BLE001 — provenance is best-effort, never fatal
+        return "unknown"
+
+
+def provenance_header(
+    args: argparse.Namespace,
+    cases: Sequence[GoldenQuestion],
+    embed: EmbeddingPrecompute,
+    verdict: str,
+) -> str:
+    """A header that travels with the table.
+
+    The 2026-09-09 incident produced a file that was indistinguishable from a
+    good one once it left the terminal. A table that states its own date, code
+    revision, corpus and verdict cannot be mistaken for another run's, and a
+    rejected run cannot be mistaken for an accepted one.
+    """
+    return "\n".join([
+        "<!--",
+        f"  generated : {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')}",
+        f"  commit    : {_git_sha()}",
+        f"  golden set: {args.golden} ({len(cases)} questions, "
+        f"{len({c.question for c in cases})} distinct)",
+        f"  grid      : regimes={args.regimes} k={args.k} threshold={args.threshold}",
+        f"  embeddings: {embed.calls} call(s) for "
+        f"{len(embed.embeddings)} distinct question(s), "
+        f"median {embed.median_latency_ms:.0f} ms",
+        f"  verdict   : {verdict}",
         "",
-        "Distinct errors:",
-    ]
-    lines += [f"  - {m}" for m in seen[:8]]
-    if any("No module named" in m for m in seen):
-        lines += ["", "A missing module means the backend dependencies are not installed "
-                      "in this interpreter. Install the lean set and re-run:",
-                  "    pip install -r backend/requirements-docker.txt"]
-    lines += ["", "No results were written: a table of zeros produced by a broken "
-                  "environment is worse than no table at all. Re-run once the cause "
-                  "is fixed, or pass --allow-errors to score the run anyway."]
-    return False, "\n".join(lines)
+        "  Latency below is ANN/FTS search plus slide enrichment. It EXCLUDES the",
+        "  query-embedding round trip, which is precomputed once per distinct",
+        "  question and served from memory for every cell — embedding cost is",
+        "  constant across configurations, so including it would only add noise",
+        "  to the comparison. The embedding latency is reported on the line above.",
+        "-->",
+        "",
+    ])
 
 
 async def main_async(args: argparse.Namespace) -> int:
     cases = load_golden_set(args.golden)
     logger.info("loaded %d golden questions from %s", len(cases), args.golden)
 
-    regimes = [r for r in args.regimes.split(",") if r.strip()]
-    results = await run_grid(cases, _parse_ints(args.k), _parse_floats(args.threshold), regimes)
+    outdir = Path(args.outdir)
+    # Refuse to sit next to output from an earlier run. The corrupted table from
+    # 2026-09-09 was written to this exact path, and a stale file beside a fresh
+    # one is how the wrong numbers reach a thesis.
+    legacy = outdir / "grid_results.md"
+    if legacy.exists() and not args.force:
+        print(f"\n=== REFUSING TO RUN ===\n{legacy} already exists.")
+        print("Results are now written to a timestamped subdirectory, so this file is")
+        print("from an earlier run. If it is the quota-corrupted 2026-09-09 table,")
+        print("delete it — nothing in it is salvageable. Then re-run, or pass --force.")
+        return 3
 
-    ok, why = credibility_report(results, args.max_error_rate)
+    regimes = [r for r in args.regimes.split(",") if r.strip()]
+
+    # ── Phase 1: embed every distinct question, once, before scoring anything.
+    print(f"Embedding {len({c.question for c in cases})} distinct question(s)...")
+    embed = await precompute_query_embeddings(
+        cases, rate_limit_per_second=args.rate_limit
+    )
+    print(f"  {embed.calls} call(s), median {embed.median_latency_ms:.0f} ms, "
+          f"{len(embed.failures)} failure(s)")
+
+    if not embed.ok and not args.allow_errors:
+        print("\n=== RUN REJECTED (before the sweep) ===")
+        print(f"{len(embed.failures)} of {len(embed.failures) + len(embed.embeddings)} "
+              f"question(s) could not be embedded.\n")
+        for question, why in list(embed.failures.items())[:5]:
+            print(f"  {question[:70]!r}\n    -> {why[:300]}\n")
+        if any(_is_quota_message(w) for w in embed.failures.values()):
+            print("The daily embedding allowance is spent. A full grid now costs one")
+            print("call per DISTINCT question (50, not the 1232 the old sweep paid),")
+            print("so waiting for the quota reset is enough — no other change needed.")
+        print("Nothing was written. Scoring a grid on embeddings that do not exist")
+        print("produces a table that looks like a result and measures the provider.")
+        return 2
+
+    # ── Phase 2: sweep, with every cell served the same precomputed vectors.
+    with serve_embeddings_from(embed.embeddings):
+        results = await run_grid(
+            cases, _parse_ints(args.k), _parse_floats(args.threshold), regimes
+        )
+
+    ok, why = credibility_report(results, args.max_error_rate, args.monotonicity_tolerance)
+    for note in latency_anomalies(results):
+        print(f"\nWARNING  {note}")
+
     if not ok and not args.allow_errors:
         print("\n=== RUN REJECTED ===")
         print(why)
@@ -520,17 +1058,30 @@ async def main_async(args: argparse.Namespace) -> int:
         print("\n*** --allow-errors was set; the numbers below are NOT trustworthy ***")
         print(why)
 
-    outdir = Path(args.outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-    (outdir / "grid_results.md").write_text(table + "\n", encoding="utf-8")
-    (outdir / "grid_results.csv").write_text(to_csv(results) + "\n", encoding="utf-8")
-    (outdir / "grid_per_question.json").write_text(
-        json.dumps([{**r.as_row(), "per_question": r.per_question} for r in results], indent=2),
+    verdict = "ACCEPTED" if ok else "REJECTED - written under --allow-errors, DO NOT CITE"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    rundir = outdir / stamp
+    rundir.mkdir(parents=True, exist_ok=True)
+
+    header = provenance_header(args, cases, embed, verdict)
+    (rundir / "grid_results.md").write_text(header + table + "\n", encoding="utf-8")
+    (rundir / "grid_results.csv").write_text(to_csv(results) + "\n", encoding="utf-8")
+    (rundir / "grid_per_question.json").write_text(
+        json.dumps({
+            "generated_utc": stamp,
+            "commit": _git_sha(),
+            "golden_set": str(args.golden),
+            "verdict": verdict,
+            "embedding_calls": embed.calls,
+            "embedding_median_ms": round(embed.median_latency_ms, 1),
+            "configs": [{**r.as_row(), "per_question": r.per_question} for r in results],
+        }, indent=2),
         encoding="utf-8",
     )
-    print(f"\nWrote grid_results.md, grid_results.csv and grid_per_question.json to {outdir}/")
+    print(f"\nWrote grid_results.md, grid_results.csv and grid_per_question.json "
+          f"to {rundir}/")
 
-    if results:
+    if results and ok:
         best = max(results, key=lambda r: r.mrr)
         print(
             f"\nBest by MRR: {best.regime} k={best.k} threshold={best.threshold:.2f} "
@@ -548,14 +1099,27 @@ def main() -> None:
                         help="comma-separated similarity thresholds")
     parser.add_argument("--regimes", default=",".join(REGIMES),
                         help=f"comma-separated regimes from {REGIMES}")
-    parser.add_argument("--outdir", default="thesis/results", help="where to write results")
+    parser.add_argument("--outdir", default="thesis/results",
+                        help="parent directory; each run writes a timestamped subdirectory")
     parser.add_argument("--max-error-rate", type=float, default=0.20,
                         help="reject the run and write nothing if more than this share "
                              "of attempted lookups failed (default 0.20)")
+    parser.add_argument("--monotonicity-tolerance", type=float, default=0.02,
+                        help="how far slide_found may move against a guaranteed "
+                             "monotonicity before the run is rejected. Default 0.02 — "
+                             "one case in fifty, which covers HNSW approximation and a "
+                             "dropped slide row without hiding a real failure")
+    parser.add_argument("--rate-limit", type=float, default=0.0,
+                        help="cap the embedding precompute at this many requests per "
+                             "second. Rarely needed: the precompute makes one call per "
+                             "distinct question, not one per grid cell")
+    parser.add_argument("--force", action="store_true",
+                        help="run even though an earlier run's output sits in --outdir")
     parser.add_argument("--allow-errors", action="store_true",
-                        help="score and write results despite a high error rate. Explicit "
-                             "opt-in: the resulting numbers measure the environment as "
-                             "much as the retriever")
+                        help="score and write results despite failures or violated "
+                             "invariants. Explicit opt-in: the output is stamped "
+                             "DO NOT CITE, because the numbers measure the environment "
+                             "as much as the retriever")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 

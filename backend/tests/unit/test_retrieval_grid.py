@@ -11,19 +11,30 @@ false-refusal number is the one the thesis leans on hardest.
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 
 import pytest
 
 from backend.eval.retrieval_grid import (
-    credibility_report,
+    EmbeddingPrecompute,
     GoldenQuestion,
+    REGIME_COURSE_HYBRID,
+    REGIME_LECTURE_DENSE,
+    _is_transient,
+    _retry_delay_seconds,
     anchor_found,
+    capture_backend_failures,
+    credibility_report,
     is_grounded_by_threshold,
+    latency_anomalies,
     load_golden_set,
+    monotonicity_violations,
     precision_at_k,
     reciprocal_rank,
     score_config,
+    serve_embeddings_from,
     slide_found,
     to_csv,
     to_markdown_table,
@@ -303,3 +314,422 @@ def test_an_all_skipped_run_is_rejected_with_its_own_message():
     ok, why = credibility_report([_result(27, errors=0, skipped=27)], 0.20)
     assert not ok
     assert "skipped" in why.lower() and "course_id" in why
+
+
+# ── the guard against a run that failed WITHOUT raising ──────────────────
+#
+# The 2026-09-08 failure raised on every lookup, so counting errors caught it.
+# The 2026-09-09 failure raised nothing: the production retriever catches its
+# own provider failures by design (retrieval.py:120-124, :206-213,
+# cache.py:380-382), so the grid reported `Err 0` on all 32 rows and named a
+# best configuration of `MRR 0.806, slide_found 0.940` while Gemini had been
+# returning 429 for most of the sweep. These tests pin the two mechanisms that
+# close that hole: reading the warnings production emits, and rejecting a table
+# whose own numbers are mutually impossible.
+
+
+def _cell(regime, k, thr, slide_found_rate, n=50, skipped=0, latency=500.0):
+    r = score_config([], [], regime, k, thr)
+    r.n, r.skipped = n, skipped
+    r.slide_found_rate = slide_found_rate
+    r.median_latency_ms = latency
+    return r
+
+
+def test_capture_turns_a_swallowed_warning_into_a_visible_record():
+    """`retrieval.py` logs and returns [] rather than raising. The harness has
+    to read the log, because there is no exception to catch."""
+    with capture_backend_failures() as captured:
+        logging.getLogger("backend.services.ai.retrieval").warning(
+            "Scoped query embedding/search failed: 429 RESOURCE_EXHAUSTED"
+        )
+    assert len(captured.records) == 1
+    assert "429 RESOURCE_EXHAUSTED" in captured.records[0]
+
+
+def test_capture_ignores_loggers_outside_backend_and_detaches_cleanly():
+    with capture_backend_failures() as captured:
+        logging.getLogger("httpx").warning("noisy third-party warning")
+    assert captured.records == []
+    # Nothing captured after the block, so a later query is not blamed for an
+    # earlier one's failure.
+    logging.getLogger("backend.services.cache").error("after the block")
+    assert captured.records == []
+
+
+def test_capture_survives_a_root_logger_set_to_error():
+    """A record is filtered at its originating logger's *effective* level, so a
+    caller who quietened the root logger would otherwise suppress exactly the
+    warnings this exists to read."""
+    root = logging.getLogger()
+    previous = root.level
+    root.setLevel(logging.ERROR)
+    try:
+        with capture_backend_failures() as captured:
+            logging.getLogger("backend.services.ai.retrieval").warning("429 quota")
+        assert len(captured.records) == 1
+    finally:
+        root.setLevel(previous)
+
+
+def test_a_silently_degraded_lookup_is_scored_as_an_error_not_a_miss():
+    """The distinction the whole fix rests on. A quota failure returns an empty
+    list, which is shaped exactly like an honest 'nothing matched' — but one is
+    a fact about the retriever and the other is a fact about the provider."""
+    cases = [_case(1), _case(2)]
+    outcomes = [
+        {"error": "silent degradation: 429 RESOURCE_EXHAUSTED", "latency_ms": 55.0},
+        {"keys": [(LEC, 2)], "texts": ["anch"], "similarities": [0.9], "latency_ms": 500.0},
+    ]
+    r = score_config(cases, outcomes, REGIME_LECTURE_DENSE, 5, 0.65)
+    assert r.errors == 1
+    assert any("429" in m for m in r.error_messages)
+    # Scored as a miss for retrieval quality (it really returned nothing) but
+    # excluded from the gate denominator, so a dead provider is never counted
+    # as the threshold making a decision.
+    assert r.slide_found_rate == 0.5
+    assert r.refusal_rate == 0.0
+
+
+# ── the invariants ───────────────────────────────────────────────────────
+
+def test_slide_found_falling_as_k_rises_is_impossible_and_rejected():
+    """A larger top-k returns a superset of a smaller one."""
+    results = [_cell(REGIME_LECTURE_DENSE, 3, 0.0, 0.860),
+               _cell(REGIME_LECTURE_DENSE, 5, 0.0, 0.000)]
+    violations = monotonicity_violations(results, 0.02)
+    assert len(violations) == 1
+    assert "FELL" in violations[0] and "k=3" in violations[0] and "k=5" in violations[0]
+    ok, why = credibility_report(results, 0.20)
+    assert not ok and "superset" in why
+
+
+def test_slide_found_rising_with_a_stricter_threshold_is_impossible_and_rejected():
+    """In lecture_dense the threshold is a hard SQL filter on one candidate
+    list, so raising it is strictly subtractive."""
+    results = [_cell(REGIME_LECTURE_DENSE, 8, 0.00, 0.400),
+               _cell(REGIME_LECTURE_DENSE, 8, 0.50, 0.940)]
+    violations = monotonicity_violations(results, 0.02)
+    assert len(violations) == 1 and "ROSE" in violations[0]
+    assert not credibility_report(results, 0.20)[0]
+
+
+def test_the_same_threshold_pattern_is_ACCEPTED_for_course_hybrid():
+    """The regression guard for this check. In the hybrid regime the threshold
+    filters only the vector arm while the keyword arm is unfiltered, so
+    shrinking the vector list reranks the fusion and can promote a keyword-only
+    slide into the top-k. Asserting monotonicity there would reject healthy
+    runs — the check must be regime-aware, not universal."""
+    results = [_cell(REGIME_COURSE_HYBRID, 8, 0.00, 0.400),
+               _cell(REGIME_COURSE_HYBRID, 8, 0.50, 0.940)]
+    assert monotonicity_violations(results, 0.02) == []
+    assert credibility_report(results, 0.20)[0]
+
+
+def test_k_monotonicity_still_applies_to_course_hybrid():
+    """Only the threshold check is exempt; rrf_fuse takes ordered_keys[:k] from
+    a pool sized max(k*2, 8), so k is a superset there too."""
+    results = [_cell(REGIME_COURSE_HYBRID, 3, 0.5, 0.500),
+               _cell(REGIME_COURSE_HYBRID, 5, 0.5, 0.100)]
+    assert len(monotonicity_violations(results, 0.02)) == 1
+
+
+def test_a_movement_within_tolerance_is_accepted():
+    """HNSW is approximate and _fetch_slide can drop an enriched hit, so one
+    case in fifty may legitimately move. The default tolerance covers that and
+    nothing larger."""
+    results = [_cell(REGIME_LECTURE_DENSE, 3, 0.0, 0.860),
+               _cell(REGIME_LECTURE_DENSE, 5, 0.0, 0.840)]   # one case in 50
+    assert monotonicity_violations(results, 0.02) == []
+    assert credibility_report(results, 0.20)[0]
+
+
+def test_a_fully_skipped_cell_never_manufactures_a_violation():
+    """It scores 0.0 by definition; comparing that against a scored cell would
+    turn the golden set's course_id gap into a false rejection."""
+    results = [_cell(REGIME_COURSE_HYBRID, 3, 0.5, 0.500, n=27, skipped=0),
+               _cell(REGIME_COURSE_HYBRID, 5, 0.5, 0.000, n=27, skipped=27)]
+    assert monotonicity_violations(results, 0.02) == []
+
+
+def test_the_real_2026_09_09_table_is_rejected():
+    """Regression test built from the numbers the author actually got. Every
+    row reported Err 0, so the error-rate check passed it; eight independent
+    invariant violations reject it."""
+    observed = {  # (k, threshold) -> (slide_found, median latency ms)
+        (3, 0.00): (0.860, 476), (3, 0.50): (0.860, 477),
+        (3, 0.65): (0.840, 463), (3, 0.75): (0.160, 58),
+        (5, 0.00): (0.000, 56), (5, 0.50): (0.000, 55),
+        (5, 0.65): (0.000, 55), (5, 0.75): (0.000, 55),
+        (8, 0.00): (0.400, 59), (8, 0.50): (0.940, 817),
+        (8, 0.65): (0.680, 647), (8, 0.75): (0.000, 55),
+        (10, 0.00): (0.000, 53), (10, 0.50): (0.000, 55),
+        (10, 0.65): (0.000, 55), (10, 0.75): (0.000, 55),
+    }
+    results = [_cell(REGIME_LECTURE_DENSE, k, t, found, latency=lat)
+               for (k, t), (found, lat) in observed.items()]
+
+    # This is what let it through before: no lookup ever raised.
+    assert sum(r.errors for r in results) == 0
+    assert len(monotonicity_violations(results, 0.02)) == 8
+
+    ok, why = credibility_report(results, 0.20)
+    assert not ok
+    assert "0.940" in why          # names the impossible cell
+    assert "No results were written" in why
+
+    # And the heuristic that made it legible by eye still fires, as a warning.
+    notes = latency_anomalies(results)
+    assert len(notes) == 1 and "15.4x" in notes[0]
+
+
+def test_a_healthy_grid_passes_every_check():
+    """The shape a good run has: non-decreasing in k, non-increasing in
+    threshold, latency in one band."""
+    results = [
+        _cell(REGIME_LECTURE_DENSE, 3, 0.00, 0.86, latency=470),
+        _cell(REGIME_LECTURE_DENSE, 5, 0.00, 0.90, latency=490),
+        _cell(REGIME_LECTURE_DENSE, 8, 0.00, 0.94, latency=520),
+        _cell(REGIME_LECTURE_DENSE, 3, 0.65, 0.80, latency=465),
+        _cell(REGIME_LECTURE_DENSE, 5, 0.65, 0.84, latency=480),
+        _cell(REGIME_LECTURE_DENSE, 8, 0.65, 0.88, latency=505),
+    ]
+    assert monotonicity_violations(results, 0.02) == []
+    assert latency_anomalies(results) == []
+    assert credibility_report(results, 0.20) == (True, "")
+
+
+# ── the embedding precompute ─────────────────────────────────────────────
+
+def test_a_daily_quota_failure_is_not_retried_but_a_per_minute_one_is():
+    """Retrying only helps for what a wait can fix. Sleeping through a spent
+    daily allowance costs the author minutes to deliver the same failure."""
+    per_day = ("429 RESOURCE_EXHAUSTED ... 'quotaId': "
+               "'EmbedContentRequestsPerDayPerUserPerProjectPerModel-FreeTier'")
+    assert not _is_transient(per_day)
+    assert _is_transient("429 rate limit exceeded, please retry")
+    assert not _is_transient("ModuleNotFoundError: No module named 'fastapi'")
+    assert not _is_transient("EmbeddingUnavailableError: GEMINI_API_KEY is not configured")
+
+
+def test_the_providers_own_retry_delay_is_honoured():
+    """Google returns `'retryDelay': '7s'` next to the 429; obeying it beats
+    guessing, and it is already in the message the exception carried."""
+    assert _retry_delay_seconds("... 'retryDelay': '7s' ...", attempt=1) == 8.0
+    assert _retry_delay_seconds("no delay named", attempt=3) == 8.0
+
+
+def test_precomputed_embeddings_are_served_to_the_retriever_and_then_restored():
+    """The swap is what lets one embedding serve all 32 cells without touching
+    the deployed retriever. It must be complete for the run and undone after."""
+    retrieval = pytest.importorskip(
+        "backend.services.ai.retrieval",
+        reason="backend deps not installed; embedding-swap check skipped",
+    )
+    original = retrieval._embed_query_cached
+    with serve_embeddings_from({"q": [0.1, 0.2]}):
+        assert retrieval._embed_query_cached is not original
+        assert asyncio.run(retrieval._embed_query_cached("q")) == [0.1, 0.2]
+        # A question the precompute never saw must raise, not return [] —
+        # returning [] is precisely the silent degradation being fixed.
+        with pytest.raises(RuntimeError, match="no precomputed embedding"):
+            asyncio.run(retrieval._embed_query_cached("unseen"))
+    assert retrieval._embed_query_cached is original
+
+
+def test_a_precompute_with_any_failure_is_not_ok():
+    """The run aborts before scoring a single cell, so no partial table exists
+    to quarantine later."""
+    assert EmbeddingPrecompute(embeddings={"a": [0.1]}).ok
+    assert not EmbeddingPrecompute(embeddings={"a": [0.1]},
+                                   failures={"b": "429 RESOURCE_EXHAUSTED"}).ok
+
+
+def test_the_quota_rejection_names_the_precompute_arithmetic():
+    """The message has to tell the author the thing they cannot see: that the
+    grid no longer costs 1232 calls, so waiting for the reset is enough."""
+    r = _cell(REGIME_LECTURE_DENSE, 5, 0.65, 0.0)
+    r.errors, r.error_messages = 50, ["silent degradation: 429 RESOURCE_EXHAUSTED"]
+    ok, why = credibility_report([r], 0.20)
+    assert not ok
+    assert "50, not 1232" in why
+
+
+# ── end to end: what actually reaches the results directory ──────────────
+#
+# The 2026-09-09 damage was not a wrong number in memory, it was a file. These
+# tests drive `main_async` with a fake retriever and assert on what is left on
+# disk, because that is the artefact a thesis can accidentally cite.
+
+import sys                                                    # noqa: E402
+import types                                                  # noqa: E402
+from argparse import Namespace                                # noqa: E402
+
+from backend.eval.retrieval_grid import main_async            # noqa: E402
+
+
+def _install_fake_backend(monkeypatch, *, embed, retrieve):
+    """Stand in for the backend package so the harness's own control flow can be
+    tested without a database, API keys, or the 30-minute dependency install."""
+    embeddings_mod = types.ModuleType("backend.services.ai.embeddings")
+    embeddings_mod.generate_embeddings = embed
+
+    retrieval_mod = types.ModuleType("backend.services.ai.retrieval")
+    retrieval_mod._embed_query_cached = embed
+    retrieval_mod.retrieve_relevant_slides = retrieve
+    retrieval_mod.retrieve_relevant_slides_course_scoped = retrieve
+
+    for name, mod in (("backend.services.ai.embeddings", embeddings_mod),
+                      ("backend.services.ai.retrieval", retrieval_mod)):
+        monkeypatch.setitem(sys.modules, name, mod)
+    monkeypatch.setattr(sys.modules["backend.services.ai"], "retrieval",
+                        retrieval_mod, raising=False)
+    return retrieval_mod
+
+
+def _golden_file(tmp_path, n=4):
+    path = tmp_path / "golden.json"
+    path.write_text(json.dumps([
+        {"id": f"q{i}", "question": f"question {i}", "lecture_id": LEC,
+         "slide_index": i, "anchor": f"anchor {i}", "course_id": "c1"}
+        for i in range(n)
+    ]), encoding="utf-8")
+    return path
+
+
+def _args(tmp_path, **over):
+    base = dict(golden=str(_golden_file(tmp_path)), k="3,5", threshold="0.0,0.65",
+                regimes=REGIME_LECTURE_DENSE, outdir=str(tmp_path / "results"),
+                max_error_rate=0.20, monotonicity_tolerance=0.02, rate_limit=0.0,
+                force=False, allow_errors=False, verbose=False)
+    base.update(over)
+    return Namespace(**base)
+
+
+def test_a_quota_failure_aborts_before_the_sweep_and_writes_nothing(monkeypatch, tmp_path):
+    """The decisive property of the precompute: there is no partially-corrupted
+    table to notice later, because none is ever produced."""
+    calls = []
+
+    async def embed(text):
+        calls.append(text)
+        raise RuntimeError(
+            "429 RESOURCE_EXHAUSTED. Quota exceeded for metric: "
+            "embed_content_free_tier_requests, limit: 1000 "
+            "'quotaId': 'EmbedContentRequestsPerDayPerUserPerProjectPerModel-FreeTier'"
+        )
+
+    async def retrieve(*a, **kw):
+        raise AssertionError("the sweep must not start when embeddings failed")
+
+    _install_fake_backend(monkeypatch, embed=embed, retrieve=retrieve)
+    rc = asyncio.run(main_async(_args(tmp_path)))
+
+    assert rc == 2
+    assert not (tmp_path / "results").exists(), "a failed run must leave no artefact"
+    # A spent daily allowance is not retried: one attempt per question, no more.
+    assert len(calls) == 4
+
+
+def test_a_healthy_run_writes_a_stamped_directory_with_provenance(monkeypatch, tmp_path):
+    async def embed(text):
+        return [0.1, 0.2, 0.3]
+
+    async def retrieve(question, **kw):
+        idx = int(question.split()[-1])
+        return [{"slide_index": idx, "lecture_id": LEC, "title": "t",
+                 "content": f"anchor {idx}", "similarity": 0.9}]
+
+    _install_fake_backend(monkeypatch, embed=embed, retrieve=retrieve)
+    rc = asyncio.run(main_async(_args(tmp_path)))
+    assert rc == 0
+
+    runs = list((tmp_path / "results").iterdir())
+    assert len(runs) == 1 and runs[0].is_dir(), "output goes in a timestamped subdir"
+    body = (runs[0] / "grid_results.md").read_text(encoding="utf-8")
+    assert body.startswith("<!--")
+    assert "verdict   : ACCEPTED" in body
+    # The header must state what the latency column does and does not include,
+    # because the precompute changed its meaning.
+    assert "EXCLUDES the" in body and "query-embedding round trip" in body
+    assert "4 questions, 4 distinct" in body
+    assert (runs[0] / "grid_results.csv").exists()
+    assert (runs[0] / "grid_per_question.json").exists()
+
+
+def test_one_embedding_per_distinct_question_not_one_per_grid_cell(monkeypatch, tmp_path):
+    """The arithmetic that caused the incident: the old sweep re-embedded every
+    question in every cell, paying 1232 calls against a 1000/day ceiling."""
+    calls = []
+
+    async def embed(text):
+        calls.append(text)
+        return [0.1, 0.2, 0.3]
+
+    async def retrieve(question, **kw):
+        return [{"slide_index": 0, "lecture_id": LEC, "title": "t",
+                 "content": "anchor 0", "similarity": 0.9}]
+
+    _install_fake_backend(monkeypatch, embed=embed, retrieve=retrieve)
+    # 2 k values x 2 thresholds = 4 cells over 4 questions = 16 lookups...
+    asyncio.run(main_async(_args(tmp_path)))
+    # ...and exactly 4 embedding calls.
+    assert len(calls) == 4
+    assert sorted(calls) == [f"question {i}" for i in range(4)]
+
+
+def test_an_incoherent_run_writes_nothing(monkeypatch, tmp_path):
+    """The 2026-09-09 shape, driven end to end: retrieval succeeds at k=3 and
+    silently returns nothing at k=5, exactly as an exhausted quota does."""
+    async def embed(text):
+        return [0.1, 0.2, 0.3]
+
+    async def retrieve(question, **kw):
+        if kw.get("k", 0) >= 5:
+            return []          # what a swallowed 429 looks like from here
+        idx = int(question.split()[-1])
+        return [{"slide_index": idx, "lecture_id": LEC, "title": "t",
+                 "content": f"anchor {idx}", "similarity": 0.9}]
+
+    _install_fake_backend(monkeypatch, embed=embed, retrieve=retrieve)
+    rc = asyncio.run(main_async(_args(tmp_path)))
+
+    assert rc == 2
+    assert not (tmp_path / "results").exists()
+
+
+def test_allow_errors_writes_the_table_but_stamps_it_do_not_cite(monkeypatch, tmp_path):
+    """The escape hatch must not produce something that reads like a result."""
+    async def embed(text):
+        return [0.1, 0.2, 0.3]
+
+    async def retrieve(question, **kw):
+        if kw.get("k", 0) >= 5:
+            return []
+        idx = int(question.split()[-1])
+        return [{"slide_index": idx, "lecture_id": LEC, "title": "t",
+                 "content": f"anchor {idx}", "similarity": 0.9}]
+
+    _install_fake_backend(monkeypatch, embed=embed, retrieve=retrieve)
+    rc = asyncio.run(main_async(_args(tmp_path, allow_errors=True)))
+    assert rc == 0
+
+    runs = list((tmp_path / "results").iterdir())
+    body = (runs[0] / "grid_results.md").read_text(encoding="utf-8")
+    assert "DO NOT CITE" in body
+
+
+def test_output_from_an_earlier_run_blocks_the_next_one(monkeypatch, tmp_path):
+    """Directly aimed at the corrupted file still sitting in thesis/results:
+    the harness names it and refuses to run alongside it."""
+    results = tmp_path / "results"
+    results.mkdir()
+    (results / "grid_results.md").write_text("stale corrupted table", encoding="utf-8")
+
+    async def embed(text):
+        raise AssertionError("must refuse before doing any work")
+
+    _install_fake_backend(monkeypatch, embed=embed, retrieve=embed)
+    assert asyncio.run(main_async(_args(tmp_path))) == 3
+    # Untouched, so the author decides what happens to it.
+    assert (results / "grid_results.md").read_text(encoding="utf-8") == "stale corrupted table"

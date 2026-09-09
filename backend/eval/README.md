@@ -93,10 +93,70 @@ python -m backend.eval.retrieval_grid --golden backend/eval/data/golden_set.json
 ```
 
 Sweeps `k × threshold × regime` and writes `grid_results.md` (paste-ready),
-`grid_results.csv`, and `grid_per_question.json` into `thesis/results/`.
+`grid_results.csv`, and `grid_per_question.json` into a **timestamped
+subdirectory** of `thesis/results/`, each stamped with a provenance header
+naming the date, commit, corpus and verdict.
 
 Defaults: `k ∈ {3,5,8,10}`, `threshold ∈ {0.0,0.5,0.65,0.75}`, both regimes
 — 32 cells. Narrow with `--k`, `--threshold`, `--regimes`.
+
+**Query embeddings are computed once per distinct question**, before the sweep,
+and served to all 32 cells. This is not an optimisation, it is the fix for an
+incident. The naive loop re-embedded every question in every cell:
+
+```
+lecture_dense   16 cells × 50 cases = 800
+course_hybrid   16 cells × 27 cases = 432   (23 lack a course_id)
+                                      ────
+                                      1232 calls, against a 1000/day free tier
+```
+
+Fifty distinct questions cost fifty calls, so a full grid is now re-runnable
+twenty times a day inside the same quota, and **grid size no longer drives
+quota at all**. Add `--rate-limit N` to pace the precompute if a per-minute
+ceiling is tight.
+
+Because the embedding is precomputed, the `latency_ms` column measures ANN/FTS
+search plus slide enrichment and **excludes** the embedding round trip, which is
+reported separately in the header. That is the better number for comparing
+configurations — embedding cost is identical in every cell — but say so in the
+thesis when you report it.
+
+### Why a run can be refused
+
+A grid that fails still renders as a clean, plausible table. That has now
+happened twice, so the harness refuses to write one on two independent grounds.
+
+**Too many failures.** More than `--max-error-rate` (default 20%) of attempted
+lookups errored. This caught a run where a missing `fastapi` made every lookup
+raise and the harness wrote 32 rows of `0.000`.
+
+**The numbers contradict each other.** The second incident raised *nothing* —
+the production retriever catches its own provider failures by design
+(`retrieval.py:120-124`, `:206-213`, `cache.py:380-382`), so a run with an
+exhausted Gemini quota reported `Err 0` on every row and named a best
+configuration of `MRR 0.806`. What exposed it was that the table was internally
+impossible. Two properties follow from the retrieval SQL:
+
+- `slide_found` cannot **fall as k rises** — a larger top-k is a superset
+  (`LIMIT match_count` over one ordered list).
+- In `lecture_dense`, `slide_found` cannot **rise as the threshold tightens** —
+  `match_slides_by_lecture` (migration `20260719020001:45-53`) filters on
+  similarity, then orders by it, then limits, so a stricter threshold removes
+  exactly a suffix of the ranked list.
+
+Checked with a tolerance of `--monotonicity-tolerance` (default 0.02, one case
+in fifty) because HNSW is approximate. Against the corrupted run these fire
+eight times, the largest at 0.940.
+
+The threshold check is **deliberately not applied to `course_hybrid`**: there the
+threshold filters only the vector arm while the keyword arm is unfiltered, so
+shrinking the vector list reranks the fusion and can legitimately promote a
+keyword-only slide into the top-k.
+
+`--allow-errors` writes the table anyway, stamped `DO NOT CITE`. An existing
+`grid_results.md` directly in `--outdir` blocks the run until it is deleted or
+`--force` is passed.
 
 ---
 
@@ -110,7 +170,7 @@ Defaults: `k ∈ {3,5,8,10}`, `threshold ∈ {0.0,0.5,0.65,0.75}`, both regimes
 | `p_at_k` | precision@k. **Ceiling is 1/k** with one relevant slide per question, so a perfect retriever scores 0.20 at k=5. Report it against that ceiling or it reads as failure |
 | `refusal` | share of judged questions where max similarity fell below threshold — what the course tutor refuses before calling any model |
 | `false_refusal` | refusals where the expected slide **had** been retrieved. The gate rejected a question the corpus demonstrably answers |
-| `errors` | failed lookups. Counted as retrieval **misses** (dropping them would inflate every rate) but excluded from the gate denominators (an errored lookup returned no similarities, so the gate never judged it) |
+| `errors` | failed lookups, **including silent ones**. Counted as retrieval **misses** (dropping them would inflate every rate) but excluded from the gate denominators (an errored lookup returned no similarities, so the gate never judged it). A lookup counts as errored when it raises *or* when any `backend.*` logger emits a WARNING during it — which is how a swallowed `429` becomes visible, since production is built never to raise |
 
 `false_refusal` is the most original number this harness produces. Both
 tutors retrieve and cite; only the course tutor can refuse before a model
