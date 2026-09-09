@@ -144,6 +144,43 @@ def test_gate_metrics_exclude_errored_cases_from_their_denominator():
     assert r.slide_found_rate == pytest.approx(1 / 3)  # still over all three
 
 
+def test_skipped_cases_are_excluded_from_every_denominator():
+    """A regime that cannot run a case must not be scored as if it missed it.
+
+    `lectures.course_id` is nullable, so the course-scoped regime is structurally
+    unable to run some questions. Counting those as misses would make that regime
+    look worse for a reason unrelated to retrieval — and the comparison between
+    the two regimes is the whole point of running both."""
+    cases = [_case(1), _case(2), _case(3)]
+    outcomes = [
+        {"keys": [(LEC, 1)], "texts": ["anch"], "similarities": [0.9], "latency_ms": 5.0},
+        {"skipped": "lecture has no course_id"},
+        {"skipped": "lecture has no course_id"},
+    ]
+    r = score_config(cases, outcomes, "course_hybrid", 5, 0.65)
+    assert r.skipped == 2
+    # Scored over the ONE case actually attempted, not over all three.
+    assert r.slide_found_rate == pytest.approx(1.0)
+    assert r.mrr == pytest.approx(1.0)
+    assert r.errors == 0
+
+
+def test_all_cases_skipped_scores_zero_without_dividing_by_zero():
+    cases = [_case(1)]
+    r = score_config(cases, [{"skipped": "no course_id"}], "course_hybrid", 5, 0.65)
+    assert r.skipped == 1
+    assert r.slide_found_rate == 0.0 and r.mrr == 0.0
+
+
+def test_skipped_and_errored_are_counted_separately():
+    """An error is a lookup that failed; a skip is one never attempted."""
+    cases = [_case(1), _case(2)]
+    outcomes = [{"error": "boom"}, {"skipped": "no course_id"}]
+    r = score_config(cases, outcomes, "course_hybrid", 5, 0.65)
+    assert r.errors == 1 and r.skipped == 1
+    assert r.slide_found_rate == 0.0  # the one attempted case missed
+
+
 def test_false_refusal_is_a_refusal_that_had_the_answer():
     """The number the thesis leans on: the gate rejected a question whose
     expected slide had in fact been retrieved."""

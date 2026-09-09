@@ -283,17 +283,26 @@ def print_course(course_id: str, min_slides: int = 5) -> None:
     print()
 
 
-def dump_slides(golden_path: str) -> None:
+def dump_slides(golden_path: str, out_path: str = "slides_full.txt") -> None:
     """Emit the FULL text of every slide a golden question points at.
 
     The template previews are truncated at 320 characters, so a question drafted
     from one may rest on a slide that continued past the cut. This prints the
     whole slide so each expectation can be checked against what the slide
     actually says.
+
+    Written to a UTF-8 file rather than stdout: extracted slide text carries
+    private-use codepoints (PowerPoint symbol fonts render the algebra operators
+    as glyphs in U+E000-U+F8FF), and a Windows console using cp1252 raises
+    UnicodeEncodeError on the first one. Those characters are themselves a
+    finding about extraction quality, so they should be inspected rather than
+    crashed on.
     """
     cases = json.loads(Path(golden_path).read_text(encoding="utf-8"))
     qs = cases["questions"] if isinstance(cases, dict) else cases
     client = _client()
+    lines: List[str] = []
+    pua_hits = 0
     for q in qs:
         res = (client.table("slides")
                .select("title, content_text, summary")
@@ -303,11 +312,23 @@ def dump_slides(golden_path: str) -> None:
         body = ""
         if res:
             body = (res[0].get("content_text") or res[0].get("summary") or "").strip()
-        print(f"\n===== {q['id']} | slide_index={q['slide_index']} =====")
-        print(f"Q: {q['question']}")
-        print(f"ANCHOR: {q['anchor']}")
-        print(f"MY EXPECTED: {q['expected_answer']}")
-        print(f"--- FULL SLIDE ---\n{body if body else '(no text found)'}")
+        n_pua = sum(1 for ch in body if 0xE000 <= ord(ch) <= 0xF8FF)
+        pua_hits += n_pua
+        lines.append(f"\n===== {q['id']} | slide_index={q['slide_index']} =====")
+        lines.append(f"Q: {q['question']}")
+        lines.append(f"ANCHOR: {q['anchor']}")
+        lines.append(f"EXPECTED (to check): {q['expected_answer']}")
+        if n_pua:
+            lines.append(f"[!] {n_pua} private-use characters — symbol-font glyphs lost in extraction")
+        lines.append(f"--- FULL SLIDE ---\n{body if body else '(no text found)'}")
+
+    Path(out_path).write_text("\n".join(lines), encoding="utf-8")
+    print(f"wrote {len(qs)} slides to {out_path}")
+    if pua_hits:
+        print(f"{pua_hits} private-use codepoints across the corpus: mathematical "
+              f"notation is being lost at extraction. Quantify this for the "
+              f"Evaluation chapter — it bears directly on retrieval over a "
+              f"symbol-heavy course.")
 
 
 def build_template(
@@ -416,8 +437,11 @@ def main() -> None:
                         help="list every lecture in this course with coverage, and emit "
                              "the --lectures command for the ones usable in both regimes")
     parser.add_argument("--dump", default="",
-                        help="print the FULL text of every slide a golden set points at, "
-                             "for checking expectations against untruncated slides")
+                        help="write the FULL text of every slide a golden set points at "
+                             "to --dump-out, for checking expectations against "
+                             "untruncated slides")
+    parser.add_argument("--dump-out", default="slides_full.txt",
+                        help="where --dump writes (UTF-8; default slides_full.txt)")
     parser.add_argument("--min-coverage", type=float, default=0.97,
                         help="embedding coverage a lecture needs to count as a corpus "
                              "candidate (default 0.97; 1.0 demands every slide embedded)")
@@ -439,7 +463,7 @@ def main() -> None:
         return
 
     if args.dump:
-        dump_slides(args.dump)
+        dump_slides(args.dump, args.dump_out)
         return
 
     if args.stats:

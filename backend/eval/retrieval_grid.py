@@ -215,6 +215,9 @@ class ConfigResult:
     # this must be visible rather than silently averaged away.
     queries_with_duplicate_hits: int = 0
     errors: int = 0
+    # Cases the regime could not run at all (see _retrieve). Reported, never
+    # scored — a metric averaged over a shifting population is not comparable.
+    skipped: int = 0
     per_question: List[Dict[str, Any]] = field(default_factory=list)
 
     def as_row(self) -> Dict[str, Any]:
@@ -233,6 +236,7 @@ class ConfigResult:
             "false_refusal_share": round(self.false_refusal_share, 4),
             "dup_hits": self.queries_with_duplicate_hits,
             "errors": self.errors,
+            "skipped": self.skipped,
         }
 
 
@@ -257,6 +261,11 @@ def score_config(
     refusals, false_refusals = 0, 0
 
     for case, out in zip(cases, outcomes):
+        if out.get("skipped"):
+            result.skipped += 1
+            result.per_question.append({"id": case.id, "skipped": out["skipped"]})
+            continue
+
         if out.get("error"):
             result.errors += 1
             # A failed lookup is a miss, not an exclusion. Dropping it would
@@ -307,10 +316,15 @@ def score_config(
             "duplicate_hits": len(keys) - len(set(keys)),
         })
 
-    n = len(cases)
-    # Retrieval quality is scored over EVERY case: an errored lookup is a
-    # miss the system really produced, and excluding it would inflate the
-    # rates.
+    # `n` counts only cases this regime actually attempted. Skipped cases are
+    # excluded from every rate, so a regime is never penalised for questions it
+    # was structurally unable to run.
+    n = len(cases) - result.skipped
+    if n <= 0:
+        return result
+    # Among attempted cases, retrieval quality is scored over ALL of them: an
+    # errored lookup is a miss the system really produced, and dropping it
+    # would inflate the rates.
     result.slide_found_rate = sum(found) / n
     result.anchor_found_rate = sum(anchors) / n
     result.mrr = sum(rrs) / n
@@ -351,7 +365,13 @@ async def _retrieve(case: GoldenQuestion, regime: str, k: int, threshold: float)
             keys = [(case.lecture_id, int(h["slide_index"])) for h in hits]
         elif regime == REGIME_COURSE_HYBRID:
             if not case.course_id:
-                return {"error": f"case {case.id} has no course_id (required for {regime})"}
+                # NOT an error: the case is unrunnable in this regime because
+                # `lectures.course_id` is null, which is a property of the data
+                # and not of the retriever. Counting it as a miss would make the
+                # course-scoped regime look worse for a reason that has nothing
+                # to do with retrieval, and the regime comparison is the whole
+                # point of running both. Excluded from every denominator.
+                return {"skipped": f"lecture has no course_id, so {regime} cannot be scoped"}
             from backend.services.ai.retrieval import retrieve_relevant_slides_course_scoped
             hits = await retrieve_relevant_slides_course_scoped(
                 case.question, course_ids=[case.course_id], k=k, threshold=threshold
@@ -398,16 +418,16 @@ def to_markdown_table(results: Sequence[ConfigResult]) -> str:
     """Render the grid as a markdown table ready to paste into the thesis."""
     header = (
         "| Regime | k | Thr | n | Slide found | Anchor found | MRR | P@k | "
-        "Latency (ms) | Refusal | False refusal | Err |\n"
-        "|---|---|---|---|---|---|---|---|---|---|---|---|"
+        "Latency (ms) | Refusal | False refusal | Err | Skip |\n"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|"
     )
     lines = [header]
     for r in sorted(results, key=lambda x: (-x.mrr, x.regime, x.k)):
         lines.append(
-            f"| {r.regime} | {r.k} | {r.threshold:.2f} | {r.n} | "
+            f"| {r.regime} | {r.k} | {r.threshold:.2f} | {r.n - r.skipped} | "
             f"{r.slide_found_rate:.3f} | {r.anchor_found_rate:.3f} | {r.mrr:.3f} | "
             f"{r.precision_at_k:.3f} | {r.median_latency_ms:.0f} | "
-            f"{r.refusal_rate:.3f} | {r.false_refusal_rate:.3f} | {r.errors} |"
+            f"{r.refusal_rate:.3f} | {r.false_refusal_rate:.3f} | {r.errors} | {r.skipped} |"
         )
     return "\n".join(lines)
 
