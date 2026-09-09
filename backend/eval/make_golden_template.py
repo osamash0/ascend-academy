@@ -231,6 +231,85 @@ def print_corpus_stats(rows: List[Dict[str, Any]], min_coverage: float = 0.97) -
     print()
 
 
+def print_course(course_id: str, min_slides: int = 5) -> None:
+    """Every lecture in one course, with coverage — build a corpus FROM a course.
+
+    Picking lectures by coverage and then discovering their course is the wrong
+    order: `lectures.course_id` is nullable, and a lecture that belongs to no
+    course cannot be reached by course-scoped retrieval at all, so the hybrid
+    regime silently loses those questions. Starting from the course guarantees
+    every question can run in both regimes.
+    """
+    client = _client()
+    lectures = (
+        client.table("lectures")
+        .select("id, title, total_slides, is_archived")
+        .eq("course_id", course_id)
+        .eq("is_archived", False)
+        .execute()
+    ).data or []
+
+    rows = []
+    for lec in lectures:
+        lid = lec["id"]
+        s = client.table("slides").select("slide_number", count="exact").eq("lecture_id", lid).execute()
+        n = s.count if s.count is not None else len(s.data or [])
+        if n < min_slides:
+            continue
+        e = client.table("slide_embeddings").select("slide_index", count="exact").eq("lecture_id", lid).execute()
+        m = e.count if e.count is not None else len(e.data or [])
+        rows.append({"id": lid, "title": (lec.get("title") or "").strip(),
+                     "slides": n, "emb": m, "cov": m / n if n else 0.0})
+
+    rows.sort(key=lambda r: (-r["cov"], -r["slides"]))
+    print(f"\n{len(rows)} lectures in course {course_id}\n")
+    print(f"{'coverage':>9} {'dup':>4}  {'slides':>6}  {'emb':>6}  lecture_id / title")
+    print("-" * 104)
+    usable = []
+    for r in rows:
+        dup = "DUP" if r["emb"] > r["slides"] else ""
+        print(f"{r['cov']*100:8.1f}% {dup:>4}  {r['slides']:6d}  {r['emb']:6d}  {r['id']}  {r['title'][:44]}")
+        if not dup and r["cov"] >= 0.97:
+            usable.append(r)
+
+    if usable:
+        print(f"\n{len(usable)} usable lectures, {sum(r['slides'] for r in usable)} slides.")
+        print("Every question drawn from these can run in BOTH regimes. Command:\n")
+        print("python -m backend.eval.make_golden_template --lectures "
+              + ",".join(r["id"] for r in usable) + " --per-lecture 10 "
+              "--out backend/eval/data/golden_set.json")
+    else:
+        print("\nNo lecture in this course reaches 97% coverage without duplicates.")
+    print()
+
+
+def dump_slides(golden_path: str) -> None:
+    """Emit the FULL text of every slide a golden question points at.
+
+    The template previews are truncated at 320 characters, so a question drafted
+    from one may rest on a slide that continued past the cut. This prints the
+    whole slide so each expectation can be checked against what the slide
+    actually says.
+    """
+    cases = json.loads(Path(golden_path).read_text(encoding="utf-8"))
+    qs = cases["questions"] if isinstance(cases, dict) else cases
+    client = _client()
+    for q in qs:
+        res = (client.table("slides")
+               .select("title, content_text, summary")
+               .eq("lecture_id", q["lecture_id"])
+               .eq("slide_number", int(q["slide_index"]) + 1)  # stored 1-based
+               .limit(1).execute()).data or []
+        body = ""
+        if res:
+            body = (res[0].get("content_text") or res[0].get("summary") or "").strip()
+        print(f"\n===== {q['id']} | slide_index={q['slide_index']} =====")
+        print(f"Q: {q['question']}")
+        print(f"ANCHOR: {q['anchor']}")
+        print(f"MY EXPECTED: {q['expected_answer']}")
+        print(f"--- FULL SLIDE ---\n{body if body else '(no text found)'}")
+
+
 def build_template(
     lecture_ids: List[str], per_lecture: int, min_chars: int = 40
 ) -> Dict[str, Any]:
@@ -333,6 +412,12 @@ def main() -> None:
                         help="list candidate lectures with embedding coverage and exit")
     parser.add_argument("--stats", action="store_true",
                         help="print corpus-level coverage statistics and candidate corpora")
+    parser.add_argument("--course", default="",
+                        help="list every lecture in this course with coverage, and emit "
+                             "the --lectures command for the ones usable in both regimes")
+    parser.add_argument("--dump", default="",
+                        help="print the FULL text of every slide a golden set points at, "
+                             "for checking expectations against untruncated slides")
     parser.add_argument("--min-coverage", type=float, default=0.97,
                         help="embedding coverage a lecture needs to count as a corpus "
                              "candidate (default 0.97; 1.0 demands every slide embedded)")
@@ -348,6 +433,14 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,
                         format="%(levelname)s %(message)s")
+
+    if args.course:
+        print_course(args.course, min_slides=args.min_slides)
+        return
+
+    if args.dump:
+        dump_slides(args.dump)
+        return
 
     if args.stats:
         # Survey everything, not just decks big enough to write questions about:
