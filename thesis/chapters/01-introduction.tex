@@ -1,0 +1,81 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+\section{Motivation}
+\label{sec:motivation}
+
+\TODO{The gap in one paragraph: a lecture slide deck is readable by a human and
+opaque to software. It has no slide boundaries as data, no notion of a concept,
+and nothing addressable to attach a question, a review card or a similarity
+search to. Every interactive learning feature therefore has to be authored by
+hand, which is why most course material stays static.}
+
+\section{Problem Statement}
+\label{sec:problem}
+
+\TODO{State the transformation problem precisely, and note that it is not
+merely format conversion: converting a PDF to markdown recovers structure but
+produces nothing assessable.}
+
+\thesisfigure{f1-transformation}
+  {The transformation this thesis addresses. A single opaque artefact becomes a
+   set of independently addressable learning objects, each of which unlocks
+   capabilities the source PDF cannot support.}
+  {fig:transformation}
+
+\Cref{fig:transformation} frames the whole thesis: the input supports none of
+the capabilities on the right, and the distinguishing step is that the derived
+objects are \emph{materialised} and reused, not produced on demand and
+discarded.
+
+\section{Research Questions}
+\label{sec:research-questions}
+
+\TODO{The proposal's original questions were framed for a learning-analytics
+thesis (data-profiling metrics, event aggregation) while the title describes a
+content-pipeline thesis. Reframing below is pending supervisor confirmation ---
+resolve this before writing further, because it determines which chapters carry
+the weight.}
+
+\begin{description}
+  \item[RQ1] How can heterogeneous lecture materials be automatically
+    transformed into structured, interactive educational content using large
+    language models, and what architecture supports this reliably?
+  \item[RQ2] How do students perceive motivation and engagement in a gamified,
+    AI-driven learning platform?
+  \item[RQ3] Does interactive, AI-generated content improve perceived learning
+    efficiency and usability compared with static slides?
+\end{description}
+
+\TODO{Be honest about scope here, in the introduction, not buried in
+\cref{ch:evaluation}: RQ1 is answerable by design, implementation and technical
+evaluation. RQ2 and RQ3 are \emph{perception} questions that require an
+empirical study with participants. No such study was conducted. Either scope
+them out with the supervisor's agreement, or present a study design as
+contributed future work. Do not imply they were answered.}
+
+\section{Scope and Delimitation}
+\label{sec:scope}
+
+\TODO{What is in scope: the ingestion pipeline, the architecture supporting it,
+the derived learning features, and a systematic audit of the deployed system.
+What is out of scope: controlled learning-outcome measurement, multi-tenant
+operation at scale, and formal verification of the anti-hallucination
+mechanisms.}
+
+\section{Methodological Note on Sources}
+\label{sec:method-note}
+
+\TODO{Short but important, and it earns credit. State that all architectural
+claims were verified against source code at revision \thesisCommit{} rather
+than taken from project documentation, and say why: a systematic comparison
+found twelve documented claims that do not hold in the implementation,
+including the repository's own headline feature description. Point forward to
+\cref{sec:reality-vs-documented}. This is a methodological choice, and stating
+it converts a potential embarrassment into evidence of rigour.}
+
+\section{Structure of this Thesis}
+\label{sec:structure}
+
+\TODO{One short paragraph per chapter. Write this last, once the chapters
+have settled.}

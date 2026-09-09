@@ -1,0 +1,46 @@
+\chapter{Verified System Constants}
+\label{app:constants}
+
+Every value below was read from source at revision \thesisCommit{} rather than
+from project documentation. Where documentation states a different value, the
+documented figure is wrong; see \cref{sec:reality-vs-documented}.
+
+\TODO{Transfer the appendix table from \code{docs/thesis/ARCHITECTURE\_PRIMER.md}
+and re-verify each row against current code first --- the codebase has moved since
+the primer was written. Keep the file:line column: it is what makes this an
+appendix of evidence rather than a list of numbers.}
+
+\begin{longtable}{@{}p{6.2cm}p{3.2cm}p{5.0cm}@{}}
+  \caption{System constants verified against source.}
+  \label{tab:constants} \\
+  \toprule
+  \textbf{Constant} & \textbf{Value} & \textbf{Location} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Constant} & \textbf{Value} & \textbf{Location} \\
+  \midrule
+  \endhead
+  \midrule
+  \multicolumn{3}{r@{}}{\textit{continued on next page}} \\
+  \endfoot
+  \bottomrule
+  \endlastfoot
+
+  Maximum upload size          & 50\,MB      & \code{config.py:85} \\
+  Maximum pages per document   & 300         & \code{upload\_service.py:13} \\
+  Maximum files per batch      & 30          & \code{config.py:88} \\
+  Worker concurrency           & 4           & \code{config.py:92} \\
+  Queue depth limit            & 50          & \code{config.py:99} \\
+  Job timeout                  & 900\,s      & \code{arq\_worker.py:277} \\
+  Synthesis batch size         & 8 slides    & \code{orchestrator.py:85} \\
+  Text-versus-vision threshold & 25 chars    & \code{unified\_orchestrator.py:64} \\
+  Embedding dimensions         & 768         & \code{embeddings.py:14} \\
+  Retrieval top-$k$            & 5 / 6       & \code{retrieval.py:30,32} \\
+  Similarity threshold         & 0.65        & \code{retrieval.py:31} \\
+  Context cap                  & 10\,000 chars & \code{tutor.py:38} \\
+  Monthly per-user LLM cap     & \$5.00      & \code{config.py:173} \\
+
+  \TODO{remaining rows} & & \\
+
+\end{longtable}

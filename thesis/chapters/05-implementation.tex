@@ -1,0 +1,134 @@
+\chapter{Implementation}
+\label{ch:implementation}
+
+\section{Technology Stack}
+\label{sec:stack}
+
+\TODO{Brief and factual. Justify only the choices that were genuinely
+decisions, and skip the ones that were defaults --- a bachelor thesis loses
+credit for pretending every dependency was deliberated.}
+
+\section{The Grounded Tutor}
+\label{sec:tutor}
+
+This is the content-consumption counterpart to \cref{sec:pipeline}: it is what
+the derived objects exist for.
+
+\thesisfigurepage{f12-tutor-sequence}
+  {The grounded lecture tutor. Groundedness is enforced at four distinct points
+   along the request path.}
+  {fig:tutor-sequence}
+
+\subsection{Retrieval Scoping}
+\label{sec:retrieval}
+
+\TODO{Emphasise that the lecture scope is applied in the SQL \code{WHERE}
+clause rather than as a post-filter in application code, and explain why that
+matters: with a Python post-filter over a global nearest-neighbour scan, a
+lecture's relevant slides silently stop appearing once the candidate window
+fills with other lectures' content. The migration comment explains this; cite
+it.}
+
+\TODO{Also cover the query-embedding cache, and the anchoring of the current
+slide at a synthetic similarity of zero --- the code comment explains that this
+prevents refusal logic from confusing "we chose this slide as an anchor" with
+"this slide is highly relevant". A small detail that shows care.}
+
+\subsection{Anti-Hallucination Mechanisms}
+\label{sec:anti-hallucination}
+
+\TODO{Four layers, in order: input sanitisation, scoped retrieval, prompt
+constraints, and post-hoc citation validation that drops any cited slide index
+absent from the retrieved set. Be precise about what each one can and cannot
+guarantee. Post-hoc validation catches invented slide numbers; it does not
+verify that the answer's content is actually supported by the cited slide.}
+
+\subsection{Prompt Injection via Uploaded Content}
+\label{sec:injection}
+
+\TODO{Connect back to \cref{sec:stakeholders}: because uploads are not
+professor-only, a crafted PDF can reach every other student's tutor context.
+The mitigation is prompt-level --- the retrieved context is explicitly labelled
+untrusted --- plus a sanitiser that escapes delimiters and rewrites injection
+phrasings. Then state the limitation honestly: prompt-level defences against
+prompt injection are mitigations, not sound guarantees. Saying so demonstrates
+judgement; claiming otherwise invites an easy objection.}
+
+\section{Assessment Generation}
+\label{sec:assessment}
+
+\TODO{How quiz questions are produced inline by the pipeline rather than by a
+separate user action, and the quality constraints encoded in the prompt:
+one concept-testing question per slide, four plausible same-length distractors
+reflecting real misconceptions, a preference for application over recall, and an
+explicit ban on "all of the above" style options. These are pedagogical
+decisions expressed as prompt constraints, which is worth naming as such.}
+
+\section{Spaced Repetition and Exam Mode}
+\label{sec:srs-impl}
+
+\TODO{The card factory derives review cards from existing questions with no
+further LLM call --- a cost decision worth stating. Cover SM-2 behind its stable
+interface, and mock-exam sampling: coverage-first, weakness-weighted, with a
+server-generated seed so a student cannot replay a favourable one. That last
+detail is a nice example of an integrity requirement met in the sampling design
+rather than bolted on.}
+
+\section{Human-in-the-Loop Review}
+\label{sec:review}
+
+\thesisfigurepage{f13-batch-review}
+  {The professor batch-review flow. The review step is corrective, not gating:
+   content is student-visible from the moment parsing finishes.}
+  {fig:batch-review}
+
+\TODO{This is a first-order finding for a thesis about generating educational
+content, so do not bury it. There is no draft/published state --- the source
+comment says so verbatim --- meaning AI-extracted content reaches students
+before any human inspects it, and the completion marker is stored only in
+browser local storage. Additionally, the review flag is never cleared on save,
+so a corrected slide stays flagged permanently. Discuss what the pipeline would
+need for review to become a genuine gate, and what that would cost in latency
+for the professor.}
+
+\section{Authorisation}
+\label{sec:authorisation}
+
+\thesisfigure{f14-trust-boundaries}
+  {Trust boundaries. Authorisation is enforced in the database, not the API
+   layer.}
+  {fig:trust-boundaries}
+
+\TODO{Explain row-level security as the enforcement point, then the four policy
+patterns. The important structural point is that Postgres combines permissive
+policies with a logical OR, so effective visibility is the union of every
+applicable policy rather than the intersection --- and that no test composes a
+real endpoint against real policies, so the union behaviour remains unguarded
+at the integration level. A documented, citable limitation.}
+
+\subsection{Iterative Hardening}
+\label{sec:hardening}
+
+\thesisfigure{f15-security-arc}
+  {Five sequential migrations hardening privilege escalation, each closing a
+   vulnerability the previous step created or left open.}
+  {fig:security-arc}
+
+\TODO{\Cref{fig:security-arc} is the strongest security material available:
+each migration header documents its own attack, so the sources are primary. Walk
+the five steps and be explicit that step three (opening professor self-signup)
+\emph{introduced} the vulnerability step four closes --- an honest account of
+iterative hardening is more instructive than a tidy one.}
+
+\TODO{Then present the one fully reproduced exploit in detail, because it is a
+teaching example: as an unauthenticated role, a security-definer function with a
+caller-supplied identifier and no ownership check leaked a victim's social
+graph. The root cause was a four-way conjunction including Postgres's implicit
+grant of execute permission to PUBLIC on function creation. It was reproduced
+against a real database and is covered by regression tests.}
+
+\TODO{Also include the negative result, which is worth as much: seven other
+functions are callable by the unauthenticated role but return no rows, because
+they are security-\emph{invoker} and row-level security therefore evaluates as
+the caller. Anon-callable is not anon-readable. Presenting the contrast shows
+you understood the mechanism rather than pattern-matching on a keyword.}

@@ -1,0 +1,140 @@
+\chapter{System Design}
+\label{ch:design}
+
+This chapter answers RQ1's architectural half: what structure supports the
+transformation reliably. \Cref{ch:implementation} then covers how the
+content-facing features consume the result.
+
+\section{Architectural Overview}
+\label{sec:architecture}
+
+\thesisfigure{f6-components}
+  {Component view of the deployed system. LLM providers are called directly;
+   database access is dual-mode, and the second path is conditional.}
+  {fig:components}
+
+\TODO{Walk \cref{fig:components} component by component. Two points must not be
+skipped, because both contradict the project's own documentation:
+(1) no gateway sits on the LLM data path --- the repository ran a LiteLLM
+container with no live callers, which has since been removed;
+(2) database access is dual-mode, and \code{/health/ready} reports healthy
+while the asyncpg path is entirely absent, so several features are broken with
+no external signal. Cite \cref{sec:reality-vs-documented}.}
+
+\section{Deployment Topology}
+\label{sec:deployment}
+
+\thesisfigure{f7-deployment}
+  {Production deployment: five containers on a single virtual machine plus
+   managed services, with TLS terminated by a host proxy that is not in version
+   control.}
+  {fig:deployment}
+
+\TODO{Be candid about what \cref{fig:deployment} reveals: three compose files
+state three different deployment targets, one of them is not deployable at all,
+and the TLS-terminating proxy is absent from version control. Frame this as a
+reproducibility finding --- the deployed system cannot be reconstructed from the
+repository alone --- rather than as a list of complaints.}
+
+\section{The Ingestion Pipeline}
+\label{sec:pipeline}
+
+This section is the heart of the thesis and should carry the most detail.
+
+\thesisfigurepage{f8-pipeline}
+  {The ingestion pipeline. Admission control completes synchronously before
+   enqueueing; all content persistence happens server-authoritatively inside
+   the worker.}
+  {fig:pipeline}
+
+\subsection{Synchronous Admission Control}
+\label{sec:admission}
+
+\TODO{Validation, content hashing, and queue backpressure --- everything that
+happens before a job is accepted. The ordering is a design decision: rejecting
+early means a saturated system fails fast with an honest status code instead of
+accumulating an unbounded backlog.}
+
+\subsection{Asynchronous Processing}
+\label{sec:async}
+
+\TODO{Why a durable queue rather than in-request processing: parse jobs run for
+minutes and outlive an HTTP connection. Cover the worker entry point, the job
+timeout, and how progress reaches the browser over server-sent events.}
+
+\subsection{Routing: Text versus Vision}
+\label{sec:routing}
+
+\TODO{The live routing rule is a single character-count threshold. Say so
+plainly. Note that the documentation describes a richer generator-aware
+classifier, and that this code exists but is unreachable --- a good, small
+example of documentation drifting from implementation.}
+
+\subsection{Idempotency}
+\label{sec:idempotency}
+
+\thesisfigure{f10-idempotency}
+  {Six independent idempotency mechanisms across four layers, guaranteeing at
+   most one unit of effective work for identical input.}
+  {fig:idempotency}
+
+\TODO{This is the strongest engineering contribution in the system --- give it
+room. Walk each of the six layers in \cref{fig:idempotency} and explain what
+each one alone would fail to catch. Then discuss the deliberate trade-off at
+layer four: the distributed lock is best-effort and proceeds unlocked on a
+Redis error, choosing availability over strict mutual exclusion, with layers
+two and three as the correctness backstop. Defence in depth with an explicit
+weak link is a more interesting design story than a single perfect mechanism.}
+
+\subsection{Failure Handling}
+\label{sec:failure-handling}
+
+\TODO{Cover the honest version. The queue library's retry budget does not apply
+to ordinary exceptions --- verified against the installed library source --- so
+a failed parse is not retried automatically. A cron reconciler resolves runs
+stuck in a non-terminal state, and a dead-letter table captures terminal
+failures. This is a good example of a configuration value that reads like a
+resilience guarantee and is not one.}
+
+\section{Data Model}
+\label{sec:data-model}
+
+\thesisfigurepage{f9-er-core}
+  {Core physical schema: 26 of roughly 68 tables. Dashed relationships have no
+   database-enforced foreign key.}
+  {fig:er}
+
+\TODO{Justify the subset --- why 26 tables and not all 68 --- and name the four
+excluded dead tables with the evidence. Then discuss the three dashed
+relationships in \cref{fig:er}, because one has a live consequence: because
+badge names are only conventionally linked to the badge catalogue, three badges
+were never seeded and their award calls silently do nothing. A missing
+constraint becoming a silently dropped write is a textbook integrity argument
+with a real instance to cite.}
+
+\TODO{Also mention the schema-drift finding: a vector column exists in
+production with no migration defining it, is null across every row, and has
+never been scanned. It is evidence that migrations are not the sole source of
+truth for the deployed database.}
+
+\section{LLM Provider Strategy}
+\label{sec:provider-strategy}
+
+\thesisfigure{f11-provider-chain}
+  {Provider failover. Nine registry entries, but roughly five independent
+   failure domains.}
+  {fig:provider-chain}
+
+\TODO{Present the mechanism first --- registry, two ordered chains, availability
+filtering, rate-limit backoff, permanent disabling on model-not-found --- then
+the critical analysis, which is the valuable part:
+(1) chain depth is partly illusory, since four of nine entries share two API
+keys, so their nominally independent quotas are not independent under
+correlated failure;
+(2) failure classification is string matching on exception text rather than
+status codes, and omits the authentication and payment classes entirely, so a
+revoked key is retried indefinitely;
+(3) the retry budget is configured for eight attempts but wrapped in a timeout
+that caps it near three.
+Each is a concrete, defensible finding about a resilience mechanism that looks
+stronger than it is.}

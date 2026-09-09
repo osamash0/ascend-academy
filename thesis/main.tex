@@ -1,0 +1,62 @@
+% =============================================================================
+%  From Lecture Materials to Structured Educational Content
+%  Design and Implementation of an AI-Assisted Learning Platform
+%
+%  Bachelor thesis — Informatik
+%
+%  BUILD:  make          (builds figures, then the document, via latexmk)
+%          make quick    (single pdflatex pass, no bibliography — fast preview)
+%
+%  REPARENTING FOR A UNIVERSITY TEMPLATE
+%  Almost every institute supplies its own class or style file. This skeleton is
+%  deliberately shallow so that swap is cheap: the class is chosen on the next
+%  line, all packages live in preamble.tex, and all title-page data lives in
+%  metadata.tex. Chapter files under chapters/ contain no formatting decisions,
+%  so they drop into a different template unchanged.
+% =============================================================================
+
+% scrreprt (KOMA-Script) is the common choice for German university theses.
+% Replace this single line if your institute mandates a class.
+\documentclass[
+  a4paper,
+  11pt,
+  twoside,          % printed and bound: different margins on odd/even pages
+  openright,        % chapters start on a right-hand page
+  numbers=noenddot,
+  listof=totoc,
+  bibliography=totoc,
+  english,
+]{scrreprt}
+
+\input{preamble}
+\input{metadata}
+
+\begin{document}
+
+\frontmatter
+\input{frontmatter/titlepage}
+\input{frontmatter/declaration}
+\input{frontmatter/abstract}
+
+\tableofcontents
+\listoffigures
+% \listoftables      % uncomment once the thesis actually contains tables
+
+\mainmatter
+
+\include{chapters/01-introduction}
+\include{chapters/02-foundations}
+\include{chapters/03-requirements}
+\include{chapters/04-design}
+\include{chapters/05-implementation}
+\include{chapters/06-evaluation}
+\include{chapters/07-conclusion}
+
+\backmatter
+
+\printbibliography[heading=bibintoc]
+
+\appendix
+\include{chapters/appendix-a-constants}
+
+\end{document}

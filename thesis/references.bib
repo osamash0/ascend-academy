@@ -1,0 +1,80 @@
+% =============================================================================
+%  Bibliography.
+%
+%  Entries below are the SOFTWARE and SPECIFICATIONS this system depends on, so
+%  the implementation chapters can cite what they actually use. They are not a
+%  literature review — Chapter 2 needs academic sources you select yourself, and
+%  no placeholder entries are provided here because a fabricated citation is
+%  worse than a missing one.
+%
+%  Verify every URL and version before submitting; several of these projects
+%  move quickly.
+% =============================================================================
+
+@misc{pymupdf,
+  title        = {{PyMuPDF}: {Python} bindings for the {MuPDF} library},
+  author       = {{Artifex Software}},
+  year         = {2026},
+  note         = {Version 1.24.0; used as the live text-extraction engine},
+  url          = {https://pymupdf.readthedocs.io/},
+}
+
+@misc{pgvector,
+  title        = {{pgvector}: open-source vector similarity search for {Postgres}},
+  author       = {Kane, Andrew},
+  year         = {2026},
+  note         = {HNSW index, cosine distance},
+  url          = {https://github.com/pgvector/pgvector},
+}
+
+@misc{arq,
+  title        = {{arq}: fast job queues and {RPC} in {Python} with {asyncio} and {Redis}},
+  author       = {Colvin, Samuel},
+  year         = {2026},
+  note         = {Version 0.28.0; retry semantics verified against installed source},
+  url          = {https://arq-docs.helpmanual.io/},
+}
+
+@misc{fastapi,
+  title        = {{FastAPI}},
+  author       = {Ram{\'i}rez, Sebasti{\'a}n},
+  year         = {2026},
+  url          = {https://fastapi.tiangolo.com/},
+}
+
+@misc{supabase,
+  title        = {{Supabase}: the open-source {Firebase} alternative},
+  author       = {{Supabase Inc.}},
+  year         = {2026},
+  note         = {Postgres, Auth, Storage, PostgREST},
+  url          = {https://supabase.com/docs},
+}
+
+@misc{postgresql-rls,
+  title        = {{PostgreSQL} Documentation: Row Security Policies},
+  author       = {{PostgreSQL Global Development Group}},
+  year         = {2026},
+  note         = {Permissive policies combine with a logical OR --- the union
+                  semantics discussed in Section~\ref{sec:authorisation}},
+  url          = {https://www.postgresql.org/docs/current/ddl-rowsecurity.html},
+}
+
+@misc{plantuml,
+  title        = {{PlantUML}},
+  year         = {2026},
+  note         = {Version 1.2026.7; used to generate every figure in this thesis},
+  url          = {https://plantuml.com/},
+}
+
+% --- Academic sources for Chapter 2 -------------------------------------------
+% TODO: add your own. Topics to cover, based on what the implementation
+% chapters rely on:
+%   - spaced repetition / SM-2 and successors (FSRS)
+%   - retrieval-augmented generation and groundedness / faithfulness metrics
+%   - prompt injection, particularly indirect injection via retrieved documents
+%   - document layout analysis and PDF structure recovery
+%   - automatic question generation, and Bloom's taxonomy for item difficulty
+%   - gamification in educational technology (for RQ2)
+%
+% Do not add entries you have not read. An examiner who spot-checks a citation
+% and finds it does not support the claim will check the rest.
