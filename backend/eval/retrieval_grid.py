@@ -218,6 +218,9 @@ class ConfigResult:
     # Cases the regime could not run at all (see _retrieve). Reported, never
     # scored — a metric averaged over a shifting population is not comparable.
     skipped: int = 0
+    # Distinct error strings seen, so the CLI can name the cause instead of
+    # leaving it in warnings that scroll past.
+    error_messages: List[str] = field(default_factory=list)
     per_question: List[Dict[str, Any]] = field(default_factory=list)
 
     def as_row(self) -> Dict[str, Any]:
@@ -268,6 +271,9 @@ def score_config(
 
         if out.get("error"):
             result.errors += 1
+            msg = str(out["error"])
+            if msg not in result.error_messages:
+                result.error_messages.append(msg)
             # A failed lookup is a miss, not an exclusion. Dropping it would
             # silently raise every rate below.
             found.append(0.0); anchors.append(0.0); rrs.append(0.0); precisions.append(0.0)
@@ -452,6 +458,48 @@ def _parse_ints(text: str) -> List[int]:
     return [int(x) for x in text.split(",") if x.strip()]
 
 
+def credibility_report(results: Sequence[ConfigResult], max_error_rate: float):
+    """Decide whether a run is worth reporting, and say why if it is not.
+
+    Returns (ok, message). Counting an errored lookup as a miss is right when a
+    few queries fail; it is wrong when most of them do, because the score then
+    measures the environment rather than the retriever. A grid that errored
+    everywhere still renders as a clean table of zeros — indistinguishable at a
+    glance from a real result showing catastrophic retrieval — so the run must
+    refuse to produce that artefact rather than leave it lying in the results
+    directory where it can be read into a thesis as a finding.
+    """
+    attempted = sum(r.n - r.skipped for r in results)
+    errored = sum(r.errors for r in results)
+    if attempted <= 0:
+        return False, ("Every case was skipped: no regime could run any question. "
+                       "Check that the golden set's lectures have a course_id for "
+                       "course-scoped regimes.")
+    rate = errored / attempted
+    if rate <= max_error_rate:
+        return True, ""
+
+    seen: List[str] = []
+    for r in results:
+        for m in r.error_messages:
+            if m not in seen:
+                seen.append(m)
+    lines = [
+        f"{errored} of {attempted} attempted lookups failed ({rate:.0%}).",
+        "",
+        "Distinct errors:",
+    ]
+    lines += [f"  - {m}" for m in seen[:8]]
+    if any("No module named" in m for m in seen):
+        lines += ["", "A missing module means the backend dependencies are not installed "
+                      "in this interpreter. Install the lean set and re-run:",
+                  "    pip install -r backend/requirements-docker.txt"]
+    lines += ["", "No results were written: a table of zeros produced by a broken "
+                  "environment is worse than no table at all. Re-run once the cause "
+                  "is fixed, or pass --allow-errors to score the run anyway."]
+    return False, "\n".join(lines)
+
+
 async def main_async(args: argparse.Namespace) -> int:
     cases = load_golden_set(args.golden)
     logger.info("loaded %d golden questions from %s", len(cases), args.golden)
@@ -459,9 +507,18 @@ async def main_async(args: argparse.Namespace) -> int:
     regimes = [r for r in args.regimes.split(",") if r.strip()]
     results = await run_grid(cases, _parse_ints(args.k), _parse_floats(args.threshold), regimes)
 
+    ok, why = credibility_report(results, args.max_error_rate)
+    if not ok and not args.allow_errors:
+        print("\n=== RUN REJECTED ===")
+        print(why)
+        return 2
+
     table = to_markdown_table(results)
     print("\n=== Retrieval grid ===")
     print(table)
+    if not ok:
+        print("\n*** --allow-errors was set; the numbers below are NOT trustworthy ***")
+        print(why)
 
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -492,6 +549,13 @@ def main() -> None:
     parser.add_argument("--regimes", default=",".join(REGIMES),
                         help=f"comma-separated regimes from {REGIMES}")
     parser.add_argument("--outdir", default="thesis/results", help="where to write results")
+    parser.add_argument("--max-error-rate", type=float, default=0.20,
+                        help="reject the run and write nothing if more than this share "
+                             "of attempted lookups failed (default 0.20)")
+    parser.add_argument("--allow-errors", action="store_true",
+                        help="score and write results despite a high error rate. Explicit "
+                             "opt-in: the resulting numbers measure the environment as "
+                             "much as the retriever")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 

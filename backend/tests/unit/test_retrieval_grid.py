@@ -16,6 +16,7 @@ import json
 import pytest
 
 from backend.eval.retrieval_grid import (
+    credibility_report,
     GoldenQuestion,
     anchor_found,
     is_grounded_by_threshold,
@@ -254,3 +255,51 @@ def test_tables_render_without_raising():
     assert "lecture_dense" in md and md.startswith("| Regime |")
     csv = to_csv([r])
     assert csv.splitlines()[0].startswith("regime,k,threshold")
+
+
+# ── the guard against reporting a broken run ─────────────────────────────
+
+def _result(n, errors=0, skipped=0, msgs=()):
+    r = score_config([], [], "lecture_dense", 5, 0.65)
+    r.n, r.errors, r.skipped = n, errors, skipped
+    r.error_messages = list(msgs)
+    return r
+
+
+def test_a_run_that_errored_everywhere_is_rejected():
+    """The failure that motivated this guard: every lookup raised
+    ModuleNotFoundError, and the harness wrote a clean table of zeros into the
+    results directory — indistinguishable at a glance from a real result showing
+    catastrophic retrieval, and citable by accident."""
+    ok, why = credibility_report([_result(50, errors=50, msgs=["No module named 'fastapi'"])], 0.20)
+    assert not ok
+    assert "50 of 50" in why
+    assert "No module named 'fastapi'" in why
+    # It must name the remedy, not just the symptom.
+    assert "requirements-docker.txt" in why
+
+
+def test_a_healthy_run_is_accepted():
+    ok, why = credibility_report([_result(50, errors=2)], 0.20)
+    assert ok and why == ""
+
+
+def test_threshold_boundary_is_inclusive():
+    """Exactly at the limit passes; one more failure does not."""
+    assert credibility_report([_result(50, errors=10)], 0.20)[0]
+    assert not credibility_report([_result(50, errors=11)], 0.20)[0]
+
+
+def test_errors_are_measured_against_attempted_not_total():
+    """Skipped cases were never attempted, so they must not dilute the error
+    rate — otherwise skipping enough questions would launder a broken run."""
+    # 10 attempted (40 skipped), 9 of them failed: 90%, not 18%.
+    ok, why = credibility_report([_result(50, errors=9, skipped=40)], 0.20)
+    assert not ok
+    assert "9 of 10" in why
+
+
+def test_an_all_skipped_run_is_rejected_with_its_own_message():
+    ok, why = credibility_report([_result(27, errors=0, skipped=27)], 0.20)
+    assert not ok
+    assert "skipped" in why.lower() and "course_id" in why
