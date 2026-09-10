@@ -122,6 +122,27 @@ reported separately in the header. That is the better number for comparing
 configurations — embedding cost is identical in every cell — but say so in the
 thesis when you report it.
 
+### Two tables, because one would be a confound
+
+The run emits `grid_results.md` (full corpus) and, when the regimes differ in what they can run,
+`grid_paired.md`.
+
+Only 3 of the 6 corpus lectures carry a `course_id`, so `lecture_dense` is scored on 50 questions
+across 6 lectures and `course_hybrid` on 27 across 3. Printing both as rows of one table invites
+exactly the wrong reading: the difference between them then mixes **regime** with **corpus**, and
+the false-refusal rate — the number this evaluation exists to produce — would be computed on a
+different population than the number it is compared against.
+
+`grid_paired.md` re-scores every cell over the cases *all* regimes could run, so the comparison is
+a comparison. `grid_results.md` keeps the full corpus as the headline `lecture_dense` retrieval
+number, where the larger n is a strength rather than a confound. **Cite the paired table for
+anything comparing regimes, and the full table for anything about retrieval quality alone.**
+
+One asymmetry survives pairing and has to be stated rather than fixed: even on identical questions
+the regimes search different spaces — `lecture_dense` is scoped to one lecture, `course_hybrid` to
+a whole course. A lower hybrid score is therefore partly a harder task and not purely a worse
+retriever. That belongs in threats to validity and in the table caption.
+
 ### Why a run can be refused
 
 A grid that fails still renders as a clean, plausible table. That has now

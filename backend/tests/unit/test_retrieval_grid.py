@@ -19,9 +19,11 @@ import pytest
 
 from backend.eval.retrieval_grid import (
     EmbeddingPrecompute,
+    GridRun,
     GoldenQuestion,
     REGIME_COURSE_HYBRID,
     REGIME_LECTURE_DENSE,
+    REGIMES,
     _is_transient,
     _retry_delay_seconds,
     anchor_found,
@@ -31,6 +33,8 @@ from backend.eval.retrieval_grid import (
     latency_anomalies,
     load_golden_set,
     monotonicity_violations,
+    paired_case_ids,
+    paired_results,
     precision_at_k,
     reciprocal_rank,
     score_config,
@@ -582,8 +586,14 @@ def _install_fake_backend(monkeypatch, *, embed, retrieve):
     for name, mod in (("backend.services.ai.embeddings", embeddings_mod),
                       ("backend.services.ai.retrieval", retrieval_mod)):
         monkeypatch.setitem(sys.modules, name, mod)
-    monkeypatch.setattr(sys.modules["backend.services.ai"], "retrieval",
-                        retrieval_mod, raising=False)
+    # `serve_embeddings_from` reaches the module as an ATTRIBUTE of its package
+    # (`from backend.services.ai import retrieval`), not through sys.modules, so
+    # the package needs patching too. It may not be imported yet — whether it is
+    # depends on which tests ran first, and a helper that only works in
+    # whole-suite order is a helper that fails the one time it matters.
+    parent = sys.modules.get("backend.services.ai")
+    if parent is not None:
+        monkeypatch.setattr(parent, "retrieval", retrieval_mod, raising=False)
     return retrieval_mod
 
 
@@ -598,11 +608,20 @@ def _golden_file(tmp_path, n=4):
 
 
 def _args(tmp_path, **over):
-    base = dict(golden=str(_golden_file(tmp_path)), k="3,5", threshold="0.0,0.65",
+    # Build the default golden set only when the caller did not supply one.
+    # `_golden_file` writes to tmp_path/golden.json, so evaluating it
+    # unconditionally would clobber a caller's own fixture at that path — which
+    # it silently did until a test noticed its cases had been replaced.
+    base = dict(k="3,5", threshold="0.0,0.65",
                 regimes=REGIME_LECTURE_DENSE, outdir=str(tmp_path / "results"),
                 max_error_rate=0.20, monotonicity_tolerance=0.02, rate_limit=0.0,
                 force=False, allow_errors=False, verbose=False)
     base.update(over)
+    if "golden" not in base:
+        # An `if`, not `setdefault`: Python evaluates a default argument
+        # eagerly, so `setdefault("golden", str(_golden_file(tmp_path)))` still
+        # writes the file and still clobbers a caller's fixture at that path.
+        base["golden"] = str(_golden_file(tmp_path))
     return Namespace(**base)
 
 
@@ -733,3 +752,186 @@ def test_output_from_an_earlier_run_blocks_the_next_one(monkeypatch, tmp_path):
     assert asyncio.run(main_async(_args(tmp_path))) == 3
     # Untouched, so the author decides what happens to it.
     assert (results / "grid_results.md").read_text(encoding="utf-8") == "stale corrupted table"
+
+
+# ── the regime comparison must be a comparison ───────────────────────────
+#
+# In the corpus as it stands only 3 of 6 lectures carry a course_id, so
+# lecture_dense scores on 50 questions and course_hybrid on 27 — and the
+# headline table prints both as rows of one comparison. The difference between
+# them then mixes regime with corpus, which contaminates the false-refusal
+# rate the evaluation exists to produce. These tests pin the paired view that
+# fixes it.
+
+
+def _run_with(cases, cells):
+    """cells: {(regime, k, thr): [outcome per case]} -> a scored GridRun."""
+    run = GridRun(cases=list(cases))
+    for key, outcomes in cells.items():
+        run.outcomes[key] = outcomes
+        run.results.append(score_config(cases, outcomes, *key))
+    return run
+
+
+def _hit(idx):
+    return {"keys": [(LEC, idx)], "texts": [f"anch{idx}"],
+            "similarities": [0.9], "latency_ms": 100.0}
+
+
+_SKIP = {"skipped": "lecture has no course_id, so course_hybrid cannot be scoped"}
+
+
+def test_the_paired_set_is_exactly_what_every_regime_could_run():
+    cases = [_case(0), _case(1), _case(2)]
+    run = _run_with(cases, {
+        (REGIME_LECTURE_DENSE, 5, 0.65): [_hit(0), _hit(1), _hit(2)],
+        # course_hybrid cannot scope case 2 — its lecture has no course_id.
+        (REGIME_COURSE_HYBRID, 5, 0.65): [_hit(0), _hit(1), _SKIP],
+    })
+    assert paired_case_ids(run, REGIMES) == ["0", "1"]
+
+
+def test_both_regimes_are_scored_over_an_identical_population():
+    """The property that makes the comparison valid: same n, same questions."""
+    cases = [_case(0), _case(1), _case(2), _case(3)]
+    run = _run_with(cases, {
+        # lecture_dense finds all four...
+        (REGIME_LECTURE_DENSE, 5, 0.65): [_hit(0), _hit(1), _hit(2), _hit(3)],
+        # ...course_hybrid can only run two, and finds one of them.
+        (REGIME_COURSE_HYBRID, 5, 0.65): [_hit(0), {"keys": [], "texts": [],
+                                                    "similarities": [], "latency_ms": 90.0},
+                                          _SKIP, _SKIP],
+    })
+    full = {r.regime: r for r in run.results}
+    # In the full table the two rows have different denominators — 4 against 2.
+    assert (full[REGIME_LECTURE_DENSE].n - full[REGIME_LECTURE_DENSE].skipped) == 4
+    assert (full[REGIME_COURSE_HYBRID].n - full[REGIME_COURSE_HYBRID].skipped) == 2
+
+    paired = {r.regime: r for r in paired_results(run, REGIMES)}
+    assert len(paired) == 2
+    for r in paired.values():
+        assert (r.n - r.skipped) == 2, "paired cells must share one population"
+        assert r.skipped == 0, "a skipped case has no business in the paired set"
+    # And now the numbers mean something against each other: same two questions,
+    # dense found both, hybrid found one.
+    assert paired[REGIME_LECTURE_DENSE].slide_found_rate == 1.0
+    assert paired[REGIME_COURSE_HYBRID].slide_found_rate == 0.5
+
+
+def test_the_full_table_keeps_the_larger_n_for_the_headline_regime():
+    """Pairing must not shrink the lecture_dense result the thesis reports as
+    its retrieval number — there the larger n is a strength, not a confound."""
+    cases = [_case(i) for i in range(4)]
+    run = _run_with(cases, {
+        (REGIME_LECTURE_DENSE, 5, 0.65): [_hit(i) for i in range(4)],
+        (REGIME_COURSE_HYBRID, 5, 0.65): [_hit(0), _hit(1), _SKIP, _SKIP],
+    })
+    full = next(r for r in run.results if r.regime == REGIME_LECTURE_DENSE)
+    assert (full.n - full.skipped) == 4
+
+
+def test_no_paired_table_when_the_regimes_already_share_a_population():
+    """Every case runnable everywhere means the paired view would just repeat
+    the headline table under a heading implying it says something new."""
+    cases = [_case(0), _case(1)]
+    run = _run_with(cases, {
+        (REGIME_LECTURE_DENSE, 5, 0.65): [_hit(0), _hit(1)],
+        (REGIME_COURSE_HYBRID, 5, 0.65): [_hit(0), _hit(1)],
+    })
+    assert paired_case_ids(run, REGIMES) == ["0", "1"]   # == all cases
+    # main_async suppresses the second table on exactly this condition.
+    assert len(paired_case_ids(run, REGIMES)) == len(cases)
+
+
+def test_a_regime_that_could_run_nothing_empties_the_paired_set():
+    """Better to print no comparison than one over zero questions."""
+    cases = [_case(0), _case(1)]
+    run = _run_with(cases, {
+        (REGIME_LECTURE_DENSE, 5, 0.65): [_hit(0), _hit(1)],
+        (REGIME_COURSE_HYBRID, 5, 0.65): [_SKIP, _SKIP],
+    })
+    assert paired_case_ids(run, REGIMES) == []
+    assert paired_results(run, REGIMES) == []
+
+
+def test_a_case_skipped_in_any_cell_of_a_regime_is_out_of_the_paired_set():
+    """Skipping is a property of the data, so it should be identical across a
+    regime's cells — but the intersection is taken across all of them rather
+    than trusting one, because a case scored in some cells and not others would
+    otherwise silently shift the denominator between them."""
+    cases = [_case(0), _case(1)]
+    run = _run_with(cases, {
+        (REGIME_COURSE_HYBRID, 3, 0.65): [_hit(0), _hit(1)],
+        (REGIME_COURSE_HYBRID, 8, 0.65): [_hit(0), _SKIP],
+        (REGIME_LECTURE_DENSE, 3, 0.65): [_hit(0), _hit(1)],
+        (REGIME_LECTURE_DENSE, 8, 0.65): [_hit(0), _hit(1)],
+    })
+    assert paired_case_ids(run, REGIMES) == ["0"]
+
+
+def test_the_paired_false_refusal_rate_is_the_number_the_thesis_reports():
+    """The gate metric on a shared population — what RQ2 turns on."""
+    cases = [_case(0), _case(1), _case(2)]
+    # Case 0: retrieved and above threshold. Case 1: retrieved but BELOW the
+    # gate — a false refusal. Case 2: unrunnable in the hybrid regime.
+    run = _run_with(cases, {
+        (REGIME_COURSE_HYBRID, 5, 0.65): [
+            {"keys": [(LEC, 0)], "texts": ["anch"], "similarities": [0.90], "latency_ms": 100.0},
+            {"keys": [(LEC, 1)], "texts": ["anch"], "similarities": [0.40], "latency_ms": 100.0},
+            _SKIP,
+        ],
+        (REGIME_LECTURE_DENSE, 5, 0.65): [_hit(0), _hit(1), _hit(2)],
+    })
+    hybrid = next(r for r in paired_results(run, REGIMES)
+                  if r.regime == REGIME_COURSE_HYBRID)
+    assert (hybrid.n - hybrid.skipped) == 2
+    assert hybrid.refusal_rate == 0.5
+    # The refusal was wrong: the corpus had the answer and the gate rejected it.
+    assert hybrid.false_refusal_rate == 0.5
+    assert hybrid.false_refusal_share == 1.0
+
+
+def test_the_paired_table_reaches_disk_with_its_population_stated(monkeypatch, tmp_path):
+    """End to end, in the shape the real corpus has: some lectures carry a
+    course_id and some do not, so the two regimes cannot share a population
+    until the paired view restores one."""
+    golden = tmp_path / "golden.json"
+    golden.write_text(json.dumps([
+        # two questions the hybrid regime can scope...
+        {"id": "q0", "question": "question 0", "lecture_id": LEC, "slide_index": 0,
+         "anchor": "anchor 0", "course_id": "c1"},
+        {"id": "q1", "question": "question 1", "lecture_id": LEC, "slide_index": 1,
+         "anchor": "anchor 1", "course_id": "c1"},
+        # ...and two it cannot, exactly like the three course_id-less lectures.
+        {"id": "q2", "question": "question 2", "lecture_id": OTHER, "slide_index": 2,
+         "anchor": "anchor 2"},
+        {"id": "q3", "question": "question 3", "lecture_id": OTHER, "slide_index": 3,
+         "anchor": "anchor 3"},
+    ]), encoding="utf-8")
+
+    async def embed(text):
+        return [0.1, 0.2, 0.3]
+
+    async def retrieve(question, **kw):
+        idx = int(question.split()[-1])
+        lec = LEC if idx < 2 else OTHER
+        return [{"slide_index": idx, "lecture_id": lec, "title": "t",
+                 "content": f"anchor {idx}", "similarity": 0.9}]
+
+    _install_fake_backend(monkeypatch, embed=embed, retrieve=retrieve)
+    args = _args(tmp_path, golden=str(golden), regimes=",".join(REGIMES), k="5",
+                 threshold="0.65")
+    assert asyncio.run(main_async(args)) == 0
+
+    rundir = next(iter((tmp_path / "results").iterdir()))
+    paired = (rundir / "grid_paired.md").read_text(encoding="utf-8")
+    # It must say which population it used, or it is just another table.
+    assert "SAME 2 of 4 questions" in paired
+    assert REGIME_LECTURE_DENSE in paired and REGIME_COURSE_HYBRID in paired
+    # Both regimes at n=2 — the whole point.
+    rows = [ln for ln in paired.splitlines() if ln.startswith("| lecture_dense")
+            or ln.startswith("| course_hybrid")]
+    assert len(rows) == 2
+    assert all(row.split("|")[4].strip() == "2" for row in rows), rows
+    # And the caveat that survives pairing is on the artefact, not only in stdout.
+    assert "different spaces" in paired

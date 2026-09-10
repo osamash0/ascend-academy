@@ -682,24 +682,105 @@ async def _retrieve(case: GoldenQuestion, regime: str, k: int, threshold: float)
     }
 
 
+@dataclass
+class GridRun:
+    """Everything a sweep produced: the scored cells and the raw per-case
+    outcomes behind them.
+
+    The outcomes are retained rather than discarded after scoring because the
+    regime comparison has to be re-scored over a different population than the
+    headline table — see `paired_results`. Re-running the sweep to get them
+    back would cost a second full pass over the corpus.
+    """
+    results: List[ConfigResult] = field(default_factory=list)
+    outcomes: Dict[Tuple[str, int, float], List[Dict[str, Any]]] = field(default_factory=dict)
+    cases: List[GoldenQuestion] = field(default_factory=list)
+
+
 async def run_grid(
     cases: Sequence[GoldenQuestion],
     ks: Sequence[int],
     thresholds: Sequence[float],
     regimes: Sequence[str] = REGIMES,
-) -> List[ConfigResult]:
+) -> GridRun:
     """Sweep every (regime, k, threshold) cell and score each one."""
-    results: List[ConfigResult] = []
+    run = GridRun(cases=list(cases))
     total = len(regimes) * len(ks) * len(thresholds)
     done = 0
     for regime in regimes:
         for k in ks:
             for threshold in thresholds:
                 outcomes = [await _retrieve(c, regime, k, threshold) for c in cases]
-                results.append(score_config(cases, outcomes, regime, k, threshold))
+                run.outcomes[(regime, k, threshold)] = outcomes
+                run.results.append(score_config(cases, outcomes, regime, k, threshold))
                 done += 1
                 logger.info("grid %d/%d — %s k=%d thr=%.2f", done, total, regime, k, threshold)
-    return results
+    return run
+
+
+# ── The regime comparison, on one population ─────────────────────────────
+
+def paired_case_ids(run: GridRun, regimes: Sequence[str]) -> List[str]:
+    """Ids of the cases EVERY swept regime actually attempted.
+
+    A case is attempted in a regime unless that regime skipped it. Skipping is
+    a property of the data, not of the run: `course_hybrid` cannot scope a
+    lecture whose `course_id` is null, so it skips those cases in every cell.
+    """
+    per_regime: List[set] = []
+    for regime in regimes:
+        attempted = None
+        for (r, _k, _t), outcomes in run.outcomes.items():
+            if r != regime:
+                continue
+            ids = {c.id for c, o in zip(run.cases, outcomes) if not o.get("skipped")}
+            attempted = ids if attempted is None else (attempted & ids)
+        if attempted is not None:
+            per_regime.append(attempted)
+    if not per_regime:
+        return []
+    common = set.intersection(*per_regime)
+    return [c.id for c in run.cases if c.id in common]
+
+
+def paired_results(run: GridRun, regimes: Sequence[str]) -> List[ConfigResult]:
+    """Re-score every cell over the cases all regimes could run.
+
+    Why this exists, and why the headline table is not enough. In the corpus as
+    it stands only 3 of the 6 lectures carry a `course_id`, so `lecture_dense`
+    is scored on 50 questions across 6 lectures and `course_hybrid` on 27
+    across 3. Printing both as rows of a single table invites exactly the wrong
+    reading: the difference between them then mixes *regime* with *corpus*, and
+    the false-refusal rate — the number this evaluation exists to produce — is
+    computed on a different population than the number it is compared against.
+
+    Restricting both regimes to the common set makes the comparison a
+    comparison. The full-corpus table is kept as the headline `lecture_dense`
+    retrieval result, where the larger n is a strength rather than a confound.
+
+    One asymmetry survives this and must be stated rather than fixed: even on
+    identical questions the regimes search different spaces — `lecture_dense`
+    is scoped to a single lecture, `course_hybrid` to a whole course. A lower
+    hybrid score is therefore partly a harder task and not purely a worse
+    retriever. That belongs in the threats-to-validity section and in the
+    table caption; it is inherent to the regimes, and it is the point of the
+    comparison, but only if it is named.
+    """
+    keep = set(paired_case_ids(run, regimes))
+    if not keep:
+        return []
+
+    paired: List[ConfigResult] = []
+    for (regime, k, threshold), outcomes in run.outcomes.items():
+        if regime not in regimes:
+            continue
+        subset = [(c, o) for c, o in zip(run.cases, outcomes) if c.id in keep]
+        if not subset:
+            continue
+        cases = [c for c, _ in subset]
+        outs = [o for _, o in subset]
+        paired.append(score_config(cases, outs, regime, k, threshold))
+    return sorted(paired, key=lambda r: (r.regime, r.k, r.threshold))
 
 
 # ── Output ───────────────────────────────────────────────────────────────
@@ -1008,8 +1089,13 @@ async def main_async(args: argparse.Namespace) -> int:
     if legacy.exists() and not args.force:
         print(f"\n=== REFUSING TO RUN ===\n{legacy} already exists.")
         print("Results are now written to a timestamped subdirectory, so this file is")
-        print("from an earlier run. If it is the quota-corrupted 2026-09-09 table,")
-        print("delete it — nothing in it is salvageable. Then re-run, or pass --force.")
+        print("from an earlier run and none of its numbers can be trusted.")
+        print("")
+        print("Move it rather than deleting it — a rejected run is evidence, and this")
+        print("one carries measurements that exist nowhere else:")
+        print("    thesis/results-rejected/<date>/")
+        print("")
+        print("Then re-run, or pass --force to run alongside it.")
         return 3
 
     regimes = [r for r in args.regimes.split(",") if r.strip()]
@@ -1038,9 +1124,10 @@ async def main_async(args: argparse.Namespace) -> int:
 
     # ── Phase 2: sweep, with every cell served the same precomputed vectors.
     with serve_embeddings_from(embed.embeddings):
-        results = await run_grid(
+        run = await run_grid(
             cases, _parse_ints(args.k), _parse_floats(args.threshold), regimes
         )
+    results = run.results
 
     ok, why = credibility_report(results, args.max_error_rate, args.monotonicity_tolerance)
     for note in latency_anomalies(results):
@@ -1052,8 +1139,28 @@ async def main_async(args: argparse.Namespace) -> int:
         return 2
 
     table = to_markdown_table(results)
-    print("\n=== Retrieval grid ===")
+    print("\n=== Retrieval grid (full corpus) ===")
     print(table)
+
+    # The regime comparison, scored over one population. Only meaningful when
+    # more than one regime was swept AND they differ in what they could run;
+    # otherwise it would duplicate the table above under a heading implying it
+    # says something new.
+    paired = paired_results(run, regimes) if len(regimes) > 1 else []
+    paired_table = ""
+    if paired:
+        kept = len(paired_case_ids(run, regimes))
+        if kept < len(cases):
+            paired_table = to_markdown_table(paired)
+            print(f"\n=== Regime comparison (paired, n={kept} of {len(cases)}) ===")
+            print("Both regimes scored on the SAME questions — the ones every regime could")
+            print("run. The table above scores each regime on everything it could attempt,")
+            print("so its rows do not share a population and must not be compared directly.")
+            print(paired_table)
+            print("\nNote: even paired, the regimes search different spaces — lecture_dense")
+            print("is scoped to one lecture, course_hybrid to a whole course. A lower hybrid")
+            print("score is partly a harder task, not purely a worse retriever.")
+
     if not ok:
         print("\n*** --allow-errors was set; the numbers below are NOT trustworthy ***")
         print(why)
@@ -1066,6 +1173,18 @@ async def main_async(args: argparse.Namespace) -> int:
     header = provenance_header(args, cases, embed, verdict)
     (rundir / "grid_results.md").write_text(header + table + "\n", encoding="utf-8")
     (rundir / "grid_results.csv").write_text(to_csv(results) + "\n", encoding="utf-8")
+    if paired_table:
+        kept = len(paired_case_ids(run, regimes))
+        (rundir / "grid_paired.md").write_text(
+            header
+            + f"<!-- Regime comparison. Both regimes scored on the SAME {kept} of "
+              f"{len(cases)} questions — the ones every regime could run. The regimes "
+              f"still search different spaces (one lecture vs a whole course), so a "
+              f"lower hybrid score is partly a harder task. -->\n\n"
+            + paired_table + "\n",
+            encoding="utf-8",
+        )
+        (rundir / "grid_paired.csv").write_text(to_csv(paired) + "\n", encoding="utf-8")
     (rundir / "grid_per_question.json").write_text(
         json.dumps({
             "generated_utc": stamp,
@@ -1078,8 +1197,10 @@ async def main_async(args: argparse.Namespace) -> int:
         }, indent=2),
         encoding="utf-8",
     )
-    print(f"\nWrote grid_results.md, grid_results.csv and grid_per_question.json "
-          f"to {rundir}/")
+    written = ["grid_results.md", "grid_results.csv", "grid_per_question.json"]
+    if paired_table:
+        written += ["grid_paired.md", "grid_paired.csv"]
+    print(f"\nWrote {', '.join(written)} to {rundir}/")
 
     if results and ok:
         best = max(results, key=lambda r: r.mrr)
