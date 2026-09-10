@@ -1,11 +1,14 @@
 ' F6 -- Component view of the deployed system.
 ' Chapter 4. UML component diagram.
-' Claim supported: LLM traffic bypasses the LiteLLM gateway entirely; the
-' gateway remains only as a startup dependency. Database access is dual-mode.
+' Claim supported: production runs FIVE containers. The LiteLLM gateway was
+' removed on 2026-08-25 (docker-compose.prod.yml:55-70); LLM traffic always
+' bypassed it. Database access is dual-mode.
+' Corrected 2026-09-10 per docs/thesis/EVIDENCE_VERIFIED.md C1 -- the earlier
+' revision drew six containers and showed the gateway as still deployed.
 @startuml f6-components
 !include _style.iuml
 
-title Component view (as deployed) -- corrected against code
+title Component view (as deployed, five containers)
 
 skinparam componentStyle uml2
 
@@ -17,7 +20,6 @@ package "Hetzner CX23 -- Docker, single bridge network" {
   component "**worker**\nArq, max_jobs = 4" as WK
   database "**redis**\ncache\nallkeys-lru" as RC
   queue "**redis-queue**\nbroker + pubsub\nnoeviction + AOF" as RQ
-  component "**litellm**\ngateway" as LL #DCDCDC
 }
 
 cloud "**Supabase** (managed)\nPostgres 15 + pgvector\nAuth · Storage · PostgREST" as SB
@@ -40,19 +42,17 @@ WK  --> SB
 API --> LLM : direct HTTPS
 WK  --> LLM : direct HTTPS
 
-API ..> LL : depends_on\nservice_healthy
-WK  ..> LL : depends_on\nservice_healthy
+note right of LLM
+  **Called directly, and always were.**
+  A sixth container -- a LiteLLM gateway -- ran here
+  until 2026-08-25 with zero live callers, consuming
+  1 GB / 0.75 vCPU of a 4 GB / 2 vCPU host while
+  gating api + worker startup via depends_on:
+  service_healthy. Removed in
+  docker-compose.prod.yml:55-70.
 
-note right of LL
-  **Zero live callers.**
-  LITELLM_BASE_URL is referenced only from
-  backend/_legacy/. The container still runs,
-  consumes 1 GB / 0.75 vCPU of a 4 GB / 2 vCPU
-  host, and gates api + worker startup.
-
-  README.md:42 and GDPR_DATA_PROTECTION.md:23
-  both claim LLM traffic flows through it.
-  It does not.
+  README.md:42 and GDPR_DATA_PROTECTION.md:23 still
+  claim LLM traffic flows through it. It never did.
 end note
 
 note bottom of SB
@@ -64,8 +64,7 @@ note bottom of SB
 end note
 
 legend bottom
-  Solid = live data path.  Dashed = conditional or startup-only dependency.
-  Shaded component = runs but is not on any data path.
+  Solid = live data path.  Dashed = conditional dependency.
 endlegend
 
 @enduml
