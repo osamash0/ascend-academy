@@ -376,12 +376,21 @@ jobs:
     # Both are now passed through below, so the requirement is stated in one
     # place instead of being rediscovered from a traceback.
     #
+    # Gated on a repo VARIABLE rather than just dropping `schedule`, because
+    # dispatch is a route this project actually uses for full coverage (it is
+    # the only way to run the E2E job). Leaving this dispatch-only would have
+    # moved the permanent red from the nightly onto every manual run instead
+    # of removing it.
+    #
     # TO TURN IT BACK ON: add CEREBRAS_API_KEY, GROQ_API_KEY, GEMINI_API_KEY,
-    # SUPABASE_URL and SUPABASE_KEY as repo secrets, confirm a green
-    # `gh workflow run ci.yml --ref main` (that dispatch spends real money on
-    # live model calls), then restore `github.event_name == 'schedule' ||` to
-    # the front of the condition below.
-    if: github.event_name == 'workflow_dispatch'
+    # SUPABASE_URL and SUPABASE_KEY as repo secrets, then set the repo
+    # variable RUN_AI_EVAL=true (`gh variable set RUN_AI_EVAL --body true`).
+    # Confirm it green on a dispatch first — that run spends real money on
+    # live model calls — then restore `github.event_name == 'schedule' ||` to
+    # the front of the condition below to get the nightly cadence back.
+    if: >-
+      vars.RUN_AI_EVAL == 'true' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
