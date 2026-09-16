@@ -73,3 +73,7 @@ playwright-report/
 # The project id that actually matters is tracked in supabase/config.toml;
 # this directory is per-machine and is recreated by `supabase link`.
 supabase/.temp/
+
+# Cached pip-audit venv built by scripts/audit-deps.sh — a tool install,
+# not project state. Rebuilt on demand if deleted.
+.cache/
