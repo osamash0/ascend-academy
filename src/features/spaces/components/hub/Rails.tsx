@@ -376,11 +376,21 @@ export function CompactCard({ space }: { space: Space }) {
  */
 export function HubPill({
   to,
+  onPress,
   label,
   disabled,
   small,
 }: {
-  to: string;
+  /** Where it goes. Omitted when the pill acts on this page instead. */
+  to?: string;
+  /**
+   * An action rather than a destination.
+   *
+   * Discover needs one: its content is the rails below the fold, so the hero's
+   * button belongs to this page. It used to be a Link to `/v4/spaces-legacy`,
+   * which walked you out of the hub into the screen the hub replaced.
+   */
+  onPress?: () => void;
   label: string;
   disabled?: boolean;
   small?: boolean;
@@ -402,9 +412,15 @@ export function HubPill({
   }
   return (
     <motion.div className="inline-block" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} transition={PRESS_SPRING}>
-      <Link to={to} className={cls}>
+      {onPress ? (
+        <button type="button" onClick={onPress} className={cls}>
+          {label}
+        </button>
+      ) : (
+      <Link to={to ?? '#'} className={cls}>
         {label}
       </Link>
+      )}
     </motion.div>
   );
 }

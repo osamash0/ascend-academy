@@ -235,7 +235,22 @@ export interface Passage {
 /** Where a contribution attaches. One contribution, one anchor. */
 export type ContributionAnchor =
   | { level: 'space'; spaceId: string }
-  | { level: 'lesson'; lessonId: string }
+  | {
+      level: 'lesson';
+      lessonId: string;
+      /**
+       * The Space that Lesson was in — only needed once the Lesson is gone.
+       *
+       * An orphan cannot resolve its Space through a Lesson that no longer
+       * exists, and `library.ts` filled the hole with a hardcoded `'s-dbs'`
+       * under a comment claiming it fell back to "its last known Space". It
+       * did not: every orphan, from any Space, was attributed to Database
+       * Systems. The one orphan fixture happens to come from there, so the
+       * bug was invisible — and the coherence guard that would have caught it
+       * does `if (row.orphaned) continue`.
+       */
+      spaceId?: string;
+    }
   | { level: 'concept'; conceptId: string };
 
 /** Open model; v1 accepts low-risk types only. No executable artifacts. */
