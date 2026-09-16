@@ -540,8 +540,15 @@ future-flag warnings, plus the two stale HMR errors described in finding 9.
 
 ## What is left open
 
-1. **The vocabulary gate is missing three words** (finding 6). One line in a
-   shared script, and the reader is already clean under it.
+1. ~~**The vocabulary gate is missing three words** (finding 6).~~ **Closed, and
+   it was bigger than three words.** Adding them showed they would not have
+   been caught anyway: the gate's JSX extractor only recognised text as
+   `>text<`, so anything abutting a `{expression}` was invisible — `lecture`
+   has been on the banned list since the file was written and was equally
+   undetectable in `This page belongs to{' '}`. The gate reported "vocabulary
+   clean" over 72 files for this entire branch. Fixed in `3ab6bca` (extractor)
+   and `2fd37d1` (it was also reporting line numbers 40–90 lines off, which
+   only mattered once it started catching things).
 2. **The pager's destination** (Task 6 (a)) — a slice of its own, with the
    lesson-change reset as its subject.
 3. **A community affordance on a passage** — proposed above as a fourth citation

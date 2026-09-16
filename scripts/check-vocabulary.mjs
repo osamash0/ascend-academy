@@ -38,14 +38,28 @@ const ROOTS = process.argv.slice(2).length
   ? process.argv.slice(2)
   : ['src/features/spaces'];
 
-/** Strip comments and import lines so only shippable text remains. */
+/**
+ * Blank out comments and import lines so only shippable text remains.
+ *
+ * Blanked, not deleted. The offsets of what survives are what the reported
+ * line number is computed from, so removing a block comment shifts every
+ * violation below it upwards — and in this namespace comments outnumber code,
+ * so the reported line was 40 to 90 lines above the real one. A gate that
+ * sends you to the wrong line is worse than one that prints no line at all,
+ * and this gate only recently started catching anything.
+ *
+ * Replacing each stripped run with spaces of the same length, newlines kept,
+ * makes indices into the stripped text indices into the real file.
+ */
+const blank = (m) => m.replace(/[^\n]/g, ' ');
+
 function stripNonCopy(src) {
   return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')          // block comments
-    .replace(/^\s*\/\/.*$/gm, '')               // line comments
-    .replace(/^\s*import[\s\S]*?from\s+['"].*?['"];?$/gm, '') // imports
-    .replace(/\bfrom\s+['"][^'"]*['"]/g, '')    // any residual module paths
-    .replace(/\b(?:className|data-[\w-]+|key|id)\s*=\s*(?:"[^"]*"|'[^']*'|\{[^}]*\})/g, '');
+    .replace(/\/\*[\s\S]*?\*\//g, blank)       // block comments
+    .replace(/^\s*\/\/.*$/gm, blank)            // line comments
+    .replace(/^\s*import[\s\S]*?from\s+['"].*?['"];?$/gm, blank) // imports
+    .replace(/\bfrom\s+['"][^'"]*['"]/g, blank)    // any residual module paths
+    .replace(/\b(?:className|data-[\w-]+|key|id)\s*=\s*(?:"[^"]*"|'[^']*'|\{[^}]*\})/g, blank);
 }
 
 /** Pull out the substrings that actually render: literals and JSX text. */
@@ -73,7 +87,10 @@ function extractCopy(src) {
    * opener: in `}a{b}c<`, consuming the `{` would swallow the start of `b`.
    */
   for (const m of src.matchAll(/[>}]\s*([^<>{}]{3,}?)\s*(?=[<{])/g)) {
-    out.push({ text: m[1], index: m.index });
+    // Offset of the text itself, not of the `>` that opened it — that bracket
+    // usually closes the previous line, which would report every JSX
+    // violation one line early.
+    out.push({ text: m[1], index: m.index + m[0].indexOf(m[1]) });
   }
   return out;
 }
