@@ -99,6 +99,10 @@ describe('Library Studio', () => {
       expect(o.spaceName, `${o.title} lost the Space it came from`).not.toBeNull();
       expect(o.spaceId, `${o.title} lost the Space id it came from`).not.toBeNull();
       expect(o.orphaned).toBe(true);
+      if (o.spaceName !== null) {
+        expect(o.spaceName.trim().length, `${o.title} names an empty Space`).toBeGreaterThan(0);
+        expect(o.spaceId, `${o.title} names a Space with no id`).toBeTruthy();
+      }
     }
   });
 

@@ -61,6 +61,39 @@ export const actionFor = (m: Membership): { label: string; disabled: boolean } =
 export const myHubSpaces = (): Space[] =>
   visibleSpaces().filter((s) => s.viewerRole !== null && s.state === 'active');
 
+/**
+ * Your archived Spaces.
+ *
+ * `myHubSpaces` filters on `state === 'active'`, so an archived Space appeared
+ * nowhere on this screen at all — not in the chip row, not in a rail. The
+ * viewer's "Statistik I" was simply unreachable from Spaces, and the progress
+ * recorded in it with it.
+ *
+ * `notes-spaces-screen.md` is explicit about why that is not a detail:
+ * "Archived: collapsed section at bottom, **never hidden (progress lives
+ * there)**." Archiving a Space is not deleting it — Doc 1 calls archived
+ * "read-only, keeps progress, earns no XP" — so the one thing the screen must
+ * not do is behave as though it were gone.
+ */
+export const archivedForViewer = (): Space[] =>
+  visibleSpaces().filter((s) => s.viewerRole !== null && s.state === 'archived');
+
+/** How your Spaces can be ordered. */
+export type SpaceSort = 'active' | 'name';
+
+/**
+ * Your Spaces, ordered.
+ *
+ * Sorting lives here rather than in the screen so the chip row and anything
+ * else showing the same set cannot disagree about the order.
+ */
+export const sortSpaces = (spaces: Space[], by: SpaceSort): Space[] =>
+  [...spaces].sort((a, b) =>
+    by === 'name'
+      ? a.name.localeCompare(b.name)
+      : (b.lastActiveAt ?? '').localeCompare(a.lastActiveAt ?? ''),
+  );
+
 /* ── The rails ─────────────────────────────────────────────────── */
 
 /**

@@ -255,14 +255,10 @@ export default function LibraryScreen() {
           icon={Sparkles}
           label="How your work landed"
           /*
-           * Spans whatever is left of the row.
-           *
-           * Four cells over four columns, and the first one is two wide when
-           * there is a note to show: 2+1+1 fills row one exactly, leaving this
-           * cell alone on row two at half width with 486px of empty grid
-           * beside it. With no note the row is 1+1+2 and already balances — so
-           * a fixed span cannot be right for both, and this one followed the
-           * note.
+           * Spans whatever is left of the row. Four cells over four columns,
+           * and the first is two wide when there is a note: 2+1+1 fills row
+           * one exactly, leaving this alone on row two at half width. With no
+           * note the row is 1+1+2 and already balances.
            */
           className={cn('sm:col-span-2', latestNote && 'lg:col-span-4')}
           /*

@@ -11,7 +11,6 @@ import type { Person } from '../types';
 import { viewer, keller, weber, ferreira, okonkwo, lindqvist } from './people';
 import { allSpaces } from './spaces';
 import { rankLabel, viewerXp } from './rank';
-import { longestRun } from './history';
 import { lessonsForSpace, locateLesson } from './lessons';
 import { anchorFor, isOrphaned } from './reanchor';
 
@@ -103,10 +102,18 @@ const uploadedMaterials: LibraryItem[] = lessonsForSpace('s-linalg')
 export const resolveContributionAnchor = (
   anchor: ContributionAnchor,
   /**
-   * The contribution being resolved. Required for space-level anchors, which
-   * are addressed by fragment because they have no page of their own.
+   * The contribution being resolved, where the caller has one.
+   *
+   * Optional so an anchor can be resolved on its own — `orphans.test.ts`
+   * constructs bare anchors to check that a dead Lesson still knows its Space,
+   * and there is no contribution in that question.
+   *
+   * Space-level anchors need it: they are addressed by fragment, having no
+   * page of their own. Without it there is no href at all — deliberately not a
+   * fall back to `/v4/space/<id>`, so a Space root cannot be reached from
+   * Library by any path, including a caller that forgot the id.
    */
-  contributionId: string,
+  contributionId?: string,
 ): { spaceId: string | null; lessonTitle?: string; href: string | null } => {
   if (anchor.level === 'space') {
     /*
@@ -122,7 +129,9 @@ export const resolveContributionAnchor = (
      */
     return {
       spaceId: anchor.spaceId,
-      href: `/v4/space/${anchor.spaceId}#${contributionAnchorId(contributionId)}`,
+      href: contributionId
+        ? `/v4/space/${anchor.spaceId}#${contributionAnchorId(contributionId)}`
+        : null,
     };
   }
   if (anchor.level === 'lesson') {
@@ -164,9 +173,8 @@ export const myContributionById = (id: string): Contribution | undefined =>
  *
  * A function, not a `const`. It was composed once at module load, so
  * re-anchoring an orphan changed the store and Library went on showing the old
- * row — the exact bug `noteToItem`'s comment records for notes ("the list used
- * to be built from the seed array once, at module load"). Twice is a pattern:
- * anything downstream of a mutable store has to be recomputed on read.
+ * row — the exact bug `noteToItem`'s comment records for notes. Anything
+ * downstream of a mutable store has to be recomputed on read.
  */
 const myContributionItems = (): LibraryItem[] =>
   myPublished().map((c) => {
@@ -375,33 +383,12 @@ export const friendRequests: FriendRequest[] = [
 
 export const friends = [lindqvist, ferreira];
 
-/** Badges are earned, and each says what earned it. */
-export interface Badge {
-  id: string;
-  name: string;
-  earned: boolean;
-  how: string;
-}
-
-export const badges: Badge[] = [
-  { id: 'b-1', name: 'First steps', earned: true, how: 'Finished your first Lesson' },
-  { id: 'b-2', name: 'Contributor', earned: true, how: 'Published your first contribution' },
-  {
-    id: 'b-3',
-    name: 'Four in a row',
-    /*
-     * Derived. `earned: true` was a third independent claim about the same
-     * run — the badge could sit earned on a record that never reached four.
-     * The threshold stays a literal here beside the copy that names it, so
-     * the criterion and the words are one object rather than two facts.
-     */
-    earned: longestRun() >= 4,
-    how: 'Four days running',
-  },
-  { id: 'b-4', name: 'Well received', earned: false, how: 'Get 25 likes on your work' },
-  { id: 'b-5', name: 'Cartographer', earned: false, how: 'Clear every idea in one Space' },
-  { id: 'b-6', name: 'Founder', earned: true, how: 'Created a Space of your own' },
-];
+/*
+ * The achievement badges lived here — six of them, `earned` flags and all.
+ * Retired rather than moved: see `mocks/moments.ts` for what replaced them and
+ * the three locked rules they broke. The word "badge" now means one thing in
+ * this codebase, which is what `components/badges.tsx` already meant by it.
+ */
 
 /* ── Library · Studio ─────────────────────────────────────────────
    Doc 2: "Studio screens hang off Library; Library itself stays Learn. Dense
