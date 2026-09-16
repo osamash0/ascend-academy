@@ -6,7 +6,18 @@ pydantic==2.13.3
 pydantic-settings==2.14.2
 python-dotenv==1.2.2
 asyncpg==0.31.0
-pypdf==6.15.0
+# 6.16.1, not 6.15.0: clears CVE-2026-84309 (fixed in 6.16.0) plus
+# CVE-2026-84310 and CVE-2026-84311 (fixed in 6.16.1). These three had CI's SCA
+# job red on `main` for six-plus consecutive runs.
+#
+# Worth knowing: nothing under `backend/` imports pypdf, and no installed
+# package declares it as a dependency — PyMuPDF (`fitz`) is what the ingestion
+# pipeline actually uses. So this is an unused direct pin, and deleting it would
+# clear all three outright. Bumped rather than deleted because
+# `requirements-docker.txt` separately pins `pypdf>=3.0,<6.0`; dropping a
+# dependency the production image still asks for is a larger change than a
+# security fix should carry on its back.
+pypdf==6.16.1
 PyMuPDF==1.24.0
 Pillow==12.3.0
 python-multipart==0.0.31

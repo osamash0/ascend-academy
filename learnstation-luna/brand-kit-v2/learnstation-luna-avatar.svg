@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="LearnStation Luna avatar">
+  <title>LearnStation Luna avatar</title>
+  <desc>Source-faithful LearnStation Luna artwork derived from the original Luna design-system geometry and identity rules.</desc>
+  <defs>
+  <radialGradient id="face-avatar" cx="40%" cy="35%"><stop offset="0" stop-color="#FFFEF5"/><stop offset="65%" stop-color="#FFF8E7"/><stop offset="100%" stop-color="#E8E4F0"/></radialGradient>
+  <radialGradient id="glow-avatar" cx="50%" cy="50%"><stop offset="0" stop-color="#FFD93D" stop-opacity=".15"/><stop offset="1" stop-color="#FFD93D" stop-opacity="0"/></radialGradient>
+</defs>
+  <defs><radialGradient id="avatar-bg" cx="50%" cy="35%" r="75%"><stop stop-color="#2D2445"/><stop offset="1" stop-color="#0D0A14"/></radialGradient></defs>
+  <rect x="22" y="22" width="980" height="980" rx="230" fill="url(#avatar-bg)"/>
+  <g transform="translate(-48 70) scale(7)"><g id="luna-head" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="80" cy="62" r="38" fill="none" stroke="#88B0B5" stroke-width="2.5" opacity=".9"/>
+    <circle cx="80" cy="62" r="30" fill="url(#face-avatar)" stroke="#4A3F6B" stroke-width="1.8"/>
+    <ellipse cx="64" cy="50" rx="4" ry="3" fill="#000" opacity=".07"/><ellipse cx="94" cy="72" rx="3.5" ry="2.6" fill="#000" opacity=".06"/><ellipse cx="60" cy="68" rx="2.4" ry="1.8" fill="#000" opacity=".06"/>
+    <circle cx="70" cy="60" r="7" fill="#FFF" stroke="#4A3F6B" stroke-width="1.4"/><circle cx="70" cy="61" r="3.4" fill="#3B3352"/><circle cx="68.5" cy="58.5" r="1.4" fill="#FFF"/>
+    <path d="M63 55 Q70 51 77 55" stroke="#4A3F6B" stroke-width="1.6" fill="none" opacity=".6"/>
+    <circle cx="90" cy="60" r="7" fill="#FFF" stroke="#4A3F6B" stroke-width="1.4"/><circle cx="90" cy="61" r="3.4" fill="#3B3352"/><circle cx="88.5" cy="58.5" r="1.4" fill="#FFF"/>
+    <path d="M83 55 Q90 51 97 55" stroke="#4A3F6B" stroke-width="1.6" fill="none" opacity=".6"/>
+    <path d="M74 71 Q80 76 86 71" stroke="#4A3F6B" stroke-width="2" fill="none"/>
+    <circle cx="62" cy="68" r="3.6" fill="#E8A598" opacity=".5"/><circle cx="98" cy="68" r="3.6" fill="#E8A598" opacity=".5"/>
+    <path d="M52 42 Q64 32 82 36" stroke="#FFF" stroke-width="2.4" fill="none" opacity=".45"/>
+  </g></g>
+
+</svg>
