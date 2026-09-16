@@ -171,13 +171,31 @@ describe('the dots display Concept state and nothing else', () => {
   });
 
   it('is a display, not a control', () => {
-    // No click handler anywhere in the group: a dot that could be pressed
-    // would be a way to mark an idea read, which is exactly the progression
-    // rule the reader refuses to invent.
+    /*
+     * A dot that could be pressed would be a way to mark an idea read, which
+     * is exactly the progression rule the reader refuses to invent. This is
+     * the branch's headline constraint, and for six review gates it was
+     * guarded by an assertion that could not see a violation.
+     *
+     * The first version asked `queryAllByRole('button')`. Role queries skip
+     * `aria-hidden` subtrees — and the dots are `aria-hidden`, correctly, so
+     * that a screen reader hears the group's one sentence instead of five
+     * pieces of punctuation. The test immediately above this one *requires*
+     * that attribute. So the two tests were in tension and read as coverage:
+     * turning every dot into a `<button onClick>` left all twenty green.
+     *
+     * `{ hidden: true }` is what lets the query see the thing the rule is
+     * about. The tag check is the second half, because a `<div onClick>` has
+     * no role at all and would slip past even that.
+     */
     mount();
     const cleared = LESSON.concepts.filter((c) => c.progress === 'cleared').length;
     const group = screen.getByLabelText(`${cleared} of ${LESSON.concepts.length} ideas cleared`);
-    expect(within(group).queryAllByRole('button')).toHaveLength(0);
+    expect(within(group).queryAllByRole('button', { hidden: true })).toHaveLength(0);
+
+    const dots = [...group.querySelectorAll('[data-concept-dot]')];
+    expect(dots.length, 'no dots to check').toBeGreaterThan(0);
+    for (const dot of dots) expect(dot.tagName).toBe('SPAN');
   });
 
   it('says nothing at all when the Lesson has no Concepts', () => {

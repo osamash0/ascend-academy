@@ -105,11 +105,45 @@ function PagerCard({
 export function LessonPager({ spaceId, prev, next, companionOpen = false }: Props) {
   const navigate = useNavigate();
 
-  /** ←/→ walk the path, matching the console navigation everywhere else. */
+  /**
+   * ←/→ walk the path, matching the console navigation everywhere else.
+   *
+   * The listener is on `window`, so it has to decline wherever something
+   * nearer the user already owns those keys. Exempting text fields was enough
+   * when the only thing on the page was prose; it is not any more.
+   *
+   * A `role="tablist"` owns ←/→ by ARIA convention, and the reader now mounts
+   * two of them — the Read/Source segment and the rail's companions — plus a
+   * rail full of buttons. Every one of those is a `<button>`, so the old
+   * tag check waved them through: pressing → with a companion tab focused
+   * navigated to the next Lesson, which is a different route, which unmounts
+   * the reader and takes the open tutor conversation with it. One keystroke,
+   * on the key a keyboard user is most likely to try inside a tablist.
+   *
+   * This is ruling F6 — one key, one meaning, the control on screen owns it —
+   * which was reasoned about page-vs-Lesson and missed tab-vs-Lesson. The
+   * selector is written by role rather than by naming the reader's rail,
+   * because the rule is general: a composite widget that uses arrows, a text
+   * field, or a complementary landmark is a context this component is not in.
+   */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      /*
+       * `instanceof Element`, not a cast. A `keydown` dispatched at `document`
+       * — which is how the rail's own Escape test fires, and how a real page
+       * delivers a key pressed with nothing focused — has `document` as its
+       * target, and `document` has no `closest`. The previous version read
+       * `.tagName`, which is merely `undefined` there; `closest(...)` throws,
+       * and a listener that throws takes the rest of the handler chain with
+       * it. Two existing Escape tests caught that before it shipped.
+       */
+      const el = e.target instanceof Element ? e.target : null;
+      if (
+        el?.closest(
+          'input, textarea, [contenteditable="true"], [role="tablist"], [role="listbox"], [role="menu"], [role="radiogroup"], aside',
+        )
+      )
+        return;
       const target = e.key === 'ArrowLeft' ? prev : e.key === 'ArrowRight' ? next : null;
       if (!target) return;
       e.preventDefault();

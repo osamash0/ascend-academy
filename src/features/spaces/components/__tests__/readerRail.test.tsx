@@ -277,6 +277,78 @@ describe('the column is the same column, open or closed', () => {
   });
 });
 
+describe('the path keys belong to whatever is nearer the reader', () => {
+  /*
+   * `LessonPager` listens on `window`, and the reader mounts two tablists and
+   * a rail of buttons inside its reach. A `<button role="tab">` is still a
+   * BUTTON, so the pager's old text-field exemption waved it through: → with a
+   * companion tab focused navigated to the next Lesson, which is a different
+   * route, which unmounts the screen — and the tutor thread lives on the
+   * screen, so the conversation went with it. One keystroke, on the key ARIA
+   * says a tablist owns.
+   *
+   * Six gates missed it because each slice was clean alone: slice 1 added a
+   * tablist, slice 3 added another, slice 6 swept a pager that already
+   * existed. There was no arrow-key assertion anywhere in the suite.
+   */
+  const pressArrow = (el: Element) =>
+    fireEvent.keyDown(el, { key: 'ArrowRight', bubbles: true });
+
+  /**
+   * The reader plus somewhere for the pager to actually go.
+   *
+   * `renderReader` registers only the `/read` route, so a successful
+   * navigation renders nothing and looks identical to a navigation that never
+   * happened. Both halves of this rule need the difference to be visible.
+   */
+  const renderWithDestination = async () => {
+    const r = render(
+      <MemoryRouter initialEntries={[`/v4/space/s-dbs/lesson/${LESSON}/read`]}>
+        <Routes>
+          <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<ReaderScreen />} />
+          <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<p>walked the path</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByRole('banner')).toBeTruthy(), { timeout: 3000 });
+    return r;
+  };
+
+  it('still walks the path from the prose', async () => {
+    // The capability has to survive the fix, or the two guards below are
+    // satisfied by a pager that navigates from nowhere at all.
+    const { container } = await renderWithDestination();
+    pressArrow(container.querySelector('article')!);
+    expect(await screen.findByText('walked the path')).toBeTruthy();
+  });
+
+  it('does not walk the path from a tablist, which owns arrow keys itself', async () => {
+    await renderWithDestination();
+    press('Tutor');
+    const tab = within(
+      screen.getByRole('complementary', { name: 'Reader companions' }),
+    ).getByRole('tab', { name: 'Notes' });
+
+    pressArrow(tab);
+
+    expect(screen.queryByText('walked the path')).toBeNull();
+    // Still here: the rail is mounted, so the screen did not navigate away —
+    // and the thread a navigation would have destroyed is still on it.
+    expect(screen.queryByRole('complementary', { name: 'Reader companions' })).not.toBeNull();
+  });
+
+  it('does not walk the path from inside the rail at all', async () => {
+    // Not only the tablist — a citation chip or the close button is just as
+    // much "somewhere else" as far as the path keys are concerned.
+    await renderWithDestination();
+    press('Notes');
+    const rail = screen.getByRole('complementary', { name: 'Reader companions' });
+    pressArrow(within(rail).getByRole('button', { name: 'Close companions' }));
+    expect(screen.queryByText('walked the path')).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Reader companions' })).not.toBeNull();
+  });
+});
+
 describe('the rail comes and goes with the header buttons', () => {
   it('is not in the document until it is asked for', async () => {
     await renderReader();
