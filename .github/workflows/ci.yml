@@ -355,7 +355,33 @@ jobs:
     # real run; without them LivePipeline's calls fail and this job fails
     # loudly (not silently skips) so a missing-secret misconfiguration is
     # itself visible.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    #
+    # DISABLED ON THE NIGHTLY SCHEDULE, 2026-09-16 — dispatch-only until the
+    # secrets exist. The "fail loudly" intent above is sound and it worked; it
+    # just had nobody to be loud at. `gh secret list` returns UNI, UNISERVER
+    # and UNISEERVER and nothing else — none of the three provider keys below
+    # have ever been configured, so this job has never once been able to run,
+    # and it failed every night for months until it was indistinguishable from
+    # the weather. That is precisely how the SCA job rotted: a check that is
+    # always red stops being read, and then a real finding arrives invisibly.
+    #
+    # It also cannot pass on provider keys alone. `make eval` imports
+    # backend.services.ai.cost, which imports backend.core.config, which
+    # constructs Settings() at module scope and rejects a missing
+    # SUPABASE_URL / SUPABASE_KEY:
+    #
+    #   pydantic_core._pydantic_core.ValidationError: 1 validation error for
+    #   Settings  Value error, SUPABASE_URL and SUPABASE_KEY must be set
+    #
+    # Both are now passed through below, so the requirement is stated in one
+    # place instead of being rediscovered from a traceback.
+    #
+    # TO TURN IT BACK ON: add CEREBRAS_API_KEY, GROQ_API_KEY, GEMINI_API_KEY,
+    # SUPABASE_URL and SUPABASE_KEY as repo secrets, confirm a green
+    # `gh workflow run ci.yml --ref main` (that dispatch spends real money on
+    # live model calls), then restore `github.event_name == 'schedule' ||` to
+    # the front of the condition below.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -370,4 +396,8 @@ jobs:
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Not optional — Settings() refuses to construct without them, so
+          # the job dies on import long before it reaches a model call.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: make eval
