@@ -55,6 +55,19 @@ interface Props {
   onRailToggle: (tab: RailTab) => void;
 }
 
+/*
+ * The ids that tie the segment to the thing it switches.
+ *
+ * Exported because the tabs are here and the panel is in `ReaderScreen`, and
+ * a `role="tab"` whose `aria-controls` points at nothing is worse than no
+ * association at all — it tells a screen reader there is a panel to jump to
+ * and then does not deliver one. The rail already does this properly for its
+ * own tablist; this is the same pattern, and sharing the strings is what stops
+ * the two halves drifting the way two hard-coded copies would.
+ */
+export const VIEW_PANEL_ID = 'reader-view-panel';
+export const viewTabId = (v: ReaderView) => `reader-view-tab-${v}`;
+
 /** Sentence case, one word each — the segment is a place, not an instruction. */
 const VIEW_LABEL: Record<ReaderView, string> = {
   read: 'Read',
@@ -243,6 +256,8 @@ export function ReaderHeader({
                   key={v}
                   type="button"
                   role="tab"
+                  id={viewTabId(v)}
+                  aria-controls={VIEW_PANEL_ID}
                   aria-selected={view === v}
                   onClick={() => onViewChange?.(v)}
                   className={cn(

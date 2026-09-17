@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useReducedMotion } from 'motion/react';
 import { ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { spaceById } from '../mocks/spaces';
@@ -11,7 +12,7 @@ import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
 import { PressableLink } from '../components/Pressable';
-import { ReaderExit, ReaderHeader } from '../components/reader/ReaderHeader';
+import { ReaderExit, ReaderHeader, VIEW_PANEL_ID, viewTabId } from '../components/reader/ReaderHeader';
 import type { RailTab, ReaderView } from '../components/reader/ReaderHeader';
 import { ReaderRail } from '../components/reader/ReaderRail';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
@@ -227,6 +228,14 @@ export default function ReaderScreen() {
    * `open` flag beside a `tab`, because those two can disagree and this
    * cannot.
    */
+  /*
+   * Read here rather than where it is used, because every hook has to run
+   * before the loading/error/not-found returns below — placing it beside
+   * `jumpToPassage` made it a conditional hook, which `tsc` is happy with and
+   * `rules-of-hooks` is not.
+   */
+  const reduceMotion = useReducedMotion();
+
   const [view, setView] = useState<ReaderView>('read');
   const [railTab, setRailTab] = useState<RailTab | null>(null);
   /* Below `sm` the companion is not beside the reader, it is over all of it. */
@@ -476,6 +485,12 @@ export default function ReaderScreen() {
    * property does not consult the operating system — so leaving it implicit
    * animates a 900px scroll at somebody who has asked for less motion. The
    * `MotionConfig` above only governs Motion, and this is the browser.
+ *
+ * The preference is read through `useReducedMotion()` rather than a hand-
+ * rolled `matchMedia`, because `SpaceScreen` and `HomeScreen` already spell
+ * it that way and one rule with two spellings is how they drift. The other
+ * `matchMedia` in this file is a different question — whether the rail is a
+ * panel or a sheet — and stays hand-rolled for the reason written there.
    *
    * `scroll-mt-24` on the section is what keeps the heading you jumped to
    * clear of the fixed header, which would otherwise cover it exactly.
@@ -485,9 +500,7 @@ export default function ReaderScreen() {
     requestAnimationFrame(() => {
       document.getElementById(`passage-${conceptId}`)?.scrollIntoView({
         block: 'start',
-        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-          ? 'auto'
-          : 'smooth',
+        behavior: reduceMotion ? 'auto' : 'smooth',
       });
     });
   };
@@ -663,6 +676,19 @@ export default function ReaderScreen() {
    * positioned against the shifted column instead of the viewport, and would
    * drift by the dock's offset the moment the rail opened.
    */
+  /*
+   * What the header's segment switches, named so the segment can point at it.
+   *
+   * Only when there *is* a segment. With one view there is no tablist, and a
+   * lone `role="tabpanel"` would announce the column as one tab of a set that
+   * does not exist — the same failure as a tab pointing at a missing panel,
+   * seen from the other end. Spread onto whichever branch renders, so the id
+   * follows the view that is actually showing.
+   */
+  const panelProps = showToggle
+    ? { id: VIEW_PANEL_ID, role: 'tabpanel', 'aria-labelledby': viewTabId(effectiveView) }
+    : {};
+
   const readerChrome = (
     body: React.ReactNode,
     docked: string = DOCKED_READ,
@@ -725,7 +751,7 @@ export default function ReaderScreen() {
    */
   if (pages.length > 0 && effectiveView === 'source') {
     return readerChrome(
-      <div className="mx-auto max-w-[860px] px-6 pb-32 pt-24" data-source-column>
+      <div className="mx-auto max-w-[860px] px-6 pb-32 pt-24" data-source-column {...panelProps}>
         <div className="mb-6">
           <h1 className="text-[15px] font-semibold">{lesson.title}</h1>
           <p className="mt-0.5 text-[12.5px] text-faint">
@@ -766,8 +792,8 @@ export default function ReaderScreen() {
       <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center px-6 pt-14 text-center">
         <p className="mb-2 text-[17px] font-semibold">Not written yet</p>
         <p className="mb-7 max-w-[46ch] text-[14.5px] leading-relaxed text-quiet">
-          {lesson.title} has its ideas and its practice, but the text itself has not been
-          built from the material yet.
+          {lesson.title} has its ideas and its practice, but the text itself has not
+          been written yet.
         </p>
         <Link
           to={back}
@@ -786,7 +812,7 @@ export default function ReaderScreen() {
         row left above the title. It is the only thing about this column the
         header changed: the width and the measure are exactly what they were.
       */}
-      <article ref={articleRef} className="mx-auto max-w-2xl px-6 pb-32 pt-28">
+      <article ref={articleRef} className="mx-auto max-w-2xl px-6 pb-32 pt-28" {...panelProps}>
         <h1 className="text-[34px] font-bold leading-[1.15] tracking-[-0.02em]">{lesson.title}</h1>
 
         {/*

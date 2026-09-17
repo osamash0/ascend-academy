@@ -80,6 +80,49 @@ describe('the reader has a fixture for every shape, and renders each one', () =>
     );
   });
 
+  it('ties the segment to the view it switches, and only where there is one', async () => {
+    /*
+     * `role="tab"` is a promise: it says there is a panel to jump to. The
+     * header's segment made that promise with no `aria-controls` and no
+     * `role="tabpanel"` anywhere — the rail's tablist next door has done it
+     * properly since it was written, so this was one pattern with two
+     * implementations in one feature, and no test asserted the association
+     * either way.
+     *
+     * Both directions are pinned. A `tabpanel` without a tablist is the same
+     * defect seen from the other end — it announces the column as one of a set
+     * that does not exist — so the one-view shapes must carry no panel role at
+     * all.
+     */
+    const { container } = await open(SHAPES.both.space, SHAPES.both.lesson);
+
+    const selected = screen
+      .getAllByRole('tab')
+      .find((t) => t.getAttribute('aria-selected') === 'true')!;
+    const panelId = selected.getAttribute('aria-controls');
+    expect(panelId, 'a tab that controls nothing').toBeTruthy();
+
+    const panel = container.querySelector(`#${panelId}`);
+    expect(panel, 'aria-controls points at no element').not.toBeNull();
+    expect(panel!.getAttribute('role')).toBe('tabpanel');
+    // Named by the tab that is showing it, so the two cannot drift apart.
+    expect(panel!.getAttribute('aria-labelledby')).toBe(selected.id);
+    expect(selected.id).toBeTruthy();
+
+    // And the panel follows the view rather than being pinned to one branch.
+    fireEvent.click(screen.getByRole('tab', { name: 'Source' }));
+    const after = container.querySelector('[role="tabpanel"]')!;
+    expect(after.getAttribute('aria-labelledby')).toBe(
+      screen.getByRole('tab', { name: 'Source' }).id,
+    );
+  });
+
+  it('claims no panel where there is no segment to control it', async () => {
+    const { container } = await open(SHAPES.materialOnly.space, SHAPES.materialOnly.lesson);
+    expect(screen.queryByRole('tablist', { name: 'Reader view' })).toBeNull();
+    expect(container.querySelector('[role="tabpanel"]')).toBeNull();
+  });
+
   it('shows the text alone when the source file is gone', async () => {
     /*
      * The shape that had no fixture at all until this task. Both
