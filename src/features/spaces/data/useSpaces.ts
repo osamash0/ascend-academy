@@ -205,7 +205,7 @@ export function useLibrary(kind?: LibraryItem['kind']): LibraryResult {
   const state = useSettled(scenario);
   const ready = state === 'ready';
   /*
-   * Read the live note store, not the seed. `libraryItems` is composed once at
+   * Read the live note store, not the seed. `libraryItems()` is composed once at
    * module load, so a note written this session never appeared in Library —
    * the one surface Doc 2 says notes are *written* in.
    */

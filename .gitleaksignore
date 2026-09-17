@@ -1,0 +1,133 @@
+# gitleaks findings accepted after triage — 2026-09-16.
+#
+# WHY THIS FILE EXISTS. gitleaks-action@v2 picks its scope from the trigger:
+# push and pull_request scan only that event's commits, schedule and
+# workflow_dispatch scan the whole history. So `secret-scan` was green on
+# every PR and red on every scheduled run, and the scheduled run was the one
+# telling the truth. A permanently red check cannot distinguish a new finding
+# from a standing one — the failure mode this repo already hit with the SCA
+# job, where a real advisory would have landed invisibly.
+#
+# Note that docs/SECRETS_AUDIT.md (2026-07-30) concluded "no leaks found" in
+# history. That conclusion does not hold: it scanned a bounded window of
+# recent commits, and the findings below predate it.
+#
+# EVERY entry was triaged individually before being listed, and suppression
+# came LAST — after each credential was confirmed to grant nothing. Had one
+# still been live, the fix would have been revocation and this file would not
+# exist. A baseline written first hides a working credential behind a green
+# check. Keep that order if this file is ever extended.
+#
+# Operational detail about the historical credentials is deliberately not
+# repeated here; this is a public repository, and the fingerprints below are
+# already sufficient to re-run the triage.
+#
+# --------------------------------------------------------------------------
+# 1. A load-test fixture committed to backend/loadtest/ in June 2026
+# --------------------------------------------------------------------------
+# The one finding that was genuinely serious: a generated fixture carrying
+# credentials for throwaway test accounts on a real project. A later commit
+# untracked it and added the path to .gitignore, which fixed the future and
+# left history alone.
+#
+# Accepted because every credential in it is now inert, verified rather than
+# assumed:
+#   * the session tokens all carry expiry timestamps in the past — read from
+#     the decoded payloads, not inferred from the commit date
+#   * none of the accounts still exists; a count against auth.users returns
+#     zero for them, on a database holding 204 real users
+#
+# If load-test tooling returns, its output path must be gitignored BEFORE the
+# first run, not after.
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:6
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:14
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:21
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:28
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:35
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:42
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:49
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:56
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:63
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:70
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:77
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:84
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:91
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:98
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:105
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:112
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:119
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:126
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:133
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:140
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:147
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:154
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:161
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:168
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:175
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:182
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:189
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:196
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:203
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:210
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:217
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:224
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:231
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:238
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:245
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:252
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:259
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:266
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:287
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:329
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:357
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:399
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:434
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:469
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:504
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:539
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:574
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:609
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:644
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:679
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:714
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:749
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:777
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:812
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:847
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:882
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:917
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:952
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:980
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:1015
+ d35565d4604bdc20ea94c1c84b85a08fb38b9603:backend/loadtest/.students.json:jwt:1043
+
+# --------------------------------------------------------------------------
+# 2. Early .env commits — 3 entries
+# --------------------------------------------------------------------------
+# Committed in the repo's first days. Decoding the payloads rather than
+# trusting the variable names: each is the Supabase anon/publishable key,
+# which is public by design and ships inside every frontend bundle — its
+# security rests on RLS, not on secrecy.
+# The question worth asking of an .env in public history is whether a
+# service_role key is in it. None is, in any commit. That was checked first.
+ 184e574203f58e987ed908d577a0955eb5341ccd:.env:jwt:2
+ 8a34f6a039ad0f89c7c3758ccee22616496e4eaa:.env:jwt:2
+ 8a34f6a039ad0f89c7c3758ccee22616496e4eaa:backend/.env:jwt:2
+
+# --------------------------------------------------------------------------
+# 3. generic-api-key false positives — 3 entries
+# --------------------------------------------------------------------------
+# src/pages/Datenschutz.tsx is the i18n key `privacy.section7Body`, which the
+# generic-api-key regex misreads as a credential; the two coverage/ entries
+# are that same string inside generated HTML reports. Identified as false
+# positives by the 2026-07-30 audit — that part of it was correct.
+ 715e578f7e0389549c80bbf4e8a3d5fd5120bc82:src/pages/Datenschutz.tsx:generic-api-key:83
+ ab233101f018994ac4b70ffbae3e9194532f96d0:coverage/lcov-report/pages/Datenschutz.tsx.html:generic-api-key:350
+ ab233101f018994ac4b70ffbae3e9194532f96d0:coverage/pages/Datenschutz.tsx.html:generic-api-key:350
+
+# --------------------------------------------------------------------------
+# 4. SETUP_GUIDE.md — 1 entry
+# --------------------------------------------------------------------------
+# A documented example key in setup instructions — same class as section 2,
+# public by design, and shown on purpose so the guide can be followed.
+ a01f20c526be0037897c3d016854c01fef281289:SETUP_GUIDE.md:generic-api-key:61

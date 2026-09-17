@@ -76,36 +76,25 @@ const labelOf = (tag: string) =>
 const READOUTS: Record<string, string[]> = {
   'screens/HomeScreen.tsx': ['Streak', 'Rank'],
   /*
-   * The three on Profile that genuinely have nowhere to go.
+   * Profile has no exemptions left, and the way they left is the point.
    *
-   * 'Spaces', 'Published' and 'Likes received' were here too, and they were
-   * the wrong kind of exemption: each names a screen that already exists and
-   * itemises exactly what it counts — the hub for Spaces, "How your work
-   * landed" for the other two. Counting something on one screen and detailing
-   * it on another with no way across is a gap, not a readout.
+   * All three were honest when written — 'Rank', 'Streak' and 'Badges' each
+   * had nowhere to go, and inventing a destination would have been the same
+   * move as the `?? 's-dbs'` Space the orphan row stated as fact. Then the
+   * screens got built: 'Rank' → `/v4/profile/rank`, 'Streak' →
+   * `/v4/profile/history`. 'Badges' did not gain a destination; it was
+   * retired, because the word already meant a label on content (rule 7) and
+   * `3/6` was a second progression on the Ascent profile (rule 4). What
+   * stands there now is 'Moments' → `/v4/profile/moments`, a record with no
+   * total.
    *
-   * These three are different, and the distinction is the point of the list.
-   * There is no rank screen, no streak screen, and the badge wall is rendered
-   * inside the Badges cell itself. Giving them a destination would mean
-   * inventing one — the same move as the `?? 's-dbs'` Space that Library's
-   * orphan row used to state as fact. A cell that opens somewhere arbitrary is
-   * worse than one that opens nothing, because it looks answered.
+   * The staleness check below caught each one the moment it stopped being
+   * true — including the entry for a cell that no longer exists at all.
    *
-   * `BentoCell` earns this: `console-focusable hover:bg-white/[0.06]` is
-   * applied only when `to || onClick`, so a readout has no hover state and no
-   * focus ring. It does not pretend to be a control.
+   * `BentoCell` earns the distinction: `console-focusable
+   * hover:bg-white/[0.06]` is applied only when `to || onClick`, so a readout
+   * has no hover state and no focus ring. It does not pretend to be a control.
    */
-  /*
-   * 'Rank' has left this list — it opens `/v4/profile/rank` now.
-   *
-   * It was the honest case for an exemption right up until the screen it
-   * needed existed: there was no rank screen, so a destination would have been
-   * invented. Building one is what made the cell a control, and the staleness
-   * check below is what caught the entry the moment it did.
-   */
-  // 'Streak' left too, for the same reason 'Rank' did: the screen it
-  // needed now exists (`/v4/profile/history`).
-  'screens/ProfileScreen.tsx': ['Badges'],
 };
 
 /** Every screen that uses a BentoCell, found rather than listed. */
