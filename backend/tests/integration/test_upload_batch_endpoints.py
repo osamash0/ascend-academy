@@ -360,13 +360,24 @@ class TestRetryRun:
         async def fake_set_status(run_id, status):
             statuses_set.append(status)
 
+        requeued = []
+
+        async def fake_requeue(run_id):
+            requeued.append(run_id)
+
         monkeypatch.setattr(repos_module, "get_run_by_id", fake_get)
         monkeypatch.setattr(repos_module, "set_status", fake_set_status)
+        monkeypatch.setattr(repos_module, "requeue_run", fake_requeue)
 
         r = app_client.post(f"/api/upload/jobs/{run.run_id}/retry")
         assert r.status_code == 200
         assert r.json()["run_id"] == str(run.run_id)
-        assert RunStatus.QUEUED in statuses_set
+        # Retry goes through requeue_run, not a bare set_status: the stalled-run
+        # sweep now also covers 'queued', and it ages rows by started_at. A
+        # retry that left started_at at the ORIGINAL attempt's timestamp would
+        # be born already past the cutoff and get failed on the next sweep.
+        assert requeued == [run.run_id]
+        assert statuses_set == []
 
         assert len(fake_arq_pool) == 1
         name, kwargs = fake_arq_pool[0]

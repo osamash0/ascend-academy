@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, Optional, Sequence
 from uuid import UUID
 
 import backend.core.database as _db
@@ -222,15 +222,12 @@ async def list_stalled_extracting_runs(cutoff: datetime) -> list[ParseRun]:
     candidates for ``backend.services.parser.reconcile.reconcile_stalled_run``
     (R51/R52).
 
-    Deliberately scoped to ``extracting`` only, never ``queued``: a QUEUED
-    run can legitimately sit for a while under real backlog, and — because a
-    ``/retry`` resets status back to QUEUED without bumping ``started_at`` —
-    an old ``started_at`` on a freshly-retried row would otherwise look
-    "stalled" the instant it's requeued, while its ``lecture_id`` still
-    points at the PREVIOUS attempt's (possibly stale) slide count. Only
-    ``extracting`` means a worker actually picked the run up and started the
-    real pipeline, so a stuck ``extracting`` row is never a false positive
-    from a normal queue wait or an in-flight retry.
+    Scoped to ``extracting`` only: a worker demonstrably picked the run up and
+    started the real pipeline, so a stuck ``extracting`` row is never a false
+    positive from a normal queue wait or an in-flight retry — which makes it
+    the only status safe to *recover* (complete from already-persisted
+    slides). Waiting states are swept separately by ``list_stalled_runs``,
+    fail-only; see its docstring for why the two can't share a rule.
     """
     pool = await _pool()
     async with pool.acquire() as conn:
@@ -246,6 +243,66 @@ async def list_stalled_extracting_runs(cutoff: datetime) -> list[ParseRun]:
             RunStatus.EXTRACTING.value, cutoff,
         )
         return [_run_from_row(r) for r in rows]
+
+
+async def list_stalled_runs(statuses: Sequence[str], cutoff: datetime) -> list[ParseRun]:
+    """Runs in any of ``statuses`` whose ``started_at`` predates ``cutoff``.
+
+    Used for the *waiting* states — ``queued`` and the legacy ``pending`` —
+    which need a different rule from ``extracting``:
+
+    * A queued run can legitimately sit under real backlog, so callers pass a
+      much longer cutoff than STALLED_RUN_THRESHOLD_MINUTES.
+    * A queued row's ``lecture_id`` may still point at a PREVIOUS attempt's
+      slides (``/retry`` resets status to QUEUED and, before this sweep
+      existed, left ``started_at`` untouched). Callers must therefore
+      reconcile these with ``allow_recovery=False`` so a waiting run is never
+      completed from another attempt's slide count.
+
+    ``statuses`` takes raw strings, not ``RunStatus``: ``pending`` is a legacy
+    value that predates the enum and still exists in older rows.
+    """
+    if not statuses:
+        return []
+    pool = await _pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT run_id, pdf_hash, lecture_id, pipeline_version, status,
+                   page_count, started_at, finished_at, outline, error,
+                   batch_id, user_id, course_id, filename, parsing_mode
+            FROM parse_runs
+            WHERE status = ANY($1::text[]) AND started_at < $2
+            ORDER BY started_at
+            """,
+            list(statuses), cutoff,
+        )
+        return [_run_from_row(r) for r in rows]
+
+
+async def requeue_run(run_id: UUID) -> None:
+    """Reset a run to QUEUED for a fresh attempt, restarting its clock.
+
+    ``started_at`` is bumped to now and the previous attempt's ``error`` /
+    ``finished_at`` are cleared, so the row reads as what it is: a new attempt
+    that has just been enqueued.
+
+    Bumping the clock is what makes the row safe for the waiting-state sweep
+    (``reconcile.reconcile_all_stalled``), which ages rows by ``started_at``.
+    A plain ``set_status(QUEUED)`` leaves ``started_at`` at the first attempt's
+    timestamp, so a retry of any older run would be born already past the
+    cutoff and get failed by the very next sweep.
+    """
+    pool = await _pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            UPDATE parse_runs
+               SET status = $1, started_at = now(), finished_at = NULL, error = NULL
+             WHERE run_id = $2
+            """,
+            RunStatus.QUEUED.value, run_id,
+        )
 
 
 async def set_status(run_id: UUID, status: RunStatus) -> None:

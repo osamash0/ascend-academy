@@ -197,7 +197,7 @@ async def test_reconcile_all_stalled_is_best_effort_per_run(monkeypatch):
 
     call_order = []
 
-    async def fake_reconcile(run_id):
+    async def fake_reconcile(run_id, allow_recovery=True):
         call_order.append(run_id)
         if run_id == boom_run.run_id:
             raise RuntimeError("db exploded")
@@ -212,3 +212,136 @@ async def test_reconcile_all_stalled_is_best_effort_per_run(monkeypatch):
     assert call_order == [boom_run.run_id, ok_run.run_id]
     assert results[0]["action"] == "error"
     assert results[1]["action"] == "recovered"
+
+
+# ── Widened sweep: queued / pending ────────────────────────────────────────
+#
+# repos.list_stalled_extracting_runs deliberately excluded 'queued' for two
+# reasons (see its docstring): a queued run can legitimately wait under real
+# backlog, and /retry resets status to QUEUED without bumping started_at, so a
+# freshly-requeued row carries an old started_at while its lecture_id still
+# points at the PREVIOUS attempt's slides. Sweeping those with recovery enabled
+# would mark a just-started retry COMPLETED with a stale slide count. The
+# widened sweep therefore uses a separate, longer cutoff and runs fail-only.
+
+
+async def test_queued_run_with_stale_slides_is_never_recovered(monkeypatch):
+    """The data-corruption case: a QUEUED row whose lecture_id still points at
+    a previous attempt's slides must be failed honestly, never completed."""
+    lecture_id = uuid4()
+    run = _Run(uuid4(), RunStatus.QUEUED, lecture_id=lecture_id)
+    errors: list = []
+
+    async def fake_get(run_id):
+        return run
+
+    async def boom(*a, **k):
+        raise AssertionError("must not recover a queued run from stale slides")
+
+    async def fake_set_error(run_id, msg):
+        errors.append((run_id, msg))
+
+    monkeypatch.setattr(reconcile.repos, "get_run_by_id", fake_get)
+    monkeypatch.setattr(reconcile.persist, "get_slide_count", boom)
+    monkeypatch.setattr(reconcile.persist, "sync_total_slides", boom)
+    monkeypatch.setattr(reconcile.repos, "set_status", boom)
+    monkeypatch.setattr(reconcile.repos, "set_error", fake_set_error)
+
+    result = await reconcile.reconcile_stalled_run(run.run_id, allow_recovery=False)
+
+    assert result["action"] == "failed_no_content"
+    assert errors == [(run.run_id, reconcile.NO_CONTENT_ERROR)]
+
+
+async def test_extracting_run_still_recovers_by_default(monkeypatch):
+    """Widening must not change the 'extracting' path: recovery stays on."""
+    lecture_id = uuid4()
+    run = _Run(uuid4(), RunStatus.EXTRACTING, lecture_id=lecture_id)
+    completed: list = []
+
+    async def fake_get(run_id):
+        return run
+
+    async def fake_count(lec_id):
+        return 42
+
+    async def fake_sync(lec_id):
+        return None
+
+    async def fake_set_status(run_id, status):
+        completed.append(status)
+
+    monkeypatch.setattr(reconcile.repos, "get_run_by_id", fake_get)
+    monkeypatch.setattr(reconcile.persist, "get_slide_count", fake_count)
+    monkeypatch.setattr(reconcile.persist, "sync_total_slides", fake_sync)
+    monkeypatch.setattr(reconcile.repos, "set_status", fake_set_status)
+
+    result = await reconcile.reconcile_stalled_run(run.run_id)
+
+    assert result == {"run_id": str(run.run_id), "action": "recovered", "slide_count": 42}
+    assert completed == [RunStatus.COMPLETED]
+
+
+async def test_sweep_uses_separate_cutoff_and_fail_only_for_queued(monkeypatch):
+    """reconcile_all_stalled sweeps both sets: 'extracting' at the normal
+    cutoff with recovery on, 'queued'/'pending' at the longer cutoff with
+    recovery off."""
+    import datetime as _dt
+
+    extracting_run = _Run(uuid4(), RunStatus.EXTRACTING, lecture_id=uuid4())
+    queued_run = _Run(uuid4(), RunStatus.QUEUED, lecture_id=uuid4())
+
+    seen: dict = {}
+
+    async def fake_list_extracting(cutoff):
+        seen["extracting_cutoff"] = cutoff
+        return [extracting_run]
+
+    async def fake_list_queued(statuses, cutoff):
+        seen["queued_statuses"] = list(statuses)
+        seen["queued_cutoff"] = cutoff
+        return [queued_run]
+
+    calls: list = []
+
+    async def fake_reconcile(run_id, allow_recovery=True):
+        calls.append((run_id, allow_recovery))
+        return {"run_id": str(run_id), "action": "failed_no_content"}
+
+    monkeypatch.setattr(reconcile.repos, "list_stalled_extracting_runs", fake_list_extracting)
+    monkeypatch.setattr(reconcile.repos, "list_stalled_runs", fake_list_queued)
+    monkeypatch.setattr(reconcile, "reconcile_stalled_run", fake_reconcile)
+
+    now = _dt.datetime.now(_dt.timezone.utc)
+    queued_cutoff = now - _dt.timedelta(hours=6)
+    results = await reconcile.reconcile_all_stalled(now, queued_cutoff=queued_cutoff)
+
+    assert seen["extracting_cutoff"] == now
+    assert seen["queued_cutoff"] == queued_cutoff
+    assert set(seen["queued_statuses"]) == {"queued", "pending"}
+    assert calls == [(extracting_run.run_id, True), (queued_run.run_id, False)]
+    assert len(results) == 2
+
+
+async def test_sweep_skips_queued_when_no_queued_cutoff_given(monkeypatch):
+    """Back-compat: called with one argument, the sweep behaves exactly as
+    before — 'extracting' only."""
+    import datetime as _dt
+
+    run = _Run(uuid4(), RunStatus.EXTRACTING, lecture_id=uuid4())
+
+    async def fake_list_extracting(cutoff):
+        return [run]
+
+    async def boom(*a, **k):
+        raise AssertionError("must not sweep queued without an explicit cutoff")
+
+    async def fake_reconcile(run_id, allow_recovery=True):
+        return {"run_id": str(run_id), "action": "recovered", "slide_count": 1}
+
+    monkeypatch.setattr(reconcile.repos, "list_stalled_extracting_runs", fake_list_extracting)
+    monkeypatch.setattr(reconcile.repos, "list_stalled_runs", boom)
+    monkeypatch.setattr(reconcile, "reconcile_stalled_run", fake_reconcile)
+
+    results = await reconcile.reconcile_all_stalled(_dt.datetime.now(_dt.timezone.utc))
+    assert len(results) == 1

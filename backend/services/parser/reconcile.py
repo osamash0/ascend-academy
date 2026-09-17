@@ -44,14 +44,25 @@ logger = logging.getLogger(__name__)
 
 NO_CONTENT_ERROR = "Processing stalled and no content was recovered. Please retry the upload."
 
+# Waiting states — enqueued but never demonstrably picked up. 'pending' is a
+# legacy value from pre-v3 rows (see RunStatus.PENDING); nothing writes it now.
+WAITING_STATUSES = (RunStatus.QUEUED.value, RunStatus.PENDING.value)
 
-async def reconcile_stalled_run(run_id: UUID) -> dict:
+
+async def reconcile_stalled_run(run_id: UUID, allow_recovery: bool = True) -> dict:
     """Reconcile one run. Returns a small dict describing what happened:
 
         {"action": "not_found"}                              — no such run
         {"action": "noop", "status": "completed"}             — already terminal
         {"action": "recovered", "slide_count": 127}           — finished the transition
         {"action": "failed_no_content"}                       — marked FAILED, nothing to recover
+
+    ``allow_recovery=False`` disables the "complete it from the slides already
+    persisted" path, leaving only the honest-failure path. Callers pass it for
+    runs in a *waiting* status (``queued``/``pending``), where ``lecture_id``
+    may still point at a PREVIOUS attempt's slides — completing from those
+    would report another attempt's work as this one's. Only ``extracting``
+    proves a worker actually ran this attempt, so only it can recover.
     """
     run = await repos.get_run_by_id(run_id)
     if run is None:
@@ -60,7 +71,7 @@ async def reconcile_stalled_run(run_id: UUID) -> dict:
     if run.status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED):
         return {"run_id": str(run_id), "action": "noop", "status": run.status.value}
 
-    if run.lecture_id is not None:
+    if allow_recovery and run.lecture_id is not None:
         slide_count = await persist.get_slide_count(run.lecture_id)
         if slide_count > 0:
             # The real work is done — just finish the transition. sync_total_slides
@@ -81,17 +92,40 @@ async def reconcile_stalled_run(run_id: UUID) -> dict:
     return {"run_id": str(run_id), "action": "failed_no_content"}
 
 
-async def reconcile_all_stalled(cutoff: datetime) -> list[dict]:
-    """Reconcile every run stuck in 'extracting' with ``started_at`` before
-    ``cutoff``. Each run is independent and best-effort — one failure never
-    blocks the rest of the sweep. Used by the Arq cron job
-    (backend/workers/arq_worker.py::reconcile_stalled_parse_runs)."""
-    stalled = await repos.list_stalled_extracting_runs(cutoff)
+async def reconcile_all_stalled(
+    cutoff: datetime, queued_cutoff: Optional[datetime] = None,
+) -> list[dict]:
+    """Reconcile every stalled run. Each run is independent and best-effort —
+    one failure never blocks the rest of the sweep. Used by the Arq cron job
+    (backend/workers/arq_worker.py::reconcile_stalled_parse_runs).
+
+    Two passes, because the two kinds of stall need different rules:
+
+    * ``extracting`` older than ``cutoff`` — a worker demonstrably started this
+      attempt, so recovery is allowed: if its lecture already holds slides, the
+      run is completed with the true count.
+    * ``queued``/``pending`` older than ``queued_cutoff`` — nothing proves a
+      worker ever touched this attempt, and the row may just be waiting behind
+      a real backlog. Swept only when ``queued_cutoff`` is given (callers pass
+      a much longer threshold), and always fail-only.
+
+    Omitting ``queued_cutoff`` reproduces the original extracting-only sweep.
+    """
     results = []
-    for run in stalled:
+
+    for run in await repos.list_stalled_extracting_runs(cutoff):
         try:
-            results.append(await reconcile_stalled_run(run.run_id))
+            results.append(await reconcile_stalled_run(run.run_id, allow_recovery=True))
         except Exception:
             logger.exception("reconcile_all_stalled: failed for run %s", run.run_id)
             results.append({"run_id": str(run.run_id), "action": "error"})
+
+    if queued_cutoff is not None:
+        for run in await repos.list_stalled_runs(WAITING_STATUSES, queued_cutoff):
+            try:
+                results.append(await reconcile_stalled_run(run.run_id, allow_recovery=False))
+            except Exception:
+                logger.exception("reconcile_all_stalled: failed for waiting run %s", run.run_id)
+                results.append({"run_id": str(run.run_id), "action": "error"})
+
     return results
