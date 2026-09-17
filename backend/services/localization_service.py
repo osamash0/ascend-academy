@@ -25,6 +25,14 @@ _GERMAN_HINTS = re.compile(
     r"\b(der|die|das|und|mit|für|nicht|eine|einer|einführung|überblick|wissenschaft)\b",
     re.IGNORECASE,
 )
+# Calibrated against the real corpus: German decks score 0.038-0.131 hits per
+# word, English false positives =0.006. 0.02 sits in that gap with ~2x
+# headroom on the German side and ~3x on the English side.
+_GERMAN_MIN_RATIO = 0.02
+_GERMAN_MIN_HITS = 2
+# Below this, the ratio is dominated by sampling noise, so fall back to the
+# plain hit count (a short German title is mostly hint words).
+_GERMAN_MIN_WORDS_FOR_RATIO = 40
 
 # A deck is translated in slide batches rather than as one request. A 41-slide
 # lecture serializes to ~40k chars, so a whole-deck translation is a ~10k-token
@@ -44,11 +52,32 @@ _BATCH_ATTEMPTS = 2
 def detect_source_language(text: str) -> SupportedLocale:
     """Conservative EN/DE detector for PDF text.
 
-    It deliberately defaults to English in an ambiguous deck; the canonical
-    content is still generated with an explicit locale and both display
-    variants are produced, so this only affects the editor's source badge.
+    Deliberately defaults to English in an ambiguous deck.
+
+    The hint words are short and several ("die", "das", "mit") also occur in
+    ordinary English prose, so a bare count misclassifies *long* English decks:
+    a 1,100-word English lecture only needs three incidental "die"s to look
+    German. Requiring the hits to be a meaningful *proportion* of the text
+    separates the two cleanly — real German decks in the corpus score
+    0.038-0.131, while English false positives sit at =0.006, an order of
+    magnitude below.
+
+    Short inputs keep the plain count: a ratio over a handful of words is
+    noise, and a five-word German title legitimately scores high.
+
+    This is not merely cosmetic. ``source_language`` decides whether
+    ``_translate_document`` skips translation, and whether
+    ``get_lecture_content_for_locale`` may serve canonical rows to a reader
+    directly — so a wrong verdict here shows the wrong language, not just a
+    wrong badge.
     """
-    return "de" if len(_GERMAN_HINTS.findall(text or "")) >= 2 else "en"
+    hits = len(_GERMAN_HINTS.findall(text or ""))
+    if hits < _GERMAN_MIN_HITS:
+        return "en"
+    words = len((text or "").split())
+    if words < _GERMAN_MIN_WORDS_FOR_RATIO:
+        return "de"
+    return "de" if (hits / words) >= _GERMAN_MIN_RATIO else "en"
 
 
 async def _fetch_lecture_document(lecture_id: UUID) -> tuple[dict[str, Any], int]:
@@ -342,6 +371,60 @@ async def get_localized_lecture(lecture_id: UUID, locale: SupportedLocale) -> di
         return None
     content = row["content"]
     return json.loads(content) if isinstance(content, str) else content
+
+
+async def get_lecture_content_for_locale(
+    lecture_id: UUID, locale: SupportedLocale,
+) -> tuple[dict[str, Any] | None, SupportedLocale]:
+    """Resolve the study content a reader in ``locale`` should be served.
+
+    Returns ``(content, served_locale)`` — ``served_locale`` is the language
+    the returned content is *actually* in, which is not always the language
+    that was asked for. Callers must surface that to the reader rather than
+    echoing the request back.
+
+    Resolution order:
+
+    1. A published, revision-matching translation for ``locale``.
+    2. Otherwise the canonical rows, reported under the lecture's own
+       ``source_language``.
+
+    Step 2 covers two cases that used to be handled very differently:
+
+    * **Same language.** Nothing to translate, so the canonical rows already
+      *are* this locale — ``_translate_document`` short-circuits on the
+      identical condition. This is also what keeps reads correct permanently:
+      a snapshot is invalidated by the ``content_revision`` bump that fires on
+      every slide or quiz write, so without this arm any edit re-breaks the
+      lecture until a translation job reruns.
+    * **Original language.** A reader who wants English opening a German deck
+      that has no English translation is better served the German slides,
+      clearly labelled, than a wall. The rule this replaces existed to prevent
+      a *mixed*-language deck — half-translated slides — and a wholly German
+      deck is not mixed. Withholding it left students unable to open their own
+      course material.
+
+    ``None`` is therefore reserved for content that genuinely does not exist
+    yet (missing lecture, or a deck still mid-parse with no slides), which the
+    caller turns into the retryable 409.
+    """
+    snapshot = await get_localized_lecture(lecture_id, locale)
+    if snapshot is not None:
+        return snapshot, locale
+
+    try:
+        document, _revision = await _fetch_lecture_document(lecture_id)
+    except ValueError:
+        return None, locale
+
+    # A deck still mid-parse has rows but no slides yet; "still being
+    # prepared" is the honest answer there, not an empty lecture.
+    if not document["slides"]:
+        return None, locale
+
+    source = document["lecture"].get("source_language")
+    served = source if source in SUPPORTED_LOCALES else locale
+    return document, served
 
 
 async def increment_content_revision(lecture_id: UUID) -> int:

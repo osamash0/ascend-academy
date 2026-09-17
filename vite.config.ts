@@ -34,6 +34,17 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    /*
+     * `motion` depends on `framer-motion@^13` while the app pins `^12`, so npm
+     * nests a second copy — and `motion/react` then resolved its own React too.
+     * Every v4 route died in `MotionConfig` with "Cannot read properties of
+     * null (reading 'useContext')": React's own "more than one copy of React"
+     * failure, from a duplicated runtime rather than a duplicated import.
+     *
+     * Deduping forces one instance of each. Cheaper and more reversible than
+     * migrating 99 old-product files off `framer-motion`.
+     */
+    dedupe: ['react', 'react-dom', 'motion', 'framer-motion'],
   },
   build: {
     rollupOptions: {

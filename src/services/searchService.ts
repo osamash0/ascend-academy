@@ -62,12 +62,14 @@ export async function globalSearch(query: string): Promise<GlobalSearchResults> 
 export async function askCourseTutor(params: {
   courseId: string;
   question: string;
+  aiModel: string;
   history?: Array<{ role: string; content: string }>;
   allowUngrounded?: boolean;
 }): Promise<CourseTutorReply> {
   return apiClient.post<CourseTutorReply>('/api/search/ask', {
     course_id: params.courseId,
     question: params.question,
+    ai_model: params.aiModel,
     history: params.history ?? null,
     allow_ungrounded: params.allowUngrounded ?? false,
   });

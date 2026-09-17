@@ -14,6 +14,7 @@ import {
 } from '@/services/searchService';
 import { listCourses, type Course } from '@/services/coursesService';
 import { SharedRoutes } from '@/lib/routes';
+import { useAiModel } from '@/hooks/use-ai-model';
 
 const RECENT_SEARCHES_KEY = 'ascend.recentSearches';
 const MAX_RECENT = 5;
@@ -62,6 +63,7 @@ function pushRecentSearch(query: string) {
 export function CommandPalette({ open, onOpenChange, initialCourseId, initialCourseTitle }: CommandPaletteProps) {
   const { t } = useTranslation('search');
   const navigate = useNavigate();
+  const { aiModel } = useAiModel();
 
   const [mode, setMode] = useState<'search' | 'ask'>(initialCourseId ? 'ask' : 'search');
   const [query, setQuery] = useState('');
@@ -209,7 +211,7 @@ export function CommandPalette({ open, onOpenChange, initialCourseId, initialCou
     setChatLoading(true);
     try {
       const history = messages.slice(-6).map((m) => ({ role: m.role, content: m.content }));
-      const res = await askCourseTutor({ courseId: askCourseId, question, history, allowUngrounded });
+      const res = await askCourseTutor({ courseId: askCourseId, question, aiModel, history, allowUngrounded });
       setMessages((m) => [...m, {
         id: `a-${Date.now()}`, role: 'model', content: res.reply,
         citations: res.citations, grounded: res.grounded,
@@ -222,7 +224,7 @@ export function CommandPalette({ open, onOpenChange, initialCourseId, initialCou
     } finally {
       setChatLoading(false);
     }
-  }, [askCourseId, chatLoading, messages]);
+  }, [askCourseId, chatLoading, messages, aiModel]);
 
   useEffect(() => {
     if (mode === 'ask' && askCourseId && chatInput && messages.length === 0) {

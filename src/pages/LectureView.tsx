@@ -20,6 +20,7 @@ import { useGamification } from '@/lib/gamification/GamificationProvider';
 import { useSlideProgress } from '@/features/student/hooks/useSlideProgress';
 import { statesFromLegacyCompleted, allVisitedStates } from '@/lib/slideProgress';
 import { apiClient } from '@/lib/apiClient';
+import { getErrorStatus } from '@/lib/apiErrors';
 import { SlideViewer } from '@/components/SlideViewer';
 import { QuizCard } from '@/components/QuizCard';
 import { Button } from '@/components/ui/button';
@@ -92,6 +93,13 @@ export default function LectureView() {
   // `lecture === null` (permanent "Loading..." breadcrumb, "No slides
   // available" body) — an outage rendered identically to an empty lecture.
   const [loadError, setLoadError] = useState(false);
+  // A 409 from the localized-content endpoint is a documented, transient
+  // state ("still being prepared"), not a failure — it needs its own calm
+  // affordance rather than the red system-error dead end.
+  const [preparing, setPreparing] = useState(false);
+  // Set when the deck has no translation for this reader and is being shown
+  // in its original language — they need to be told, not left to assume.
+  const [originalLanguage, setOriginalLanguage] = useState<'en' | 'de' | null>(null);
   const [xpEarned, setXpEarned] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   // In-session consecutive-correct counter for the "On Fire" / "Unstoppable" badges.
@@ -437,6 +445,8 @@ export default function LectureView() {
   const fetchLectureData = async () => {
     setLoading(true);
     setLoadError(false);
+    setPreparing(false);
+    setOriginalLanguage(null);
 
     // Reset session state for new lecture
     setPendingInit(null); // clear any stale pending-init from previous lecture
@@ -471,6 +481,7 @@ export default function LectureView() {
       const localized = await fetchLocalizedLectureBundle(currentLectureId);
       const lectureData = localized.lecture;
       setLecture(lectureData);
+      setOriginalLanguage(localized.isOriginalLanguage ? localized.locale : null);
 
     // Resolve the stored pdf_url (path or legacy public URL) to an authenticated
     // signed URL so the private bucket is accessible in the browser. Retries
@@ -579,6 +590,15 @@ export default function LectureView() {
 
     setLoading(false);
     } catch (err) {
+      // 409 means the preferred-language snapshot for this revision has not
+      // been built yet. The content is fine; only this locale's variant is
+      // pending, so surface a retryable "preparing" state instead of the
+      // destructive system-error path (which also fired a red toast).
+      if (getErrorStatus(err) === 409) {
+        setPreparing(true);
+        setLoading(false);
+        return;
+      }
       console.error('Fatal error in fetchLectureData:', err);
       toast({ title: t('lecture:toasts.errorTitle'), description: t('lecture:toasts.systemError'), variant: 'destructive' });
       setLoadError(true);
@@ -1048,6 +1068,37 @@ export default function LectureView() {
     );
   }
 
+  // The lecture parsed fine; only this locale's revision-atomic snapshot is
+  // outstanding. Say so plainly and keep the door open, rather than reporting
+  // a system failure the student can do nothing about.
+  if (preparing) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
+        <Loader2 className="w-14 h-14 text-primary/60 mb-4 animate-spin" />
+        <h2 className="text-xl font-bold text-foreground mb-2">
+          {t('lecture:chrome.preparingTitle', 'This lecture is still being prepared')}
+        </h2>
+        <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+          {t(
+            'lecture:chrome.preparingDescription',
+            "We're building the version in your language. This usually takes a moment — check back shortly.",
+          )}
+        </p>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => fetchLectureData()}>
+            {t('lecture:chrome.preparingRetry', 'Check again')}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate(role === 'professor' ? ProfessorRoutes.DASHBOARD : StudentRoutes.HOME)}
+          >
+            {t('lecture:chrome.preparingBack', 'Back to dashboard')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // R18: distinguish a genuine load failure from a legitimately loaded lecture
   // — otherwise the fetch's catch block silently rendered full lecture chrome
   // around a null lecture instead of telling the student anything went wrong.
@@ -1100,6 +1151,19 @@ export default function LectureView() {
               {role === 'professor' && lecture?.source_language && (
                 <span className="text-[10px] text-muted-foreground">
                   {t('lecture:chrome.sourceLanguage', { language: lecture.source_language.toUpperCase() })}
+                </span>
+              )}
+              {originalLanguage && (
+                <span
+                  className="text-[10px] font-medium text-amber-500/90 border border-amber-500/30 bg-amber-500/10 rounded px-1.5 py-0.5"
+                  title={t(
+                    'lecture:chrome.originalLanguageHint',
+                    'No version in your language is available yet, so the original is shown.',
+                  )}
+                >
+                  {t('lecture:chrome.originalLanguageBadge', 'Original · {{language}}', {
+                    language: originalLanguage.toUpperCase(),
+                  })}
                 </span>
               )}
             </div>

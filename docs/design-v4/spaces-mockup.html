@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spaces — Learnstation mockup</title>
+<style>
+  :root{
+    --bg:#0b0d14; --surface:#141824; --surface-2:#1b2030; --border:#262c3f;
+    --text:#eef1f8; --text-2:#98a0b3; --text-3:#6b7284;
+    --accent:#6c5ce7; --accent-2:#00d2d3; --good:#2ecc71;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Inter',system-ui,sans-serif}
+  body{background:var(--bg);color:var(--text);min-height:100vh}
+
+  /* Top bar */
+  .topbar{display:flex;align-items:center;gap:28px;padding:14px 32px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(11,13,20,.92);backdrop-filter:blur(8px);z-index:10}
+  .logo{font-weight:800;letter-spacing:.5px;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;margin-right:8px}
+  .nav{display:flex;gap:4px}
+  .nav a{color:var(--text-2);text-decoration:none;font-size:14px;padding:8px 14px;border-radius:8px}
+  .nav a.active{color:var(--text);background:var(--surface-2)}
+  .topbar .spacer{flex:1}
+  .cmdk{color:var(--text-3);font-size:12px;border:1px solid var(--border);border-radius:8px;padding:6px 10px}
+  .avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:2px solid #8d7bff}
+
+  .page{max-width:1080px;margin:0 auto;padding:28px 32px 80px}
+
+  /* Header row */
+  .header-row{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  h1{font-size:22px;font-weight:700}
+  .tabs{display:flex;gap:4px;margin-left:18px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px}
+  .tabs button{background:none;border:0;color:var(--text-2);font-size:13.5px;padding:7px 16px;border-radius:8px;cursor:pointer}
+  .tabs button.active{background:var(--surface-2);color:var(--text)}
+  .header-row .spacer{flex:1}
+  .btn{border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13.5px;padding:9px 16px;border-radius:10px;cursor:pointer}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#8d7bff);border:0;font-weight:600}
+
+  /* Search */
+  .search{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text-3);font-size:14px;margin-bottom:26px}
+
+  /* Section labels */
+  .section{display:flex;align-items:baseline;margin:26px 0 14px}
+  .section h2{font-size:15px;font-weight:600}
+  .section .meta{margin-left:auto;font-size:12.5px;color:var(--text-3)}
+
+  /* Cards */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .15s}
+  .card:hover{transform:translateY(-2px)}
+  .cover{height:88px;display:flex;align-items:center;justify-content:flex-start;padding:0 18px;position:relative}
+  .cover .code{font-size:30px;font-weight:800;color:rgba(255,255,255,.28);letter-spacing:1px}
+  .badge-new{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);color:#cfd6ff;font-size:11px;font-weight:600;padding:4px 9px;border-radius:99px}
+  .c1{background:linear-gradient(120deg,#3b2f8f,#7048c7 60%,#b06ab3)}
+  .c2{background:linear-gradient(120deg,#0f4c75,#3282b8 60%,#1b6ca8)}
+  .c3{background:linear-gradient(120deg,#134e4a,#2d9c8f 60%,#3fc1a9)}
+  .c4{background:linear-gradient(120deg,#8a5a00,#c98a1b 60%,#e0a63f)}
+  .body{padding:14px 16px 16px}
+  .body h3{font-size:15.5px;font-weight:700;margin-bottom:2px}
+  .owner{font-size:12.5px;color:var(--text-2);margin-bottom:8px}
+  .chips{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .chip{font-size:11px;color:var(--text-2);border:1px solid var(--border);border-radius:99px;padding:3px 9px}
+  .resume{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--accent-2);margin-bottom:12px}
+  .bar{height:5px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-bottom:8px}
+  .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  .stats{display:flex;font-size:12px;color:var(--text-3)}
+  .stats .right{margin-left:auto}
+
+  /* Discover row */
+  .disc-scope{display:flex;gap:8px;margin-bottom:14px}
+  .scope{font-size:12.5px;padding:6px 13px;border-radius:99px;border:1px solid var(--border);color:var(--text-2);cursor:pointer}
+  .scope.active{background:var(--surface-2);color:var(--text);border-color:#3a4258}
+  .join-btn{font-size:12.5px;font-weight:600;color:var(--accent-2);border:1px solid #1e4a4f;background:rgba(0,210,211,.06);border-radius:9px;padding:7px 0;width:100%;text-align:center}
+  .annot{font-size:11.5px;color:var(--text-3);margin-top:34px;border-top:1px dashed var(--border);padding-top:14px;line-height:1.7}
+  .annot b{color:var(--text-2)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">LEARNSTATION</span>
+  <nav class="nav">
+    <a href="#">Home</a><a href="#" class="active">Spaces</a><a href="#">Library</a><a href="#">Social</a><a href="#">Profile</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="cmdk">⌘K &nbsp;Search everything</span>
+  <div class="avatar"></div>
+</div>
+
+<div class="page">
+
+  <div class="header-row">
+    <h1>Spaces</h1>
+    <div class="tabs">
+      <button class="active">Mine</button>
+      <button>Discover</button>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn">Join with code</button>
+    <button class="btn primary">+ New Space</button>
+  </div>
+
+  <div class="search">🔍&nbsp; Search your Spaces…</div>
+
+  <div class="section"><h2>Continue</h2><span class="meta">4 joined</span></div>
+  <div class="grid">
+
+    <div class="card">
+      <div class="cover c1"><span class="code">DBS</span><span class="badge-new">2 new</span></div>
+      <div class="body">
+        <h3>Datenbanksysteme</h3>
+        <div class="owner">Prof. Dr. Keller · Uni Marburg</div>
+        <div class="chips"><span class="chip">FB 12</span><span class="chip">Computer Science</span></div>
+        <div class="resume">▶ Next: Lecture 7 · B-Trees</div>
+        <div class="bar"><i style="width:62%"></i></div>
+        <div class="stats"><span>62% complete</span><span class="right">184 members</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cover c2"><span class="code">AN2</span></div>
+      <div class="body">
+        <h3>Analysis II</h3>
+        <div class="owner">Prof. Dr. Rieger · Uni Marburg</div>
+        <div class="chips"><span class="chip">FB 12</span><span class="chip">Mathematics</span></div>
+        <div class="resume">▶ Next: Lecture 5 · Taylor Series</div>
+        <div class="bar"><i style="width:38%"></i></div>
+        <div class="stats"><span>38% complete</span><span class="right">231 members</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cover c3"><span class="code">BS</span></div>
+      <div class="body">
+        <h3>Betriebssysteme</h3>
+        <div class="owner">Prof. Dr. Wu · Uni Marburg</div>
+        <div class="chips"><span class="chip">FB 12</span><span class="chip">Computer Science</span></div>
+        <div class="resume">▶ Next: Practice · Scheduling</div>
+        <div class="bar"><i style="width:81%"></i></div>
+        <div class="stats"><span>81% complete</span><span class="right">97 members</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cover c4"><span class="code">ML</span><span class="badge-new">5 new</span></div>
+      <div class="body">
+        <h3>Machine Learning Crew</h3>
+        <div class="owner">You · no Universe</div>
+        <div class="chips"><span class="chip">Computer Science</span><span class="chip">Machine Learning</span></div>
+        <div class="resume">▶ Next: Lecture 2 · Gradient Descent</div>
+        <div class="bar"><i style="width:12%"></i></div>
+        <div class="stats"><span>12% complete</span><span class="right">3 members</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section"><h2>Discover</h2><span class="meta">public Spaces · one tap to join</span></div>
+  <div class="disc-scope">
+    <span class="scope active">At Uni Marburg</span>
+    <span class="scope">Everywhere</span>
+    <span class="scope">Computer Science</span>
+    <span class="scope">Mathematics</span>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <div class="cover c2"><span class="code">ST1</span></div>
+      <div class="body">
+        <h3>Statistik I</h3>
+        <div class="owner">Prof. Dr. Bauer · Uni Marburg</div>
+        <div class="chips"><span class="chip">FB 12</span><span class="chip">Mathematics</span></div>
+        <div class="bar"><i style="width:0%"></i></div>
+        <div class="stats" style="margin-bottom:12px"><span>312 members · 41% avg completion</span></div>
+        <div class="join-btn">Join</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="cover c3"><span class="code">RL</span></div>
+      <div class="body">
+        <h3>Reinforcement Learning Basics</h3>
+        <div class="owner">Community · TU München</div>
+        <div class="chips"><span class="chip">Computer Science</span><span class="chip">Machine Learning</span></div>
+        <div class="bar"><i style="width:0%"></i></div>
+        <div class="stats" style="margin-bottom:12px"><span>1,204 members · 58% avg completion</span></div>
+        <div class="join-btn">Join</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <b>Annotations:</b> Top bar = the locked five items, ⌘K global. · Mine/Discover as tabs inside Spaces. ·
+    Card = cover (own nebula gradient per Space) + name + owner/Universe + classification chips + <b>resume line</b> (card is a continue button, not a folder) + progress + members. ·
+    Badges labeled ("2 new"), never bare numbers. · Solo Space ("no Universe") looks identical. ·
+    Discover: scope pills — your Universe first, then Everywhere; ranked by active learners &amp; completion, not upload count. Join = one tap, no approval.
+  </div>
+
+</div>
+</body>
+</html>

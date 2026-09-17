@@ -6,6 +6,12 @@
 > re-run locally; the same scans now run in CI (`.github/workflows/ci.yml` — `dependency-scan`,
 > `secret-scan` jobs).
 
+> **⚠️ CORRECTION, 2026-09-17 — §2's conclusion was wrong. Do not cite this document
+> for the state of git history.** The original scan covered the last 30 commits and the
+> conclusion was written as though it covered all of them. A full-history scan later
+> found real committed credentials. §2 is corrected in place below, with the original
+> claim left visible so the reasoning error stays legible. §§1, 3, 4 are unaffected.
+
 ## 1. Dependency vulnerability scan (SCA)
 
 ### Backend — `pip-audit -r backend/requirements.txt`
@@ -59,12 +65,51 @@ Ran `gitleaks detect` two ways:
      JWT repeated across `SETUP_GUIDE.md` in several worktrees, and an i18n string key
      (`privacy.section7Body`) in `src/pages/Datenschutz.tsx` that gitleaks' generic-api-key
      regex misfires on.
-2. **Git history** (last 30 commits, `gitleaks detect --log-opts="-30"`): **no leaks found.**
+2. **Git history** (last 30 commits, `gitleaks detect --log-opts="-30"`): no leaks found
+   *in that window*.
 
-Conclusion: no real secret is committed to git history or tracked files. `secret-scan` is now
-wired into CI (`gitleaks/gitleaks-action@v2`, free for github.com repos — only GitHub
-Enterprise Server needs a paid license) to keep it that way; it will flag any future commit
-that accidentally includes a real key.
+~~Conclusion: no real secret is committed to git history or tracked files.~~
+
+### Corrected 2026-09-17
+
+**That conclusion did not hold, and the flaw is in the scope, not the tool.** `--log-opts="-30"`
+reads the last thirty commits. The repository had several hundred. A scan of the full history
+found **68 findings**, the oldest predating this audit by months — so the window that produced
+"no leaks found" never looked at the commits that had them. A conclusion is only ever as broad
+as the command that produced it; this one was stated more broadly than it was earned.
+
+What the full scan found, now triaged and recorded in `.gitleaksignore` at the repo root
+(each group there carries its own justification):
+
+| finding | verdict |
+|---|---|
+| a load-test fixture committed under `backend/loadtest/` in June 2026, carrying credentials for throwaway accounts on a real project | **real, and the serious one** — every credential in it is now inert: the session tokens are past expiry and none of the accounts still exists, confirmed by a count against `auth.users` |
+| early `.env` commits, and the example key in `SETUP_GUIDE.md` | not leaks — all decode to the anon/publishable key, which ships in every frontend bundle by design |
+| `Datenschutz.tsx` and its generated `coverage/` copies | false positives, as §2 originally said — an i18n key the generic-api-key regex misreads |
+
+**No `service_role` key appears in any commit.** That was checked first and separately; it is
+the question that actually determines blast radius (see §3).
+
+The fixture was suppressed only *after* each credential was confirmed to grant nothing. Keep
+that order if this file is ever extended: a baseline written before triage hides a working
+credential behind a green check.
+
+### Why CI did not catch this for months
+
+`secret-scan` is wired into CI (`gitleaks/gitleaks-action@v2`, free for github.com repos — only
+GitHub Enterprise Server needs a paid license), but **it does not scan the same thing on every
+trigger**, and the original text's "it will flag any future commit" is only half the story:
+
+| event | scope |
+|---|---|
+| `push` / `pull_request` | only that event's commits |
+| `schedule` / `workflow_dispatch` | the entire history |
+
+So the job was green on every PR and red on every nightly, for the same commit — and the
+nightly was the one telling the truth. A permanently red check cannot distinguish a new finding
+from a standing one, so the red was read as noise for months. **Do not read a green gitleaks on
+a PR as "history is clean": on that trigger it never looked.** The nightly has been green since
+2026-09-17, which is the run that actually exercises the baseline.
 
 ## 3. Service-role key blast radius
 

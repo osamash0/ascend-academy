@@ -6,9 +6,42 @@ vi.mock("@/integrations/supabase/client", async () => {
   return { supabase: createSupabaseMock() };
 });
 
+/*
+ * The mocked hook must hand back the *same* `toast` function on every render.
+ *
+ * The real `useToast` returns a fresh wrapper object each render, but its
+ * `toast` property is a module-level function, so that identity never changes.
+ * `PreferencesSettings` depends on it: its preferences-loading effect lists
+ * `[user, toast, t]`, and `toast` holding still is what makes the effect run
+ * once.
+ *
+ * A factory returning `{ toast: vi.fn() }` breaks that contract — a new mock
+ * function per render, so the effect re-ran on every render and each run set
+ * `preferencesLoading` back to true. The switch is
+ * `disabled={!user || preferencesLoading || savingNudges}`, so it flickered
+ * between enabled and disabled. Instrumenting the query boundary showed one
+ * run issuing **87** SELECTs against `notification_preferences` before
+ * settling and another only 3 — the variance being the flakiness itself.
+ *
+ * That is what made the opt-out test below fail roughly 4 runs in 5. It waits
+ * for `not.toBeDisabled()`, catches one of the brief enabled windows, then
+ * `userEvent.click` lands in a disabled one — where a click is silently a
+ * no-op. No upsert, so the seeded row keeps `lifecycle_nudges_enabled: true`
+ * and the assertion reports "expected true to be false" while pointing at a
+ * component that behaved correctly the entire time.
+ *
+ * `vi.hoisted` because `vi.mock` factories are lifted above module scope and
+ * cannot close over an ordinary `const` declared here.
+ */
+const { toastFn, dismissFn } = vi.hoisted(() => ({
+  toastFn: vi.fn(),
+  dismissFn: vi.fn(),
+}));
+
 vi.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: vi.fn() }),
-  toast: vi.fn(),
+  // A new object per call, like the real hook — but stable function identities.
+  useToast: () => ({ toast: toastFn, dismiss: dismissFn }),
+  toast: toastFn,
 }));
 
 const useAuthMock = vi.fn();
@@ -26,6 +59,10 @@ const supabaseMock = supabase as unknown as SupabaseMock;
 beforeEach(() => {
   supabaseMock.reset();
   useAuthMock.mockReset();
+  // Shared across tests now that the identities are stable, so clear the
+  // recorded calls per test rather than leaving them to accumulate.
+  toastFn.mockClear();
+  dismissFn.mockClear();
 });
 
 describe("Settings page (smoke)", () => {

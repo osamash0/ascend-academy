@@ -31,6 +31,7 @@ os.environ.setdefault("GEMINI_API_KEY", "fake-gemini")
 # to off (FEATURE_REVIEW_ENGINE unset) unless explicitly enabled.
 os.environ.setdefault("FEATURE_REVIEW_ENGINE", "1")
 os.environ.setdefault("FEATURE_EXAM_MODE", "1")
+os.environ.setdefault("FEATURE_GLOBAL_SEARCH", "1")
 
 # Assigned, not setdefault: whatever DATABASE_URL the developer's shell exports
 # must NOT leak into a unit-test run. `backend.core.database` binds

@@ -56,10 +56,16 @@
     "uncategorized": "Nicht kategorisiert",
     "lectureLoading": "Wird geladen...",
     "slideView": "Folienansicht",
-  "sourcePdf": "Quell-PDF",
-  "sourceLanguage": "Quelle: {{language}}",
-  "loadErrorTitle": "Diese Vorlesung konnte nicht geladen werden",
-  "loadErrorDescription": "Beim Verbinden mit dem Server ist etwas schiefgelaufen. Bitte versuche es erneut."
+    "sourcePdf": "Quell-PDF",
+    "sourceLanguage": "Quelle: {{language}}",
+    "loadErrorTitle": "Diese Vorlesung konnte nicht geladen werden",
+    "loadErrorDescription": "Beim Verbinden mit dem Server ist etwas schiefgelaufen. Bitte versuche es erneut.",
+    "preparingTitle": "Diese Vorlesung wird noch vorbereitet",
+    "preparingDescription": "Wir erstellen die Fassung in deiner Sprache. Das dauert meist nur einen Moment — schau gleich noch einmal vorbei.",
+    "preparingRetry": "Erneut prüfen",
+    "preparingBack": "Zurück zum Dashboard",
+    "originalLanguageBadge": "Original · {{language}}",
+    "originalLanguageHint": "Es gibt noch keine Fassung in deiner Sprache, daher wird das Original angezeigt."
   },
   "toasts": {
     "notFoundTitle": "Nicht gefunden",

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doc 1 map — style options</title>
+<style>
+  :root{
+    --bg:#0b0d14; --surface:#141824; --surface-2:#1b2030; --border:#262c3f;
+    --text:#eef1f8; --text-2:#98a0b3; --text-3:#6b7284;
+    --accent:#6c5ce7; --accent-2:#00d2d3;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Inter',system-ui,sans-serif}
+  body{background:var(--bg);color:var(--text);padding:40px 32px 80px}
+  .wrap{max-width:900px;margin:0 auto}
+
+  .kicker{font-size:11.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px}
+  h1{font-size:24px;font-weight:700;margin-bottom:10px}
+  .lede{font-size:14.5px;line-height:1.7;color:var(--text-2);max-width:660px;margin-bottom:14px}
+  .lede b{color:var(--text)}
+  .slice{font-size:12.5px;line-height:1.7;color:var(--text-3);max-width:660px;border-left:2px solid var(--border);padding-left:14px;margin-bottom:40px}
+
+  .opt{margin-bottom:44px;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:#0e111a}
+  .opt.rec{border-color:#3b3470}
+  .opt-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surface)}
+  .opt-head h2{font-size:16px;font-weight:700}
+  .tag{font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:4px 9px;border-radius:99px;background:var(--surface-2);color:var(--text-3);border:1px solid var(--border)}
+  .tag.rec{background:rgba(108,92,231,.16);color:#b3a8ff;border-color:#3b3470}
+  .canvas{padding:8px 12px 4px}
+  svg{width:100%;height:auto;display:block}
+  .verdict{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border)}
+  .verdict div{padding:14px 20px;font-size:12.5px;line-height:1.65;color:var(--text-2)}
+  .verdict div:first-child{border-right:1px solid var(--border)}
+  .verdict b{display:block;font-size:10.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--text-3);margin-bottom:5px;font-weight:700}
+
+  .note{font-size:12.5px;line-height:1.75;color:var(--text-3);border-top:1px dashed var(--border);padding-top:18px;margin-top:8px}
+  .note b{color:var(--text-2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kicker">Learnstation · Doc 1 visual · style options</div>
+  <h1>Three treatments, one diagram</h1>
+  <p class="lede">All three draw the <b>same</b> slice of the object map and share the mockup's palette, so the only thing you're choosing is <b>treatment</b>. Whatever you pick gets applied to all five panels.</p>
+  <p class="slice">The slice on purpose exercises the hard part: a Space <b>containing</b> Lessons (solid line — delete the parent, the child goes too), a Contribution <b>pointing at</b> a Lesson (dashed — delete the target and it orphans, never disappears), a Material drawn faded because it is removable without breaking its Lesson, and a Contribution carrying its author.</p>
+
+  <!-- ══════════ OPTION A ══════════ -->
+  <div class="opt">
+    <div class="opt-head"><h2>A · Product-native</h2><span class="tag">looks like the app</span></div>
+    <div class="canvas">
+      <svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gA" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#6c5ce7"/><stop offset="1" stop-color="#00d2d3"/>
+          </linearGradient>
+          <marker id="hA" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#4a5470"/></marker>
+          <marker id="hAc" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#00d2d3"/></marker>
+          <marker id="hAf" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#333c54"/></marker>
+        </defs>
+
+        <!-- edges -->
+        <path d="M115,76 V124 H284" fill="none" stroke="#333c54" stroke-width="1.5" marker-end="url(#hAf)"/>
+        <text x="128" y="116" fill="#4a5470" font-size="10.5">generated from</text>
+
+        <path d="M210,162 H250 V124 H284" fill="none" stroke="#4a5470" stroke-width="1.5" marker-end="url(#hA)"/>
+        <path d="M210,162 H250 V194 H284" fill="none" stroke="#4a5470" stroke-width="1.5" marker-end="url(#hA)"/>
+        <text x="216" y="215" fill="#6b7284" font-size="10.5">contains</text>
+
+        <path d="M480,194 H534" fill="none" stroke="#4a5470" stroke-width="1.5" marker-end="url(#hA)"/>
+        <path d="M385,255 V222" fill="none" stroke="#00d2d3" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#hAc)"/>
+        <text x="396" y="243" fill="#00d2d3" font-size="10.5">anchors to</text>
+
+        <!-- Material (faded) -->
+        <rect x="40" y="32" width="150" height="44" rx="10" fill="#10131c" stroke="#1e2434"/>
+        <text x="54" y="53" fill="#6b7284" font-size="12.5" font-weight="600">Skript_DBS.pdf</text>
+        <text x="54" y="68" fill="#4a5470" font-size="9.5" letter-spacing="1">MATERIAL · REMOVABLE</text>
+
+        <!-- Space -->
+        <rect x="40" y="130" width="170" height="64" rx="12" fill="#141824" stroke="#262c3f"/>
+        <rect x="41" y="130" width="168" height="3.5" fill="url(#gA)"/>
+        <text x="56" y="159" fill="#eef1f8" font-size="14" font-weight="700">Datenbanksysteme</text>
+        <text x="56" y="177" fill="#6b7284" font-size="9.5" letter-spacing="1">SPACE</text>
+
+        <!-- Lessons -->
+        <rect x="290" y="100" width="190" height="48" rx="11" fill="#141824" stroke="#262c3f"/>
+        <text x="305" y="122" fill="#eef1f8" font-size="13" font-weight="600">Normalisation</text>
+        <text x="305" y="138" fill="#6b7284" font-size="9.5" letter-spacing="1">LESSON 6</text>
+
+        <rect x="290" y="170" width="190" height="48" rx="11" fill="#141824" stroke="#262c3f"/>
+        <text x="305" y="192" fill="#eef1f8" font-size="13" font-weight="600">B-Trees</text>
+        <text x="305" y="208" fill="#6b7284" font-size="9.5" letter-spacing="1">LESSON 7</text>
+
+        <!-- Concept -->
+        <rect x="540" y="172" width="170" height="44" rx="22" fill="#141824" stroke="#2c3a52"/>
+        <circle cx="562" cy="194" r="5" fill="#00d2d3" opacity=".8"/>
+        <text x="577" y="191" fill="#eef1f8" font-size="12.5" font-weight="600">B-tree split</text>
+        <text x="577" y="205" fill="#6b7284" font-size="9.5" letter-spacing="1">CONCEPT</text>
+
+        <!-- Contribution -->
+        <rect x="290" y="255" width="190" height="48" rx="11" fill="#141824" stroke="#262c3f"/>
+        <circle cx="308" cy="279" r="9" fill="#6c5ce7"/>
+        <text x="304" y="283" fill="#fff" font-size="10" font-weight="700">M</text>
+        <text x="326" y="276" fill="#eef1f8" font-size="12.5" font-weight="600">Worked example</text>
+        <text x="326" y="291" fill="#6b7284" font-size="9.5" letter-spacing="1">COMMUNITY · MIRA</text>
+
+        <!-- legend -->
+        <rect x="540" y="248" width="180" height="62" rx="10" fill="#0e111a" stroke="#1e2434"/>
+        <path d="M556,270 H584" stroke="#4a5470" stroke-width="1.5"/>
+        <text x="592" y="274" fill="#98a0b3" font-size="10.5">contains</text>
+        <path d="M556,292 H584" stroke="#00d2d3" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="592" y="296" fill="#98a0b3" font-size="10.5">points at</text>
+      </svg>
+    </div>
+    <div class="verdict">
+      <div><b>Why it wins</b>Reads like the product; Doc 3 could lift tokens straight out of it. Familiar the second you open it.</div>
+      <div><b>Why I'd hesitate</b>A diagram that looks like real UI gets read as a screen spec. Doc 1 is about objects, not screens — this treatment quietly invites the wrong question ("so that's the Lesson card?"). Card chrome also competes with the lines, which are the actual content.</div>
+    </div>
+  </div>
+
+  <!-- ══════════ OPTION B ══════════ -->
+  <div class="opt rec">
+    <div class="opt-head"><h2>B · Schematic</h2><span class="tag rec">recommended</span></div>
+    <div class="canvas">
+      <svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="gridB" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M20,0 V20 M0,20 H20" fill="none" stroke="#141a27" stroke-width="1"/>
+          </pattern>
+          <marker id="hB" markerWidth="8" markerHeight="8" refX="7.5" refY="4" orient="auto">
+            <path d="M0,0.5 L8,4 L0,7.5" fill="none" stroke="#5c6785" stroke-width="1.2"/></marker>
+          <marker id="hBc" markerWidth="8" markerHeight="8" refX="7.5" refY="4" orient="auto">
+            <path d="M0,0.5 L8,4 L0,7.5" fill="none" stroke="#00d2d3" stroke-width="1.2"/></marker>
+          <marker id="hBf" markerWidth="8" markerHeight="8" refX="7.5" refY="4" orient="auto">
+            <path d="M0,0.5 L8,4 L0,7.5" fill="none" stroke="#39425c" stroke-width="1.2"/></marker>
+        </defs>
+        <rect x="0" y="0" width="760" height="330" fill="url(#gridB)"/>
+
+        <!-- edges -->
+        <path d="M115,76 V124 H284" fill="none" stroke="#39425c" stroke-width="1" marker-end="url(#hBf)"/>
+        <text x="126" y="117" fill="#4a5470" font-size="9.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" letter-spacing=".5">generated_from</text>
+
+        <path d="M210,162 H250 V124 H284" fill="none" stroke="#5c6785" stroke-width="1" marker-end="url(#hB)"/>
+        <path d="M210,162 H250 V194 H284" fill="none" stroke="#5c6785" stroke-width="1" marker-end="url(#hB)"/>
+        <text x="215" y="216" fill="#6b7284" font-size="9.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" letter-spacing=".5">contains 1..n</text>
+
+        <path d="M480,194 H534" fill="none" stroke="#5c6785" stroke-width="1" marker-end="url(#hB)"/>
+        <path d="M385,255 V222" fill="none" stroke="#00d2d3" stroke-width="1" stroke-dasharray="4 3.5" marker-end="url(#hBc)"/>
+        <text x="394" y="243" fill="#00d2d3" font-size="9.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" letter-spacing=".5">anchor · 1 of 3</text>
+
+        <!-- Material -->
+        <rect x="40" y="32" width="150" height="44" fill="#0c0f17" stroke="#293145" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="52" y="52" fill="#6b7284" font-size="9" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" letter-spacing="1.2">MATERIAL</text>
+        <text x="52" y="67" fill="#4a5470" font-size="11" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">Skript_DBS.pdf</text>
+
+        <!-- Space -->
+        <rect x="40" y="130" width="170" height="64" fill="#0c0f17" stroke="#6c5ce7" stroke-width="1.2"/>
+        <path d="M40,130 h10 M40,130 v10" stroke="#6c5ce7" stroke-width="2.5"/>
+        <path d="M210,194 h-10 M210,194 v-10" stroke="#6c5ce7" stroke-width="2.5"/>
+        <text x="54" y="153" fill="#8d7bff" font-size="9" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" letter-spacing="1.2">SPACE</text>
+        <text x="54" y="174" fill="#eef1f8" font-size="12.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">Datenbanksysteme</text>
+
+        <!-- Lessons -->
+        <rect x="290" y="100" width="190" height="48" fill="#0c0f17" stroke="#3a4560" stroke-width="1"/>
+        <text x="303" y="119" fill="#6b7284" font-size="9" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" letter-spacing="1.2">LESSON [6]</text>
+        <text x="303" y="137" fill="#eef1f8" font-size="12" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">Normalisation</text>
+
+        <rect x="290" y="170" width="190" height="48" fill="#0c0f17" stroke="#3a4560" stroke-width="1"/>
+        <text x="303" y="189" fill="#6b7284" font-size="9" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" letter-spacing="1.2">LESSON [7]</text>
+        <text x="303" y="207" fill="#eef1f8" font-size="12" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">B-Trees</text>
+
+        <!-- Concept -->
+        <rect x="540" y="172" width="170" height="44" fill="#0c0f17" stroke="#26505c" stroke-width="1"/>
+        <text x="553" y="190" fill="#5f8f97" font-size="9" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" letter-spacing="1.2">CONCEPT</text>
+        <text x="553" y="207" fill="#cfe9ec" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">B-tree split</text>
+
+        <!-- Contribution -->
+        <rect x="290" y="255" width="190" height="48" fill="#0c0f17" stroke="#3a4560" stroke-width="1"/>
+        <text x="303" y="274" fill="#6b7284" font-size="9" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" letter-spacing="1.2">CONTRIBUTION · @mira</text>
+        <text x="303" y="292" fill="#eef1f8" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">Worked example</text>
+
+        <!-- legend -->
+        <path d="M540,262 H568" stroke="#5c6785" stroke-width="1"/>
+        <text x="576" y="266" fill="#98a0b3" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">contains — dies with parent</text>
+        <path d="M540,284 H568" stroke="#00d2d3" stroke-width="1" stroke-dasharray="4 3.5"/>
+        <text x="576" y="288" fill="#98a0b3" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">points at — orphans</text>
+      </svg>
+    </div>
+    <div class="verdict">
+      <div><b>Why it wins</b>The lines are the loudest thing on screen, which is correct — the relationships <i>are</i> the content. Monospace labels read as object names, not UI copy, so nobody mistakes it for a screen. Corner ticks mark the containing object. Inverts cleanly to white for thesis figures later.</div>
+      <div><b>Why I'd hesitate</b>Cold. It looks like documentation, not like your product — if you want the doc set to feel like Learnstation, this is the least on-brand of the three.</div>
+    </div>
+  </div>
+
+  <!-- ══════════ OPTION C ══════════ -->
+  <div class="opt">
+    <div class="opt-head"><h2>C · Editorial</h2><span class="tag">type-led, minimal</span></div>
+    <div class="canvas">
+      <svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="hC" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <circle cx="4" cy="4" r="2.6" fill="#4a5470"/></marker>
+          <marker id="hCc" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <circle cx="4" cy="4" r="2.6" fill="#00d2d3"/></marker>
+        </defs>
+
+        <!-- edges -->
+        <path d="M115,80 V124 H278" fill="none" stroke="#242b3d" stroke-width="1"/>
+        <text x="126" y="118" fill="#4a5470" font-size="10.5" font-style="italic">generated from</text>
+
+        <path d="M132,168 H250 V124 H278" fill="none" stroke="#323a52" stroke-width="1" marker-end="url(#hC)"/>
+        <path d="M132,168 H250 V194 H278" fill="none" stroke="#323a52" stroke-width="1" marker-end="url(#hC)"/>
+
+        <path d="M470,194 H528" fill="none" stroke="#323a52" stroke-width="1" marker-end="url(#hC)"/>
+        <path d="M370,258 V214" fill="none" stroke="#00d2d3" stroke-width="1" stroke-dasharray="2 5" marker-end="url(#hCc)"/>
+        <text x="382" y="242" fill="#00d2d3" font-size="10.5" font-style="italic">anchors to</text>
+
+        <!-- Material -->
+        <text x="40" y="52" fill="#4a5470" font-size="10" letter-spacing="1.4">MATERIAL</text>
+        <text x="40" y="74" fill="#6b7284" font-size="15">Skript_DBS.pdf</text>
+
+        <!-- Space -->
+        <rect x="34" y="126" width="98" height="84" rx="3" fill="none" stroke="#2b3348" stroke-width="1"/>
+        <circle cx="46" cy="146" r="3.5" fill="#6c5ce7"/>
+        <text x="58" y="150" fill="#8d7bff" font-size="10" letter-spacing="1.4">SPACE</text>
+        <text x="46" y="177" fill="#eef1f8" font-size="15" font-weight="600">Daten-</text>
+        <text x="46" y="196" fill="#eef1f8" font-size="15" font-weight="600">banksysteme</text>
+
+        <!-- Lessons -->
+        <text x="278" y="112" fill="#4a5470" font-size="10" letter-spacing="1.4">LESSON 6</text>
+        <text x="278" y="136" fill="#eef1f8" font-size="16" font-weight="600">Normalisation</text>
+
+        <text x="278" y="182" fill="#4a5470" font-size="10" letter-spacing="1.4">LESSON 7</text>
+        <text x="278" y="206" fill="#eef1f8" font-size="16" font-weight="600">B-Trees</text>
+
+        <!-- Concept -->
+        <circle cx="537" cy="189" r="3.5" fill="#00d2d3"/>
+        <text x="549" y="182" fill="#5f8f97" font-size="10" letter-spacing="1.4">CONCEPT</text>
+        <text x="549" y="204" fill="#cfe9ec" font-size="15">B-tree split</text>
+
+        <!-- Contribution -->
+        <text x="278" y="276" fill="#4a5470" font-size="10" letter-spacing="1.4">CONTRIBUTION</text>
+        <circle cx="285" cy="296" r="7" fill="#6c5ce7"/>
+        <text x="282" y="299.5" fill="#fff" font-size="8" font-weight="700">M</text>
+        <text x="300" y="300" fill="#eef1f8" font-size="15">Worked example <tspan fill="#6b7284" font-size="12.5">· Mira</tspan></text>
+
+        <!-- legend -->
+        <path d="M540,262 H566" stroke="#323a52" stroke-width="1"/>
+        <text x="576" y="266" fill="#98a0b3" font-size="11">contains</text>
+        <path d="M540,286 H566" stroke="#00d2d3" stroke-width="1" stroke-dasharray="2 5"/>
+        <text x="576" y="290" fill="#98a0b3" font-size="11">points at</text>
+      </svg>
+    </div>
+    <div class="verdict">
+      <div><b>Why it wins</b>Calmest of the three and the easiest to read at a glance — which matters when five panels sit on one page. Closest to the "calm competence" voice.</div>
+      <div><b>Why I'd hesitate</b>Without boxes, the containment boundary gets soft. Panel 1 has ten objects, not five — at full density this treatment risks becoming a word cloud with lines, and the one thing the page must never be ambiguous about is what contains what.</div>
+    </div>
+  </div>
+
+  <p class="note">
+    <b>Not offered on purpose:</b> a cosmic/galaxy treatment. Doc 1 locks the theme to visuals only, with the galaxy map as the <i>one</i> fully themed screen — a themed foundations diagram would spend that budget in the wrong place and blur the map's distinctiveness.
+    <br><br>
+    <b>Palette is identical in all three</b> (<span style="color:#98a0b3">#0b0d14 · #141824 · #6c5ce7 → #00d2d3</span>) so the choice is treatment only. A hybrid is available: <b>B's line grammar with A's card chrome</b> — say the word and I'll mock that too.
+  </p>
+
+</div>
+</body>
+</html>

@@ -24,9 +24,17 @@ vi.mock("@/integrations/supabase/client", async () => {
   return { supabase: createSupabaseMock() };
 });
 
+/*
+ * One `toast`, not a new one per render. The real hook returns a fresh wrapper
+ * object each render but its `toast` is module-level, so the identity is
+ * stable — and components list it in effect dependency arrays on that basis.
+ * See `Settings.test.tsx` for the flake this shape caused there.
+ */
+const { toastFn } = vi.hoisted(() => ({ toastFn: vi.fn() }));
+
 vi.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: vi.fn() }),
-  toast: vi.fn(),
+  useToast: () => ({ toast: toastFn }),
+  toast: toastFn,
 }));
 
 const useAuthMock = vi.fn();

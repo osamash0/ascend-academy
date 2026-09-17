@@ -1,0 +1,255 @@
+import { useMemo } from 'react';
+import { Link, Navigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Heart } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { people, viewer } from '../mocks/people';
+import { spaceById } from '../mocks/spaces';
+import {
+  linalgContributions,
+  normalizationContributions,
+  sharedSpaceIds,
+  spaceContributions,
+} from '../mocks/contributions';
+import { conceptContributions } from '../mocks/concepts';
+import { leaderboard, resolveContributionAnchor } from '../mocks/library';
+import { likeCount, visibleContributions } from '../mocks/engagement';
+import { anchorFor, isOrphaned } from '../mocks/reanchor';
+import { isFriend } from '../mocks/social';
+import { SpacesTopBar } from '../components/SpacesTopBar';
+import { Scene, SURFACES } from '../components/Scene';
+import { useScreenState } from '../data/useSpaces';
+import { Avatar } from '../components/Avatar';
+import { EndorsedBadge } from '../components/badges';
+import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
+
+/**
+ * Someone else's public profile.
+ *
+ * Doc 2 lists these among Social's destinations — "friends, requests, finding
+ * people, their public profiles, and rankings" — and there was no screen, so
+ * every "View profile" button on Social was inert.
+ *
+ * Two rules shape what is on it:
+ *   • **Social shows people, not Space cards.** Shared Spaces are named as
+ *     context and link to the Space; they are not rendered as tiles, or this
+ *     becomes a second Spaces screen.
+ *   • **Public means published.** Their notes are theirs, their drafts are
+ *     theirs. What appears here is what they chose to publish, which is the
+ *     same set anyone in those Spaces can already see.
+ */
+
+export default function PersonScreen() {
+  const screenState = useScreenState();
+  const { personId } = useParams<{ personId: string }>();
+  const person = people.find((p) => p.id === personId);
+
+  const standing = leaderboard.find((r) => r.person.id === personId);
+
+  /** Everything they published, at any anchor level. */
+  const published = useMemo(
+    () =>
+      // Public means published. Hidden work belongs to its author and to the
+      // people who maintain the Space, never to a passing visitor — so this
+      // asks with no role, which is the strictest answer `visibleContributions`
+      // gives. Written out longhand here was the seventh copy of that rule.
+      visibleContributions(
+        [
+          ...normalizationContributions,
+          ...spaceContributions,
+          /*
+           * `linalgContributions` was missing. Every list of "all the
+           * contributions" in this codebase has been assembled by hand, and
+           * this is the fourth one found short of the same group — so Inês
+           * Ferreira's two Linear Algebra pieces were absent from her own
+           * page, on a screen whose heading counts what she has published.
+           */
+          ...linalgContributions,
+          ...conceptContributions,
+        ].filter((c) => c.author.id === personId),
+        null,
+      )
+        // Likes come from the store, not the fixture. Reading `c.likeCount`
+        // meant a like made on a Lesson screen never showed here, and could
+        // never reorder this list — the mistake `ContributionCard` names in
+        // its own comment, made again on a newer screen.
+        .sort((a, b) => likeCount(b.id) - likeCount(a.id)),
+    [personId],
+  );
+
+  /**
+   * Spaces you are both in — the reason they are on your Social screen.
+   *
+   * Read from the member lists, both ways. This used to be
+   * `allSpaces.filter(s => s.viewerRole !== null && s.owner.id !== viewer.id)`
+   * with a `[]` dependency array — "Spaces I am in that I do not own", which
+   * names the person nowhere. Every profile listed the same four.
+   */
+  const shared = useMemo(
+    () =>
+      personId
+        ? sharedSpaceIds(viewer.id, personId)
+            .map((id) => spaceById(id))
+            .filter((s): s is NonNullable<typeof s> => Boolean(s))
+        : [],
+    [personId],
+  );
+
+  const chrome = (body: React.ReactNode) => (
+    <Scene surface={SURFACES.social} status="progress" motionKey={`person-${personId}`}>
+      <SpacesTopBar active="social" viewer={viewer} />
+      {body}
+    </Scene>
+  );
+
+  // All four states, on every screen. `?mock=loading|error` used to be a
+  // no-op here, so these two had never been seen.
+  if (screenState === 'loading') return chrome(<DetailSkeleton />);
+  if (screenState === 'error') return chrome(<SpacesError what="this profile" />);
+
+  if (!person) {
+    return chrome(<NotFound what="person" backTo="/v4/social" backLabel="Back to Social" />);
+  }
+
+  /*
+   * Your own profile is Profile, not a public page about you.
+   *
+   * `/v4/person/p-viewer` was reachable by URL and rendered you as a stranger
+   * — "Spaces you are both in" listing Spaces you share with yourself, and
+   * "What they have published" for your own work. Redirecting rather than
+   * 404ing: the page you were asking for does exist, it is just called
+   * something else.
+   */
+  if (person.id === viewer.id) return <Navigate to="/v4/profile" replace />;
+
+  return chrome(
+    <div className="mx-auto max-w-3xl px-6 pb-24 pt-6 lg:px-8">
+      <Link
+        to="/v4/social"
+        className="console-focusable mb-8 -ml-2 inline-flex h-9 items-center gap-2 rounded-full px-2 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.05] hover:text-foreground"
+      >
+        <ArrowLeft aria-hidden className="h-4 w-4" />
+        Social
+      </Link>
+
+      <header className="flex flex-wrap items-center gap-5">
+        <Avatar person={person} size="lg" className="h-16 w-16" />
+        <div className="min-w-0">
+          <h1 className="text-[26px] font-bold tracking-[-0.02em]">{person.name}</h1>
+          <p className="mt-1 text-[14px] text-quiet tabular-nums">
+            {standing ? `${standing.rank} · ${standing.xp.toLocaleString()} XP` : 'No rank yet'}
+            {isFriend(person.id) && <span className="text-faint"> · Friends</span>}
+          </p>
+        </div>
+      </header>
+
+      {/* Named, not tiled — Social shows people, never Space cards. */}
+      {shared.length > 0 && (
+        <section className="mt-9">
+          <h2 className="mb-3 text-[14px] font-medium text-quiet">Spaces you are both in</h2>
+          <ul className="flex flex-wrap gap-2">
+            {shared.map((s) => (
+              <li key={s.id}>
+                <Link
+                  to={`/v4/space/${s.id}`}
+                  className="console-focusable inline-flex h-9 items-center rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
+                >
+                  {s.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section className="mt-9">
+        <h2 className="mb-3 text-[14px] font-medium text-quiet">
+          What they have published
+          {published.length > 0 && (
+            <span className="ml-2 text-faint tabular-nums">{published.length}</span>
+          )}
+        </h2>
+
+        {published.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-white/12 px-5 py-9 text-center text-[14px] text-quiet">
+            {person.name} hasn’t published anything in a Space you share.
+          </p>
+        ) : (
+          <ul className="space-y-2.5">
+            {published.map((c) => {
+              /*
+               * One resolver, like every other surface.
+               *
+               * This hand-rolled the anchor and handled two of the three
+               * levels, so a **concept**-anchored contribution fell through to
+               * `href: null` and rendered as "Needs a new home" — four
+               * fixtures, by four different people, each shown on their own
+               * page as work that had lost its Lesson when nothing had
+               * happened to it. `resolveContributionAnchor`'s own comment
+               * records the previous version of that exact bug: it "silently
+               * dropped `concept` entirely".
+               *
+               * Going through it also picks up two things this copy never had:
+               * a space-level anchor now opens *the contribution* by fragment
+               * rather than dumping you on the Space, and `anchorFor` means a
+               * re-anchored orphan points at its new Lesson instead of the
+               * deleted one.
+               */
+              const at = resolveContributionAnchor(anchorFor(c), c.id);
+              const href = at.href;
+              const row = (
+                <>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold">{c.title}</span>
+                    {at.lessonTitle && (
+                      <span className="mt-0.5 block truncate text-[12.5px] text-quiet">
+                        {at.lessonTitle}
+                      </span>
+                    )}
+                  </span>
+                  {c.endorsed && <EndorsedBadge />}
+                  <span className="flex shrink-0 items-center gap-1.5 text-[13px] text-quiet tabular-nums">
+                    <Heart aria-hidden className="h-3.5 w-3.5" />
+                    {likeCount(c.id)}
+                    {/* A bare number announced as "148" says nothing. */}
+                    <span className="sr-only">likes</span>
+                  </span>
+                </>
+              );
+              const cls =
+                'flex w-full items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-5 py-4 text-left transition-colors';
+              return (
+                <li key={c.id}>
+                  {href ? (
+                    <Link to={href} className={`console-focusable ${cls} hover:bg-white/[0.05]`}>
+                      {row}
+                    </Link>
+                  ) : (
+                    /*
+                      No anchor left to open. Shown, because their work does
+                      not vanish — but it used to carry the *same* border,
+                      background and transition as the links around it, so it
+                      read as one and did nothing when clicked. It says what it
+                      is now, the way Library's equivalent does.
+
+                      The label follows `isOrphaned`, not "href came back
+                      null". Those are different questions: an orphan has lost
+                      its Lesson, while a concept anchor can fail to resolve
+                      for its own reasons — and this branch used to answer the
+                      second by asserting the first.
+                    */
+                    <div className={cn(cls, 'border-dashed opacity-80')}>
+                      {row}
+                      {isOrphaned(c) && (
+                        <span className="shrink-0 text-[12px] text-quiet">Needs a new home</span>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    </div>,
+  );
+}

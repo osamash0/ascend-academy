@@ -83,7 +83,34 @@ export default {
   			},
   			'surface-1': 'hsl(var(--surface-1))',
   			'surface-2': 'hsl(var(--surface-2))',
-  			'glass-border': 'hsl(var(--glass-border))'
+  			'glass-border': 'hsl(var(--glass-border))',
+
+  			// ── v4 semantic layer (docs/design-v4/01-foundations.md) ──
+  			// Quiet text scale. Every step clears AA on both the console
+  			// background and a depth-card; see the note in src/index.css.
+  			quiet: 'rgb(var(--text-quiet))',
+  			label: 'rgb(var(--text-label))',
+  			faint: 'rgb(var(--text-faint))',
+  			// Decoration only — never information. Fails contrast by design.
+  			decor: 'rgb(var(--text-decor))',
+  			eyebrow: 'hsl(var(--eyebrow))',
+
+  			// Origin: Official vs Community must never blur.
+  			origin: {
+  				official: 'hsl(var(--origin-official))',
+  				community: 'hsl(var(--origin-community))'
+  			},
+  			// Grounding: a quiet marker, never a warning.
+  			grounded: 'hsl(var(--grounded))',
+  			'not-grounded': 'hsl(var(--not-grounded))',
+  			// Space modes.
+  			mode: {
+  				guided: 'hsl(var(--mode-guided))',
+  				open: 'hsl(var(--mode-open))'
+  			},
+  			// Like belongs to contributions; Star belongs to whole Spaces.
+  			like: 'hsl(var(--like))',
+  			star: 'hsl(var(--star))'
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
@@ -92,21 +119,34 @@ export default {
   			xl: 'calc(var(--radius) + 4px)',
   			'2xl': 'calc(var(--radius) + 8px)'
   		},
+  		// Inter is self-hosted (see the @font-face block at the top of
+  		// src/index.css — GDPR rules out the Google CDN). Every family below
+  		// must resolve to something that is actually loaded: `Cal Sans` and
+  		// `JetBrains Mono` used to sit here and were never shipped, so
+  		// `font-display` and `font-mono` silently fell back to system-ui.
   		fontFamily: {
   			sans: [
   				'Inter',
   				'system-ui',
+  				'-apple-system',
+  				'Segoe UI',
   				'sans-serif'
   			],
+  			// Same face as `sans` by design: the display voice is carried by
+  			// weight and tracking, not by a second typeface.
   			display: [
-  				'Cal Sans',
   				'Inter',
   				'system-ui',
+  				'-apple-system',
+  				'Segoe UI',
   				'sans-serif'
   			],
+  			// System mono — nothing to download, and present on every target OS.
   			mono: [
-  				'JetBrains Mono',
-  				'Fira Code',
+  				'ui-monospace',
+  				'SFMono-Regular',
+  				'Menlo',
+  				'Consolas',
   				'monospace'
   			]
   		},
