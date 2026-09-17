@@ -109,6 +109,7 @@ const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
 const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
 const V4Rank = lazy(() => import("@/features/spaces/screens/RankScreen"));
 const V4History = lazy(() => import("@/features/spaces/screens/HistoryScreen"));
+const V4Moments = lazy(() => import("@/features/spaces/screens/MomentsScreen"));
 const V4Practice = lazy(() => import("./features/spaces/screens/PracticeScreen"));
 const V4Settings = lazy(() => import("./features/spaces/screens/SettingsScreen"));
 const V4Person = lazy(() => import("./features/spaces/screens/PersonScreen"));
@@ -308,6 +309,8 @@ function AppRoutes() {
             <Route path="/v4/profile/rank" element={<V4Rank />} />
             {/* Which days you studied. A record, not a streak system. */}
             <Route path="/v4/profile/history" element={<V4History />} />
+            {/* The firsts. Replaced a badge wall — see mocks/moments.ts. */}
+            <Route path="/v4/profile/moments" element={<V4Moments />} />
             {/* Settings hangs off Profile — a Studio screen, like Library's three. */}
             <Route path="/v4/settings" element={<V4Settings />} />
             {/* Someone else's public profile — a Social destination, per Doc 2. */}

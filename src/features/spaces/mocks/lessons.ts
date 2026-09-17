@@ -94,8 +94,17 @@ const lesson = (
      *
      * A stated count next to the list it counts will always drift. Deriving
      * both kills the class rather than the instance.
+     *
+     * A **getter**, not a value computed here. Deriving it once at module load
+     * is still a stated count the moment the underlying set can change: with
+     * re-anchoring, moving a contribution onto this Lesson made the hero read
+     * "2 contributions" directly above a community section headed "3". Caught
+     * in the browser, not by a test — every guard compared the count to the
+     * same snapshot it came from.
      */
-    contributionCount: contributionsForLesson(id).length,
+    get contributionCount() {
+      return contributionsForLesson(id).length;
+    },
     /*
      * Derived, and deliberately after the spread so no fixture can override
      * it. Seventeen Lessons stated a `practiceCount` and every single one was

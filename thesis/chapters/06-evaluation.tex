@@ -1,0 +1,117 @@
+\chapter{Evaluation}
+\label{ch:evaluation}
+
+\section{Evaluation Strategy}
+\label{sec:eval-strategy}
+
+\TODO{State what is and is not evaluated, up front. Technical quality against
+curated golden sets: yes. A systematic audit of the deployed system against its
+documentation: yes. Learning outcomes with participants: no. Being explicit
+here prevents a reader inferring an outcome claim from a quality metric.}
+
+\section{Automated Quality Evaluation}
+\label{sec:automated-eval}
+
+\thesisfigure{f18-evaluation-setup}
+  {The scorecard harness: four metrics over human-curated golden sets, with a
+   pass band per metric and continuous-integration gating.}
+  {fig:eval-setup}
+
+\TODO{Describe the harness from \cref{fig:eval-setup}: golden-set case types,
+the pipeline abstraction that allows a deterministic fake, the pure scoring
+functions, and the injected LLM judge for open-ended synthesis quality. Note
+the design pattern shared with the refusal gate in \cref{sec:anti-hallucination}
+--- the assertion surface is a pure function, not an HTTP round-trip, which is
+what makes it usable in continuous integration.}
+
+\section{Results}
+\label{sec:results}
+
+\thesisfigure{f19-results-scaffold}
+  {Scorecard results.}
+  {fig:results}
+
+\TODO{CRITICAL --- \cref{fig:results} is currently an EMPTY SCAFFOLD. No
+evaluation run exists: the results table was never applied to the production
+database and no local scorecard has been recorded. Run the harness, then fill
+the four metric rows and the run metadata. Do NOT write prose interpreting
+results that do not exist, and do not submit with this figure as-is: either
+populate it or remove both the figure and this section.}
+
+\section{Implementation Reality versus Documented Design}
+\label{sec:reality-vs-documented}
+
+This section reports a systematic comparison of the implementation against the
+project's own documentation.
+
+\TODO{Method first, in two or three sentences: four independent readers mapped
+the codebase, every architectural claim in the repository documentation was
+checked against source at revision \thesisCommit{}, and each discrepancy was
+recorded with a file and line reference. Method makes it a finding rather than
+an anecdote.}
+
+\TODO{Then the ledger as a longtable: twelve documented claims that do not hold,
+each with the documented claim, the implemented reality, and the evidence
+location. The material is already assembled in
+\code{docs/thesis/ARCHITECTURE\_PRIMER.md}, section 6 --- transfer it here,
+re-verifying each row against current code first, since the codebase has moved
+since the primer was written.}
+
+\TODO{Frame the discussion around \emph{why} documentation drifts in a
+single-developer project under time pressure, and what would prevent it ---
+generated architecture documentation, tests that assert on documented claims, or
+simply deleting archived code rather than retaining it. Avoid moralising; treat
+it as an engineering-process observation.}
+
+\subsection{Built versus Deployed}
+\label{sec:built-vs-deployed}
+
+\thesisfigure{f17-flag-reality}
+  {Feature-flag reality. Every flag in the project defaults to off, so the
+   deployed product is a strict subset of the implemented one.}
+  {fig:flag-reality}
+
+\TODO{The reframing that makes this chapter interesting: not "what was built?"
+but "what was delivered?". Cover the three inconsistent half-states where a
+frontend flag is on and its backend counterpart off, producing a visible
+navigation entry whose endpoint returns 404; the structural divergence between
+local and deployed configuration caused by environment files excluded from the
+container image; and the cascade in which a single default empties three
+database tables. Close with the observation that the production default is the
+least-tested configuration, since the test suite forces two flags on.}
+
+\subsection{The Citation Gap}
+\label{sec:citation-gap}
+
+\thesisfigure{f16-citation-gap}
+  {Source attribution is computed correctly on the server and consumed by no
+   reachable user interface.}
+  {fig:citation-gap}
+
+\TODO{The sharpest single finding, and a good closing note for the chapter.
+Citations are computed and validated server-side; the component that renders
+them with clickable slide-jump exists and is imported nowhere; the two live
+student surfaces either ignore the field or substitute a label derived from the
+currently visible slide. So groundedness is real at the API boundary and
+invisible at the user boundary. Connect this to RQ3: a user cannot perceive a
+trustworthiness mechanism that is not surfaced, which has a direct bearing on
+any claim about perceived reliability.}
+
+\section{Threats to Validity}
+\label{sec:threats}
+
+\TODO{Be thorough here; it is cheap credit. At minimum: the audit was performed
+by the system's own author, so confirmation bias cuts both ways; golden sets are
+small and self-authored; the LLM judge shares a model family with the system
+under test; no controlled comparison against static slides exists; and single-
+machine deployment means nothing is known about behaviour at scale.}
+
+\section{Unanswered Research Questions}
+\label{sec:unanswered}
+
+\TODO{Required, not optional, if RQ2 and RQ3 remain in \cref{sec:research-questions}.
+Both are perception questions needing participants, and no study was conducted.
+Either agree a scope reduction with your supervisor, or contribute a concrete
+study design --- population, instrument, comparison condition, and the metrics
+the existing event telemetry could and could not supply. A well-designed study
+that was not run is a legitimate contribution; an implied answer is not.}

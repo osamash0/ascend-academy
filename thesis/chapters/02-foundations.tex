@@ -1,0 +1,68 @@
+\chapter{Foundations and Related Work}
+\label{ch:foundations}
+
+\section{Document Understanding and Layout Analysis}
+\label{sec:document-ai}
+
+\TODO{Concepts before tools: text extraction versus layout recovery versus
+semantic structuring. Then the concrete tools this system uses --- PyMuPDF as
+the live extractor, with MarkItDown, LlamaParse, MinerU and OpenDataLoader as
+swappable text front-ends.}
+
+\section{Large Language Models for Content Generation}
+\label{sec:llms}
+
+\TODO{Enough to support \cref{ch:design}: prompting, structured (JSON) output,
+batching for cost, and the failure modes that matter here --- hallucination,
+prompt injection, and provider unavailability.}
+
+\section{Retrieval-Augmented Generation and Groundedness}
+\label{sec:rag}
+
+\TODO{Define groundedness, and distinguish the mechanisms that can enforce it:
+scoped retrieval, prompt constraint, refusal gating on a similarity threshold,
+and post-hoc citation validation. This taxonomy is what \cref{fig:groundedness}
+instantiates, so define the terms here and reuse them.}
+
+\thesisfigure{f3-grounded-vs-ungrounded}
+  {Two groundedness regimes over the same corpus. The system contains both,
+   with materially different guarantees --- and the stronger one is not the one
+   users can reach.}
+  {fig:groundedness}
+
+\TODO{\Cref{fig:groundedness} is worth dwelling on because it is a natural
+experiment inside a single codebase rather than a comparison across systems:
+the same corpus, two tutors, one with a pre-generation refusal gate and one
+without. Note that the gate is a pure function, written that way deliberately
+so a CI evaluation set can assert on it.}
+
+\section{Spaced Repetition}
+\label{sec:srs}
+
+\TODO{SM-2 at the level needed for \cref{ch:implementation}: interval,
+ease factor, graduating intervals, and the rating scale. Note that the
+implementation hides the algorithm behind a stable interface so FSRS could be
+substituted without a schema migration --- a design decision worth citing.}
+
+\section{Gamification in Learning Systems}
+\label{sec:gamification}
+
+\TODO{Overview depth only --- this supports RQ2, which is not empirically
+answered in this work. Keep it short and resist padding.}
+
+\section{Positioning of this Work}
+\label{sec:positioning}
+
+\thesisfigure{f2-positioning}
+  {Positioning relative to the surrounding solution space. Document-conversion
+   tooling recovers structure without pedagogy; learning platforms provide
+   pedagogy but assume authored content; retrieval-augmented question answering
+   grounds answers without materialising reusable objects.}
+  {fig:positioning}
+
+\TODO{IMPORTANT --- \cref{fig:positioning} is currently derived from this
+system's own capabilities and dependency set, NOT from a literature search. It
+must not be presented as a survey until you have populated each family with the
+specific works you cite in this chapter. Once you do, re-check that the
+boundaries still hold; if a cited system spans two families, the framing needs
+adjusting rather than the citation being forced.}

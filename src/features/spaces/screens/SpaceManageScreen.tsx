@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useReducer, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Archive,
+  FolderInput,
   Settings2,
   ShieldAlert,
   Trash2,
@@ -12,13 +13,15 @@ import {
 import { cn } from '@/lib/utils';
 import type { Role, SpaceMode } from '../types';
 import { canDelete, spaceById } from '../mocks/spaces';
-import { membersForSpace } from '../mocks/contributions';
+import { membersForSpace, orphansForSpace } from '../mocks/contributions';
 import { viewer } from '../mocks/people';
 import { StudioAction, StudioPill, StudioShell } from '../components/StudioShell';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { useScreenState } from '../data/useSpaces';
 import { JoinCodeBlock } from '../components/SpaceDialogs';
 import { AuthorLine } from '../components/badges';
+import { ReanchorDialog } from '../components/ReanchorDialog';
+import type { Contribution } from '../types';
 
 /**
  * Manage a Space — the Owner's Studio screen.
@@ -70,6 +73,9 @@ export default function SpaceManageScreen() {
   const [grounding, setGrounding] = useState(space?.groundingEnabled ?? false);
   const [strict, setStrict] = useState(space?.strictMode ?? false);
   const [confirmName, setConfirmName] = useState('');
+  /** The orphan being re-filed, if the dialog is open. */
+  const [rehoming, setRehoming] = useState<Contribution | null>(null);
+  const [, reread] = useReducer((n: number) => n + 1, 0);
 
   // `?mock=loading|error` did nothing on this screen. Not-found already had
   // its own branch below and stays separate — a missing Space and a failed
@@ -121,6 +127,7 @@ export default function SpaceManageScreen() {
   }
 
   const members = membersForSpace(space.id);
+  const orphans = orphansForSpace(space.id);
   const deletable = canDelete(space, confirmName);
 
   return (
@@ -241,6 +248,44 @@ export default function SpaceManageScreen() {
         </div>
       </Section>
 
+      {/*
+        Doc 1, Contributions rule 1: an orphan is surfaced to the Owner *and*
+        the author. The author had Library; the Owner had nowhere at all — an
+        orphan's Lesson anchor dangles, so it appears in neither
+        `contributionsForLesson` nor `contributionsForSpace`, and no Space
+        screen could list one. This is that missing half.
+
+        Hidden when there are none, rather than an empty state: this is a
+        repair queue, and a permanent "nothing needs attention" heading on a
+        management screen is noise that teaches people to skip the section.
+      */}
+      {orphans.length > 0 && (
+        <Section
+          title="Needs a new home"
+          blurb="The Lesson these were attached to was deleted. They are still here and still count — give each one a Lesson, or leave them and their authors can."
+        >
+          <div className="space-y-2">
+            {orphans.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-4 rounded-xl border border-warning/25 bg-warning/[0.04] px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{c.title}</p>
+                  <div className="mt-1">
+                    <AuthorLine person={c.author} />
+                  </div>
+                </div>
+                <StudioAction onClick={() => setRehoming(c)}>
+                  <FolderInput aria-hidden className="h-4 w-4" />
+                  Find it a home
+                </StudioAction>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       <Section
         title="Members"
         blurb="Editors can add and edit content. Members learn, and can always contribute."
@@ -322,6 +367,21 @@ export default function SpaceManageScreen() {
       </Section>
 
       {/* Destructive, irreversible, and therefore behind an exact name match. */}
+      {rehoming && (
+        <ReanchorDialog
+          contribution={rehoming}
+          spaceId={space.id}
+          spaceName={space.name}
+          viewerRole={space.viewerRole}
+          open
+          onOpenChange={(v) => !v && setRehoming(null)}
+          onMoved={() => {
+            setRehoming(null);
+            reread();
+          }}
+        />
+      )}
+
       <section className="mt-12 rounded-xl border border-destructive/25 bg-destructive/[0.04] p-5">
         <h2 className="mb-1 flex items-center gap-2 text-[15px] font-semibold text-destructive">
           <Trash2 aria-hidden className="h-4 w-4" />
