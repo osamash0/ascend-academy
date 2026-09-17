@@ -60,6 +60,12 @@ class RunStatus(str, Enum):
     """State machine for `parse_runs.status` (whole-deck pipeline state)."""
 
     QUEUED = "queued"
+    # Legacy waiting state, written by pre-v3 code. Nothing emits it today, but
+    # parse_runs.status has no CHECK constraint, so old rows carrying it are
+    # still out there — and _run_from_row does RunStatus(row["status"]), which
+    # would raise on any row this enum doesn't know. Kept so the stalled-run
+    # sweep can load and fail those rows instead of exploding on them.
+    PENDING = "pending"
     EXTRACTING = "extracting"
     OUTLINING = "outlining"
     ANALYZING = "analyzing"

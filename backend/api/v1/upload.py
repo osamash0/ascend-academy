@@ -721,7 +721,10 @@ async def retry_run_endpoint(
     if run.status != RunStatus.FAILED:
         raise HTTPException(status_code=409, detail="Only failed runs can be retried.")
 
-    await parser_repos.set_status(run_uuid, RunStatus.QUEUED)
+    # requeue_run, not set_status: it also restarts started_at, so the retried
+    # row isn't instantly "stalled" to the waiting-state sweep, and clears the
+    # previous attempt's error from the uploads panel.
+    await parser_repos.requeue_run(run_uuid)
     pool = await upload_service.get_arq_pool()
     await pool.enqueue_job(
         "parse_pdf_unified",
