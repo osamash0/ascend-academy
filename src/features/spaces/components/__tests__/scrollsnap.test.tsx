@@ -20,8 +20,9 @@ import { join } from 'node:path';
  * point. The two values have to agree, and nothing else in the suite compares
  * them — which is how they came apart in the first place.
  *
- * Two reasons this is a source guard rather than a render test. jsdom
- * implements no scroll-snap geometry at all, so a render test would pass with
+ * Two reasons this is a source guard rather than a render test. happy-dom —
+ * the suite's environment, per `vitest.config.ts` — implements no scroll-snap
+ * geometry at all, so a render test would pass with
  * the bug fully present. And the failure was invisible on the one rail that
  * happens to fit its viewport: "New this week" never overflows, never snaps,
  * and looked correct the whole time — so measuring one rail, which is what I

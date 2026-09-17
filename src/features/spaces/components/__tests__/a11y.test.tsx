@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { allSources, readSource } from './sources';
+import { render, screen } from '@testing-library/react';
+import { allSources, readSource, sourceFiles } from './sources';
+import { ReaderRail } from '../reader/ReaderRail';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -220,6 +222,136 @@ describe('motion follows the operating system everywhere', () => {
         '<MotionConfig',
       );
     }
+  });
+});
+
+describe('every landmark says which one it is', () => {
+  it('names every aside in the namespace', () => {
+    /*
+     * An `<aside>` is a `complementary` landmark, and a landmark's whole value
+     * is that it can be jumped to from a list. Unnamed, it appears in that list
+     * as "complementary" — one of possibly several, distinguishable only by
+     * entering each in turn, which is the navigation it was supposed to save.
+     *
+     * A source guard rather than a render test because the rule is about every
+     * aside this namespace ever grows, not about the one that exists today.
+     *
+     * The loop was vacuous-if-empty: there is exactly one `<aside>` here, and
+     * a refactor that renamed it to a `<div role="complementary">` would have
+     * left this iterating over nothing and reporting green. So the count is
+     * asserted first. It is deliberately `>= 1` rather than a pinned number —
+     * the rule is about every aside, and a second one is not a regression.
+     */
+    const asides = files.flatMap(({ name, body }) =>
+      (body.match(/<aside[^>]*>/gs) ?? []).map((tag) => ({ name, tag })),
+    );
+    expect(asides.length, 'no <aside> in the namespace, so this guard checks nothing').
+      toBeGreaterThanOrEqual(1);
+    for (const { name, tag } of asides) {
+      expect(
+        /aria-label(?:ledby)?=/.test(tag),
+        `${name}: an unnamed complementary landmark`,
+      ).toBe(true);
+    }
+  });
+
+  it('gives the rail the name a landmark list will show', () => {
+    /*
+     * Asserted as a rendered role, not as a string in a file: `<aside>` inside
+     * sectioning content is not a landmark at all, and only the tree knows.
+     *
+     * This is also what keeps the source guard above honest, and the pairing
+     * is worth naming because it is invisible from either side: that one loops
+     * over `<aside>` tags and would go quiet if the last one were replaced by
+     * a `<div role="complementary">`; this one would go red. Delete either and
+     * the namespace loses half a rule.
+     */
+    render(
+      <ReaderRail
+        open
+        tab="notes"
+        onTabChange={() => {}}
+        onClose={() => {}}
+        tutor={null}
+        notes={null}
+      />,
+    );
+    expect(screen.getByRole('complementary', { name: 'Reader companions' })).toBeTruthy();
+  });
+});
+
+describe('every control the reader grew shows where the keyboard is', () => {
+  /*
+   * `console-focusable` is the namespace's one focus ring, and a control
+   * without it is not invisible — it is *worse*: the browser's default outline
+   * is drawn under the same dark backdrop the ring was built to survive, so a
+   * keyboard user loses the caret exactly where the surface has no other
+   * chrome to orient by.
+   *
+   * Swept over the reader specifically rather than the whole namespace,
+   * because the reader is what this pass added to and a namespace-wide version
+   * would be a different, larger claim to make good on.
+   *
+   * Two of the three entries are hand-named files and only the third is a
+   * directory, so what is actually covered is: a new control under
+   * `components/reader/` is swept on the day it lands, and a new reader file
+   * anywhere else is not. That is not hypothetical — `LessonPager.tsx` is a
+   * reader control living outside `components/reader/` and had to be added
+   * here by hand. Said plainly because the comment used to claim the whole
+   * reader was in by directory, which is the coverage this list would like to
+   * have rather than the coverage it has.
+   */
+  const surface = [
+    { name: 'screens/ReaderScreen.tsx', body: readSource('screens/ReaderScreen.tsx') },
+    { name: 'components/LessonPager.tsx', body: readSource('components/LessonPager.tsx') },
+    ...sourceFiles('components/reader'),
+  ];
+
+  /**
+   * Open tags for the interactive elements, scanned rather than matched.
+   *
+   * `/<button[^>]*>/` stops at the first `>`, which in this namespace is
+   * routinely inside `aria-label={unread > 0 …}` or an arrow function —
+   * `deadends.test.tsx` says the same thing and for the same reason.
+   */
+  const openTags = (body: string, tags: string[]): string[] => {
+    const out: string[] = [];
+    for (const tag of tags) {
+      let i = 0;
+      while ((i = body.indexOf(`<${tag}`, i)) !== -1) {
+        let depth = 0;
+        let quote: string | null = null;
+        let j = i;
+        for (; j < body.length; j++) {
+          const ch = body[j];
+          if (quote) {
+            if (ch === quote) quote = null;
+            continue;
+          }
+          if (ch === '"' || ch === "'" || ch === '`') quote = ch;
+          else if (ch === '{') depth++;
+          else if (ch === '}') depth--;
+          else if (ch === '>' && depth === 0) break;
+        }
+        out.push(body.slice(i, j + 1));
+        i = j + 1;
+      }
+    }
+    return out;
+  };
+
+  it('puts the ring on every button and link the reader renders', () => {
+    const offenders: string[] = [];
+    let checked = 0;
+    for (const { name, body } of surface) {
+      for (const tag of openTags(body, ['button', 'Link', 'PressableLink', 'motion.button'])) {
+        checked++;
+        if (/console-focusable/.test(tag)) continue;
+        offenders.push(`${name}: ${tag.replace(/\s+/g, ' ').slice(0, 90)}`);
+      }
+    }
+    expect(checked, 'the sweep found no controls, so it proves nothing').toBeGreaterThan(10);
+    expect(offenders, `controls with no focus ring:\n${offenders.join('\n')}`).toEqual([]);
   });
 });
 
