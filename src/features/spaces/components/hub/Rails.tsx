@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Check, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { ModeBadge } from '../badges';
 import type { Space } from '../../types';
 import { coverFor, initialFor } from '../../mocks/covers';
 import { actionFor, membershipOf } from '../../mocks/hub';
@@ -25,7 +26,7 @@ import { PRESS_SPRING } from '../Pressable';
  * so adding a row never means computing another delay.
  */
 
-const GUTTER = 'px-[22px] sm:px-16';
+export const GUTTER = 'px-[22px] sm:px-16';
 /**
  * The same gutter again, as *scroll* padding. Not a duplicate — a fix.
  *
@@ -314,9 +315,21 @@ export function StandardCard({ space }: { space: Space }) {
         <span className="mx-0.5 mb-[3px] mt-[11px] block truncate text-[15px] font-medium">
           {space.name}
         </span>
-        <span className="mx-0.5 block text-[13px] text-quiet transition-colors group-hover:text-foreground">
-          {space.memberCount.toLocaleString()} members
-          {isPrivate && ' · invite only'}
+        <span className="mx-0.5 flex items-center gap-2 text-[13px] text-quiet transition-colors group-hover:text-foreground">
+          <span className="truncate">
+            {space.memberCount.toLocaleString()} members
+            {isPrivate && ' · invite only'}
+          </span>
+          {/*
+            Guided or Open, on the card.
+            `notes-spaces-screen.md` gap 7, and the one card fact that changes
+            what you can *do* rather than what is in there: in a Guided Space
+            only Owners and Editors publish into the path, in an Open one every
+            Member can. Someone deciding whether to join is deciding that, and
+            it was the only card property with a component already built
+            (`ModeBadge`) and no caller on this screen.
+          */}
+          <ModeBadge mode={space.mode} className="shrink-0" />
         </span>
       </Link>
     </motion.div>
@@ -376,11 +389,21 @@ export function CompactCard({ space }: { space: Space }) {
  */
 export function HubPill({
   to,
+  onPress,
   label,
   disabled,
   small,
 }: {
-  to: string;
+  /** Where it goes. Omitted when the pill acts on this page instead. */
+  to?: string;
+  /**
+   * An action rather than a destination.
+   *
+   * Discover needs one: its content is the rails below the fold, so the hero's
+   * button belongs to this page. It used to be a Link to `/v4/spaces-legacy`,
+   * which walked you out of the hub into the screen the hub replaced.
+   */
+  onPress?: () => void;
   label: string;
   disabled?: boolean;
   small?: boolean;
@@ -402,9 +425,15 @@ export function HubPill({
   }
   return (
     <motion.div className="inline-block" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} transition={PRESS_SPRING}>
-      <Link to={to} className={cls}>
+      {onPress ? (
+        <button type="button" onClick={onPress} className={cls}>
+          {label}
+        </button>
+      ) : (
+      <Link to={to ?? '#'} className={cls}>
         {label}
       </Link>
+      )}
     </motion.div>
   );
 }

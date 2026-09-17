@@ -1,0 +1,23 @@
+# latexmk / pdflatex build artefacts
+build/
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.bbl
+*.bcf
+*.blg
+*.run.xml
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.nav
+*.snm
+*.vrb
+
+# The compiled thesis. Regenerate with `make`; no reason to version a PDF that
+# changes on every build. Remove this line if you want submission snapshots
+# tracked instead.
+main.pdf

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson Reader — Learnstation v4 mockup</title>
+<style>
+  :root{
+    --bg:#0b0d14; --surface:#141824; --surface-2:#1b2030; --border:#262c3f;
+    --text:#eef1f8; --quiet:rgba(255,255,255,.72); --faint:rgba(255,255,255,.5);
+    --accent:#6c5ce7; --accent-2:#00d2d3; --good:#2ecc71;
+    --rail-w:384px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Inter',system-ui,sans-serif}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *{transition:none!important;animation:none!important}
+  }
+  body{background:var(--bg);color:var(--text);min-height:100vh}
+  button{cursor:pointer;font-family:inherit}
+  ::selection{background:rgba(108,92,231,.45)}
+
+  /* ── Scroll progress: the only always-on progress chrome ── */
+  #scrollbar{position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+
+  /* ── Reader header: where you are, and a way out. Nothing else. ── */
+  .rhead{position:fixed;top:0;left:0;right:0;height:56px;z-index:50;
+    display:flex;align-items:center;gap:14px;padding:0 18px;
+    background:rgba(11,13,20,.88);backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(255,255,255,.06)}
+  .exit{width:36px;height:36px;border-radius:50%;border:0;background:none;color:var(--quiet);
+    font-size:15px;display:grid;place-items:center;transition:background .15s}
+  .exit:hover{background:rgba(255,255,255,.07);color:var(--text)}
+  .crumb{font-size:13px;color:var(--quiet);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crumb b{color:var(--text);font-weight:600}
+
+  .seg{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px;margin:0 auto}
+  .seg button{border:0;background:none;color:var(--quiet);font-size:13px;font-weight:500;
+    padding:6px 18px;border-radius:99px}
+  .seg button.on{background:var(--surface-2);color:var(--text)}
+
+  .dots{display:flex;gap:6px;align-items:center;margin-right:6px}
+  .dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.14)}
+  .dot.done{background:var(--good)}
+  .dot.now{background:var(--accent-2);box-shadow:0 0 0 3px rgba(0,210,211,.15)}
+  .railbtns{display:flex;gap:4px}
+  .rbtn{width:36px;height:36px;border-radius:10px;border:1px solid transparent;background:none;
+    color:var(--quiet);font-size:15px;display:grid;place-items:center;transition:all .15s}
+  .rbtn:hover{background:rgba(255,255,255,.06);color:var(--text)}
+  .rbtn.on{background:var(--surface-2);border-color:var(--border);color:var(--accent-2)}
+
+  /* ── Stage ── */
+  .stage{display:flex;padding-top:56px;min-height:100vh}
+  .main{flex:1;min-width:0;transition:margin .25s ease}
+
+  /* ── Read view ── */
+  .article{max-width:720px;margin:0 auto;padding:48px 32px 120px}
+  .kicker{font-size:12.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--faint);
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .kicker .badge{font-size:11px;letter-spacing:0;text-transform:none;font-weight:600;
+    border:1px solid var(--border);border-radius:99px;padding:3px 9px;color:var(--quiet)}
+  .kicker .badge.official{border-color:rgba(108,92,231,.5);color:#b3a7ff}
+  h1{font-size:36px;line-height:1.15;letter-spacing:-.02em;font-weight:700;margin:14px 0 8px;text-wrap:balance}
+  .byline{font-size:13.5px;color:var(--quiet);display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .byline .av{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#c98a1b,#e0a63f);
+    display:grid;place-items:center;font-size:10px;font-weight:700;color:#1a1408}
+  .passage{margin-top:56px}
+  .passage h2{font-size:21px;font-weight:650;letter-spacing:-.01em;margin-bottom:6px;text-wrap:balance}
+  .cstate{font-size:12px;color:var(--faint);margin-bottom:16px;display:inline-flex;align-items:center;gap:6px}
+  .cstate.done{color:var(--good)}
+  .passage p{max-width:52ch;font-size:17px;line-height:1.75;color:rgba(238,241,248,.92);margin-bottom:20px}
+  .hint{margin-top:64px;padding:14px 18px;border:1px dashed var(--border);border-radius:12px;
+    font-size:13px;color:var(--faint);max-width:52ch}
+  .hint b{color:var(--quiet)}
+
+  /* ── Selection popover: Moonlight's one great idea, kept ── */
+  #selpop{position:absolute;z-index:70;display:none;gap:2px;padding:4px;
+    background:var(--surface-2);border:1px solid #333c55;border-radius:12px;
+    box-shadow:0 10px 34px rgba(0,0,0,.55)}
+  #selpop button{border:0;background:none;color:var(--text);font-size:13px;font-weight:500;
+    padding:7px 12px;border-radius:9px;white-space:nowrap}
+  #selpop button:hover{background:rgba(255,255,255,.08)}
+  #selpop .ask{color:#7ee7e8}
+
+  /* ── Source view: the Material, the layout the old app got right ── */
+  .source{display:none;max-width:980px;margin:0 auto;padding:40px 32px 120px}
+  .srchead{display:flex;align-items:baseline;gap:12px;margin-bottom:18px}
+  .srchead .t{font-size:15px;font-weight:600}
+  .srchead .m{font-size:12.5px;color:var(--faint)}
+  .page-card{background:#f4f5f9;border-radius:14px;aspect-ratio:4/3;max-height:66vh;margin:0 auto;
+    color:#1c2030;padding:6% 7%;position:relative;overflow:hidden;
+    box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .page-card h3{font-size:clamp(18px,2.6vw,28px);color:#2b3550;margin-bottom:4%}
+  .page-card li{font-size:clamp(12px,1.6vw,17px);line-height:1.6;margin:0 0 2.5% 1.2em;color:#3a4258}
+  .page-card svg{position:absolute;right:6%;bottom:8%;width:38%;height:auto}
+  .pageno{position:absolute;bottom:3.5%;left:7%;font-size:11px;color:#9aa1b5}
+  .srcnav{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:20px}
+  .srcnav button{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);
+    background:var(--surface);color:var(--text);font-size:15px}
+  .srcnav .pg{font-size:13.5px;color:var(--quiet);font-variant-numeric:tabular-nums}
+  .synced{display:block;text-align:center;margin-top:14px;font-size:12.5px;color:var(--faint)}
+  .synced a{color:var(--accent-2);text-decoration:none}
+
+  /* ── Right rail: summoned, never squatting ── */
+  .rail{position:fixed;top:56px;right:0;bottom:0;width:var(--rail-w);z-index:40;
+    background:#10131d;border-left:1px solid var(--border);
+    display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease}
+  body.rail-open .rail{transform:none}
+  body.rail-open .main{margin-right:var(--rail-w)}
+  @media (max-width:900px){ body.rail-open .main{margin-right:0} .rail{width:min(92vw,var(--rail-w))} }
+
+  .railhead{display:flex;align-items:center;gap:4px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
+  .rtab{border:0;background:none;color:var(--quiet);font-size:13.5px;font-weight:500;
+    padding:7px 14px;border-radius:9px}
+  .rtab.on{background:var(--surface-2);color:var(--text)}
+  .railhead .x{margin-left:auto}
+
+  .panel{display:none;flex:1;min-height:0;flex-direction:column}
+  .panel.on{display:flex}
+
+  /* Tutor */
+  .grounded{margin:12px 14px 0;padding:8px 12px;border:1px solid rgba(0,210,211,.25);
+    background:rgba(0,210,211,.05);border-radius:10px;font-size:12px;color:#8fd9da;
+    display:flex;gap:8px;align-items:center}
+  .thread{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+  .quote-chip{align-self:flex-end;max-width:88%;font-size:12.5px;color:var(--quiet);
+    border-left:2px solid var(--accent);background:rgba(108,92,231,.08);
+    padding:8px 12px;border-radius:4px 10px 10px 4px;font-style:italic}
+  .msg{max-width:88%;font-size:14px;line-height:1.6;padding:10px 14px;border-radius:14px}
+  .msg.you{align-self:flex-end;background:var(--accent);border-bottom-right-radius:4px}
+  .msg.tutor{align-self:flex-start;background:var(--surface-2);border-bottom-left-radius:4px;color:rgba(238,241,248,.95)}
+  .cites{align-self:flex-start;display:flex;gap:6px;flex-wrap:wrap;margin-top:-4px}
+  .cite{font-size:11.5px;color:var(--accent-2);border:1px solid rgba(0,210,211,.3);
+    background:none;border-radius:99px;padding:4px 10px}
+  .cite:hover{background:rgba(0,210,211,.08)}
+  .tutor-empty{flex:1;display:grid;place-items:center;padding:30px;text-align:center}
+  .tutor-empty p{font-size:13.5px;color:var(--faint);max-width:30ch;line-height:1.6}
+  .quicks{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 10px}
+  .quick{font-size:12px;color:var(--quiet);border:1px solid var(--border);background:none;
+    border-radius:99px;padding:6px 12px}
+  .quick:hover{border-color:#3a4258;color:var(--text)}
+  .composer{display:flex;gap:8px;padding:12px 14px;border-top:1px solid rgba(255,255,255,.06)}
+  .composer input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    color:var(--text);font-size:14px;padding:11px 14px;outline:none}
+  .composer input:focus{border-color:#4a4090}
+  .composer button{width:42px;border-radius:12px;border:0;font-size:15px;
+    background:linear-gradient(135deg,var(--accent),#8d7bff);color:#fff}
+
+  /* Notes */
+  .notes{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .note{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+  .note .q{font-size:12px;color:var(--faint);border-left:2px solid var(--accent);
+    padding:2px 0 2px 10px;margin-bottom:8px;font-style:italic}
+  .note .b{font-size:13.5px;line-height:1.55;color:rgba(238,241,248,.9)}
+  .note .meta{font-size:11px;color:var(--faint);margin-top:8px}
+  .note-new textarea{width:100%;min-height:74px;resize:vertical;background:var(--surface);
+    border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:13.5px;
+    line-height:1.55;padding:11px 13px;outline:none;font-family:inherit}
+  .note-new textarea:focus{border-color:#4a4090}
+  .note-new .row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+  .note-new .priv{font-size:11.5px;color:var(--faint)}
+  .note-new .save{border:0;border-radius:9px;background:var(--surface-2);color:var(--text);
+    font-size:12.5px;font-weight:600;padding:7px 14px}
+
+  /* ── End of the reading: what to do next ── */
+  .after{max-width:720px;margin:0 auto;padding:0 32px 40px}
+  .practice-cta{display:inline-flex;align-items:center;gap:9px;height:48px;padding:0 26px;
+    border:0;border-radius:99px;background:#fff;color:#141824;font-size:14.5px;font-weight:600}
+  .pager{display:flex;gap:12px;margin-top:36px}
+  .pcard{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:14px 16px;text-decoration:none;color:var(--text);transition:border-color .15s}
+  .pcard:hover{border-color:#3a4258}
+  .pcard .dir{font-size:11.5px;color:var(--faint);margin-bottom:4px}
+  .pcard .name{font-size:14px;font-weight:600}
+  .pcard.next{text-align:right}
+  .divider{border-top:1px solid rgba(255,255,255,.08);margin:56px 0 32px}
+
+  /* ── Design notes (meta, not product) ── */
+  .annot{max-width:720px;margin:40px auto 60px;padding:0 32px;font-size:12px;color:var(--faint);line-height:1.8}
+  .annot summary{cursor:pointer;color:var(--quiet);font-size:12.5px;font-weight:600;margin-bottom:10px}
+  .annot b{color:var(--quiet)}
+  .annot td{padding:4px 14px 4px 0;vertical-align:top}
+  .annot .no{color:#e07a7a}
+  .annot .yes{color:var(--good)}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,80px);z-index:80;
+    background:var(--surface-2);border:1px solid #333c55;color:var(--text);font-size:13px;
+    padding:10px 18px;border-radius:99px;opacity:0;transition:all .3s;pointer-events:none}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  :focus-visible{outline:2px solid var(--accent-2);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<div id="scrollbar"></div>
+
+<!-- Header: exit · place · view · progress · companions -->
+<header class="rhead">
+  <button class="exit" title="Back to the Lesson overview" aria-label="Leave the reader">✕</button>
+  <span class="crumb">Datenbanksysteme · <b>Lesson 7</b></span>
+
+  <div class="seg" role="tablist" aria-label="Reader view">
+    <button id="segRead" class="on" onclick="setView('read')">Read</button>
+    <button id="segSource" onclick="setView('source')">Source</button>
+  </div>
+
+  <div class="dots" title="2 of 5 ideas cleared" aria-label="2 of 5 ideas cleared">
+    <span class="dot done"></span><span class="dot done"></span><span class="dot now"></span><span class="dot"></span><span class="dot"></span>
+  </div>
+  <div class="railbtns">
+    <button id="btnTutor" class="rbtn" title="Tutor" aria-label="Open the tutor" onclick="toggleRail('tutor')">✦</button>
+    <button id="btnNotes" class="rbtn" title="Your notes" aria-label="Open your notes" onclick="toggleRail('notes')">✎</button>
+  </div>
+</header>
+
+<div class="stage">
+<div class="main" id="main">
+
+  <!-- ════ READ VIEW ════ -->
+  <article class="article" id="viewRead">
+    <div class="kicker">
+      <span class="badge official">Official</span>
+      <span>Lesson 7 of 12</span>
+    </div>
+    <h1>B-Trees &amp; Index Structures</h1>
+    <div class="byline"><span class="av">JW</span> Jonas Weber · Editor</div>
+
+    <section class="passage" id="p1">
+      <h2>Why binary trees fail on disk</h2>
+      <span class="cstate done">✓ Cleared</span>
+      <p>A binary search tree is a beautiful structure for memory and a terrible one for disk. Every comparison follows a pointer, and on disk a pointer means a seek: for a million keys, a balanced binary tree performs around twenty of them. Twenty seeks per lookup is not a data structure — it is a queue at the hardware.</p>
+      <p>The insight behind every disk-based index is that a seek fetches an entire page, typically four to sixteen kilobytes, whether you use one byte of it or all of them. If you are paying for the whole page, the structure should fill the whole page.</p>
+    </section>
+
+    <section class="passage" id="p2">
+      <h2>The B-Tree invariant</h2>
+      <span class="cstate done">✓ Cleared</span>
+      <p>A B-Tree node is a page. Instead of one key and two children, a node packs hundreds of sorted keys and as many children as keys plus one. The number of children a node can have is its fan-out, and fan-out is the whole trick: with a fan-out of 500, three levels reach 125&nbsp;million keys.</p>
+      <p>The invariant that keeps this honest: every node except the root stays at least half full, and all leaves sit at the same depth. Inserting into a full node splits it in two and promotes the middle key upward; the tree grows from the root, never from the leaves, which is why it can never become unbalanced.</p>
+    </section>
+
+    <section class="passage" id="p3">
+      <h2>Searching and inserting</h2>
+      <span class="cstate">Reading now</span>
+      <p>A search is a walk from the root: binary-search the keys inside the node, follow the child pointer between the two keys that bracket your target, repeat. Each step is one page read, so the cost of any lookup is the height of the tree — three or four pages for tables of practically any size.</p>
+      <p>Insertion does the same walk to find the right leaf, places the key, and only does extra work in the rare case the leaf is full. The split promotes one key to the parent, which may itself split — a chain that reaches the root only once in millions of insertions.</p>
+    </section>
+
+    <section class="passage" id="p4">
+      <h2>B+ trees and range scans</h2>
+      <span class="cstate">Not yet</span>
+      <p>Real databases almost always use the B+ variant: interior nodes hold only routing keys, and every value lives in the leaves, which are chained left-to-right. A range query becomes one descent followed by a linked-list walk — no re-entering the tree between neighbours.</p>
+    </section>
+
+    <section class="passage" id="p5">
+      <h2>Indexes in practice</h2>
+      <span class="cstate">Not yet</span>
+      <p>An index accelerates exactly the queries whose predicates match its key order, and taxes every write. Choosing indexes is a workload decision, not a schema decision — which is why it is the last chapter of this Lesson and the first question of the next one.</p>
+    </section>
+
+    <p class="hint"><b>Try it:</b> select any sentence above. Asking the tutor and saving a note both start from the text itself — the answer arrives already knowing what you were reading.</p>
+
+    <div class="divider"></div>
+    <div class="after" style="padding-left:0;padding-right:0;max-width:none">
+      <button class="practice-cta" onclick="toast('Practice is its own surface — next mock.')">☑&nbsp; Practise what you just read</button>
+      <div class="pager">
+        <a class="pcard" href="#" onclick="toast('Pager walks published Lessons only.');return false">
+          <div class="dir">← Previous</div><div class="name">Lesson 6 · Hash Indexes</div>
+        </a>
+        <a class="pcard next" href="#" onclick="toast('Pager walks published Lessons only.');return false">
+          <div class="dir">Next →</div><div class="name">Lesson 8 · Query Optimization</div>
+        </a>
+      </div>
+    </div>
+  </article>
+
+  <!-- ════ SOURCE VIEW ════ -->
+  <div class="source" id="viewSource">
+    <div class="srchead">
+      <span class="t">Material · 07-btrees.pdf</span>
+      <span class="m">uploaded by Jonas Weber</span>
+    </div>
+    <div class="page-card">
+      <h3>B-Trees: Insertion &amp; Node Splits</h3>
+      <ul>
+        <li>Search the leaf as usual — O(height) page reads</li>
+        <li>Leaf has room → place key, done</li>
+        <li>Leaf full → <b>split</b>: promote median key to parent</li>
+        <li>Splits cascade upward; root split grows the tree</li>
+      </ul>
+      <svg viewBox="0 0 300 150" aria-label="B-tree split diagram">
+        <g fill="none" stroke="#8d93ab" stroke-width="1.5">
+          <rect x="110" y="10" width="80" height="26" rx="5" fill="#dfe3f0"/>
+          <rect x="20" y="70" width="80" height="26" rx="5" fill="#eef0f7"/>
+          <rect x="120" y="70" width="60" height="26" rx="5" fill="#eef0f7"/>
+          <rect x="205" y="70" width="80" height="26" rx="5" fill="#c9d7f5"/>
+          <path d="M140 36 L60 70 M150 36 L150 70 M162 36 L242 70"/>
+          <rect x="185" y="118" width="50" height="22" rx="4" fill="#eef0f7"/>
+          <rect x="243" y="118" width="50" height="22" rx="4" fill="#eef0f7"/>
+          <path d="M235 96 L212 118 M258 96 L266 118" stroke="#7048c7"/>
+        </g>
+        <text x="150" y="27" font-size="11" fill="#2b3550" text-anchor="middle">17 · 42</text>
+        <text x="245" y="87" font-size="11" fill="#2b3550" text-anchor="middle">split!</text>
+      </svg>
+      <span class="pageno">Softwaretechnik-Folien · Seite <span id="pgIn">12</span></span>
+    </div>
+    <div class="srcnav">
+      <button onclick="pg(-1)" aria-label="Previous page">‹</button>
+      <span class="pg"><span id="pgNo">12</span> / 42</span>
+      <button onclick="pg(1)" aria-label="Next page">›</button>
+    </div>
+    <span class="synced">This page belongs to <a href="#p3" onclick="setView('read')">Searching and inserting</a> — the view you left, not a different document.</span>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ════ RIGHT RAIL ════ -->
+<aside class="rail" id="rail" aria-label="Reader companions">
+  <div class="railhead">
+    <button class="rtab on" id="tabTutor" onclick="showTab('tutor')">✦ Tutor</button>
+    <button class="rtab" id="tabNotes" onclick="showTab('notes')">✎ Notes</button>
+    <button class="rbtn x" onclick="closeRail()" aria-label="Close panel">✕</button>
+  </div>
+
+  <!-- Tutor -->
+  <div class="panel on" id="panelTutor">
+    <div class="grounded">◈ Grounded — answers draw on this Space’s Lessons and name where they came from.</div>
+    <div class="tutor-empty" id="tutorEmpty">
+      <p>Ask about anything in this Lesson — or select a sentence in the text and start from there.</p>
+    </div>
+    <div class="thread" id="thread" style="display:none"></div>
+    <div class="quicks">
+      <button class="quick" onclick="quick('Explain this idea more simply')">Explain more simply</button>
+      <button class="quick" onclick="quick('Give me a concrete example')">Concrete example</button>
+      <button class="quick" onclick="quick('Why does this matter?')">Why does this matter?</button>
+    </div>
+    <div class="composer">
+      <input id="tin" placeholder="Ask about this Lesson…" onkeydown="if(event.key==='Enter')sendMsg()">
+      <button onclick="sendMsg()" aria-label="Send">↑</button>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="panel" id="panelNotes">
+    <div class="notes" id="noteList">
+      <div class="note">
+        <div class="q">“fan-out is the whole trick”</div>
+        <div class="b">Exam guess: they'll ask why height stays ~3–4. Answer = page-sized nodes → huge fan-out → log_500(n).</div>
+        <div class="meta">Yesterday · only you can see this</div>
+      </div>
+      <div class="note-new">
+        <textarea id="nin" placeholder="Write a note…"></textarea>
+        <div class="row">
+          <span class="priv">Private to you, and gathered in your Library.</span>
+          <button class="save" onclick="saveNoteFromEditor()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>
+</div><!-- /stage -->
+
+<!-- Selection popover -->
+<div id="selpop" role="menu">
+  <button class="ask" onclick="popAsk()">✦ Ask the tutor</button>
+  <button onclick="popNote()">✎ Save as note</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Design notes: meta commentary, not part of the product surface -->
+<details class="annot">
+  <summary>Design notes — what this mock keeps, changes, and rejects</summary>
+  <table>
+    <tr><td class="yes">kept</td><td><b>The old Library view's core</b> — source pages with a docked notes/chat rail. It survives as the Source view; the rail is shared with the Read view.</td></tr>
+    <tr><td class="yes">kept</td><td><b>Selection → ask</b> (the Moonlight pattern). The best of the reference: questions start from the text, so grounding is free.</td></tr>
+    <tr><td class="yes">new</td><td><b>Read is the default</b>, not the source. The pipeline writes prose per Concept; the Material is one toggle away and page-synced.</td></tr>
+    <tr><td class="yes">new</td><td><b>The rail is summoned, never squatting.</b> Closed, this is the locked calm reader. Doc 2: the reader is a Learn surface.</td></tr>
+    <tr><td class="no">rejected</td><td><b>Model picker</b> — which LLM answers is an implementation detail. One tutor, one voice; trust comes from the grounding line, not a menu of vendors.</td></tr>
+    <tr><td class="no">rejected</td><td><b>Inline AI rewriting</b> (the Redacto pattern) — Members read Lessons, they don't edit them. Rewriting belongs to the Create pipeline, a Studio surface.</td></tr>
+    <tr><td class="no">rejected</td><td><b>Sibling-Lesson stepper in the header</b> — the path lives on the Space screen; the reader keeps prev/next at the end, where "next" is a real question.</td></tr>
+    <tr><td class="no">rejected</td><td><b>Persistent XP/level HUD</b> — XP is awarded by the engine and announced when earned. A scoreboard over a book is a reason to stop reading.</td></tr>
+    <tr><td class="no">parked</td><td><b>Canvas/whiteboard</b> (the Excalidraw pattern) — possibly a future contribution or note type. Not v1 of the reader.</td></tr>
+  </table>
+</details>
+
+<script>
+  /* view toggle */
+  function setView(v){
+    document.getElementById('viewRead').style.display = v==='read'?'block':'none';
+    document.getElementById('viewSource').style.display = v==='source'?'block':'none';
+    document.getElementById('segRead').classList.toggle('on', v==='read');
+    document.getElementById('segSource').classList.toggle('on', v==='source');
+  }
+
+  /* rail */
+  let railTab=null;
+  function toggleRail(tab){
+    if(document.body.classList.contains('rail-open') && railTab===tab) return closeRail();
+    document.body.classList.add('rail-open'); showTab(tab);
+  }
+  function showTab(tab){
+    railTab=tab;
+    document.getElementById('panelTutor').classList.toggle('on', tab==='tutor');
+    document.getElementById('panelNotes').classList.toggle('on', tab==='notes');
+    document.getElementById('tabTutor').classList.toggle('on', tab==='tutor');
+    document.getElementById('tabNotes').classList.toggle('on', tab==='notes');
+    document.getElementById('btnTutor').classList.toggle('on', tab==='tutor');
+    document.getElementById('btnNotes').classList.toggle('on', tab==='notes');
+  }
+  function closeRail(){
+    document.body.classList.remove('rail-open'); railTab=null;
+    document.getElementById('btnTutor').classList.remove('on');
+    document.getElementById('btnNotes').classList.remove('on');
+  }
+
+  /* selection popover */
+  const pop=document.getElementById('selpop');
+  let selText='';
+  document.getElementById('viewRead').addEventListener('mouseup',()=>{
+    setTimeout(()=>{
+      const s=window.getSelection();
+      const t=s?s.toString().trim():'';
+      if(t.length>8){
+        selText=t;
+        const r=s.getRangeAt(0).getBoundingClientRect();
+        pop.style.display='flex';
+        pop.style.left=Math.max(12,r.left+window.scrollX+r.width/2-pop.offsetWidth/2)+'px';
+        pop.style.top=(r.top+window.scrollY-46)+'px';
+      } else pop.style.display='none';
+    },10);
+  });
+  document.addEventListener('mousedown',e=>{ if(!pop.contains(e.target)) pop.style.display='none'; });
+
+  function popAsk(){
+    pop.style.display='none';
+    toggleRailOpen('tutor');
+    addQuote(selText);
+    addMsg('you','What does this mean exactly?');
+    setTimeout(()=>{
+      addMsg('tutor','Fan-out is how many children one node can point to. Because a node is a full disk page, it holds hundreds of keys — so each step down the tree divides the search space by hundreds, not by two. That is why the height stays at three or four levels even for millions of rows.');
+      addCites([['§ The B-Tree invariant','#p2'],['Material · p. 12','']]);
+    },700);
+  }
+  function popNote(){
+    pop.style.display='none';
+    toggleRailOpen('notes');
+    addNoteCard(selText,'');
+    toast('Saved to your notes.');
+  }
+  function toggleRailOpen(tab){ document.body.classList.add('rail-open'); showTab(tab); }
+
+  /* tutor thread */
+  const thread=document.getElementById('thread');
+  function ensureThread(){ document.getElementById('tutorEmpty').style.display='none'; thread.style.display='flex'; }
+  function addQuote(q){ ensureThread(); const d=document.createElement('div'); d.className='quote-chip'; d.textContent='“'+(q.length>140?q.slice(0,140)+'…':q)+'”'; thread.appendChild(d); scrollThread(); }
+  function addMsg(who,txt){ ensureThread(); const d=document.createElement('div'); d.className='msg '+who; d.textContent=txt; thread.appendChild(d); scrollThread(); }
+  function addCites(list){
+    const w=document.createElement('div'); w.className='cites';
+    list.forEach(([label,href])=>{
+      const b=document.createElement('button'); b.className='cite'; b.textContent='→ '+label;
+      b.onclick=()=>{ if(href){ setView('read'); document.querySelector(href).scrollIntoView({block:'center'}); } else toast('Opens the Material at that page.'); };
+      w.appendChild(b);
+    });
+    thread.appendChild(w); scrollThread();
+  }
+  function scrollThread(){ thread.scrollTop=thread.scrollHeight; }
+  function sendMsg(){
+    const i=document.getElementById('tin'); const v=i.value.trim(); if(!v)return;
+    addMsg('you',v); i.value='';
+    setTimeout(()=>{
+      addMsg('tutor','Short answer: a split only happens when a leaf is already full, and it promotes exactly one key — the median — into the parent. The Lesson walks through one split step by step in “Searching and inserting”.');
+      addCites([['§ Searching and inserting','#p3']]);
+    },700);
+  }
+  function quick(q){ document.getElementById('tin').value=q; sendMsg(); }
+
+  /* notes */
+  function addNoteCard(quote,body){
+    const list=document.getElementById('noteList');
+    const d=document.createElement('div'); d.className='note';
+    d.innerHTML=(quote?'<div class="q">“'+esc(quote.length>120?quote.slice(0,120)+'…':quote)+'”</div>':'')+
+      '<div class="b">'+(body?esc(body):'<i style="color:var(--faint)">Add your thought…</i>')+'</div>'+
+      '<div class="meta">Just now · only you can see this</div>';
+    list.insertBefore(d,list.querySelector('.note-new'));
+  }
+  function saveNoteFromEditor(){
+    const t=document.getElementById('nin'); if(!t.value.trim())return;
+    addNoteCard('',t.value.trim()); t.value=''; toast('Saved to your notes.');
+  }
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  /* source pager */
+  let page=12;
+  function pg(d){ page=Math.min(42,Math.max(1,page+d));
+    document.getElementById('pgNo').textContent=page;
+    document.getElementById('pgIn').textContent=page; }
+
+  /* scroll progress */
+  addEventListener('scroll',()=>{
+    const h=document.documentElement;
+    const p=h.scrollTop/(h.scrollHeight-h.clientHeight||1);
+    document.getElementById('scrollbar').style.width=(p*100)+'%';
+  },{passive:true});
+
+  /* toast */
+  let tt;
+  function toast(m){
+    const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+    clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2200);
+  }
+</script>
+</body>
+</html>

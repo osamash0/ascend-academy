@@ -1,0 +1,348 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { NotebookPen, Sparkles, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { Concept } from '../../types';
+
+/**
+ * The one piece of chrome the reader keeps.
+ *
+ * The reader used to carry its exit and its breadcrumb *inside* the article,
+ * so both scrolled away with the first screenful. That is fine on a page you
+ * skim and wrong on a page you sit inside for ten minutes: the way out of a
+ * focus surface has to be where you left it. So the row came out of the
+ * column and became a fixed bar, and everything the reader can summon —
+ * the second view of the same Lesson, and the two companions — hangs off it
+ * rather than floating over the prose.
+ *
+ * Three decisions worth naming:
+ *
+ *   • **The dots are a readout, not a control.** One dot per Concept, styled
+ *     by the `progress` the engine already set. There is no click handler and
+ *     there never will be: a dot you could press would be a way to mark an
+ *     idea cleared, which is precisely the progression rule the reader
+ *     refuses to invent (Doc 1 locks progression to XP the engine awards).
+ *     Cleared or not cleared — never a percentage, because a percentage is a
+ *     score and reading is not scored.
+ *   • **The scroll bar is not progress.** Two pixels of gradient tracking how
+ *     far down the document you are. It is `aria-hidden` and carries no label,
+ *     because the moment it is called "progress" it is claiming that reading
+ *     advanced something. It did not. It is a scrollbar with better manners.
+ *   • **The toggle only exists when there is somewhere to go.** A segmented
+ *     control with one working half is worse than no control, so `showToggle`
+ *     is the caller's answer to "does this Lesson have both a text and a
+ *     Material to read it against".
+ *
+ * Nothing here is Owner-only. Role never changes the reader — an Owner sees
+ * exactly the bar a Member sees, and editing lives in Studio.
+ */
+
+export type ReaderView = 'read' | 'source';
+export type RailTab = 'tutor' | 'notes';
+
+interface Props {
+  spaceName: string;
+  lessonOrder: number;
+  /** Where the exit goes — the Lesson this reader was opened from. */
+  backTo: string;
+  concepts: Concept[];
+  view: ReaderView;
+  onViewChange?: (v: ReaderView) => void;
+  /** False while the Lesson has only one of the two views. */
+  showToggle: boolean;
+  railOpen: boolean;
+  railTab: RailTab | null;
+  onRailToggle: (tab: RailTab) => void;
+}
+
+/*
+ * The ids that tie the segment to the thing it switches.
+ *
+ * Exported because the tabs are here and the panel is in `ReaderScreen`, and
+ * a `role="tab"` whose `aria-controls` points at nothing is worse than no
+ * association at all — it tells a screen reader there is a panel to jump to
+ * and then does not deliver one. The rail already does this properly for its
+ * own tablist; this is the same pattern, and sharing the strings is what stops
+ * the two halves drifting the way two hard-coded copies would.
+ */
+export const VIEW_PANEL_ID = 'reader-view-panel';
+export const viewTabId = (v: ReaderView) => `reader-view-tab-${v}`;
+
+/** Sentence case, one word each — the segment is a place, not an instruction. */
+const VIEW_LABEL: Record<ReaderView, string> = {
+  read: 'Read',
+  source: 'Source',
+};
+
+const RAIL: { tab: RailTab; label: string; icon: typeof Sparkles }[] = [
+  { tab: 'tutor', label: 'Tutor', icon: Sparkles },
+  { tab: 'notes', label: 'Notes', icon: NotebookPen },
+];
+
+/**
+ * How far down the page you are, and nothing else.
+ *
+ * Event-driven, not animated: there is nothing to ease, the bar simply *is*
+ * the position. `scaleX` on a fixed-width strip so the only property that
+ * changes is a transform — a `width` transition would re-lay-out a line of
+ * the page on every scroll event.
+ */
+function ScrollProgress() {
+  const [ratio, setRatio] = useState(0);
+
+  useEffect(() => {
+    const read = () => {
+      const doc = document.documentElement;
+      const scrollable = doc.scrollHeight - doc.clientHeight;
+      setRatio(scrollable > 0 ? Math.min(1, Math.max(0, doc.scrollTop / scrollable)) : 0);
+    };
+    read();
+    window.addEventListener('scroll', read, { passive: true });
+    window.addEventListener('resize', read);
+    /*
+     * The third way the ratio can change, and the one `scroll` and `resize`
+     * both miss: the *content* changing height under a viewport that did not
+     * move. Flipping to the Material swaps the whole body of the reader for
+     * something of a different length.
+     *
+     * Shrinking happens to self-correct — the browser clamps `scrollTop` to
+     * the new height and that clamp fires `scroll`. Growing does not: read to
+     * the bottom of a short view, switch to a long one, and the bar stays
+     * full while you are a third of the way down. So the document element is
+     * observed, and every height change is a reading whichever way it went.
+     */
+    const observer = new ResizeObserver(read);
+    observer.observe(document.documentElement);
+    return () => {
+      window.removeEventListener('scroll', read);
+      window.removeEventListener('resize', read);
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-50 h-[2px]">
+      <div
+        className="h-full origin-left bg-gradient-to-r from-primary to-secondary"
+        style={{ transform: `scaleX(${ratio})` }}
+      />
+    </div>
+  );
+}
+
+/** The control itself, so the two places it appears cannot drift apart. */
+function ExitLink({ to }: { to: string }) {
+  return (
+    <Link
+      to={to}
+      aria-label="Leave the reader"
+      className="console-focusable flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
+    >
+      <X aria-hidden className="h-4 w-4" />
+    </Link>
+  );
+}
+
+/**
+ * The way out where there is no bar to hang it in.
+ *
+ * The reader has three branches with no Lesson behind them — a skeleton, a
+ * failed load and a missing one — and RULING F4 keeps the header off all
+ * three: everything else in the bar is derived from a Lesson, and inventing a
+ * breadcrumb for an error screen would be chrome telling a story the screen
+ * cannot back up.
+ *
+ * The exit is the one part that needs no Lesson. It only needs somewhere to
+ * go, and the URL always has that. Splitting it out lets those branches keep
+ * the bare chrome F4 gave them *and* stop being traps: a focus surface with no
+ * top bar, no exit and a load that never resolves is a page you can leave only
+ * with the browser's own controls.
+ *
+ * Fixed in the corner the header's own exit occupies, so the control does not
+ * move when the Lesson lands — a way out that jumps as the page resolves is a
+ * way out you have to find twice.
+ */
+export function ReaderExit({ to }: { to: string }) {
+  return (
+    <div className="fixed left-4 top-2.5 z-40">
+      <ExitLink to={to} />
+    </div>
+  );
+}
+
+export function ReaderHeader({
+  spaceName,
+  lessonOrder,
+  backTo,
+  concepts,
+  view,
+  onViewChange,
+  showToggle,
+  railOpen,
+  railTab,
+  onRailToggle,
+}: Props) {
+  const cleared = concepts.filter((c) => c.progress === 'cleared').length;
+  /* Said once so the visible copy and the spoken copy cannot drift apart. */
+  const where = `${spaceName} · Lesson ${lessonOrder}`;
+
+  return (
+    <>
+      <ScrollProgress />
+      <header className="fixed inset-x-0 top-0 z-40 h-14 border-b border-white/[0.07] bg-[#070b14]/85 backdrop-blur-md">
+        {/*
+          Two flexible side columns with the segment between them, rather than
+          one absolutely-centred segment. The middle column is there only for
+          the Lessons that have both a text and a Material; most have one, and
+          the row is genuinely two columns then.
+
+          Absolute centring puts the toggle on the viewport's midpoint, which
+          is prettier at 1440px and overlaps a long Space name at 375px — and
+          the overlap is invisible until somebody opens the one Space whose
+          name is long. Equal side columns keep the segment near the middle and
+          make collision impossible: the breadcrumb truncates instead.
+
+          Equal only while there is something to centre. When the segment is
+          absent the right column is sized to its contents — see the note above
+          it — so the left column takes the rest of the row rather than the two
+          sides splitting it and leaving the breadcrumb short.
+        */}
+        <div className="mx-auto flex h-full items-center gap-3 px-4">
+
+          {/* Where you are, and the way out — first in the tab order. */}
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <ExitLink to={backTo} />
+            {/*
+              Two elements for one sentence, and the split is about width, not
+              taste.
+
+              At 375px the row is 319px of usable space and the Read/Source
+              segment takes 147 of it, so the breadcrumb was left 38px and
+              rendered "Dat…" — which says less than nothing and looks like a
+              bug. Nothing rearranges out of that: the Space name alone wants
+              114px, and even trimming the segment's padding leaves it short.
+
+              So the visible copy steps out below `sm` *only when the segment
+              is there to crowd it*. Most Lessons have one view, the middle
+              column is absent, and the full breadcrumb fits on a phone with
+              room to spare. The narrow case is the exception, not the rule.
+
+              The sentence itself never leaves. The `sr-only` span carries it
+              at every width and the visible `p` is `aria-hidden`, so it is
+              announced once rather than twice — hiding it outright would have
+              cost a screen reader the only statement on this screen of which
+              Space it is in.
+            */}
+            <span className="sr-only">{where}</span>
+            <p
+              aria-hidden
+              className={cn(
+                'min-w-0 truncate text-[13px] text-quiet',
+                showToggle && 'hidden sm:block',
+              )}
+            >
+              {where}
+            </p>
+          </div>
+
+          {showToggle && (
+            <div
+              role="tablist"
+              aria-label="Reader view"
+              className="flex shrink-0 items-center gap-0.5 rounded-full border border-white/[0.08] bg-white/[0.04] p-0.5"
+            >
+              {(['read', 'source'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  role="tab"
+                  id={viewTabId(v)}
+                  aria-controls={VIEW_PANEL_ID}
+                  aria-selected={view === v}
+                  onClick={() => onViewChange?.(v)}
+                  className={cn(
+                    'console-focusable h-8 rounded-full px-4 text-[13px] font-medium transition-colors',
+                    view === v
+                      ? 'bg-white/[0.10] text-foreground'
+                      : 'text-quiet hover:text-foreground',
+                  )}
+                >
+                  {VIEW_LABEL[v]}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/*
+            `flex-1` here only when there is a segment to centre. Two equal
+            flexible sides is what holds the middle column in the middle — but
+            with no middle column it holds nothing, and it still reserved half
+            the row for 84px of buttons. Measured at 375px on a Lesson with one
+            view: the right column took 165px to render 84, and the breadcrumb
+            truncated at 118 with 81px sitting unused beside it.
+          */}
+          <div
+            className={cn(
+              'flex shrink-0 items-center justify-end gap-3',
+              showToggle && 'flex-1',
+            )}
+          >
+            {/*
+              A readout of what the engine already cleared. The group carries
+              the sentence; the dots themselves are shape, and a screen reader
+              that announced five of them would be reading punctuation.
+
+              Hidden below `sm`, and it is the middle column that forced the
+              choice. A phone fits the exit, the Read/Source segment and the
+              two companions with nothing to spare — measured at 375px, with
+              the dots in the row the breadcrumb truncated to *nothing*, so
+              the reader lost which Space and which Lesson it was in. Of the
+              five things in the bar the dots are the only pure readout, and
+              the state they report is shown in full one screen back.
+            */}
+            {concepts.length > 0 && (
+              <div
+                role="img"
+                aria-label={`${cleared} of ${concepts.length} ideas cleared`}
+                className="hidden items-center gap-1.5 sm:flex"
+              >
+                {concepts.map((c) => (
+                  <span
+                    key={c.id}
+                    aria-hidden
+                    data-concept-dot
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      c.progress === 'cleared' ? 'bg-success' : 'bg-white/[0.18]',
+                    )}
+                  />
+                ))}
+              </div>
+            )}
+
+            {RAIL.map(({ tab, label, icon: Icon }) => {
+              const pressed = railOpen && railTab === tab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  aria-label={label}
+                  aria-pressed={pressed}
+                  onClick={() => onRailToggle(tab)}
+                  className={cn(
+                    'console-focusable flex h-9 w-9 items-center justify-center rounded-full transition-colors',
+                    pressed
+                      ? 'bg-white/[0.10] text-foreground'
+                      : 'text-quiet hover:bg-white/[0.06] hover:text-foreground',
+                  )}
+                >
+                  <Icon aria-hidden className="h-4 w-4" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+    </>
+  );
+}

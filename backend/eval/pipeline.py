@@ -75,35 +75,94 @@ class FakePipeline:
         return case.generated_summary
 
 
+def _require_lecture_uuid(deck_id: str, case_label: str) -> str:
+    """Reject a synthetic deck id before it reaches the database.
+
+    `lectures.id` is a UUID. The frozen golden sets in `golden_sets.py` use
+    readable placeholders ("algorithms_101"), which match no row — so
+    retrieval silently returns nothing and every retrieval metric scores
+    0.0. A zero that means "misconfigured" is indistinguishable from a zero
+    that means "the retriever failed", and reporting the second when the
+    first is true would be a fabricated result.
+
+    So this fails loudly instead. For a real-corpus run use
+    `backend.eval.retrieval_grid`, whose golden set carries real lecture
+    UUIDs.
+    """
+    from uuid import UUID
+
+    try:
+        UUID(str(deck_id))
+    except (ValueError, AttributeError, TypeError):
+        raise ValueError(
+            f"LivePipeline needs a real lecture UUID, got deck_id={deck_id!r} "
+            f"for {case_label}. The frozen golden sets are synthetic and "
+            f"cannot be run against a live database — use "
+            f"`python -m backend.eval.retrieval_grid` with a real-corpus "
+            f"golden set, or run this harness with --fake."
+        ) from None
+    return str(deck_id)
+
+
 class LivePipeline:
     """Wires the harness to the real pipeline for a nightly run against live
-    models. Requires real provider API keys and a populated database with
-    the frozen decks loaded (see docs/EVAL_HARNESS.md) — not exercised in
-    unit tests, which use FakePipeline instead."""
+    models. Requires real provider API keys and a populated database whose
+    lecture UUIDs match the golden set — not exercised in unit tests, which
+    use FakePipeline instead.
+
+    Note: the frozen sets in `golden_sets.py` are synthetic, so this class
+    cannot run against them (see `_require_lecture_uuid`). The real-corpus
+    evaluation lives in `backend.eval.retrieval_grid`.
+    """
 
     def __init__(self, ai_model: str = "cerebras"):
         self.ai_model = ai_model
 
     async def answer_quiz_question(self, case: QuizGoldenCase) -> int:
-        from backend.services.ai.orchestrator import generate_slide_quiz
+        """Ask the model to ANSWER the golden question, not to write a new one.
 
-        prompt_text = (
-            f"{case.question}\n" + "\n".join(f"{i}. {o}" for i, o in enumerate(case.options))
+        The previous implementation called `generate_slide_quiz`, which
+        *generates* a fresh question with its own invented options, then
+        compared that question's `correctAnswer` index against the golden
+        index into a different option list. The two indices were unrelated,
+        so the metric measured nothing. Answering and generating are
+        different tasks; this measures answering.
+        """
+        from backend.services.ai.orchestrator import generate_text
+
+        options = "\n".join(f"{i}. {o}" for i, o in enumerate(case.options))
+        prompt = (
+            "Answer the multiple-choice question using only the option list.\n"
+            "Reply with the index of the correct option and nothing else — "
+            "a single integer, no explanation.\n\n"
+            f"Question: {case.question}\n{options}\n\nAnswer index:"
         )
-        result = await generate_slide_quiz(prompt_text, ai_model=self.ai_model)
-        answer = result.get("correctAnswer")
-        return int(answer) if answer is not None else -1
+        raw = await generate_text(prompt, ai_model=self.ai_model)
+
+        # Take the first integer in the reply that names a valid option, so a
+        # chatty model ("The answer is 2.") still scores. -1 marks an
+        # unparseable answer, which the scorer counts as wrong rather than
+        # dropping — a silent drop would inflate accuracy.
+        import re
+
+        for token in re.findall(r"\d+", str(raw)):
+            index = int(token)
+            if 0 <= index < len(case.options):
+                return index
+        return -1
 
     async def retrieve_for_tutor_question(self, case: TutorFaithfulnessCase) -> List[int]:
         from backend.services.ai.retrieval import retrieve_relevant_slides
 
-        hits = await retrieve_relevant_slides(case.question, lecture_id=case.deck_id, k=5)
+        lecture_id = _require_lecture_uuid(case.deck_id, f"tutor case {case.question[:40]!r}")
+        hits = await retrieve_relevant_slides(case.question, lecture_id=lecture_id, k=5)
         return [h["slide_index"] for h in hits]
 
     async def retrieve_for_query(self, case: RetrievalCase) -> List[int]:
         from backend.services.ai.retrieval import retrieve_relevant_slides
 
-        hits = await retrieve_relevant_slides(case.query, lecture_id=case.deck_id, k=case.k)
+        lecture_id = _require_lecture_uuid(case.deck_id, f"retrieval case {case.query[:40]!r}")
+        hits = await retrieve_relevant_slides(case.query, lecture_id=lecture_id, k=case.k)
         return [h["slide_index"] for h in hits]
 
     async def summarize_deck(self, case: SynthesisQualityCase) -> str:

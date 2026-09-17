@@ -173,6 +173,41 @@ export interface Material {
   uploadedAt: string;
   /** True once the source file has been removed but the Lesson still works. */
   sourceRemoved: boolean;
+  /**
+   * The file's own pages, in file order.
+   *
+   * These hang off the **Material** rather than off the Lesson, and the
+   * deletion rule is what settles it: a Lesson survives losing its source file
+   * (Objects, Rule 4), and what it loses is exactly the ability to show you
+   * the pages. Put them on `Lesson` and `material: null` becomes a Lesson
+   * still holding a page count for a file nobody can open — two facts about
+   * one file, stored apart, free to disagree. Here, `material = null` removes
+   * the pages by construction and every "is there a Source view" question has
+   * one answer.
+   *
+   * Optional because most fixtures have not been paginated, and absent is not
+   * the same as zero: a Material with no `pages` is one whose structure has
+   * not been read yet, not one whose file is empty.
+   */
+  pages?: MaterialPage[];
+}
+
+/**
+ * One page of a Material, and the idea it belongs to.
+ *
+ * `conceptId` is what makes the Source view a second view of the *same*
+ * Lesson rather than a file viewer bolted to the side of one: the page and
+ * the passage name the same Concept, so the reader can move between them
+ * without either side inventing an anchor the other has never heard of.
+ */
+export interface MaterialPage {
+  /** 1-based, and contiguous — this is the number printed on the page. */
+  page: number;
+  /** The `Concept.id` this page covers. Always one of its Lesson's own. */
+  conceptId: string;
+  title: string;
+  /** Plain lines. No markup: the pipeline emits text, not HTML. */
+  bullets: string[];
 }
 
 /** A single idea inside a Lesson. The "planet". */
@@ -235,7 +270,22 @@ export interface Passage {
 /** Where a contribution attaches. One contribution, one anchor. */
 export type ContributionAnchor =
   | { level: 'space'; spaceId: string }
-  | { level: 'lesson'; lessonId: string }
+  | {
+      level: 'lesson';
+      lessonId: string;
+      /**
+       * The Space that Lesson was in — only needed once the Lesson is gone.
+       *
+       * An orphan cannot resolve its Space through a Lesson that no longer
+       * exists, and `library.ts` filled the hole with a hardcoded `'s-dbs'`
+       * under a comment claiming it fell back to "its last known Space". It
+       * did not: every orphan, from any Space, was attributed to Database
+       * Systems. The one orphan fixture happens to come from there, so the
+       * bug was invisible — and the coherence guard that would have caught it
+       * does `if (row.orphaned) continue`.
+       */
+      spaceId?: string;
+    }
   | { level: 'concept'; conceptId: string };
 
 /** Open model; v1 accepts low-risk types only. No executable artifacts. */

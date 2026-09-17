@@ -1,5 +1,6 @@
 import type { Contribution, ContributionAnchor, LessonState, LibraryItem, Note } from '../types';
 import {
+  linalgContributions,
   normalizationContributions,
   sharedSpaceIds,
   spaceContributions,
@@ -10,8 +11,8 @@ import type { Person } from '../types';
 import { viewer, keller, weber, ferreira, okonkwo, lindqvist } from './people';
 import { allSpaces } from './spaces';
 import { rankLabel, viewerXp } from './rank';
-import { longestRun } from './history';
 import { lessonsForSpace, locateLesson } from './lessons';
+import { anchorFor, isOrphaned } from './reanchor';
 
 /**
  * Library fixtures — what the viewer made, across every Space.
@@ -101,10 +102,18 @@ const uploadedMaterials: LibraryItem[] = lessonsForSpace('s-linalg')
 export const resolveContributionAnchor = (
   anchor: ContributionAnchor,
   /**
-   * The contribution being resolved. Required for space-level anchors, which
-   * are addressed by fragment because they have no page of their own.
+   * The contribution being resolved, where the caller has one.
+   *
+   * Optional so an anchor can be resolved on its own — `orphans.test.ts`
+   * constructs bare anchors to check that a dead Lesson still knows its Space,
+   * and there is no contribution in that question.
+   *
+   * Space-level anchors need it: they are addressed by fragment, having no
+   * page of their own. Without it there is no href at all — deliberately not a
+   * fall back to `/v4/space/<id>`, so a Space root cannot be reached from
+   * Library by any path, including a caller that forgot the id.
    */
-  contributionId: string,
+  contributionId?: string,
 ): { spaceId: string | null; lessonTitle?: string; href: string | null } => {
   if (anchor.level === 'space') {
     /*
@@ -120,7 +129,9 @@ export const resolveContributionAnchor = (
      */
     return {
       spaceId: anchor.spaceId,
-      href: `/v4/space/${anchor.spaceId}#${contributionAnchorId(contributionId)}`,
+      href: contributionId
+        ? `/v4/space/${anchor.spaceId}#${contributionAnchorId(contributionId)}`
+        : null,
     };
   }
   if (anchor.level === 'lesson') {
@@ -131,7 +142,8 @@ export const resolveContributionAnchor = (
           lessonTitle: found.lesson.title,
           href: `/v4/space/${found.spaceId}/lesson/${found.lesson.id}`,
         }
-      : { spaceId: null, href: null };
+      : // The Lesson is gone; the anchor still knows which Space it was in.
+        { spaceId: anchor.spaceId ?? null, href: null };
   }
   const concept = conceptById(anchor.conceptId);
   return concept
@@ -145,27 +157,47 @@ export const resolveContributionAnchor = (
 
 /** Everything the viewer published, at any of the three anchor levels. */
 const myPublished = (): Contribution[] =>
-  [...spaceContributions, ...normalizationContributions, ...conceptContributions].filter(
-    (c) => c.author.id === viewer.id,
-  );
+  [
+    ...spaceContributions,
+    ...normalizationContributions,
+    ...linalgContributions,
+    ...conceptContributions,
+  ].filter((c) => c.author.id === viewer.id);
 
-/** Contributions the viewer published, wherever they landed. */
-const myContributions: LibraryItem[] = myPublished().map((c) => {
-  const at = resolveContributionAnchor(c.anchor, c.id);
+/** One of yours, by id — Library rows carry `lib-con-<id>`. */
+export const myContributionById = (id: string): Contribution | undefined =>
+  myPublished().find((c) => c.id === id);
+
+/**
+ * Contributions the viewer published, wherever they landed.
+ *
+ * A function, not a `const`. It was composed once at module load, so
+ * re-anchoring an orphan changed the store and Library went on showing the old
+ * row — the exact bug `noteToItem`'s comment records for notes. Anything
+ * downstream of a mutable store has to be recomputed on read.
+ */
+const myContributionItems = (): LibraryItem[] =>
+  myPublished().map((c) => {
+    // Resolve through the override, so a re-anchored orphan lands on its Lesson.
+    const at = resolveContributionAnchor(anchorFor(c), c.id);
   return {
     id: `lib-con-${c.id}`,
     kind: 'contribution' as const,
     title: c.title,
     /*
-     * A contribution opens where it is anchored. An orphan has no anchor left,
+     * A contribution opens where it is anchored. An orphan has no Lesson left,
      * so it opens nowhere — `null`, and the row renders no link at all.
      *
-     * This used to fall back to `/v4/space/${spaceId ?? 's-dbs'}`, which broke
-     * both of Library's stated rules at once. It made a Space an entry point
-     * from Library — the thing the screen's own header forbids — and it landed
-     * you on a Space overview where the contribution is not, under an
-     * aria-label promising to "open it in Database Systems". The row directly
-     * above said the work had lost its home; the link said otherwise.
+     * This used to fall back to `/v4/space/${at.spaceId}`, which broke both of
+     * Library's stated rules at once: it made a Space an entry point from
+     * Library, and it landed you on an overview where the contribution is not,
+     * under an aria-label promising to open it there.
+     *
+     * Naming the Space is a separate question from linking to it, and the two
+     * were resolved separately. `spaceName` is still filled in for an orphan,
+     * because the anchor records the Space its deleted Lesson was in — so the
+     * row can say where the work came from without offering to take you
+     * somewhere it isn't.
      */
     href: at.href,
     spaceId: at.spaceId,
@@ -174,7 +206,8 @@ const myContributions: LibraryItem[] = myPublished().map((c) => {
     updatedAt: c.createdAt,
     likeCount: c.likeCount,
     endorsed: c.endorsed,
-    orphaned: c.orphaned,
+    // Derived: a row must stop warning the moment it has somewhere to live.
+    orphaned: isOrphaned(c),
   };
 });
 
@@ -205,24 +238,25 @@ export const noteToItem = (n: Note): LibraryItem => ({
 });
 
 /** Everything you made that is not a Note, newest first. */
-export const nonNoteItems: LibraryItem[] = [...uploadedMaterials, ...myContributions].sort(
-  (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
-);
+export const nonNoteItems = (): LibraryItem[] =>
+  [...uploadedMaterials, ...myContributionItems()].sort(
+    (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
+  );
 
 /** Everything you made, newest first, given the current notes. */
 export const libraryItemsWith = (currentNotes: Note[]): LibraryItem[] =>
-  [...currentNotes.map(noteToItem), ...nonNoteItems].sort(
+  [...currentNotes.map(noteToItem), ...nonNoteItems()].sort(
     (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt),
   );
 
 /** The seeded view, for fixtures and guards that do not run the note store. */
-export const libraryItems: LibraryItem[] = libraryItemsWith(notes);
+export const libraryItems = (): LibraryItem[] => libraryItemsWith(notes);
 
 export const itemsOfKind = (kind: LibraryItem['kind']) =>
-  libraryItems.filter((i) => i.kind === kind);
+  libraryItems().filter((i) => i.kind === kind);
 
 /** Studio: uploads still processing or sitting as drafts, across every Space. */
-export const pendingUploads = () => libraryItems.filter((i) => i.pending);
+export const pendingUploads = () => libraryItems().filter((i) => i.pending);
 
 /* ── Home ─────────────────────────────────────────────────────────
    Doc 2: "Home is your next action, assembled across every Space." It ranks
@@ -349,33 +383,12 @@ export const friendRequests: FriendRequest[] = [
 
 export const friends = [lindqvist, ferreira];
 
-/** Badges are earned, and each says what earned it. */
-export interface Badge {
-  id: string;
-  name: string;
-  earned: boolean;
-  how: string;
-}
-
-export const badges: Badge[] = [
-  { id: 'b-1', name: 'First steps', earned: true, how: 'Finished your first Lesson' },
-  { id: 'b-2', name: 'Contributor', earned: true, how: 'Published your first contribution' },
-  {
-    id: 'b-3',
-    name: 'Four in a row',
-    /*
-     * Derived. `earned: true` was a third independent claim about the same
-     * run — the badge could sit earned on a record that never reached four.
-     * The threshold stays a literal here beside the copy that names it, so
-     * the criterion and the words are one object rather than two facts.
-     */
-    earned: longestRun() >= 4,
-    how: 'Four days running',
-  },
-  { id: 'b-4', name: 'Well received', earned: false, how: 'Get 25 likes on your work' },
-  { id: 'b-5', name: 'Cartographer', earned: false, how: 'Clear every idea in one Space' },
-  { id: 'b-6', name: 'Founder', earned: true, how: 'Created a Space of your own' },
-];
+/*
+ * The achievement badges lived here — six of them, `earned` flags and all.
+ * Retired rather than moved: see `mocks/moments.ts` for what replaced them and
+ * the three locked rules they broke. The word "badge" now means one thing in
+ * this codebase, which is what `components/badges.tsx` already meant by it.
+ */
 
 /* ── Library · Studio ─────────────────────────────────────────────
    Doc 2: "Studio screens hang off Library; Library itself stays Learn. Dense
@@ -442,25 +455,25 @@ export interface ImpactRow {
 export const impactRows = (): ImpactRow[] =>
   myPublished()
     .map((c) => {
-      const at = resolveContributionAnchor(c.anchor, c.id);
+      const at = resolveContributionAnchor(anchorFor(c), c.id);
       return {
         id: c.id,
         title: c.title,
-        // Same fabrication as the Library row had, in the Studio view of the
-        // same contributions. An orphan names no Space here either.
+        // Same rule as the Library row above: named, never linked, never
+        // invented.
         spaceId: at.spaceId,
         spaceName: at.spaceId ? spaceName(at.spaceId) : null,
         lessonTitle: at.lessonTitle,
         likeCount: c.likeCount,
         endorsed: c.endorsed,
-        orphaned: c.orphaned,
+        orphaned: isOrphaned(c),
         createdAt: c.createdAt,
       };
     })
     .sort((a, b) => b.likeCount - a.likeCount);
 
 /** Everything you uploaded, across every Space. */
-export const uploadRows = () => libraryItems.filter((i) => i.kind === 'material');
+export const uploadRows = () => libraryItems().filter((i) => i.kind === 'material');
 
 /**
  * Which hero Home shows.
