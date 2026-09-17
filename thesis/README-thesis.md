@@ -3,24 +3,31 @@
 LaTeX skeleton for *From Lecture Materials to Structured Educational Content:
 Design and Implementation of an AI-Assisted Learning Platform*.
 
-> ### ⚠ This skeleton has never been compiled
+> ### ✓ Compiles — 47 pages, A4
 >
-> No LaTeX toolchain exists on the machine where it was written, so it is
-> verified **structurally only** — every `\input` target resolves, all 19 figure
-> PDFs exist, no duplicate labels, no dangling `\cref`, balanced braces and
-> environments (`make lint`). Expect to fix a handful of real compile errors on
-> the first `make`. That is normal for an unbuilt skeleton; it is not a sign
-> something is deeply wrong.
+> Built with MacTeX 2026 on 2026-09-17: `make` exits 0 and a clean rebuild
+> (`make distclean && make`) produces a byte-identical PDF. `make lint` and
+> `make check` both pass and all 19 figures resolve.
+>
+> It did not compile as first written. `main.tex` used `\frontmatter`,
+> `\mainmatter` and `\backmatter`, which belong to the **book** classes;
+> this document is `scrreprt`, a report class that does not define them, and
+> the first was a fatal `Undefined control sequence`. They are now explicit
+> `\pagenumbering` switches instead. Worth knowing before changing the class:
+> going back to a book class would make those three commands available again,
+> but `\pagenumbering` is the portable form and works in both.
 
-## 1. Finish installing MacTeX
+## 1. MacTeX (already installed — kept for a fresh machine)
 
-`brew list --cask` reports `mactex-no-gui` as installed, but it isn't. The
-6.9 GB payload downloaded to the Caskroom and the privileged installer step
-never ran — there is no `/usr/local/texlive`, no `/Library/TeX/texbin`, and no
-package receipt. MacTeX ships a `.pkg` that requires `sudo`, which Homebrew
-cannot complete unattended.
+This has been done on the current machine — `/usr/local/texlive` and
+`/Library/TeX/texbin/pdflatex` both exist. The steps below are kept for
+setting up elsewhere.
 
-The download is already done. Run the installer directly:
+The trap they document is real: `brew list --cask` can report `mactex-no-gui`
+as installed when only the 6.9 GB payload reached the Caskroom and the
+privileged step never ran. MacTeX ships a `.pkg` requiring `sudo`, which
+Homebrew cannot complete unattended. If `brew` claims it is installed but
+there is no `/usr/local/texlive`, run the installer directly:
 
 ```bash
 sudo installer -pkg /opt/homebrew/Caskroom/mactex-no-gui/2026.0324/mactex-20260324.pkg \

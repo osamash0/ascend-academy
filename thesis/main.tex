@@ -33,7 +33,9 @@
 
 \begin{document}
 
-\frontmatter
+% scrreprt is a report class: the book-only sectioning commands are not
+% defined here, so page numbering is switched explicitly instead.
+\pagenumbering{roman}
 \input{frontmatter/titlepage}
 \input{frontmatter/declaration}
 \input{frontmatter/abstract}
@@ -42,7 +44,8 @@
 \listoffigures
 % \listoftables      % uncomment once the thesis actually contains tables
 
-\mainmatter
+\cleardoublepage
+\pagenumbering{arabic}
 
 \include{chapters/01-introduction}
 \include{chapters/02-foundations}
@@ -52,7 +55,7 @@
 \include{chapters/06-evaluation}
 \include{chapters/07-conclusion}
 
-\backmatter
+\cleardoublepage
 
 \printbibliography[heading=bibintoc]
 
