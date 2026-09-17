@@ -1,7 +1,7 @@
 """
 LLM Provider abstraction.
 
-Defines the LLMProvider Protocol so ai_service.py can dispatch to Groq,
+Defines the LLMProvider Protocol so the orchestrator can dispatch to Groq,
 Gemini, or Ollama through a single interface instead of if/elif chains.
 
 Usage:

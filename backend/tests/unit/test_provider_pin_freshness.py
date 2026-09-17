@@ -13,7 +13,15 @@ from __future__ import annotations
 
 import datetime
 
+from backend.services.ai import embeddings as emb
 from backend.services.ai import orchestrator as orch
+
+# Model ids called outside PROVIDER_REGISTRY. GEMINI_MODEL / GROQ_MODEL / ...
+# are derived from the registry, and GROQ_VISION_MODEL is env-only (None by
+# default), so the embedding model is the one hard-coded pin left.
+DIRECT_MODEL_PINS = {
+    "EMBEDDING_MODEL": (emb.EMBEDDING_MODEL, emb.EMBEDDING_MODEL_VERIFIED_ON),
+}
 
 HOW_TO_REVERIFY = """
 How to re-verify a pin (backend/services/ai/orchestrator.py):
@@ -58,7 +66,7 @@ def test_registry_pins_are_fresh():
 
 
 def test_direct_model_pins_are_fresh():
-    stale = _stale(orch.DIRECT_MODEL_PINS)
+    stale = _stale(DIRECT_MODEL_PINS)
     assert not stale, (
         f"{len(stale)} direct model pin(s) older than {orch.PIN_MAX_AGE_DAYS} days:\n"
         + "\n".join(stale)
@@ -67,15 +75,16 @@ def test_direct_model_pins_are_fresh():
     )
 
 
-def test_direct_pins_track_the_constants():
-    # DIRECT_MODEL_PINS copies the constant's value; changing GEMINI_MODEL
-    # without touching its entry would carry an old date onto a new slug.
-    for name, (model, _) in orch.DIRECT_MODEL_PINS.items():
-        assert getattr(orch, name) == model, name
+def test_chain_aliases_come_from_the_registry():
+    # The aliases must not drift into separate, undated pins again.
+    assert orch.GEMINI_MODEL == orch.PROVIDER_REGISTRY["gemini"].model
+    assert orch.GROQ_MODEL == orch.PROVIDER_REGISTRY["groq"].model
+    assert orch.GROQ_FAST_MODEL == orch.PROVIDER_REGISTRY["groq_fast"].model
+    assert orch.CEREBRAS_MODEL == orch.PROVIDER_REGISTRY["cerebras"].model
 
 
 def test_no_pin_is_dated_in_the_future():
     today = _today()
     dates = [cfg.verified_on for cfg in orch.PROVIDER_REGISTRY.values()]
-    dates += [d for _, d in orch.DIRECT_MODEL_PINS.values()]
+    dates += [d for _, d in DIRECT_MODEL_PINS.values()]
     assert all(d <= today for d in dates), "verified_on is in the future — typo?"

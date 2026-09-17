@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 from backend.core.database import supabase_admin
-from backend.services.ai_service import chat_with_lecture
+from backend.services.ai.tutor import chat_with_lecture
 from backend.services import chat_memory
 
 logger = logging.getLogger(__name__)

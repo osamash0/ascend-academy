@@ -1,3 +1,4 @@
+import datetime
 import logging
 import asyncio
 from typing import List
@@ -11,6 +12,9 @@ logger = logging.getLogger(__name__)
 # existing `slide_embeddings.embedding vector(768)` column shape so we don't
 # need a schema migration.
 EMBEDDING_MODEL = "gemini-embedding-001"
+# Same freshness rule as orchestrator.ProviderConfig.verified_on
+# (tests/unit/test_provider_pin_freshness.py).
+EMBEDDING_MODEL_VERIFIED_ON = datetime.date(2026, 10, 10)
 EMBEDDING_DIMS = 768
 
 
