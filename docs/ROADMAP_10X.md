@@ -1,6 +1,8 @@
 # Ascend Academy — 10x Roadmap & Build Plan
 
 > Status: PROPOSED (2026-07-06) · Owner: Abdullah · Horizon: ~1 semester (3 phases)
+> **§5 (Phase 2) revised 2026-09-17** against the code — 2.2 was already shipped and 2.1
+> already built as `scheduler.py`. See §11 *Corrections* before planning any Phase 2 work.
 > Companion docs: `FEATURE_AUDIT.xlsx` (pre-launch stabilization), `docs/ANALYTICS_IMPROVEMENTS.md`, `docs/analytics-redesign/`
 
 ---
@@ -36,8 +38,8 @@ Every feature below reuses infrastructure that already exists (pgvector retrieva
 ## 2. Current-state assessment (abridged)
 
 ### Strengths to build on
-- **Pipeline (v5)** — `backend/services/parser/unified_orchestrator.py`: per-slide synthesis, deck summary/quiz, concept extraction + dedup (cosine ≥ 0.86), per-slide embeddings into `slide_chunks` (pgvector), checkpoint/resume (`parse_runs`/`parse_pages`/`slide_parse_cache`), idempotent on `(pdf_hash, version)`.
-- **AI stack** — multi-provider failover orchestrator (`backend/services/ai/orchestrator.py`) with BULK (cerebras→groq_fast→gemma) and QUALITY (groq→gemini) chains; grounded RAG tutor (`tutor.py` + `retrieval.py` + `match_slides()` RPC); Azure TTS; Gemini embeddings.
+- **Pipeline (v5)** — `backend/services/parser/unified_orchestrator.py`: per-slide synthesis, deck summary/quiz, concept extraction + dedup (cosine ≥ 0.86), per-slide embeddings into `slide_embeddings` (768-d, pgvector, HNSW — **not** `slide_chunks`, which is a 384-d dead table with zero writers; see §11 #15), checkpoint/resume (`parse_runs`/`parse_pages`/`slide_parse_cache`), idempotent on `(pdf_hash, version)`.
+- **AI stack** — multi-provider failover orchestrator (`backend/services/ai/orchestrator.py`) with BULK (cerebras→groq_fast→gemma) and QUALITY (groq→gemini) chains; grounded RAG tutor (`tutor.py` + `retrieval.py` + the `match_slides_scoped` / `match_slides_by_lecture` RPCs); Azure TTS; Gemini embeddings.
 - **Analytics** — 2,000+ line `analytics_service.py` with 2-tier caching; per-slide confusion/drop-off, per-question distractors, learner typology; "Ask Your Data" intent-based NL queries (never generates SQL).
 - **Gamification** — server-authoritative `grant_xp` / `award_badge` / `evaluate_badges` RPCs, 27+ badge catalog, idempotent `xp_events` via `dedupe_key`, global popup provider.
 - **Social** — friends, requests, profiles, global/faculty leaderboard, dashboard widget. Built and tested.
@@ -48,11 +50,11 @@ Every feature below reuses infrastructure that already exists (pgvector retrieva
 | Gap | Evidence |
 |---|---|
 | No flashcards / spaced repetition | No SRS code anywhere in `src/` or `backend/` |
-| `concept_mastery` mostly write-idle | Table exists; almost nothing updates or consumes it |
-| Tutor/search scoped to a single lecture | `retrieval.py` scopes `match_slides()` to one lecture |
+| `concept_mastery` has **no** live writer | Read in three places, written by none — `backend/services/review/mastery.py:6-17` says so itself (§11 #10) |
+| ~~Tutor/search scoped to a single lecture~~ **CLOSED 2026-07-10** | Course-wide search + tutor shipped in full; dark only because two env vars are declared nowhere (§5 2.2, §11 #15-20) |
 | No exam preparation | Practice sheets are per-lecture, professor-authored |
 | No PWA / offline / push | No manifest, no service worker in `index.html`/`public/` |
-| Analytics diagnose but don't prescribe | Insight cards have no actions; `Layer2Viz.tsx` is a "coming soon" stub |
+| Analytics diagnose but don't prescribe | Insight cards have no actions. (`Layer2Viz.tsx` is **no longer** a stub — the analytics redesign shipped it as an 11-branch dispatcher; §11 #21) |
 | Professor-only supply | `lectures.professor_id` required; no student upload path |
 | Single-university catalog, sync scraper | Marburg CS only; scrape runs synchronously in-request |
 
@@ -273,90 +275,318 @@ RLS: own-row for students; professors get aggregates only via an analytics endpo
 
 ## 5. PHASE 2 — From library to copilot
 
+> **Revised 2026-09-17 against the code.** As first written (2026-07-06) this
+> phase did not know that **2.2 had been built in full** and **2.1 had been
+> built under a different name**. Following the original text would have
+> rebuilt shipped features and, in four places, destroyed working code. Every
+> claim below carries a `path:line`. The full list of what was wrong is in
+> §11 *Corrections*; the verification record is `docs/ROADMAP_PHASE2_RECONCILIATION.md`.
+
+**Cross-cutting, and it governs all three items.** The entire student surface
+is being rebuilt as `/v4/*` — 21 routes, `import.meta.env.DEV` only, mock data
+(`src/App.tsx`). Any Phase 2 work landing new UI in
+`src/pages/StudentDashboard.tsx` may be building into a screen slated for
+replacement. **Phase 2 is therefore re-scoped backend-first.** Each item below
+names its frontend landing surface as *undecided*, pending a decision on v4's
+fate. That decision is not made here.
+
 ---
 
 ### 2.1 Personal Study Planner — the "Today" view
 
-**Impact ★★★★ · Effort M (1–2 weeks) · Dependencies: 1.1, 1.2 · Flag: `FEATURE_PLANNER`**
+**Impact ★★ (was ★★★★) · Effort S (was M) · Dependencies: 1.1, 1.2 — both dark · Flag: `FEATURE_PLANNER` (does not exist yet)**
 
-#### Why
-All the ingredients exist — mastery, due dates, reviews, the `optimal-schedule` endpoint — but the student still decides what to do. A generated daily plan turns a library into a coach and makes every other feature discoverable.
+#### What already exists
 
-#### Design
-- `backend/services/planner_service.py` — composes a ranked plan (3–7 items) from typed sources, in priority order:
-  1. Due reviews (count + est. minutes)
-  2. Assignments due ≤ 72h (`assignments` + `assignment_enrollments`)
-  3. Weak-concept remediation: lowest `concept_mastery` in enrolled courses → specific slide ranges via `concept_lectures.slide_indices`
-  4. Exam prep: if an exam date is set and ≤ 21 days out, a mock-exam or weak-concept item weighted by proximity
-  5. Continue/new content: next unfinished lecture (`slide_visit_status`)
-  - Deterministic for a given data snapshot (pure ranking, no LLM); cached in `analytics_cache` pattern with same-day key; invalidated on relevant events.
-- `exam_dates (user_id, course_id, exam_at)` — student-entered, own-row RLS.
-- `plan_item_completions (user_id, plan_date, item_key)` — persistence for done-state; "plan completed" grants XP once/day; badge `planned-and-executed` (7 consecutive completed plans).
-- Router additions: `GET /planner/today`, `POST /planner/items/{key}/complete`, `PUT /planner/exam-dates`.
-- Frontend: `src/features/planner/` — `TodayPanel.tsx` replaces the top dashboard hero slot; each item one tap deep (review session / assignment / slide deep link / exam runner); `ExamDateSheet.tsx` for entering exam dates (also prompted from course pages). Nudge copy references the plan ("12 reviews + 1 assignment today").
+**The planner is built and live in production, unflagged.** It is called the
+scheduler:
+
+| Capability | Where |
+|---|---|
+| Deterministic ranked plan | `backend/services/scheduler.py:199` `build_plan(...)`, `:358` `assemble_user_state`, `:585` `build_plan_for_user` (620 lines) |
+| Plan endpoint | `GET /api/v1/schedule/me` — `backend/api/v1/schedule.py:33` |
+| Completion endpoint | `POST /api/v1/schedule/items/{item_id}/done` — `backend/api/v1/schedule.py:56` |
+| Per-day completion store | `public.schedule_item_completions` — `supabase/migrations/20260503000016_schedule_completions.sql:8`, `UNIQUE (user_id, plan_date, lecture_id)` at `:14`, own-row RLS at `:22-41` |
+| Unit-tested ranking | `backend/tests/unit/test_scheduler.py` |
+| Dashboard UI | `src/components/OptimalScheduleCard.tsx`, mounted at `src/pages/StudentDashboard.tsx:562` |
+
+The router is mounted **unconditionally** at `backend/main.py:246` — no flag.
+Ranking order today is hard (assignment due dates) → soft (weak concepts) →
+filler (in-progress lectures).
+
+#### What is actually missing
+
+Three of the five ranking sources the original design named return **zero rows
+today**, and no amount of frontend work changes that:
+
+- **Due reviews** — `review_cards` is only populated when
+  `FEATURE_REVIEW_ENGINE` is on (`backend/core/config.py:103`, default
+  `False`). It is set in no `.env.example`, compose file or Dockerfile.
+- **Exam prep** — same for `FEATURE_EXAM_MODE` (`config.py:109`, default
+  `False`, declared in no file anywhere).
+- **Weak-concept remediation** — `concept_mastery` **has no live writer**.
+  `backend/services/review/mastery.py:6-17` says so in its own docstring, and
+  `backend/services/exam_service.py:7` independently confirms it reads
+  `concept_graph.compute_student_mastery` instead, "NOT the `concept_mastery`
+  table, which has no real writer". The slide-range deep link is equally
+  empty: `concept_lectures` is populated only by an explicit `/concepts` call
+  or a manual backfill script, never by the pipeline
+  (`backend/services/review/card_factory.py:9-21`).
+
+#### Design — extend, never create
+
+**Do not create `backend/services/planner_service.py`. That file already
+exists** (`backend/services/planner_service.py:49`) and is the unrelated LLM
+"Planner Agent" that generates lecture narrative blueprints for the parse
+pipeline. Writing a study planner there destroys it.
+
+All work extends the existing scheduler:
+
+- **`scheduler.py`** — add exam-proximity weighting; add a single-day view
+  (the API is 7-day today).
+- **A student-owned exam-date store.** Not `exam_dates` — that name is taken
+  by a JSONB column on `course_context`
+  (`supabase/migrations/20260711000000_course_context.sql:15`), which is
+  professor/syllabus-scoped and behind `FEATURE_COURSE_BRAIN`. Use
+  `student_exam_dates (user_id, course_id, exam_at)` with own-row RLS,
+  following the split-per-verb policy style of
+  `20260503000016_schedule_completions.sql:22-41`.
+- **`schedule_item_completions`** — add a dismissal concept ("not today").
+  Only "done" exists today.
+- **Caching is not a drop-in.** `analytics_cache` is keyed on
+  `lecture_id uuid NOT NULL` (`20260503000017_analytics_cache.sql:8,14`) and
+  `get_or_compute` **silently bypasses the cache entirely when `lecture_id`
+  is falsy** (`backend/services/analytics_cache.py:105`). A per-user daily
+  plan has no `lecture_id`. Either widen the cache key or use a separate
+  table — and either way, verify the cached path is actually taken rather
+  than assuming it.
+- **Flag** — add `FEATURE_PLANNER` to `backend/core/config.py` and its
+  `VITE_` mirror, following the existing (duplicated-env-var) pattern.
+- **Frontend landing surface: undecided** (see the cross-cutting note). Do
+  not replace `HeroStage` at `src/pages/StudentDashboard.tsx:352-358` — that
+  unpicks `selectHero`, the onboarding branch, `MediaRail` focus sync and the
+  tagline query, on a screen v4 may replace.
 
 #### Acceptance criteria
-- [ ] Every student sees a 3–7-item plan daily; generation is deterministic for a fixed snapshot (unit-tested ranking) and p95 < 300ms (cached path).
-- [ ] Every item deep-links to its exact surface — zero dead-ends (e2e clicks every item type).
-- [ ] Entering an exam date ≤ 21 days out visibly re-weights the plan toward that course (test: plan diff before/after).
-- [ ] Completion state persists per day; completing all items grants XP exactly once per day; 7-day badge fires.
-- [ ] Cold start: a brand-new student gets a sensible plan (finish onboarding course / first lecture) — never an empty panel.
-- [ ] Plan regenerates correctly across midnight and timezone changes (Europe/Berlin canonical; test at boundary).
-- [ ] Dismissing an item ("not today") drops it for the day without marking it complete and without it reappearing until tomorrow.
+
+*Criteria the original text listed which are already met — deterministic
+ranking, unit-tested ranking, per-day completion persistence, a rendered
+dashboard panel — have been deleted rather than left looking like work.*
+
+- [ ] `FEATURE_PLANNER` exists on both sides and gates every new surface.
+- [ ] A student-owned exam-date row ≤ 21 days out measurably re-weights the
+      plan toward that course (test asserts a plan diff before/after).
+- [ ] The new table's name does not collide with `course_context.exam_dates`,
+      and a test asserts the two are distinct stores.
+- [ ] "Not today" drops an item for the day without marking it complete and
+      without it reappearing until tomorrow.
+- [ ] Completing every item grants XP exactly once per day (via the central
+      gamification RPC, never a direct write); the 7-day badge fires.
+- [ ] The cached path is **demonstrably taken** — a test asserts a cache hit,
+      not merely a p95 number that a bypassed cache could also produce.
+- [ ] Plan regenerates correctly across midnight and DST (Europe/Berlin
+      canonical; test at the boundary).
+- [ ] With `FEATURE_REVIEW_ENGINE` and `FEATURE_EXAM_MODE` off, the plan
+      degrades to a sensible filler plan and **never renders an empty panel** —
+      tested with all three empty sources.
 
 ---
 
 ### 2.2 Global semantic search + course-wide tutor — "Ask anything"
 
-**Impact ★★★★ · Effort M (1–2 weeks) · Dependencies: none · Flag: `FEATURE_GLOBAL_SEARCH`**
+**Impact ★★★★ · Effort XS (was M) · Dependencies: none · Flag: `FEATURE_GLOBAL_SEARCH` (exists, declared nowhere)**
 
-#### Why
-`slide_chunks` + `match_slides()` + the Socratic tutor exist but are locked to one lecture. Un-scoping them makes the whole enrolled library an answerable, citable corpus — the headline demo feature.
+#### What already exists
 
-#### Design
-- **Retrieval:** extend `match_slides` RPC (or add `match_slides_scoped`) with `course_id`/`user enrollment` filters; enforce scope server-side from the authenticated user's enrollments — published lectures in enrolled courses only. Add keyword fallback (Postgres `websearch_to_tsquery` over `slides.title/content_text`) merged with vector results (RRF fusion).
-- **Search UI:** ⌘K / `/`-key command palette in `ConsoleLayout` — sections: Lectures, Slides, Concepts, Worksheets; each hit deep-links (lecture → slide index). Recent searches stored locally.
-- **Course tutor:** same grounding flow as `tutor.py`, retrieval scoped to course; citations carry `{lecture_id, slide_index, similarity}` and render as jump chips. Explicit refusal path when max similarity < threshold: "This doesn't appear in your course materials," with an optional ungrounded-answer opt-in clearly labeled.
-- **Entry points:** course page "Ask this course" tab; global palette answer mode ("Ask AI" row on any query).
-- Build a 20+ question eval set (in-corpus/out-of-corpus per seeded course) run in CI against the routing threshold.
+**This feature is built, end to end, and merged.** It is dark because two
+environment variables are declared in no committed file.
+
+| Layer | Where |
+|---|---|
+| Course-scoped vector RPC | `match_slides_scoped` — `supabase/migrations/20260710030000_global_search.sql:12` |
+| Keyword RPCs | `search_slides_keyword` `:55`, `search_lectures_keyword` `:96`, `search_concepts_keyword` `:122`, `search_worksheets_keyword` `:150` |
+| FTS index | `slides_fts_idx` — same migration `:50` |
+| RRF fusion | `backend/services/ai/retrieval.py:246` `rrf_fuse`, `rrf_constant=60` at `:251` |
+| Course-scoped retrieval | `retrieval.py:186` `retrieve_relevant_slides_course_scoped` |
+| Threshold | `DEFAULT_THRESHOLD = 0.65`, `DEFAULT_COURSE_K = 6` — `retrieval.py:31-32` |
+| Course tutor + refusal | `backend/services/ai/tutor.py:287` `chat_with_course`; `:275` `is_grounded`; short-circuits **before** the LLM call at `:318-319`; ungrounded opt-in via `allow_ungrounded` at `:294` |
+| API, rate-limited | `backend/api/v1/search.py:48,73` with `@limiter.limit("20/minute")` at `:49,74` |
+| Event logging | `search_performed` — `backend/api/v1/search.py:63` |
+| Typed client | `src/services/searchService.ts:54` `globalSearch`, `:62` `askCourseTutor` |
+| ⌘K palette | `src/components/CommandPalette.tsx` (19 KB, complete); handler at `src/components/console/ConsoleLayout.tsx:63`, mount at `:142` |
+
+**The one thing standing between this and users:**
+`src/components/console/ConsoleLayout.tsx:142` renders the palette only when
+`FEATURES.globalSearch` is true, and `VITE_FEATURE_GLOBAL_SEARCH` appears in
+no `.env.example`, compose file or Dockerfile. `.env.example` declares only
+`VITE_FEATURE_REVIEW_ENGINE` (`:85`) and `VITE_FEATURE_STUDENT_UPLOADS`
+(`:87`). Backend mirror: `feature_global_search` defaults `False`
+(`backend/core/config.py:115`), gating the router mount.
+
+Both halves must be set. Either alone yields a visible UI hitting an
+unmounted route, or a live route no UI reaches.
+
+#### Design — enable, verify, and close the three real gaps
+
+1. **Declare the flags.** `FEATURE_GLOBAL_SEARCH` and
+   `VITE_FEATURE_GLOBAL_SEARCH` in `.env.example` (empty = off), then the
+   deploy path. **Turning it on in production is a product decision, not a
+   build step** — recorded as declined-without-the-owner at
+   `docs/MILESTONE_4_FIX_PLAN.md:22`.
+2. **Confirm the corpus.** Run `backend/scripts/backfill_slide_embeddings.py
+   --dry-run` before anything else. Retrieval against an empty
+   `slide_embeddings` returns nothing and the tutor then refuses *everything*,
+   which is indistinguishable from correct out-of-corpus behaviour.
+3. **Promote the eval.** `backend/tests/unit/test_course_tutor_grounding.py`
+   tests **threshold arithmetic against synthetic similarity vectors**
+   (`_hits(0.95)`, `_hits(0.70, 0.91)` — `:23,30-36`), not real retrieval
+   against a real corpus. `backend/eval/golden_sets.py` holds four golden sets
+   (`:50,116,146,179`) and **none of them is a global-search or course-tutor
+   case**, so nothing 2.2-related runs in the nightly harness. Add one.
+4. **Add the missing e2e.** `e2e/` holds three specs
+   (`student-happy-path`, `professor-upload`, `professor-analytics`) and none
+   touches the palette or a citation click.
+5. **Measure p95.** No perf test exists for the search path.
+
+#### Three silent-failure hazards — record and guard, do not discover later
+
+Each makes "working" and "broken" look identical from the outside:
+
+- **Empty `slide_embeddings`** → every question refused, looking exactly like
+  correct refusal.
+- **Zero-vector rows** → pgvector's cosine distance against a zero vector is
+  `NaN`, and `NaN > 0.65` is **TRUE** in Postgres, so the threshold filter
+  does *not* exclude it and an unrelated slide is injected into grounding
+  context precisely when the tutor should refuse. Guards exist —
+  `backend/tests/db/test_zero_vector_retrieval_hazard.py` — **a refactor must
+  not remove them.**
+- **Empty `concept_lectures`** → `search_concepts_keyword` joins it, so the
+  palette's "Concepts" section renders permanently empty with no error.
+
+Secondary, degrading rather than failing: the FTS index and both
+`to_tsvector` / `websearch_to_tsquery` calls hardcode `'english'`
+(`20260710030000_global_search.sql:52,81,82,88`) while the seeded institution
+is German. Vector + RRF partly covers for it.
 
 #### Acceptance criteria
-- [ ] ⌘K opens from any authenticated page; results p95 < 800ms; results **never** include unenrolled or unpublished content (RLS/scope test with two users + one unpublished lecture).
-- [ ] Semantic and keyword results are fused: an exact-title keyword query and a paraphrase query both surface the right slide in top-3 (eval set).
-- [ ] Course tutor answers a question covered by any slide in the course with a citation; clicking the citation lands on that exact slide (e2e).
-- [ ] Out-of-corpus questions get the explicit "not covered" response ≥ 90% of the eval set; in-corpus questions are answered (not refused) ≥ 90%.
-- [ ] Tutor conversations stay session- and student-scoped (`tutor_messages` RLS unchanged; test).
-- [ ] Search queries logged as `learning_events` (`search_performed`) with zero PII beyond user_id, feeding "what students search for" professor analytics later.
-- [ ] Rate limit on ask endpoints (e.g., 20/min) with a friendly client message.
+
+*All seven original criteria describe behaviour that already ships. They are
+replaced by the gaps that remain.*
+
+- [ ] Both flag halves are declared in `.env.example` and the deploy path; a
+      test or CI check fails if one is set without the other.
+- [ ] `slide_embeddings` is confirmed populated for the target corpus, with
+      the row count recorded in the PR.
+- [ ] A global-search/course-tutor golden set lives in
+      `backend/eval/golden_sets.py` and runs in the nightly harness — not only
+      as synthetic threshold arithmetic in a unit test.
+- [ ] An e2e spec opens ⌘K, searches, and clicks a citation through to the
+      exact slide.
+- [ ] Search p95 is measured and recorded (target < 800 ms).
+- [ ] The zero-vector guards still pass and are referenced in the PR body.
 
 ---
 
 ### 2.3 Professor action loop — analytics → intervention, one click
 
-**Impact ★★★★ · Effort M (1–2 weeks) · Dependencies: none (2.1 improves nudge landing) · Flag: `FEATURE_PROF_ACTIONS`**
+**Impact ★★★★ · Effort L (was M) · Dependencies: none · Flag: `FEATURE_PROF_ACTIONS` (does not exist yet)**
 
-#### Why
-Professor analytics diagnose (confusion index, drop-off, struggling students) but prescribe nothing. Closing analytics into actions is what makes professors renew and evangelize — and each action creates student-side value. It also finally gives `Layer2Viz.tsx`'s "coming soon" stub its purpose: insight → detail → **action**.
+*This is the only Phase 2 item that is mostly genuine new work. It is also
+larger than "M" once the stale premises are removed — and one part of it
+cannot be finished by an engineer alone.*
 
-#### Design
-- **Action framework:** each insight type maps to 1–2 contextual actions rendered on insight cards (`InsightGarden`, `AskYourDataPanel`) and in `Layer2Viz` detail views:
-  | Insight | Action |
-  |---|---|
-  | Weak/confusing concept | **Generate remediation practice sheet** → existing `POST /practice-sheets/lectures/{id}/practice-sheets/auto` seeded with the concept; opens in `PracticeSheetEditor` for review before publish |
-  | Slide-range drop-off | **Nudge stalled students** → professor-initiated nudge through the existing engine (new rule type `ProfessorNudgeRule`), rate-limited |
-  | Struggling students | **Create follow-up assignment** → prefilled `CreateAssignmentDialog` |
-  | Worst quiz questions | **Open in quiz editor** → existing slide/quiz edit |
-- New table `professor_interventions (id, professor_id, lecture_id, insight_key, action_type, target jsonb, created_at, followup_at, outcome jsonb)` — every action recorded; a scheduled Arq job computes the 14-day before/after delta on the targeted metric and writes `outcome`.
-- **Weekly digest** — Arq cron: per opted-in professor, top-3 insights + one suggested action each, en/de email (existing mail infra or Supabase functions); every insight links to its dashboard view. Opt-in via Settings.
-- Guardrails: professor nudges respect `nudge_dismissals` quiet periods and are capped at 1 per student per lecture per week; all actions audited (`admin` events).
+#### What already exists
+
+- **The analytics redesign shipped.** `src/pages/ProfessorAnalytics.tsx` is
+  now a thin shell over `src/features/analytics/garden/`.
+  **`Layer2Viz.tsx` has no "coming soon" stub** — it is a complete
+  **11-branch** dispatcher over `InsightKind`, mounted at
+  `src/features/analytics/garden/InsightCard.tsx:89`.
+- **The nudge engine** (`backend/services/nudge_engine.py`) with
+  `nudge_dismissals` quiet periods, and four professor-lifecycle rules already
+  proving professor-targeted nudges are a supported shape.
+- **Arq cron scaffolding** — `backend/workers/arq_worker.py:253-257` plus the
+  env-gated nudge cron at `:58`. The cleanest part of this item to build on.
+- `PracticeSheetEditor`, `CreateAssignmentDialog`, the admin events API
+  (`backend/api/v1/admin.py:241`).
+
+#### Corrections that change the work
+
+- **There is no "coming soon" stub to replace.** The real work is an
+  **`ActionRow` sibling inside `InsightCard.tsx` at `:89`**, not anything
+  inside `Layer2Viz`.
+- **`InsightGarden` and `AskYourDataPanel` are no longer peers.** The garden
+  is at `/professor/analytics`; `AskYourDataPanel` is mounted **only** on the
+  legacy `src/pages/AdvancedAnalytics.tsx:986`. Two pages, two data models —
+  an action framework must target one deliberately.
+- **Never reuse the `/auto` practice-sheet endpoint.** Its real route is
+  `POST /api/v1/lectures/{lecture_id}/practice-sheets/auto`
+  (`backend/api/v1/practice_sheets.py:255`). It takes **no body**, does **no
+  generation** (it repackages existing `quiz_questions`), and
+  `supabase/migrations/20260503000019_practice_sheets.sql:17-18` enforces
+  `UNIQUE INDEX ... ON practice_sheets(lecture_id) WHERE kind = 'auto'` —
+  which the endpoint honours by deleting the existing sheet's questions.
+  **Reusing it for remediation destroys a professor's existing sheet.**
+  Requires a *new* endpoint and a new `kind` (the CHECK at `:6` allows only
+  `auto`/`manual`).
+- **`ProfessorNudgeRule` is an architecture mismatch.** Every
+  `Rule.should_fire(ctx)` is pull-based, evaluated per student per day inside
+  the daily batch. A professor nudge is push-based and on-demand. Two honest
+  options, neither free: a persisted intent queue the batch reads (nudge lands
+  on the next cron tick, a latency the original text did not acknowledge), or
+  a direct-emit path reusing `_emit_nudge` and the same `nudge_dismissals`
+  gate (bypasses `evaluate_user`, where the quiet-period filter actually
+  lives). The 1/student/lecture/week cap is expressible as
+  `subject_key = lecture_id` + `quiet_days = 7`, but `subject_key` is
+  unindexed for range queries.
+- **`CreateAssignmentDialog` has no prefill props** — title, description and
+  due date are internal `useState`
+  (`Props` at `src/features/assignments/CreateAssignmentDialog.tsx:36-43`;
+  the fields are internal `useState` at `:59-62`). "Prefilled"
+  is a component change plus a test change.
+- **`professor_interventions` does not exist** anywhere but this roadmap.
+  Genuinely greenfield.
+- **Write "logged", not "audited".** `GET /api/v1/admin/events` is a SELECT
+  over `learning_events` (`backend/api/v1/admin.py:241,277`). There is no
+  tamper-evident audit table.
+
+#### The weekly digest is descoped — email infrastructure does not exist
+
+There is **no mail service module, no template system, no layout, no
+unsubscribe or link signing, no send log, no bounce handling, no retry, and
+no server-side en/de string catalog**. What exists is a single inline Resend
+call in one endpoint (`backend/api/v1/feedback.py:59-113`) sending from
+`"Acme <onboarding@resend.dev>"` (`:113`) — Resend's **shared sandbox
+sender**, which delivers only to the account owner and **cannot send to
+arbitrary professors without a DNS-verified domain**.
+`notification_preferences.email_enabled` exists and is **read by nothing**.
+
+→ **The weekly digest ships as a `professor_digests` row plus an in-app
+view.** Email delivery is a human/ops prerequisite (verified sending domain +
+SPF/DKIM), explicitly out of scope for the build. An engineer who builds a
+digest against the sandbox sender will produce one that silently never sends.
 
 #### Acceptance criteria
-- [ ] From a "students are confused on concept X" insight, a professor generates, reviews, and publishes a targeted practice sheet in ≤ 3 clicks; generated questions demonstrably cover concept X (spot-check assertion on concept tags).
-- [ ] Professor-initiated nudges respect quiet periods and the 1/student/lecture/week cap (unit test on the rule); students see them as normal nudges with dismissal working.
-- [ ] Every action writes a `professor_interventions` row; 14 days later a follow-up card shows the metric delta for the targeted concept/slide-range — including an honest "no change."
-- [ ] Weekly digest sends only to opted-in professors, renders in en/de, and every link resolves to the corresponding dashboard view; unsubscribing stops the next digest.
-- [ ] `Layer2Viz` detail views replace the "coming soon" stub for at least the 3 insight types above.
-- [ ] All professor actions appear in the admin activity log.
+
+- [ ] `FEATURE_PROF_ACTIONS` exists on both sides and gates every new surface.
+- [ ] An `ActionRow` renders on insight cards via `InsightCard.tsx:89`, for at
+      least the three insight types named in the action table.
+- [ ] Remediation sheets are generated by a **new** endpoint with a **new**
+      `kind`; a test asserts that generating one leaves any existing
+      `kind='auto'` sheet for that lecture byte-for-byte intact.
+- [ ] Professor-initiated nudges respect quiet periods and the
+      1/student/lecture/week cap (unit test on the path actually taken), and
+      `run_daily` idempotency still holds (the existing nudge tests stay green).
+- [ ] Every action writes a `professor_interventions` row; a 14-day follow-up
+      Arq job computes the before/after delta on the targeted metric,
+      including an honest "no change".
+- [ ] The weekly digest writes a `professor_digests` row rendered in-app for
+      opted-in professors; **no code path attempts to send email**, and the
+      ops prerequisite is documented.
+- [ ] Every professor action writes a `learning_events` row and appears in the
+      admin activity view.
+- [ ] Frontend landing surface confirmed against v4's fate before any student-
+      facing nudge UI is built.
 
 ---
 
@@ -521,7 +751,7 @@ Resumes "academic fingerprint Phase 2" (paused). Growth ceiling for onboarding p
 
 Slides are half a lecture. Whisper-class transcription → the same chunk/embed/synthesize pipeline makes recordings first-class RAG sources.
 
-**Design sketch:** upload audio/video (or paste a recording URL) → Arq job: transcribe (faster-whisper on the GPU server, or hosted STT) → segment (~45s windows aligned to silence) → embed segments into a `media_chunks` sibling of `slide_chunks` with `start_ms/end_ms` → optional slide-sync (align transcript to an existing deck by embedding similarity) → quiz/concept generation over the transcript.
+**Design sketch:** upload audio/video (or paste a recording URL) → Arq job: transcribe (faster-whisper on the GPU server, or hosted STT) → segment (~45s windows aligned to silence) → embed segments into a `media_chunks` sibling of `slide_embeddings` (not `slide_chunks` — dead; §11 #15) with `start_ms/end_ms` → optional slide-sync (align transcript to an existing deck by embedding similarity) → quiz/concept generation over the transcript.
 
 **Headline acceptance criteria (full spec is its own doc):**
 - [ ] An uploaded recording yields a timestamped, embedded transcript; tutor citations can reference timestamps and the player seeks to them.
@@ -601,3 +831,72 @@ Instrument all of these from `learning_events` + `review_log` before M1 ships (b
 - Marketplace / public sharing of student-uploaded content (copyright posture first).
 - Payments/billing implementation (quota hooks in 3.1 are the seam; billing is its own project).
 - LMS (Moodle/ILIAS) integrations — valuable, but after M3 proves the loop.
+
+---
+
+## 11. Corrections — what Phase 2 got wrong (2026-09-17)
+
+*Every row was re-verified against the tree at the `path:line` given. This
+section exists so the next reader does not relitigate §5, and so the failure
+mode that produced it is visible: **the roadmap went stale because features
+shipped and the document was never told.** Three of these corrections describe
+code that would have been destroyed by following the original text.*
+
+### 2.1 — Personal Study Planner
+
+| # | The document said | What is true |
+|---|---|---|
+| 1 | Create `backend/services/planner_service.py` | **That file exists** (`backend/services/planner_service.py:49`) and is the unrelated LLM "Planner Agent" for the parse pipeline. ⚠️ **Writing to it destroys working code.** |
+| 2 | Build a ranked-plan service | Built: `backend/services/scheduler.py:199` `build_plan`, 620 lines, unit-tested (`backend/tests/unit/test_scheduler.py`) |
+| 3 | `GET /planner/today` | Shipped as `GET /api/v1/schedule/me` — `backend/api/v1/schedule.py:33` |
+| 4 | `POST /planner/items/{key}/complete` | Shipped as `POST /api/v1/schedule/items/{item_id}/done` — `backend/api/v1/schedule.py:56` |
+| 5 | New table `plan_item_completions` | Shipped as `schedule_item_completions` — `supabase/migrations/20260503000016_schedule_completions.sql:8`, UNIQUE `:14`, own-row RLS `:22-41` |
+| 6 | `TodayPanel.tsx` replaces the dashboard hero | `src/components/OptimalScheduleCard.tsx` already renders at `src/pages/StudentDashboard.tsx:562` |
+| 7 | "the student still decides what to do" | False — a plan is generated and rendered today, unflagged (`backend/main.py:246`) |
+| 8 | Ingredient: "the `optimal-schedule` endpoint" | Misread. `personal_schedule_service.py:1-11` answers **when** a student studies best; its docstring explicitly says it is "Not to be confused with `backend/services/scheduler.py`" |
+| 9 | Rank on `slide_visit_status` | **No such table.** A migration *file* bears that name (`20260607000000_slide_visit_status.sql`) but it adds a `slide_states` JSONB column at `:17` |
+| 10 | Rank on lowest `concept_mastery` | Dead branch — no live writer. `backend/services/review/mastery.py:6-17`; corroborated at `backend/services/exam_service.py:7` |
+| 11 | Deep-link via `concept_lectures.slide_indices` | Table populated only by an explicit `/concepts` call or a manual script, never by the pipeline — `backend/services/review/card_factory.py:9-21` |
+| 12 | New table `exam_dates (user_id, …)` | Name collision — `exam_dates` is a JSONB column on `course_context` (`20260711000000_course_context.sql:15`), professor-scoped, behind `FEATURE_COURSE_BRAIN` |
+| 13 | Cache "in the `analytics_cache` pattern" | Not a drop-in. Keyed on `lecture_id uuid NOT NULL` (`20260503000017_analytics_cache.sql:8,14`); `get_or_compute` **silently bypasses the cache when `lecture_id` is falsy** (`backend/services/analytics_cache.py:105`) |
+| 14 | Depends on 1.1 + 1.2 | Both shipped but **dark**: `config.py:103,109` default `False`, and `FEATURE_EXAM_MODE` is declared in no `.env.example`, compose file or Dockerfile |
+
+### 2.2 — Global semantic search
+
+| # | The document said | What is true |
+|---|---|---|
+| 15 | `slide_chunks` + `match_slides()` are the substrate | `slide_chunks` is a **384-d dead table** — zero references in the v5 pipeline. The live substrate is `slide_embeddings` (768-d, HNSW). Repointing would be a vector-dimension error, not a config change |
+| 16 | The tutor is "locked to one lecture" | Course-scoping landed 2026-07-10 (`20260710030000_global_search.sql:12`); the single-lecture path was itself re-scoped in SQL on 2026-07-19 (`20260719020001_match_slides_by_lecture.sql`) |
+| 17 | "extend `match_slides` (or add `match_slides_scoped`)" | Already done, under that exact name. ⚠️ A second `CREATE OR REPLACE FUNCTION match_slides_scoped` in a new migration would **silently overwrite the working definition with no error** |
+| 18 | Build the ⌘K search UI | Built — `src/components/CommandPalette.tsx` (19 KB), mounted at `src/components/console/ConsoleLayout.tsx:142`, handler at `:63`; typed client at `src/services/searchService.ts:54,62` |
+| 19 | Build RRF fusion, refusal path, rate limiting | All shipped — `retrieval.py:246,251`; `tutor.py:275,287,318-319`; `backend/api/v1/search.py:49,74` (`20/minute`, exactly the number specified) |
+| 20 | "Build a 20+ question eval set run in CI" | Exists only as **synthetic threshold arithmetic** in `backend/tests/unit/test_course_tutor_grounding.py:23,30-36`. None of the four golden sets in `backend/eval/golden_sets.py:50,116,146,179` is a 2.2 case, so nothing 2.2-related runs nightly |
+
+### 2.3 — Professor action loop
+
+| # | The document said | What is true |
+|---|---|---|
+| 21 | `Layer2Viz.tsx` is a "coming soon" stub | **No stub.** The analytics redesign shipped; it is a complete 11-branch dispatcher mounted at `src/features/analytics/garden/InsightCard.tsx:89`. That acceptance criterion was vacuous |
+| 22 | Insight cards live in `InsightGarden` **and** `AskYourDataPanel` | No longer peers — `AskYourDataPanel` is mounted only on the legacy `src/pages/AdvancedAnalytics.tsx:986` |
+| 23 | Reuse `POST /practice-sheets/lectures/{id}/practice-sheets/auto` | Route is `POST /api/v1/lectures/{lecture_id}/practice-sheets/auto` (`backend/api/v1/practice_sheets.py:255`); takes no body, generates nothing. ⚠️ `UNIQUE INDEX` (`20260503000019_practice_sheets.sql:17-18`) + delete-then-reinsert means **reuse destroys the professor's existing sheet** |
+| 24 | Add a `ProfessorNudgeRule` to the existing engine | Architecture mismatch — rules are pull-based, evaluated per student per day; a professor nudge is push-based and on-demand |
+| 25 | "existing mail infra or Supabase functions" | **Neither exists.** One inline Resend call (`backend/api/v1/feedback.py:59-113`) from `"Acme <onboarding@resend.dev>"` (`:113`) — a shared sandbox sender that cannot deliver to third parties. No templates, no en/de catalog, no unsubscribe. `notification_preferences.email_enabled` is read by nothing |
+| 26 | "prefilled `CreateAssignmentDialog`" | No prefill props — `Props` at `src/features/assignments/CreateAssignmentDialog.tsx:36-43` carries none; title/description/dueDate/minScore are internal `useState` at `:59-62` |
+| 27 | `professor_interventions` | Does not exist anywhere but this roadmap. Genuinely greenfield |
+| 28 | "all actions audited (`admin` events)" | No audit table. `GET /api/v1/admin/events` is a SELECT over `learning_events` (`backend/api/v1/admin.py:241,277`). Say "logged" |
+| 29 | "Effort M (1–2 weeks)" | Scoped against assumptions that did not hold; with the email prerequisite and the practice-sheet rework, materially larger |
+
+### Cross-cutting
+
+| # | The document said | What is true |
+|---|---|---|
+| 30 | Phase 2 lands UI on the student dashboard | The whole student surface is being rebuilt as `/v4/*` (21 dev-only routes, `src/App.tsx`). Phase 2 is re-scoped backend-first; each item's frontend landing surface is explicitly undecided |
+
+### The four that would have destroyed working code
+
+Called out separately because they are not documentation problems:
+
+1. **`planner_service.py`** — the name is taken by the parse pipeline's LLM agent (#1).
+2. **The `/auto` practice-sheet endpoint** — reuse deletes a professor's existing sheet (#23).
+3. **`CREATE OR REPLACE FUNCTION match_slides_scoped`** — a duplicate migration silently overwrites the working RPC (#17).
+4. **The zero-vector threshold hole** — pgvector's cosine distance against a zero vector is `NaN`, and `NaN > 0.65` is TRUE in Postgres, so the filter does not exclude it. Guards at `backend/tests/db/test_zero_vector_retrieval_hazard.py` are load-bearing and must survive any refactor.
