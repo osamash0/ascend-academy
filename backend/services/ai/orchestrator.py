@@ -722,7 +722,19 @@ class ProviderRotator:
             logger.debug("ProviderRotator.flush_success_to_redis failed for %s: %s", provider_id, exc)
 
     async def flush_openai_cost_to_redis(self, cost_usd: float) -> None:
-        """Atomically adds to openai's fleet-wide daily cost total."""
+        """Adds to openai's daily cost: always to this process's in-memory
+        total, then best-effort to the fleet-wide Redis counter.
+
+        The local add must not depend on Redis. A process with Redis down —
+        or never initialised, which is every Arq worker (only main.py calls
+        init_redis()) — used to skip it, so the ceiling in `available()`
+        compared against a total stuck at $0 and never tripped.
+        `refresh_from_redis` takes max(local, fleet), so this never
+        double-counts.
+        """
+        with self._lock:
+            self._reset_if_new_day()
+            self._openai_daily_cost_usd += cost_usd
         from backend.services.ai.cost import get_redis_or_none, openai_daily_cost_key
         redis = get_redis_or_none()
         if redis is None:
@@ -731,8 +743,6 @@ class ProviderRotator:
             key = openai_daily_cost_key()
             await redis.incrbyfloat(key, cost_usd)
             await redis.expire(key, 2 * 86400)
-            with self._lock:
-                self._openai_daily_cost_usd += cost_usd
         except Exception as exc:
             logger.debug("ProviderRotator.flush_openai_cost_to_redis failed: %s", exc)
 
