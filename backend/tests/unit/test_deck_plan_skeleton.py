@@ -12,6 +12,7 @@ LONG = "Relational algebra defines selection, projection and join over sets of t
     (3, "", SlideRole.EMPTY),
     (3, "Agenda\n1. Intro\n2. SQL", SlideRole.AGENDA),
     (3, "Gliederung\nTeil A", SlideRole.AGENDA),
+    (3, "Kapitelübersicht\nSeitenersetzung", SlideRole.AGENDA),
     (3, "Übung 2\n" + LONG, SlideRole.EXERCISE),
     (3, "Exercise: normalize this schema\n" + LONG, SlideRole.EXERCISE),
     (3, "Zusammenfassung\n" + LONG, SlideRole.SUMMARY),
@@ -27,6 +28,13 @@ LONG = "Relational algebra defines selection, projection and join over sets of t
     (3, "Conflict Serializability\nConflicts – conflict", SlideRole.CONTENT),
     (3, "Ethernet Topologie:10Base2", SlideRole.CONTENT),
     (3, "Selection\n" + LONG, SlideRole.CONTENT),
+    # Bare leading numbers are quantities/years/page counters, not chapter numbers.
+    (3, "10 Gbit Ethernet", SlideRole.CONTENT),
+    (3, "802.11 WLAN", SlideRole.CONTENT),
+    (3, "2024 Ergebnisse", SlideRole.CONTENT),
+    (3, "3 Prozesse", SlideRole.CONTENT),
+    (3, "1 / 66", SlideRole.CONTENT),
+    (3, "3.1. Seitenersetzung", SlideRole.SECTION),
 ])
 def test_classify_role(index, text, role):
     assert classify_role(index, text) is role
@@ -48,6 +56,42 @@ def test_footer_does_not_hide_a_section_divider():
     bodies = ["Title", LONG, "1. Basics", LONG, "2. SQL", LONG]
     pages = [b + "\n" + footer.replace("{n}", str(i + 1)) for i, b in enumerate(bodies)]
     assert [s.start for s in build_deck_skeleton(pages).sections] == [0, 2, 4]
+
+
+LONG_A = "Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron."
+LONG_B = "Pi rho sigma tau upsilon phi chi psi omega and then some more words to be long."
+LONG_C = "Select project join union intersect difference rename divide aggregate group order."
+LONG_D = "Commit abort rollback savepoint isolation durability atomicity consistency locking."
+AGENDA = "Agenda\n1. A\n2. B"
+
+
+def test_recurring_agenda_slides_delimit_sections():
+    pages = ["Title", AGENDA, LONG_A, LONG_B, AGENDA, LONG_C, LONG_D]
+    sk = build_deck_skeleton(pages)
+    assert [s.start for s in sk.sections] == [0, 1, 4]
+    assert [s.end for s in sk.sections] == [0, 3, 6]
+    assert sk.sections[1].title == LONG_A
+    assert sk.sections[2].title == LONG_C
+    assert [p.section for p in sk.slides] == [0, 1, 1, 1, 2, 2, 2]
+
+
+def test_a_single_agenda_slide_is_a_table_of_contents_not_a_section():
+    sk = build_deck_skeleton(["Title", AGENDA, LONG_A, LONG_B, LONG_C])
+    assert [s.start for s in sk.sections] == [0]
+
+
+def test_agenda_section_title_falls_back_to_the_agenda_line():
+    # Enough distinct content pages that the agenda is not template boilerplate.
+    pages = ["Title", LONG_A, AGENDA, AGENDA, LONG_B, LONG_C, LONG_D, LONG_A + " x"]
+    sk = build_deck_skeleton(pages)
+    assert [s.start for s in sk.sections] == [0, 2, 3]
+    assert sk.sections[1].title == "Agenda"
+    assert sk.sections[2].title == LONG_B
+
+
+def test_empty_deck_has_no_sections():
+    sk = build_deck_skeleton([])
+    assert sk.sections == () and sk.slides == ()
 
 
 @settings(max_examples=60)

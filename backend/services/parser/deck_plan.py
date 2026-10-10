@@ -60,7 +60,7 @@ class SlideRole(str, Enum):
 # Matched against the slide's FIRST non-empty line only. Lecture decks here
 # are German or English, so each pattern covers both.
 _HEADING_ROLES: tuple[tuple[re.Pattern[str], SlideRole], ...] = (
-    (re.compile(r"^(agenda|outline|overview|inhalt|gliederung|übersicht)\b", re.I), SlideRole.AGENDA),
+    (re.compile(r"^(agenda|outline|overview|inhalt|gliederung|übersicht|kapitelübersicht)\b", re.I), SlideRole.AGENDA),
     (re.compile(r"^(übung|uebung|aufgabe|exercise|quiz|task)\b", re.I), SlideRole.EXERCISE),
     (re.compile(r"^(zusammenfassung|summary|fazit|recap|conclusion|takeaways?)\b", re.I), SlideRole.SUMMARY),
     (re.compile(r"^(literatur|references|quellen|bibliography|further reading)\b", re.I), SlideRole.REFERENCES),
@@ -68,8 +68,12 @@ _HEADING_ROLES: tuple[tuple[re.Pattern[str], SlideRole], ...] = (
 _SECTION_MAX_WORDS = 6
 # A short slide is a chapter divider only if it is numbered. Across 20 real
 # decks every unnumbered short slide was a figure slide with just a title.
+# A bare number ("10 Gbit Ethernet", "2024 Ergebnisse", "1 / 66") is a
+# quantity or page counter, so the number needs a trailing dot ("2. X") or
+# several levels ("3.1 X"). Components are capped at two digits so that
+# "802.11 WLAN" does not read as chapter 802.11.
 _SECTION_NUMBERING = re.compile(
-    r"^(\d+(\.\d+)*\.?\s|(kapitel|chapter|teil|part|abschnitt|section)\s+(\d+|[ivx]+)\b)", re.I
+    r"^(\d{1,2}\.\s|\d{1,2}(\.\d{1,2})+\.?\s|(kapitel|chapter|teil|part|abschnitt|section)\s+(\d+|[ivx]+)\b)", re.I
 )
 
 
@@ -116,16 +120,34 @@ def _first_line(text: str) -> str:
     return next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
 
 
+_TITLE_ROLES = frozenset({SlideRole.CONTENT, SlideRole.SUMMARY, SlideRole.EXERCISE})
+
+
+def _section_title(texts: list[str], roles: list[SlideRole], start: int, end: int) -> str:
+    """An agenda slide only says "Inhalt", so its section is named after the
+    first real slide that follows it."""
+    if roles[start] is SlideRole.AGENDA:
+        for i in range(start + 1, end + 1):
+            if roles[i] in _TITLE_ROLES:
+                return _first_line(texts[i])
+    return _first_line(texts[start])
+
+
 def build_deck_skeleton(pages: list[str]) -> DeckSkeleton:
     boilerplate = find_boilerplate(pages)
     texts = [strip_boilerplate(p, boilerplate) for p in pages]
     roles = [classify_role(i, t) for i, t in enumerate(texts)]
 
-    starts = [0] + [i for i, r in enumerate(roles) if r is SlideRole.SECTION and i != 0]
+    # Real decks have no numbered dividers; their chapter markers are the
+    # progress-agenda slides that recur. One agenda alone is just a table of
+    # contents, so agendas delimit sections only when there are two or more.
+    agenda_starts = roles.count(SlideRole.AGENDA) >= 2
+    start_roles = {SlideRole.SECTION} | ({SlideRole.AGENDA} if agenda_starts else set())
+    starts = [0] + [i for i, r in enumerate(roles) if i != 0 and r in start_roles]
     sections = tuple(
-        Section(index=k, title=_first_line(texts[s]), start=s,
-                end=(starts[k + 1] - 1 if k + 1 < len(starts) else len(pages) - 1))
+        Section(index=k, title=_section_title(texts, roles, s, end), start=s, end=end)
         for k, s in enumerate(starts)
+        for end in [starts[k + 1] - 1 if k + 1 < len(starts) else len(pages) - 1]
     ) if pages else ()
 
     section_of = {i: s.index for s in sections for i in range(s.start, s.end + 1)}

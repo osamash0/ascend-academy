@@ -65,3 +65,15 @@ def test_sr_deck_footer_is_stripped_and_deck_is_mostly_content(sr_prozesse):
     assert all(footer not in s.text for s in sk.slides)
     content = sum(1 for s in sk.slides if s.role is SlideRole.CONTENT)
     assert content >= 0.5 * len(sr_prozesse)
+
+
+def test_sr_decks_are_split_into_sections_by_recurring_agenda_slides():
+    paths = [p for p in sorted(DECK_DIR.glob("*__SR_*.pdf"))
+             if "-2" not in p.name and "Kopie" not in p.name]
+    if not paths:
+        pytest.skip("real SR decks not available")
+    counts = [len(build_deck_skeleton(real_deck_pages(p.name)).sections) for p in paths]
+    # Observed 2026-10-11: 4 of 14 (EA, Virtualisierung, Speicherverwaltung,
+    # Datentransfer). The other SR decks show their agenda once, so they stay
+    # a single section; the bound only guards against the rule regressing.
+    assert sum(1 for c in counts if c >= 2) >= 3, counts
