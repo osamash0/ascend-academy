@@ -251,7 +251,8 @@ export default function StudioCanvasScreen() {
           <main
             ref={column}
             className={cn(
-              'mx-auto w-full min-w-0 pb-40 pt-6',
+              // pb-56 clears the scrim and the pill: the last page scrolls fully into the open.
+              'mx-auto w-full min-w-0 pb-56 pt-6',
               original ? 'max-w-[58rem]' : 'max-w-[44rem] pl-14 md:pl-16',
             )}
           >
@@ -282,6 +283,16 @@ export default function StudioCanvasScreen() {
           )}
         </div>
       </div>
+
+      {/*
+        The bottom scrim: the page fades into the ground under the page line,
+        so the hint and the pill never sit on top of words. Full width, and
+        it never takes a click.
+      */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 bg-gradient-to-t from-background via-background/85 to-transparent"
+      />
 
       {/* The page line: where you are, and the turn. */}
       <div

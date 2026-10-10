@@ -25,7 +25,7 @@ export function PagerPill({ current, last, canBack, canForward, hint, onStep }: 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="hidden text-center text-[12px] text-faint sm:block"
+            className="pointer-events-auto hidden text-center text-[12px] text-quiet sm:block"
           >
             {hint}
           </motion.p>
