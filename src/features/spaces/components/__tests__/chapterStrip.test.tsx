@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ChapterStrip, chaptersOf } from '../reader/ChapterStrip';
 
 const SECTIONS = [
@@ -17,14 +17,17 @@ describe('the chapter strip', () => {
     ]);
   });
 
-  it('names the idea you are in, and jumps to an idea’s first page', () => {
+  it('names the idea you are in, and jumps to an idea’s first page', async () => {
     const onJump = vi.fn();
     render(<ChapterStrip chapters={chaptersOf(SECTIONS, 82)} page={34} onJump={onJump} />);
-    expect(screen.getByText('Closure')).toBeInTheDocument();
-    expect(screen.getByText(/2 of 3/)).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Ideas in this lecture' });
+    expect(nav).toHaveTextContent(/Idea 2 of 3.*Closure/);
+    /* Page 34 of 32–40: said as what is left, not as page numbers to decode. */
+    expect(nav).toHaveTextContent('6 pages left in this idea');
     const bcnf = screen.getByRole('button', { name: 'BCNF, pages 41 to 82' });
     fireEvent.pointerEnter(bcnf);
-    expect(screen.getByText(/3 of 3/)).toBeInTheDocument();
+    await waitFor(() => expect(nav).toHaveTextContent(/Idea 3 of 3.*BCNF/));
+    expect(nav).toHaveTextContent('Pages 41–82 · click to go there');
     fireEvent.click(bcnf);
     expect(onJump).toHaveBeenCalledWith(41);
     expect(screen.getByRole('button', { name: 'Closure, pages 32 to 40' })).toHaveAttribute('aria-current', 'location');

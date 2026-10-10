@@ -35,7 +35,12 @@ const option = (on: boolean, locked: boolean) =>
 export function QuestionView({ q, lectureTitle, pageHref, graded, onCheck }: Props) {
   const locked = graded !== null;
   const [choice, setChoice] = useState<number | null>(null);
-  const [order, setOrder] = useState<number[]>(() => (q.kind === 'order' ? q.shuffle : []));
+  /* Never open on the answer: an order that arrives already solved is turned by one. */
+  const [order, setOrder] = useState<number[]>(() => {
+    if (q.kind !== 'order') return [];
+    const s = q.shuffle.length === q.items.length ? q.shuffle : q.items.map((_, i) => i);
+    return s.every((v, i) => v === i) && s.length > 1 ? [...s.slice(1), s[0]] : s;
+  });
   const [ticked, setTicked] = useState<number[]>([]);
   const [attrs, setAttrs] = useState<string[]>(() => (q.kind === 'closure' ? [...q.start] : []));
 

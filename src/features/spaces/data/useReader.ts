@@ -6,6 +6,7 @@ import { composeFromText, explainFor } from '../mocks/explain';
 import {
   dataMode,
   loadLiveRepository,
+  type Checkpoint,
   type ReaderConcept,
   type ReaderCourse,
   type ReaderCourseMap,
@@ -440,6 +441,26 @@ export async function composeRehearsal(
 }
 
 /** Keep a finished rehearsal. The server counts the score from the results. */
+/*
+ * Checkpoints, one request per idea per visit: the reader asks for the next
+ * one while you are still on the idea's last page, and showing it reuses the
+ * same promise. The server caches it for everyone after the first.
+ */
+const checkpoints = new Map<string, Promise<Checkpoint>>();
+export function fetchCheckpoint(lectureId: string, first: number, last: number, idea: string): Promise<Checkpoint> {
+  const key = `${lectureId}:${first}-${last}`;
+  let p = checkpoints.get(key);
+  if (!p) {
+    p = Promise.race([
+      loadLiveRepository().then((repo) => repo.checkpoint(lectureId, { first, last, idea })),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Checkpoint timed out')), 120_000)),
+    ]);
+    p.catch(() => checkpoints.delete(key));
+    checkpoints.set(key, p);
+  }
+  return p;
+}
+
 export async function saveRehearsal(courseId: string, title: string, lectureIds: string[], results: RehearsalResult[]) {
   const repo = await loadLiveRepository();
   return repo.saveRehearsal(courseId, { title, lecture_ids: lectureIds, results });

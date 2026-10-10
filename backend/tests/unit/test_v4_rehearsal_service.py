@@ -73,3 +73,53 @@ def test_history_marks_each_idea_by_its_latest_answer(monkeypatch):
     h = asyncio.run(svc.history(uuid.uuid4(), str(uuid.uuid4())))
     assert sorted((m["page"], m["correct"]) for m in h["marks"]) == [(30, True), (50, False)]
     assert [w["idea"] for w in h["weak"]] == ["BCNF"]
+
+
+def test_a_checkpoint_stays_inside_its_idea_and_is_written_once(monkeypatch):
+    import asyncio
+    import uuid
+
+    import backend.services.v4_reader_service as reader
+    import backend.services.v4_rehearsal_service as svc
+
+    lec = uuid.UUID(LEC)
+    store: dict = {}
+    calls = []
+
+    async def row(_id):
+        return {"title": "Normalization", "course_id": uuid.uuid4(), "content_revision": 3}
+
+    async def content(_id, _locale):
+        return {"slides": [{"slide_number": n, "title": f"p{n}", "content_text": "x" * 80} for n in range(1, 83)]}, "en"
+
+    async def generate(prompt, **kw):
+        calls.append(kw["prefer"])
+        choice = {"kind": "choice", "options": [{"text": "a", "correct": True}, {"text": "b"}], "idea": "Closure", "prompt": "Which is right?", "why": "w", "lecture_id": LEC}
+        return {"questions": [{**choice, "page": 34}, {**choice, "page": 60}]}
+
+    async def get(k):
+        return store.get(k)
+
+    async def put(k, v, ttl_seconds):
+        store[k] = v
+
+    monkeypatch.setattr(reader, "_lecture_row", row)
+    monkeypatch.setattr(svc, "get_lecture_content_for_locale", content)
+    monkeypatch.setattr(svc, "_generate_json", generate)
+    monkeypatch.setattr(svc, "get_cache", get)
+    monkeypatch.setattr(svc, "set_cache", put)
+
+    first = asyncio.run(svc.checkpoint(lec, 32, 40, "Closure", user_id="u", locale="en"))
+    assert [q["page"] for q in first["questions"]] == [34]
+    assert first["cached"] is False
+    again = asyncio.run(svc.checkpoint(lec, 32, 40, "Closure", user_id="u", locale="en"))
+    assert again["cached"] is True and calls == ["groq"]
+
+
+def test_an_order_question_never_opens_on_its_answer():
+    from backend.services.v4_rehearsal_service import _shuffle
+
+    for n in (2, 3, 5):
+        for _ in range(200):
+            assert _shuffle(n) != list(range(n))
+    assert _shuffle(1) == [0]

@@ -10,12 +10,24 @@ import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
-import { isLive, useAsker, useExplain, useReaderContent, useReaderLesson, useRelated } from '../data/useReader';
+import {
+  fetchCheckpoint,
+  isLive,
+  saveRehearsal,
+  useAsker,
+  useExplain,
+  useReaderContent,
+  useReaderLesson,
+  useRehearsalHistory,
+  useRelated,
+} from '../data/useReader';
 import { markTrail } from '../data/trail';
 import { GlassPill } from '../components/reader/glass/GlassPill';
 import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
 import { useIdle } from '../components/reader/useIdle';
 import { ChapterStrip, chaptersOf } from '../components/reader/ChapterStrip';
+import { CheckpointCard } from '../components/reader/CheckpointCard';
+import { lightIdeas, type Light } from '../components/course/light';
 import { BreakNudge, BreakRoom, useReadingCare } from '../components/reader/ReadingCare';
 import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
@@ -432,7 +444,8 @@ export default function LessonFacesScreen() {
    * the first touch brings it all back. A hairline of progress stays.
    */
   const care = useReadingCare(pdfPage, ready);
-  const quiet = useIdle(ready && view === 'slide' && !bench && !care.due && !care.resting, 2800);
+  const [checkpointOpen, setCheckpointOpen] = useState(false);
+  const quiet = useIdle(ready && view === 'slide' && !bench && !care.due && !care.resting && !checkpointOpen, 2800);
 
   /*
    * Where the page actually is, so the chapter strip can sit on its top edge
@@ -468,6 +481,49 @@ export default function LessonFacesScreen() {
     };
   }, [pdfPage, ready, numPages]);
 
+  /*
+   * Checkpoints. The ideas as page ranges; turning forward off an idea's
+   * last page offers one question on it. The question is fetched while you
+   * are still on that last page, so it is usually there when you turn.
+   */
+  const liveDeck = isLive(spaceId, lessonId);
+  const ideaRanges = useMemo(
+    () => (sections.length ? chaptersOf(sections, numPages || Math.max(...sections.flatMap((x) => x.blocks.map((b) => b.page)))) : []),
+    [sections, numPages],
+  );
+  const { history, reload: reloadHistory } = useRehearsalHistory(liveDeck ? spaceId : undefined);
+  const [checked, setChecked] = useState<Record<string, Light>>({});
+  const [passed, setPassed] = useState<Set<string>>(() => new Set());
+  const [offer, setOffer] = useState<(typeof ideaRanges)[number] | null>(null);
+  const lastPage = useRef(pdfPage);
+  useEffect(() => {
+    const from = lastPage.current;
+    lastPage.current = pdfPage;
+    if (!liveDeck || !lessonId) return;
+    const here = ideaRanges.find((c) => pdfPage >= c.first && pdfPage <= c.last);
+    if (here && pdfPage === here.last && here.last > here.first) {
+      fetchCheckpoint(lessonId, here.first, here.last, here.name).catch(() => {});
+    }
+    const left = ideaRanges.find((c) => c.last === from);
+    if (left && pdfPage === from + 1 && left.last > left.first && !passed.has(left.id) && !checked[left.id]) {
+      setOffer(left);
+    } else if (offer && pdfPage !== from) {
+      /* Moving on without answering is an answer too: the offer goes. */
+      setOffer(null);
+    }
+  }, [pdfPage, ideaRanges, liveDeck, lessonId, passed, checked, offer]);
+  const dismissOffer = useCallback(() => {
+    setOffer((o) => {
+      if (o) setPassed((p) => new Set(p).add(o.id));
+      return null;
+    });
+  }, []);
+  /* What lights each idea on the strip: past rehearsals and checkpoints, then this visit's. */
+  const ideaLights = useMemo(() => {
+    const base = lessonId ? lightIdeas(lessonId, ideaRanges.map((c) => ({ first_page: c.first })), history?.marks ?? []) : [];
+    return ideaRanges.map((c, i) => checked[c.id] ?? base[i] ?? 'dark');
+  }, [ideaRanges, history, checked, lessonId]);
+
   const asker = useAsker(spaceId, lessonId);
   /* The idea in view, wherever else the course teaches it. */
   const ideaName = anchor ? sections.find((x) => x.conceptId === anchor.conceptId)?.name ?? '' : '';
@@ -486,7 +542,7 @@ export default function LessonFacesScreen() {
   );
 
   const chrome = (body: React.ReactNode) => (
-    <Scene surface={SURFACES.lessonFaces} motionKey={`faces-${lessonId}`}>
+    <Scene surface={SURFACES.lessonFaces} motionKey={`faces-${lessonId}`} bare>
       {body}
     </Scene>
   );
@@ -906,7 +962,7 @@ export default function LessonFacesScreen() {
                 { left: (showToc ? TOC_WIDTH : 0) + SHEET_PAD.side, right: (docked ? panelWidth : 0) + SHEET_PAD.side, top: stageTop - 46 }
           }
         >
-          <ChapterStrip chapters={chapters} page={pdfPage} onJump={goToPage} />
+          <ChapterStrip chapters={chapters} page={pdfPage} onJump={goToPage} lights={ideaLights} />
         </motion.div>
       )}
 
@@ -999,6 +1055,26 @@ export default function LessonFacesScreen() {
         </div>
       )}
 
+      <CheckpointCard
+        idea={care.due || care.resting ? null : offer && { name: offer.name, first: offer.first, last: offer.last }}
+        lectureTitle={lesson.title}
+        load={() => fetchCheckpoint(lesson.id, offer?.first ?? 1, offer?.last ?? 1, offer?.name ?? '')}
+        pageHref={(p) => `/v4/space/${space.id}/lesson/${lesson.id}/faces?page=${p}`}
+        onDone={(outcome) => {
+          if (!offer) return;
+          setChecked((c) => ({ ...c, [offer.id]: outcome.correct === outcome.total ? 'lit' : 'weak' }));
+          saveRehearsal(
+            space.id,
+            `Checkpoint · ${offer.name}`.slice(0, 120),
+            [lesson.id],
+            outcome.results.map((r) => ({ ...r, idea: r.idea.slice(0, 60), lecture_id: lesson.id })),
+          )
+            .then(reloadHistory)
+            .catch(() => {});
+        }}
+        onOpenChange={setCheckpointOpen}
+        onDismiss={dismissOffer}
+      />
       <BreakNudge
         care={care}
         checkHref={isLive(space.id, lesson.id) ? `/v4/space/${space.id}/rehearse?lectures=${lesson.id}` : undefined}

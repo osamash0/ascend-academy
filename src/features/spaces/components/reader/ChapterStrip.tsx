@@ -35,9 +35,11 @@ interface Props {
   chapters: Chapter[];
   page: number;
   onJump: (page: number) => void;
+  /** What a checkpoint or rehearsal said about each idea, in chapter order. */
+  lights?: ('lit' | 'weak' | 'dark')[];
 }
 
-export function ChapterStrip({ chapters, page, onJump }: Props) {
+export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
   const reduce = useReducedMotion();
   const [hover, setHover] = useState<number | null>(null);
   if (chapters.length < 2) return null;
@@ -47,6 +49,9 @@ export function ChapterStrip({ chapters, page, onJump }: Props) {
   );
   const shown = hover ?? at;
   const label = chapters[shown];
+  /* Said in words: how much of the idea you are in is still ahead. */
+  const ahead = chapters[at].last - page;
+  const left = ahead <= 0 ? 'Last page of this idea' : `${ahead} ${ahead === 1 ? 'page' : 'pages'} left in this idea`;
 
   return (
     <nav aria-label="Ideas in this lecture" className="w-full" onPointerLeave={() => setHover(null)}>
@@ -60,13 +65,17 @@ export function ChapterStrip({ chapters, page, onJump }: Props) {
             transition={{ duration: 0.16 }}
             className={cn('min-w-0 truncate', hover !== null && hover !== at ? 'text-quiet' : 'text-foreground')}
           >
+            <span className="text-faint">
+              Idea {shown + 1} of {chapters.length}
+            </span>
+            <span aria-hidden className="mx-2 text-faint">·</span>
             {label.name}
           </motion.p>
         </AnimatePresence>
         <p className="shrink-0 tabular-nums text-faint">
-          {shown + 1} of {chapters.length}
-          <span aria-hidden className="mx-1.5">·</span>
-          {label.first === label.last ? `p${label.first}` : `p${label.first}–${label.last}`}
+          {lights[shown] === 'lit' && <span className="mr-1.5 text-success">Tested right ·</span>}
+          {lights[shown] === 'weak' && <span className="mr-1.5 text-destructive">To revisit ·</span>}
+          {shown === at ? left : `Pages ${label.first}–${label.last} · click to go there`}
         </p>
       </div>
       <ol className="flex items-center gap-[3px]">
@@ -81,7 +90,7 @@ export function ChapterStrip({ chapters, page, onJump }: Props) {
                 onPointerEnter={() => setHover(i)}
                 onFocus={() => setHover(i)}
                 onBlur={() => setHover(null)}
-                aria-label={`${c.name}, pages ${c.first} to ${c.last}`}
+                aria-label={`${c.name}, pages ${c.first} to ${c.last}${lights[i] === 'lit' ? ', tested right' : lights[i] === 'weak' ? ', to revisit' : ''}`}
                 aria-current={i === at ? 'location' : undefined}
                 className="console-focusable group flex h-4 w-full items-center rounded-sm"
               >
@@ -91,10 +100,25 @@ export function ChapterStrip({ chapters, page, onJump }: Props) {
                     hover === i ? 'bg-white/[0.3]' : 'bg-white/[0.12]',
                   )}
                 >
+                  {/* A lit idea glows along its whole length, under the reading fill. */}
+                  {lights[i] && lights[i] !== 'dark' && (
+                    <span
+                      aria-hidden
+                      className={cn('absolute inset-0 rounded-full', lights[i] === 'lit' ? 'bg-success/60' : 'bg-destructive/50')}
+                    />
+                  )}
                   <motion.span
                     className="absolute inset-y-0 left-0 w-full origin-left rounded-full"
                     style={{
-                      background: i === at ? 'var(--reader-accent, hsl(var(--secondary)))' : 'rgba(255,255,255,0.45)',
+                      /* Read past: the idea's light, if a check has said; otherwise plain. */
+                      background:
+                        i === at
+                          ? 'var(--reader-accent, hsl(var(--secondary)))'
+                          : lights[i] === 'lit'
+                            ? 'hsl(var(--success))'
+                            : lights[i] === 'weak'
+                              ? 'hsl(var(--destructive))'
+                              : 'rgba(255,255,255,0.45)',
                     }}
                     initial={false}
                     animate={{ scaleX: fill }}

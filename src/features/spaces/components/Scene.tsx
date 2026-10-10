@@ -75,6 +75,12 @@ interface SceneProps {
   motionKey?: string;
   /** A stage's one colour — the lecture's — exposed as `--stage-accent`. */
   accent?: string | null;
+  /**
+   * The screen mounts no tab bar (the reader), so it reserves no room for
+   * one. The spacer made the full-height reader 68px taller than a phone's
+   * window, and pressing a control near the bottom scrolled the whole page.
+   */
+  bare?: boolean;
   children: ReactNode;
 }
 
@@ -99,7 +105,7 @@ interface SceneProps {
  * preserves — so it still reads as a deliberate change for someone who has
  * asked for less motion, without anything moving.
  */
-export function Scene({ surface, status, gradientIndex, motionKey, accent, children }: SceneProps) {
+export function Scene({ surface, status, gradientIndex, motionKey, accent, bare, children }: SceneProps) {
   const plain = surface === 'focus';
   const stage = surface === 'stage';
 
@@ -146,7 +152,7 @@ export function Scene({ surface, status, gradientIndex, motionKey, accent, child
             phone for a bar that was not there. The condition is the surface,
             which is the same thing that decides whether the bar exists.
           */}
-          {surface !== 'focus' && <MobileNavSpacer />}
+          {surface !== 'focus' && !bare && <MobileNavSpacer />}
         </div>
       </DepthScene>
   );

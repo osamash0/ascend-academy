@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from backend.core.database import get_db_connection
 from backend.services.localization_service import get_lecture_content_for_locale
 from backend.services.v4_reader_service import IDEAS_VERSION, _generate_json
-from backend.services.cache import get_cache
+from backend.services.cache import get_cache, set_cache
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +166,32 @@ def validate_rehearsal(data: Any, allowed: dict[str, int]) -> list[dict[str, Any
     return out
 
 
+def _shuffle(n: int) -> list[int]:
+    """A display order for an ordering question that is never already the answer."""
+    order = list(range(n))
+    if n < 2:
+        return order
+    while order == sorted(order):
+        random.shuffle(order)
+    return order
+
+
 # ─── composing ───────────────────────────────────────────────────────────
+
+KINDS = """Every question has: "lecture_id" (from the list), "page" (the slide it tests),
+"idea" (2-5 words), "prompt" (the question), "why" (1-2 sentences: the reason,
+shown after answering). Kinds:
+- {"kind":"choice","options":[{"text":"...","correct":true},{"text":"..."},{"text":"..."},{"text":"..."}]}
+  exactly one correct; distractors must be plausible mistakes a student makes.
+- {"kind":"order","items":["first","second","third","fourth"]}  items in the CORRECT order
+  (they will be shuffled); for processes, algorithms, phases.
+- {"kind":"fdHolds","columns":["A","B","C"],"rows":[["..","..",".."],...],"candidates":[{"lhs":["A"],"rhs":["B"]},...]}
+  prompt asks which candidate FDs hold on this data; 4-6 concrete rows; at least
+  one candidate must hold and at least one must be broken by the rows.
+- {"kind":"closure","attrs":["A","B","C","D","E"],"fds":[{"lhs":["A"],"rhs":["B"]},...],"start":["A"]}
+  prompt asks for the closure of start; at least two FDs should fire.
+- {"kind":"bcnf","relation":"R","attrs":["..."],"fds":[{"lhs":["..."],"rhs":["..."]},...]}
+  prompt asks which FDs violate BCNF in R; at least one must, at least one must not."""
 
 PROMPT = """You are writing an exam rehearsal for a university course, from its own slides.
 Write exactly {count} questions that test understanding, not recall of wording,
@@ -176,21 +201,7 @@ spread across the lectures below{weak}. Mix the kinds: mostly "choice", some
 Course: {course}
 {context}
 
-Every question has: "lecture_id" (from the list), "page" (the slide it tests),
-"idea" (2-5 words), "prompt" (the question), "why" (1-2 sentences: the reason,
-shown after answering). Kinds:
-- {{"kind":"choice","options":[{{"text":"...","correct":true}},{{"text":"..."}},{{"text":"..."}},{{"text":"..."}}]}}
-  exactly one correct; distractors must be plausible mistakes a student makes.
-- {{"kind":"order","items":["first","second","third","fourth"]}}  items in the CORRECT order
-  (they will be shuffled); for processes, algorithms, phases.
-- {{"kind":"fdHolds","columns":["A","B","C"],"rows":[["..","..",".."],...],"candidates":[{{"lhs":["A"],"rhs":["B"]}},...]}}
-  prompt asks which candidate FDs hold on this data; 4-6 concrete rows; at least
-  one candidate must hold and at least one must be broken by the rows.
-- {{"kind":"closure","attrs":["A","B","C","D","E"],"fds":[{{"lhs":["A"],"rhs":["B"]}},...],"start":["A"]}}
-  prompt asks for the closure of start; at least two FDs should fire.
-- {{"kind":"bcnf","relation":"R","attrs":["..."],"fds":[{{"lhs":["..."],"rhs":["..."]}},...]}}
-  prompt asks which FDs violate BCNF in R; at least one must, at least one must not.
-
+{kinds}
 Write in {language}. Be correct.
 Answer with ONE JSON object only: {{"title":"a short name for this rehearsal","questions":[...]}}"""
 
@@ -257,6 +268,7 @@ async def compose_rehearsal(
         weak=(f", focusing on these ideas the student got wrong last time: {', '.join(weak_ideas[:8])}" if weak_ideas else ""),
         course=course_title or "",
         context="\n".join(parts),
+        kinds=KINDS,
         language="German" if locale == "de" else "English",
     )
     # Groq writes a rehearsal in seconds but its free tier caps tokens per
@@ -284,13 +296,111 @@ async def compose_rehearsal(
         q["id"] = i + 1
         if q["kind"] == "order":
             # Kept in the right order for grading; the client shuffles what it shows.
-            q["shuffle"] = random.sample(range(len(q["items"])), len(q["items"]))
+            q["shuffle"] = _shuffle(len(q["items"]))
     titles = {lec["id"]: lec["title"] for lec in lectures}
     return {
         "title": str((data or {}).get("title") or "Exam rehearsal")[:80],
         "lectures": titles,
         "questions": questions[:count],
     }
+
+
+# ─── checkpoints ─────────────────────────────────────────────────────────
+#
+# One or two questions on a single idea, asked as the reader finishes it.
+# Written once per idea (per deck revision and language) and cached for
+# everyone: the second student to finish "Closure Algorithm" gets theirs at
+# once, and the model is asked once, not once per reader.
+
+CHECKPOINT_VERSION = "checkpoint-v1"
+CHECKPOINT_TTL = 60 * 60 * 24 * 60
+CHECKPOINT_SLIDES = 12
+
+CHECKPOINT_PROMPT = """A student has just read the part of a lecture below, on one idea.
+Write {count} questions that check they understood it — the kind a good tutor
+asks at the end of a section: not recall of wording, not trick questions.
+Only about these pages. Prefer "choice"; use "order" for a procedure; use a
+database-theory tool only if these pages teach it.
+
+Lecture: {lecture} — lecture_id {lecture_id}
+Idea: {idea} (pages {first}–{last})
+{pages}
+
+{kinds}
+Write in {language}. Be correct.
+Answer with ONE JSON object only: {{"questions":[...]}}"""
+
+
+async def checkpoint(
+    lecture_id: UUID,
+    first: int,
+    last: int,
+    idea: str,
+    *,
+    user_id: str,
+    locale: str,
+) -> dict[str, Any]:
+    from backend.services.v4_reader_service import _lecture_row
+
+    meta = await _lecture_row(lecture_id)
+    content, _ = await get_lecture_content_for_locale(lecture_id, locale)
+    slides = (content or {}).get("slides") or []
+    total = len(slides)
+    if not total:
+        raise HTTPException(status_code=409, detail="This lecture has no text yet.")
+    first, last = max(1, first), min(total, last)
+    if last < first:
+        raise HTTPException(status_code=422, detail="Those pages are not in this lecture.")
+
+    key = f"v4reader:{CHECKPOINT_VERSION}:{lecture_id}:{meta['content_revision']}:{locale}:{first}-{last}"
+    cached = await get_cache(key)
+    if isinstance(cached, dict) and cached.get("questions"):
+        return {**cached, "cached": True}
+
+    span = [s for s in slides if first <= int(s.get("slide_number") or 0) <= last]
+    texty = [s for s in span if len((s.get("content_text") or "").strip()) > 30] or span
+    step = max(1, len(texty) // CHECKPOINT_SLIDES)
+    pages = "\n".join(
+        f"  p{s.get('slide_number')}: {(s.get('title') or '').strip()[:70]} — "
+        f"{' '.join((s.get('content_text') or '').split())[:SLIDE_TEXT_CHARS * 2]}"
+        for s in texty[::step][:CHECKPOINT_SLIDES]
+    )
+    prompt = CHECKPOINT_PROMPT.format(
+        count=2,
+        lecture=meta.get("title") or "",
+        lecture_id=str(lecture_id),
+        idea=idea[:80],
+        first=first,
+        last=last,
+        pages=pages,
+        kinds=KINDS,
+        language="German" if locale == "de" else "English",
+    )
+    questions: list[dict[str, Any]] = []
+    for prefer in ("groq", "gemini"):
+        try:
+            data = await _generate_json(
+                prompt, user_id=user_id, course_id=str(meta["course_id"]), feature="v4_checkpoint", prefer=prefer
+            )
+        except Exception as exc:
+            if exc.__class__.__name__ == "LLMBudgetExceededError":
+                raise HTTPException(status_code=429, detail="You have reached this month's AI allowance.")
+            logger.warning("checkpoint via %s failed for %s p%s-%s: %s", prefer, lecture_id, first, last, exc)
+            continue
+        questions = [
+            q for q in validate_rehearsal(data, {str(lecture_id): total}) if first <= q["page"] <= last
+        ]
+        if questions:
+            break
+    if not questions:
+        raise HTTPException(status_code=502, detail="Couldn't write a checkpoint just now.")
+    for i, q in enumerate(questions[:2]):
+        q["id"] = i + 1
+        if q["kind"] == "order":
+            q["shuffle"] = _shuffle(len(q["items"]))
+    result = {"idea": idea[:80], "first": first, "last": last, "questions": questions[:2]}
+    await set_cache(key, result, ttl_seconds=CHECKPOINT_TTL)
+    return {**result, "cached": False}
 
 
 # ─── history ─────────────────────────────────────────────────────────────
