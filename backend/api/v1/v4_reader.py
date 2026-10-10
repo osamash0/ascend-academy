@@ -113,9 +113,12 @@ async def reader_course_find(
     request: Request,
     course_id: UUID,
     q: str = Query(min_length=2, max_length=120),
+    exclude_lecture: UUID | None = Query(default=None),
+    limit: int = Query(8, ge=1, le=12),
+    strict: bool = Query(default=False),
     user: Any = Depends(verify_token),
 ):
     uid = _uid(user)
     if not await service.can_view_course(course_id, uid):
         raise HTTPException(status_code=404, detail="Course not found.")
-    return {"results": await service.find_in_course(course_id, q)}
+    return {"results": await service.find_in_course(course_id, q, limit, exclude_lecture, strict)}

@@ -10,7 +10,7 @@ import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
-import { useAsker, useExplain, useReaderContent, useReaderLesson } from '../data/useReader';
+import { useAsker, useExplain, useReaderContent, useReaderLesson, useRelated } from '../data/useReader';
 import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
@@ -406,6 +406,9 @@ export default function LessonFacesScreen() {
   }, [studio, bench, openStudio, closeStudio]);
 
   const asker = useAsker(spaceId, lessonId);
+  /* The idea in view, wherever else the course teaches it. */
+  const ideaName = anchor ? sections.find((x) => x.conceptId === anchor.conceptId)?.name ?? '' : '';
+  const relatedFound = useRelated(spaceId, lessonId, view === 'explain' ? ideaName : '');
   /* A question handed to Explain from outside it — words selected on the page. */
   const [queued, setQueued] = useState<{ question: string; n: number } | null>(null);
   const queuedN = useRef(0);
@@ -874,6 +877,20 @@ export default function LessonFacesScreen() {
           fallback={explained.fallback}
           ask={asker ? (q, thread) => asker(pdfPage, q, thread) : null}
           queued={queued}
+          related={
+            relatedFound.length
+              ? {
+                  idea: ideaName,
+                  links: relatedFound.map((r) => ({
+                    label: `${r.lecture_title} · p${r.page}`,
+                    detail: r.title ?? '',
+                    href: `/v4/space/${space.id}/lesson/${r.lecture_id}/faces?page=${r.page}&view=explain${
+                      /«([^»]+)»/.exec(r.snippet) ? `&spot=${encodeURIComponent(/«([^»]+)»/.exec(r.snippet)![1])}` : ''
+                    }`,
+                  })),
+                }
+              : null
+          }
           page={pdfPage}
           onSpot={setSpot}
           onAsk={(q) => {

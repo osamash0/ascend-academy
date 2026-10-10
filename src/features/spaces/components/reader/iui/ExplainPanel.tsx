@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowUp, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, RotateCcw, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { timing } from '../Planes';
 import { BlockView } from './Blocks';
@@ -45,6 +46,8 @@ interface Props {
   ask?: ((question: string, thread: AskThread[]) => Promise<ExplainAnswer>) | null;
   /** A question handed in from outside (words selected on the page); asked once per `n`. */
   queued?: { question: string; n: number } | null;
+  /** Where this idea is taught again in the course — other lectures, other pages. */
+  related?: { idea: string; links: { label: string; detail: string; href: string }[] } | null;
 }
 
 interface Turn {
@@ -59,7 +62,7 @@ const BLOCK_MS = 520;
 
 const STARTERS = ['Show me how this works', 'Give me an example to try', 'What do students get wrong here?'];
 
-export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot, onAsk, ask, queued }: Props) {
+export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot, onAsk, ask, queued, related }: Props) {
   const reduce = useReducedMotion();
   const seen = useRef(new Set<string>());
   const first = !seen.current.has(answerKey);
@@ -203,6 +206,35 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
               )}
             </AnimatePresence>
           </div>
+
+          {/* The idea, elsewhere in the course: lectures connect. */}
+          {!composing && related && related.links.length > 0 && (
+            <motion.nav
+              aria-label="Also taught in this course"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: timing.card }}
+              className="mt-8 rounded-2xl border border-white/[0.07] p-4"
+            >
+              <p className="mb-2.5 text-[12.5px] text-quiet">
+                <span className="text-foreground">{related.idea}</span> also appears elsewhere in the course
+              </p>
+              <ul className="space-y-1">
+                {related.links.map((l) => (
+                  <li key={l.href}>
+                    <Link
+                      to={l.href}
+                      className="console-focusable group flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-white/[0.05]"
+                    >
+                      <span className="w-28 shrink-0 text-[12.5px] text-quiet">{l.label}</span>
+                      <span className="min-w-0 flex-1 truncate text-[13.5px] text-foreground">{l.detail}</span>
+                      <ArrowUpRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-faint transition-colors group-hover:text-foreground" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </motion.nav>
+          )}
 
           {/* The conversation about this page. */}
           {turns.map((t, i) => (

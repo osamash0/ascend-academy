@@ -84,6 +84,11 @@ export function createLiveRepository(http: V4Transport) {
     courseMap: (id: string) => http.get<ReaderCourseMap>(`${root}/reader/courses/${idPath(id)}/map`),
     findInCourse: (id: string, q: string) =>
       http.get<{ results: ReaderFind[] }>(`${root}/reader/courses/${idPath(id)}/find?q=${encodeURIComponent(q)}`),
+    /** Strict, other lectures only: where an idea is taught again. */
+    relatedInCourse: (id: string, q: string, excludeLecture: string) =>
+      http.get<{ results: ReaderFind[] }>(
+        `${root}/reader/courses/${idPath(id)}/find?q=${encodeURIComponent(q)}&exclude_lecture=${idPath(excludeLecture)}&strict=true&limit=4`,
+      ),
     askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[]) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/ask`, {
         question,

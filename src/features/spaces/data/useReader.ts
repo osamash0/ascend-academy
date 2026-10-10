@@ -392,3 +392,29 @@ export function useFind(courseId: string | undefined, query: string): { busy: bo
   }, [courseId, query]);
   return state;
 }
+
+const related = new Map<string, Promise<ReaderFind[]>>();
+
+/**
+ * Where an idea is taught again, in the course's other lectures. Strict:
+ * every word of the idea must be on the page — a loose match would be a
+ * wrong link, and no link is the honest answer when there is none.
+ */
+export function useRelated(courseId: string | undefined, lessonId: string | undefined, topic: string): ReaderFind[] {
+  const live = isLive(courseId, lessonId);
+  const [found, setFound] = useState<ReaderFind[]>([]);
+  useEffect(() => {
+    setFound([]);
+    if (!live || !courseId || !lessonId || topic.trim().length < 3) return;
+    let alive = true;
+    once(related, `${lessonId}:${topic}`, async () =>
+      (await (await loadLiveRepository()).relatedInCourse(courseId, topic, lessonId)).results,
+    )
+      .then((r) => alive && setFound(r))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [live, courseId, lessonId, topic]);
+  return found;
+}

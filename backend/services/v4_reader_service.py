@@ -800,8 +800,16 @@ async def course_map(course_id: UUID) -> dict[str, Any]:
     return {**course, "lectures": list(lectures)}
 
 
+#: Words that join a topic's name rather than name it — matching them finds everything.
+_STOPWORDS = {
+    "and", "or", "the", "of", "in", "to", "a", "an", "for", "with", "vs", "on", "by", "is", "are",
+    "how", "what", "why", "understanding", "introduction", "overview", "basics", "fundamentals",
+    "und", "oder", "der", "die", "das", "von", "mit", "im", "zu", "ein", "eine",
+}
+
+
 def _tsquery(text: str, joiner: str) -> Optional[str]:
-    words = [w for w in re.findall(r"[\w+\-]+", text.lower()) if len(w) > 1][:8]
+    words = [w for w in re.findall(r"[\w+\-]+", text.lower()) if len(w) > 1 and w not in _STOPWORDS][:8]
     if not words:
         return None
     return f" {joiner} ".join(f"{re.sub(r'[^a-z0-9äöüß]', '', w) or w}:*" for w in words if re.sub(r'[^a-z0-9äöüß]', '', w))
@@ -816,7 +824,13 @@ def _clean_snippet(text: str) -> str:
     return text[:220]
 
 
-async def find_in_course(course_id: UUID, query: str, limit: int = 8) -> list[dict[str, Any]]:
+async def find_in_course(
+    course_id: UUID,
+    query: str,
+    limit: int = 8,
+    exclude_lecture: Optional[UUID] = None,
+    strict: bool = False,
+) -> list[dict[str, Any]]:
     """Where a topic is taught: pages across every lecture of the course, best first.
 
     Full-text search, titles weighted above body text, prefix matching, all
@@ -824,7 +838,9 @@ async def find_in_course(course_id: UUID, query: str, limit: int = 8) -> list[di
     """
     results: list[dict[str, Any]] = []
     async with await get_db_connection() as conn:
-        for joiner in ("&", "|"):
+        # `strict`: every word must be there — for connections, where a loose
+        # match is a wrong link rather than a near miss.
+        for joiner in (("&",) if strict else ("&", "|")):
             tsq = _tsquery(query, joiner)
             if not tsq:
                 return []
@@ -832,23 +848,25 @@ async def find_in_course(course_id: UUID, query: str, limit: int = 8) -> list[di
                 """
                 WITH doc AS (
                   SELECT s.lecture_id, s.slide_number, s.title, s.content_text, l.title AS lecture_title,
-                         setweight(to_tsvector('simple', coalesce(s.title, '')), 'A') ||
-                         setweight(to_tsvector('simple', coalesce(s.content_text, '')), 'C') AS v
+                         setweight(to_tsvector('english', coalesce(s.title, '')), 'A') ||
+                         setweight(to_tsvector('english', coalesce(s.content_text, '')), 'C') AS v
                   FROM slides s JOIN lectures l ON l.id = s.lecture_id
                   WHERE l.course_id = $1 AND COALESCE(l.is_archived, false) = false
+                    AND ($4::uuid IS NULL OR l.id <> $4::uuid)
                 )
                 SELECT lecture_id, lecture_title, slide_number, title,
-                       ts_headline('simple', coalesce(content_text, ''), to_tsquery('simple', $2),
+                       ts_headline('english', coalesce(content_text, ''), to_tsquery('english', $2),
                                    'MaxWords=18, MinWords=8, StartSel=«, StopSel=», MaxFragments=1') AS snippet,
-                       ts_rank(v, to_tsquery('simple', $2)) AS rank
+                       ts_rank(v, to_tsquery('english', $2)) AS rank
                 FROM doc
-                WHERE v @@ to_tsquery('simple', $2)
+                WHERE v @@ to_tsquery('english', $2)
                 ORDER BY rank DESC, slide_number
                 LIMIT $3
                 """,
                 course_id,
                 tsq,
                 limit,
+                exclude_lecture,
             )
             results = [
                 {
