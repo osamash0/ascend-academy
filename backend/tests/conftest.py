@@ -64,6 +64,10 @@ from backend.tests.fake_redis import FakeRedis  # noqa: E402
 from backend.tests.fake_supabase import FakeSupabaseClient  # noqa: E402
 from backend.tests.network_guard import blocked as _blocked  # noqa: E402
 
+# PYTEST_MIN_PASSED=<n> fails a run that passed fewer than <n> tests — guards
+# the nightly-db job against "every fixture skipped, job green". No-op unset.
+pytest_plugins = ["backend.tests.execution_floor"]
+
 # ── freezegun / outbound-guard interaction ────────────────────────────────────
 # freezegun walks sys.modules to repoint time references, and touching a
 # module's attributes can run that module's lazy initialisation. `docker` (pulled

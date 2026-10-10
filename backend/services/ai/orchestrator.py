@@ -65,6 +65,13 @@ GROQ_FAST_MODEL   = "llama-3.1-8b-instant"
 GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 CEREBRAS_MODEL    = "gpt-oss-120b"
 
+# Pins called directly (vision.py, content_filter.py) rather than through
+# PROVIDER_REGISTRY. Same freshness rule as ProviderConfig.verified_on.
+DIRECT_MODEL_PINS: Dict[str, Tuple[str, datetime.date]] = {
+    "GEMINI_MODEL":      (GEMINI_MODEL,      datetime.date(2026, 5, 2)),
+    "GROQ_VISION_MODEL": (GROQ_VISION_MODEL, datetime.date(2026, 5, 2)),
+}
+
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
 
 # ---------------------------------------------------------------------------
@@ -143,7 +150,17 @@ class ProviderConfig:
     tpm:         int      # tokens/minute   (0 = unknown)
     env_var:     str      # name of API-key env var
     base_url:    Optional[str]   # None → uses Google genai SDK
+    # Last date someone confirmed `model` is still served at this provider (a
+    # real call, not "it was in the docs"). Providers retire slugs without
+    # notice and the rotator just fails over, so a dead pin is otherwise
+    # invisible. tests/unit/test_provider_pin_freshness.py fails once this is
+    # older than PIN_MAX_AGE_DAYS — re-probe and bump it, or swap the slug.
+    verified_on: datetime.date
     uses_google_sdk: bool = False
+
+
+# How old a verified_on may get before the unit test goes red.
+PIN_MAX_AGE_DAYS = 45
 
 
 # Order within this list is irrelevant; chains below define priority.
@@ -155,6 +172,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # retired; gpt-oss-120b is the current production endpoint.
             id="cerebras",
             model="gpt-oss-120b",
+            verified_on=datetime.date(2026, 6, 5),
             daily_limit=14_400, rpm=30, tpm=60_000,
             env_var="CEREBRAS_API_KEY",
             base_url="https://api.cerebras.ai/v1",
@@ -162,6 +180,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         ProviderConfig(
             id="groq_fast",
             model="llama-3.1-8b-instant",
+            verified_on=datetime.date(2026, 5, 2),
             daily_limit=14_400, rpm=30, tpm=6_000,
             env_var="GROQ_API_KEY",
             base_url="https://api.groq.com/openai/v1",
@@ -169,6 +188,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         ProviderConfig(
             id="gemma",
             model="gemini-2.0-flash-lite",
+            verified_on=datetime.date(2026, 5, 7),
             daily_limit=14_400, rpm=30, tpm=15_000,
             env_var="GEMINI_API_KEY",
             base_url=None,
@@ -177,6 +197,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         ProviderConfig(
             id="mistral",
             model="mistral-small-latest",
+            verified_on=datetime.date(2026, 5, 2),
             daily_limit=0, rpm=60, tpm=500_000,
             env_var="MISTRAL_API_KEY",
             base_url="https://api.mistral.ai/v1",
@@ -193,6 +214,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # `or` not a get() default: .env.example ships the key blank, and an
             # empty string would otherwise be sent to the API as the model id.
             model=os.environ.get("OPENROUTER_MODEL") or "openai/gpt-oss-20b:free",
+            verified_on=datetime.date(2026, 8, 15),
             daily_limit=50, rpm=20, tpm=0,
             env_var="OPENROUTER_API_KEY",
             base_url="https://openrouter.ai/api/v1",
@@ -203,6 +225,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # the base URL at client-init time (see _make_cloudflare_client).
             id="cloudflare",
             model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+            verified_on=datetime.date(2026, 5, 2),
             daily_limit=10_000, rpm=300, tpm=0,
             env_var="CLOUDFLARE_API_TOKEN",
             base_url="https://api.cloudflare.com/client/v4/accounts",
@@ -210,6 +233,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         ProviderConfig(
             id="gemini",
             model="gemini-2.0-flash",
+            verified_on=datetime.date(2026, 5, 2),
             daily_limit=1_500, rpm=15, tpm=250_000,
             env_var="GEMINI_API_KEY",
             base_url=None,
@@ -218,6 +242,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         ProviderConfig(
             id="groq",
             model="llama-3.3-70b-versatile",
+            verified_on=datetime.date(2026, 5, 2),
             daily_limit=1_000, rpm=30, tpm=12_000,
             env_var="GROQ_API_KEY",
             base_url="https://api.groq.com/openai/v1",
@@ -230,6 +255,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # `or` rather than a get() default, so a key that is present but
             # blank in .env falls back instead of being sent to the API.
             model=os.environ.get("OPENAI_MODEL") or "gpt-4o-mini",
+            verified_on=datetime.date(2026, 9, 18),
             daily_limit=0, rpm=60, tpm=100000,
             env_var="OPENAI_API_KEY",
             base_url=os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1",

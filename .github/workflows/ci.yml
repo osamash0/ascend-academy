@@ -335,6 +335,14 @@ jobs:
       # find it at /var/run/docker.sock. No extra setup needed.
       - run: pip install -r backend/requirements-dev.txt
       - name: Run DB / RLS tests
+        env:
+          # Execution floor (backend/tests/execution_floor.py). The db conftest
+          # `pytest.skip`s when testcontainers/Docker is missing, which used to
+          # leave this job green with zero tests run. The 2026-10-10 nightly
+          # passed 224 (4 skipped); 200 leaves room to delete a few tests but
+          # turns a skip-everything run red. Raise it as the suite grows; lower
+          # it only when tests are removed on purpose.
+          PYTEST_MIN_PASSED: "200"
         run: python -m pytest backend/tests/db -m db -v --tb=short
       - uses: actions/upload-artifact@v4
         if: failure()
