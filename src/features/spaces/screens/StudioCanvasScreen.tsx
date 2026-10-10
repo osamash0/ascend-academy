@@ -12,7 +12,7 @@ import { MorphSwitch } from '../studio/components/MorphSwitch';
 import { PageRail } from '../studio/components/PageRail';
 import { PagerPill } from '../studio/components/PagerPill';
 import { PeekSlot } from '../studio/components/Peek';
-import { includeSourceBlock } from '../studio/edit';
+import { hasSource, includeSourceBlock } from '../studio/edit';
 import { groupByPage, pagesInView, pickAnchorPage, regionForBlock } from '../studio/geometry';
 import { FLIGHT_S } from '../studio/motion';
 import { useMorph } from '../studio/useMorph';
@@ -148,7 +148,7 @@ export default function StudioCanvasScreen() {
 
   const backToBlock = (blockId: string) => {
     const target = doc?.blocks.find((b) => b.id === blockId);
-    pageHint.current = target?.origin === 'extracted' ? target.source.page : null;
+    pageHint.current = target && hasSource(target) ? target.source.page : null;
     // During a quick look the committed view is already clean: end the look.
     if (morph.quickLook) morph.pressCancel();
     else morph.setView('clean');

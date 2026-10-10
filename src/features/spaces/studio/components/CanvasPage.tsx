@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { CleanBlock } from './CleanBlock';
 import { OriginalPage } from './OriginalPage';
 import { PageDivider } from './PageDivider';
+import { hasSource } from '../edit';
 import { minConfidence } from '../geometry';
 import type { PageGroup } from '../geometry';
 import type { CanvasView } from '../useMorph';
@@ -45,7 +46,7 @@ export function CanvasPage(p: Props) {
     const ids = new Set<string>();
     for (const g of p.groups)
       for (const b of g.blocks)
-        if (b.origin === 'extracted' && (minConfidence(b.source, p.pages) ?? 1) < 0.8) ids.add(b.id);
+        if (hasSource(b) && (minConfidence(b.source, p.pages) ?? 1) < 0.8) ids.add(b.id);
     return ids;
   }, [p.groups, p.pages]);
   return (

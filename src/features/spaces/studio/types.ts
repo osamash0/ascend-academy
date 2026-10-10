@@ -4,9 +4,10 @@
  * Two sides. The *source* side is what the pipeline reads out of a Material
  * and never changes: pages, and blocks with where they sit on the page. The
  * *canvas* side is your version: blocks you read and edit, each saying where
- * it came from. `origin` is the one field every Studio rule keys on — only
- * `extracted` blocks have a place on the original (Peek, Morph), `generated`
- * blocks carry citations instead, `written` blocks have neither.
+ * it came from. `origin` is the one field every Studio rule keys on; having a
+ * `source` is what every Peek/Morph rule keys on: `extracted` and `summary`
+ * blocks have one, `generated` blocks carry citations instead, `written`
+ * blocks have neither.
  */
 
 /** Normalised to the page: 0..1, origin top-left. */
@@ -67,6 +68,23 @@ export interface ExtractedBlock {
   edited: boolean;
 }
 
+/** A few calm sentences condensing source blocks of ONE page (Living Learn spec §2–3). */
+export interface SummaryBlock {
+  id: string;
+  origin: 'summary';
+  /** 2–4 sentences; key terms as **term**. */
+  markdown: string;
+  /** Every source block it condenses; [] on page-only geometry. */
+  source: SourceRef;
+  /** The first paragraph of its page: read slightly brighter. */
+  gist: boolean;
+  /** You changed the wording. */
+  edited: boolean;
+}
+
+/** A block with a place on the original: Peek, page markers, Morph flight. */
+export type SourcedBlock = ExtractedBlock | SummaryBlock;
+
 export interface WrittenBlock {
   id: string;
   origin: 'written';
@@ -79,9 +97,11 @@ export interface GeneratedBlock {
   markdown: string;
   citations: Citation[];
   askedAs: string;
+  /** The block it grew under (Living Learn spec §4.2). */
+  anchorId: string;
 }
 
-export type CanvasBlock = ExtractedBlock | WrittenBlock | GeneratedBlock;
+export type CanvasBlock = ExtractedBlock | SummaryBlock | WrittenBlock | GeneratedBlock;
 
 /** Internal name only: the UI never says "document". */
 export interface CanvasDoc {

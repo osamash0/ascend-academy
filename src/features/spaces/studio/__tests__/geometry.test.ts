@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   boxStyle, groupByPage, minConfidence, pickAnchorPage, regionFor, regionForBlock, unionBox, unmappedSourceBlocks,
 } from '../geometry';
-import type { CanvasBlock, SourcePage } from '../types';
+import type { Box, CanvasBlock, SourcePage } from '../types';
 
 const page = (n: number, geometry: 'block' | 'page' = 'block'): SourcePage => ({
   materialId: 'm', page: n, width: 720, height: 405, imageUrl: `/p${n}.webp`, geometry,
@@ -81,5 +81,23 @@ describe('pickAnchorPage', () => {
 describe('boxStyle', () => {
   it('turns a box into percentages', () => {
     expect(boxStyle([0.1, 0.2, 0.5, 0.6])).toEqual({ left: '10%', top: '20%', width: '40%', height: '40%' });
+  });
+});
+
+describe('summary blocks behave like extracted ones', () => {
+  it('get a region, start a page group and count as mapped', () => {
+    const page = {
+      materialId: 'm', page: 4, width: 4, height: 3, imageUrl: '', geometry: 'block' as const,
+      blocks: [
+        { id: 'b1', page: 4, bbox: [0.1, 0.1, 0.5, 0.2] as Box, kind: 'paragraph' as const, text: 'x', readingOrder: 1 },
+        { id: 'b2', page: 4, bbox: [0.1, 0.3, 0.6, 0.4] as Box, kind: 'paragraph' as const, text: 'y', readingOrder: 2 },
+        { id: 'b3', page: 4, bbox: [0.1, 0.8, 0.6, 0.9] as Box, kind: 'paragraph' as const, text: 'z', readingOrder: 3 },
+      ],
+    };
+    const s = { id: 's', origin: 'summary' as const, markdown: 'm', gist: true, edited: false,
+      source: { materialId: 'm', page: 4, blockIds: ['b1', 'b2'] } };
+    expect(regionForBlock([s], [page], 's')?.box).toEqual([0.1, 0.1, 0.6, 0.4]);
+    expect(groupByPage([s]).map((g) => g.page)).toEqual([4]);
+    expect(unmappedSourceBlocks(page, [s]).map((b) => b.id)).toEqual(['b3']);
   });
 });

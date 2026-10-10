@@ -1,3 +1,4 @@
+import { hasSource } from './edit';
 import type { Box, CanvasBlock, SourceBlock, SourcePage, SourceRef } from './types';
 
 /** Pure geometry for Peek and Morph. No DOM except `pickAnchorPage`'s input. */
@@ -33,7 +34,7 @@ export function regionFor(ref: SourceRef, pages: SourcePage[]): Region | null {
 
 export function regionForBlock(blocks: CanvasBlock[], pages: SourcePage[], blockId: string): Region | null {
   const block = blocks.find((b) => b.id === blockId);
-  return block?.origin === 'extracted' ? regionFor(block.source, pages) : null;
+  return block && hasSource(block) ? regionFor(block.source, pages) : null;
 }
 
 export function minConfidence(ref: SourceRef, pages: SourcePage[]): number | undefined {
@@ -56,7 +57,7 @@ export function groupByPage(blocks: CanvasBlock[]): PageGroup[] {
   const groups: PageGroup[] = [];
   let current: PageGroup | null = null;
   for (const b of blocks) {
-    if (b.origin === 'extracted' && (!current || current.page !== b.source.page || current.materialId !== b.source.materialId)) {
+    if (hasSource(b) && (!current || current.page !== b.source.page || current.materialId !== b.source.materialId)) {
       current = { materialId: b.source.materialId, page: b.source.page, blocks: [] };
       groups.push(current);
     } else if (!current) {
@@ -83,7 +84,7 @@ export function pagesInView(groups: PageGroup[], pages: SourcePage[], view: 'cle
 export function unmappedSourceBlocks(page: SourcePage, blocks: CanvasBlock[]): SourceBlock[] {
   const mapped = new Set(
     blocks.flatMap((b) =>
-      b.origin === 'extracted' && b.source.page === page.page && b.source.materialId === page.materialId
+      hasSource(b) && b.source.page === page.page && b.source.materialId === page.materialId
         ? b.source.blockIds
         : [],
     ),

@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
 import { FLASH_FRAMES, FLIGHT_EASE, FLIGHT_S, STAGGER_S, TEXT_FADE_S } from '../motion';
+import { hasSource } from '../edit';
 import type { CanvasBlock } from '../types';
 
 interface Props {
@@ -35,7 +36,7 @@ interface Props {
 /**
  * One block of your version.
  *
- * Only an `extracted` block has a place on the original, so only it gets a
+ * Only a block with a source (extracted or summary) has a place on the original, so only it gets a
  * page marker, a hover-intent and Space-to-peek. The marker is a real button
  * — the touch and keyboard way in — and on hover-capable screens it shows on
  * hover or focus to keep the margin quiet.
@@ -44,21 +45,21 @@ export const CleanBlock = memo(function CleanBlock({
   block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled,
   onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
 }: Props) {
-  const extracted = block.origin === 'extracted';
+  const sourced = hasSource(block);
   const reduce = useReducedMotion();
-  const flies = extracted && morph;
+  const flies = sourced && morph;
   return (
     <motion.div
       data-block-id={block.id}
-      data-extracted={extracted ? 'true' : 'false'}
+      data-extracted={sourced ? 'true' : 'false'}
       data-morph={flies ? 'true' : undefined}
       data-flash={flash ? 'true' : undefined}
-      tabIndex={extracted ? 0 : undefined}
-      onPointerEnter={(e) => extracted && onPointerEnter(block.id, e.pointerType)}
+      tabIndex={sourced ? 0 : undefined}
+      onPointerEnter={(e) => sourced && onPointerEnter(block.id, e.pointerType)}
       // Touch fires pointerleave after every tap; only a mouse really leaves.
-      onPointerLeave={(e) => extracted && e.pointerType !== 'touch' && e.pointerType !== 'pen' && onPointerLeave()}
+      onPointerLeave={(e) => sourced && e.pointerType !== 'touch' && e.pointerType !== 'pen' && onPointerLeave()}
       onKeyDown={(e) => {
-        if (!extracted) return;
+        if (!sourced) return;
         if (e.key === ' ') {
           e.preventDefault();
           onOpenPeek(block.id);
@@ -78,7 +79,7 @@ export const CleanBlock = memo(function CleanBlock({
         block.origin === 'written' && 'rounded-l-none border-l-2 border-primary/40',
       )}
     >
-      {extracted &&
+      {sourced &&
         (markerDisabled ? (
           <span className="absolute -left-14 top-1.5 w-11 text-right text-[11px] tabular-nums text-faint">
             p.{page}

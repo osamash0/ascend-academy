@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { hasSource } from '../edit';
 import { boxStyle, unionBox, unmappedSourceBlocks } from '../geometry';
 import { FLIGHT_EASE, FLIGHT_S, STAGGER_S, TEXT_FADE_S } from '../motion';
 import { firstWords, plainText } from '../text';
-import type { Box, CanvasBlock, ExtractedBlock, SourcePage } from '../types';
+import type { Box, CanvasBlock, SourcePage } from '../types';
 import { PageDivider } from './PageDivider';
 
 interface Props {
@@ -43,7 +44,7 @@ const flight = (i: number) => ({ layout: { duration: FLIGHT_S, ease: FLIGHT_EASE
  */
 export function OriginalPage({ page, blocks, morph, materialName, onRegion, onInclude }: Props) {
   const [offer, setOffer] = useState<string | null>(null);
-  const mapped = blocks.filter((b): b is ExtractedBlock => b.origin === 'extracted');
+  const mapped = blocks.filter(hasSource);
   const missing = unmappedSourceBlocks(page, blocks);
   // Figures can't be added as text in v1: a faint outline plus one page summary, no per-figure label.
   const isFigure = (s: SourcePage['blocks'][number]) => s.kind === 'figure' || !s.text;
