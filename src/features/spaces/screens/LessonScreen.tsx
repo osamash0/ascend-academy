@@ -283,7 +283,7 @@ export default function LessonScreen() {
                   className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-6 text-[14px] font-medium transition-colors hover:bg-white/[0.09]"
                 >
                   <Target aria-hidden className="h-4 w-4" />
-                  Rehearse this lecture
+                  Rehearse this Lesson
                 </Link>
               )}
             </div>
@@ -322,7 +322,7 @@ export default function LessonScreen() {
       <div className="relative mx-auto max-w-6xl px-6 lg:px-8">
         {/* ── Ideas: each where it lives in the deck ── */}
         {ideasPending ? (
-          <Row title="The ideas" lede="Grouping the deck into the ideas it teaches…">
+          <Row title="The ideas" lede="Grouping the Lesson into the ideas it teaches…">
             <div aria-hidden className="space-y-2 md:w-[42%]">
               {[0, 1, 2, 3].map((i) => (
                 <motion.div
@@ -340,8 +340,8 @@ export default function LessonScreen() {
             title="The ideas"
             lede={
               live
-                ? 'In the order the deck teaches them. Each lights up once a checkpoint or a rehearsal proves it.'
-                : 'In the order the deck teaches them. Each lights up on the Space’s map as you clear it.'
+                ? 'In the order the Lesson teaches them. Each lights up once a checkpoint or a rehearsal proves it.'
+                : 'In the order the Lesson teaches them. Each lights up on the Space’s map as you clear it.'
             }
           >
             <IdeaExplorer

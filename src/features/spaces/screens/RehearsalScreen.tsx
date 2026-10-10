@@ -70,8 +70,8 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
   );
 
   if (state === 'loading') return chrome(<DetailSkeleton />);
-  if (state === 'error') return chrome(<SpacesError what="this course" />);
-  if (!course) return chrome(<NotFound what="Course" backTo="/v4/spaces" backLabel="Back to Spaces" />);
+  if (state === 'error') return chrome(<SpacesError what="this Space" />);
+  if (!course) return chrome(<NotFound what="Space" backTo="/v4/spaces" backLabel="Back to Spaces" />);
 
   const pageHref = (lectureId: string, page: number) => `/v4/space/${course.id}/lesson/${lectureId}/faces?page=${page}&view=explain`;
 
@@ -102,7 +102,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
         </p>
         <h1 className="text-[40px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[56px]">Rehearse for the exam</h1>
         <p className="mt-4 max-w-[54ch] text-[16px] leading-relaxed text-quiet">
-          A short test from your own slides. Every answer points back to the page that teaches it.
+          A short test from your own pages. Every answer points back to the page that teaches it.
         </p>
 
         {history && history.attempts.length > 0 && (
@@ -129,7 +129,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
 
         <div className="mt-12">
           <div className="mb-3 flex items-baseline justify-between">
-            <p className="text-[15px] font-medium text-foreground">Lectures</p>
+            <p className="text-[15px] font-medium text-foreground">Lessons</p>
             <button
               type="button"
               onClick={() => setPicked(chosen.length === course.lectures.length ? [] : course.lectures.map((l) => l.id))}
@@ -399,7 +399,7 @@ function Debrief({
         <p className="mt-2 text-[14px] text-quiet">{rehearsal.title}</p>
       </div>
 
-      <section aria-label="By lecture" className="mt-12 space-y-3">
+      <section aria-label="By Lesson" className="mt-12 space-y-3">
         {byLecture.map(([id, s]) => (
           <div key={id} className="flex items-center gap-4">
             <span className="w-40 shrink-0 truncate text-[14px] text-foreground">{rehearsal.lectures[id]}</span>
