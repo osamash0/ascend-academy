@@ -1,0 +1,44 @@
+/*
+ * Studio is light by default (spec §3.3). v4 defines only dark tokens on
+ * :root, so this scope redefines the shadcn HSL tokens: anything written with
+ * bg-background / text-foreground / border-border / bg-card flips for free.
+ * Dark Studio simply doesn't override, and inherits the v4 values.
+ */
+.studio-surface:not([data-theme='dark']) {
+  --background: 60 14% 97%;
+  --foreground: 160 12% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 160 12% 14%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 160 12% 14%;
+  --muted: 60 9% 93%;
+  --muted-foreground: 150 5% 38%;
+  --border: 80 10% 86%;
+  --input: 80 10% 86%;
+  --primary: 235 62% 52%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 235 62% 52%;
+  color-scheme: light;
+}
+
+.studio-surface {
+  /* Original pages always sit on paper, in both themes. */
+  --studio-paper: 45 43% 98%;
+  /* The amber of outlines, highlights and the flash. */
+  --studio-mark: 36 90% 52%;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.studio-prose {
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.studio-prose > :first-child {
+  margin-top: 0;
+}
+
+.studio-prose > :last-child {
+  margin-bottom: 0;
+}
