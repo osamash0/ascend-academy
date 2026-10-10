@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Sun } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Smartphone, Sun, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfPager, sampleAccent } from '@/components/pdf';
 import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
@@ -445,6 +445,24 @@ export default function LessonFacesScreen() {
    */
   const care = useReadingCare(pdfPage, ready);
   const [checkpointOpen, setCheckpointOpen] = useState(false);
+  /*
+   * A slide is landscape; a phone held upright shows it at a third of the
+   * screen. Said once, and gone for good the first time the phone is turned.
+   */
+  const portraitPhone = useMediaQuery('(max-width: 639px) and (orientation: portrait)');
+  /*
+   * A short window (a phone on its side) cannot spare bands above and below
+   * the page: there the page takes the whole height and the controls float
+   * over it, fading when idle — the way a video player does it.
+   */
+  const short = useMediaQuery('(max-height: 520px)');
+  /* Controls that float over the page need a ground of their own; on the black they need none. */
+  const overPage = short ? 'bg-black/70 backdrop-blur-md' : 'bg-white/[0.07]';
+  const wasPortrait = useRef(false);
+  useEffect(() => {
+    if (portraitPhone) wasPortrait.current = true;
+    else if (wasPortrait.current && !prefs.turned) setPref({ turned: true });
+  }, [portraitPhone, prefs.turned, setPref]);
   const quiet = useIdle(ready && view === 'slide' && !bench && !care.due && !care.resting && !checkpointOpen, 2800);
 
   /*
@@ -750,7 +768,7 @@ export default function LessonFacesScreen() {
   /* The ideas as a strip on the slide's top edge; it needs a band above the page. */
   const chapters = chaptersOf(sections, numPages || Math.max(...sections.flatMap((x) => x.blocks.map((b) => b.page))));
   const strip = chapters.length >= 2;
-  const stageTop = 88 + (strip ? 48 : 0);
+  const stageTop = short ? 0 : 88 + (strip ? 48 : 0);
   /* The stage's own width decides whether the masthead can sit centred beside the switch. */
   const narrowHead = vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980;
   const block = blockOf(pdfPage);
@@ -758,7 +776,7 @@ export default function LessonFacesScreen() {
   /* The slide view keeps a band under the page for its points. */
   /* The first-visit hint takes a line of its own under the points. */
   const hintShown = !prefs.hinted && !engaged && view === 'slide';
-  const stageBottom = (view === 'slide' && beats.length >= 2 ? 128 : 88) + (hintShown ? 22 : 0);
+  const stageBottom = short ? 0 : (view === 'slide' && beats.length >= 2 ? 128 : 88) + (hintShown ? 22 : 0);
 
   return chrome(
     <div
@@ -814,7 +832,9 @@ export default function LessonFacesScreen() {
       <motion.header
         {...fade}
         className={cn(
-          'pointer-events-none absolute inset-x-0 top-0 z-20 flex h-[88px] items-center',
+          /* Below sm the switch needs the top row; the strip names where you are. */
+          'pointer-events-none absolute inset-x-0 top-0 z-20 hidden h-[88px] items-center',
+          !short && 'sm:flex',
           narrowHead ? 'justify-start pl-16 pr-[248px]' : 'justify-center px-20',
         )}
         style={{ right: docked ? panelWidth : 0, left: showToc ? TOC_WIDTH : 0 }}
@@ -838,7 +858,7 @@ export default function LessonFacesScreen() {
       {/* How to look at the page: alone, explained, or as text. */}
       <motion.div {...fade} className="absolute top-5 z-[41] flex items-center gap-2" style={{ right: docked ? panelWidth + 20 : 20 }}>
       {/* The page's own settings: the contents kept open, and night paper. */}
-      <div className="flex rounded-full bg-white/[0.07] p-1">
+      <div className={cn('flex rounded-full p-1', overPage)}>
         {canPin && (
           <button
             type="button"
@@ -865,7 +885,7 @@ export default function LessonFacesScreen() {
       <div
         role="tablist"
         aria-label="How to read this page"
-        className="flex rounded-full bg-white/[0.07] p-1"
+        className={cn('flex rounded-full p-1', overPage)}
       >
         {VIEWS.map((v) => {
           const on = view === v.id;
@@ -950,8 +970,25 @@ export default function LessonFacesScreen() {
         />
       </div>
 
+      {portraitPhone && !prefs.turned && ready && (
+        <motion.div {...fade} className="absolute inset-x-4 top-[72px] z-30 flex justify-center">
+          <p className="flex items-center gap-2 rounded-full bg-white/[0.08] py-1.5 pl-4 pr-1.5 text-[12.5px] text-foreground">
+            <Smartphone aria-hidden className="h-3.5 w-3.5 rotate-90 text-quiet" />
+            Turn your phone sideways for a bigger page
+            <button
+              type="button"
+              aria-label="Got it"
+              onClick={() => setPref({ turned: true })}
+              className="console-focusable flex h-7 w-7 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
+            >
+              <X aria-hidden className="h-3.5 w-3.5" />
+            </button>
+          </p>
+        </motion.div>
+      )}
+
       {/* The lecture's ideas, along the top edge of the page. */}
-      {strip && (
+      {strip && !short && (
         <motion.div
           {...fade}
           className="absolute z-20"
@@ -990,7 +1027,7 @@ export default function LessonFacesScreen() {
               </motion.p>
             )}
           </AnimatePresence>
-          <motion.div {...fade} className="pointer-events-auto">
+          <motion.div {...fade} className={cn('pointer-events-auto rounded-full', short && 'bg-black/70 backdrop-blur-md')}>
             <PointDots beats={beats} beat={beat} onPick={pickBeat} />
           </motion.div>
         </div>
@@ -1002,7 +1039,7 @@ export default function LessonFacesScreen() {
         className="pointer-events-none absolute bottom-5 z-30 flex flex-col items-center gap-2 px-4"
         style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
       >
-        {hintShown && (
+        {hintShown && !short && (
           <p className="hidden text-[12px] text-faint sm:block">
             ← → turns the page{beats.length >= 2 ? ', scrolling steps through its points' : ''}. Select words to ask about them.
           </p>

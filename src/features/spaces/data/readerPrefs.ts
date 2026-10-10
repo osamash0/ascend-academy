@@ -12,10 +12,12 @@ export interface ReaderPrefs {
   tocPinned: boolean;
   /** The first-visit hint has been seen. */
   hinted: boolean;
+  /** The "turn your phone sideways" hint has done its work. */
+  turned: boolean;
 }
 
 const KEY = 'ls.reader.prefs.v1';
-const DEFAULTS: ReaderPrefs = { night: false, tocPinned: false, hinted: false };
+const DEFAULTS: ReaderPrefs = { night: false, tocPinned: false, hinted: false, turned: false };
 
 export function readPrefs(): ReaderPrefs {
   try {

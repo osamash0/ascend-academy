@@ -72,7 +72,8 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
             {label.name}
           </motion.p>
         </AnimatePresence>
-        <p className="shrink-0 tabular-nums text-faint">
+        {/* On a phone the name needs the width; the segments still show how far along you are. */}
+        <p className="hidden shrink-0 tabular-nums text-faint sm:block">
           {lights[shown] === 'lit' && <span className="mr-1.5 text-success">Tested right ·</span>}
           {lights[shown] === 'fading' && <span className="mr-1.5 text-success">Fading — due for a look ·</span>}
           {lights[shown] === 'weak' && <span className="mr-1.5 text-destructive">To revisit ·</span>}
