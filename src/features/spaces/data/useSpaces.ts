@@ -25,6 +25,9 @@ import {
 import { allNotes } from '../mocks/notes';
 import { currentRun } from '../mocks/history';
 import type { HeroKind, HomeItem, RecentItem } from '../mocks/library';
+import { canvasById, materialById, pagesFor, recentCanvases } from '../mocks/studio-canvas';
+import type { CanvasSummary } from '../mocks/studio-canvas';
+import type { CanvasDoc, SourcePage, StudioMaterial } from '../studio/types';
 
 /**
  * The data seam.
@@ -263,4 +266,46 @@ export function useHome(): HomeResult {
     // so Home and Profile could disagree about the same run and both look right.
     streakDays: ready ? currentRun() : 0,
   };
+}
+
+/* ── Studio canvas ────────────────────────────────────────────────────── */
+
+export interface CanvasResult {
+  state: LoadState;
+  canvas: CanvasDoc | null;
+  pages: SourcePage[];
+  material: StudioMaterial | null;
+  spaceName: string | null;
+}
+
+/** One Studio canvas and the source pages behind it. Unknown id → `empty`, like `useSpace`. */
+export function useCanvas(canvasId: string | undefined): CanvasResult {
+  const state = useSettled(useScenario());
+  const canvas = canvasId ? canvasById(canvasId) ?? null : null;
+  if (state !== 'ready' || !canvas) {
+    return {
+      state: !canvas && state === 'ready' ? 'empty' : state,
+      canvas: null,
+      pages: [],
+      material: null,
+      spaceName: null,
+    };
+  }
+  return {
+    state,
+    canvas,
+    pages: pagesFor(canvas.materialIds),
+    material: materialById(canvas.materialIds[0]) ?? null,
+    spaceName: canvas.spaceId ? spaceById(canvas.spaceId)?.name ?? null : null,
+  };
+}
+
+export interface StudioHomeResult {
+  state: LoadState;
+  recent: CanvasSummary[];
+}
+
+export function useStudioHome(): StudioHomeResult {
+  const state = useSettled(useScenario());
+  return { state, recent: state === 'ready' ? recentCanvases() : [] };
 }
