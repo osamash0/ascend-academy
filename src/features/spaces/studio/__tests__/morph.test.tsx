@@ -62,8 +62,8 @@ describe('Morph on the canvas', () => {
     fireEvent.keyDown(window, { key: 'o' });
     fireEvent.keyUp(window, { key: 'o' });
     await run(400);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Not in your version' })[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'Add to your version' }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^Not in your version: / })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /^Add to your version: / }));
     fireEvent.keyDown(window, { key: 'Escape' });
     await run(400);
     expect(container.querySelectorAll('[data-block-id]').length).toBe(before + 1);
@@ -106,6 +106,31 @@ describe('Morph on the canvas', () => {
       const landing = page4.querySelectorAll('[data-extracted="true"]');
       expect(page4.querySelectorAll('[data-morph="true"]')).toHaveLength(landing.length);
       expect(container.querySelectorAll('[data-view="clean"] [data-morph="true"]')).toHaveLength(landing.length);
+    } finally {
+      Element.prototype.getBoundingClientRect = rect;
+    }
+  });
+
+  it('clicking a region flies back the clicked region\'s page, not the one in view', async () => {
+    const { container } = await mount();
+    fireEvent.keyDown(window, { key: 'o' });
+    fireEvent.keyUp(window, { key: 'o' });
+    await run(400);
+    // Page 2 is in view, but the region clicked is on page 4.
+    const rect = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const inView = this.matches('[data-view="original"][data-page-anchor="2"]');
+      return { top: 0, bottom: inView ? 700 : 0, left: 0, right: 0, width: 0, height: inView ? 700 : 0, x: 0, y: 0, toJSON() {} } as DOMRect;
+    };
+    try {
+      const region = container.querySelector<HTMLElement>('[data-view="original"][data-page-anchor="4"] button[aria-label^="Back to"]')!;
+      fireEvent.click(region);
+      const leaving = container.querySelectorAll('[data-view="original"][data-page-anchor="4"] [data-morph="true"]');
+      expect(leaving.length).toBeGreaterThan(0);
+      expect(container.querySelectorAll('[data-view="original"][data-page-anchor="2"] [data-morph="true"]')).toHaveLength(0);
+      await run(700);
+      const page4 = container.querySelector('[data-view="clean"][data-page-anchor="4"]')!;
+      expect(page4.querySelectorAll('[data-morph="true"]').length).toBeGreaterThan(0);
     } finally {
       Element.prototype.getBoundingClientRect = rect;
     }

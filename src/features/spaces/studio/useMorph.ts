@@ -26,9 +26,18 @@ const other = (v: CanvasView): CanvasView => (v === 'clean' ? 'original' : 'clea
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName));
 
-export function useMorph(opts: { onBeforeChange?: () => void } = {}): MorphApi {
+const inDialog = (t: EventTarget | null) => t instanceof Element && !!t.closest('[role="dialog"]');
+
+/**
+ * `enabled: false` pins the canvas to clean — keys do nothing and a remembered
+ * 'original' is not shown (the source file is gone, so there is no original).
+ */
+export function useMorph(opts: { onBeforeChange?: () => void; enabled?: boolean } = {}): MorphApi {
   const before = useRef(opts.onBeforeChange);
   before.current = opts.onBeforeChange;
+  const enabled = opts.enabled ?? true;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const [view, setViewState] = useState<CanvasView>(() => {
     try {
@@ -94,6 +103,8 @@ export function useMorph(opts: { onBeforeChange?: () => void } = {}): MorphApi {
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // A dialog (Full page) owns its own keys; the page behind it must not react.
+      if (!enabledRef.current || inDialog(e.target)) return;
       if (e.key === 'Escape' && viewRef.current === 'original' && !pressing.current) {
         setView('clean');
         return;
@@ -123,7 +134,7 @@ export function useMorph(opts: { onBeforeChange?: () => void } = {}): MorphApi {
     };
   }, [pressStart, pressEnd, pressCancel, setView]);
 
-  const shown = quickLook ? other(view) : view;
+  const shown = !enabled ? 'clean' : quickLook ? other(view) : view;
   return useMemo(
     () => ({ view, shown, quickLook, setView, pressStart, pressEnd, pressCancel }),
     [view, shown, quickLook, setView, pressStart, pressEnd, pressCancel],

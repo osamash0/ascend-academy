@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
@@ -39,7 +40,7 @@ interface Props {
  * — the touch and keyboard way in — and on hover-capable screens it shows on
  * hover or focus to keep the margin quiet.
  */
-export function CleanBlock({
+export const CleanBlock = memo(function CleanBlock({
   block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled,
   onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
 }: Props) {
@@ -54,7 +55,8 @@ export function CleanBlock({
       data-flash={flash ? 'true' : undefined}
       tabIndex={extracted ? 0 : undefined}
       onPointerEnter={(e) => extracted && onPointerEnter(block.id, e.pointerType)}
-      onPointerLeave={() => extracted && onPointerLeave()}
+      // Touch fires pointerleave after every tap; only a mouse really leaves.
+      onPointerLeave={(e) => extracted && e.pointerType !== 'touch' && e.pointerType !== 'pen' && onPointerLeave()}
       onKeyDown={(e) => {
         if (!extracted) return;
         if (e.key === ' ') {
@@ -104,4 +106,4 @@ export function CleanBlock({
       </motion.div>
     </motion.div>
   );
-}
+});

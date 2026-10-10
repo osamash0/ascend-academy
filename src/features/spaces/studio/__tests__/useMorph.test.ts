@@ -159,4 +159,29 @@ describe('useMorph', () => {
     key('keydown', 'Escape');
     expect(result.current.view).toBe('original');
   });
+
+  it('ignores O and Escape while a dialog has focus', () => {
+    document.body.innerHTML = '<div role="dialog"><button id="in">x</button></div>';
+    const inside = document.getElementById('in')!;
+    const { result } = renderHook(() => useMorph());
+    key('keydown', 'o', inside);
+    key('keyup', 'o', inside);
+    expect(result.current.view).toBe('clean');
+    act(() => result.current.setView('original'));
+    key('keydown', 'Escape', inside);
+    expect(result.current.view).toBe('original');
+    key('keydown', 'Escape');
+    expect(result.current.view).toBe('clean');
+  });
+
+  it('when disabled, stays on clean: keys do nothing and a remembered original is not shown', () => {
+    localStorage.setItem(VIEW_KEY, 'original');
+    const { result } = renderHook(() => useMorph({ enabled: false }));
+    expect(result.current.shown).toBe('clean');
+    key('keydown', 'o');
+    act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
+    key('keyup', 'o');
+    expect(result.current.shown).toBe('clean');
+    expect(result.current.quickLook).toBe(false);
+  });
 });

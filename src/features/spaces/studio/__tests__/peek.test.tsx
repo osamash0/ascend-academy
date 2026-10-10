@@ -101,7 +101,7 @@ describe('Peek view', () => {
   };
   const props = {
     materialName: 'N.pdf', pinned: false, sourceRemoved: false,
-    onTogglePin() {}, onFullPage() {}, onPointerEnter() {}, onPointerLeave() {},
+    onTogglePin() {}, onClose() {}, onFullPage() {}, onPointerEnter() {}, onPointerLeave() {},
   };
 
   it('says so when the source was removed, with no Full page button', () => {
@@ -118,5 +118,33 @@ describe('Peek view', () => {
     const next = { ...region, page: { ...region.page, page: 3, imageUrl: '/p3.png' } };
     rerender(<Peek region={next} {...props} />);
     expect(screen.getAllByRole('img').map((i) => i.getAttribute('src'))).toContain('/p3.png');
+  });
+
+  it('has a Close button that calls onClose', () => {
+    const onClose = vi.fn();
+    render(<Peek region={region} {...props} onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('a touch pointerleave does not count as leaving; a mouse one does', () => {
+    const onPointerLeave = vi.fn();
+    render(<Peek region={region} {...props} onPointerLeave={onPointerLeave} />);
+    const peek = screen.getByRole('complementary', { name: 'Original page' });
+    fireEvent.pointerLeave(peek, { pointerType: 'touch' });
+    expect(onPointerLeave).not.toHaveBeenCalled();
+    fireEvent.pointerLeave(peek, { pointerType: 'mouse' });
+    expect(onPointerLeave).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Touch on the canvas', () => {
+  it('a touch pointerleave from the block does not close the Peek', async () => {
+    const { container } = await mount();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Show the original, page 2' })[0]);
+    const block = container.querySelector('[data-block-id="c-p2-hw"]')!;
+    fireEvent.pointerLeave(block, { pointerType: 'touch' });
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(screen.getByRole('complementary', { name: 'Original page', hidden: true })).toBeInTheDocument();
   });
 });

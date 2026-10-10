@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Maximize2, Pin, PinOff, RotateCw } from 'lucide-react';
+import { Maximize2, Pin, PinOff, RotateCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { boxStyle } from '../geometry';
 import type { Region } from '../geometry';
@@ -12,10 +12,14 @@ interface Props {
   pinned: boolean;
   sourceRemoved: boolean;
   onTogglePin(): void;
+  onClose(): void;
   onFullPage(): void;
   onPointerEnter(): void;
   onPointerLeave(): void;
 }
+
+/** Touch fires pointerleave after every tap inside; only a mouse really leaves. */
+const isMouseLike = (e: React.PointerEvent) => e.pointerType !== 'touch' && e.pointerType !== 'pen';
 
 const action =
   'inline-flex min-h-6 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs hover:bg-muted';
@@ -27,7 +31,7 @@ const action =
  * the same page glides it there. A different page crossfades the image.
  */
 export function Peek({
-  region, materialName, pinned, sourceRemoved, onTogglePin, onFullPage, onPointerEnter, onPointerLeave,
+  region, materialName, pinned, sourceRemoved, onTogglePin, onClose, onFullPage, onPointerEnter, onPointerLeave,
 }: Props) {
   const { page, box } = region;
   // Retries belong to one page: a different page starts clean.
@@ -43,7 +47,7 @@ export function Peek({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
       onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
+      onPointerLeave={(e) => isMouseLike(e) && onPointerLeave()}
       className="w-full rounded-2xl border border-border bg-card p-3 shadow-sm"
     >
       {sourceRemoved ? (
@@ -67,6 +71,8 @@ export function Peek({
               key={src}
               src={src}
               alt={`Page ${page.page} of ${materialName}`}
+              loading="lazy"
+              decoding="async"
               onError={() => setFailed(src)}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -100,6 +106,9 @@ export function Peek({
             <Maximize2 aria-hidden className="h-3.5 w-3.5" /> Full page
           </button>
         )}
+        <button type="button" onClick={onClose} aria-label="Close" className={cn(action, 'px-2')}>
+          <X aria-hidden className="h-3.5 w-3.5" />
+        </button>
       </div>
     </motion.aside>
   );

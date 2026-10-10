@@ -48,6 +48,8 @@ export default function StudioCanvasScreen() {
   const backTimer = useRef<ReturnType<typeof setTimeout>>();
   /** The view on screen right now, readable from inside the switch. */
   const shownRef = useRef<'clean' | 'original'>('clean');
+  /** A page the next switch must fly instead of the one in view (clicking a region). */
+  const pageHint = useRef<number | null>(null);
 
   /**
    * Runs right before the view changes: pick the page you're on, remember
@@ -70,13 +72,19 @@ export default function StudioCanvasScreen() {
     // Only when nothing has layout at all (jsdom) fall back to the first page shown;
     // in a real browser with no visible section there is nothing to anchor to.
     const noLayout = rects.length > 0 && rects.every((r) => r.height === 0);
-    const page = pickAnchorPage(rects, window.innerHeight) ?? (noLayout ? rects[0].page : null);
+    const hinted = pageHint.current;
+    pageHint.current = null;
+    const picked =
+      hinted !== null && rects.some((r) => r.page === hinted)
+        ? hinted
+        : (pickAnchorPage(rects, window.innerHeight) ?? (noLayout ? rects[0].page : null));
+    const page = picked;
     anchor.current = page === null ? null : { page, top: rects.find((r) => r.page === page)!.top };
     flushSync(() => setMorphPage(page));
     setFlying(true);
     closePeek();
   }, [closePeek]);
-  const morph = useMorph({ onBeforeChange: beforeSwitch });
+  const morph = useMorph({ onBeforeChange: beforeSwitch, enabled: !material?.sourceRemoved });
   shownRef.current = morph.shown;
 
   /* Keep your place: the anchor page's top stays where it was. */
@@ -119,9 +127,12 @@ export default function StudioCanvasScreen() {
   }, [peekOpen, fullRegion, closePeek]);
 
   const backToBlock = (blockId: string) => {
+    const target = doc?.blocks.find((b) => b.id === blockId);
+    pageHint.current = target?.origin === 'extracted' ? target.source.page : null;
     // During a quick look the committed view is already clean: end the look.
     if (morph.quickLook) morph.pressCancel();
     else morph.setView('clean');
+    pageHint.current = null; // unused if nothing switched
     setFlashId(null); // so the same paragraph flashes again
     clearTimeout(backTimer.current);
     backTimer.current = setTimeout(() => {
@@ -156,6 +167,7 @@ export default function StudioCanvasScreen() {
         peek.togglePin();
         peek.enterPeek();
       }}
+      onClose={closePeek}
       onFullPage={() => setFullRegion(region)}
       onPointerEnter={peek.enterPeek}
       onPointerLeave={peek.leavePeek}

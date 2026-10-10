@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { CleanBlock } from './CleanBlock';
 import { OriginalPage } from './OriginalPage';
@@ -39,6 +40,14 @@ interface Props {
  * carries the ids it needs. Every other page crossfades.
  */
 export function CanvasPage(p: Props) {
+  // Once per (blocks, pages), not per block per render.
+  const lowConfidence = useMemo(() => {
+    const ids = new Set<string>();
+    for (const g of p.groups)
+      for (const b of g.blocks)
+        if (b.origin === 'extracted' && (minConfidence(b.source, p.pages) ?? 1) < 0.8) ids.add(b.id);
+    return ids;
+  }, [p.groups, p.pages]);
   return (
     <div className="space-y-12">
       {p.groups.map((g) => {
@@ -87,7 +96,7 @@ export function CanvasPage(p: Props) {
                         count={g.blocks.length}
                         morph={morph}
                         flying={p.flying && morph}
-                        lowConfidence={b.origin === 'extracted' && (minConfidence(b.source, p.pages) ?? 1) < 0.8}
+                        lowConfidence={lowConfidence.has(b.id)}
                         active={p.activeBlockId === b.id}
                         flash={p.flashBlockId === b.id}
                         markerDisabled={p.sourceRemoved}

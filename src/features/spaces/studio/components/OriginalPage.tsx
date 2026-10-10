@@ -53,6 +53,8 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
         <img
           src={page.imageUrl}
           alt={`Page ${page.page} of ${materialName}`}
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-contain"
         />
 
@@ -90,7 +92,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
               layoutId={morph ? `morph-${b.id}` : undefined}
               transition={flight(i)}
               onClick={() => onRegion(b.id)}
-              aria-label={`Back to: ${firstWords(b.markdown)}`}
+              aria-label={`${b.edited ? 'Back to (edited)' : 'Back to'}: ${firstWords(b.markdown)}`}
               style={boxStyle(box)}
               className="absolute z-10 rounded-[4px] outline-none before:absolute before:left-1/2 before:top-1/2 before:h-full before:min-h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-[hsl(var(--studio-mark)/0.18)] focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -115,7 +117,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
         })}
 
         {figures.length > 0 && (
-          <span className="absolute right-2 top-2 z-20 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground">
+          <span className="pointer-events-none absolute right-2 top-2 z-20 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground">
             {figures.length} {figures.length === 1 ? 'figure' : 'figures'} not in your version
           </span>
         )}
@@ -135,6 +137,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
           >
             <button
               type="button"
+              aria-label={`${offer === s.id ? 'Add to your version' : 'Not in your version'}: ${firstWords(s.text)}`}
               onClick={() => (offer === s.id ? onInclude(s.id) : setOffer(s.id))}
               className="absolute -top-6 left-0 z-20 min-h-6 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground hover:text-foreground"
             >

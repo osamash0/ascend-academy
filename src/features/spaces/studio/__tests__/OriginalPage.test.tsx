@@ -19,7 +19,7 @@ describe('OriginalPage', () => {
     const onRegion = vi.fn();
     render(<OriginalPage page={page} blocks={blocks} morph={false} materialName="N.pdf" onRegion={onRegion} onInclude={vi.fn()} />);
     expect(screen.getByRole('img', { name: 'Page 4 of N.pdf' })).toHaveAttribute('src', '/p4.webp');
-    fireEvent.click(screen.getByRole('button', { name: 'Back to: Functional dependencies' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to (edited): Functional dependencies' }));
     expect(onRegion).toHaveBeenCalledWith('c-a');
     expect(screen.getByText('Edited by you')).toBeInTheDocument();
   });
@@ -27,9 +27,9 @@ describe('OriginalPage', () => {
   it('reveals what is not in your version and offers to add it', () => {
     const onInclude = vi.fn();
     render(<OriginalPage page={page} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={onInclude} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Not in your version' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Not in your version: / }));
     expect(onInclude).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Add to your version' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add to your version: / }));
     expect(onInclude).toHaveBeenCalledWith('f');
   });
 
@@ -50,7 +50,7 @@ describe('OriginalPage', () => {
     render(<OriginalPage page={withFigure} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
     expect(screen.getByText('1 figure not in your version').tagName).not.toBe('BUTTON');
     expect(screen.queryByText('Figure not in your version')).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Not in your version' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^Not in your version: / })).toHaveLength(1);
   });
 
   it('marks the overlays that fly only on the anchor page', () => {
@@ -59,7 +59,7 @@ describe('OriginalPage', () => {
     );
     expect(container.querySelector('[data-morph]')).toBeNull();
     rerender(<OriginalPage page={page} blocks={blocks} morph materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Back to: Functional dependencies' })).toHaveAttribute('data-morph', 'true');
+    expect(screen.getByRole('button', { name: 'Back to (edited): Functional dependencies' })).toHaveAttribute('data-morph', 'true');
   });
 
   it('pluralises the figure summary and omits it when none are missing', () => {
@@ -67,7 +67,7 @@ describe('OriginalPage', () => {
     const two: SourcePage = { ...page, blocks: [...page.blocks, fig('g1', 0.3), fig('g2', 0.5)] };
     const { unmount } = render(<OriginalPage page={two} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
     expect(screen.getByText('2 figures not in your version')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Not in your version' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^Not in your version: / })).toHaveLength(1);
     unmount();
     render(<OriginalPage page={page} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
     expect(screen.queryByText(/not in your version$/)).toBeNull();
