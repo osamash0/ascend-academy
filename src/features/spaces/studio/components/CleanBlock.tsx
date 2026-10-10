@@ -27,6 +27,8 @@ interface Props {
   flash: boolean;
   /** The source file was removed: the marker stays as text, it leads nowhere. */
   markerDisabled: boolean;
+  /** Living Learn: a glow on the paragraph that a question just wove in (wired in Task 7). */
+  glow?: boolean;
   onPointerEnter(blockId: string, pointerType: string): void;
   onPointerLeave(): void;
   onOpenPeek(blockId: string): void;
@@ -46,12 +48,14 @@ export const CleanBlock = memo(function CleanBlock({
   onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
 }: Props) {
   const sourced = hasSource(block);
+  const gist = block.origin === 'summary' && block.gist;
   const reduce = useReducedMotion();
   const flies = sourced && morph;
   return (
     <motion.div
       data-block-id={block.id}
       data-extracted={sourced ? 'true' : 'false'}
+      data-gist={gist ? 'true' : undefined}
       data-morph={flies ? 'true' : undefined}
       data-flash={flash ? 'true' : undefined}
       tabIndex={sourced ? 0 : undefined}
@@ -77,6 +81,7 @@ export const CleanBlock = memo(function CleanBlock({
         'group relative -mx-3 rounded-lg px-3 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
         active && 'bg-[hsl(var(--studio-mark)/0.14)]',
         block.origin === 'written' && 'rounded-l-none border-l-2 border-primary/40',
+        gist && 'studio-gist',
       )}
     >
       {sourced &&

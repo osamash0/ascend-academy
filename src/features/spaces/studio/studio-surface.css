@@ -23,6 +23,9 @@
   --studio-chip: 255 255 255 / 0.07;
   --studio-chip-hover: 255 255 255 / 0.12;
   --studio-hairline: 255 255 255 / 0.1;
+  /* Living Learn: warm light for key terms, teal for what your questions added. */
+  --studio-term: 243 231 201;
+  --studio-woven: 159 211 199;
   color-scheme: dark;
 }
 
@@ -46,6 +49,8 @@
   --studio-chip: 0 0 0 / 0.05;
   --studio-chip-hover: 0 0 0 / 0.09;
   --studio-hairline: 0 0 0 / 0.1;
+  --studio-term: 138 90 0;
+  --studio-woven: 47 125 109;
   color-scheme: light;
 }
 
@@ -62,7 +67,7 @@
 .studio-prose {
   font-size: 17.5px;
   line-height: 1.75;
-  color: hsl(var(--foreground) / 0.9);
+  color: hsl(var(--foreground) / 0.8);
 }
 
 .studio-prose > :first-child {
@@ -71,4 +76,18 @@
 
 .studio-prose > :last-child {
   margin-bottom: 0;
+}
+
+/* Key terms in the calm summary: warm light, not bold (Living Learn spec §2.2).
+   Streamdown renders **bold** as a span, not a <strong>; target both. */
+.studio-prose strong,
+.studio-prose [data-streamdown='strong'] {
+  color: rgb(var(--studio-term));
+  font-weight: 500;
+}
+
+/* The gist of a page reads a touch brighter and larger than the rest. */
+.studio-gist .studio-prose {
+  color: hsl(var(--foreground));
+  font-size: 18px;
 }
