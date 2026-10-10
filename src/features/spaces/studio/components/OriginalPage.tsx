@@ -10,7 +10,12 @@ interface Props {
   page: SourcePage;
   /** This page's canvas blocks. */
   blocks: CanvasBlock[];
-  /** The anchor page: its overlays carry layoutIds, so its paragraphs fly. */
+  /**
+   * The anchor page: its overlays carry layoutIds, so its paragraphs fly.
+   * The overlays are keyed by this flag — Motion registers a `layoutId` only
+   * at mount — and the screen commits it before the view changes, so the
+   * overlays that leave (Original → Clean) already carry their ids.
+   */
   morph: boolean;
   materialName: string;
   onRegion(blockId: string): void;
@@ -56,8 +61,9 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
           if (!box) {
             return morph ? (
               <motion.div
-                key={b.id}
+                key={`${b.id}:converge`}
                 aria-hidden
+                data-morph="true"
                 layoutId={`morph-${b.id}`}
                 transition={flight(i)}
                 style={boxStyle(CENTER)}
@@ -68,17 +74,21 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
             ) : null;
           }
           // z-10: a way back stays clickable above a missing block's dashed box
-          // (e.g. a callout drawn over a figure your version doesn't contain).
+          // (e.g. a callout drawn over a figure your version doesn't contain);
+          // the missing blocks' pills sit higher still, at z-20.
+          // The ::before pads the hit area to 24×24 without changing the box
+          // the paragraph flies to.
           return (
             <motion.button
-              key={b.id}
+              key={`${b.id}:${morph}`}
               type="button"
+              data-morph={morph ? 'true' : undefined}
               layoutId={morph ? `morph-${b.id}` : undefined}
               transition={flight(i)}
               onClick={() => onRegion(b.id)}
               aria-label={`Back to: ${firstWords(b.markdown)}`}
               style={boxStyle(box)}
-              className="absolute z-10 rounded-[4px] outline-none hover:bg-[hsl(var(--studio-mark)/0.18)] focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute z-10 rounded-[4px] outline-none before:absolute before:left-1/2 before:top-1/2 before:h-full before:min-h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-[hsl(var(--studio-mark)/0.18)] focus-visible:ring-2 focus-visible:ring-ring"
             >
               {morph && (
                 <motion.span
@@ -108,14 +118,14 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
           >
             {/* Figures can't be added as text in v1: they are labelled, not offered. */}
             {s.kind === 'figure' || !s.text ? (
-              <span className="absolute -top-6 left-0 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground">
+              <span className="absolute -top-6 left-0 z-20 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground">
                 Figure not in your version
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => (offer === s.id ? onInclude(s.id) : setOffer(s.id))}
-                className="absolute -top-6 left-0 min-h-6 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                className="absolute -top-6 left-0 z-20 min-h-6 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground hover:text-foreground"
               >
                 {offer === s.id ? 'Add to your version' : 'Not in your version'}
               </button>

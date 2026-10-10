@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { LayoutGroup } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
@@ -45,20 +46,36 @@ export default function StudioCanvasScreen() {
   const [flying, setFlying] = useState(false);
   const anchor = useRef<{ page: number; top: number } | null>(null);
   const backTimer = useRef<ReturnType<typeof setTimeout>>();
+  /** The view on screen right now, readable from inside the switch. */
+  const shownRef = useRef<'clean' | 'original'>('clean');
 
-  /** Runs right before the view changes: remember where you are, close Peek. */
+  /**
+   * Runs right before the view changes: pick the page you're on, remember
+   * where it sits, close Peek.
+   *
+   * The anchor page is committed *first* (flushSync), in the view that is
+   * about to leave: its elements remount carrying layoutIds before they
+   * exit, so they can pair with the incoming side — in both directions.
+   * The view change that follows is flushed before paint.
+   */
   const beforeSwitch = useCallback(() => {
-    const rects = Array.from(document.querySelectorAll<HTMLElement>('[data-page-anchor]')).map((el) => {
+    clearTimeout(backTimer.current);
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>(`[data-view="${shownRef.current}"][data-page-anchor]`),
+    );
+    const rects = sections.map((el) => {
       const r = el.getBoundingClientRect();
       return { page: Number(el.dataset.pageAnchor), top: r.top, bottom: r.bottom };
     });
-    const page = pickAnchorPage(rects, window.innerHeight);
+    // No layout (all rects empty): fall back to the first page shown.
+    const page = pickAnchorPage(rects, window.innerHeight) ?? rects[0]?.page ?? null;
     anchor.current = page === null ? null : { page, top: rects.find((r) => r.page === page)!.top };
-    setMorphPage(page);
+    flushSync(() => setMorphPage(page));
     setFlying(true);
     closePeek();
   }, [closePeek]);
   const morph = useMorph({ onBeforeChange: beforeSwitch });
+  shownRef.current = morph.shown;
 
   /* Keep your place: the anchor page's top stays where it was. */
   useLayoutEffect(() => {
@@ -100,7 +117,10 @@ export default function StudioCanvasScreen() {
   }, [peekOpen, fullRegion, closePeek]);
 
   const backToBlock = (blockId: string) => {
-    morph.setView('clean');
+    // During a quick look the committed view is already clean: end the look.
+    if (morph.quickLook) morph.pressCancel();
+    else morph.setView('clean');
+    setFlashId(null); // so the same paragraph flashes again
     clearTimeout(backTimer.current);
     backTimer.current = setTimeout(() => {
       document.querySelector(`[data-block-id="${blockId}"]`)?.scrollIntoView?.({ block: 'center' });
@@ -108,7 +128,10 @@ export default function StudioCanvasScreen() {
     }, FLIGHT_S * 1000 + 50);
   };
   const include = (page: SourcePage, sourceBlockId: string) => {
-    if (doc) setEdited(includeSourceBlock(doc, page, sourceBlockId));
+    setEdited((prev) => {
+      const base = prev ?? canvas;
+      return base ? includeSourceBlock(base, page, sourceBlockId) : prev;
+    });
   };
 
   const frame = (children: React.ReactNode) => (

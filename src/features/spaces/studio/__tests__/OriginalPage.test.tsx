@@ -41,4 +41,23 @@ describe('OriginalPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back to the clean version' }));
     expect(onRegion).toHaveBeenCalledWith('c-a');
   });
+
+  it('labels a missing figure instead of offering it', () => {
+    const withFigure: SourcePage = {
+      ...page,
+      blocks: [...page.blocks, { id: 'g', page: 4, bbox: [0.5, 0.3, 0.9, 0.8], kind: 'figure', text: '', readingOrder: 2 }],
+    };
+    render(<OriginalPage page={withFigure} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
+    expect(screen.getByText('Figure not in your version').tagName).not.toBe('BUTTON');
+    expect(screen.getAllByRole('button', { name: 'Not in your version' })).toHaveLength(1);
+  });
+
+  it('marks the overlays that fly only on the anchor page', () => {
+    const { container, rerender } = render(
+      <OriginalPage page={page} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />,
+    );
+    expect(container.querySelector('[data-morph]')).toBeNull();
+    rerender(<OriginalPage page={page} blocks={blocks} morph materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Back to: Functional dependencies' })).toHaveAttribute('data-morph', 'true');
+  });
 });

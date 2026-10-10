@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
 import { FLASH_FRAMES, FLIGHT_EASE, FLIGHT_S, STAGGER_S, TEXT_FADE_S } from '../motion';
@@ -10,6 +10,14 @@ interface Props {
   /** Position within its page, for the reverse stagger on the way back. */
   index: number;
   count: number;
+  /**
+   * On the anchor page: this block carries `layoutId` and flies to/from its
+   * spot on the original. Only the anchor page's blocks are layout nodes, so
+   * a re-render elsewhere (hover, pin-follow, flash) never measures the rest.
+   * The caller keys the block by this flag: Motion registers a `layoutId`
+   * once, at mount, so changing it requires a remount.
+   */
+  morph: boolean;
   /** True on the anchor page right after a switch: the text fades in after landing. */
   flying: boolean;
   lowConfidence: boolean;
@@ -32,14 +40,18 @@ interface Props {
  * hover or focus to keep the margin quiet.
  */
 export function CleanBlock({
-  block, page, index, count, flying, lowConfidence, active, flash, markerDisabled,
+  block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled,
   onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
 }: Props) {
   const extracted = block.origin === 'extracted';
+  const reduce = useReducedMotion();
+  const flies = extracted && morph;
   return (
     <motion.div
       data-block-id={block.id}
       data-extracted={extracted ? 'true' : 'false'}
+      data-morph={flies ? 'true' : undefined}
+      data-flash={flash ? 'true' : undefined}
       tabIndex={extracted ? 0 : undefined}
       onPointerEnter={(e) => extracted && onPointerEnter(block.id, e.pointerType)}
       onPointerLeave={() => extracted && onPointerLeave()}
@@ -52,7 +64,7 @@ export function CleanBlock({
           onClosePeek();
         }
       }}
-      layoutId={extracted ? `morph-${block.id}` : undefined}
+      layoutId={flies ? `morph-${block.id}` : undefined}
       animate={flash ? { backgroundColor: FLASH_FRAMES } : undefined}
       transition={{
         layout: { duration: FLIGHT_S, ease: FLIGHT_EASE, delay: (count - 1 - index) * STAGGER_S },
@@ -80,7 +92,7 @@ export function CleanBlock({
           </button>
         ))}
       <motion.div
-        initial={extracted && flying ? { opacity: 0 } : false}
+        initial={flies && flying && !reduce ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         transition={{ delay: FLIGHT_S * 0.6, duration: TEXT_FADE_S }}
       >

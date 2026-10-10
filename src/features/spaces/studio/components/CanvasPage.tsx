@@ -31,6 +31,12 @@ interface Props {
  *
  * `popLayout` takes the outgoing view out of flow while the incoming one
  * mounts, so both exist in the same frame and Motion can pair their layoutIds.
+ *
+ * Only the anchor page (`morphPage`) flies, and only it carries layoutIds —
+ * on both sides. Elements are keyed by that anchor-ness so they remount when
+ * it changes (Motion registers a `layoutId` once, at mount); the screen
+ * commits `morphPage` before the view flips, so the side that leaves already
+ * carries the ids it needs. Every other page crossfades.
  */
 export function CanvasPage(p: Props) {
   return (
@@ -74,11 +80,12 @@ export function CanvasPage(p: Props) {
                   <div className="space-y-2">
                     {g.blocks.map((b, i) => (
                       <CleanBlock
-                        key={b.id}
+                        key={`${b.id}:${morph}`}
                         block={b}
                         page={g.page}
                         index={i}
                         count={g.blocks.length}
+                        morph={morph}
                         flying={p.flying && morph}
                         lowConfidence={b.origin === 'extracted' && (minConfidence(b.source, p.pages) ?? 1) < 0.8}
                         active={p.activeBlockId === b.id}
