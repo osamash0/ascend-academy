@@ -303,6 +303,7 @@ describe('every control the reader grew shows where the keyboard is', () => {
    */
   const surface = [
     { name: 'screens/ReaderScreen.tsx', body: readSource('screens/ReaderScreen.tsx') },
+    { name: 'screens/LessonFacesScreen.tsx', body: readSource('screens/LessonFacesScreen.tsx') },
     { name: 'components/LessonPager.tsx', body: readSource('components/LessonPager.tsx') },
     ...sourceFiles('components/reader'),
   ];

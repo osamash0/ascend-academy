@@ -43,6 +43,13 @@ export const SURFACES = {
   profile: 'browse',
   /** Reading or seeing. Texture competes with the content. */
   lessonReader: 'focus',
+  /**
+   * The two-faced reader keeps the room. Its ground is the *other face*,
+   * blurred, and that reads as a place only with the console's atmosphere
+   * under it — plain black made it a void with a page floating in it
+   * (Abi, 2026-09-18: "make it not on focus mode").
+   */
+  lessonFaces: 'browse',
   practice: 'focus',
   map: 'focus',
 } as const satisfies Record<string, Surface>;

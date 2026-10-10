@@ -73,6 +73,21 @@ const ALLOWED = [
   /^@\/lib\/topicIcon$/,
   /^@\/components\/ui\//,
   /^@\/components\/console$/,
+  /*
+   * The two faces of a Lesson. `@/components/pdf` wraps react-pdf (the
+   * Material as uploaded); `@/components/markdown` wraps react-markdown (the
+   * parsed text). Both are renderers with no data and no network; they live
+   * outside this namespace so the old product can adopt them too.
+   */
+  /^@\/components\/pdf$/,
+  /^@\/components\/markdown$/,
+  /*
+   * Wire shapes only. `@/types/domain` holds the response types of the two
+   * endpoints the reader is built against — `LocalizedLectureBundle` and
+   * `LectureConcept` — and nothing that fetches. A mock that returns the real
+   * type is what makes the swap a change of body rather than of shape.
+   */
+  /^@\/types\/domain$/,
   // Luna is the product's astronaut illustration. Pure SVG.
   /learnstation-luna$/,
   // Anything inside this namespace.

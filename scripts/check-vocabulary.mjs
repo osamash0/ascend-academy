@@ -95,12 +95,21 @@ function extractCopy(src) {
   return out;
 }
 
+/*
+ * Fixtures that hold somebody else's writing, verbatim. The pages of a real
+ * uploaded Material say "slide" and "course" because their author did; that is
+ * exemption 3 above (user-authored content) arriving as a file rather than
+ * from a database, and rewriting it would be the checker editing a Lesson.
+ */
+const CONTENT = ['src/features/spaces/mocks/content.normalization.ts'];
+
 const files = [];
 const walk = (dir) => {
   for (const e of readdirSync(dir)) {
     const p = join(dir, e);
     if (statSync(p).isDirectory()) walk(p);
-    else if (/\.(tsx|ts)$/.test(p) && !/\.test\.tsx?$/.test(p)) files.push(p);
+    else if (/\.(tsx|ts)$/.test(p) && !/\.test\.tsx?$/.test(p) && !CONTENT.some((c) => p.endsWith(c)))
+      files.push(p);
   }
 };
 for (const r of ROOTS) walk(r);

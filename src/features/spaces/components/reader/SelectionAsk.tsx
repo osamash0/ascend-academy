@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { NotebookPen, Sparkles } from 'lucide-react';
+import { ArrowRightLeft, NotebookPen, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -70,6 +70,13 @@ interface Props {
   articleRef: React.RefObject<HTMLElement>;
   onAsk: (quote: string) => void;
   onSaveNote: (quote: string) => void;
+  /**
+   * A third verb, when the caller has one: on the reader's two-faced screen
+   * it is "Read this" on the page and "Show page" in the text — the press
+   * that turns the Lesson over *to the same words*. Absent, the popover is
+   * the two verbs it has always been.
+   */
+  also?: { label: string; onPress: (quote: string) => void };
 }
 
 /**
@@ -86,7 +93,7 @@ interface Anchor {
   bottom: number;
 }
 
-export function SelectionAsk({ articleRef, onAsk, onSaveNote }: Props) {
+export function SelectionAsk({ articleRef, onAsk, onSaveNote, also }: Props) {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [saved, setSaved] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -295,6 +302,19 @@ export function SelectionAsk({ articleRef, onAsk, onSaveNote }: Props) {
             <NotebookPen aria-hidden className="h-3.5 w-3.5" />
             Save as note
           </button>
+          {also && (
+            <button
+              type="button"
+              onClick={() => {
+                also.onPress(anchor.quote);
+                setAnchor(null);
+              }}
+              className="console-focusable flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[12.5px] font-medium text-foreground transition-colors hover:bg-white/[0.08]"
+            >
+              <ArrowRightLeft aria-hidden className="h-3.5 w-3.5" />
+              {also.label}
+            </button>
+          )}
         </>
       )}
     </div>

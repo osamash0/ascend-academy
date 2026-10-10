@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RailTab } from './ReaderHeader';
+import { useSummoned } from './useSummoned';
 
 /**
  * The companions, when they are asked for.
@@ -65,26 +66,7 @@ export function ReaderRail({ open, tab, onTabChange, onClose, tutor, notes }: Pr
    * is why the return survives all three exits — the rail never has to be
    * told which button summoned it.
    */
-  useEffect(() => {
-    if (!open) return;
-    const opener = document.activeElement;
-    ref.current?.focus();
-    return () => {
-      if (opener instanceof HTMLElement) opener.focus();
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) return;
-      onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  useSummoned(open, onClose, ref);
 
   if (!open) return null;
 

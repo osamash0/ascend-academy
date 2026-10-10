@@ -78,6 +78,7 @@ const MODE: Record<string, Mode> = {
   // Learn in a *focus* surface: Scene, no top bar, one thing at a time.
   'PracticeScreen.tsx': 'learn',
   'ReaderScreen.tsx': 'learn',
+  'LessonFacesScreen.tsx': 'learn',
   'LibraryStudioScreen.tsx': 'studio',
   'SpaceManageScreen.tsx': 'studio',
   'SettingsScreen.tsx': 'studio',
