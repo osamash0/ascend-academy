@@ -1,4 +1,5 @@
-import { LunaAstronaut } from '../../../../learnstation-luna';
+import { LunaAvatar } from '@/features/avatar/LunaAvatar';
+import type { Loadout } from '@/features/avatar/types';
 import { cn } from '@/lib/utils';
 import type { Person } from '../types';
 
@@ -10,11 +11,10 @@ import type { Person } from '../types';
  * call sites drawing their own initials is how the same person ends up with
  * two faces.
  *
- * Luna is the product's existing astronaut (`learnstation-luna`), personalised
- * by `profiles.luna_suit_color / luna_visor_tint / luna_patch` — all fields the
- * auth profile already carries. Nothing new is invented here: the old product
- * renders exactly this in its ProfileChip, and this imports it by the same
- * path rather than building a second avatar system.
+ * Luna is drawn by the app-wide avatar renderer (`features/avatar/LunaAvatar`,
+ * pure SVG) from the viewer's loadout — the same face the rest of the product
+ * shows via `UserAvatar`. This namespace is sealed from auth and data, so it
+ * takes the loadout as a prop instead of looking it up.
  *
  * `initials` is genuinely the last resort. It is never wrong, but it is also
  * never a face, and a wall of two-letter squares is what a member list looks
@@ -22,24 +22,24 @@ import type { Person } from '../types';
  */
 
 const SIZE = {
-  xs: { box: 'h-5 w-5', text: 'text-[9px]', luna: 'xs' as const },
-  sm: { box: 'h-7 w-7', text: 'text-[10px]', luna: 'xs' as const },
-  md: { box: 'h-9 w-9', text: 'text-[12px]', luna: 'xs' as const },
-  lg: { box: 'h-11 w-11', text: 'text-[13px]', luna: 'sm' as const },
-  xl: { box: 'h-20 w-20', text: 'text-[24px]', luna: 'md' as const },
+  xs: { box: 'h-5 w-5', text: 'text-[9px]', px: 20 },
+  sm: { box: 'h-7 w-7', text: 'text-[10px]', px: 28 },
+  md: { box: 'h-9 w-9', text: 'text-[12px]', px: 36 },
+  lg: { box: 'h-11 w-11', text: 'text-[13px]', px: 44 },
+  xl: { box: 'h-20 w-20', text: 'text-[24px]', px: 80 },
 };
 
 export interface AvatarProps {
   person: Person;
   size?: keyof typeof SIZE;
-  /** Luna personalisation, straight off the auth profile. */
-  luna?: { suitColor?: string; visorTint?: string; patch?: string };
+  /** The viewer's Luna loadout; defaults to Luna as she ships. */
+  loadout?: Partial<Loadout>;
   /** True for the signed-in viewer, who gets Luna rather than initials. */
   isViewer?: boolean;
   className?: string;
 }
 
-export function Avatar({ person, size = 'md', luna, isViewer, className }: AvatarProps) {
+export function Avatar({ person, size = 'md', loadout, isViewer, className }: AvatarProps) {
   const s = SIZE[size];
 
   const initials = person.name
@@ -70,19 +70,16 @@ export function Avatar({ person, size = 'md', luna, isViewer, className }: Avata
         aria-hidden
         className={cn(
           s.box,
-          'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary to-secondary',
+          'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/[0.06]',
           className,
         )}
       >
-        <LunaAstronaut
+        <LunaAvatar
           variant="head"
-          size={s.luna}
-          phase="full"
-          showShadow={false}
+          size={s.px}
           animated={false}
-          suitColor={luna?.suitColor}
-          visorTint={luna?.visorTint}
-          patchImage={luna?.patch}
+          loadout={{ ...loadout, aura: 'aura-none', companion: 'companion-none' }}
+          className="h-full w-full"
         />
       </span>
     );

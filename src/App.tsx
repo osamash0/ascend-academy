@@ -18,6 +18,8 @@ import { PublicRoutes, StudentRoutes, ProfessorRoutes, SharedRoutes } from "@/li
 import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
+import { FEATURES } from "@/lib/featureFlags";
+import { GearUnlockWatcher } from "@/features/avatar/GearUnlockWatcher";
 import { MotionRoot } from "@/features/spaces/components/MotionRoot";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
@@ -94,6 +96,10 @@ const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PipelineTestPage = lazy(() => import("./pages/PipelineTestPage"));
 const PixiLab = lazy(() => import("./pages/PixiLab"));
+const AvatarLab = lazy(() => import("./pages/AvatarLab"));
+const AvatarStudio = lazy(() => import("./pages/AvatarStudio"));
+const AskLunaLab = lazy(() => import("./pages/AskLunaLab"));
+const AskLunaPage = lazy(() => import("./pages/AskLunaPage"));
 // v4 design rebuild. Mock data only, no backend, dev-only route — the old
 // product is untouched and the two coexist. See docs/design-v4/.
 const SpacesScreen = lazy(() => import("./features/spaces/screens/SpacesScreen"));
@@ -275,6 +281,8 @@ function AppRoutes() {
         <Route path={PublicRoutes.DATENSCHUTZ} element={<Datenschutz />} />
         {/* Experimental PixiJS playground — dev-only; never reachable in a production build. */}
         {import.meta.env.DEV && <Route path="/pixi-lab" element={<PixiLab />} />}
+        {import.meta.env.DEV && <Route path="/avatar-lab" element={<AvatarLab />} />}
+        {import.meta.env.DEV && <Route path="/ask-luna-lab" element={<AskLunaLab />} />}
         {/* v4 Spaces screen — mock data, dev-only. Public (no auth) so the
             design can be reviewed without a session. Append
             ?mock=empty|loading|error to inspect the other states. */}
@@ -470,6 +478,29 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path={StudentRoutes.AVATAR}
+          element={
+            // Every signed-in role has a face; Settings links here for professors too.
+            <ProtectedRoute>
+              <ConsoleLayout>
+                <AvatarStudio />
+              </ConsoleLayout>
+            </ProtectedRoute>
+          }
+        />
+        {FEATURES.askLuna && (
+          <Route
+            path={StudentRoutes.ASK_LUNA}
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <ConsoleLayout>
+                  <AskLunaPage />
+                </ConsoleLayout>
+              </ProtectedRoute>
+            }
+          />
+        )}
         {/* Legacy redirects */}
         <Route path={StudentRoutes.ACHIEVEMENTS} element={<Navigate to={StudentRoutes.ASCENT} replace />} />
         <Route path={StudentRoutes.INSIGHTS} element={<Navigate to={StudentRoutes.ASCENT} replace />} />
@@ -698,6 +729,8 @@ const App = () => {
                 <SocialProvider>
                   <ConfettiCanvas />
                   <GamificationProvider>
+                    {/* Lives beside the provider (needs the router; the provider doesn't). */}
+                    <GearUnlockWatcher />
                     <AppRoutes />
                   </GamificationProvider>
                 </SocialProvider>
