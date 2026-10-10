@@ -22,7 +22,7 @@ const run = (ms: number) => act(async () => { vi.advanceTimersByTime(ms); });
 describe('Morph on the canvas', () => {
   it('a tap on the switch shows the originals', async () => {
     const { container } = await mount();
-    const sw = screen.getByRole('switch', { name: 'Show original' });
+    const sw = screen.getByRole('switch', { name: 'Show source' });
     fireEvent.pointerDown(sw, { button: 0, pointerId: 1 });
     fireEvent.pointerUp(sw, { pointerId: 1 });
     await run(400);
@@ -33,8 +33,8 @@ describe('Morph on the canvas', () => {
 
   it('clicking a region flies back to that paragraph', async () => {
     const { container } = await mount();
-    fireEvent.keyDown(window, { key: 'o' });
-    fireEvent.keyUp(window, { key: 'o' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyUp(window, { key: 's' });
     await run(400);
     const scrolled: Element[] = [];
     const original = Element.prototype.scrollIntoView;
@@ -44,7 +44,7 @@ describe('Morph on the canvas', () => {
     try {
       fireEvent.click(screen.getByRole('button', { name: /^Back to: Klausurrelevant/ }));
       await run(700);
-      expect(screen.getByRole('switch', { name: 'Show original' })).toHaveAttribute('aria-checked', 'false');
+      expect(screen.getByRole('switch', { name: 'Show source' })).toHaveAttribute('aria-checked', 'false');
       const landed = container.querySelector('[data-block-id="c-p2-hw"]');
       expect(landed).not.toBeNull();
       expect(scrolled).toContain(landed);
@@ -59,8 +59,8 @@ describe('Morph on the canvas', () => {
   it('adding a missing block puts it in your version', async () => {
     const { container } = await mount();
     const before = container.querySelectorAll('[data-block-id]').length;
-    fireEvent.keyDown(window, { key: 'o' });
-    fireEvent.keyUp(window, { key: 'o' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyUp(window, { key: 's' });
     await run(400);
     fireEvent.click(screen.getAllByRole('button', { name: /^Not in your version: / })[0]);
     fireEvent.click(screen.getByRole('button', { name: /^Add to your version: / }));
@@ -72,8 +72,8 @@ describe('Morph on the canvas', () => {
   it('gives layoutIds to the page you are on, and only to it', async () => {
     const { container } = await mount();
     const firstPage = container.querySelector<HTMLElement>('[data-view="clean"][data-page-anchor]')!.dataset.pageAnchor;
-    fireEvent.keyDown(window, { key: 'o' });
-    fireEvent.keyUp(window, { key: 'o' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyUp(window, { key: 's' });
     await run(400);
     // jsdom has no layout, so the anchor falls back to the first page shown.
     const flying = Array.from(container.querySelectorAll('[data-view="original"] [data-morph="true"]'));
@@ -85,8 +85,8 @@ describe('Morph on the canvas', () => {
 
   it('flies back the page in view, already carrying its ids as it leaves', async () => {
     const { container } = await mount();
-    fireEvent.keyDown(window, { key: 'o' });
-    fireEvent.keyUp(window, { key: 'o' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyUp(window, { key: 's' });
     await run(400);
     // While reading the original you scroll to page 4.
     const rect = Element.prototype.getBoundingClientRect;
@@ -95,8 +95,8 @@ describe('Morph on the canvas', () => {
       return { top: 0, bottom: inView ? 700 : 0, left: 0, right: 0, width: 0, height: inView ? 700 : 0, x: 0, y: 0, toJSON() {} } as DOMRect;
     };
     try {
-      fireEvent.keyDown(window, { key: 'o' });
-      fireEvent.keyUp(window, { key: 'o' });
+      fireEvent.keyDown(window, { key: 's' });
+      fireEvent.keyUp(window, { key: 's' });
       // Same frame as the switch: the leaving page 4 overlays were remounted with ids.
       const leaving = container.querySelectorAll('[data-view="original"][data-page-anchor="4"] [data-morph="true"]');
       expect(leaving.length).toBeGreaterThan(0);
@@ -113,8 +113,8 @@ describe('Morph on the canvas', () => {
 
   it('clicking a region flies back the clicked region\'s page, not the one in view', async () => {
     const { container } = await mount();
-    fireEvent.keyDown(window, { key: 'o' });
-    fireEvent.keyUp(window, { key: 'o' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyUp(window, { key: 's' });
     await run(400);
     // Page 2 is in view, but the region clicked is on page 4.
     const rect = Element.prototype.getBoundingClientRect;
@@ -144,8 +144,8 @@ describe('Morph on the canvas', () => {
       return { top: 5000, bottom: 5700, left: 0, right: 0, width: 0, height: 700, x: 0, y: 5000, toJSON() {} } as DOMRect;
     };
     try {
-      fireEvent.keyDown(window, { key: 'o' });
-      fireEvent.keyUp(window, { key: 'o' });
+      fireEvent.keyDown(window, { key: 's' });
+      fireEvent.keyUp(window, { key: 's' });
       expect(container.querySelectorAll('[data-morph="true"]')).toHaveLength(0);
       await run(400);
       expect(scrollBy).not.toHaveBeenCalled();

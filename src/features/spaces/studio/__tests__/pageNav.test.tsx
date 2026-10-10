@@ -80,8 +80,8 @@ describe('the pager', () => {
 
   it('turns pages in the view you are in', async () => {
     await mount();
-    fireEvent.keyDown(window, { key: 'o' });
-    fireEvent.keyUp(window, { key: 'o' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyUp(window, { key: 's' });
     await act(async () => { vi.advanceTimersByTime(400); });
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     expect(lastScrolled()).toHaveAttribute('data-view', 'original');

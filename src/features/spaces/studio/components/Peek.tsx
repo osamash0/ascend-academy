@@ -42,7 +42,7 @@ export function Peek({
 
   return (
     <motion.aside
-      aria-label="Original page"
+      aria-label="Source page"
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
@@ -52,7 +52,7 @@ export function Peek({
     >
       {sourceRemoved ? (
         <p className="p-3 text-[14px] leading-relaxed text-quiet">
-          The original file was removed. Your clean version keeps working.
+          The source file was removed. Learn keeps working.
         </p>
       ) : failed === src ? (
         <div className="flex flex-col items-center gap-3 p-6 text-[14px] text-quiet">
@@ -95,7 +95,7 @@ export function Peek({
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-[12.5px] text-faint">
-          Original · {materialName} · page {page.page}
+          Source · {materialName} · page {page.page}
         </span>
         <button type="button" aria-pressed={pinned} onClick={onTogglePin} className={cn(action, pinned && 'bg-foreground text-background hover:bg-foreground hover:text-background')}>
           {pinned ? <PinOff aria-hidden className="h-3.5 w-3.5" /> : <Pin aria-hidden className="h-3.5 w-3.5" />}

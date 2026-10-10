@@ -27,7 +27,7 @@ export function FullPageDialog({
         <DialogTitle className="text-[15px] font-medium tracking-[-0.01em]">
           {materialName} · page {page.page}
         </DialogTitle>
-        <DialogDescription className="sr-only">The original page, with the selected spot outlined.</DialogDescription>
+        <DialogDescription className="sr-only">The source page, with the selected spot outlined.</DialogDescription>
         <div className="flex w-fit gap-1 rounded-full bg-[rgb(var(--studio-chip))] p-1" role="group" aria-label="Zoom">
           {ZOOMS.map((z) => (
             <button

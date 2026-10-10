@@ -5,7 +5,7 @@ import { inDialog, isTyping } from './keys';
  * The Clean | Original switch — spec §4.2. One control, two gestures:
  *   tap (< 250ms)  → switch and stay
  *   hold (≥ 250ms) → quick look; springs back on release
- * The `O` key behaves exactly like the switch. `Escape` returns to clean.
+ * The `S` key behaves exactly like the switch. `Escape` returns to clean.
  */
 
 export type CanvasView = 'clean' | 'original';
@@ -105,13 +105,13 @@ export function useMorph(opts: { onBeforeChange?: () => void; enabled?: boolean 
         setView('clean');
         return;
       }
-      if ((e.key === 'o' || e.key === 'O') && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping(e.target)) {
+      if ((e.key === 's' || e.key === 'S') && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping(e.target)) {
         pressStart();
       }
     };
     const up = (e: KeyboardEvent) => {
-      // Any O release ends an active press, wherever focus has moved since keydown.
-      if (e.key === 'o' || e.key === 'O') pressEnd();
+      // Any S release ends an active press, wherever focus has moved since keydown.
+      if (e.key === 's' || e.key === 'S') pressEnd();
     };
     const cancel = () => pressCancel();
     const hide = () => {

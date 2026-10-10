@@ -34,7 +34,7 @@ UI copy may not say *lecture, slide, deck, document, student, professor, course,
 
 - **Material**: an uploaded file (PDF, PPTX, image).
 - **page**: a page of a Material. A PPTX slide is a page too.
-- **Clean / Original**: the two views of a page.
+- **Learn / Source**: the two views of a page (internally still 'clean' / 'original'). Learn is the default and comes first; the switch key is `S`. (Renamed 2026-10-10; later sections that say "Clean | Original" and `O` mean these.)
 - **Lesson, Space, Practice, Contribution**: as defined in `01-foundations.md`.
 - **Made from this**: the shelf of created items. Never "artifacts" in the UI.
 

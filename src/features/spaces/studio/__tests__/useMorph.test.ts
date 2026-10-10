@@ -43,23 +43,23 @@ describe('useMorph', () => {
     expect(result.current.view).toBe('clean');
   });
 
-  it('O taps and holds like the switch, and Escape returns to clean', () => {
+  it('S taps and holds like the switch, and Escape returns to clean', () => {
     const { result } = renderHook(() => useMorph());
-    key('keydown', 'o');
-    key('keyup', 'o');
+    key('keydown', 's');
+    key('keyup', 's');
     expect(result.current.view).toBe('original');
     key('keydown', 'Escape');
     expect(result.current.view).toBe('clean');
   });
 
-  it('ignores O while typing, with modifiers, and on repeat', () => {
+  it('ignores S while typing, with modifiers, and on repeat', () => {
     const { result } = renderHook(() => useMorph());
     const input = document.createElement('input');
     document.body.appendChild(input);
-    key('keydown', 'o', input);
-    key('keyup', 'o', input);
-    key('keydown', 'o', window, { metaKey: true });
-    key('keyup', 'o', window, { metaKey: true });
+    key('keydown', 's', input);
+    key('keyup', 's', input);
+    key('keydown', 's', window, { metaKey: true });
+    key('keyup', 's', window, { metaKey: true });
     expect(result.current.view).toBe('clean');
   });
 
@@ -75,34 +75,34 @@ describe('useMorph', () => {
     expect(result.current.view).toBe('original');
   });
 
-  it('ignores O keydown with repeat', () => {
+  it('ignores S keydown with repeat', () => {
     const { result } = renderHook(() => useMorph());
-    key('keydown', 'o', window, { repeat: true });
-    key('keyup', 'o');
+    key('keydown', 's', window, { repeat: true });
+    key('keyup', 's');
     expect(result.current.view).toBe('clean');
   });
 
-  it('a keyup of O on a focused input still ends the press', () => {
+  it('a keyup of S on a focused input still ends the press', () => {
     const { result } = renderHook(() => useMorph());
     const input = document.createElement('input');
     document.body.appendChild(input);
-    key('keydown', 'o');
-    key('keyup', 'o', input);
+    key('keydown', 's');
+    key('keyup', 's', input);
     expect(result.current.view).toBe('original');
-    key('keydown', 'o');
+    key('keydown', 's');
     act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
     expect(result.current.shown).toBe('clean');
-    key('keyup', 'o', input);
+    key('keyup', 's', input);
     expect(result.current.shown).toBe('original');
     expect(result.current.quickLook).toBe(false);
   });
 
-  it('holding O is a quick look that springs back', () => {
+  it('holding S is a quick look that springs back', () => {
     const { result } = renderHook(() => useMorph());
-    key('keydown', 'o');
+    key('keydown', 's');
     act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
     expect(result.current.shown).toBe('original');
-    key('keyup', 'o');
+    key('keyup', 's');
     expect(result.current.shown).toBe('clean');
     expect(result.current.view).toBe('clean');
   });
@@ -160,12 +160,12 @@ describe('useMorph', () => {
     expect(result.current.view).toBe('original');
   });
 
-  it('ignores O and Escape while a dialog has focus', () => {
+  it('ignores S and Escape while a dialog has focus', () => {
     document.body.innerHTML = '<div role="dialog"><button id="in">x</button></div>';
     const inside = document.getElementById('in')!;
     const { result } = renderHook(() => useMorph());
-    key('keydown', 'o', inside);
-    key('keyup', 'o', inside);
+    key('keydown', 's', inside);
+    key('keyup', 's', inside);
     expect(result.current.view).toBe('clean');
     act(() => result.current.setView('original'));
     key('keydown', 'Escape', inside);
@@ -178,9 +178,9 @@ describe('useMorph', () => {
     localStorage.setItem(VIEW_KEY, 'original');
     const { result } = renderHook(() => useMorph({ enabled: false }));
     expect(result.current.shown).toBe('clean');
-    key('keydown', 'o');
+    key('keydown', 's');
     act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
-    key('keyup', 'o');
+    key('keyup', 's');
     expect(result.current.shown).toBe('clean');
     expect(result.current.quickLook).toBe(false);
   });

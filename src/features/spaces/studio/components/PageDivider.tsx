@@ -5,7 +5,7 @@ export function PageDivider({ page, original }: { page: number; original?: boole
     <p className="mb-4 flex items-center gap-3 text-[12px] tabular-nums text-faint">
       <span>
         page {page}
-        {original ? ' · original' : ''}
+        {original ? ' · source' : ''}
       </span>
       <span aria-hidden className="h-px flex-1 bg-[rgb(var(--studio-hairline))]" />
     </p>

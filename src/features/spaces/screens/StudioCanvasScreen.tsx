@@ -25,7 +25,7 @@ import type { Region } from '../studio/geometry';
 import type { CanvasDoc, SourcePage } from '../studio/types';
 import '../studio/studio-surface.css';
 
-const HINT = 'Use ← → to move between pages. Rest on a paragraph to see the original, or press O.';
+const HINT = 'Use ← → to move between pages. Rest on a paragraph to see the source, or press S.';
 const HINT_NO_ORIGINAL = 'Use ← → to move between pages.';
 
 /**

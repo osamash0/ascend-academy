@@ -87,7 +87,7 @@ export const CleanBlock = memo(function CleanBlock({
           <button
             type="button"
             onClick={() => onOpenPeek(block.id)}
-            aria-label={`Show the original, page ${page}`}
+            aria-label={`Show the source, page ${page}`}
             className="absolute -left-14 top-1 min-h-6 w-11 rounded-full bg-[rgb(var(--studio-chip))] text-[11px] tabular-nums text-quiet opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:bg-transparent [@media(hover:none)]:text-faint [@media(hover:none)]:opacity-100"
           >
             p.{page}

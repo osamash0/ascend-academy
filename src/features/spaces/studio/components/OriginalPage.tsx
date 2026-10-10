@@ -54,7 +54,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
     <section
       data-view="original"
       data-page-anchor={page.page}
-      aria-label={`Original page ${page.page}`}
+      aria-label={`Source page ${page.page}`}
       className="scroll-mt-40 lg:scroll-mt-28"
     >
       <PageDivider page={page.page} original />
@@ -164,7 +164,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
             onClick={() => onRegion(mapped[0].id)}
             className={cn(PILL, 'absolute inset-x-0 bottom-3 mx-auto h-8 w-fit px-4 text-[12px] hover:bg-black/85')}
           >
-            Back to the clean version
+            Back to Learn
           </button>
         )}
       </div>

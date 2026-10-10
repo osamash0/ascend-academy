@@ -56,7 +56,7 @@ export default function StudioHomeScreen() {
           <p className="mb-2 text-[12.5px] text-quiet">Library</p>
           <h1 className="text-4xl font-bold tracking-[-0.02em] sm:text-[44px]">Studio</h1>
           <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-quiet">
-            Open a Material to read it clean, check it against the original, and make study material from it.
+            Open a Material to read it clearly, check it against the source, and make study material from it.
           </p>
 
           <label className="console-focusable mt-8 inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-foreground px-7 text-[14.5px] font-semibold text-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">

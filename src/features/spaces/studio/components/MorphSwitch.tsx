@@ -15,8 +15,8 @@ interface Props {
 }
 
 const VIEWS = [
-  { id: 'clean', label: 'Clean' },
-  { id: 'original', label: 'Original' },
+  { id: 'clean', label: 'Learn' },
+  { id: 'original', label: 'Source' },
 ] as const;
 
 /**
@@ -31,13 +31,13 @@ export function MorphSwitch({ view, shown, onPressStart, onPressEnd, onPressCanc
   return (
     <div className="flex items-center gap-2">
       <kbd aria-hidden className="hidden h-6 min-w-6 items-center justify-center rounded-md bg-[rgb(var(--studio-chip))] px-1.5 text-[11px] text-faint md:inline-flex">
-        O
+        S
       </kbd>
       <button
         type="button"
         role="switch"
         aria-checked={original}
-        aria-label="Show original"
+        aria-label="Show source"
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -77,7 +77,7 @@ export function MorphSwitch({ view, shown, onPressStart, onPressEnd, onPressCanc
         })}
       </button>
       <span className="sr-only" aria-live="polite">
-        {original ? 'Showing original' : 'Showing clean version'}
+        {original ? 'Showing the source' : 'Showing Learn'}
       </span>
     </div>
   );

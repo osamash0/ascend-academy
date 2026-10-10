@@ -38,7 +38,7 @@ describe('OriginalPage', () => {
     const flat = { ...page, geometry: 'page' as const, blocks: [] };
     const refs: CanvasBlock[] = [{ ...blocks[0], source: { materialId: 'm', page: 4, blockIds: [] } } as CanvasBlock];
     render(<OriginalPage page={flat} blocks={refs} morph={false} materialName="N.pdf" onRegion={onRegion} onInclude={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Back to the clean version' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Learn' }));
     expect(onRegion).toHaveBeenCalledWith('c-a');
   });
 

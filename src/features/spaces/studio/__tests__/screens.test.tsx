@@ -26,11 +26,11 @@ describe('Studio home', () => {
 });
 
 describe('Studio canvas', () => {
-  it('shows the clean version page by page, with markers only on extracted blocks', async () => {
+  it('shows the Learn view page by page, with markers only on extracted blocks', async () => {
     const { container } = at('/v4/library/studio/c/c-norm');
     expect(await screen.findByRole('heading', { name: 'Normalization.pdf' }, { timeout: 2000 })).toBeInTheDocument();
     expect(container.querySelectorAll('[data-view="clean"][data-page-anchor]').length).toBeGreaterThanOrEqual(10);
-    expect(screen.getAllByRole('button', { name: /Show the original, page 2/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Show the source, page 2/ }).length).toBeGreaterThan(0);
     const written = container.querySelector('[data-block-id="w-1"]')!;
     expect(written.querySelector('button')).toBeNull();
   });
