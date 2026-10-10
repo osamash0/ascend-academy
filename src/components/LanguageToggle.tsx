@@ -50,7 +50,7 @@ export function LanguageToggle({ variant = 'pill', className, align = 'end' }: L
               'px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors',
               current === lng
                 ? variant === 'icon-dark'
-                  ? 'bg-cyan-500 text-white'
+                  ? 'bg-white text-black'
                   : 'bg-primary text-primary-foreground'
                 : iconColor,
             )}

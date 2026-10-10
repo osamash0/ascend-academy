@@ -139,5 +139,61 @@
     "imprint": "Impressum",
     "privacyPolicy": "Datenschutz",
     "copyright": "© {{year}} Learnstation. Alle Rechte vorbehalten."
+  },
+  "story": {
+    "nav": {
+      "signIn": "Anmelden",
+      "start": "Loslegen"
+    },
+    "hero": {
+      "title": "Lernen zum Anfassen.",
+      "lede": "Mach aus jedem PDF etwas zum Lesen, Entdecken und Verstehen.",
+      "start": "Loslegen",
+      "signIn": "Anmelden",
+      "try": "Probier’s aus"
+    },
+    "tabs": {
+      "original": "Original",
+      "explore": "Entdecken",
+      "learn": "Lernen",
+      "practise": "Üben"
+    },
+    "slide": {
+      "kicker": "Datenbanken · 03",
+      "title": "Normalisierung: Funktionale Abhängigkeiten",
+      "b1": "Eine funktionale Abhängigkeit X → Y gilt auf R gdw. zwei Tupel, die in X übereinstimmen, auch in Y übereinstimmen",
+      "b2": "Armstrong-Axiome: Reflexivität, Verstärkung, Transitivität (korrekt & vollständig)",
+      "b3": "Hülle X⁺ := Menge aller von X funktional bestimmten Attribute",
+      "b4": "Transitive Abhängigkeit A → B → C mit B Nicht-Schlüssel ⇒ Update-Anomalien",
+      "b5": "3NF: kein Nicht-Schlüsselattribut transitiv von einem Schlüsselkandidaten abhängig",
+      "page": "S. 14"
+    },
+    "read": {
+      "title": "Wenn ein Fakt einen anderen bestimmt",
+      "p1": "Gleiches X, gleiches Y. Das ist eine Abhängigkeit: X → Y.",
+      "p2": "Eine Kette wie Schlüssel → B → C lässt eine Tabelle sich selbst widersprechen."
+    },
+    "ask": {
+      "tool": "Hülle",
+      "hint": "Tipp eins an",
+      "result": "berechnet, nicht geraten"
+    },
+    "prove": {
+      "q": "Customer → City. Welche Normalform bricht zuerst?",
+      "right": "Richtig. City auslagern.",
+      "wrong": "Schau, was City bestimmt."
+    },
+    "lights": {
+      "title": "Jedes Fach hat sein eigenes Licht.",
+      "decks": [
+        "Normalisierung",
+        "Lineare Algebra",
+        "Kryptographie"
+      ]
+    },
+    "close": {
+      "title": "Fang mit einem PDF an.",
+      "start": "Loslegen"
+    }
   }
 }
