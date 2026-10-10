@@ -28,7 +28,6 @@ DOCKER = BACKEND / "requirements-docker.txt"
 # Packages in requirements.txt but deliberately absent from the prod image.
 ONLY_IN_FULL: dict[str, str] = {
     # Documented in requirements-docker.txt's header.
-    "docling": "parser v3/v4 only (lazy import); adds 30+ min to the image build",
     "fastembed": "parser v3/v4 only (lazy import)",
     "llama-cloud-services": "parser v3/v4 only (lazy import)",
     "ollama": "local LLM runner, unreachable inside Docker",
@@ -37,7 +36,6 @@ ONLY_IN_FULL: dict[str, str] = {
     # Documented inline further down requirements-docker.txt.
     "pytesseract": "only consumer is ocr_fallback.py via the retired v2 parse path; "
                    "the tesseract binary is not in the image either",
-    "litellm": "gateway removed 2026-08-25; only dead backend/_legacy code imported it",
     # Not imported anywhere under backend/ (grep-verified 2026-10-10).
     "pandas": "no import under backend/; local-dev only",
     "tabulate": "no import under backend/; local-dev only",
