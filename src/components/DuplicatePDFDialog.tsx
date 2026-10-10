@@ -84,7 +84,7 @@ export function DuplicatePDFDialog({
                     interactive ? "cursor-pointer" : ""
                   } ${
                     checked
-                      ? "border-violet-500 bg-violet-500/5"
+                      ? "border-neutral-500 bg-neutral-500/5"
                       : "border-border bg-muted/40 hover:bg-muted/60"
                   }`}
                 >
@@ -95,13 +95,13 @@ export function DuplicatePDFDialog({
                       value={m.id}
                       checked={checked}
                       onChange={() => setSelectedId(m.id)}
-                      className="mt-1 h-4 w-4 accent-violet-500"
+                      className="mt-1 h-4 w-4 accent-neutral-500"
                       aria-label={m.title || "Untitled lecture"}
                     />
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 font-medium text-foreground">
-                      <FileText className="w-4 h-4 text-violet-500 shrink-0" />
+                      <FileText className="w-4 h-4 text-neutral-500 shrink-0" />
                       <span className="truncate">{m.title || "Untitled lecture"}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

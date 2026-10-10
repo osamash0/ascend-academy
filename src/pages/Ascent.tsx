@@ -148,10 +148,10 @@ const CATEGORY_TOKENS: Record<string, {
 }> = {
   learning:    { accent: 'bg-amber-400',    iconBg: 'bg-amber-400/15',   iconRing: 'border-amber-400/30',   glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.amber.400/0.25)]',   label: 'text-amber-400' },
   streak:      { accent: 'bg-rose-400',     iconBg: 'bg-rose-400/15',    iconRing: 'border-rose-400/30',    glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.rose.400/0.25)]',     label: 'text-rose-400' },
-  social:      { accent: 'bg-violet-400',   iconBg: 'bg-violet-400/15',  iconRing: 'border-violet-400/30',  glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.violet.400/0.25)]',   label: 'text-violet-400' },
+  social:      { accent: 'bg-neutral-400',   iconBg: 'bg-neutral-400/15',  iconRing: 'border-neutral-400/30',  glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.violet.400/0.25)]',   label: 'text-neutral-400' },
   exploration: { accent: 'bg-sky-400',      iconBg: 'bg-sky-400/15',     iconRing: 'border-sky-400/30',     glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.sky.400/0.25)]',      label: 'text-sky-400' },
   mastery:     { accent: 'bg-emerald-400',  iconBg: 'bg-emerald-400/15', iconRing: 'border-emerald-400/30', glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.emerald.400/0.25)]',  label: 'text-emerald-400' },
-  milestone:   { accent: 'bg-fuchsia-400',  iconBg: 'bg-fuchsia-400/15', iconRing: 'border-fuchsia-400/30', glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.fuchsia.400/0.25)]',  label: 'text-fuchsia-400' },
+  milestone:   { accent: 'bg-neutral-400',  iconBg: 'bg-neutral-400/15', iconRing: 'border-neutral-400/30', glow: 'hover:shadow-[0_0_24px_-4px_theme(colors.fuchsia.400/0.25)]',  label: 'text-neutral-400' },
   default:     { accent: 'bg-primary',      iconBg: 'bg-primary/15',     iconRing: 'border-primary/30',     glow: 'hover:shadow-glow-primary/20',                                  label: 'text-primary' },
 };
 
@@ -254,7 +254,7 @@ function AscentTabs({ view, onChange }: { view: AscentView; onChange: (v: Ascent
             onClick={() => onChange(id)}
             className={`flex items-center gap-2 px-4 h-10 rounded-xl text-xs font-bold uppercase tracking-widest cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
               active
-                ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary/30'
+                ? 'bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-glow-primary/30'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >

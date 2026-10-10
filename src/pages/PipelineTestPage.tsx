@@ -125,7 +125,7 @@ const EMPTY_RUN: TestRun = {
 const EVENT_TYPE_COLORS: Record<SSEEventType, string> = {
   info:          'bg-blue-500/20 text-blue-400 border-blue-500/30',
   meta:          'bg-slate-500/20 text-slate-400 border-slate-500/30',
-  phase:         'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  phase:         'bg-neutral-500/20 text-neutral-400 border-neutral-500/30',
   progress:      'bg-gray-500/20 text-gray-400 border-gray-500/30',
   slide:         'bg-green-500/20 text-green-400 border-green-500/30',
   deck_complete: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
@@ -136,7 +136,7 @@ const EVENT_TYPE_COLORS: Record<SSEEventType, string> = {
 
 const ROUTE_COLORS: Record<string, string> = {
   TEXT:       'bg-blue-500/15 text-blue-300 border-blue-500/20',
-  VISION:     'bg-violet-500/15 text-violet-300 border-violet-500/20',
+  VISION:     'bg-neutral-500/15 text-neutral-300 border-neutral-500/20',
   TABLE_ODL:  'bg-amber-500/15 text-amber-300 border-amber-500/20',
   TABLE_LLM:  'bg-orange-500/15 text-orange-300 border-orange-500/20',
   SKIP:       'bg-gray-500/15 text-gray-400 border-gray-500/20',
@@ -533,7 +533,7 @@ export default function PipelineTestPage() {
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>{stats.totalSlides} slides</span>
             <span className="text-blue-400">T:{stats.text}</span>
-            <span className="text-violet-400">V:{stats.vision}</span>
+            <span className="text-neutral-400">V:{stats.vision}</span>
             <span className="text-amber-400">Tbl:{stats.table}</span>
             <span className="text-gray-400">Skip:{stats.skip}</span>
             <span>{stats.totalTokens.toLocaleString()} tok</span>

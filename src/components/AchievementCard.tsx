@@ -74,7 +74,7 @@ export const AchievementCard = memo(function AchievementCard({
             className={`w-16 h-16 rounded-[24px] flex items-center justify-center text-3xl flex-shrink-0 transition-transform duration-500 group-hover:scale-110 overflow-hidden ${
               isLocked 
                 ? 'bg-surface-2 text-muted-foreground border border-white/5' 
-                : 'bg-gradient-to-br from-primary to-secondary text-white shadow-glow-primary border border-white/10'
+                : 'bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-glow-primary border border-white/10'
             }`}
           >
             {isLocked ? (

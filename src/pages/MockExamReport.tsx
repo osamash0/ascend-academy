@@ -112,7 +112,7 @@ export function MockExamReport() {
                 <button
                   onClick={handleSendToReview}
                   disabled={sendMisses.isPending || sentToReview}
-                  className="rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center gap-2 shadow-glow-primary/20"
+                  className="rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-3 text-sm font-black uppercase tracking-widest text-primary-foreground transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center gap-2 shadow-glow-primary/20"
                 >
                   <Share2 className="w-4 h-4" />
                   {sentToReview ? t('report.alreadySent') : t('report.sendToReview')}

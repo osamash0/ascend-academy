@@ -53,11 +53,11 @@ interface Palette {
 
 const FALLBACK = {
   root: '#3b5bf6',
-  cluster: '#a855f7',
+  cluster: '#14b8a6',
   slide: '#cbd5e1',
   concept: '#f0b429',
   edge: '#3a3a4a',
-  cross: '#a855f7',
+  cross: '#14b8a6',
   background: '#0a0a12',
 };
 

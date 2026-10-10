@@ -59,7 +59,7 @@ export function ConsoleBoot() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1.2 }}
-            style={{ background: 'radial-gradient(60% 50% at 50% 45%, rgba(99,102,241,0.18), transparent 70%)' }}
+            style={{ background: 'radial-gradient(60% 50% at 50% 45%, rgba(255,255,255,0.08), transparent 70%)' }}
           />
 
           {/* Logo power-on */}
@@ -71,9 +71,9 @@ export function ConsoleBoot() {
               opacity: 1,
               filter: 'blur(0px)',
               boxShadow: [
-                '0 0 30px hsl(235 85% 65% / 0.2)',
-                '0 0 60px hsl(235 85% 65% / 0.55)',
-                '0 0 30px hsl(235 85% 65% / 0.2)',
+                '0 0 30px hsl(0 0% 100% / 0.10)',
+                '0 0 60px hsl(0 0% 100% / 0.28)',
+                '0 0 30px hsl(0 0% 100% / 0.10)',
               ],
             }}
             transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], boxShadow: { duration: 2, repeat: Infinity } }}

@@ -255,7 +255,7 @@ export const QuizCard = memo(function QuizCard({
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-5">
                   <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-colors ${
-                    isSelected ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground'
+                    isSelected ? 'bg-primary text-primary-foreground' : 'bg-white/5 text-muted-foreground'
                   }`}>
                     {String.fromCharCode(65 + index)}
                   </span>
@@ -390,7 +390,7 @@ export const QuizCard = memo(function QuizCard({
             type="button"
             onClick={onContinue}
             data-testid="quiz-continue"
-            className="flex items-center gap-2 px-6 h-12 rounded-xl bg-primary text-white font-bold shadow-glow-primary hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 px-6 h-12 rounded-xl bg-primary text-primary-foreground font-bold shadow-glow-primary hover:opacity-90 transition-opacity"
           >
             {continueLabel}
             <ArrowRight className="w-4 h-4" />

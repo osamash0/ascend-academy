@@ -14,7 +14,8 @@ import type { Lesson, Space } from '../types';
  * fully themed screen, and its colours mean something specific:
  *
  *   gold    — earned. A cleared Concept emits light; nothing else does.
- *   violet  — where you are now. Present, not yet earned.
+ *   white   — where you are now. Present, not yet earned. (Was violet
+ *             until 2026-10-10; the brand is monochrome, so "here" is its white.)
  *   cyan    — contributions, orbiting. Density is the signal, not identity.
  *   near-black — everything you have not learned. This is the content.
  *
@@ -46,16 +47,16 @@ export const FOLD_THRESHOLD = 20;
  * fix look like a regression.
  *
  *   gold   — earned. A cleared body emits light; nothing else does.
- *   violet — where you are now. Present, not yet earned.
+ *   white  — where you are now. Present, not yet earned (was violet).
  *   ember  — the route you have already travelled.
  *   ink    — everything you have not learned. This is the content.
  */
 export const MAP_PALETTE = {
   goldCore: '#ffcf7a',
   goldEdge: '#ffe9b8',
-  violetCore: '#6c5ce7',
-  violetEdge: '#8d7bff',
-  violetRim: '#a898ff',
+  hereCore: '#8e99a8',
+  hereEdge: '#e8edf3',
+  hereRim: '#ffffff',
   ember: '#5b4a2e',
   ink: '#12151f',
   /** Labels. `lit` is full strength; `unlit` measured 4.18:1 once and must not. */
@@ -216,10 +217,10 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
             <stop offset="100%" stopColor={MAP_PALETTE.goldCore} stopOpacity="0" />
           </radialGradient>
           {/* Where you are. Present, not yet earned. */}
-          <radialGradient id="lm-halo-violet">
-            <stop offset="0%" stopColor={MAP_PALETTE.violetEdge} stopOpacity="0.45" />
-            <stop offset="50%" stopColor={MAP_PALETTE.violetCore} stopOpacity="0.12" />
-            <stop offset="100%" stopColor={MAP_PALETTE.violetCore} stopOpacity="0" />
+          <radialGradient id="lm-halo-here">
+            <stop offset="0%" stopColor={MAP_PALETTE.hereEdge} stopOpacity="0.45" />
+            <stop offset="50%" stopColor={MAP_PALETTE.hereCore} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={MAP_PALETTE.hereCore} stopOpacity="0" />
           </radialGradient>
         </defs>
 
@@ -288,7 +289,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
               <title>{`${lesson.title} — ${cleared} of ${total} ideas cleared`}</title>
               {/* Halo: only for bodies that have earned light, or hold it now. */}
               {done && <circle cx={x} cy={y} r={26} fill="url(#lm-halo-gold)" />}
-              {touched && !done && <circle cx={x} cy={y} r={30} fill="url(#lm-halo-violet)" />}
+              {touched && !done && <circle cx={x} cy={y} r={30} fill="url(#lm-halo-here)" />}
 
               {/* Orbit — contributions circling the body. Faint, dashed, and
                   dimmer when the Lesson itself is dark. */}
@@ -354,11 +355,11 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
 
               {/* The body. Dark is the default; light is earned. */}
               {done ? (
-                <circle cx={x} cy={y} r={8} fill="#fff3d6" />
+                <circle cx={x} cy={y} r={8} fill={MAP_PALETTE.goldCore} />
               ) : touched ? (
                 <>
-                  <circle cx={x} cy={y} r={8.5} fill="none" stroke={MAP_PALETTE.violetEdge} strokeWidth={1.6} />
-                  <circle cx={x} cy={y} r={3} fill={MAP_PALETTE.violetEdge} />
+                  <circle cx={x} cy={y} r={8.5} fill="none" stroke={MAP_PALETTE.hereEdge} strokeWidth={1.6} />
+                  <circle cx={x} cy={y} r={3} fill={MAP_PALETTE.hereEdge} />
                 </>
               ) : (
                 <>
@@ -387,7 +388,7 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
                     cy={y - 13}
                     r={6}
                     fill="#0b0d14"
-                    stroke={MAP_PALETTE.violetCore}
+                    stroke={MAP_PALETTE.hereCore}
                     strokeWidth={1}
                   />
                   <text
@@ -442,16 +443,18 @@ export function SpaceMap({ space, lessons }: { space: Space; lessons: Lesson[] }
       {/* Colour alone must not carry meaning. */}
       <ul className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-quiet">
         <li className="flex items-center gap-2">
-          <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-[#fff3d6]" /> Cleared
+          {/* The body's own gold, not a pale cream: next to the white "here"
+              swatch, cream and white were the same dot. */}
+          <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: MAP_PALETTE.goldCore }} /> Cleared
         </li>
         <li className="flex items-center gap-2">
           {/* Inline, because a Tailwind arbitrary value cannot read a constant —
-              and the legend swatch must be the same violet as the body it
+              and the legend swatch must be the same white as the body it
               explains, or the legend is decoration. */}
           <span
             aria-hidden
             className="h-2.5 w-2.5 rounded-full"
-            style={{ background: MAP_PALETTE.violetEdge }}
+            style={{ background: MAP_PALETTE.hereEdge }}
           />{' '}
           You are here
         </li>

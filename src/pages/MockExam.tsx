@@ -71,7 +71,7 @@ export function MockExamConfig() {
                   onClick={() => setNumQuestions(n)}
                   className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center transition-all ${
                     numQuestions === n 
-                      ? 'bg-primary text-white shadow-glow-primary scale-110 font-black' 
+                      ? 'bg-primary text-primary-foreground shadow-glow-primary scale-110 font-black' 
                       : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground border border-white/5'
                   }`}
                 >
@@ -84,7 +84,7 @@ export function MockExamConfig() {
           <button
             onClick={handleStart}
             disabled={generateExam.isPending}
-            className="w-full mt-6 rounded-2xl bg-gradient-to-r from-primary to-secondary px-8 py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-glow-primary/30"
+            className="w-full mt-6 rounded-2xl bg-gradient-to-r from-primary to-secondary px-8 py-4 text-sm font-black uppercase tracking-widest text-primary-foreground transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-glow-primary/30"
           >
             {generateExam.isPending ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -205,7 +205,7 @@ export function MockExamTake() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => refetch()}
-              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-black text-sm tracking-widest uppercase hover:scale-105 active:scale-95 transition-all shadow-glow-primary"
+              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black text-sm tracking-widest uppercase hover:scale-105 active:scale-95 transition-all shadow-glow-primary"
             >
               <RefreshCw className="w-4 h-4" />
               {t('runner.retry')}
@@ -407,7 +407,7 @@ export function MockExamTake() {
             <button
               onClick={handleSubmit}
               disabled={submitExam.isPending}
-              className="flex items-center gap-2 px-8 py-3 rounded-xl bg-primary text-white font-black text-sm tracking-widest uppercase hover:scale-105 active:scale-95 transition-all shadow-glow-primary disabled:opacity-50"
+              className="flex items-center gap-2 px-8 py-3 rounded-xl bg-primary text-primary-foreground font-black text-sm tracking-widest uppercase hover:scale-105 active:scale-95 transition-all shadow-glow-primary disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
               {submitExam.isPending ? t('runner.submitting') : t('runner.submit')}

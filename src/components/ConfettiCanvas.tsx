@@ -14,14 +14,14 @@ export function ConfettiCanvas() {
         angle: 60,
         spread: 55,
         origin: { x: 0 },
-        colors: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
+        colors: ['#3b82f6', '#10b981', '#f59e0b', '#ffffff', '#ec4899']
       });
       confetti({
         particleCount: 5,
         angle: 120,
         spread: 55,
         origin: { x: 1 },
-        colors: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
+        colors: ['#3b82f6', '#10b981', '#f59e0b', '#ffffff', '#ec4899']
       });
 
       if (Date.now() < end) {

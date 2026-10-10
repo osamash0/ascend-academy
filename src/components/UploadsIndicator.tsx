@@ -103,7 +103,7 @@ export function UploadsIndicator() {
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-violet-500 rounded-full"
+            className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-neutral-500 rounded-full"
           >
             {inFlight.length > 9 ? '9+' : inFlight.length}
           </motion.span>
@@ -153,7 +153,7 @@ export function UploadsIndicator() {
                     >
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-muted">
                         {inFlight ? (
-                          <Loader2 className={`w-4 h-4 animate-spin ${likelyStuck ? 'text-amber-500' : 'text-violet-500'}`} />
+                          <Loader2 className={`w-4 h-4 animate-spin ${likelyStuck ? 'text-amber-500' : 'text-neutral-500'}`} />
                         ) : job.status === 'completed' ? (
                           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                         ) : (
