@@ -1,5 +1,7 @@
 import raw from './studio-normalization.json';
 import { spaceById } from './spaces';
+import { STUDIO_SUMMARY } from './studio-summary';
+import { placeAfterCovering } from '../studio/edit';
 import type { CanvasBlock, CanvasDoc, ExtractedBlock, SourcePage, StudioMaterial } from '../studio/types';
 
 /**
@@ -12,9 +14,12 @@ import type { CanvasBlock, CanvasDoc, ExtractedBlock, SourcePage, StudioMaterial
  *   • page 3 has no coordinates (`geometry: 'page'`) — the PPTX/MarkItDown
  *     fallback. Peek shows the page without an outline; Morph converges.
  *   • a handwritten note on page 2, OCR'd with low confidence.
- *   • one block you reworded, and one note you wrote yourself.
- *   • running footers are already source-only (the script leaves them out of
- *     the clean version), so Morph has real "Not in your version" regions.
+ *   • the default canvas is the calm summary (`studio-summary.ts`); your
+ *     handwriting stays verbatim.
+ *   • one paragraph you reworded (s-p2-2), and one note you wrote yourself
+ *     (w-1, placed after the paragraph covering the heading it used to follow).
+ *   • running headers and footers are covered by no summary paragraph, so
+ *     Morph has real "Not in your version" regions.
  */
 
 const generated = raw as unknown as { pages: SourcePage[]; blocks: ExtractedBlock[] };
@@ -45,26 +50,11 @@ function buildPages(): SourcePage[] {
 }
 
 function buildBlocks(): CanvasBlock[] {
-  const out: CanvasBlock[] = [];
-  let editedDone = false;
-  let writtenDone = false;
-  for (const b of generated.blocks) {
-    if (b.source.page === 3) {
-      out.push({ ...b, source: { ...b.source, blockIds: [] } });
-      continue;
-    }
-    if (b.source.page === 2 && !editedDone && !b.markdown.startsWith('#')) {
-      out.push({ ...b, markdown: `${b.markdown} — in my words: start from what people need.`, edited: true });
-      editedDone = true;
-    } else {
-      out.push(b);
-    }
-    if (b.source.page === 2 && b.markdown.startsWith('#') && !writtenDone) {
-      out.push({ id: 'w-1', origin: 'written', markdown: 'My note: this is the roadmap for the whole topic.' });
-      writtenDone = true;
-    }
-  }
-  const lastOfPage2 = out.map((b) => b.origin === 'extracted' && b.source.page === 2).lastIndexOf(true);
+  let out: CanvasBlock[] = [...STUDIO_SUMMARY];
+  // The note used to follow page 2's heading (p2-b2); §2.5 puts it after the paragraph covering that.
+  out = placeAfterCovering(out, { id: 'w-1', origin: 'written', markdown: 'My note: this is the roadmap for the whole topic.' }, 'p2-b2');
+  // Your handwriting is never summarised: it stays verbatim, after its page's summary.
+  const lastOfPage2 = out.map((b) => b.origin === 'summary' && b.source.page === 2).lastIndexOf(true);
   out.splice(lastOfPage2 + 1, 0, {
     id: 'c-p2-hw',
     origin: 'extracted',
