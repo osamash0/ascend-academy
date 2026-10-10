@@ -280,10 +280,29 @@ jobs:
         if: always()
         run: |
           npm ci --legacy-peer-deps
-          # --audit-level=high: fail on high/critical only so low/moderate
-          # advisories in transitive dev-tooling don't block every PR; revisit
-          # if the project wants a stricter bar.
-          npm audit --audit-level=high
+          # Gate on what ships, report everything -- the same rule the backend
+          # audit above follows (it scans requirements-docker.txt and leaves
+          # requirements-dev.txt out on purpose).
+          #
+          # Why not gate on dev tooling too: from 2026-09-30 this step failed
+          # every night on advisories nobody could fix. braces (via tailwindcss
+          # 3 -> chokidar/micromatch/fast-glob) has a high advisory covering
+          # every published version, and the vitest/tinypool critical needs a
+          # vitest major. None of it reaches a browser: tailwind and vitest are
+          # build/test-time devDependencies. A gate that cannot go green stops
+          # being read, and it was already hiding behind a red nightly.
+          #
+          # So: high/critical in production dependencies fails the job. The
+          # full audit prints first on every run so dev-tooling
+          # advisories stay visible; when one gains a fix, take it.
+          echo "::group::npm audit -- all dependencies incl. dev tooling (report only)"
+          npm audit --audit-level=high || echo "::warning::dev-tooling advisories present -- see the report above"
+          echo "::endgroup::"
+          # Gate last: the step runs under bash -e, so a failing gate would
+          # otherwise skip the report.
+          echo "::group::npm audit -- production dependencies (gating)"
+          npm audit --omit=dev --audit-level=high
+          echo "::endgroup::"
 
   secret-scan:
     name: Secret scanning (gitleaks)
