@@ -8,6 +8,7 @@
  * area small for v1.
  */
 import { useMemo, useState } from 'react';
+import { UserAvatar } from "@/features/avatar/UserAvatar";
 import {
   Dialog,
   DialogContent,
@@ -247,6 +248,7 @@ export function CreateAssignmentDialog({
                         onCheckedChange={() => toggleStudent(s.id)}
                         data-testid={`assignment-student-${s.id}`}
                       />
+                      <UserAvatar userId={s.id} name={s.full_name} size={24} />
                       <span className="text-sm text-foreground line-clamp-1">
                         {s.full_name || s.id}
                       </span>

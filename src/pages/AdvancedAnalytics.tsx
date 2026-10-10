@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
+import { UserAvatar } from "@/features/avatar/UserAvatar";
 import { useTranslation } from 'react-i18next';
 import { useAiModel } from '@/hooks/use-ai-model';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -1339,7 +1340,10 @@ export default function AdvancedAnalytics() {
                     {dashboardData?.studentsMatrix?.map((student) => (
                       <TableRow key={student.student_id} className="border-white/5 hover:bg-white/5 transition-all group">
                         <TableCell className="px-10 py-6 font-black text-foreground text-lg tracking-tight group-hover:text-primary transition-colors">
-                          {student.student_name}
+                          <span className="flex items-center gap-3">
+                            <UserAvatar userId={student.student_id} name={student.student_name} size={36} />
+                            {student.student_name}
+                          </span>
                         </TableCell>
                         <TableCell className="px-10 py-6">
                           <Badge 

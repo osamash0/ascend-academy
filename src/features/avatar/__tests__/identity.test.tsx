@@ -71,6 +71,25 @@ describe('UserAvatar fallback order', () => {
     expect(screen.getByText('CI')).toBeTruthy();
   });
 
+  it('shows someone’s uploaded photo when only their id is known', async () => {
+    rpc.mockResolvedValue({
+      data: [{ user_id: 'u7', luna_loadout: {}, luna_suit_color: null, luna_visor_tint: null, avatar_url: 'https://x.supabase.co/storage/v1/object/public/avatars/u7/a.webp' }],
+      error: null,
+    });
+    const { container } = wrap(<UserAvatar userId="u7" name="Ida Lund" />);
+    await waitFor(() => expect(container.querySelector('img')?.getAttribute('src')).toContain('/avatars/u7/a.webp'));
+  });
+
+  it('never shows a DiceBear preset even when the lookup returns one', async () => {
+    rpc.mockResolvedValue({
+      data: [{ user_id: 'u8', luna_loadout: {}, luna_suit_color: null, luna_visor_tint: null, avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=x' }],
+      error: null,
+    });
+    const { container } = wrap(<UserAvatar userId="u8" name="Kai Ro" />);
+    await waitFor(() => expect(container.querySelector('svg[aria-label="Luna avatar"]')).not.toBeNull());
+    expect(container.querySelector('img')).toBeNull();
+  });
+
   it('falls back to initials when the RPC is not deployed yet', async () => {
     rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'not found' } });
     wrap(<UserAvatar userId="u9" name="Zoe Park" />);

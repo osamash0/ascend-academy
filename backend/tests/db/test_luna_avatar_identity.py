@@ -1,4 +1,5 @@
-"""DB tests for 20261010000100_profile_luna_loadout + 20261010010000_luna_avatar_identity.
+"""DB tests for 20261010000100_profile_luna_loadout + 20261010010000_luna_avatar_identity
+(+ 20261011000000_luna_identity_photo).
 
 get_luna_loadouts() lets any signed-in user draw other people's Luna. It is
 SECURITY DEFINER, so these pin down exactly what it may reveal:
@@ -50,7 +51,8 @@ def test_signed_in_user_reads_only_cosmetic_columns_of_requested_ids(db_conn, ma
             rows = cur.fetchall()
         finally:
             _reset(cur)
-    assert cols == ["user_id", "luna_loadout", "luna_suit_color", "luna_visor_tint"]
+    # avatar_url added in 20261011000000 so an id alone resolves to the same face everywhere.
+    assert cols == ["user_id", "luna_loadout", "luna_suit_color", "luna_visor_tint", "avatar_url"]
     assert len(rows) == 1
     assert str(rows[0][0]) == str(ada)
     assert str(ben) not in {str(r[0]) for r in rows}  # not asked for, so not returned

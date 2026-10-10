@@ -3,7 +3,7 @@
  *
  * photo → their Luna → initials (rules in identity.ts). The signed-in viewer
  * always gets their live loadout (including unsaved-to-DB fallbacks); other
- * people's Luna is fetched in one batched call per screen.
+ * people's photo and Luna are fetched in one batched call per screen.
  *
  * Small avatars stay calm: no aura or orbiting companion under 64px, and
  * nothing animates unless asked — a leaderboard of fifty people should read
@@ -12,7 +12,7 @@
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { LunaAvatar } from './LunaAvatar';
-import { initialsOf, isRealPhoto, usePublicLoadout } from './identity';
+import { initialsOf, isRealPhoto, usePublicFace } from './identity';
 import { useLoadout } from './useAvatar';
 import type { Loadout, Mood } from './types';
 
@@ -62,10 +62,15 @@ function ViewerLuna({ size, mood, animated }: { size: number; mood?: Mood; anima
   return <LunaAvatar loadout={calmFor(size, loadout)} mood={mood ?? liveMood} variant="head" size={size} animated={animated} className="h-full w-full" />;
 }
 
-function OtherLuna({ userId, size, mood, animated, fallback }: { userId: string; size: number; mood?: Mood; animated: boolean; fallback: React.ReactNode }) {
-  const { data: loadout } = usePublicLoadout(userId);
-  if (!loadout) return <>{fallback}</>;
-  return <LunaAvatar loadout={calmFor(size, loadout)} mood={mood ?? 'bright'} variant="head" size={size} animated={animated} className="h-full w-full" />;
+/**
+ * Someone we only know by id: their photo if they uploaded one, else their
+ * Luna, else initials — looked up in one batched call per screen.
+ */
+function OtherFace({ userId, size, mood, animated, fallback }: { userId: string; size: number; mood?: Mood; animated: boolean; fallback: React.ReactNode }) {
+  const { data } = usePublicFace(userId);
+  if (data?.photo) return <img src={data.photo} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />;
+  if (!data?.loadout) return <>{fallback}</>;
+  return <LunaAvatar loadout={calmFor(size, data.loadout)} mood={mood ?? 'bright'} variant="head" size={size} animated={animated} className="h-full w-full" />;
 }
 
 export function UserAvatar({ userId, name, initials, avatarUrl, loadout, size = 40, shape = 'circle', mood, animated = false, className }: UserAvatarProps) {
@@ -81,7 +86,7 @@ export function UserAvatar({ userId, name, initials, avatarUrl, loadout, size = 
   } else if (isViewer) {
     face = <ViewerLuna size={size} mood={mood} animated={animated} />;
   } else if (userId) {
-    face = <OtherLuna userId={userId} size={size} mood={mood} animated={animated} fallback={fallback} />;
+    face = <OtherFace userId={userId} size={size} mood={mood} animated={animated} fallback={fallback} />;
   } else {
     face = fallback;
   }

@@ -40,6 +40,14 @@ interface PublicLoadoutRow {
   luna_loadout: unknown;
   luna_suit_color: string | null;
   luna_visor_tint: string | null;
+  /** Added in migration 20261011000000; absent from the older RPC. */
+  avatar_url?: string | null;
+}
+
+/** What we know about how someone looks, from their id alone. */
+export interface PublicFace {
+  photo: string | null;
+  loadout: Loadout | null;
 }
 
 /**
@@ -49,7 +57,7 @@ interface PublicLoadoutRow {
  * deployed yet, it answers `null` for everyone and stops asking — those
  * people simply show initials, exactly as before.
  */
-let pending = new Map<string, Array<(l: Loadout | null) => void>>();
+let pending = new Map<string, Array<(f: PublicFace) => void>>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let rpcUnavailable = false;
 
@@ -67,15 +75,18 @@ async function flush() {
   const byId = new Map(rows.map((r) => [r.user_id, r]));
   for (const [id, resolvers] of batch) {
     const r = byId.get(id);
-    // No row (or no RPC): we don't know their Luna, so don't invent one.
-    const loadout = r
-      ? sanitizeLoadout({ ...loadoutFromLegacy(r.luna_suit_color, r.luna_visor_tint), ...((r.luna_loadout as object) ?? {}) })
-      : null;
-    resolvers.forEach((resolve) => resolve(loadout));
+    // No row (or no RPC): we don't know their face, so don't invent one.
+    const face: PublicFace = r
+      ? {
+          photo: isRealPhoto(r.avatar_url) ? r.avatar_url : null,
+          loadout: sanitizeLoadout({ ...loadoutFromLegacy(r.luna_suit_color, r.luna_visor_tint), ...((r.luna_loadout as object) ?? {}) }),
+        }
+      : { photo: null, loadout: null };
+    resolvers.forEach((resolve) => resolve(face));
   }
 }
 
-function loadPublicLoadout(userId: string): Promise<Loadout | null> {
+function loadPublicFace(userId: string): Promise<PublicFace> {
   return new Promise((resolve) => {
     const list = pending.get(userId) ?? [];
     list.push(resolve);
@@ -84,13 +95,13 @@ function loadPublicLoadout(userId: string): Promise<Loadout | null> {
   });
 }
 
-/** Another person's Luna, or null when unknown. Cached and batched. */
-export function usePublicLoadout(userId: string | null | undefined, enabled = true) {
+/** Another person's photo and Luna (either may be null). Cached and batched. */
+export function usePublicFace(userId: string | null | undefined, enabled = true) {
   return useQuery({
-    queryKey: ['luna-loadout-public', userId],
+    queryKey: ['luna-face-public', userId],
     enabled: !!userId && enabled,
     staleTime: 10 * 60_000,
-    queryFn: () => loadPublicLoadout(userId!),
+    queryFn: () => loadPublicFace(userId!),
   });
 }
 
