@@ -101,8 +101,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
         </p>
         <h1 className="text-[40px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[56px]">Rehearse for the exam</h1>
         <p className="mt-4 max-w-[54ch] text-[16px] leading-relaxed text-quiet">
-          A short test written from your lectures’ own slides — questions to choose, steps to order, and FD problems you
-          solve, graded by computing the answer. Every question points back to the page that teaches it.
+          A short test from your own slides. Every answer points back to the page that teaches it.
         </p>
 
         {history && history.attempts.length > 0 && (
@@ -515,20 +514,27 @@ function HistoryPanel({
       {history.weak.length > 0 ? (
         <div className="mt-6">
           <p className="mb-2.5 text-[13px] text-quiet">Ideas you missed last time</p>
-          <div className="flex flex-wrap gap-2">
-            {history.weak.map((w) => (
-              <Link
-                key={`${w.lecture_id}-${w.idea}`}
-                to={pageHref(w.lecture_id, w.page)}
-                className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-destructive/[0.1] px-3.5 text-[13px] text-foreground transition-colors hover:bg-destructive/[0.18]"
-              >
-                {w.idea}
-                <span className="text-[12px] text-quiet">
-                  {w.lecture_title} p{w.page}
-                  {w.missed > 1 && ` · missed ${w.missed}×`}
-                </span>
-              </Link>
-            ))}
+          {/* Grouped by lecture, so each lecture is named once. */}
+          <div className="space-y-3">
+            {[...new Set(history.weak.map((w) => w.lecture_id))].map((lid) => {
+              const group = history.weak.filter((w) => w.lecture_id === lid);
+              return (
+                <div key={lid} className="flex flex-wrap items-center gap-2">
+                  <span className="mr-1 text-[12.5px] text-faint">{group[0].lecture_title}</span>
+                  {group.map((w) => (
+                    <Link
+                      key={`${w.lecture_id}-${w.idea}`}
+                      to={pageHref(w.lecture_id, w.page)}
+                      title={`Page ${w.page}`}
+                      className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-destructive/[0.1] px-3.5 text-[13px] text-foreground transition-colors hover:bg-destructive/[0.18]"
+                    >
+                      {w.idea}
+                      {w.missed > 1 && <span className="text-[12px] text-quiet">missed {w.missed}×</span>}
+                    </Link>
+                  ))}
+                </div>
+              );
+            })}
           </div>
           <button
             type="button"
@@ -536,7 +542,7 @@ function HistoryPanel({
             className="console-focusable mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-medium text-background"
           >
             <Target aria-hidden className="h-4 w-4" />
-            Rehearse these {history.weak.length === 1 ? 'one' : history.weak.length}
+            {history.weak.length === 1 ? 'Rehearse this one' : 'Rehearse these'}
           </button>
         </div>
       ) : (

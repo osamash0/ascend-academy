@@ -60,7 +60,7 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
     const left = resume.pages - resume.page;
     steps.push({
       kind: 'read',
-      title: `Go on with ${resumeLec.title}`,
+      title: resumeLec.title,
       why: `From page ${resume.page} · ${left} ${left === 1 ? 'page' : 'pages'} left`,
       lectureId: resumeLec.id,
       page: resume.page,
@@ -72,8 +72,8 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
     if (fresh && !resume) {
       steps.push({
         kind: 'read',
-        title: `Start with ${fresh.title}`,
-        why: `${fresh.total_slides} pages, from the beginning`,
+        title: fresh.title,
+        why: `From the beginning · ${fresh.total_slides} pages`,
         lectureId: fresh.id,
         page: 1,
         minutes: Math.min(25, readMinutes(fresh.total_slides)),
@@ -90,7 +90,7 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
     const range = i >= 0 ? span(lec, i) : { first: miss.page, last: miss.page };
     steps.push({
       kind: 'revisit',
-      title: `Revisit ${i >= 0 ? ideas[i].name : miss.idea}`,
+      title: i >= 0 ? ideas[i].name : miss.idea,
       why: `You missed it last time · ${lec.title}, pages ${range.first}–${range.last}`,
       lectureId: lec.id,
       page: range.first,
@@ -115,7 +115,7 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
     const range = span(lec, i);
     steps.push({
       kind: 'refresh',
-      title: `Refresh ${ideas[i].name}`,
+      title: ideas[i].name,
       why: `Proven ${daysSince(t, now)} days ago — the light is fading · ${lec.title}`,
       lectureId: lec.id,
       page: range.first,

@@ -64,15 +64,10 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
 
   const marks = history?.marks ?? [];
   const lights = new Map(course.lectures.map((l) => [l.id, l.ideas ? lightIdeas(l.id, l.ideas, marks) : []]));
-  const allIdeas = course.lectures.reduce((n, l) => n + (l.ideas?.length ?? 0), 0);
-  const litCount = [...lights.values()].flat().filter((x) => x === 'lit').length;
-  const weakCount = [...lights.values()].flat().filter((x) => x === 'weak').length;
-  const fadingCount = [...lights.values()].flat().filter((x) => x === 'fading').length;
 
   const resumeLecture = resume ? course.lectures.find((l) => l.id === resume.lectureId) : undefined;
   const resumeIdea = resume && resumeLecture?.ideas ? resumeLecture.ideas[ideaAt(resumeLecture.ideas, resume.page)] : undefined;
   const today = planToday({ lectures: course.lectures, marks, weak: history?.weak ?? [], resume });
-  const todayMinutes = today.reduce((n, step) => n + step.minutes, 0);
 
   return chrome(
     <div className="relative pb-36">
@@ -112,10 +107,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             transition={{ duration: 0.35, delay: 0.1 }}
             className="mx-auto mt-12 max-w-3xl"
           >
-            <div className="mb-3 flex items-baseline justify-between gap-4 px-1">
-              <h2 className="text-[17px] font-medium text-foreground">Today</h2>
-              <p className="text-[13px] tabular-nums text-quiet">About {todayMinutes} minutes</p>
-            </div>
+            <h2 className="mb-3 px-1 text-[17px] font-medium text-foreground">Today</h2>
             <ol className={cn('grid gap-3', today.length > 1 && 'sm:grid-cols-[1.4fr_1fr]', today.length > 2 && 'sm:grid-rows-2')}>
               {today.map((step, i) => (
                 <li key={step.kind} className={cn(i === 0 && today.length > 2 && 'sm:row-span-2')}>
@@ -200,11 +192,10 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
         <div className="mt-20 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div>
             <h2 className="text-[26px] font-medium tracking-[-0.02em]">The course, lit by what you know</h2>
-            <p className="mt-1 text-[13.5px] text-quiet">
-              {marks.length === 0
-                ? 'Every idea starts dark. A rehearsal lights the ones you get right.'
-                : `${litCount} of ${allIdeas} ideas lit${fadingCount ? ` · ${fadingCount} fading` : ''}${weakCount ? ` · ${weakCount} to revisit` : ''}`}
-            </p>
+            {/* The map shows what is lit; a count of it would only say it again. */}
+            {marks.length === 0 && (
+              <p className="mt-1 text-[13.5px] text-quiet">Every idea starts dark. A rehearsal lights the ones you get right.</p>
+            )}
           </div>
           <ul aria-label="Legend" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-quiet">
             <li className="flex items-center gap-1.5"><IdeaDot light="lit" />Tested, right</li>
@@ -226,16 +217,26 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             >
               <ReadRing order={l.order} read={trail[l.id] ? trail[l.id].page / trail[l.id].pages : 0} reduce={Boolean(reduce)} />
               <div className="grid gap-5 sm:grid-cols-[220px_minmax(0,1fr)]">
+                {/* The deck itself is the way in: it opens where you stopped, or at the start. */}
                 <Link
-                  to={lessonHref(l.id)}
-                  aria-label={`${l.title} — overview`}
-                  className="console-focusable block self-start overflow-hidden rounded-xl bg-white/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_20px_40px_-16px_rgba(0,0,0,0.8)]"
+                  to={readHref(l.id, trail[l.id]?.page ?? 1)}
+                  aria-label={trail[l.id] ? `Go on reading ${l.title}` : `Read ${l.title}`}
+                  className="console-focusable group relative block self-start overflow-hidden rounded-xl bg-white/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_20px_40px_-16px_rgba(0,0,0,0.8)]"
                 >
                   {l.poster ? (
                     <img src={l.poster} alt="" loading="lazy" className="aspect-video w-full object-cover" />
                   ) : (
                     <span className="block aspect-video" />
                   )}
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/45 group-focus-visible:bg-black/45"
+                  >
+                    <span className="flex h-11 items-center gap-2 rounded-full bg-white/0 px-4 text-[13.5px] font-medium text-transparent transition-colors group-hover:bg-white group-hover:text-background group-focus-visible:bg-white group-focus-visible:text-background">
+                      <BookOpen aria-hidden className="h-4 w-4" />
+                      {trail[l.id] ? 'Go on' : 'Read'}
+                    </span>
+                  </span>
                 </Link>
                 <div className="min-w-0">
                   <h2 className="text-[22px] font-medium leading-tight tracking-[-0.015em]">
@@ -263,6 +264,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                           <Link
                             key={`${idea.first_page}-${idea.name}`}
                             to={readHref(l.id, idea.first_page)}
+                            title={`Page ${idea.first_page}`}
                             aria-label={`${idea.name}, page ${idea.first_page}${light === 'lit' ? ', tested right' : light === 'fading' ? ', fading' : light === 'weak' ? ', to revisit' : ''}`}
                             className={cn(
                               'console-focusable inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] transition-colors',
@@ -274,21 +276,10 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                           >
                             <IdeaDot light={light} />
                             {idea.name}
-                            <span className="tabular-nums text-faint">p{idea.first_page}</span>
                           </Link>
                           );
                         })}
                   </div>
-                  <Link
-                    to={readHref(l.id, 1)}
-                    className={cn(
-                      'console-focusable mt-4 inline-flex h-9 items-center gap-2 rounded-full px-4 text-[13px] font-medium transition-colors',
-                      'bg-white text-background',
-                    )}
-                  >
-                    <BookOpen aria-hidden className="h-3.5 w-3.5" />
-                    Read
-                  </Link>
                 </div>
               </div>
             </motion.li>
@@ -365,7 +356,7 @@ function TodayCard({
           </span>
         )}
         <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] text-quiet transition-colors group-hover:text-foreground">
-          Open at page {step.page}
+          Open
           <ArrowRight aria-hidden className="h-3.5 w-3.5" />
         </span>
       </span>

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ArrowRight, BookOpen, Check } from 'lucide-react';
 import { PdfPage } from '@/components/pdf';
 import { cn } from '@/lib/utils';
+import type { Light } from '../course/light';
 import type { Concept } from '../../types';
 
 /**
@@ -24,6 +25,8 @@ export interface IdeaEntry {
   previewPage: number;
   /** Explain's headline for the idea's first page. */
   gist: string;
+  /** What checkpoints and rehearsals have proven (real courses); replaces `progress` when set. */
+  light?: Light;
 }
 
 interface Props {
@@ -32,6 +35,13 @@ interface Props {
   readHref: (page: number) => string;
   conceptHref: (id: string) => string;
 }
+
+const LIGHT_WORD: Record<Light, string | null> = {
+  lit: 'Tested right',
+  fading: 'Fading',
+  weak: 'To revisit',
+  dark: null,
+};
 
 const STATE: Record<Concept['progress'], string> = {
   cleared: 'Cleared',
@@ -86,15 +96,27 @@ export function IdeaExplorer({ ideas, file, readHref, conceptHref }: Props) {
                 <span
                   className={cn(
                     'relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] tabular-nums',
-                    it.concept.progress === 'cleared' ? 'bg-success/20 text-success' : active ? 'bg-white text-background' : 'bg-white/[0.08]',
+                    it.light === 'lit' || (!it.light && it.concept.progress === 'cleared')
+                      ? 'bg-success/20 text-success'
+                      : it.light === 'fading'
+                        ? 'bg-success/[0.08] text-success'
+                        : it.light === 'weak'
+                          ? 'bg-destructive/20 text-destructive'
+                          : active
+                            ? 'bg-white text-background'
+                            : 'bg-white/[0.08]',
                   )}
                 >
-                  {it.concept.progress === 'cleared' ? <Check aria-hidden className="h-3.5 w-3.5" /> : i + 1}
+                  {it.light === 'lit' || (!it.light && it.concept.progress === 'cleared') ? <Check aria-hidden className="h-3.5 w-3.5" /> : i + 1}
                 </span>
                 <span className="relative min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium">{it.concept.name}</span>
                   <span className="block text-[12.5px] text-faint">
-                    {STATE[it.concept.progress]} · pages {it.firstPage}–{it.lastPage}
+                    {/* Said only when there is something to say: an unproven idea is just its pages. */}
+                    {(it.light !== undefined ? LIGHT_WORD[it.light] : STATE[it.concept.progress]) && (
+                      <>{it.light !== undefined ? LIGHT_WORD[it.light] : STATE[it.concept.progress]} · </>
+                    )}
+                    Pages {it.firstPage}–{it.lastPage}
                   </span>
                 </span>
               </button>

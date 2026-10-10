@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { ArrowLeft, Check, FileWarning, ListChecks, Play, Sparkles, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LaunchButton, gradientFor } from '@/components/console';
@@ -11,7 +12,8 @@ import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes'
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
-import { isLive, useReaderContent, useReaderLesson } from '../data/useReader';
+import { isLive, useReaderContent, useReaderLesson, useRehearsalHistory } from '../data/useReader';
+import { lightIdeas } from '../components/course/light';
 import { readTrail } from '../data/trail';
 import { sectionsFromRows, spineConcepts } from '../components/reader/anchors';
 import { LessonDeck } from '../components/lesson/LessonDeck';
@@ -90,6 +92,10 @@ export default function LessonScreen() {
    */
   const [noteTick, setNoteTick] = useState(0);
   const content = useReaderContent(spaceId, lessonId);
+  const live = isLive(spaceId, lessonId);
+  const { history } = useRehearsalHistory(live ? spaceId : undefined);
+  /* A real deck shows as one section until its ideas are grouped — that is a wait, not an idea. */
+  const ideasPending = live && content.concepts.length === 1 && content.concepts[0].concept_id.startsWith('whole-');
   const [accent, setAccent] = useState<string | null>(null);
   /* Where you stopped in this deck, if you have read it here before (a real course only). */
   const mark = useMemo(() => (lessonId ? readTrail()[lessonId] : undefined), [lessonId]);
@@ -231,8 +237,6 @@ export default function LessonScreen() {
           {/* The masthead, centred over the deck. */}
           <div className="mx-auto mt-6 max-w-3xl text-center">
             <p className="text-[13px] tabular-nums text-quiet">
-              {space.name}
-              <span aria-hidden className="mx-2 text-faint">·</span>
               Lesson {lesson.order}
               {pageCount > 0 && (
                 <>
@@ -294,7 +298,7 @@ export default function LessonScreen() {
                 </Link>
               )}
               {/* A real lecture: a rehearsal written from its own slides. */}
-              {isLive(space.id, lesson.id) && (
+              {live && (
                 <Link
                   to={`/v4/space/${space.id}/rehearse?lectures=${lesson.id}`}
                   className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-6 text-[14px] font-medium transition-colors hover:bg-white/[0.09]"
@@ -339,13 +343,38 @@ export default function LessonScreen() {
 
       <div className="relative mx-auto max-w-6xl px-6 lg:px-8">
         {/* ── Ideas: each where it lives in the deck ── */}
-        {ideas.length > 0 && pdfUrl ? (
+        {ideasPending ? (
+          <Row title="The ideas" lede="Grouping the deck into the ideas it teaches…">
+            <div aria-hidden className="space-y-2 md:w-[42%]">
+              {[0, 1, 2, 3].map((i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0.3 }}
+                  animate={{ opacity: [0.3, 0.6, 0.3] }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut', delay: i * 0.12 }}
+                  className="h-[60px] rounded-2xl bg-white/[0.05]"
+                />
+              ))}
+            </div>
+          </Row>
+        ) : ideas.length > 0 && pdfUrl ? (
           <Row
             title="The ideas"
-            lede="In the order the deck teaches them. Each lights up on the Space’s map as you clear it."
+            lede={
+              live
+                ? 'In the order the deck teaches them. Each lights up once a checkpoint or a rehearsal proves it.'
+                : 'In the order the deck teaches them. Each lights up on the Space’s map as you clear it.'
+            }
           >
             <IdeaExplorer
-              ideas={ideas}
+              ideas={
+                live
+                  ? ideas.map((it, i, all) => ({
+                      ...it,
+                      light: lightIdeas(lesson.id, all.map((x) => ({ first_page: x.firstPage })), history?.marks ?? [])[i],
+                    }))
+                  : ideas
+              }
               file={pdfUrl}
               readHref={(p) => readerAt(p)}
               conceptHref={(id) => `/v4/space/${space.id}/concept/${id}`}
@@ -388,8 +417,9 @@ export default function LessonScreen() {
           </Row>
         )}
 
-        {/* ── Community, at the Lesson anchor level ── */}
-        <Row title="From the community" count={contributions.length}>
+        {/* ── Community, at the Lesson anchor level ── (a real course has no community data yet) */}
+        {!live && (
+        <Row title="From the community" count={contributions.length || undefined}>
           {contributions.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/15 px-6 py-10 text-center">
               <Sparkles aria-hidden className="mx-auto mb-3 h-5 w-5 text-quiet" />
@@ -416,8 +446,10 @@ export default function LessonScreen() {
           )}
         </Row>
 
+        )}
+
         {/* ── Your notes: private, and the one thing only you can see ── */}
-        <Row title="Your notes" count={myNotes.length}>
+        <Row title="Your notes" count={myNotes.length || undefined}>
           <div className="space-y-2.5">
             {myNotes.map((n) => (
               <NoteEditor
