@@ -81,6 +81,51 @@ describe('usePeek', () => {
     expect(result.current.state).toMatchObject({ blockId: 'c' });
   });
 
+  it('applies the last follow inside the window at its trailing edge', () => {
+    const { result } = setup();
+    act(() => result.current.open('a'));
+    act(() => result.current.togglePin());
+    tick(PEEK_FOLLOW_MS);
+    act(() => result.current.follow('b'));
+    expect(result.current.state).toMatchObject({ blockId: 'b' });
+    act(() => result.current.follow('c'));
+    expect(result.current.state).toMatchObject({ blockId: 'b' });
+    tick(PEEK_FOLLOW_MS);
+    expect(result.current.state).toMatchObject({ blockId: 'c', pinned: true });
+  });
+
+  it('keeps the peek on the hovered block while pinned, still pinned', () => {
+    const { result } = setup();
+    act(() => result.current.open('a'));
+    act(() => result.current.togglePin());
+    act(() => result.current.hoverBlock('b', 'mouse'));
+    expect(result.current.state).toEqual({ status: 'open', blockId: 'b', pinned: true });
+  });
+
+  it('times out after unpinning, and enterPeek during that grace keeps it open', () => {
+    const { result } = setup();
+    act(() => result.current.open('a'));
+    act(() => result.current.togglePin());
+    act(() => result.current.togglePin());
+    tick(PEEK_GRACE_MS - 1);
+    act(() => result.current.enterPeek());
+    tick(PEEK_GRACE_MS * 2);
+    expect(result.current.state.status).toBe('open');
+
+    act(() => result.current.leavePeek());
+    tick(PEEK_GRACE_MS);
+    expect(result.current.state.status).toBe('closed');
+  });
+
+  it('closes after unpinning once the grace period passes', () => {
+    const { result } = setup();
+    act(() => result.current.open('a'));
+    act(() => result.current.togglePin());
+    act(() => result.current.togglePin());
+    tick(PEEK_GRACE_MS);
+    expect(result.current.state.status).toBe('closed');
+  });
+
   it('keeps its methods stable across renders', () => {
     const { result, rerender } = setup();
     const first = result.current.close;

@@ -38,16 +38,37 @@ export function usePeek(): PeekApi {
   const intent = useRef<ReturnType<typeof setTimeout>>();
   const grace = useRef<ReturnType<typeof setTimeout>>();
   const lastFollow = useRef(0);
+  const followTimer = useRef<ReturnType<typeof setTimeout>>();
+  const pendingFollow = useRef<string | null>(null);
+
+  const clearFollow = () => {
+    clearTimeout(followTimer.current);
+    followTimer.current = undefined;
+    pendingFollow.current = null;
+  };
 
   const clearTimers = () => {
     clearTimeout(intent.current);
     clearTimeout(grace.current);
+    clearFollow();
   };
   useEffect(() => clearTimers, []);
 
   const set = (next: PeekState) => {
     stateRef.current = next;
     setState(next);
+  };
+
+  // Trailing edge of the follow throttle: applies the latest block that was
+  // requested inside the window, re-checking that the peek is still pinned.
+  const applyFollow = () => {
+    followTimer.current = undefined;
+    const pending = pendingFollow.current;
+    pendingFollow.current = null;
+    const s = stateRef.current;
+    if (pending === null || s.status !== 'open' || !s.pinned || s.blockId === pending) return;
+    lastFollow.current = Date.now();
+    set({ ...s, blockId: pending });
   };
 
   const startGrace = useCallback(() => {
@@ -91,16 +112,27 @@ export function usePeek(): PeekApi {
     const s = stateRef.current;
     if (s.status !== 'open') return;
     clearTimeout(grace.current);
+    clearFollow();
     lastFollow.current = Date.now();
     set({ ...s, pinned: !s.pinned });
-  }, []);
+    // Unpinning returns the peek to the normal grace-then-close lifecycle.
+    if (s.pinned) startGrace();
+  }, [startGrace]);
 
   const follow = useCallback((blockId: string) => {
     const s = stateRef.current;
-    if (s.status !== 'open' || !s.pinned || s.blockId === blockId) return;
-    const now = Date.now();
-    if (now - lastFollow.current < PEEK_FOLLOW_MS) return;
-    lastFollow.current = now;
+    if (s.status !== 'open' || !s.pinned) return;
+    const remaining = PEEK_FOLLOW_MS - (Date.now() - lastFollow.current);
+    if (remaining > 0) {
+      // Inside the window: remember the latest request and apply it at the trailing edge.
+      pendingFollow.current = blockId;
+      if (followTimer.current === undefined) {
+        followTimer.current = setTimeout(applyFollow, remaining);
+      }
+      return;
+    }
+    if (s.blockId === blockId) return;
+    lastFollow.current = Date.now();
     set({ ...s, blockId });
   }, []);
 
