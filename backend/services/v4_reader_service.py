@@ -460,6 +460,33 @@ def _coherent(block: BaseModel) -> bool:
     return True
 
 
+#: What the answer's centre is called, when the model names block types instead.
+_FORMAT_BY_BLOCK = {
+    "sandbox": "A tool to try",
+    "fdTable": "A table you can break",
+    "closure": "A calculator",
+    "bcnf": "A decomposer",
+    "steps": "Step by step",
+    "compare": "Side by side",
+    "explore": "Parts to explore",
+    "check": "A quick check",
+    "key": "In one line",
+    "text": "Just text",
+}
+
+
+def _format_label(raw: str, blocks: list[dict[str, Any]]) -> str:
+    """The model's own words for its choice — unless they are just our block names."""
+    words = [w.strip().lower() for w in re.split(r"[,/+&]| and ", raw) if w.strip()]
+    names = {k.lower() for k in _FORMAT_BY_BLOCK}
+    if raw.strip() and not all(w in names or w in {"block", "blocks"} for w in words):
+        return raw.strip()[:40]
+    for kind in _FORMAT_BY_BLOCK:  # ordered: the most interactive block names the answer
+        if any(b["type"] == kind for b in blocks):
+            return _FORMAT_BY_BLOCK[kind]
+    return "Explained"
+
+
 def validate_answer(data: Any) -> Optional[dict[str, Any]]:
     """Keep the blocks that parse and make sense; None if nothing usable is left."""
     if not isinstance(data, dict):
@@ -485,7 +512,7 @@ def validate_answer(data: Any) -> Optional[dict[str, Any]]:
     nxt = [str(q).strip()[:80] for q in (data.get("next") or []) if str(q).strip()][:3]
     return {
         "title": title,
-        "format": str(data.get("format") or "Explained").strip()[:40],
+        "format": _format_label(str(data.get("format") or ""), blocks),
         "blocks": blocks[:6],
         "next": nxt,
     }
@@ -572,7 +599,7 @@ async def explain_page(lecture_id: UUID, page: int, *, user_id: str, locale: str
     key = f"v4reader:{EXPLAIN_VERSION}:{lecture_id}:{meta['content_revision']}:{locale}:{page}"
     cached = await get_cache(key)
     if isinstance(cached, dict) and cached.get("blocks"):
-        return {**cached, "cached": True}
+        return {**cached, "format": _format_label(cached.get("format", ""), cached["blocks"]), "cached": True}
 
     content, served = await get_lecture_content_for_locale(lecture_id, locale)
     slides = (content or {}).get("slides") or []
@@ -684,7 +711,7 @@ async def ask_page(
     key = f"v4reader:{ASK_VERSION}:{lecture_id}:{meta['content_revision']}:{locale}:{page}:{digest}"
     cached = await get_cache(key)
     if isinstance(cached, dict) and cached.get("blocks"):
-        return {**cached, "cached": True}
+        return {**cached, "format": _format_label(cached.get("format", ""), cached["blocks"]), "cached": True}
 
     content, served = await get_lecture_content_for_locale(lecture_id, locale)
     slides = (content or {}).get("slides") or []

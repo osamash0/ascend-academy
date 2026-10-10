@@ -406,6 +406,9 @@ export default function LessonFacesScreen() {
   }, [studio, bench, openStudio, closeStudio]);
 
   const asker = useAsker(spaceId, lessonId);
+  /* A question handed to Explain from outside it — words selected on the page. */
+  const [queued, setQueued] = useState<{ question: string; n: number } | null>(null);
+  const queuedN = useRef(0);
   /* Explain is asked only while it is the view: turning pages costs nothing. */
   const explainBlock = blockOf(pdfPage);
   const explained = useExplain(
@@ -484,6 +487,23 @@ export default function LessonFacesScreen() {
   const landable = (c: TutorCitation) =>
     (c.conceptId !== undefined && sections.some((s) => s.conceptId === c.conceptId)) ||
     (c.materialPage !== undefined && pages.some((p) => p.page === c.materialPage));
+
+  /*
+   * Selected words, asked about. On a live lecture they are answered in
+   * Explain, as an interface; elsewhere they go to the tutor as before.
+   */
+  const askAbout = (text: string) => {
+    const words = text.replace(/\s+/g, ' ').trim().slice(0, 240);
+    if (asker) {
+      engage();
+      setCompanion(null);
+      setView('explain');
+      setQueued({ question: `Explain this from the slide: “${words}”`, n: ++queuedN.current });
+      return;
+    }
+    setQuote(text);
+    openTutor(text.length > 60 ? `${text.slice(0, 57)}…` : text, pageOfSelection() ?? anchor.page);
+  };
 
   const openTutor = (title: string, page: number) => {
     openStudio();
@@ -620,10 +640,8 @@ export default function LessonFacesScreen() {
             findOn('text', text);
           },
         }}
-        onAsk={(text) => {
-          setQuote(text);
-          openTutor(text.length > 60 ? `${text.slice(0, 57)}…` : text, pageOfSelection() ?? anchor.page);
-        }}
+        onAsk={(text) => askAbout(text)}
+        askLabel={asker ? 'Explain this' : undefined}
         onSaveNote={(text) => {
           addNote({ lessonId: lesson.id, body: `“${text}”`, lessonTitle: lesson.title, spaceId: space.id, spaceName: space.name });
           setNoteTick((t) => t + 1);
@@ -641,10 +659,8 @@ export default function LessonFacesScreen() {
             findOn('pdf', text, p);
           },
         }}
-        onAsk={(text) => {
-          setQuote(text);
-          openTutor(text.length > 60 ? `${text.slice(0, 57)}…` : text, pageOfSelection() ?? anchor.page);
-        }}
+        onAsk={(text) => askAbout(text)}
+        askLabel={asker ? 'Explain this' : undefined}
         onSaveNote={(text) => {
           addNote({ lessonId: lesson.id, body: `“${text}”`, lessonTitle: lesson.title, spaceId: space.id, spaceName: space.name });
           setNoteTick((t) => t + 1);
@@ -857,6 +873,7 @@ export default function LessonFacesScreen() {
           answer={explained.answer}
           fallback={explained.fallback}
           ask={asker ? (q, thread) => asker(pdfPage, q, thread) : null}
+          queued={queued}
           page={pdfPage}
           onSpot={setSpot}
           onAsk={(q) => {

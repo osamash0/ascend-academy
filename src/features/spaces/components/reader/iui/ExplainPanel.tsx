@@ -43,6 +43,8 @@ interface Props {
   onAsk: (text: string) => void;
   /** Asks the model about this page and gets an interface back. Live lectures only. */
   ask?: ((question: string, thread: AskThread[]) => Promise<ExplainAnswer>) | null;
+  /** A question handed in from outside (words selected on the page); asked once per `n`. */
+  queued?: { question: string; n: number } | null;
 }
 
 interface Turn {
@@ -57,7 +59,7 @@ const BLOCK_MS = 520;
 
 const STARTERS = ['Show me how this works', 'Give me an example to try', 'What do students get wrong here?'];
 
-export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot, onAsk, ask }: Props) {
+export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot, onAsk, ask, queued }: Props) {
   const reduce = useReducedMotion();
   const seen = useRef(new Set<string>());
   const first = !seen.current.has(answerKey);
@@ -129,6 +131,14 @@ export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot
     },
     [ask, onAsk, answerKey, threads, update],
   );
+
+  /* Asked from the page: each handed-in question once, as soon as it arrives. */
+  const askedN = useRef(0);
+  useEffect(() => {
+    if (!queued || queued.n === askedN.current) return;
+    askedN.current = queued.n;
+    send(queued.question);
+  }, [queued, send]);
 
   const retry = (t: Turn) => {
     setThreads((all) => ({ ...all, [answerKey]: (all[answerKey] ?? []).filter((x) => x.id !== t.id) }));

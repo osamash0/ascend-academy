@@ -77,6 +77,8 @@ interface Props {
    * the two verbs it has always been.
    */
   also?: { label: string; onPress: (quote: string) => void };
+  /** What the ask verb says — where the question goes. */
+  askLabel?: string;
 }
 
 /**
@@ -93,7 +95,7 @@ interface Anchor {
   bottom: number;
 }
 
-export function SelectionAsk({ articleRef, onAsk, onSaveNote, also }: Props) {
+export function SelectionAsk({ articleRef, onAsk, onSaveNote, also, askLabel = 'Ask the tutor' }: Props) {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [saved, setSaved] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -289,7 +291,7 @@ export function SelectionAsk({ articleRef, onAsk, onSaveNote, also }: Props) {
             className="console-focusable flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[12.5px] font-medium text-foreground transition-colors hover:bg-white/[0.08]"
           >
             <Sparkles aria-hidden className="h-3.5 w-3.5" />
-            Ask the tutor
+            {askLabel}
           </button>
           <button
             type="button"

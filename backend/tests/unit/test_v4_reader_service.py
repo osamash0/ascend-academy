@@ -76,3 +76,9 @@ def test_a_generated_app_that_reaches_out_is_dropped():
     ]:
         assert validate_answer({"title": "t", "blocks": [dict(SANDBOX, js=js)]}) is None, js
     assert validate_answer({"title": "t", "blocks": [dict(SANDBOX, html='<script src="x.js"></script>')]}) is None
+
+
+def test_a_format_made_of_block_names_gets_a_human_label():
+    blocks = [{"type": "key", "md": "x"}, {"type": "compare", "columns": [{"title": "a", "points": ["p"]}, {"title": "b", "points": ["q"]}]}]
+    assert validate_answer({"title": "t", "format": "key, compare, check", "blocks": blocks})["format"] == "Side by side"
+    assert validate_answer({"title": "t", "format": "A table you can break", "blocks": blocks})["format"] == "A table you can break"
