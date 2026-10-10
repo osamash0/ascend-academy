@@ -10,7 +10,16 @@ const block: GeneratedBlock = {
   citations: [{ label: 'p. 5', materialId: 'm', page: 5, blockId: 'p5-b10' }],
 };
 
-beforeEach(() => vi.useFakeTimers());
+let reducedMotion = false;
+vi.mock('motion/react', async (orig) => ({
+  ...(await orig<typeof import('motion/react')>()),
+  useReducedMotion: () => reducedMotion,
+}));
+
+beforeEach(() => {
+  reducedMotion = false;
+  vi.useFakeTimers();
+});
 afterEach(() => vi.useRealTimers());
 
 describe('wordDelays', () => {
@@ -22,6 +31,14 @@ describe('wordDelays', () => {
     expect(Math.max(...d)).toBeLessThanOrEqual(WORD_BUDGET_S + 1e-9);
     // after WORD_LIMIT words the rest settle in groups, not one by one
     expect(new Set(d.slice(WORD_LIMIT)).size).toBeLessThan(400 - WORD_LIMIT);
+  });
+});
+
+describe('wordDelays edge', () => {
+  it('stays finite and in budget just past the word limit', () => {
+    const d = wordDelays(WORD_LIMIT + 1);
+    expect(d.every(Number.isFinite)).toBe(true);
+    expect(Math.max(...d)).toBeLessThanOrEqual(WORD_BUDGET_S + 1e-9);
   });
 });
 
@@ -50,5 +67,37 @@ describe('WovenAnswer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove this answer' }));
     await act(async () => { vi.advanceTimersByTime(1000); });
     expect(onRemove).toHaveBeenCalledWith('a1');
+  });
+  it('a fresh answer settles after its timer, not at mount', async () => {
+    const onSettled = vi.fn();
+    render(<WovenAnswer block={block} fresh onSettled={onSettled} onRemove={vi.fn()} />);
+    expect(onSettled).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(5000); });
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(onSettled).toHaveBeenCalledWith('a1');
+  });
+  it('with reduced motion a fresh answer is simply there', () => {
+    reducedMotion = true;
+    const onSettled = vi.fn();
+    render(<WovenAnswer block={block} fresh onSettled={onSettled} onRemove={vi.fn()} />);
+    expect(onSettled).toHaveBeenCalledWith('a1');
+    expect(document.querySelector('[data-woven-words]')).toBeNull();
+  });
+  it('a re-render with a new onRemove mid-collapse does not restart the timer', async () => {
+    const a = vi.fn();
+    const b = vi.fn();
+    const { rerender } = render(<WovenAnswer block={block} fresh={false} onSettled={vi.fn()} onRemove={a} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove this answer' }));
+    await act(async () => { vi.advanceTimersByTime(200); });
+    rerender(<WovenAnswer block={block} fresh={false} onSettled={vi.fn()} onRemove={b} />);
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(b).toHaveBeenCalledTimes(1);
+    expect(a).not.toHaveBeenCalled();
+  });
+  it('a citation without a source block is not a button', () => {
+    const b: GeneratedBlock = { ...block, citations: [{ label: 'p. 9', materialId: 'm', page: 9 }] };
+    render(<WovenAnswer block={b} fresh={false} onSettled={vi.fn()} onRemove={vi.fn()} />);
+    expect(screen.getByText('p. 9').tagName).toBe('SPAN');
+    expect(screen.queryByRole('button', { name: /p\. 9/ })).toBeNull();
   });
 });

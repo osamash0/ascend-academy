@@ -46,7 +46,13 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek }: P
   const [settled, setSettled] = useState(!animate);
   const [leaving, setLeaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  useKeepPlace(ref, animate && !settled);
+  const [justSettled, setJustSettled] = useState(false);
+  // keep your place one more frame: the swap to rendered Markdown can change the height
+  useKeepPlace(ref, animate && (!settled || justSettled));
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
+  const onRemoveRef = useRef(onRemove);
+  onRemoveRef.current = onRemove;
 
   const words = useMemo(() => plainText(block.markdown).split(' '), [block.markdown]);
   const delays = useMemo(() => wordDelays(words.length), [words.length]);
@@ -54,23 +60,29 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek }: P
 
   useEffect(() => {
     if (!animate) {
-      onSettled(block.id);
+      onSettledRef.current(block.id);
       return;
     }
+    let raf = 0;
     const t = setTimeout(() => {
       setSettled(true);
-      onSettled(block.id);
+      setJustSettled(true);
+      raf = requestAnimationFrame(() => setJustSettled(false));
+      onSettledRef.current(block.id);
     }, total * 1000);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      cancelAnimationFrame(raf);
+    };
     // once per mount: a fresh answer grows once
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!leaving) return;
-    const t = setTimeout(() => onRemove(block.id), (reduce ? 0.15 : COLLAPSE_S) * 1000);
+    const t = setTimeout(() => onRemoveRef.current(block.id), (reduce ? 0.15 : COLLAPSE_S) * 1000);
     return () => clearTimeout(t);
-  }, [leaving, reduce, onRemove, block.id]);
+  }, [leaving, reduce, block.id]);
 
   return (
     <motion.div
@@ -81,7 +93,7 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek }: P
       initial={animate ? { height: 0, opacity: 1 } : reduce && fresh ? { opacity: 0 } : false}
       animate={leaving ? { height: 0, opacity: reduce ? 0 : 1 } : { height: 'auto', opacity: 1 }}
       transition={{
-        height: { duration: leaving ? COLLAPSE_S : GROW_S, ease: FLIGHT_EASE },
+        height: { duration: reduce ? 0 : leaving ? COLLAPSE_S : GROW_S, ease: FLIGHT_EASE },
         opacity: { duration: 0.15 },
       }}
       className="group/woven relative overflow-hidden"
@@ -130,14 +142,23 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek }: P
         {block.citations.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {block.citations.map((c, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => c.blockId && onOpenPeek?.(c.blockId)}
-                className="console-focusable min-h-6 rounded-full bg-[rgb(var(--studio-chip))] px-2.5 text-[11.5px] tabular-nums text-quiet transition-colors hover:bg-[rgb(var(--studio-chip-hover))] hover:text-foreground"
-              >
-                {c.label}
-              </button>
+              c.blockId ? (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => c.blockId && onOpenPeek?.(c.blockId)}
+                  className="console-focusable min-h-6 rounded-full bg-[rgb(var(--studio-chip))] px-2.5 text-[11.5px] tabular-nums text-quiet transition-colors hover:bg-[rgb(var(--studio-chip-hover))] hover:text-foreground"
+                >
+                  {c.label}
+                </button>
+              ) : (
+                <span
+                  key={i}
+                  className="inline-flex min-h-6 items-center rounded-full bg-[rgb(var(--studio-chip))] px-2.5 text-[11.5px] tabular-nums text-quiet"
+                >
+                  {c.label}
+                </span>
+              )
             ))}
           </div>
         )}
