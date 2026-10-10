@@ -96,6 +96,13 @@ pytest_plugins = ["backend.tests.execution_floor"]
 # defaults already exclude selenium, gi, prompt_toolkit).
 freezegun.configure(extend_ignore_list=["docker", "testcontainers"])
 
+# CPU contention in the full suite makes generation/deadline checks flaky;
+# correctness checks stay on.
+from hypothesis import HealthCheck, settings as _hyp_settings  # noqa: E402
+
+_hyp_settings.register_profile("ascend", suppress_health_check=[HealthCheck.too_slow], deadline=None)
+_hyp_settings.load_profile("ascend")
+
 
 # ── Outbound-access guard (unit tests only) ───────────────────────────────────
 # Unit tests must never open a real socket, and in particular must never build a

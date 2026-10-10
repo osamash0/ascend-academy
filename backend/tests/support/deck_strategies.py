@@ -1,7 +1,7 @@
 """Hypothesis strategies that generate lecture-deck-shaped page texts.
 
-Each generated deck has a title page, optional section dividers, and content
-pages, and every page carries the same footer — just like a real export,
+Each generated deck has a title page and content pages, and every page carries
+the same footer — just like a real export,
 where '{n}' becomes the page number. That gives tests a known ground truth
 for boilerplate and roles.
 """
