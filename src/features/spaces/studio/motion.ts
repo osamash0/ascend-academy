@@ -21,3 +21,8 @@ export const GLOW_FADE_S = 0.8;
 /** Teal in rgba because Motion cannot interpolate `var()`. Matches --studio-woven (dark). */
 export const GLOW_ON = 'rgba(159,211,199,0.06)';
 export const GLOW_OFF = 'rgba(159,211,199,0)';
+/** The light theme's teal is deeper, or the glow would be invisible on paper. */
+export const GLOW_ON_LIGHT = 'rgba(47,125,109,0.10)';
+export const GLOW_OFF_LIGHT = 'rgba(47,125,109,0)';
+export const glowColors = (theme: 'light' | 'dark') =>
+  theme === 'light' ? { on: GLOW_ON_LIGHT, off: GLOW_OFF_LIGHT } : { on: GLOW_ON, off: GLOW_OFF };

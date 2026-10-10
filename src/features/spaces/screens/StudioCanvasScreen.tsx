@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
-import { LayoutGroup } from 'motion/react';
+import { LayoutGroup, useReducedMotion } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
@@ -187,13 +187,55 @@ export default function StudioCanvasScreen() {
   /** The answer whose anchor is glowing: only its settling ends the glow. */
   const glowFor = useRef<string | null>(null);
   const mounted = useRef(true);
+  const announceTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
       clearTimeout(noticeTimer.current);
+      clearTimeout(announceTimer.current);
     };
   }, []);
+  /** Clear, then say it a beat later: the same words twice are still announced twice. */
+  const say = useCallback((text: string) => {
+    clearTimeout(announceTimer.current);
+    setAnnounce('');
+    announceTimer.current = setTimeout(() => setAnnounce(text), 50);
+  }, []);
+  const reduceMotion = useReducedMotion();
+  /** The composer's wrapper: "Added below" means below what the composer leaves visible. */
+  const composerRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * The paragraph you last selected text in (spec §4.2 rule 1). Kept across
+   * the click into the composer, which collapses the selection; used once.
+   */
+  const lastSelectionBlock = useRef<string | null>(null);
+  useEffect(() => {
+    const onSelection = () => {
+      const sel = window.getSelection?.();
+      const node = sel?.anchorNode ?? null;
+      const el = node instanceof Element ? node : (node?.parentElement ?? null);
+      const block = el?.closest<HTMLElement>('[data-view="clean"] [data-block-id]') ?? null;
+      if (!sel || sel.isCollapsed) {
+        // A click elsewhere in your version drops it; focusing the composer does not.
+        if (el?.closest('[data-view="clean"]')) lastSelectionBlock.current = null;
+        return;
+      }
+      if (block && !block.matches('[data-woven]')) lastSelectionBlock.current = block.dataset.blockId ?? null;
+    };
+    document.addEventListener('selectionchange', onSelection);
+    return () => document.removeEventListener('selectionchange', onSelection);
+  }, []);
+
+  /** After Undo, focus goes to the restored answer's Remove button, never to the page body. */
+  const focusAfterRestore = useRef<string | null>(null);
+  useEffect(() => {
+    const id = focusAfterRestore.current;
+    if (!id) return;
+    focusAfterRestore.current = null;
+    document.querySelector<HTMLElement>(`[data-block-id="${id}"] button[aria-label="Remove this answer"]`)?.focus();
+  }, [edited]);
   /** The composer input, if you asked from it: it is disabled while answering, so focus goes back after. */
   const refocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -218,9 +260,8 @@ export default function StudioCanvasScreen() {
     showNotice(null);
     const active = document.activeElement;
     if (active instanceof HTMLInputElement && active.closest('form')) refocus.current = active;
-    const selectionBlock =
-      (window.getSelection()?.anchorNode?.parentElement?.closest('[data-block-id]') as HTMLElement | null)?.dataset
-        .blockId ?? null;
+    const selectionBlock = lastSelectionBlock.current;
+    lastSelectionBlock.current = null;
     const result = await ask(question);
     if (!mounted.current || result.kind === 'busy') return;
     if (result.kind === 'unknown') {
@@ -230,12 +271,15 @@ export default function StudioCanvasScreen() {
     // Computed outside any state updater: StrictMode runs updaters twice.
     const base = docRef.current;
     if (!base) return;
+    // Last resort: the last paragraph that isn't itself an answer.
+    const fallback = [...base.blocks].reverse().find((b) => b.origin !== 'generated')?.id ?? null;
     const anchorId =
       resolveAnchor(base.blocks, {
         selection: selectionBlock,
         cited: result.answer.anchorId,
         readingLine: blockAtReadingLine(column.current),
-      }) ?? base.blocks[base.blocks.length - 1].id;
+      }) ?? fallback;
+    if (!anchorId) return;
     const id = `ans-${++askSeq.current}`;
     const block: GeneratedBlock = {
       id,
@@ -256,7 +300,7 @@ export default function StudioCanvasScreen() {
       glowFor.current = id;
       setGlowId(anchorId);
     }
-    setAnnounce(`Answer added under: ${anchorBlock ? firstWords(anchorBlock.markdown) : 'the end'}`);
+    say(`Answer added under: ${anchorBlock ? firstWords(anchorBlock.markdown) : 'the end'} (for: ${question})`);
   };
 
   /* Leaving Learn ends any growth: on the way back the answer is simply there. */
@@ -274,11 +318,14 @@ export default function StudioCanvasScreen() {
     if (!el) return;
     // A growing answer starts 0 px tall but its top is real; only skip when there is no layout at all.
     if (el.getClientRects().length === 0) return;
-    if (el.getBoundingClientRect().top <= window.innerHeight) return;
+    // Visible means above the composer (and its scrim), not merely inside the window.
+    const c = composerRef.current?.getBoundingClientRect();
+    const fold = c && c.height > 0 ? c.top : window.innerHeight - 192;
+    if (el.getBoundingClientRect().top <= fold) return;
     showNotice({
       kind: 'below',
       onJump: () => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
         showNotice(null);
       },
     });
@@ -291,6 +338,8 @@ export default function StudioCanvasScreen() {
     });
     io.observe(el);
     return () => io.disconnect();
+    // reduceMotion is read when you jump; a change mid-notice needn't re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freshId, showNotice]);
 
   const onAnswerSettled = useCallback((id: string) => {
@@ -322,6 +371,7 @@ export default function StudioCanvasScreen() {
           if (now) {
             const back = restoreBlock(now, removed);
             docRef.current = back;
+            focusAfterRestore.current = removed.block.id;
             dropLayoutIds();
             setEdited(back);
           }
@@ -461,6 +511,7 @@ export default function StudioCanvasScreen() {
                 onAnswerSettled={onAnswerSettled}
                 onRemoveAnswer={onRemoveAnswer}
                 onOpenPeekSource={onOpenPeekSource}
+                theme={theme}
               />
             </LayoutGroup>
           </main>
@@ -484,6 +535,7 @@ export default function StudioCanvasScreen() {
 
       {/* Ask, with the page line tucked in at its end. */}
       <div
+        ref={composerRef}
         className={cn(
           'pointer-events-none fixed inset-x-0 bottom-5 z-20 flex justify-center px-4 min-[1180px]:left-60',
           gutter && 'right-[29.5rem]',

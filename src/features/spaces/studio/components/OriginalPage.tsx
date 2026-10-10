@@ -54,7 +54,11 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
   return (
     <section
       onKeyDown={(e) => {
-        if (e.key === 'Escape' && offer) setOffer(null);
+        // Esc first withdraws the offer; only a second Esc leaves Source.
+        if (e.key === 'Escape' && offer) {
+          e.stopPropagation();
+          setOffer(null);
+        }
       }}
       data-view="original"
       data-page-anchor={page.page}

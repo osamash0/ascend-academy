@@ -34,6 +34,7 @@ interface Props {
   onRemoveAnswer(id: string): void;
   /** A citation chip names a *source* block; the screen finds the paragraph that covers it. */
   onOpenPeekSource(sourceBlockId: string): void;
+  theme?: 'light' | 'dark';
 }
 
 /**
@@ -106,6 +107,7 @@ export function CanvasPage(p: Props) {
                           onSettled={p.onAnswerSettled}
                           onRemove={p.onRemoveAnswer}
                           onOpenPeek={p.onOpenPeekSource}
+                          flying={p.flying && morph}
                         />
                       ) : (
                         <CleanBlock
@@ -120,6 +122,7 @@ export function CanvasPage(p: Props) {
                           active={p.activeBlockId === b.id}
                           flash={p.flashBlockId === b.id}
                           glow={p.glowId === b.id}
+                          theme={p.theme}
                           markerDisabled={p.sourceRemoved}
                           onPointerEnter={p.onBlockPointerEnter}
                           onPointerLeave={p.onBlockPointerLeave}

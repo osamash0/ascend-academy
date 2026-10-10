@@ -100,4 +100,20 @@ describe('WovenAnswer', () => {
     expect(screen.getByText('p. 9').tagName).toBe('SPAN');
     expect(screen.queryByRole('button', { name: /p\. 9/ })).toBeNull();
   });
+
+  it('fades back in after the flight when it returns on the page that flies', () => {
+    const { container, unmount } = render(<WovenAnswer block={block} fresh={false} flying onSettled={vi.fn()} onRemove={vi.fn()} />);
+    expect((container.firstElementChild as HTMLElement).style.opacity).toBe('0');
+    unmount();
+    const other = render(<WovenAnswer block={block} fresh={false} onSettled={vi.fn()} onRemove={vi.fn()} />);
+    expect((other.container.firstElementChild as HTMLElement).style.opacity).not.toBe('0');
+  });
+
+  it('clips only while its height moves, so the Remove focus ring shows once settled', () => {
+    const { container } = render(<WovenAnswer block={block} fresh={false} onSettled={vi.fn()} onRemove={vi.fn()} />);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root).not.toHaveClass('overflow-hidden');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove this answer' }));
+    expect(root).toHaveClass('overflow-hidden');
+  });
 });

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
 import {
-  COLLAPSE_S, FLIGHT_EASE, GROW_S, RULE_S, WORD_BUDGET_S, WORD_LIMIT, WORD_S, WORD_STAGGER_S,
+  COLLAPSE_S, FLIGHT_EASE, FLIGHT_S, GROW_S, TEXT_FADE_S, RULE_S, WORD_BUDGET_S, WORD_LIMIT, WORD_S, WORD_STAGGER_S,
 } from '../motion';
 import { firstWords, plainText } from '../text';
 import { useKeepPlace } from '../useKeepPlace';
@@ -15,6 +16,8 @@ interface Props {
   onSettled(id: string): void;
   onRemove(id: string): void;
   onOpenPeek?(blockId: string): void;
+  /** On the page flying back from Source: fade in after the paragraphs land, like their text (spec §4.8). */
+  flying?: boolean;
 }
 
 /** Per-word start delays: word by word up to WORD_LIMIT, then in groups; never past WORD_BUDGET_S. */
@@ -40,10 +43,12 @@ export function wordDelays(count: number): number[] {
  * terms light up last). Not fresh, or reduced motion: it is simply there.
  * Remove collapses it, then asks the screen to take it out (Undo lives there).
  */
-export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek }: Props) {
+export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek, flying = false }: Props) {
   const reduce = useReducedMotion();
   const animate = fresh && !reduce;
   const [settled, setSettled] = useState(!animate);
+  // Decided once, at mount: the flight that brought it back is over before this could change.
+  const [fadeBack] = useState(() => flying && !fresh && !reduce);
   const [leaving, setLeaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [justSettled, setJustSettled] = useState(false);
@@ -95,13 +100,14 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek }: P
       data-block-id={block.id}
       data-extracted="false"
       data-woven="true"
-      initial={animate ? { height: 0, opacity: 1 } : reduce && fresh ? { opacity: 0 } : false}
+      initial={animate ? { height: 0, opacity: 1 } : (reduce && fresh) || fadeBack ? { opacity: 0 } : false}
       animate={leaving ? { height: 0, opacity: reduce ? 0 : 1 } : { height: 'auto', opacity: 1 }}
       transition={{
         height: { duration: reduce ? 0 : leaving ? COLLAPSE_S : GROW_S, ease: FLIGHT_EASE },
-        opacity: { duration: 0.15 },
+        opacity: fadeBack ? { delay: FLIGHT_S * 0.6, duration: TEXT_FADE_S } : { duration: 0.15 },
       }}
-      className="group/woven relative overflow-hidden"
+      // Clip only while the height moves: settled, the Remove button's focus ring must show.
+      className={cn('group/woven relative', (!settled || leaving) && 'overflow-hidden')}
     >
       <div className="relative mb-4 mt-0.5 py-1 pl-[18px]">
         <motion.span

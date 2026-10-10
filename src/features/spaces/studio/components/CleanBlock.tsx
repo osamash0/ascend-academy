@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
 import {
-  FLASH_FRAMES, FLIGHT_EASE, FLIGHT_S, GLOW_FADE_S, GLOW_OFF, GLOW_ON, STAGGER_S, TEXT_FADE_S,
+  FLASH_FRAMES, FLIGHT_EASE, FLIGHT_S, GLOW_FADE_S, STAGGER_S, TEXT_FADE_S, glowColors,
 } from '../motion';
 import { hasSource } from '../edit';
 import type { CanvasBlock } from '../types';
@@ -31,6 +31,8 @@ interface Props {
   markerDisabled: boolean;
   /** Living Learn: a glow on the paragraph that a question just wove in (wired in Task 7). */
   glow?: boolean;
+  /** The glow's teal depends on the ground it sits on. */
+  theme?: 'light' | 'dark';
   onPointerEnter(blockId: string, pointerType: string): void;
   onPointerLeave(): void;
   onOpenPeek(blockId: string): void;
@@ -46,7 +48,7 @@ interface Props {
  * hover or focus to keep the margin quiet.
  */
 export const CleanBlock = memo(function CleanBlock({
-  block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled, glow = false,
+  block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled, glow = false, theme = 'dark',
   onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
 }: Props) {
   const sourced = hasSource(block);
@@ -56,6 +58,7 @@ export const CleanBlock = memo(function CleanBlock({
   /* Once glowed, the glow fades out instead of vanishing; before that, no inline box styles at all. */
   const [glowed, setGlowed] = useState(false);
   if (glow && !glowed) setGlowed(true);
+  const { on: GLOW_ON, off: GLOW_OFF } = glowColors(theme);
   return (
     <motion.div
       data-block-id={block.id}

@@ -32,6 +32,12 @@ const fade = { initial: { opacity: 0, y: 4 }, animate: { opacity: 1, y: 0 }, exi
 export function Composer({ answering, suggestions, showSuggestions, notice, hint, pager, onAsk }: Props) {
   const [value, setValue] = useState('');
   const input = useRef<HTMLInputElement>(null);
+  const undo = useRef<HTMLButtonElement>(null);
+  /* After Remove the answer and its button are gone: Undo takes the focus, if nothing else has it. */
+  const removed = notice?.kind === 'removed';
+  useEffect(() => {
+    if (removed && (document.activeElement === document.body || document.activeElement === null)) undo.current?.focus();
+  }, [removed]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -47,6 +53,8 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
   const send = (q: string, fromInput = false) => {
     const question = q.trim();
     if (!question || answering) return;
+    // A chip vanishes while answering: hold focus in the input so it never drops to the page.
+    if (!fromInput) input.current?.focus();
     onAsk(question);
     if (fromInput) setValue('');
   };
@@ -66,12 +74,12 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
         <AnimatePresence initial={false} mode="popLayout">
           {notice?.kind === 'unknown' ? (
             <motion.p key="unknown" {...fade} className="pointer-events-auto text-center text-[12.5px] text-quiet">
-              In this preview I can answer a few questions about Normalization — try one of these:
+              In this preview I can answer a few questions about this Material — try one of these:
             </motion.p>
           ) : notice?.kind === 'removed' ? (
             <motion.div key="removed" {...fade} className="pointer-events-auto flex items-center gap-2 text-[12.5px] text-quiet">
               Answer removed
-              <button type="button" onClick={notice.onUndo} className={chip}>Undo</button>
+              <button ref={undo} type="button" onClick={notice.onUndo} className={chip}>Undo</button>
             </motion.div>
           ) : notice?.kind === 'below' ? (
             <motion.button key="below" type="button" {...fade} onClick={notice.onJump} className={chip}>

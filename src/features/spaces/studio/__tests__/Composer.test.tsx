@@ -47,7 +47,7 @@ describe('Composer', () => {
   });
   it('says honestly when it cannot answer, and offers the suggestions', () => {
     render(<Composer {...base} showSuggestions={false} notice={{ kind: 'unknown' }} />);
-    expect(screen.getByText(/In this preview I can answer a few questions about Normalization/)).toBeInTheDocument();
+    expect(screen.getByText(/In this preview I can answer a few questions about this Material/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Why does repeated data cause problems?' })).toBeInTheDocument();
   });
   it('offers Undo and Added below', () => {

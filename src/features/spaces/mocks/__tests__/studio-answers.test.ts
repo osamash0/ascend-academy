@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STUDIO_ANSWERS, SUGGESTED_QUESTIONS, findAnswer } from '../studio-answers';
 import { STUDIO_CANVAS, studioPages } from '../studio-canvas';
+import { hasSource } from '../../studio/edit';
 
 describe('scripted answers', () => {
   it('anchor on a paragraph that exists, and cite blocks that exist', () => {
@@ -12,6 +13,14 @@ describe('scripted answers', () => {
         expect(page.blocks.some((s) => s.id === c.blockId), `${a.question} → ${c.blockId}`).toBe(true);
       }
     }
+  });
+  it('cite only source blocks a paragraph covers, so a citation chip always opens Peek somewhere', () => {
+    for (const a of STUDIO_ANSWERS)
+      for (const c of a.citations)
+        expect(
+          STUDIO_CANVAS.blocks.some((b) => hasSource(b) && b.source.blockIds.includes(c.blockId!)),
+          `${a.question} → ${c.blockId}`,
+        ).toBe(true);
   });
   it('match their own question, case-insensitively, and nothing else matches by accident', () => {
     for (const a of STUDIO_ANSWERS) {
