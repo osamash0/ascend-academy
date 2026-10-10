@@ -270,7 +270,15 @@ export function ContributionCard({
         content rather than competing with it.
       */}
       {(moderator || canReport(c) || mayRehome) && (
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.06] pt-3">
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-1.5 border-t border-white/[0.06] pt-3',
+            /* A Member's only act here is Report — the same word on every
+               card. Where there is a pointer it waits for hover or focus; on
+               touch it stays, since there is no hover to reveal it. */
+            !moderator && '[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100',
+          )}
+        >
           {/*
             Re-filing sits with the Owner's acts because it is one — Doc 1
             surfaces an orphan to the Owner *and* the author, and both may fix

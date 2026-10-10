@@ -43,10 +43,10 @@ const LIGHT_WORD: Record<Light, string | null> = {
   dark: null,
 };
 
-const STATE: Record<Concept['progress'], string> = {
+const STATE: Record<Concept['progress'], string | null> = {
   cleared: 'Cleared',
   discovered: 'Read',
-  untouched: 'Not yet',
+  untouched: null,
 };
 
 export function IdeaExplorer({ ideas, file, readHref, conceptHref }: Props) {

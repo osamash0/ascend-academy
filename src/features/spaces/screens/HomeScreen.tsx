@@ -1,23 +1,19 @@
-import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles, TrendingUp } from 'lucide-react';
+import { Flame, PartyPopper, Play, Plus, RotateCw, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
 import { LunaAstronaut } from '../../../../learnstation-luna';
 import { cn } from '@/lib/utils';
 import { Pressable, PressableLink } from '../components/Pressable';
-import { gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import { AskBar } from '../components/AskBar';
-import { BentoCell } from '../components/BentoCell';
 import { LessonTile } from '../components/LessonTile';
 import type { HomeItem } from '../mocks/library';
-import { viewerStanding } from '../mocks/library';
-import { standingFor } from '../mocks/rank';
 import { askAcknowledgement, askModel, askSuggestions } from '../mocks/assistant';
 import { useHome } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
-import { Masthead, Skylight, StageRow, ghostPill, stageAccentFor } from '../components/stage';
+import { Masthead, Sep, Skylight, StageRow, UpNext, ghostPill, stageAccentFor } from '../components/stage';
 import { Scene, SURFACES } from '../components/Scene';
 import { JoinSpaceDialog, NewSpaceDialog } from '../components/SpaceDialogs';
 import { SpacesError, SpacesSkeleton } from '../components/states';
@@ -84,25 +80,8 @@ const REASON_ICON: Record<HomeItem['reason'], typeof Play> = {
 };
 
 /*
- * Progression is read, never restated.
- *
- * This file used to carry `RANK = 'Rank 1'`, `XP = 60`, `XP_PER_RANK = 250` as
- * module constants while `SpacesTopBar` read `viewerStanding()` — so the bar at
- * the top of Home and the cell in the middle of Home stated the viewer's rank
- * independently, agreeing only because the two literals happened to match the
- * fixture. `mocks/library.ts` already fixed exactly this between the bar and
- * the leaderboard, and says so above `viewerStanding`; Home was the copy left
- * behind.
- *
- * There is nothing to keep in sync now, because there is only one value: the
- * label and the XP come from `viewerStanding()`, and the thresholds from
- * `standingFor()`, which the Rank screen also uses.
- *
- * The mock this screen was designed from shows "Lvl 3 · 230 XP" in the bar.
- * That is v3 vocabulary — Foundations Rule 7 locks progression to XP and Rank,
- * as `SpacesTopBar` notes — and the mock disagrees with its own Rank cell
- * ("Rank 1 · 60 XP") two rows below, which is the same defect drawn rather than
- * coded.
+ * Home states no progression of its own: the top bar carries Rank and XP on
+ * every screen, and the streak is said once, in the greeting.
  */
 
 const greeting = () => {
@@ -122,23 +101,14 @@ export default function HomeScreen() {
   const [joinOpen, setJoinOpen] = useState(false);
   /** The most recent thing you touched — the target for "Review something". */
   const lastTouched = recent[0] ?? feed[0];
-
   /*
-   * Derived from `feed` and nothing else. A cell that states a count must open
-   * the thing it counted, so each keeps its first item rather than just a
-   * length — otherwise the number and the destination are two facts that can
-   * disagree, which is the §A failure this screen already had once.
+   * Recently viewed shows only what nothing else on Home already offers — the
+   * hero and the queue each name a Lesson once, so the rail does not repeat
+   * them (it used to show Introduction three times over).
    */
-  const due = feed.filter((i) => i.reason === 'review');
-  const dueForReview = due.length;
-  const firstDue = due[0];
-  const fresh = feed.filter((i) => i.reason === 'new');
-  const newCount = fresh.length;
-  const newest = fresh[0];
+  const inQueue = new Set([next?.lessonId, ...feed.map((i) => i.lessonId)]);
+  const unseenRecent = recent.filter((r) => !inQueue.has(r.lessonId));
 
-  /** One source, shared with the top bar and the Rank screen. */
-  const standing = viewerStanding();
-  const progress = standingFor(standing.xp);
 
   /*
    * What you asked Luna, echoed back.
@@ -169,7 +139,6 @@ export default function HomeScreen() {
   // Brand-new account: nothing to continue. One action, join or create — and
   // this is the only place Home may point at Spaces rather than a Lesson,
   // because there is no Lesson to point at yet.
-  const NextIcon = next ? topicIcon(next.lessonTitle, next.lessonId) : Play;
 
   if (kind === 'review' && next) {
     return chrome(
@@ -280,7 +249,20 @@ export default function HomeScreen() {
         */}
         <Masthead
           className="mt-4"
-          eyebrow={`${greeting()}, ${viewer.name}`}
+          eyebrow={
+            <>
+              {greeting()}, {viewer.name}
+              {/* The streak, said once, where you are greeted — it was a
+                  bento cell repeating a number the Profile also shows. */}
+              {streakDays > 0 && (
+                <>
+                  <Sep />
+                  <Flame aria-hidden className="mb-0.5 mr-1 inline h-3.5 w-3.5 text-streak" />
+                  {streakDays} {streakDays === 1 ? 'day' : 'days'} in a row
+                </>
+              )}
+            </>
+          }
           title={<span id="home-greeting">What should we focus on?</span>}
         />
       </section>
@@ -310,171 +292,31 @@ export default function HomeScreen() {
       </div>
 
       {/*
-        The bento. Read from the PS5 home: heterogeneous cells, the one thing
-        you should do next given the widest span and its own art, and the
-        supporting numbers reported the way the console reports storage or
-        trophies — one figure, plainly.
+        ── The one thing ──
+        Home was three layers saying the same things: bento cells (Due for
+        review, New since you were here), a Recently viewed rail, and an "Also
+        waiting" list — the same Lessons in each (Abi, 2026-10-10: one fact,
+        once). Now: the one thing, as the same Up next card a Space shows,
+        then one queue where every item says why it is there.
 
-        Doc 2: "Home links to Lessons and practice, never to a Space card." A
-        cell names its Space as context; none of them is a way *into* a Space.
-
-        Every cell that *carries* a Lesson opens it, by `to` — the hero, Due for
-        review and New since you were here. Streak and Rank carry no Lesson, so
-        they stay plain `div`s: a readout, not a control. Nothing here invents a
-        destination it does not have.
-
-        This comment used to read "every cell here opens a Lesson or practice",
-        and not one of the five passed anything. `BentoCell` picks its tag from
-        those props, so the hero — the largest thing on the landing screen, the
-        "one thing" — rendered as a `div`: unreachable by keyboard, inert on
-        click, while every smaller item on the page opened fine. The rule was
-        written here and enforced nowhere, which is CYCLE.md §E. Note the shape
-        of the miss: `deadends.test.tsx` asks whether every `<button>` has a
-        handler, so a control that was never made a button in the first place
-        walks straight past it. `openable.test.tsx` is the gate that does see it.
+        Doc 2: "Home links to Lessons and practice, never to a Space card." The
+        Space is named as context; the card opens the Lesson.
       */}
-      <StageRow title="Today" id="next-heading">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <BentoCell
-          icon={Play}
-          label={heroLabel(next.reason)}
-          className="sm:col-span-2"
+      <div className="mt-14">
+        <UpNext
           to={`/v4/space/${next.spaceId}/lesson/${next.lessonId}`}
-          art={
-            <>
-              <div
-                className={cn('absolute inset-0 bg-gradient-to-l opacity-35', gradientFor(next.lessonOrder))}
-              />
-              <NextIcon aria-hidden className="absolute right-5 top-1/2 h-20 w-20 -translate-y-1/2 text-white/10" />
-            </>
-          }
-        >
-          {/* The Space is context, not a destination. */}
-          <p className="text-[12.5px] text-faint">
-            {next.spaceName} · Lesson {next.lessonOrder}
-          </p>
-          <p className="mt-1 line-clamp-2 pr-24 text-[20px] font-semibold leading-snug">
-            {next.lessonTitle}
-          </p>
-          {next.percentComplete > 0 && (
-            <div className="mt-3 flex items-center gap-3">
-              <div className="h-1 w-full max-w-[13rem] overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary to-secondary"
-                  style={{ width: `${next.percentComplete}%` }}
-                />
-              </div>
-              <span className="shrink-0 text-[12.5px] text-quiet tabular-nums">
-                {next.percentComplete}%
-              </span>
-            </div>
-          )}
-        </BentoCell>
-
-        <BentoCell icon={Flame} label="Streak">
-          <p className="text-[28px] font-semibold leading-none tabular-nums">
-            {streakDays}
-            <span className="ml-1.5 text-[16px] text-quiet">
-              {streakDays === 1 ? 'day' : 'days'}
-            </span>
-          </p>
-          <p className="mt-2 text-[13px] text-quiet">Keep it going today</p>
-        </BentoCell>
-
-        {/* No Rank cell: the top bar carries Rank and XP on every screen,
-            so a cell here said it twice (Abi, 2026-10-10). */}
-
-        {dueForReview > 0 && firstDue && (
-          <BentoCell
-            icon={RotateCw}
-            label="Due for review"
-            className="sm:col-span-2"
-            to={`/v4/space/${firstDue.spaceId}/lesson/${firstDue.lessonId}`}
-          >
-            <p className="text-[28px] font-semibold leading-none tabular-nums">
-              {dueForReview}
-              <span className="ml-1.5 text-[16px] text-quiet">
-                {dueForReview === 1 ? 'Lesson' : 'Lessons'}
-              </span>
-            </p>
-            <p className="mt-2 text-[13px] text-quiet">
-              Spaced out so it sticks. A few minutes is enough.
-            </p>
-          </BentoCell>
-        )}
-
-        {newCount > 0 && newest && (
-          <BentoCell
-            icon={Sparkles}
-            label="New since you were here"
-            className="sm:col-span-2"
-            to={`/v4/space/${newest.spaceId}/lesson/${newest.lessonId}`}
-          >
-            <p className="text-[28px] font-semibold leading-none tabular-nums">
-              {newCount}
-              <span className="ml-1.5 text-[16px] text-quiet">
-                {newCount === 1 ? 'Lesson' : 'Lessons'}
-              </span>
-            </p>
-            {/* Naming the latest is what makes the cell openable honestly: the
-                destination is the Lesson the copy just named. */}
-            <p className="mt-2 line-clamp-1 text-[13px] text-quiet">
-              Latest: {newest.lessonTitle} · {newest.spaceName}
-            </p>
-          </BentoCell>
-        )}
+          number={next.lessonOrder}
+          kicker={`${next.spaceName}${next.percentComplete > 0 ? ` · ${next.percentComplete}% read` : ` · ${heroLabel(next.reason)}`}`}
+          title={next.lessonTitle}
+          percent={next.percentComplete}
+          accent={accent ?? '#ffffff'}
+          verb={next.percentComplete > 0 ? 'Continue' : 'Start'}
+        />
       </div>
-      </StageRow>
-
-      {recent.length > 0 && (
-        <StageRow id="recent-heading" title="Recently viewed">
-          {/* A rail, like the Spaces rows — and Lesson-level, like everything
-              else on Home. Excludes whatever "Continue" already offers. */}
-          <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {recent.map((r) => {
-              const Icon = topicIcon(r.lessonTitle, r.lessonId);
-              return (
-                /*
-                 * A link, not a button. Both opened the Lesson, but these four
-                 * covers were the only Lesson targets on Home that carried no
-                 * `href` — "Also waiting" below is already `<Link>`. So the
-                 * same act had two implementations, and the button half lost
-                 * cmd-click, middle-click, open-in-new-tab and the status-bar
-                 * preview. `PressableLink` keeps the identical press feel and
-                 * was already in use on three other screens; Home was the
-                 * outlier, not the pattern.
-                 */
-                <PressableLink
-                  key={r.lessonId}
-                  to={`/v4/space/${r.spaceId}/lesson/${r.lessonId}`}
-                  aria-label={`${r.lessonTitle}, Lesson ${r.lessonOrder} in ${r.spaceName}`}
-                  className="console-focusable block h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left"
-                >
-                  {/*
-                    Cover art, not a plain card. `LessonTile` existed, matched
-                    this product's console language, and nothing in the repo
-                    imported it — so its progress bar, its watermark and its
-                    "Done" badge had never rendered against anything. A
-                    component with no call site is written, not built.
-                  */}
-                  <LessonTile
-                    title={r.lessonTitle}
-                    eyebrow={r.spaceName}
-                    gradientIndex={r.lessonOrder}
-                    progress={r.percentComplete}
-                    done={r.percentComplete === 100}
-                    watermark={<Icon aria-hidden className="h-16 w-16 text-white/[0.10]" />}
-                  />
-                </PressableLink>
-              );
-            })}
-          </div>
-        </StageRow>
-      )}
 
       {/* Everything else, still Lesson-level. Never a Space card. */}
       {feed.length > 0 && (
-        <StageRow id="feed-heading" title="Also waiting" count={feed.length}>
+        <StageRow id="feed-heading" title="Also today" count={feed.length}>
           <ul className="space-y-2.5">
             {feed.map((item) => {
               const Icon = REASON_ICON[item.reason];
@@ -520,6 +362,52 @@ export default function HomeScreen() {
           </ul>
         </StageRow>
       )}
+      {unseenRecent.length > 0 && (
+        <StageRow id="recent-heading" title="Recently viewed">
+          {/* A rail, like the Spaces rows — and Lesson-level, like everything
+              else on Home. Excludes whatever "Continue" already offers. */}
+          <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {unseenRecent.map((r) => {
+              const Icon = topicIcon(r.lessonTitle, r.lessonId);
+              return (
+                /*
+                 * A link, not a button. Both opened the Lesson, but these four
+                 * covers were the only Lesson targets on Home that carried no
+                 * `href` — "Also waiting" below is already `<Link>`. So the
+                 * same act had two implementations, and the button half lost
+                 * cmd-click, middle-click, open-in-new-tab and the status-bar
+                 * preview. `PressableLink` keeps the identical press feel and
+                 * was already in use on three other screens; Home was the
+                 * outlier, not the pattern.
+                 */
+                <PressableLink
+                  key={r.lessonId}
+                  to={`/v4/space/${r.spaceId}/lesson/${r.lessonId}`}
+                  aria-label={`${r.lessonTitle}, Lesson ${r.lessonOrder} in ${r.spaceName}`}
+                  className="console-focusable block h-[150px] w-[13.5rem] shrink-0 rounded-2xl text-left"
+                >
+                  {/*
+                    Cover art, not a plain card. `LessonTile` existed, matched
+                    this product's console language, and nothing in the repo
+                    imported it — so its progress bar, its watermark and its
+                    "Done" badge had never rendered against anything. A
+                    component with no call site is written, not built.
+                  */}
+                  <LessonTile
+                    title={r.lessonTitle}
+                    eyebrow={r.spaceName}
+                    gradientIndex={r.lessonOrder}
+                    progress={r.percentComplete}
+                    done={r.percentComplete === 100}
+                    watermark={<Icon aria-hidden className="h-16 w-16 text-white/[0.10]" />}
+                  />
+                </PressableLink>
+              );
+            })}
+          </div>
+        </StageRow>
+      )}
+
     </div>,
   );
 }
