@@ -126,7 +126,7 @@ const FindFriends = lazy(() => import("./features/social/pages/FindFriends"));
 const PageLoader = () => {
   const { t } = useTranslation(['common']);
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black gap-4">
       <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-glow-primary" />
       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary animate-pulse">{t('common:loader.syncing')}</p>
     </div>

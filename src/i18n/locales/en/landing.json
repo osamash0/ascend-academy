@@ -139,5 +139,61 @@
     "imprint": "Imprint",
     "privacyPolicy": "Privacy Policy",
     "copyright": "© {{year}} Learnstation. All rights reserved."
+  },
+  "story": {
+    "nav": {
+      "signIn": "Sign in",
+      "start": "Start learning"
+    },
+    "hero": {
+      "title": "Learning you can touch.",
+      "lede": "Turn any PDF into something you can read, explore and understand.",
+      "start": "Start learning",
+      "signIn": "Sign in",
+      "try": "Try it"
+    },
+    "tabs": {
+      "original": "Original",
+      "explore": "Explore",
+      "learn": "Learn",
+      "practise": "Practise"
+    },
+    "slide": {
+      "kicker": "Databases · 03",
+      "title": "Normalization: Functional Dependencies",
+      "b1": "A functional dependency X → Y holds on R iff any two tuples that agree on X also agree on Y",
+      "b2": "Armstrong's axioms: reflexivity, augmentation, transitivity (sound & complete)",
+      "b3": "Closure X⁺ := set of all attributes functionally determined by X",
+      "b4": "A transitive dependency A → B → C with B non-key ⇒ update anomalies",
+      "b5": "3NF: no non-key attribute transitively dependent on a candidate key",
+      "page": "p. 14"
+    },
+    "read": {
+      "title": "When one fact decides another",
+      "p1": "Same X, same Y. That’s a dependency: X → Y.",
+      "p2": "A chain like key → B → C lets a table contradict itself."
+    },
+    "ask": {
+      "tool": "Closure",
+      "hint": "Tap one",
+      "result": "computed, not guessed"
+    },
+    "prove": {
+      "q": "Customer → City. Which form breaks first?",
+      "right": "Right. Split City out.",
+      "wrong": "Look at what decides City."
+    },
+    "lights": {
+      "title": "Every subject has its own light.",
+      "decks": [
+        "Normalization",
+        "Linear Algebra",
+        "Cryptography"
+      ]
+    },
+    "close": {
+      "title": "Start with one PDF.",
+      "start": "Start learning"
+    }
   }
 }
