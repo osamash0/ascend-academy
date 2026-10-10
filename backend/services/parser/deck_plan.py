@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from dataclasses import dataclass
+from enum import Enum
 from typing import Iterable
 
 _WS = re.compile(r"\s+")
@@ -42,3 +44,87 @@ def find_boilerplate(pages: list[str], min_share: float = 0.6, min_pages: int = 
 
 def strip_boilerplate(page: str, boilerplate: frozenset[str]) -> str:
     return "\n".join(ln for ln in _lines(page) if normalize_line(ln) not in boilerplate)
+
+
+class SlideRole(str, Enum):
+    TITLE = "title"
+    AGENDA = "agenda"
+    SECTION = "section"
+    CONTENT = "content"
+    EXERCISE = "exercise"
+    SUMMARY = "summary"
+    REFERENCES = "references"
+    EMPTY = "empty"
+
+
+# Matched against the slide's FIRST non-empty line only. Lecture decks here
+# are German or English, so each pattern covers both.
+_HEADING_ROLES: tuple[tuple[re.Pattern[str], SlideRole], ...] = (
+    (re.compile(r"^(agenda|outline|overview|inhalt|gliederung|übersicht)\b", re.I), SlideRole.AGENDA),
+    (re.compile(r"^(übung|uebung|aufgabe|exercise|quiz|task)\b", re.I), SlideRole.EXERCISE),
+    (re.compile(r"^(zusammenfassung|summary|fazit|recap|conclusion|takeaways?)\b", re.I), SlideRole.SUMMARY),
+    (re.compile(r"^(literatur|references|quellen|bibliography|further reading)\b", re.I), SlideRole.REFERENCES),
+)
+_SECTION_MAX_WORDS = 6
+
+
+@dataclass(frozen=True)
+class SlidePlan:
+    index: int
+    role: SlideRole
+    text: str
+    section: int
+
+
+@dataclass(frozen=True)
+class Section:
+    index: int
+    title: str
+    start: int
+    end: int  # inclusive
+
+
+@dataclass(frozen=True)
+class DeckSkeleton:
+    boilerplate: frozenset[str]
+    slides: tuple[SlidePlan, ...]
+    sections: tuple[Section, ...]
+
+
+def classify_role(index: int, text: str) -> SlideRole:
+    """Role of one slide. ``text`` must already have boilerplate stripped."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines or len(" ".join(lines)) < 3:
+        return SlideRole.EMPTY
+    if index == 0:
+        return SlideRole.TITLE
+    for pattern, role in _HEADING_ROLES:
+        if pattern.match(lines[0]):
+            return role
+    if len(lines) <= 2 and len(" ".join(lines).split()) <= _SECTION_MAX_WORDS:
+        return SlideRole.SECTION
+    return SlideRole.CONTENT
+
+
+def _first_line(text: str) -> str:
+    return next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+
+
+def build_deck_skeleton(pages: list[str]) -> DeckSkeleton:
+    boilerplate = find_boilerplate(pages)
+    texts = [strip_boilerplate(p, boilerplate) for p in pages]
+    roles = [classify_role(i, t) for i, t in enumerate(texts)]
+
+    starts = [0] + [i for i, r in enumerate(roles) if r is SlideRole.SECTION and i != 0]
+    sections = tuple(
+        Section(index=k, title=_first_line(texts[s]), start=s,
+                end=(starts[k + 1] - 1 if k + 1 < len(starts) else len(pages) - 1))
+        for k, s in enumerate(starts)
+    ) if pages else ()
+
+    section_of = {i: s.index for s in sections for i in range(s.start, s.end + 1)}
+    slides = tuple(
+        SlidePlan(index=i, role=roles[i], text=texts[i], section=section_of[i])
+        for i in range(len(pages))
+    )
+    return DeckSkeleton(boilerplate=boilerplate, slides=slides, sections=sections)
