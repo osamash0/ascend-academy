@@ -242,11 +242,11 @@ export default function StudioCanvasScreen() {
       </header>
 
       {/* The contents, down the left edge — wide screens only. */}
-      <div className="fixed bottom-24 left-0 top-[112px] z-20 hidden w-[240px] overflow-y-auto overflow-x-hidden pl-8 pr-4 min-[1180px]:block">
+      <div className="fixed bottom-24 left-0 top-[112px] z-20 hidden w-60 overflow-y-auto overflow-x-hidden pl-8 pr-4 min-[1180px]:block">
         <PageRail groups={groups} current={nav.current} onPage={nav.go} />
       </div>
 
-      <div className="min-[1180px]:pl-[240px]">
+      <div className="min-[1180px]:pl-60">
         <div className={cn('grid gap-6 px-4 md:px-6', gutter && 'grid-cols-[minmax(0,1fr)_minmax(22rem,28rem)]')}>
           <main
             ref={column}
@@ -286,7 +286,7 @@ export default function StudioCanvasScreen() {
       {/* The page line: where you are, and the turn. */}
       <div
         className={cn(
-          'pointer-events-none fixed inset-x-0 bottom-5 z-20 flex justify-center px-4 min-[1180px]:left-[240px]',
+          'pointer-events-none fixed inset-x-0 bottom-5 z-20 flex justify-center px-4 min-[1180px]:left-60',
           gutter && 'right-[29.5rem]',
         )}
       >

@@ -73,7 +73,7 @@ export default function StudioHomeScreen() {
           <p className="mt-3 text-[12px] text-faint">PDF, PPTX or a photo — or drop it here</p>
         </section>
 
-        <h2 className="mt-10 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+        <h2 className="mt-10 text-[12.5px] font-medium text-faint">
           Continue where you left off
         </h2>
         <div className="mt-3">

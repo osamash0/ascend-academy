@@ -26,7 +26,7 @@ export function PageRail({ groups, current, onPage }: Props) {
   const entries = useMemo(() => groups.map((g) => ({ page: g.page, key: `${g.materialId}-${g.page}`, label: labelFor(g) })), [groups]);
   return (
     <nav aria-label="Pages of this Material" className="w-full">
-      <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Pages</p>
+      <p className="mb-3 text-[12.5px] font-medium text-faint">Pages</p>
       <ol className="space-y-0.5">
         {entries.map((e) => {
           const here = e.page === current;
