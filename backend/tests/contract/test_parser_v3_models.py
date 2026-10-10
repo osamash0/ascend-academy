@@ -106,6 +106,10 @@ class TestEnums:
     def test_run_status_values(self):
         assert {s.value for s in RunStatus} == {
             "queued",
+            # Legacy waiting state from pre-v3 rows. Not part of the v3 spec and
+            # never written by current code — carried so the stalled-run sweep
+            # can load and fail those rows (see RunStatus.PENDING).
+            "pending",
             "extracting",
             "outlining",
             "analyzing",
