@@ -905,6 +905,23 @@ def _call_provider(
 # Rotation engine
 # ---------------------------------------------------------------------------
 
+def _http_status(exc: BaseException) -> Optional[int]:
+    """The HTTP status a provider SDK exception carries, or None.
+
+    openai/groq SDK errors expose it as ``status_code``. google-genai's
+    ``APIError`` (gemini, gemma, gemini_vision) exposes it as ``code`` and words
+    its message "404 NOT_FOUND. {...}", which none of the string sniffs match,
+    so a retired Gemini slug used to be retried on every call. Only ints count:
+    openai's APIError also has a ``code`` attribute, but there it is the
+    string error code (e.g. "model_not_found").
+    """
+    for attr in ("status_code", "code"):
+        value = getattr(exc, attr, None)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+    return None
+
+
 def _generate_with_rotation(
     prompt: str,
     chain: List[str],
@@ -979,7 +996,7 @@ def _generate_with_rotation(
             # demoted a permanent failure to a 90s backoff and left the head
             # of both chains re-firing one doomed request per call forever.
             is_payment_required = (
-                getattr(exc, "status_code", None) == 402
+                _http_status(exc) == 402
                 or "error code: 402" in msg
                 or "status 402" in msg
                 or "payment_required" in msg
@@ -1002,7 +1019,7 @@ def _generate_with_rotation(
             # request id that happens to contain those digits can't disable a
             # working provider.
             is_model_not_found = (
-                getattr(exc, "status_code", None) == 404
+                _http_status(exc) == 404
                 or "error code: 404" in msg
                 or "status 404" in msg
             )
