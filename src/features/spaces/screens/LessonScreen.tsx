@@ -109,10 +109,11 @@ export default function LessonScreen() {
 
   const chrome = (body: React.ReactNode, gradientIndex = 0) => (
     <Scene
-      surface={SURFACES.spaceOverview}
+      surface={SURFACES.lessonOverview}
       status="progress"
       gradientIndex={gradientIndex}
       motionKey={lessonId}
+      accent={accent}
     >
       <SpacesTopBar active="spaces" viewer={viewer} />
       {body}
@@ -187,8 +188,16 @@ export default function LessonScreen() {
       className="relative pb-36"
       style={accent ? ({ '--lesson-accent': accent, '--reader-accent': accent } as React.CSSProperties) : undefined}
     >
-      {/* The whole page is the reader's black, top to bottom — no seam where a band ends. */}
-      <div aria-hidden className="absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 bg-black" />
+      {/* The ground is the stage's black, top bar included (see Scene). A
+          skylight in the deck's colour starts *behind* the bar, so the bar
+          and the page are lit by the same light instead of meeting at a seam. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-[72px] left-1/2 h-[420px] w-screen -translate-x-1/2"
+        style={{
+          background: `radial-gradient(55% 70% at 50% 0%, color-mix(in srgb, ${accent ?? 'hsl(var(--secondary))'} 14%, transparent), transparent 72%)`,
+        }}
+      />
 
       {/* ── The deck, lit in its own colour ── */}
       <div className="relative">

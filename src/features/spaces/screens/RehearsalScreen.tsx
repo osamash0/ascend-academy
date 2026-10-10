@@ -56,7 +56,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
   }, [course, picked, params]);
 
   const chrome = (body: React.ReactNode) => (
-    <Scene surface={SURFACES.practice} motionKey={`rehearse-${courseId}`}>
+    <Scene surface={SURFACES.rehearsal} motionKey={`rehearse-${courseId}`}>
       <Link
         to={`/v4/space/${courseId}`}
         aria-label="Leave the rehearsal"
@@ -64,7 +64,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
       >
         <X aria-hidden className="h-4 w-4" />
       </Link>
-      <div className="relative min-h-[100dvh] bg-black">{body}</div>
+      <div className="relative min-h-[100dvh]">{body}</div>
     </Scene>
   );
 

@@ -34,7 +34,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   const reduce = useReducedMotion();
 
   const chrome = (body: React.ReactNode) => (
-    <Scene surface={SURFACES.spaceOverview} status="progress" motionKey={courseId}>
+    <Scene surface={SURFACES.course} status="progress" motionKey={courseId}>
       <SpacesTopBar active="spaces" viewer={viewer} />
       {body}
     </Scene>
@@ -53,10 +53,9 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
 
   return chrome(
     <div className="relative pb-36">
-      <div aria-hidden className="absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 bg-black" />
       <div
         aria-hidden
-        className="absolute left-1/2 top-0 h-[520px] w-screen -translate-x-1/2"
+        className="pointer-events-none absolute -top-[72px] left-1/2 h-[592px] w-screen -translate-x-1/2"
         style={{ background: 'radial-gradient(50% 60% at 50% 0%, hsl(var(--secondary) / 0.16), transparent 70%)' }}
       />
 
