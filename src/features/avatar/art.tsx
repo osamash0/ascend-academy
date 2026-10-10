@@ -54,9 +54,9 @@ const BACKDROPS: Record<string, Art> = {
     <g>
       <defs>
         <radialGradient id={`${uid}-ds`} cx="50%" cy="40%" r="75%">
-          <stop offset="0%" stopColor="#2A2150" />
-          <stop offset="60%" stopColor="#140F2A" />
-          <stop offset="100%" stopColor="#080612" />
+          <stop offset="0%" stopColor="#23262E" />
+          <stop offset="60%" stopColor="#111317" />
+          <stop offset="100%" stopColor="#050506" />
         </radialGradient>
       </defs>
       <rect {...BG} fill={`url(#${uid}-ds)`} />

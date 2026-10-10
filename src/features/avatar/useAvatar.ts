@@ -3,7 +3,7 @@
  *
  * Progress comes from the auth profile (XP, level, streaks) plus earned badge
  * keys from `achievements`. The loadout lives in `profiles.luna_loadout`
- * (migration 20261010000000). Until that migration reaches an environment,
+ * (migration 20261010000100). Until that migration reaches an environment,
  * reads and writes degrade to localStorage + the legacy suit/visor columns —
  * the profile fetch in lib/auth.tsx deliberately does NOT select the new
  * column, so a missing column can never break sign-in.

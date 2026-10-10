@@ -24,7 +24,7 @@ export default function AvatarLab() {
   );
 
   return (
-    <div className="min-h-screen bg-[#07050f] px-4 py-8 text-white sm:px-8">
+    <div className="min-h-screen bg-black px-4 py-8 text-white sm:px-8">
       <div className="mx-auto max-w-7xl">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">Dev lab · not in production</p>
         <h1 className="mt-1 text-3xl font-black">Suit Locker</h1>

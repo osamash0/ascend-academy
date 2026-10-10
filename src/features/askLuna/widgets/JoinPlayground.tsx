@@ -131,7 +131,7 @@ export function JoinPlayground({ onOutcome, ...props }: JoinPlaygroundProps & { 
   const resultCols = [...props.left.columns.map((c) => `${props.left.name}.${c}`), ...props.right.columns.map((c) => `${props.right.name}.${c}`)];
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0f0c1d] p-4">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <p className="text-sm font-semibold text-white">{props.prompt ?? t('join.prompt', { type: joinType })}</p>
       <pre className="mt-2 overflow-x-auto rounded-lg bg-black/40 px-3 py-2 font-mono text-[11px] text-sky-200">
         {`SELECT * FROM ${props.left.name}\n  ${joinType} JOIN ${props.right.name}\n  ON ${props.left.name}.${props.on.left} = ${props.right.name}.${props.on.right};`}
@@ -150,7 +150,7 @@ export function JoinPlayground({ onOutcome, ...props }: JoinPlaygroundProps & { 
 
       {!done ? (
         <div className="mt-3 flex items-center gap-3">
-          <button type="button" onClick={check} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#0f0c1d] transition hover:bg-white/90 active:scale-[0.98]">
+          <button type="button" onClick={check} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 active:scale-[0.98]">
             {phase === 'hinted' ? t('join.checkAgain') : t('join.check')}
           </button>
           <span className="text-xs text-white/45">{t('join.tapHint')}</span>

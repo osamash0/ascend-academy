@@ -134,7 +134,7 @@ export function AskLuna({ brain, loadout: fullLoadout, restingMood = 'bright' }:
   return (
     <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
       {/* Luna */}
-      <aside className="sticky top-0 z-10 -mx-1 flex flex-row items-center gap-3 self-start bg-[#07050f]/85 px-1 py-2 backdrop-blur lg:top-6 lg:mx-0 lg:flex-col lg:items-start lg:gap-4 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+      <aside className="sticky top-0 z-10 -mx-1 flex flex-row items-center gap-3 self-start bg-black/85 px-1 py-2 backdrop-blur lg:top-6 lg:mx-0 lg:flex-col lg:items-start lg:gap-4 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
         <div className="h-14 w-14 shrink-0 lg:h-24 lg:w-24">
           <LunaAvatar loadout={loadout} mood={mood} variant="head" showBackdrop={false} size={96} className="h-full w-full" />
         </div>
@@ -144,7 +144,7 @@ export function AskLuna({ brain, loadout: fullLoadout, restingMood = 'bright' }:
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="w-fit rounded-2xl rounded-tl-md bg-white/95 px-4 py-2.5 text-sm font-medium text-[#2D2445] shadow-lg"
+            className="w-fit rounded-2xl rounded-tl-md bg-white/95 px-4 py-2.5 text-sm font-medium text-neutral-900 shadow-lg"
             aria-live="polite"
           >
             {line}
@@ -218,7 +218,7 @@ export function AskLuna({ brain, loadout: fullLoadout, restingMood = 'bright' }:
               type="submit"
               disabled={!draft.trim() || thinking}
               aria-label={t('send')}
-              className={cn('grid h-11 w-11 place-items-center rounded-2xl bg-white text-[#0f0c1d] transition hover:bg-white/90 disabled:opacity-30')}
+              className={cn('grid h-11 w-11 place-items-center rounded-2xl bg-white text-black transition hover:bg-white/90 disabled:opacity-30')}
             >
               <ArrowUp className="h-5 w-5" />
             </button>

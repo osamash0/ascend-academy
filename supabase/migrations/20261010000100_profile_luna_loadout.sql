@@ -1,5 +1,10 @@
 -- Luna avatar loadout (Suit Locker).
 --
+-- Versioned 20261010000100 (not ...000000): 20261010000000 is taken by
+-- v4_rehearsal_attempts on another branch, and a duplicate version can get a
+-- migration silently skipped. Every statement here is idempotent, so the
+-- copy already applied to prod by hand (2026-10-11) is safe to re-run.
+--
 -- One jsonb object, slot -> catalog item id, e.g.
 --   {"suit":"suit-nebula","gear":"gear-halo","companion":"companion-owl", ...}
 -- The catalog lives client-side (src/features/avatar/catalog.ts); the client

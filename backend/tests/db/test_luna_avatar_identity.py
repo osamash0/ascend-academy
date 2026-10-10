@@ -1,4 +1,4 @@
-"""DB tests for 20261010000000_profile_luna_loadout + 20261010010000_luna_avatar_identity.
+"""DB tests for 20261010000100_profile_luna_loadout + 20261010010000_luna_avatar_identity.
 
 get_luna_loadouts() lets any signed-in user draw other people's Luna. It is
 SECURITY DEFINER, so these pin down exactly what it may reveal:

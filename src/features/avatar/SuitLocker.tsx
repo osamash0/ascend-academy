@@ -24,10 +24,11 @@ import { isUnlocked, nextUnlocks, unlockStatus, type UnlockStatus } from './unlo
 import { SLOTS, type AvatarItem, type AvatarProgress, type Loadout, type Mood, type Slot } from './types';
 
 const RARITY_RING: Record<AvatarItem['rarity'], string> = {
+  // Monochrome: rarity is brightness, and only legendary earns gold.
   common: 'border-white/10',
-  rare: 'border-sky-400/40',
-  epic: 'border-violet-400/50',
-  legendary: 'border-amber-300/60',
+  rare: 'border-white/25',
+  epic: 'border-white/45',
+  legendary: 'border-amber-200/60',
 };
 
 const MOODS: Mood[] = ['curious', 'bright', 'blazing', 'waiting', 'focused', 'thinking', 'celebrating'];
@@ -87,7 +88,7 @@ export function SuitLocker({ progress, initial = DEFAULT_LOADOUT, onSave, saving
     <div className="grid gap-8 lg:grid-cols-[minmax(300px,420px)_1fr]">
       {/* ── Stage ─────────────────────────────────────────────── */}
       <section className="mx-auto w-full max-w-[420px] self-start lg:sticky lg:top-6 lg:max-w-none">
-        <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#0b0816] shadow-2xl">
+        <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black shadow-2xl">
           <motion.div
             key={`${staged.backdrop}-${staged.aura}-${staged.suit}`}
             initial={{ opacity: 0.5, scale: 0.985 }}
@@ -99,12 +100,11 @@ export function SuitLocker({ progress, initial = DEFAULT_LOADOUT, onSave, saving
 
           <span
             className="absolute left-4 top-4 rounded-full border border-white/15 bg-black/40 px-3 py-1 text-xs font-bold text-white backdrop-blur"
-            style={{ boxShadow: tier.glow ? `0 0 14px ${tier.glow}` : undefined }}
           >
             {tier.name}
           </span>
           {tryOn && (
-            <span className="absolute right-4 top-4 rounded-full bg-amber-300 px-3 py-1 text-xs font-bold text-[#2D2445]">
+            <span className="absolute right-4 top-4 rounded-full bg-amber-300 px-3 py-1 text-xs font-bold text-black">
               {t('stage.tryOn')}
             </span>
           )}
@@ -117,7 +117,7 @@ export function SuitLocker({ progress, initial = DEFAULT_LOADOUT, onSave, saving
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className="relative w-fit max-w-full rounded-2xl rounded-bl-md bg-white/95 px-4 py-2.5 text-sm font-medium text-[#2D2445] shadow-lg"
+                className="relative w-fit max-w-full rounded-2xl rounded-bl-md bg-white/95 px-4 py-2.5 text-sm font-medium text-neutral-900 shadow-lg"
               >
                 {tryOn ? t('voice.tryOn') : t(`voice.${mood}`)}
               </motion.p>
@@ -132,7 +132,7 @@ export function SuitLocker({ progress, initial = DEFAULT_LOADOUT, onSave, saving
                 key={m}
                 type="button"
                 onClick={() => setMoodOverride(moodOverride === m ? null : m)}
-                className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', moodOverride === m ? 'border-primary bg-primary/20 text-white' : 'border-white/10 text-white/55')}
+                className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', moodOverride === m ? 'border-white/40 bg-white/10 text-white' : 'border-white/10 text-white/55')}
               >
                 {t(`mood.${m}`)}
               </button>
@@ -168,7 +168,7 @@ export function SuitLocker({ progress, initial = DEFAULT_LOADOUT, onSave, saving
             type="button"
             disabled={!dirty || saving}
             onClick={save}
-            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary text-sm font-bold text-white shadow-glow-primary transition active:scale-[0.98] disabled:from-white/10 disabled:to-white/10 disabled:text-white/50 disabled:shadow-none"
+            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-white text-sm font-bold text-black transition hover:bg-white/90 active:scale-[0.98] disabled:bg-white/10 disabled:text-white/50"
           >
             {saving ? t('actions.saving') : dirty ? t('actions.save') : (<><Check className="h-4 w-4" /> {t('actions.saved')}</>)}
           </button>
@@ -226,8 +226,8 @@ export function SuitLocker({ progress, initial = DEFAULT_LOADOUT, onSave, saving
                 className={cn(
                   'group relative overflow-hidden rounded-2xl border bg-white/[0.03] text-left transition',
                   RARITY_RING[item.rarity],
-                  on && 'ring-2 ring-primary ring-offset-2 ring-offset-[#0b0816]',
-                  tryOn?.id === item.id && 'ring-2 ring-amber-300 ring-offset-2 ring-offset-[#0b0816]',
+                  on && 'ring-2 ring-white ring-offset-2 ring-offset-black',
+                  tryOn?.id === item.id && 'ring-2 ring-amber-300 ring-offset-2 ring-offset-black',
                   st.unlocked ? 'hover:-translate-y-0.5' : 'cursor-help',
                 )}
               >

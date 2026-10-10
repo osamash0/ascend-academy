@@ -7,7 +7,7 @@
 --    is one batched read instead. It returns cosmetic columns only (the same
 --    class of data as avatar_url / display_name, which those RPCs already
 --    expose to any signed-in user) and nothing else from profiles.
---    Depends on 20261010000000_profile_luna_loadout.sql (luna_loadout).
+--    Depends on 20261010000100_profile_luna_loadout.sql (luna_loadout).
 --
 -- 2. Harden the public `avatars` bucket: raster images only (no SVG, which a
 --    public bucket would serve as an active document) and a 2 MB cap. The
