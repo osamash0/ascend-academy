@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
-import { useCourse, useFind } from '../data/useReader';
+import { useCourse, useFind, useRehearsalHistory } from '../data/useReader';
 import { viewer } from '../mocks/people';
 
 /**
@@ -30,6 +30,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   const { state, course } = useCourse(courseId);
   const [query, setQuery] = useState('');
   const found = useFind(courseId, query);
+  const { history } = useRehearsalHistory(courseId);
   const reduce = useReducedMotion();
 
   const chrome = (body: React.ReactNode) => (
@@ -78,6 +79,23 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             <Target aria-hidden className="h-4 w-4" />
             Rehearse for the exam
           </Link>
+          {/* What your last rehearsals say to read again. */}
+          {history && history.weak.length > 0 && (
+            <div className="mx-auto mt-5 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+              <span className="text-[12.5px] text-quiet">To revisit:</span>
+              {history.weak.slice(0, 4).map((w) => (
+                <Link
+                  key={`${w.lecture_id}-${w.idea}`}
+                  to={readHref(w.lecture_id, w.page)}
+                  className="console-focusable inline-flex h-8 items-center gap-1.5 rounded-full bg-destructive/[0.1] px-3 text-[12.5px] text-foreground transition-colors hover:bg-destructive/[0.18]"
+                >
+                  {w.idea}
+                  <span className="text-quiet">p{w.page}</span>
+                </Link>
+              ))}
+              {history.weak.length > 4 && <span className="text-[12.5px] text-faint">+{history.weak.length - 4} more</span>}
+            </div>
+          )}
         </div>
 
         {/* Where was that taught? */}

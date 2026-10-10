@@ -12,6 +12,8 @@ import {
   type ReaderFind,
   type ReaderLecture,
   type Rehearsal,
+  type RehearsalHistory,
+  type RehearsalResult,
 } from './liveRepository';
 import { useLesson, useLessonContent, type LessonContentResult, type LessonResult } from './useSpaces';
 
@@ -435,4 +437,34 @@ export async function composeRehearsal(
     repo.composeRehearsal(courseId, { lecture_ids: lectureIds, count, weak_ideas: weakIdeas }),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Rehearsal timed out')), REHEARSAL_TIMEOUT_MS)),
   ]);
+}
+
+/** Keep a finished rehearsal. The server counts the score from the results. */
+export async function saveRehearsal(courseId: string, title: string, lectureIds: string[], results: RehearsalResult[]) {
+  const repo = await loadLiveRepository();
+  return repo.saveRehearsal(courseId, { title, lecture_ids: lectureIds, results });
+}
+
+/**
+ * Your rehearsals in this course, and the ideas you keep missing. `reload`
+ * re-reads it — after a rehearsal is saved, say.
+ */
+export function useRehearsalHistory(courseId: string | undefined): {
+  history: RehearsalHistory | null;
+  reload: () => void;
+} {
+  const [history, setHistory] = useState<RehearsalHistory | null>(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!courseId || !isLive(courseId)) return;
+    let alive = true;
+    loadLiveRepository()
+      .then((repo) => repo.rehearsalHistory(courseId))
+      .then((h) => alive && setHistory(h))
+      .catch(() => alive && setHistory(null));
+    return () => {
+      alive = false;
+    };
+  }, [courseId, tick]);
+  return { history, reload: () => setTick((t) => t + 1) };
 }

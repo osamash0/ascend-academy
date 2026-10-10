@@ -7,8 +7,8 @@ import { Scene, SURFACES } from '../components/Scene';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { QuestionView } from '../components/rehearsal/QuestionView';
 import { grade, type Grade } from '../components/rehearsal/grade';
-import { composeRehearsal, useCourse } from '../data/useReader';
-import type { Rehearsal } from '../data/liveRepository';
+import { composeRehearsal, saveRehearsal, useCourse, useRehearsalHistory } from '../data/useReader';
+import type { Rehearsal, RehearsalHistory } from '../data/liveRepository';
 
 /**
  * Exam rehearsal, for a real course.
@@ -29,7 +29,7 @@ type Phase =
   | { at: 'composing'; lectures: string[] }
   | { at: 'failed'; message: string; retry: () => void }
   | { at: 'running'; rehearsal: Rehearsal; index: number; grades: (Grade | null)[] }
-  | { at: 'done'; rehearsal: Rehearsal; grades: Grade[] };
+  | { at: 'done'; rehearsal: Rehearsal; grades: Grade[]; saved: 'saving' | 'saved' | 'failed' };
 
 const LENGTHS = [5, 8, 12];
 
@@ -40,6 +40,7 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
   const [phase, setPhase] = useState<Phase>({ at: 'setup' });
   const [picked, setPicked] = useState<string[] | null>(null);
   const [count, setCount] = useState(8);
+  const { history, reload } = useRehearsalHistory(courseId);
 
   /* Every question, and every phase, starts at the top of the page. */
   const step = phase.at === 'running' ? `q${phase.index}` : phase.at;
@@ -103,6 +104,20 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
           A short test written from your lectures’ own slides — questions to choose, steps to order, and FD problems you
           solve, graded by computing the answer. Every question points back to the page that teaches it.
         </p>
+
+        {history && history.attempts.length > 0 && (
+          <HistoryPanel
+            history={history}
+            pageHref={pageHref}
+            onRehearseWeak={() =>
+              start(
+                [...new Set(history.weak.map((w) => w.lecture_id))],
+                history.weak.map((w) => w.idea),
+                Math.max(5, Math.min(8, history.weak.length * 2)),
+              )
+            }
+          />
+        )}
 
         <div className="mt-12">
           <div className="mb-3 flex items-baseline justify-between">
@@ -199,10 +214,29 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
     const q = rehearsal.questions[index];
     const g = grades[index];
     const last = index === rehearsal.questions.length - 1;
-    const next = () =>
-      last
-        ? setPhase({ at: 'done', rehearsal, grades: grades as Grade[] })
-        : setPhase({ ...phase, index: index + 1 });
+    const next = () => {
+      if (!last) return setPhase({ ...phase, index: index + 1 });
+      const done = grades as Grade[];
+      setPhase({ at: 'done', rehearsal, grades: done, saved: 'saving' });
+      /* Into your history: what each question tested, and whether it was right. */
+      saveRehearsal(
+        course.id,
+        rehearsal.title,
+        Object.keys(rehearsal.lectures),
+        rehearsal.questions.map((q, i) => ({
+          lecture_id: q.lecture_id,
+          page: q.page,
+          idea: q.idea,
+          kind: q.kind,
+          correct: done[i].correct,
+        })),
+      )
+        .then(() => {
+          reload();
+          setPhase((p) => (p.at === 'done' ? { ...p, saved: 'saved' } : p));
+        })
+        .catch(() => setPhase((p) => (p.at === 'done' ? { ...p, saved: 'failed' } : p)));
+    };
     return chrome(
       <div className="mx-auto max-w-3xl px-6 pb-24 pt-20">
         <div aria-hidden className="mb-10 flex gap-1.5">
@@ -329,6 +363,9 @@ function Debrief({
   return (
     <div className="mx-auto max-w-3xl px-6 pb-24 pt-20">
       <div className="flex flex-col items-center text-center">
+        <p aria-live="polite" className="mb-4 h-5 text-[12.5px] text-faint">
+          {phase.saved === 'saving' ? 'Saving to your history…' : phase.saved === 'saved' ? 'Saved to your history' : 'Couldn’t save this one to your history'}
+        </p>
         <svg width={160} height={160} viewBox="0 0 160 160" aria-hidden>
           <circle cx={80} cy={80} r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={10} />
           <motion.circle
@@ -432,5 +469,82 @@ function Debrief({
         </Link>
       </div>
     </div>
+  );
+}
+
+/** Your rehearsals so far: the scores over time, and the ideas you keep missing. */
+function HistoryPanel({
+  history,
+  pageHref,
+  onRehearseWeak,
+}: {
+  history: RehearsalHistory;
+  pageHref: (lectureId: string, page: number) => string;
+  onRehearseWeak: () => void;
+}) {
+  const recent = [...history.attempts].slice(0, 10).reverse();
+  const latest = history.attempts[0];
+  const ago = (iso: string) => {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+    return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+  };
+  return (
+    <section aria-label="Your rehearsals" className="mt-12 rounded-3xl border border-white/[0.08] bg-white/[0.02] p-6">
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <p className="text-[15px] font-medium text-foreground">Your rehearsals</p>
+          <p className="mt-1 text-[13px] tabular-nums text-quiet">
+            {history.attempts.length} so far · last {latest.score}/{latest.total}, {ago(latest.created_at)}
+          </p>
+        </div>
+        {/* Scores over time, oldest to newest. */}
+        <div aria-hidden className="flex h-12 items-end gap-1.5">
+          {recent.map((a) => {
+            const r = a.score / a.total;
+            return (
+              <span
+                key={a.id}
+                className={cn('w-3 rounded-sm', r >= 0.75 ? 'bg-success' : r >= 0.5 ? 'bg-white/[0.6]' : 'bg-destructive/80')}
+                style={{ height: `${Math.max(12, r * 100)}%` }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {history.weak.length > 0 ? (
+        <div className="mt-6">
+          <p className="mb-2.5 text-[13px] text-quiet">Ideas you missed last time</p>
+          <div className="flex flex-wrap gap-2">
+            {history.weak.map((w) => (
+              <Link
+                key={`${w.lecture_id}-${w.idea}`}
+                to={pageHref(w.lecture_id, w.page)}
+                className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-destructive/[0.1] px-3.5 text-[13px] text-foreground transition-colors hover:bg-destructive/[0.18]"
+              >
+                {w.idea}
+                <span className="text-[12px] text-quiet">
+                  {w.lecture_title} p{w.page}
+                  {w.missed > 1 && ` · missed ${w.missed}×`}
+                </span>
+              </Link>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={onRehearseWeak}
+            className="console-focusable mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-medium text-background"
+          >
+            <Target aria-hidden className="h-4 w-4" />
+            Rehearse these {history.weak.length === 1 ? 'one' : history.weak.length}
+          </button>
+        </div>
+      ) : (
+        <p className="mt-6 flex items-center gap-2 text-[13.5px] text-quiet">
+          <Check aria-hidden className="h-4 w-4 text-success" />
+          No weak spots: everything you were asked last time, you got right.
+        </p>
+      )}
+    </section>
   );
 }

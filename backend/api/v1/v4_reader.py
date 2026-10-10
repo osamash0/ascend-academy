@@ -147,3 +147,43 @@ async def reader_rehearsal(request: Request, body: RehearsalBody, course_id: UUI
         user_id=uid,
         locale=await service.preferred_language(uid),
     )
+
+
+class _Result(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lecture_id: UUID
+    page: int = Field(ge=1, le=2000)
+    idea: str = Field(min_length=1, max_length=60)
+    kind: str = Field(min_length=1, max_length=12)
+    correct: bool
+
+
+class AttemptBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str = Field(default="Exam rehearsal", max_length=120)
+    lecture_ids: list[UUID] = Field(min_length=1, max_length=12)
+    results: list[_Result] = Field(min_length=1, max_length=20)
+
+
+@router.post("/courses/{course_id}/rehearsals", status_code=201)
+@limiter.limit("20/minute")
+async def reader_save_rehearsal(request: Request, body: AttemptBody, course_id: UUID, user: Any = Depends(verify_token)):
+    from backend.services.v4_rehearsal_service import save_attempt
+
+    uid = _uid(user)
+    if not await service.can_view_course(course_id, uid):
+        raise HTTPException(status_code=404, detail="Course not found.")
+    return await save_attempt(
+        course_id, uid, body.title, body.lecture_ids, [r.model_dump(mode="json") for r in body.results]
+    )
+
+
+@router.get("/courses/{course_id}/rehearsals")
+@limiter.limit("60/minute")
+async def reader_rehearsal_history(request: Request, course_id: UUID, user: Any = Depends(verify_token)):
+    from backend.services.v4_rehearsal_service import history
+
+    uid = _uid(user)
+    if not await service.can_view_course(course_id, uid):
+        raise HTTPException(status_code=404, detail="Course not found.")
+    return await history(course_id, uid)

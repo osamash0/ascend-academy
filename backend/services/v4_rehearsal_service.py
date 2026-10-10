@@ -12,6 +12,7 @@ is one press away from the page that teaches it.
 """
 from __future__ import annotations
 
+import json
 import logging
 import random
 from typing import Annotated, Any, Literal, Optional, Union
@@ -28,6 +29,8 @@ from backend.services.cache import get_cache
 logger = logging.getLogger(__name__)
 
 MAX_SLIDES_PER_LECTURE = 14
+#: ~4 chars a token: a prompt under this leaves groq room for the answer within its per-minute budget.
+GROQ_PROMPT_CHARS = 16_000
 SLIDE_TEXT_CHARS = 280
 
 
@@ -256,11 +259,15 @@ async def compose_rehearsal(
         context="\n".join(parts),
         language="German" if locale == "de" else "English",
     )
-    # Gemini first (long structured output, big budget); groq when Gemini is
-    # slow or down — a timeout does not fail over inside the chain on its own.
+    # Groq writes a rehearsal in seconds but its free tier caps tokens per
+    # minute; Gemini has the headroom but measured 10s to 90s+ (timing out).
+    # So: groq first while the prompt fits its budget, Gemini first beyond it,
+    # and the other as the fallback — a timeout does not fail over in the
+    # chain on its own.
     questions: list[dict[str, Any]] = []
     data: Any = None
-    for prefer in ("gemini", "groq"):
+    order = ("groq", "gemini") if len(prompt) < GROQ_PROMPT_CHARS else ("gemini", "groq")
+    for prefer in order:
         try:
             data = await _generate_json(prompt, user_id=user_id, course_id=str(course_id), feature="v4_rehearsal", prefer=prefer)
         except Exception as exc:
@@ -283,4 +290,106 @@ async def compose_rehearsal(
         "title": str((data or {}).get("title") or "Exam rehearsal")[:80],
         "lectures": titles,
         "questions": questions[:count],
+    }
+
+
+# ─── history ─────────────────────────────────────────────────────────────
+
+HISTORY_WINDOW = 20
+
+
+async def save_attempt(
+    course_id: UUID,
+    user_id: str,
+    title: str,
+    lecture_ids: list[UUID],
+    results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Store a finished rehearsal. The score is counted here, from the results, not taken from the client."""
+    async with await get_db_connection() as conn:
+        known = {
+            str(r["id"])
+            for r in await conn.fetch(
+                "SELECT id FROM lectures WHERE course_id = $1 AND id = ANY($2::uuid[])", course_id, lecture_ids
+            )
+        }
+        clean = [
+            {
+                "lecture_id": str(r["lecture_id"]),
+                "page": int(r["page"]),
+                "idea": str(r["idea"])[:60],
+                "kind": str(r["kind"])[:12],
+                "correct": bool(r["correct"]),
+            }
+            for r in results
+            if str(r.get("lecture_id")) in known
+        ]
+        if not clean:
+            raise HTTPException(status_code=422, detail="Nothing in that rehearsal belongs to this course.")
+        row = await conn.fetchrow(
+            """INSERT INTO public.v4_rehearsal_attempts (user_id, course_id, title, lecture_ids, score, total, results)
+               VALUES ($1::uuid, $2, $3, $4::uuid[], $5, $6, $7::jsonb)
+               RETURNING id, created_at""",
+            user_id,
+            course_id,
+            title[:120] or "Exam rehearsal",
+            sorted({UUID(c["lecture_id"]) for c in clean}, key=str),
+            sum(1 for c in clean if c["correct"]),
+            len(clean),
+            json.dumps(clean),
+        )
+    return {"id": str(row["id"]), "created_at": row["created_at"].isoformat()}
+
+
+async def history(course_id: UUID, user_id: str) -> dict[str, Any]:
+    """Recent attempts, and the ideas whose latest answer was wrong — the weak spots."""
+    async with await get_db_connection() as conn:
+        rows = await conn.fetch(
+            """SELECT id, title, score, total, results, created_at
+               FROM public.v4_rehearsal_attempts
+               WHERE user_id = $1::uuid AND course_id = $2
+               ORDER BY created_at DESC LIMIT $3""",
+            user_id,
+            course_id,
+            HISTORY_WINDOW,
+        )
+        titles = {
+            str(r["id"]): r["title"]
+            for r in await conn.fetch("SELECT id, title FROM lectures WHERE course_id = $1", course_id)
+        }
+
+    ideas: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:  # newest first: the first sighting of an idea is its latest result
+        results = row["results"] if isinstance(row["results"], list) else json.loads(row["results"])
+        for r in results:
+            key = (r["lecture_id"], r["idea"].strip().lower())
+            e = ideas.get(key)
+            if e is None:
+                e = ideas[key] = {
+                    "lecture_id": r["lecture_id"],
+                    "lecture_title": titles.get(r["lecture_id"], ""),
+                    "idea": r["idea"],
+                    "page": r["page"],
+                    "latest_correct": r["correct"],
+                    "seen": 0,
+                    "missed": 0,
+                }
+            e["seen"] += 1
+            e["missed"] += 0 if r["correct"] else 1
+
+    weak = sorted((e for e in ideas.values() if not e["latest_correct"]), key=lambda e: (-e["missed"], e["idea"]))
+    steady = [e for e in ideas.values() if e["latest_correct"]]
+    return {
+        "attempts": [
+            {
+                "id": str(r["id"]),
+                "title": r["title"],
+                "score": r["score"],
+                "total": r["total"],
+                "created_at": r["created_at"].isoformat(),
+            }
+            for r in rows
+        ],
+        "weak": weak[:12],
+        "steady_count": len(steady),
     }

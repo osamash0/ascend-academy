@@ -49,6 +49,31 @@ export type RehearsalQuestion =
   | (RehearsalBase & { kind: 'closure'; attrs: string[]; fds: RFD[]; start: string[] })
   | (RehearsalBase & { kind: 'bcnf'; relation: string; attrs: string[]; fds: RFD[] });
 
+/** One answered question, as history keeps it: what it tested, and whether it was right. */
+export interface RehearsalResult {
+  lecture_id: string;
+  page: number;
+  idea: string;
+  kind: string;
+  correct: boolean;
+}
+
+/** An idea whose latest answer was wrong. */
+export interface WeakIdea {
+  lecture_id: string;
+  lecture_title: string;
+  idea: string;
+  page: number;
+  missed: number;
+  seen: number;
+}
+
+export interface RehearsalHistory {
+  attempts: { id: string; title: string; score: number; total: number; created_at: string }[];
+  weak: WeakIdea[];
+  steady_count: number;
+}
+
 /** A page where a topic is taught. `snippet` marks the matched words «like this». */
 export interface ReaderFind {
   lecture_id: string;
@@ -117,6 +142,9 @@ export function createLiveRepository(http: V4Transport) {
       ),
     composeRehearsal: (courseId: string, body: { lecture_ids: string[]; count: number; weak_ideas: string[] }) =>
       http.post<Rehearsal>(`${root}/reader/courses/${idPath(courseId)}/rehearsal`, body),
+    saveRehearsal: (courseId: string, body: { title: string; lecture_ids: string[]; results: RehearsalResult[] }) =>
+      http.post<{ id: string; created_at: string }>(`${root}/reader/courses/${idPath(courseId)}/rehearsals`, body),
+    rehearsalHistory: (courseId: string) => http.get<RehearsalHistory>(`${root}/reader/courses/${idPath(courseId)}/rehearsals`),
     askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[]) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/ask`, {
         question,
