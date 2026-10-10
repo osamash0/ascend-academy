@@ -97,6 +97,11 @@ jobs:
               - 'backend/tests/db/**'
               - 'backend/core/**'
               - 'backend/repositories/**'
+              # The parser owns its own asyncpg layer here rather than under
+              # backend/repositories/, so raw SQL lands in this path too and
+              # needs the same real-Postgres gate. Omitting it let a PR that
+              # added two new statements skip DB tests entirely.
+              - 'backend/services/parser/**'
 
   lint:
     name: Lint (frontend)
