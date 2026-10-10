@@ -33,7 +33,10 @@ AS $$
      AND p.user_id = ANY (p_user_ids[1:200]);
 $$;
 
+-- Supabase's default privileges also grant EXECUTE to anon on new public
+-- functions, which a REVOKE FROM PUBLIC does not remove — revoke it by name.
 REVOKE ALL ON FUNCTION public.get_luna_loadouts(uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_luna_loadouts(uuid[]) FROM anon;
 GRANT EXECUTE ON FUNCTION public.get_luna_loadouts(uuid[]) TO authenticated;
 
 UPDATE storage.buckets
