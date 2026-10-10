@@ -41,7 +41,7 @@ const renderFaces = async (path = '/v4/space/s-dbs/lesson/l-s-dbs-4/faces') => {
 const pageLine = () => screen.getByTestId('document');
 /* The lecture's ideas, as segments of the strip on the slide's top edge. */
 const spineTick = (name: string) =>
-  [...screen.getByRole('navigation', { name: 'Ideas in this lecture' }).querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+  [...screen.getByRole('navigation', { name: 'Ideas in this Lesson' }).querySelectorAll<HTMLButtonElement>('button')].find((b) =>
     b.getAttribute('aria-label')?.startsWith(`${name}, `),
   )!;
 
@@ -50,7 +50,7 @@ describe('the document, and nothing else', () => {
     await renderFaces();
     expect(screen.getByTestId('document')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Leave the reader' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Ideas in this lecture' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Ideas in this Lesson' })).toBeInTheDocument();
     expect(pageLine()).toHaveTextContent('Page 1');
     expect(screen.getByText(/← → turns the page/)).toBeInTheDocument();
   });
@@ -66,7 +66,7 @@ describe('the document, and nothing else', () => {
 
   it('draws one spine tick per Concept, in the order the file explains them', async () => {
     await renderFaces();
-    const nav = screen.getByRole('navigation', { name: 'Ideas in this lecture' });
+    const nav = screen.getByRole('navigation', { name: 'Ideas in this Lesson' });
     expect([...nav.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')?.split(',')[0])).toEqual([
       'Functional dependency',
       'BCNF',

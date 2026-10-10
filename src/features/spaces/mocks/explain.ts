@@ -365,7 +365,7 @@ export function composeFromText(title: string, markdown: string): ExplainAnswer 
           {
             type: 'explore',
             title: 'On this page',
-            intro: `${beats.length} points. Pick one to find it on the slide.`,
+            intro: `${beats.length} points. Pick one to find it on the page.`,
             parts: beats.map((b, i) => ({ id: String(i), label: b.label, body: b.text, spot: b.text })),
           },
         ]
