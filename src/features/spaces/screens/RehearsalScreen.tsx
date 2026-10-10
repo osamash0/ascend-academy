@@ -8,6 +8,7 @@ import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { QuestionView } from '../components/rehearsal/QuestionView';
 import { grade, type Grade } from '../components/rehearsal/grade';
 import { composeRehearsal, saveRehearsal, useCourse, useRehearsalHistory } from '../data/useReader';
+import { fadingIdeas, type FadingIdea } from '../components/course/today';
 import type { Rehearsal, RehearsalHistory } from '../data/liveRepository';
 
 /**
@@ -108,6 +109,14 @@ export default function RehearsalScreen({ courseId }: { courseId: string }) {
           <HistoryPanel
             history={history}
             pageHref={pageHref}
+            fading={fadingIdeas(course, history)}
+            onRehearseFading={(ideas) =>
+              start(
+                [...new Set(ideas.map((f) => f.lectureId))],
+                ideas.map((f) => f.name),
+                Math.max(5, Math.min(8, ideas.length * 2)),
+              )
+            }
             onRehearseWeak={() =>
               start(
                 [...new Set(history.weak.map((w) => w.lecture_id))],
@@ -475,10 +484,14 @@ function Debrief({
 function HistoryPanel({
   history,
   pageHref,
+  fading,
+  onRehearseFading,
   onRehearseWeak,
 }: {
   history: RehearsalHistory;
   pageHref: (lectureId: string, page: number) => string;
+  fading: FadingIdea[];
+  onRehearseFading: (ideas: FadingIdea[]) => void;
   onRehearseWeak: () => void;
 }) {
   const recent = [...history.attempts].slice(0, 10).reverse();
@@ -546,10 +559,43 @@ function HistoryPanel({
           </button>
         </div>
       ) : (
-        <p className="mt-6 flex items-center gap-2 text-[13.5px] text-quiet">
-          <Check aria-hidden className="h-4 w-4 text-success" />
-          No weak spots: everything you were asked last time, you got right.
-        </p>
+        fading.length === 0 && (
+          <p className="mt-6 flex items-center gap-2 text-[13.5px] text-quiet">
+            <Check aria-hidden className="h-4 w-4 text-success" />
+            No weak spots: everything you were asked last time, you got right.
+          </p>
+        )
+      )}
+
+      {/* What you knew, but not lately: the light fades after a week. */}
+      {fading.length > 0 && (
+        <div className="mt-7">
+          <p className="mb-2.5 text-[13px] text-quiet">Fading — right more than a week ago</p>
+          <div className="flex flex-wrap gap-2">
+            {fading.map((f) => (
+              <Link
+                key={`${f.lectureId}-${f.page}`}
+                to={pageHref(f.lectureId, f.page)}
+                title={`${f.lectureTitle}, page ${f.page}`}
+                className="console-focusable inline-flex h-9 items-center gap-2 rounded-full bg-success/[0.07] px-3.5 text-[13px] text-foreground transition-colors hover:bg-success/[0.14]"
+              >
+                {f.name}
+                <span className="text-[12px] tabular-nums text-quiet">{f.days} days</span>
+              </Link>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => onRehearseFading(fading)}
+            className={cn(
+              'console-focusable mt-5 inline-flex h-11 items-center gap-2 rounded-full px-5 text-[14px] font-medium transition-colors',
+              history.weak.length > 0 ? 'bg-white/[0.08] text-foreground hover:bg-white/[0.14]' : 'bg-white text-background',
+            )}
+          >
+            <Sparkles aria-hidden className="h-4 w-4" />
+            Refresh these
+          </button>
+        </div>
       )}
     </section>
   );

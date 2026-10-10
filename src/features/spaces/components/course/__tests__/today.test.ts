@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planToday } from '../today';
+import { fadingIdeas, planToday } from '../today';
 
 const NOW = Date.parse('2026-10-10T12:00:00Z');
 const daysAgo = (d: number) => new Date(NOW - d * 86_400_000).toISOString();
@@ -43,5 +43,26 @@ describe('today’s session', () => {
     const steps = planToday({ lectures: LECTURES, marks: [], weak: [], resume: null, now: NOW });
     expect(steps).toHaveLength(1);
     expect(steps[0]).toMatchObject({ kind: 'read', title: 'Introduction', page: 1 });
+  });
+});
+
+describe('what is fading', () => {
+  it('lists ideas proven right over a week ago, most faded first, and never a missed one', () => {
+    const list = fadingIdeas(
+      { lectures: LECTURES },
+      {
+        marks: [
+          { lecture_id: 'norm', page: 10, correct: true, at: daysAgo(9) },
+          { lecture_id: 'intro', page: 3, correct: true, at: daysAgo(20) },
+          { lecture_id: 'norm', page: 45, correct: true, at: daysAgo(2) },
+          { lecture_id: 'norm', page: 34, correct: false, at: daysAgo(30) },
+        ],
+      },
+      NOW,
+    );
+    expect(list.map((f) => [f.name, f.days])).toEqual([
+      ['Basics', 20],
+      ['FDs', 9],
+    ]);
   });
 });

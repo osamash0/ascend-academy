@@ -124,3 +124,30 @@ export function planToday({ lectures, marks, weak, resume, now = Date.now() }: I
   }
   return steps;
 }
+
+export interface FadingIdea {
+  lectureId: string;
+  lectureTitle: string;
+  name: string;
+  page: number;
+  days: number;
+}
+
+/** Ideas proven right, but longer ago than the light lasts — the most faded first. */
+export function fadingIdeas(
+  course: { lectures: { id: string; title: string; ideas: { name: string; first_page: number }[] | null }[] } | null,
+  history: { marks?: Mark[] } | null,
+  now = Date.now(),
+): FadingIdea[] {
+  if (!course || !history?.marks?.length) return [];
+  const out: FadingIdea[] = [];
+  for (const lec of course.lectures) {
+    const ideas = [...(lec.ideas ?? [])].sort((a, b) => a.first_page - b.first_page);
+    proofs(lec.id, ideas, history.marks).forEach((p, i) => {
+      if (p.weak || p.lastRight === null || !Number.isFinite(p.lastRight)) return;
+      const days = daysSince(p.lastRight, now);
+      if (days > FADE_AFTER_DAYS) out.push({ lectureId: lec.id, lectureTitle: lec.title, name: ideas[i].name, page: ideas[i].first_page, days });
+    });
+  }
+  return out.sort((a, b) => b.days - a.days).slice(0, 8);
+}
