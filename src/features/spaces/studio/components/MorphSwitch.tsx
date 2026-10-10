@@ -4,6 +4,9 @@ import { cn } from '@/lib/utils';
 import type { CanvasView } from '../useMorph';
 
 interface Props {
+  /** The committed choice — what the switch announces. */
+  view: CanvasView;
+  /** What is on screen — differs from `view` during a quick look; drives the visuals only. */
   shown: CanvasView;
   onPressStart(): void;
   onPressEnd(): void;
@@ -15,8 +18,8 @@ interface Props {
 const option = 'relative z-10 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium';
 
 /** Clean | Original — spec §4.2. Press-and-hold is a quick look; a tap stays. */
-export function MorphSwitch({ shown, onPressStart, onPressEnd, onPressCancel, onToggle }: Props) {
-  const original = shown === 'original';
+export function MorphSwitch({ view, shown, onPressStart, onPressEnd, onPressCancel, onToggle }: Props) {
+  const original = view === 'original';
   return (
     <div className="flex items-center gap-2">
       <button
@@ -35,7 +38,7 @@ export function MorphSwitch({ shown, onPressStart, onPressEnd, onPressCancel, on
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            onToggle();
+            if (!e.repeat) onToggle();
           }
         }}
         className="relative flex select-none items-center rounded-full border border-border bg-card p-0.5"

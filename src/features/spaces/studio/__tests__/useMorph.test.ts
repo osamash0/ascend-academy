@@ -74,4 +74,89 @@ describe('useMorph', () => {
     act(() => result.current.setView('original'));
     expect(result.current.view).toBe('original');
   });
+
+  it('ignores O keydown with repeat', () => {
+    const { result } = renderHook(() => useMorph());
+    key('keydown', 'o', window, { repeat: true });
+    key('keyup', 'o');
+    expect(result.current.view).toBe('clean');
+  });
+
+  it('a keyup of O on a focused input still ends the press', () => {
+    const { result } = renderHook(() => useMorph());
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    key('keydown', 'o');
+    key('keyup', 'o', input);
+    expect(result.current.view).toBe('original');
+    key('keydown', 'o');
+    act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
+    expect(result.current.shown).toBe('clean');
+    key('keyup', 'o', input);
+    expect(result.current.shown).toBe('original');
+    expect(result.current.quickLook).toBe(false);
+  });
+
+  it('holding O is a quick look that springs back', () => {
+    const { result } = renderHook(() => useMorph());
+    key('keydown', 'o');
+    act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
+    expect(result.current.shown).toBe('original');
+    key('keyup', 'o');
+    expect(result.current.shown).toBe('clean');
+    expect(result.current.view).toBe('clean');
+  });
+
+  it('window blur during a hold springs back and frees the press', () => {
+    const { result } = renderHook(() => useMorph());
+    act(() => result.current.pressStart());
+    act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
+    act(() => { window.dispatchEvent(new Event('blur')); });
+    expect(result.current.shown).toBe('clean');
+    act(() => result.current.pressStart());
+    act(() => result.current.pressEnd());
+    expect(result.current.view).toBe('original');
+  });
+
+  it('a hidden tab cancels a hold', () => {
+    const { result } = renderHook(() => useMorph());
+    act(() => result.current.pressStart());
+    act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    expect(result.current.quickLook).toBe(false);
+  });
+
+  it('counts onBeforeChange per change of what is shown', () => {
+    const before = vi.fn();
+    const { result } = renderHook(() => useMorph({ onBeforeChange: before }));
+    act(() => result.current.pressStart());
+    act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
+    expect(before).toHaveBeenCalledTimes(1);
+    act(() => result.current.pressEnd());
+    expect(before).toHaveBeenCalledTimes(2);
+    act(() => result.current.pressStart());
+    act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
+    act(() => result.current.pressCancel());
+    expect(before).toHaveBeenCalledTimes(4);
+  });
+
+  it('cancelling before the hold fires changes nothing', () => {
+    const before = vi.fn();
+    const { result } = renderHook(() => useMorph({ onBeforeChange: before }));
+    act(() => result.current.pressStart());
+    act(() => result.current.pressCancel());
+    act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS * 2); });
+    expect(before).not.toHaveBeenCalled();
+    expect(result.current.quickLook).toBe(false);
+  });
+
+  it('Escape during a press or quick look leaves the committed view alone', () => {
+    const { result } = renderHook(() => useMorph());
+    act(() => result.current.setView('original'));
+    act(() => result.current.pressStart());
+    act(() => { vi.advanceTimersByTime(MORPH_HOLD_MS); });
+    key('keydown', 'Escape');
+    expect(result.current.view).toBe('original');
+  });
 });

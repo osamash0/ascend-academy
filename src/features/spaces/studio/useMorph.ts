@@ -103,16 +103,25 @@ export function useMorph(opts: { onBeforeChange?: () => void } = {}): MorphApi {
       }
     };
     const up = (e: KeyboardEvent) => {
-      if ((e.key === 'o' || e.key === 'O') && !isTyping(e.target)) pressEnd();
+      // Any O release ends an active press, wherever focus has moved since keydown.
+      if (e.key === 'o' || e.key === 'O') pressEnd();
+    };
+    const cancel = () => pressCancel();
+    const hide = () => {
+      if (document.hidden) pressCancel();
     };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
+    window.addEventListener('blur', cancel);
+    document.addEventListener('visibilitychange', hide);
     return () => {
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', cancel);
+      document.removeEventListener('visibilitychange', hide);
       clearTimeout(hold.current);
     };
-  }, [pressStart, pressEnd, setView]);
+  }, [pressStart, pressEnd, pressCancel, setView]);
 
   const shown = quickLook ? other(view) : view;
   return useMemo(
