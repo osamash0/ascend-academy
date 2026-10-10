@@ -3,6 +3,7 @@
 **Status:** Draft for review · 2026-10-10
 **Scope:** v4 UI, mock data only (`src/features/spaces/`). The real file pipeline (MarkItDown + PaddleOCR) is a separate spec.
 **Decided in conversation:** layout B (canvas with inline AI), Peek, the Morph switch, light by default, NotebookLM as reference and benchmark only, Streamdown for rendering.
+**Extended by:** [Living Learn](2026-10-10-living-learn-design.md): Learn starts as a calm summary and grows with your questions. Where the two disagree, Living Learn wins (its §9 lists the points).
 
 ---
 
