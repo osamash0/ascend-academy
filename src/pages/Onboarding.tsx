@@ -71,7 +71,7 @@ interface RevealData {
 
 const STATUS_ORDER: StudentCatalogStatus[] = ['completed', 'in_progress', 'planned'];
 
-const COURSE_COLOR_PALETTE = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#ef4444', '#14b8a6', '#6366f1'];
+const COURSE_COLOR_PALETTE = ['#3b82f6', '#10b981', '#84cc16', '#f59e0b', '#ec4899', '#ef4444', '#14b8a6', '#64748b'];
 
 // Platform courses are authored once (in German) without localized titles yet;
 // translate the known ones here until the backend stores per-locale titles.
@@ -659,7 +659,7 @@ function OnboardingInner() {
               <Button
                 size="xl"
                 onClick={(e) => { e.stopPropagation(); beginJourney(); }}
-                className="h-16 px-12 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-glow-primary transition-all active:scale-95"
+                className="h-16 px-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-glow-primary transition-all active:scale-95"
               >
                 {t('actions.clickToContinue')} <ArrowRight className="w-6 h-6 ml-2" />
               </Button>
@@ -840,7 +840,7 @@ function OnboardingInner() {
                 </div>
                 <div className="mt-10 flex justify-between max-w-md mx-auto w-full">
                   <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
-                  <Button size="xl" onClick={handleNext} disabled={!fullName.trim()} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">
+                  <Button size="xl" onClick={handleNext} disabled={!fullName.trim()} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
                     {t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </div>
@@ -857,8 +857,8 @@ function OnboardingInner() {
                   transition={{ delay: 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                   className="relative w-full max-w-[280px] mx-auto rounded-3xl overflow-hidden lg:hidden"
                   style={{
-                    background: 'linear-gradient(160deg, hsl(235 40% 18%) 0%, hsl(250 35% 14%) 100%)',
-                    boxShadow: '0 0 0 1px hsl(235 40% 25% / 0.6), 0 24px 48px -8px hsl(235 85% 65% / 0.15)',
+                    background: 'linear-gradient(160deg, hsl(0 0% 12%) 0%, hsl(0 0% 7%) 100%)',
+                    boxShadow: '0 0 0 1px hsl(0 0% 100% / 0.10), 0 24px 48px -8px hsl(0 0% 0% / 0.6)',
                   }}
                 >
                   {/* Starfield dots */}
@@ -944,7 +944,7 @@ function OnboardingInner() {
 
                 <div className="w-full max-w-md mx-auto flex justify-between mt-8">
                   <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
-                  <Button size="xl" onClick={handleNext} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">{t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" /></Button>
+                  <Button size="xl" onClick={handleNext} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold">{t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" /></Button>
                 </div>
               </motion.div>
             )}
@@ -1125,7 +1125,7 @@ function OnboardingInner() {
 
                 <div className="mt-10 flex justify-between">
                   <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 px-8 rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
-                  <Button size="xl" onClick={handleNext} disabled={!uniId} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold">
+                  <Button size="xl" onClick={handleNext} disabled={!uniId} className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
                     {t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </div>
@@ -1150,7 +1150,7 @@ function OnboardingInner() {
                     
                     {/* Sticky Footer CTA on Desktop */}
                     <div className="hidden md:flex flex-col gap-4 mt-8 pt-8 border-t border-white/10">
-                      <Button size="xl" onClick={handleNext} className="h-16 w-full rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-xl shadow-primary/20">
+                      <Button size="xl" onClick={handleNext} className="h-16 w-full rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-xl shadow-primary/20">
                         {t('steps.confirmCourses.selectedCount', { count: includedCount })} · {t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" />
                       </Button>
                       <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 w-full rounded-2xl hover:bg-white/5">{t('actions.back')}</Button>
@@ -1205,7 +1205,7 @@ function OnboardingInner() {
                                         style={{ background: `linear-gradient(145deg, ${color} 0%, #0a0a0a 130%)` }}
                                       >
                                         <CourseIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                                        <span className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-background transition-all ${included ? 'bg-primary text-white scale-100 opacity-100' : 'bg-white/10 text-transparent scale-75 opacity-0'}`}>
+                                        <span className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-background transition-all ${included ? 'bg-primary text-primary-foreground scale-100 opacity-100' : 'bg-white/10 text-transparent scale-75 opacity-0'}`}>
                                           <Check className="w-3 h-3" strokeWidth={3} />
                                         </span>
                                       </span>
@@ -1225,7 +1225,7 @@ function OnboardingInner() {
                                           <button
                                             key={s}
                                             onClick={() => setSuggestedStatus(c.id, s)}
-                                            className={`flex-1 py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-bold leading-tight text-center transition-all ${status === s ? 'bg-primary text-white shadow-glow-primary/20' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
+                                            className={`flex-1 py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-bold leading-tight text-center transition-all ${status === s ? 'bg-primary text-primary-foreground shadow-glow-primary/20' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-primary-foreground'}`}
                                           >
                                             {t(`steps.confirmCourses.status.${s}`)}
                                           </button>
@@ -1248,7 +1248,7 @@ function OnboardingInner() {
                   <Button variant="ghost" size="lg" onClick={handleBack} className="h-14 px-4 rounded-2xl hover:bg-white/5 bg-black/50 backdrop-blur-md">
                     {t('actions.back')}
                   </Button>
-                  <Button size="lg" onClick={handleNext} className="flex-1 h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold shadow-glow-primary/20">
+                  <Button size="lg" onClick={handleNext} className="flex-1 h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-glow-primary/20">
                     {t('steps.confirmCourses.selectedCount', { count: includedCount })} · {t('actions.next')} <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </div>
@@ -1272,7 +1272,7 @@ function OnboardingInner() {
                     
                     {/* Sticky Footer CTA on Desktop */}
                     <div className="hidden md:flex flex-col gap-4 mt-8 pt-8 border-t border-white/10">
-                      <Button size="xl" onClick={handleFinish} disabled={loading} className="h-16 w-full rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-xl shadow-primary/20">
+                      <Button size="xl" onClick={handleFinish} disabled={loading} className="h-16 w-full rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-xl shadow-primary/20">
                         {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <>{t('actions.startLearning')} <Sparkles className="w-5 h-5 ml-2" /></>}
                       </Button>
                       <Button variant="ghost" size="xl" onClick={handleBack} className="h-14 w-full rounded-2xl hover:bg-white/5" disabled={loading}>{t('actions.back')}</Button>
@@ -1309,7 +1309,7 @@ function OnboardingInner() {
                               style={{ background: `linear-gradient(145deg, ${color} 0%, #0a0a0a 130%)` }}
                             >
                               <CourseIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                              <span className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-background transition-all ${isSelected ? 'bg-primary text-white scale-100 opacity-100' : 'bg-white/10 text-transparent scale-75 opacity-0'}`}>
+                              <span className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-background transition-all ${isSelected ? 'bg-primary text-primary-foreground scale-100 opacity-100' : 'bg-white/10 text-transparent scale-75 opacity-0'}`}>
                                 <Check className="w-3 h-3" strokeWidth={3} />
                               </span>
                             </div>
@@ -1330,7 +1330,7 @@ function OnboardingInner() {
                   <Button variant="ghost" size="lg" onClick={handleBack} className="h-14 px-4 rounded-2xl hover:bg-white/5 bg-black/50 backdrop-blur-md" disabled={loading}>
                     {t('actions.back')}
                   </Button>
-                  <Button size="lg" onClick={handleFinish} disabled={loading} className="flex-1 h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold shadow-glow-primary/20">
+                  <Button size="lg" onClick={handleFinish} disabled={loading} className="flex-1 h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-glow-primary/20">
                     {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <>{t('actions.startLearning')} <Sparkles className="w-5 h-5 ml-2" /></>}
                   </Button>
                 </div>

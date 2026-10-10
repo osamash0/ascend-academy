@@ -174,7 +174,7 @@ function Section({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mb-8 p-6 rounded-2xl bg-violet-500/10 border border-violet-500/20 overflow-hidden"
+            className="mb-8 p-6 rounded-2xl bg-neutral-500/10 border border-neutral-500/20 overflow-hidden"
           >
             <div className="flex items-center gap-2 mb-3 text-primary">
               <Sparkles className="w-4 h-4 animate-pulse" />
@@ -1071,7 +1071,7 @@ export default function AdvancedAnalytics() {
                         y: s.correctRate,
                         z: s.confusionIndex,
                         label: s.name,
-                        color: s.confusionIndex > 50 ? '#ef4444' : '#6366f1'
+                        color: s.confusionIndex > 50 ? '#ef4444' : '#94a3b8'
                       }))} 
                     />
                   )}
@@ -1432,7 +1432,7 @@ export default function AdvancedAnalytics() {
                         <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0 relative">
                           <MessageSquare className="w-5 h-5 text-secondary" />
                           {item.count > 1 && (
-                            <div className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-glow-primary">
+                            <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-glow-primary">
                               {item.count}
                             </div>
                           )}

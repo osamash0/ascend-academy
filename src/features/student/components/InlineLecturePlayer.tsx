@@ -928,7 +928,7 @@ export function InlineLecturePlayer({
       <button
         type="submit"
         disabled={!chatInput.trim() || chatLoading}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-primary to-secondary text-white shadow-glow-primary transition-opacity hover:opacity-90 disabled:opacity-30 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-glow-primary transition-opacity hover:opacity-90 disabled:opacity-30 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         aria-label="Send question to AI"
       >
         {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -1235,7 +1235,7 @@ export function InlineLecturePlayer({
                   className={cn(
                     'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold',
                     isCurrent
-                      ? 'bg-primary text-white shadow-glow-primary'
+                      ? 'bg-primary text-primary-foreground shadow-glow-primary'
                       : isVisited
                         ? 'border border-success/30 bg-success/20 text-success'
                         : isSkipped
@@ -1381,7 +1381,7 @@ export function InlineLecturePlayer({
                   setChatInput('Summarize this slide for me');
                   setTimeout(() => chatInputRef.current?.focus(), 50);
                 }}
-                className="absolute -top-14 left-4 z-50 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-xl shadow-primary/20 transition-transform hover:scale-105"
+                className="absolute -top-14 left-4 z-50 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-xl shadow-primary/20 transition-transform hover:scale-105"
               >
                 <div className="absolute -bottom-1.5 left-6 h-3 w-3 rotate-45 bg-primary" />
                 <div className="flex items-center gap-2">
@@ -1437,7 +1437,7 @@ export function InlineLecturePlayer({
                   </button>
                   <button
                     onClick={onClose}
-                    className="rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-glow-primary transition-opacity hover:opacity-90"
+                    className="rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-glow-primary transition-opacity hover:opacity-90"
                   >
                     Back to library
                   </button>
@@ -1465,7 +1465,7 @@ export function InlineLecturePlayer({
                     m.role === 'user' ? (
                       <div key={m.id} className="flex flex-col items-end text-right w-full">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/45 mb-1">You</span>
-                        <div className="text-sm text-indigo-200/80 max-w-[85%] leading-relaxed whitespace-pre-wrap">
+                        <div className="text-sm text-neutral-200/80 max-w-[85%] leading-relaxed whitespace-pre-wrap">
                           {m.content}
                         </div>
                       </div>

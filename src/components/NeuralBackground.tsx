@@ -126,7 +126,7 @@ export function NeuralBackground() {
         // Draw particle
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(99, 102, 241, ${p.opacity})`;
+        ctx.fillStyle = `rgba(210, 214, 222, ${p.opacity})`;
         ctx.fill();
       }
 
@@ -147,7 +147,7 @@ export function NeuralBackground() {
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(99, 102, 241, ${opacity})`;
+            ctx.strokeStyle = `rgba(210, 214, 222, ${opacity})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
             connections++;

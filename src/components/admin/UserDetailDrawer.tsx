@@ -98,7 +98,7 @@ export function UserDetailDrawer({ userId, onClose, onRoleChanged }: UserDetailD
               <>
                 <div className="p-6 border-b border-white/10 flex justify-between items-start bg-white/5">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-[2px]">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-neutral-600 p-[2px]">
                       <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
                         {detail.profile.avatar_url ? (
                           <img src={detail.profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />

@@ -4,7 +4,7 @@ import type { ConsoleStatus } from './constants';
 const STYLES: Record<ConsoleStatus, string> = {
   done: 'bg-emerald-500/15 text-emerald-400',
   progress: 'bg-primary/15 text-primary',
-  new: 'bg-purple-500/15 text-purple-300',
+  new: 'bg-white/10 text-white/80',
 };
 
 const DEFAULT_LABELS: Record<ConsoleStatus, string> = {

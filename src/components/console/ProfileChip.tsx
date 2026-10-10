@@ -42,7 +42,7 @@ export function ProfileChip({ className }: ProfileChipProps) {
   const avatar = (
     <div className="relative h-11 w-11 shrink-0">
       <RankRing tier={tier} size="md">
-        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary">
+        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-primary shadow-glow-primary">
           {profile.avatar_url ? (
             <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
           ) : (

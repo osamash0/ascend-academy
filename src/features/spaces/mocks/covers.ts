@@ -18,10 +18,13 @@
  */
 
 export const COVERS = {
-  indigo: 'radial-gradient(120% 130% at 70% 30%, #4b5dd6 0%, #1a1f4d 52%, #0a0c1e 100%)',
+  // No purple (Abi, 2026-10-10): the brand is monochrome and violet read as
+  // brand paint. `indigo` and `plum` became `silver` and `lime`, same slots,
+  // so the hash still lands every Space on the same position.
+  silver: 'radial-gradient(120% 130% at 70% 30%, #a3adb8 0%, #3a414a 52%, #0b0d10 100%)',
   ember: 'radial-gradient(130% 140% at 65% 35%, #e0713a 0%, #7a2b1c 50%, #170a08 100%)',
   moss: 'radial-gradient(120% 130% at 70% 30%, #3fae72 0%, #14503a 52%, #071510 100%)',
-  plum: 'radial-gradient(125% 135% at 68% 30%, #b04fd8 0%, #4a1a63 52%, #12081a 100%)',
+  lime: 'radial-gradient(125% 135% at 68% 30%, #9ccf3f 0%, #3c5a14 52%, #0d1406 100%)',
   steel: 'radial-gradient(120% 130% at 70% 30%, #5f7f9e 0%, #22303e 54%, #0a0e12 100%)',
   gold: 'radial-gradient(125% 130% at 68% 30%, #d8a53f 0%, #6b4a12 52%, #150f05 100%)',
   rose: 'radial-gradient(125% 135% at 68% 30%, #d84f6e 0%, #63182b 52%, #17070c 100%)',

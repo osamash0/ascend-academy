@@ -134,7 +134,7 @@ const SlideItem = memo(function SlideItem({
           <div
             className={`w-6 h-6 rounded-lg flex items-center justify-center relative z-10 transition-all duration-300 ${
               isCurrent
-                ? 'bg-primary text-white shadow-glow-primary'
+                ? 'bg-primary text-primary-foreground shadow-glow-primary'
                 : isVisited
                 ? 'bg-success/20 text-success border border-success/30'
                 : isSkipped

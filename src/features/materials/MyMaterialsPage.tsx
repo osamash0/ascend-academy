@@ -40,7 +40,7 @@ function StatusPill({ status }: { status: Material['status'] }) {
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-1 text-xs font-semibold text-violet-400">
+    <span className="inline-flex items-center gap-1 rounded-full bg-neutral-500/15 px-2.5 py-1 text-xs font-semibold text-neutral-400">
       <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('processing')}
     </span>
   );
@@ -121,7 +121,7 @@ export default function MyMaterialsPage() {
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full rounded-full bg-violet-500 transition-all"
+              className="h-full rounded-full bg-neutral-500 transition-all"
               style={{ width: `${Math.min(100, (quota.uploads_used / Math.max(1, quota.quota_limit)) * 100)}%` }}
             />
           </div>
@@ -197,7 +197,7 @@ export default function MyMaterialsPage() {
             className="depth-card flex flex-col items-stretch justify-between gap-4 p-4 sm:flex-row sm:items-center"
           >
             <div className="flex min-w-0 items-center gap-3">
-              <FileText className="h-8 w-8 shrink-0 text-violet-400" />
+              <FileText className="h-8 w-8 shrink-0 text-neutral-400" />
               <div className="min-w-0">
                 <p className="truncate font-semibold text-foreground">{m.title}</p>
                 {m.title !== m.filename && (

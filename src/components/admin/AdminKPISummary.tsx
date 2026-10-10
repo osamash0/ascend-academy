@@ -77,8 +77,8 @@ export function AdminKPISummary({ stats, telemetry, loading, isError = false, on
       title: 'Professors',
       value: stats.users.professors,
       subValue: 'Content creators',
-      icon: <BookOpen className="w-5 h-5 text-purple-400" />,
-      gradient: 'from-purple-500/10 to-transparent'
+      icon: <BookOpen className="w-5 h-5 text-neutral-400" />,
+      gradient: 'from-neutral-500/10 to-transparent'
     },
     {
       title: 'Active Content',

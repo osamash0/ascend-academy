@@ -974,7 +974,7 @@ export default function StudentCourseLibrary() {
         )}
 
         {showLunaCustomization && (
-          <aside className="mx-6 mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-violet-400/30 bg-violet-400/10 px-5 py-4 lg:mx-12" aria-label="Optional Luna personalization">
+          <aside className="mx-6 mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-neutral-400/30 bg-neutral-400/10 px-5 py-4 lg:mx-12" aria-label="Optional Luna personalization">
             <div>
               <p className="text-sm font-semibold text-foreground">A small reward for finishing your first activity</p>
               <p className="mt-1 text-sm text-muted-foreground">Give Luna a Nebula look now, or keep the familiar Moonlight theme.</p>
