@@ -110,4 +110,23 @@ describe('Morph on the canvas', () => {
       Element.prototype.getBoundingClientRect = rect;
     }
   });
+
+  it('with laid-out sections but none visible there is no flight and no scroll anchoring', async () => {
+    const { container } = await mount();
+    const rect = Element.prototype.getBoundingClientRect;
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => {});
+    Element.prototype.getBoundingClientRect = function () {
+      return { top: 5000, bottom: 5700, left: 0, right: 0, width: 0, height: 700, x: 0, y: 5000, toJSON() {} } as DOMRect;
+    };
+    try {
+      fireEvent.keyDown(window, { key: 'o' });
+      fireEvent.keyUp(window, { key: 'o' });
+      expect(container.querySelectorAll('[data-morph="true"]')).toHaveLength(0);
+      await run(400);
+      expect(scrollBy).not.toHaveBeenCalled();
+    } finally {
+      Element.prototype.getBoundingClientRect = rect;
+      scrollBy.mockRestore();
+    }
+  });
 });

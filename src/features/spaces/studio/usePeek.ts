@@ -41,27 +41,27 @@ export function usePeek(): PeekApi {
   const followTimer = useRef<ReturnType<typeof setTimeout>>();
   const pendingFollow = useRef<string | null>(null);
 
-  const clearFollow = () => {
+  const clearFollow = useCallback(() => {
     clearTimeout(followTimer.current);
     followTimer.current = undefined;
     pendingFollow.current = null;
-  };
+  }, []);
 
-  const clearTimers = () => {
+  const clearTimers = useCallback(() => {
     clearTimeout(intent.current);
     clearTimeout(grace.current);
     clearFollow();
-  };
-  useEffect(() => clearTimers, []);
+  }, [clearFollow]);
+  useEffect(() => clearTimers, [clearTimers]);
 
-  const set = (next: PeekState) => {
+  const set = useCallback((next: PeekState) => {
     stateRef.current = next;
     setState(next);
-  };
+  }, []);
 
   // Trailing edge of the follow throttle: applies the latest block that was
   // requested inside the window, re-checking that the peek is still pinned.
-  const applyFollow = () => {
+  const applyFollow = useCallback(() => {
     followTimer.current = undefined;
     const pending = pendingFollow.current;
     pendingFollow.current = null;
@@ -69,20 +69,20 @@ export function usePeek(): PeekApi {
     if (pending === null || s.status !== 'open' || !s.pinned || s.blockId === pending) return;
     lastFollow.current = Date.now();
     set({ ...s, blockId: pending });
-  };
+  }, [set]);
 
   const startGrace = useCallback(() => {
     const s = stateRef.current;
     if (s.status !== 'open' || s.pinned) return;
     clearTimeout(grace.current);
     grace.current = setTimeout(() => set(CLOSED), PEEK_GRACE_MS);
-  }, []);
+  }, [set]);
 
   const open = useCallback((blockId: string) => {
     clearTimers();
     const s = stateRef.current;
     set({ status: 'open', blockId, pinned: s.status === 'open' ? s.pinned : false });
-  }, []);
+  }, [clearTimers, set]);
 
   const hoverBlock = useCallback((blockId: string, pointerType: string) => {
     if (pointerType !== 'mouse') return;
@@ -106,7 +106,7 @@ export function usePeek(): PeekApi {
   const close = useCallback(() => {
     clearTimers();
     set(CLOSED);
-  }, []);
+  }, [clearTimers, set]);
 
   const togglePin = useCallback(() => {
     const s = stateRef.current;
@@ -117,7 +117,7 @@ export function usePeek(): PeekApi {
     set({ ...s, pinned: !s.pinned });
     // Unpinning returns the peek to the normal grace-then-close lifecycle.
     if (s.pinned) startGrace();
-  }, [startGrace]);
+  }, [clearFollow, set, startGrace]);
 
   const follow = useCallback((blockId: string) => {
     const s = stateRef.current;
@@ -134,7 +134,7 @@ export function usePeek(): PeekApi {
     if (s.blockId === blockId) return;
     lastFollow.current = Date.now();
     set({ ...s, blockId });
-  }, []);
+  }, [applyFollow, set]);
 
   return useMemo(
     () => ({ state, hoverBlock, leaveBlock, enterPeek, leavePeek, open, close, togglePin, follow }),

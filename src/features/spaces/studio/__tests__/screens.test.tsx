@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import StudioHomeScreen from '../../screens/StudioHomeScreen';
@@ -20,6 +20,7 @@ describe('Studio home', () => {
     expect(await screen.findByRole('heading', { name: 'Studio' }, { timeout: 2000 })).toBeInTheDocument();
     expect(screen.getByLabelText(/open material/i)).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: /Normalization\.pdf/ }, { timeout: 2000 })).toHaveAttribute('href', '/v4/library/studio/c/c-norm');
+    expect(screen.getByRole('main')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Manage uploads' })).toHaveAttribute('href', '/v4/library/uploads');
   });
 });
@@ -43,5 +44,23 @@ describe('Studio canvas', () => {
   it('says so when the canvas does not exist', async () => {
     at('/v4/library/studio/c/nope');
     expect(await screen.findByText(/That Material isn’t here/, undefined, { timeout: 2000 })).toBeInTheDocument();
+  });
+});
+
+describe('canvas states', () => {
+  const setSearch = (q: string) => window.history.replaceState({}, '', `/?mock=${q}`);
+  afterEach(() => window.history.replaceState({}, '', '/'));
+
+  it('renders the error state', async () => {
+    setSearch('error');
+    at('/v4/library/studio/c/c-norm');
+    expect(await screen.findByText(/Couldn’t load this Material/, undefined, { timeout: 2000 })).toBeInTheDocument();
+  });
+
+  it('renders the loading state', () => {
+    setSearch('loading');
+    const { container } = at('/v4/library/studio/c/c-norm');
+    expect(container.querySelector('.studio-surface')).not.toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Normalization.pdf' })).toBeNull();
   });
 });

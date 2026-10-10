@@ -65,10 +65,12 @@ export default function StudioCanvasScreen() {
     );
     const rects = sections.map((el) => {
       const r = el.getBoundingClientRect();
-      return { page: Number(el.dataset.pageAnchor), top: r.top, bottom: r.bottom };
+      return { page: Number(el.dataset.pageAnchor), top: r.top, bottom: r.bottom, height: r.height };
     });
-    // No layout (all rects empty): fall back to the first page shown.
-    const page = pickAnchorPage(rects, window.innerHeight) ?? rects[0]?.page ?? null;
+    // Only when nothing has layout at all (jsdom) fall back to the first page shown;
+    // in a real browser with no visible section there is nothing to anchor to.
+    const noLayout = rects.length > 0 && rects.every((r) => r.height === 0);
+    const page = pickAnchorPage(rects, window.innerHeight) ?? (noLayout ? rects[0].page : null);
     anchor.current = page === null ? null : { page, top: rects.find((r) => r.page === page)!.top };
     flushSync(() => setMorphPage(page));
     setFlying(true);

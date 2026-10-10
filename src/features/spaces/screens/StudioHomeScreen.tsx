@@ -24,7 +24,7 @@ export default function StudioHomeScreen() {
 
   return (
     <div className="studio-surface min-h-screen" data-theme={theme}>
-      <div className="mx-auto max-w-3xl px-4 py-10 md:px-6">
+      <main className="mx-auto max-w-3xl px-4 py-10 md:px-6">
         <Link
           to="/v4/library"
           className="mb-6 inline-flex min-h-6 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -89,7 +89,7 @@ export default function StudioHomeScreen() {
           <Link to="/v4/library/drafts" className="hover:text-foreground">Your drafts</Link>
           <Link to="/v4/library/impact" className="hover:text-foreground">How your work landed</Link>
         </nav>
-      </div>
+      </main>
     </div>
   );
 }
