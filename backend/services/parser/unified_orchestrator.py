@@ -567,7 +567,11 @@ async def parse_pdf_unified(
         from backend.services.localization_service import detect_source_language
         source_language = detect_source_language("\n".join(raw_slides[:15]))
         from backend.services.parser.deck_plan import build_deck_skeleton
-        skeleton = build_deck_skeleton(raw_slides)
+        try:
+            skeleton = build_deck_skeleton(raw_slides)
+        except Exception as exc:  # non-fatal: callees build their own
+            logger.warning("deck skeleton failed (non-fatal): %s", exc, exc_info=True)
+            skeleton = None
         await emit("progress", {"current": total, "total": total, "message": f"Extracted {total} slides"})
 
         # ``on_demand`` (Skip AI): persist raw extracted slides with no LLM

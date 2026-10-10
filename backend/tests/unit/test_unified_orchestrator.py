@@ -429,6 +429,20 @@ async def test_parse_pdf_unified_happy_path(monkeypatch):
     assert RunStatus.COMPLETED in rec["status"]
 
 
+async def test_parse_pdf_unified_survives_skeleton_failure(monkeypatch):
+    """The deck skeleton is an optimisation input: failing to build it must
+    never abort a parse (callees build their own or fall back)."""
+    rec, run = _patch_common(monkeypatch)
+
+    def boom(pages):
+        raise RuntimeError("skeleton exploded")
+
+    monkeypatch.setattr("backend.services.parser.deck_plan.build_deck_skeleton", boom)
+    events = await _run("h", OWNER, filename="My Deck.pdf")
+    assert events[-1][0] == "complete"
+    assert RunStatus.COMPLETED in rec["status"]
+
+
 async def test_parse_pdf_unified_stores_a_hero_poster(monkeypatch):
     """The pipeline renders the console hero's key art during ingest.
 

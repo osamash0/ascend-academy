@@ -135,8 +135,10 @@ async def test_generate_quiz_returns_list_when_model_returns_array(llm):
 
 async def test_generate_quiz_non_list_response_returns_empty(llm):
     llm["reply"] = json.dumps({"not": "an array"})
-    out = await synthesis.generate_quiz_questions(["x" * 60], "T", "cerebras")
+    rich = "Graphs consist of vertices and edges that model pairwise relations."
+    out = await synthesis.generate_quiz_questions(["Graphs", rich], "T", "cerebras")
     assert out == []
+    assert llm["calls"] == 1  # the guard under test was actually reached
 
 
 async def test_generate_quiz_caps_at_10_content_slides(llm):
