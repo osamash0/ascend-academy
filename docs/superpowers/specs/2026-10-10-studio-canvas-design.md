@@ -186,6 +186,15 @@ The `O` shortcut is ignored while focus is in an input, textarea or contentedita
 4. **One question in flight.** The composer is disabled with "Answering…" while a stream runs, plus a **Stop** button. Stopping keeps what has arrived and labels it "Stopped".
 5. **Failure.** A failure is shown inline in the answer block with the reason and a **Try again** that resends the same question. Never a fake answer.
 
+### 5.1a Answers you can interact with (intelligent UI)
+
+Inspired by [CopilotKit/OpenIntelligentUI](https://github.com/CopilotKit/OpenIntelligentUI). An answer isn't always a paragraph: for each question the AI **chooses the presentation** that helps most, which might be text, a side-by-side comparison, or a small working tool.
+
+- **Typed blocks first, not generated code.** An answer is `{ title, format, blocks[], next[] }`, where every block is plain JSON from a fixed catalogue. That's OpenIntelligentUI's "native components" tier (A2UI). Plain data means each block can stream in on its own, carry its own citations, and be tested against fixtures.
+- **The catalogue already exists.** The unlanded reader branch (`claude/two-faces-lesson-styling-1da325`, `components/reader/iui/spec.ts` + `Blocks.tsx`) built one for exactly this Material: `text`, `key`, `explore` (parts that light up on the page), `compare`, `fdTable` (an editable table checked live against a functional dependency), `closure` (X⁺ step by step), `bcnf` (a decomposition stepper), `check` (commit to an answer before seeing it) and `steps`. Plan 2 ports it and adds `citations: Citation[]` to every block.
+- **No sandboxed generated HTML (OpenIntelligentUI's second tier) in v1.** Foundations parks "executable or embedded-code artifacts" until sandboxing and moderation exist. It could later be allowed for private, unpublishable answers in an isolated iframe. That would be a separate decision.
+- **Keep** turns an interactive answer into a `generated` block that keeps its blocks. It stays interactive in your version.
+
 ### 5.2 Create
 
 The create chips (Study guide · Quiz · Flashcards) open a small options popover. Options are stored with the item so Retry and Regenerate replay them exactly:
@@ -452,10 +461,12 @@ Every screen implements all four states via `?mock=` like the rest of v4.
 - Rich-text editing. v1 edits a block's Markdown in place; a block editor library is a later decision.
 - Collaboration, version history, the studio-next course-structure views (units, coverage, insights).
 
-**Decisions needed from you before implementation:**
-1. **Base branch.** Recommended: build fresh from `main` in this worktree and port only the pieces in §1. The alternative is continuing on `claude/local-project-setup-50cb07`, which would also land the unreviewed studio-next and reader work.
-2. **Doc 2's "Studio = dense" rule.** The canvas is calm on purpose. Proposed amendment: "Studio's list screens are dense; the Studio canvas is a calm working surface." This needs your sign-off because 02-navigation is locked.
-3. **Peek in the reader.** The reader redesign cut Peek on 2026-09-18. This spec brings it back for Studio only. Confirm it shouldn't return to the reader too.
+**Decisions (2026-10-10):**
+1. **Base branch: fresh from `main`** (decided). Only the pieces listed in §1 are ported.
+2. **Doc 2's "Studio = dense" rule: still open.** The canvas is calm on purpose. Proposed amendment: "Studio's list screens are dense; the Studio canvas is a calm working surface." Needs sign-off because 02-navigation is locked. Implementation doesn't wait on it.
+3. **Peek is Studio-only** (decided). The reader keeps its 2026-09-18 decision.
+
+**Plan 1 deviation:** "Full page" shows the high-resolution page image in a zoomable dialog. The react-pdf viewer arrives with the real pipeline, so the 5.5 MB PDF isn't committed for the mock.
 
 ---
 
