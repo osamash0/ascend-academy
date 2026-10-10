@@ -169,3 +169,18 @@ export interface GeneratedBlock {
 - **Intelligent-UI answer blocks** (Studio spec §5.1a): Plan 2. A woven answer is Markdown only here.
 - **Create, Publish, the Sources drawer:** Plan 2.
 - **Regenerating or restyling the summary** (shorter, longer, simpler): later.
+
+## 11. As built (2026-10-11)
+
+Where the build differs from the text above, the build wins:
+
+| Section | As built |
+|---|---|
+| §6.3 `useAsk(canvasId)` → `{ ask, answering, lastAddedId }` | `useAsk()` → `{ ask, answering, suggestions }`. `AskResult` is `answer` \| `unknown` \| `busy`; `busy` (an earlier question still in flight) is ignored silently. |
+| §6.3 `?mock=` forces "cannot answer" | Dropped: any unscripted question exercises that path. |
+| §7 `SummaryBlock.tsx`, `AddedBelow.tsx` | Summary paragraphs render through `CleanBlock` (`hasSource` + `data-gist`); "Added below ↓" is a `Composer` notice. |
+| §4.6 Undo toast | An inline notice above the composer: "Answer removed · Undo". |
+| Studio spec §4.2 rule 5, one "Not in your version" pill per block | One quiet chip per page ("N parts not in your version"). Each dashed outline is the button: the first click offers "Add to your version", the second click adds it. |
+| §4.5 citation chips | They read `p. N · first words of the quote`; the full quote is in the chip's name and title. They open Peek on the summary paragraph that covers the cited block. |
+| §4.7 the honest line | "In this preview I can answer a few questions about this Material — try one of these:" |
+| §2.6 "Edited by you" on summaries | Uses the `edited` flag, not a text comparison. |
