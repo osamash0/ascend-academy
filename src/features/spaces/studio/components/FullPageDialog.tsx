@@ -23,25 +23,28 @@ export function FullPageDialog({
   const { page, box } = region;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="studio-surface max-w-5xl" data-theme={theme}>
-        <DialogTitle className="text-sm font-semibold">
+      <DialogContent className="studio-surface max-w-5xl rounded-2xl border-[rgb(var(--studio-hairline))]" data-theme={theme}>
+        <DialogTitle className="text-[15px] font-medium tracking-[-0.01em]">
           {materialName} · page {page.page}
         </DialogTitle>
         <DialogDescription className="sr-only">The original page, with the selected spot outlined.</DialogDescription>
-        <div className="flex gap-2" role="group" aria-label="Zoom">
+        <div className="flex w-fit gap-1 rounded-full bg-[rgb(var(--studio-chip))] p-1" role="group" aria-label="Zoom">
           {ZOOMS.map((z) => (
             <button
               key={z}
               type="button"
               aria-pressed={zoom === z}
               onClick={() => setZoom(z)}
-              className={cn('min-h-6 rounded-full border border-border px-3 text-xs', zoom === z && 'bg-muted')}
+              className={cn(
+                'console-focusable h-7 rounded-full px-3 text-[12.5px] tabular-nums transition-colors',
+                zoom === z ? 'bg-foreground text-background' : 'text-quiet hover:text-foreground',
+              )}
             >
               {z * 100}%
             </button>
           ))}
         </div>
-        <div className="max-h-[75vh] overflow-auto rounded-lg border border-border">
+        <div className="max-h-[75vh] overflow-auto rounded-xl bg-[rgb(var(--studio-chip))]">
           <motion.div
             initial={{ rotateY: 8, opacity: 0 }}
             animate={{ rotateY: 0, opacity: 1 }}

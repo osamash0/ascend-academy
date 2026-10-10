@@ -22,7 +22,7 @@ interface Props {
 const isMouseLike = (e: React.PointerEvent) => e.pointerType !== 'touch' && e.pointerType !== 'pen';
 
 const action =
-  'inline-flex min-h-6 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs hover:bg-muted';
+  'console-focusable inline-flex h-8 items-center gap-1.5 rounded-full bg-[rgb(var(--studio-chip))] px-3 text-[12.5px] text-quiet transition-colors hover:bg-[rgb(var(--studio-chip-hover))] hover:text-foreground';
 
 /**
  * The original page, with the spot outlined — spec §4.1.
@@ -48,14 +48,14 @@ export function Peek({
       exit={{ opacity: 0, y: 6 }}
       onPointerEnter={onPointerEnter}
       onPointerLeave={(e) => isMouseLike(e) && onPointerLeave()}
-      className="w-full rounded-2xl border border-border bg-card p-3 shadow-sm"
+      className="w-full rounded-2xl border border-[rgb(var(--studio-hairline))] bg-card p-3 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.8)]"
     >
       {sourceRemoved ? (
-        <p className="p-3 text-sm text-muted-foreground">
+        <p className="p-3 text-[14px] leading-relaxed text-quiet">
           The original file was removed. Your clean version keeps working.
         </p>
       ) : failed === src ? (
-        <div className="flex flex-col items-center gap-2 p-6 text-sm text-muted-foreground">
+        <div className="flex flex-col items-center gap-3 p-6 text-[14px] text-quiet">
           Couldn’t load this page.
           <button type="button" className={action} onClick={() => setRetry({ url: page.imageUrl, n: attempt + 1 })}>
             <RotateCw aria-hidden className="h-3.5 w-3.5" /> Try again
@@ -63,7 +63,7 @@ export function Peek({
         </div>
       ) : (
         <div
-          className="relative overflow-hidden rounded-lg border border-border bg-[hsl(var(--studio-paper))]"
+          className="relative overflow-hidden rounded-xl bg-[hsl(var(--studio-paper))] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_2px_6px_rgba(0,0,0,0.3)]"
           style={{ aspectRatio: `${page.width} / ${page.height}` }}
         >
           <AnimatePresence initial={false}>
@@ -93,11 +93,11 @@ export function Peek({
           )}
         </div>
       )}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-[12.5px] text-faint">
           Original · {materialName} · page {page.page}
         </span>
-        <button type="button" aria-pressed={pinned} onClick={onTogglePin} className={cn(action, pinned && 'bg-muted')}>
+        <button type="button" aria-pressed={pinned} onClick={onTogglePin} className={cn(action, pinned && 'bg-foreground text-background hover:bg-foreground hover:text-background')}>
           {pinned ? <PinOff aria-hidden className="h-3.5 w-3.5" /> : <Pin aria-hidden className="h-3.5 w-3.5" />}
           Pin
         </button>
@@ -106,7 +106,7 @@ export function Peek({
             <Maximize2 aria-hidden className="h-3.5 w-3.5" /> Full page
           </button>
         )}
-        <button type="button" onClick={onClose} aria-label="Close" className={cn(action, 'px-2')}>
+        <button type="button" onClick={onClose} aria-label="Close" className={cn(action, 'w-8 justify-center px-0')}>
           <X aria-hidden className="h-3.5 w-3.5" />
         </button>
       </div>

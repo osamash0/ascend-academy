@@ -17,9 +17,10 @@ export interface PageNav {
 }
 
 /** The page's section in the view on screen; notes above page 1 have only a clean one. */
-const sectionFor = (view: CanvasView, page: number) =>
-  document.querySelector<HTMLElement>(`[data-view="${view}"][data-page-anchor="${page}"]`) ??
-  document.querySelector<HTMLElement>(`[data-page-anchor="${page}"]`);
+function sectionFor(view: CanvasView, page: number): HTMLElement | null {
+  const any = `[data-page-anchor="${page}"]`;
+  return (document.querySelector(`[data-view="${view}"]${any}`) ?? document.querySelector(any)) as HTMLElement | null;
+}
 
 /**
  * Where you are, page by page, and the turn — the rail, the pager and ← →.

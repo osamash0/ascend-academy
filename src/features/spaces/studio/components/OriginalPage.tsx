@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
+import { cn } from '@/lib/utils';
 import { boxStyle, unionBox, unmappedSourceBlocks } from '../geometry';
 import { FLIGHT_EASE, FLIGHT_S, STAGGER_S, TEXT_FADE_S } from '../motion';
 import { firstWords, plainText } from '../text';
@@ -24,6 +25,12 @@ interface Props {
 
 /** Where blocks without coordinates converge before fading (spec §4.2 rule 10). */
 const CENTER: Box = [0.4, 0.45, 0.6, 0.55];
+/** The reader's page on black: a hairline ring and a long, soft shadow. */
+const PAGE_SHADOW =
+  'shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_2px_6px_rgba(0,0,0,0.3),0_28px_64px_-16px_rgba(0,0,0,0.65)]';
+/** Chrome laid over the paper: dark glass, legible on any page in either theme. */
+const PILL =
+  'whitespace-nowrap rounded-full border border-white/15 bg-black/70 px-2.5 text-[11px] text-white backdrop-blur-sm transition-colors';
 const flight = (i: number) => ({ layout: { duration: FLIGHT_S, ease: FLIGHT_EASE, delay: i * STAGGER_S } });
 
 /**
@@ -52,7 +59,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
     >
       <PageDivider page={page.page} original />
       <div
-        className="relative overflow-hidden rounded-xl border border-border bg-[hsl(var(--studio-paper))]"
+        className={cn('relative overflow-hidden rounded-xl bg-[hsl(var(--studio-paper))]', PAGE_SHADOW)}
         style={{ aspectRatio: `${page.width} / ${page.height}` }}
       >
         <img
@@ -113,7 +120,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
                 </motion.span>
               )}
               {b.edited && (
-                <span className="absolute -top-5 right-0 whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
+                <span className={cn(PILL, 'absolute -top-5 right-0 py-0.5 font-medium')}>
                   Edited by you
                 </span>
               )}
@@ -122,7 +129,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
         })}
 
         {figures.length > 0 && (
-          <span className="pointer-events-none absolute right-2 top-2 z-20 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground">
+          <span className={cn(PILL, 'pointer-events-none absolute right-2 top-2 z-20 py-0.5')}>
             {figures.length} {figures.length === 1 ? 'figure' : 'figures'} not in your version
           </span>
         )}
@@ -131,20 +138,20 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
             key={s.id}
             aria-hidden
             style={boxStyle(s.bbox)}
-            className="pointer-events-none absolute rounded-[4px] border border-dashed border-muted-foreground/30"
+            className="pointer-events-none absolute rounded-[4px] border border-dashed border-black/20"
           />
         ))}
         {texts.map((s) => (
           <div
             key={s.id}
             style={boxStyle(s.bbox)}
-            className="absolute rounded-[4px] border-2 border-dashed border-muted-foreground/60"
+            className="absolute rounded-[4px] border-2 border-dashed border-black/35"
           >
             <button
               type="button"
               aria-label={`${offer === s.id ? 'Add to your version' : 'Not in your version'}: ${firstWords(s.text)}`}
               onClick={() => (offer === s.id ? onInclude(s.id) : setOffer(s.id))}
-              className="absolute -top-6 left-0 z-20 min-h-6 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground hover:text-foreground"
+              className={cn(PILL, 'absolute -top-6 left-0 z-20 min-h-6 hover:bg-black/85')}
             >
               {offer === s.id ? 'Add to your version' : 'Not in your version'}
             </button>
@@ -155,7 +162,7 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
           <button
             type="button"
             onClick={() => onRegion(mapped[0].id)}
-            className="absolute inset-x-0 bottom-3 mx-auto w-fit min-h-6 rounded-full border border-border bg-card px-3 text-xs"
+            className={cn(PILL, 'absolute inset-x-0 bottom-3 mx-auto h-8 w-fit px-4 text-[12px] hover:bg-black/85')}
           >
             Back to the clean version
           </button>
