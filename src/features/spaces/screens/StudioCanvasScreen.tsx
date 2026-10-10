@@ -218,11 +218,12 @@ export default function StudioCanvasScreen() {
       const el = node instanceof Element ? node : (node?.parentElement ?? null);
       const block = el?.closest<HTMLElement>('[data-view="clean"] [data-block-id]') ?? null;
       if (!sel || sel.isCollapsed) {
-        // A click elsewhere in your version drops it; focusing the composer does not.
-        if (el?.closest('[data-view="clean"]')) lastSelectionBlock.current = null;
+        // A click anywhere else drops it; only moving into the composer keeps it.
+        if (!el?.closest('[data-composer]')) lastSelectionBlock.current = null;
         return;
       }
-      if (block && !block.matches('[data-woven]')) lastSelectionBlock.current = block.dataset.blockId ?? null;
+      // A new selection that is not in a paragraph of your version replaces it with nothing.
+      lastSelectionBlock.current = block && !block.matches('[data-woven]') ? (block.dataset.blockId ?? null) : null;
     };
     document.addEventListener('selectionchange', onSelection);
     return () => document.removeEventListener('selectionchange', onSelection);

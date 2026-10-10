@@ -194,6 +194,23 @@ describe('asking on the canvas', () => {
     expect(ids[ids.indexOf('s-p6-1') + 1]).not.toMatch(/^ans-/);
   });
 
+  it('forgets a selection once you click somewhere other than the composer', async () => {
+    const { container } = await mount();
+    const para = container.querySelector('[data-view="clean"] [data-block-id="s-p2-1"]')!;
+    const text = document.createTreeWalker(para, NodeFilter.SHOW_TEXT).nextNode()!;
+    const sel = vi.spyOn(window, 'getSelection');
+    sel.mockReturnValue({ isCollapsed: false, anchorNode: text } as unknown as Selection);
+    document.dispatchEvent(new Event('selectionchange'));
+    // A click in the header collapses the selection outside the composer: the paragraph is dropped.
+    sel.mockReturnValue({ isCollapsed: true, anchorNode: container.querySelector('header') } as unknown as Selection);
+    document.dispatchEvent(new Event('selectionchange'));
+    sel.mockRestore();
+    await ask('What is a functional dependency?');
+    const ids = order(container);
+    expect(ids[ids.indexOf('s-p2-1') + 1]).not.toMatch(/^ans-/);
+    expect(ids[ids.indexOf('s-p6-1') + 1]).toMatch(/^ans-/);
+  });
+
   it('Esc on an offered outline withdraws the offer and stays in Source', async () => {
     await mount();
     fireEvent.keyDown(window, { key: 's' });

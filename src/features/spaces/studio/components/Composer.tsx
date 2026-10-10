@@ -63,7 +63,7 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
   const backed = !!notice || chips;
 
   return (
-    <div className="relative flex w-full max-w-[560px] flex-col items-center gap-2">
+    <div data-composer className="relative flex w-full max-w-[560px] flex-col items-center gap-2">
       <div
         className={cn(
           'flex flex-col items-center gap-2 rounded-2xl transition-colors',
