@@ -250,7 +250,6 @@ async def list_stalled_extracting_runs(cutoff: datetime) -> list[ParseRun]:
 
 async def set_status(run_id: UUID, status: RunStatus) -> None:
     pool = await _pool()
-    kwargs: dict = {"status": status.value, "run_id": run_id}
     finished_at = datetime.now(timezone.utc) if status in (RunStatus.COMPLETED, RunStatus.FAILED) else None
     async with pool.acquire() as conn:
         if finished_at:

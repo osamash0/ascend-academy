@@ -37,9 +37,13 @@ import datetime
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    # Runtime imports of LLMUsage stay function-local (see _call_google etc.).
+    from backend.services.ai.cost import LLMUsage
 
 logger = logging.getLogger(__name__)
 

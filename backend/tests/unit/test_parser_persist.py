@@ -240,7 +240,7 @@ async def test_insert_slide_maps_sse_dict_to_columns(conn):
 async def test_insert_slide_title_and_content_fallbacks(conn):
     lid = uuid4()
     # No title → "Slide N"; content_text used when content absent.
-    sid = await persist.insert_slide(lid, 0, {"content_text": "from ct"})
+    await persist.insert_slide(lid, 0, {"content_text": "from ct"})
     args = _last_execute_args(conn)
     assert "Slide 1" in args
     assert "from ct" in args
