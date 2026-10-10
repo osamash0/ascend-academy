@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Peek } from '../components/Peek';
+import type { Region } from '../geometry';
 import StudioCanvasScreen from '../../screens/StudioCanvasScreen';
 
 beforeEach(() => vi.useFakeTimers());
@@ -60,5 +62,61 @@ describe('Peek on the canvas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pin' }));
     await act(async () => { vi.advanceTimersByTime(1000); });
     expect(screen.getByRole('complementary', { name: 'Original page' })).toBeInTheDocument();
+  });
+});
+
+const openFromMarker = () =>
+  fireEvent.click(screen.getAllByRole('button', { name: 'Show the original, page 2' })[0]);
+
+describe('Full page', () => {
+  it('outlives the Peek that opened it and does not reopen later', async () => {
+    await mount();
+    openFromMarker();
+    fireEvent.click(screen.getByRole('button', { name: /Full page/ }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.pointerLeave(screen.getByRole('complementary', { name: 'Original page', hidden: true }));
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    openFromMarker();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('Escape while it is open does not close the Peek', async () => {
+    await mount();
+    openFromMarker();
+    fireEvent.click(screen.getByRole('button', { name: /Full page/ }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(screen.getByRole('complementary', { name: 'Original page', hidden: true })).toBeInTheDocument();
+  });
+});
+
+describe('Peek view', () => {
+  const region: Region = {
+    page: { materialId: 'm', page: 2, width: 100, height: 140, imageUrl: '/p2.png' } as Region['page'],
+    box: null,
+  };
+  const props = {
+    materialName: 'N.pdf', pinned: false, sourceRemoved: false,
+    onTogglePin() {}, onFullPage() {}, onPointerEnter() {}, onPointerLeave() {},
+  };
+
+  it('says so when the source was removed, with no Full page button', () => {
+    render(<Peek region={region} {...props} sourceRemoved />);
+    expect(screen.getByText('The original file was removed. Your clean version keeps working.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Full page/ })).toBeNull();
+  });
+
+  it('offers Try again on a load error, and resets retries on a new page', () => {
+    const { rerender } = render(<Peek region={region} {...props} />);
+    fireEvent.error(screen.getByRole('img'));
+    fireEvent.click(screen.getByRole('button', { name: /Try again/ }));
+    expect(screen.getByRole('img').getAttribute('src')).toBe('/p2.png?retry=1');
+    const next = { ...region, page: { ...region.page, page: 3, imageUrl: '/p3.png' } };
+    rerender(<Peek region={next} {...props} />);
+    expect(screen.getAllByRole('img').map((i) => i.getAttribute('src'))).toContain('/p3.png');
   });
 });

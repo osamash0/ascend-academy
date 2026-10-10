@@ -11,6 +11,7 @@ import { usePeek } from '../studio/usePeek';
 import { useReadingLine } from '../studio/useReadingLine';
 import { useStudioTheme } from '../studio/useStudioTheme';
 import { useWide } from '../studio/useWide';
+import type { Region } from '../studio/geometry';
 import type { CanvasDoc } from '../studio/types';
 import '../studio/studio-surface.css';
 
@@ -26,7 +27,8 @@ export default function StudioCanvasScreen() {
   const peek = usePeek();
   const wide = useWide();
   const column = useRef<HTMLElement>(null);
-  const [fullPage, setFullPage] = useState(false);
+  /** A snapshot, so the dialog outlives the Peek that opened it. */
+  const [fullRegion, setFullRegion] = useState<Region | null>(null);
   const peekOpen = peek.state.status === 'open';
   const pinned = peek.state.status === 'open' && peek.state.pinned;
   const region = doc && peek.state.status === 'open' ? regionForBlock(doc.blocks, pages, peek.state.blockId) : null;
@@ -35,11 +37,11 @@ export default function StudioCanvasScreen() {
   useEffect(() => {
     if (!peekOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !fullPage) peek.close();
+      if (e.key === 'Escape' && !fullRegion) peek.close();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [peekOpen, fullPage, peek.close]);
+  }, [peekOpen, fullRegion, peek.close]);
 
   const frame = (children: React.ReactNode) => (
     <div className="studio-surface min-h-screen" data-theme={theme}>
@@ -61,7 +63,7 @@ export default function StudioCanvasScreen() {
         peek.togglePin();
         peek.enterPeek();
       }}
-      onFullPage={() => setFullPage(true)}
+      onFullPage={() => setFullRegion(region)}
       onPointerEnter={peek.enterPeek}
       onPointerLeave={peek.leavePeek}
     />
@@ -114,11 +116,11 @@ export default function StudioCanvasScreen() {
       </div>
 
       {!wide && <div className="fixed inset-x-3 bottom-3 z-30 max-h-[45vh] overflow-auto">{peekPanel}</div>}
-      {region && (
+      {fullRegion && (
         <FullPageDialog
-          open={fullPage}
-          onOpenChange={setFullPage}
-          region={region}
+          open
+          onOpenChange={(o) => !o && setFullRegion(null)}
+          region={fullRegion}
           materialName={material.filename}
           theme={theme}
         />

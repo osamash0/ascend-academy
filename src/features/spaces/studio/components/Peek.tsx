@@ -30,7 +30,9 @@ export function Peek({
   region, materialName, pinned, sourceRemoved, onTogglePin, onFullPage, onPointerEnter, onPointerLeave,
 }: Props) {
   const { page, box } = region;
-  const [attempt, setAttempt] = useState(0);
+  // Retries belong to one page: a different page starts clean.
+  const [retry, setRetry] = useState({ url: page.imageUrl, n: 0 });
+  const attempt = retry.url === page.imageUrl ? retry.n : 0;
   const [failed, setFailed] = useState<string | null>(null);
   const src = attempt ? `${page.imageUrl}?retry=${attempt}` : page.imageUrl;
 
@@ -51,7 +53,7 @@ export function Peek({
       ) : failed === src ? (
         <div className="flex flex-col items-center gap-2 p-6 text-sm text-muted-foreground">
           Couldn’t load this page.
-          <button type="button" className={action} onClick={() => setAttempt((a) => a + 1)}>
+          <button type="button" className={action} onClick={() => setRetry({ url: page.imageUrl, n: attempt + 1 })}>
             <RotateCw aria-hidden className="h-3.5 w-3.5" /> Try again
           </button>
         </div>
