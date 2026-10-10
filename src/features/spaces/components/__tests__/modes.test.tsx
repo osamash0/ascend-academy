@@ -84,6 +84,9 @@ const MODE: Record<string, Mode> = {
   // A router shim: picks a tab and renders SpaceScreen. It has no UI of its
   // own, so the chrome rules have nothing to say about it.
   'SpaceRoute.tsx': 'shim',
+  // The Studio canvas: its own light, paper-like ground (studio-surface.css), by spec §3.3.
+  'StudioHomeScreen.tsx': 'own-ground',
+  'StudioCanvasScreen.tsx': 'own-ground',
 };
 
 const ALL_SCREENS = readdirSync(join(SRC, 'screens')).filter((f) => f.endsWith('.tsx'));
