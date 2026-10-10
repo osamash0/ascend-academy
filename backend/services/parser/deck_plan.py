@@ -66,6 +66,11 @@ _HEADING_ROLES: tuple[tuple[re.Pattern[str], SlideRole], ...] = (
     (re.compile(r"^(literatur|references|quellen|bibliography|further reading)\b", re.I), SlideRole.REFERENCES),
 )
 _SECTION_MAX_WORDS = 6
+# A short slide is a chapter divider only if it is numbered. Across 20 real
+# decks every unnumbered short slide was a figure slide with just a title.
+_SECTION_NUMBERING = re.compile(
+    r"^(\d+(\.\d+)*\.?\s|(kapitel|chapter|teil|part|abschnitt|section)\s+(\d+|[ivx]+)\b)", re.I
+)
 
 
 @dataclass(frozen=True)
@@ -101,7 +106,8 @@ def classify_role(index: int, text: str) -> SlideRole:
     for pattern, role in _HEADING_ROLES:
         if pattern.match(lines[0]):
             return role
-    if len(lines) <= 2 and len(" ".join(lines).split()) <= _SECTION_MAX_WORDS:
+    if (len(lines) <= 2 and len(" ".join(lines).split()) <= _SECTION_MAX_WORDS
+            and _SECTION_NUMBERING.match(lines[0])):
         return SlideRole.SECTION
     return SlideRole.CONTENT
 

@@ -18,6 +18,14 @@ LONG = "Relational algebra defines selection, projection and join over sets of t
     (3, "Summary\n" + LONG, SlideRole.SUMMARY),
     (3, "Literatur\nElmasri, Navathe", SlideRole.REFERENCES),
     (3, "2. Relationale Algebra", SlideRole.SECTION),
+    (3, "Kapitel 3: Speicherverwaltung", SlideRole.SECTION),
+    (3, "3.1 Seitenersetzung\nFIFO", SlideRole.SECTION),
+    # Real title-only figure slides from the DBS/SR decks: short, but not dividers.
+    (3, "Execution Plan – Example", SlideRole.CONTENT),
+    (3, "Heutige Einsatzgebiete für Virtualisierung?", SlideRole.CONTENT),
+    (3, "Seitengröße vs. Seitenfehlerrate", SlideRole.CONTENT),
+    (3, "Conflict Serializability\nConflicts – conflict", SlideRole.CONTENT),
+    (3, "Ethernet Topologie:10Base2", SlideRole.CONTENT),
     (3, "Selection\n" + LONG, SlideRole.CONTENT),
 ])
 def test_classify_role(index, text, role):
