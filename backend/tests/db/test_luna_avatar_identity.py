@@ -39,6 +39,10 @@ def test_signed_in_user_reads_only_cosmetic_columns_of_requested_ids(db_conn, ma
             "UPDATE profiles SET luna_loadout = %s::jsonb, luna_suit_color = '#E8E4F0' WHERE user_id = %s",
             (json.dumps({"gear": "gear-halo"}), str(ada)),
         )
+        cur.execute(
+            "UPDATE profiles SET luna_loadout = %s::jsonb WHERE user_id = %s",
+            (json.dumps({"gear": "gear-antenna"}), str(ben)),
+        )
         _as_user(cur, viewer)
         try:
             cur.execute("SELECT * FROM get_luna_loadouts(%s::uuid[])", ([str(ada)],))
@@ -47,8 +51,9 @@ def test_signed_in_user_reads_only_cosmetic_columns_of_requested_ids(db_conn, ma
         finally:
             _reset(cur)
     assert cols == ["user_id", "luna_loadout", "luna_suit_color", "luna_visor_tint"]
-    assert len(rows) == 1  # ben was not asked for, so ben is not returned
+    assert len(rows) == 1
     assert str(rows[0][0]) == str(ada)
+    assert str(ben) not in {str(r[0]) for r in rows}  # not asked for, so not returned
     assert rows[0][1] == {"gear": "gear-halo"}
     assert rows[0][2] == "#E8E4F0"
 
