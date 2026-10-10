@@ -72,6 +72,7 @@ def test_history_marks_each_idea_by_its_latest_answer(monkeypatch):
     monkeypatch.setattr(svc, "get_db_connection", connect)
     h = asyncio.run(svc.history(uuid.uuid4(), str(uuid.uuid4())))
     assert sorted((m["page"], m["correct"]) for m in h["marks"]) == [(30, True), (50, False)]
+    assert all(m["at"] == now.isoformat() for m in h["marks"])
     assert [w["idea"] for w in h["weak"]] == ["BCNF"]
 
 

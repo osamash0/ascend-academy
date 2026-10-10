@@ -36,7 +36,7 @@ interface Props {
   page: number;
   onJump: (page: number) => void;
   /** What a checkpoint or rehearsal said about each idea, in chapter order. */
-  lights?: ('lit' | 'weak' | 'dark')[];
+  lights?: ('lit' | 'fading' | 'weak' | 'dark')[];
 }
 
 export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
@@ -74,6 +74,7 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
         </AnimatePresence>
         <p className="shrink-0 tabular-nums text-faint">
           {lights[shown] === 'lit' && <span className="mr-1.5 text-success">Tested right ·</span>}
+          {lights[shown] === 'fading' && <span className="mr-1.5 text-success">Fading — due for a look ·</span>}
           {lights[shown] === 'weak' && <span className="mr-1.5 text-destructive">To revisit ·</span>}
           {shown === at ? left : `Pages ${label.first}–${label.last} · click to go there`}
         </p>
@@ -90,7 +91,7 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
                 onPointerEnter={() => setHover(i)}
                 onFocus={() => setHover(i)}
                 onBlur={() => setHover(null)}
-                aria-label={`${c.name}, pages ${c.first} to ${c.last}${lights[i] === 'lit' ? ', tested right' : lights[i] === 'weak' ? ', to revisit' : ''}`}
+                aria-label={`${c.name}, pages ${c.first} to ${c.last}${lights[i] === 'lit' ? ', tested right' : lights[i] === 'fading' ? ', fading' : lights[i] === 'weak' ? ', to revisit' : ''}`}
                 aria-current={i === at ? 'location' : undefined}
                 className="console-focusable group flex h-4 w-full items-center rounded-sm"
               >
@@ -104,7 +105,10 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
                   {lights[i] && lights[i] !== 'dark' && (
                     <span
                       aria-hidden
-                      className={cn('absolute inset-0 rounded-full', lights[i] === 'lit' ? 'bg-success/60' : 'bg-destructive/50')}
+                      className={cn(
+                        'absolute inset-0 rounded-full',
+                        lights[i] === 'lit' ? 'bg-success/60' : lights[i] === 'fading' ? 'bg-success/25' : 'bg-destructive/50',
+                      )}
                     />
                   )}
                   <motion.span
@@ -116,6 +120,8 @@ export function ChapterStrip({ chapters, page, onJump, lights = [] }: Props) {
                           ? 'var(--reader-accent, hsl(var(--secondary)))'
                           : lights[i] === 'lit'
                             ? 'hsl(var(--success))'
+                            : lights[i] === 'fading'
+                              ? 'hsl(var(--success) / 0.45)'
                             : lights[i] === 'weak'
                               ? 'hsl(var(--destructive))'
                               : 'rgba(255,255,255,0.45)',

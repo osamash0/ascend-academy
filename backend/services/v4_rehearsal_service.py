@@ -481,6 +481,7 @@ async def history(course_id: UUID, user_id: str) -> dict[str, Any]:
                     "idea": r["idea"],
                     "page": r["page"],
                     "latest_correct": r["correct"],
+                    "at": row["created_at"].isoformat(),
                     "seen": 0,
                     "missed": 0,
                 }
@@ -504,7 +505,7 @@ async def history(course_id: UUID, user_id: str) -> dict[str, Any]:
         "steady_count": len(steady),
         # Every tested idea's latest result, by page — what lights the course map.
         "marks": [
-            {"lecture_id": e["lecture_id"], "page": e["page"], "correct": e["latest_correct"]}
+            {"lecture_id": e["lecture_id"], "page": e["page"], "correct": e["latest_correct"], "at": e["at"]}
             for e in ideas.values()
         ][:200],
     }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, BookOpen, Search, Target } from 'lucide-react';
+import { ArrowRight, BookOpen, RotateCcw, Search, Sparkles, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -9,6 +9,7 @@ import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { useCourse, useFind, useRehearsalHistory } from '../data/useReader';
 import { latestInCourse, readTrail } from '../data/trail';
 import { ideaAt, lightIdeas, type Light } from '../components/course/light';
+import { planToday, type TodayStep } from '../components/course/today';
 import { viewer } from '../mocks/people';
 
 /**
@@ -66,9 +67,12 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   const allIdeas = course.lectures.reduce((n, l) => n + (l.ideas?.length ?? 0), 0);
   const litCount = [...lights.values()].flat().filter((x) => x === 'lit').length;
   const weakCount = [...lights.values()].flat().filter((x) => x === 'weak').length;
+  const fadingCount = [...lights.values()].flat().filter((x) => x === 'fading').length;
 
   const resumeLecture = resume ? course.lectures.find((l) => l.id === resume.lectureId) : undefined;
   const resumeIdea = resume && resumeLecture?.ideas ? resumeLecture.ideas[ideaAt(resumeLecture.ideas, resume.page)] : undefined;
+  const today = planToday({ lectures: course.lectures, marks, weak: history?.weak ?? [], resume });
+  const todayMinutes = today.reduce((n, step) => n + step.minutes, 0);
 
   return chrome(
     <div className="relative pb-36">
@@ -97,71 +101,37 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             <Target aria-hidden className="h-4 w-4" />
             Rehearse for the exam
           </Link>
-          {/* What your last rehearsals say to read again. */}
-          {history && history.weak.length > 0 && (
-            <div className="mx-auto mt-5 flex max-w-2xl flex-wrap items-center justify-center gap-2">
-              <span className="text-[12.5px] text-quiet">To revisit:</span>
-              {history.weak.slice(0, 4).map((w) => (
-                <Link
-                  key={`${w.lecture_id}-${w.idea}`}
-                  to={readHref(w.lecture_id, w.page)}
-                  className="console-focusable inline-flex h-8 items-center gap-1.5 rounded-full bg-destructive/[0.1] px-3 text-[12.5px] text-foreground transition-colors hover:bg-destructive/[0.18]"
-                >
-                  {w.idea}
-                  <span className="text-quiet">p{w.page}</span>
-                </Link>
-              ))}
-              {history.weak.length > 4 && <span className="text-[12.5px] text-faint">+{history.weak.length - 4} more</span>}
-            </div>
-          )}
         </div>
 
-        {/* Pick up where you left off. */}
-        {resume && resumeLecture && (
-          <motion.div
+        {/* Today: read on, revisit a miss, refresh what is fading. */}
+        {today.length > 0 && (
+          <motion.section
+            aria-label="Today"
             initial={reduce ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: 0.1 }}
-            className="mx-auto mt-12 max-w-2xl"
+            className="mx-auto mt-12 max-w-3xl"
           >
-            <Link
-              to={readHref(resumeLecture.id, resume.page)}
-              className="console-focusable group relative flex items-center gap-5 overflow-hidden rounded-3xl border border-white/[0.09] bg-[#0b0b0c] p-3 pr-5 transition-colors hover:border-white/[0.18]"
-            >
-              <span className="relative block w-[132px] shrink-0 overflow-hidden rounded-2xl bg-white/[0.04] sm:w-[168px]">
-                {resumeLecture.poster ? (
-                  <img src={resumeLecture.poster} alt="" className="aspect-video w-full object-cover" />
-                ) : (
-                  <span className="block aspect-video" />
-                )}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[12.5px] text-quiet">Pick up where you left off</span>
-                <span className="mt-0.5 block truncate text-[17px] font-medium text-foreground">{resumeLecture.title}</span>
-                <span className="mt-0.5 block truncate text-[13px] tabular-nums text-quiet">
-                  Page {resume.page} of {resume.pages}
-                  {resumeIdea && (
-                    <>
-                      <span aria-hidden className="mx-1.5 text-faint">·</span>
-                      {resumeIdea.name}
-                    </>
-                  )}
-                </span>
-                <span aria-hidden className="mt-3 block h-[3px] overflow-hidden rounded-full bg-white/[0.08]">
-                  <motion.span
-                    className="block h-full origin-left rounded-full bg-white"
-                    initial={reduce ? false : { scaleX: 0 }}
-                    animate={{ scaleX: resume.page / resume.pages }}
-                    transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            <div className="mb-3 flex items-baseline justify-between gap-4 px-1">
+              <h2 className="text-[17px] font-medium text-foreground">Today</h2>
+              <p className="text-[13px] tabular-nums text-quiet">About {todayMinutes} minutes</p>
+            </div>
+            <ol className={cn('grid gap-3', today.length > 1 && 'sm:grid-cols-[1.4fr_1fr]', today.length > 2 && 'sm:grid-rows-2')}>
+              {today.map((step, i) => (
+                <li key={step.kind} className={cn(i === 0 && today.length > 2 && 'sm:row-span-2')}>
+                  <TodayCard
+                    step={step}
+                    href={readHref(step.lectureId, step.page)}
+                    poster={i === 0 ? course.lectures.find((l) => l.id === step.lectureId)?.poster ?? null : null}
+                    progress={step.kind === 'read' && resume ? resume.page / resume.pages : null}
+                    idea={step.kind === 'read' ? resumeIdea?.name : undefined}
+                    more={step.kind === 'revisit' ? Math.max(0, (history?.weak.length ?? 0) - 1) : 0}
+                    reduce={Boolean(reduce)}
                   />
-                </span>
-              </span>
-              <span className="hidden h-10 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[13.5px] font-medium text-background sm:inline-flex">
-                Continue
-                <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-              </span>
-            </Link>
-          </motion.div>
+                </li>
+              ))}
+            </ol>
+          </motion.section>
         )}
 
         {/* Where was that taught? */}
@@ -233,11 +203,12 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             <p className="mt-1 text-[13.5px] text-quiet">
               {marks.length === 0
                 ? 'Every idea starts dark. A rehearsal lights the ones you get right.'
-                : `${litCount} of ${allIdeas} ideas lit${weakCount ? ` · ${weakCount} to revisit` : ''}`}
+                : `${litCount} of ${allIdeas} ideas lit${fadingCount ? ` · ${fadingCount} fading` : ''}${weakCount ? ` · ${weakCount} to revisit` : ''}`}
             </p>
           </div>
-          <ul aria-label="Legend" className="flex items-center gap-4 text-[12.5px] text-quiet">
+          <ul aria-label="Legend" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-quiet">
             <li className="flex items-center gap-1.5"><IdeaDot light="lit" />Tested, right</li>
+            <li className="flex items-center gap-1.5"><IdeaDot light="fading" />Fading</li>
             <li className="flex items-center gap-1.5"><IdeaDot light="weak" />To revisit</li>
             <li className="flex items-center gap-1.5"><IdeaDot light="dark" />Not tested yet</li>
           </ul>
@@ -292,10 +263,11 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                           <Link
                             key={`${idea.first_page}-${idea.name}`}
                             to={readHref(l.id, idea.first_page)}
-                            aria-label={`${idea.name}, page ${idea.first_page}${light === 'lit' ? ', tested right' : light === 'weak' ? ', to revisit' : ''}`}
+                            aria-label={`${idea.name}, page ${idea.first_page}${light === 'lit' ? ', tested right' : light === 'fading' ? ', fading' : light === 'weak' ? ', to revisit' : ''}`}
                             className={cn(
                               'console-focusable inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] transition-colors',
                               light === 'lit' && 'bg-success/[0.1] text-foreground hover:bg-success/[0.16]',
+                              light === 'fading' && 'bg-success/[0.04] text-quiet hover:bg-success/[0.1] hover:text-foreground',
                               light === 'weak' && 'bg-destructive/[0.1] text-foreground hover:bg-destructive/[0.16]',
                               light === 'dark' && 'bg-white/[0.04] text-quiet hover:bg-white/[0.09] hover:text-foreground',
                             )}
@@ -327,7 +299,81 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   );
 }
 
-/** An idea's light: a lit dot glows, a dark one is only an outline. */
+const STEP_LOOK: Record<TodayStep['kind'], { icon: typeof BookOpen; tint: string; label: string }> = {
+  read: { icon: BookOpen, tint: 'bg-white text-background', label: 'Read on' },
+  revisit: { icon: RotateCcw, tint: 'bg-destructive/[0.16] text-destructive', label: 'Revisit' },
+  refresh: { icon: Sparkles, tint: 'bg-success/[0.14] text-success', label: 'Refresh' },
+};
+
+/** One step of today's session: what, why, how long — and the page that does it. */
+function TodayCard({
+  step,
+  href,
+  poster,
+  progress,
+  idea,
+  more = 0,
+  reduce,
+}: {
+  step: TodayStep;
+  /** Other ideas also marked to revisit, beyond this one. */
+  more?: number;
+  href: string;
+  poster: string | null;
+  progress: number | null;
+  idea?: string;
+  reduce: boolean;
+}) {
+  const look = STEP_LOOK[step.kind];
+  return (
+    <Link
+      to={href}
+      className="console-focusable group flex h-full flex-col overflow-hidden rounded-3xl border border-white/[0.09] bg-[#0b0b0c] transition-colors hover:border-white/[0.18]"
+    >
+      {poster && (
+        <span className="relative block overflow-hidden bg-white/[0.04]">
+          <img src={poster} alt="" className="aspect-[2/1] w-full object-cover" />
+          <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#0b0b0c] to-transparent" />
+        </span>
+      )}
+      <span className="flex flex-1 flex-col p-4">
+        <span className="flex items-center justify-between gap-3">
+          <span className={cn('inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium', look.tint)}>
+            <look.icon aria-hidden className="h-3 w-3" />
+            {look.label}
+          </span>
+          <span className="text-[12.5px] tabular-nums text-faint">~{step.minutes} min</span>
+        </span>
+        <span className="mt-3 block text-[15.5px] font-medium leading-snug text-foreground">{step.title}</span>
+        <span className="mt-1 block text-[13px] leading-[1.45] text-quiet">
+          {step.why}
+          {idea && <> · {idea}</>}
+        </span>
+        {more > 0 && (
+          <span className="mt-1.5 block text-[12.5px] text-faint">
+            and {more} more marked to revisit — they show red on the map below
+          </span>
+        )}
+        {progress !== null && (
+          <span aria-hidden className="mt-3.5 block h-[3px] overflow-hidden rounded-full bg-white/[0.08]">
+            <motion.span
+              className="block h-full origin-left rounded-full bg-white"
+              initial={reduce ? false : { scaleX: 0 }}
+              animate={{ scaleX: progress }}
+              transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            />
+          </span>
+        )}
+        <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] text-quiet transition-colors group-hover:text-foreground">
+          Open at page {step.page}
+          <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+/** An idea's light: a lit dot glows, a fading one has lost its glow, a dark one is only an outline. */
 function IdeaDot({ light }: { light: Light }) {
   return (
     <span
@@ -335,6 +381,7 @@ function IdeaDot({ light }: { light: Light }) {
       className={cn(
         'h-1.5 w-1.5 shrink-0 rounded-full',
         light === 'lit' && 'bg-success shadow-[0_0_8px_hsl(var(--success))]',
+        light === 'fading' && 'bg-success/[0.4]',
         light === 'weak' && 'bg-destructive shadow-[0_0_8px_hsl(var(--destructive))]',
         light === 'dark' && 'border border-white/[0.3]',
       )}
