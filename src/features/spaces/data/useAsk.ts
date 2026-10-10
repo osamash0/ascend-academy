@@ -5,14 +5,15 @@ import type { ScriptedAnswer } from '../mocks/studio-answers';
 /**
  * The ask seam (Living Learn spec §6.3). Mock now: a scripted answer after a
  * real wait. Wiring a model later replaces this hook's body and nothing above it.
+ * `busy` means an earlier ask is still in flight; callers ignore it silently.
  */
-export type AskResult = { kind: 'answer'; answer: ScriptedAnswer } | { kind: 'unknown' };
+export type AskResult = { kind: 'answer'; answer: ScriptedAnswer } | { kind: 'unknown' } | { kind: 'busy' };
 
 export function useAsk(): { ask(question: string): Promise<AskResult>; answering: boolean; suggestions: string[] } {
   const [answering, setAnswering] = useState(false);
   const busy = useRef(false);
   const ask = useCallback((question: string): Promise<AskResult> => {
-    if (busy.current) return Promise.resolve({ kind: 'unknown' });
+    if (busy.current) return Promise.resolve({ kind: 'busy' });
     busy.current = true;
     setAnswering(true);
     return new Promise((resolve) => {

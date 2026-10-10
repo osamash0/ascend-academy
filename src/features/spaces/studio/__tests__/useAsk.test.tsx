@@ -16,6 +16,19 @@ describe('useAsk', () => {
     await expect(p).resolves.toMatchObject({ kind: 'answer', answer: { anchorId: 's-p5-2' } });
     expect(result.current.answering).toBe(false);
   });
+  it('reports a second ask in flight as busy, not unknown, and keeps the first one', async () => {
+    const { result } = renderHook(() => useAsk());
+    let first!: Promise<unknown>;
+    let second!: Promise<unknown>;
+    act(() => {
+      first = result.current.ask('Why does repeated data cause problems?');
+      second = result.current.ask('What is a functional dependency?');
+    });
+    await expect(second).resolves.toEqual({ kind: 'busy' });
+    await act(async () => { vi.advanceTimersByTime(ASK_LATENCY_MS); });
+    await expect(first).resolves.toMatchObject({ kind: 'answer', answer: { anchorId: 's-p5-2' } });
+    expect(result.current.answering).toBe(false);
+  });
   it('says so honestly when it has no answer', async () => {
     const { result } = renderHook(() => useAsk());
     let p!: Promise<unknown>;
