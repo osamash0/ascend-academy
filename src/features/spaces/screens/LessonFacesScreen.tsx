@@ -12,6 +12,7 @@ import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { isLive, useAsker, useExplain, useReaderContent, useReaderLesson, useRelated } from '../data/useReader';
 import { markTrail } from '../data/trail';
+import { GlassPill } from '../components/reader/glass/GlassPill';
 import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
@@ -843,7 +844,7 @@ export default function LessonFacesScreen() {
             Use ← → to turn pages. Select words to ask about them, or to read them as text.
           </p>
         )}
-        <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-white/[0.07] p-1 text-[12.5px]">
+        <GlassPill sourceRef={pdfRef} watch={pdfPage} className="pointer-events-auto text-[12.5px]">
           <button
             type="button"
             onClick={() => turnPage(-1)}
@@ -866,7 +867,7 @@ export default function LessonFacesScreen() {
           >
             <ChevronRight aria-hidden className="h-4 w-4" />
           </button>
-        </div>
+        </GlassPill>
       </div>
 
       <Studio
