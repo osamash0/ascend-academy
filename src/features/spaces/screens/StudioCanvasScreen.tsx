@@ -3,16 +3,20 @@ import { flushSync } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { LayoutGroup } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { useCanvas } from '../data/useSpaces';
 import { CanvasPage } from '../studio/components/CanvasPage';
 import { FullPageDialog } from '../studio/components/FullPageDialog';
 import { MorphSwitch } from '../studio/components/MorphSwitch';
+import { PageRail } from '../studio/components/PageRail';
+import { PagerPill } from '../studio/components/PagerPill';
 import { PeekSlot } from '../studio/components/Peek';
 import { includeSourceBlock } from '../studio/edit';
 import { groupByPage, pickAnchorPage, regionForBlock } from '../studio/geometry';
 import { FLIGHT_S } from '../studio/motion';
 import { useMorph } from '../studio/useMorph';
+import { usePageNav } from '../studio/usePageNav';
 import { usePeek } from '../studio/usePeek';
 import { useReadingLine } from '../studio/useReadingLine';
 import { useStudioTheme } from '../studio/useStudioTheme';
@@ -20,6 +24,9 @@ import { useWide } from '../studio/useWide';
 import type { Region } from '../studio/geometry';
 import type { CanvasDoc, SourcePage } from '../studio/types';
 import '../studio/studio-surface.css';
+
+const HINT = 'Use ← → to move between pages. Rest on a paragraph to see the original, or press O.';
+const HINT_NO_ORIGINAL = 'Use ← → to move between pages.';
 
 /**
  * The Studio canvas — spec §3.2, §4. The Material owns the screen; Peek lives in the gutter.
@@ -86,6 +93,17 @@ export default function StudioCanvasScreen() {
   }, [closePeek]);
   const morph = useMorph({ onBeforeChange: beforeSwitch, enabled: !material?.sourceRemoved });
   shownRef.current = morph.shown;
+  const original = morph.shown === 'original';
+  /* Peek gets the right-hand gutter on wide screens — in Clean, where it can open. */
+  const gutter = wide && !original;
+
+  const pageList = useMemo(() => groups.map((g) => g.page), [groups]);
+  const nav = usePageNav(pageList, morph.shown);
+  /* The hint stays until you've turned a page or switched faces once. */
+  const [engaged, setEngaged] = useState(false);
+  useEffect(() => {
+    if (nav.index > 0 || original) setEngaged(true);
+  }, [nav.index, original]);
 
   /* Keep your place: the anchor page's top stays where it was. */
   useLayoutEffect(() => {
@@ -223,32 +241,63 @@ export default function StudioCanvasScreen() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[90rem] gap-6 px-4 md:px-6 min-[1200px]:grid-cols-[minmax(0,0.6fr)_minmax(0,44rem)_minmax(24rem,1.4fr)]">
-        <div className="hidden min-[1200px]:block" />
-        <main ref={column} className="min-w-0 py-10 pl-14 md:pl-16">
-          <LayoutGroup>
-            <CanvasPage
-              groups={groups}
-              pages={pages}
-              view={morph.shown}
-              morphPage={morphPage}
-              flying={flying}
-              activeBlockId={peek.state.status === 'open' ? peek.state.blockId : null}
-              flashBlockId={flashId}
-              sourceRemoved={material.sourceRemoved}
-              materialName={material.filename}
-              onBlockPointerEnter={peek.hoverBlock}
-              onBlockPointerLeave={peek.leaveBlock}
-              onOpenPeek={peek.open}
-              onClosePeek={peek.close}
-              onRegion={backToBlock}
-              onInclude={include}
-            />
-          </LayoutGroup>
-        </main>
-        <div className="hidden min-[1200px]:block">
-          <div className="sticky top-24 py-10">{wide && peekPanel}</div>
+      {/* The contents, down the left edge — wide screens only. */}
+      <div className="fixed bottom-24 left-0 top-[112px] z-20 hidden w-[240px] overflow-y-auto overflow-x-hidden pl-8 pr-4 min-[1180px]:block">
+        <PageRail groups={groups} current={nav.current} onPage={nav.go} />
+      </div>
+
+      <div className="min-[1180px]:pl-[240px]">
+        <div className={cn('grid gap-6 px-4 md:px-6', gutter && 'grid-cols-[minmax(0,1fr)_minmax(22rem,28rem)]')}>
+          <main
+            ref={column}
+            className={cn(
+              'mx-auto w-full min-w-0 pb-40 pt-6',
+              original ? 'max-w-[58rem]' : 'max-w-[44rem] pl-14 md:pl-16',
+            )}
+          >
+            <LayoutGroup>
+              <CanvasPage
+                groups={groups}
+                pages={pages}
+                view={morph.shown}
+                morphPage={morphPage}
+                flying={flying}
+                activeBlockId={peek.state.status === 'open' ? peek.state.blockId : null}
+                flashBlockId={flashId}
+                sourceRemoved={material.sourceRemoved}
+                materialName={material.filename}
+                onBlockPointerEnter={peek.hoverBlock}
+                onBlockPointerLeave={peek.leaveBlock}
+                onOpenPeek={peek.open}
+                onClosePeek={peek.close}
+                onRegion={backToBlock}
+                onInclude={include}
+              />
+            </LayoutGroup>
+          </main>
+          {gutter && (
+            <div className="pr-2">
+              <div className="sticky top-[112px] pt-6">{peekPanel}</div>
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* The page line: where you are, and the turn. */}
+      <div
+        className={cn(
+          'pointer-events-none fixed inset-x-0 bottom-5 z-20 flex justify-center px-4 min-[1180px]:left-[240px]',
+          gutter && 'right-[29.5rem]',
+        )}
+      >
+        <PagerPill
+          current={nav.current}
+          last={pageList.length ? pageList[pageList.length - 1] : null}
+          canBack={nav.index > 0}
+          canForward={nav.index >= 0 && nav.index < pageList.length - 1}
+          hint={engaged ? null : material.sourceRemoved ? HINT_NO_ORIGINAL : HINT}
+          onStep={nav.step}
+        />
       </div>
 
       {!wide && <div className="fixed inset-x-3 bottom-3 z-30 max-h-[45vh] overflow-auto">{peekPanel}</div>}

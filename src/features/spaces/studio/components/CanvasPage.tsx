@@ -80,6 +80,7 @@ export function CanvasPage(p: Props) {
                   data-view="clean"
                   data-page-anchor={g.page}
                   aria-label={g.page ? `Page ${g.page}` : 'Your notes'}
+                  className="scroll-mt-40 lg:scroll-mt-28"
                   initial={{ opacity: morph ? 1 : 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}

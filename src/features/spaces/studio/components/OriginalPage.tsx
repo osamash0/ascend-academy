@@ -44,7 +44,12 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
   const texts = missing.filter((s) => !isFigure(s));
 
   return (
-    <section data-view="original" data-page-anchor={page.page} aria-label={`Original page ${page.page}`}>
+    <section
+      data-view="original"
+      data-page-anchor={page.page}
+      aria-label={`Original page ${page.page}`}
+      className="scroll-mt-40 lg:scroll-mt-28"
+    >
       <PageDivider page={page.page} original />
       <div
         className="relative overflow-hidden rounded-xl border border-border bg-[hsl(var(--studio-paper))]"

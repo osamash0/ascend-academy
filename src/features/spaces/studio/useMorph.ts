@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { inDialog, isTyping } from './keys';
 
 /**
  * The Clean | Original switch — spec §4.2. One control, two gestures:
@@ -22,11 +23,6 @@ export interface MorphApi {
 }
 
 const other = (v: CanvasView): CanvasView => (v === 'clean' ? 'original' : 'clean');
-
-const isTyping = (t: EventTarget | null) =>
-  t instanceof HTMLElement && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName));
-
-const inDialog = (t: EventTarget | null) => t instanceof Element && !!t.closest('[role="dialog"]');
 
 /**
  * `enabled: false` pins the canvas to clean — keys do nothing and a remembered
