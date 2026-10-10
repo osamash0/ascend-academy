@@ -122,3 +122,28 @@ async def reader_course_find(
     if not await service.can_view_course(course_id, uid):
         raise HTTPException(status_code=404, detail="Course not found.")
     return {"results": await service.find_in_course(course_id, q, limit, exclude_lecture, strict)}
+
+
+class RehearsalBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lecture_ids: list[UUID] = Field(min_length=1, max_length=12)
+    count: int = Field(default=8, ge=3, le=12)
+    weak_ideas: list[str] = Field(default_factory=list, max_length=12)
+
+
+@router.post("/courses/{course_id}/rehearsal")
+@limiter.limit("6/minute")
+async def reader_rehearsal(request: Request, body: RehearsalBody, course_id: UUID, user: Any = Depends(verify_token)):
+    from backend.services.v4_rehearsal_service import compose_rehearsal
+
+    uid = _uid(user)
+    if not await service.can_view_course(course_id, uid):
+        raise HTTPException(status_code=404, detail="Course not found.")
+    return await compose_rehearsal(
+        course_id,
+        body.lecture_ids,
+        body.count,
+        weak_ideas=[w[:60] for w in body.weak_ideas],
+        user_id=uid,
+        locale=await service.preferred_language(uid),
+    )

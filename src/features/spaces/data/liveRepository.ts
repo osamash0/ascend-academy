@@ -23,6 +23,32 @@ export interface ReaderCourseMap extends Omit<ReaderCourse, 'lectures'> {
   })[];
 }
 
+/** An exam rehearsal: questions written from the course's own slides. */
+export interface Rehearsal {
+  title: string;
+  /** lecture id → title, for the lectures the questions come from. */
+  lectures: Record<string, string>;
+  questions: RehearsalQuestion[];
+}
+
+interface RehearsalBase {
+  id: number;
+  lecture_id: string;
+  page: number;
+  idea: string;
+  prompt: string;
+  why: string;
+}
+
+type RFD = { lhs: string[]; rhs: string[] };
+
+export type RehearsalQuestion =
+  | (RehearsalBase & { kind: 'choice'; options: { text: string; correct?: boolean }[] })
+  | (RehearsalBase & { kind: 'order'; items: string[]; shuffle: number[] })
+  | (RehearsalBase & { kind: 'fdHolds'; columns: string[]; rows: string[][]; candidates: RFD[] })
+  | (RehearsalBase & { kind: 'closure'; attrs: string[]; fds: RFD[]; start: string[] })
+  | (RehearsalBase & { kind: 'bcnf'; relation: string; attrs: string[]; fds: RFD[] });
+
 /** A page where a topic is taught. `snippet` marks the matched words «like this». */
 export interface ReaderFind {
   lecture_id: string;
@@ -89,6 +115,8 @@ export function createLiveRepository(http: V4Transport) {
       http.get<{ results: ReaderFind[] }>(
         `${root}/reader/courses/${idPath(id)}/find?q=${encodeURIComponent(q)}&exclude_lecture=${idPath(excludeLecture)}&strict=true&limit=4`,
       ),
+    composeRehearsal: (courseId: string, body: { lecture_ids: string[]; count: number; weak_ideas: string[] }) =>
+      http.post<Rehearsal>(`${root}/reader/courses/${idPath(courseId)}/rehearsal`, body),
     askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[]) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/ask`, {
         question,

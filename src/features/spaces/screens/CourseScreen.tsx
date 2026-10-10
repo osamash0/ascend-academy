@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, BookOpen, Search } from 'lucide-react';
+import { ArrowRight, BookOpen, Search, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
@@ -71,6 +71,13 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
           </p>
           <h1 className="mt-3 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[64px]">{course.title}</h1>
           {course.author && <p className="mt-4 text-[14px] text-quiet">{course.author}</p>}
+          <Link
+            to={`/v4/space/${course.id}/rehearse`}
+            className="console-focusable mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-[15px] font-medium text-background"
+          >
+            <Target aria-hidden className="h-4 w-4" />
+            Rehearse for the exam
+          </Link>
         </div>
 
         {/* Where was that taught? */}

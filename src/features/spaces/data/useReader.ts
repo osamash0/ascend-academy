@@ -11,6 +11,7 @@ import {
   type ReaderCourseMap,
   type ReaderFind,
   type ReaderLecture,
+  type Rehearsal,
 } from './liveRepository';
 import { useLesson, useLessonContent, type LessonContentResult, type LessonResult } from './useSpaces';
 
@@ -417,4 +418,21 @@ export function useRelated(courseId: string | undefined, lessonId: string | unde
     };
   }, [live, courseId, lessonId, topic]);
   return found;
+}
+
+const REHEARSAL_TIMEOUT_MS = 150_000;
+
+/** Write a rehearsal from the chosen lectures — live courses only. */
+export async function composeRehearsal(
+  courseId: string,
+  lectureIds: string[],
+  count: number,
+  weakIdeas: string[] = [],
+): Promise<Rehearsal> {
+  const repo = await loadLiveRepository();
+  /* Past this the model is not coming back with it: fail visibly and offer another go. */
+  return Promise.race([
+    repo.composeRehearsal(courseId, { lecture_ids: lectureIds, count, weak_ideas: weakIdeas }),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Rehearsal timed out')), REHEARSAL_TIMEOUT_MS)),
+  ]);
 }

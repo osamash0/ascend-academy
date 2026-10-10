@@ -738,10 +738,12 @@ async def ask_page(
     # second full attempt only doubles the wait. Gemini Flash leads here — it
     # writes long, code-heavy answers fast and has the headroom for them.
     answer = None
-    for attempt in range(1):
+    # Gemini first; groq if Gemini times out or answers with nothing usable —
+    # a timeout does not fail over inside the chain on its own.
+    for attempt, prefer in enumerate(("gemini", "groq")):
         try:
             data = await _generate_json(
-                prompt, user_id=user_id, course_id=str(meta["course_id"]), feature="v4_reader_ask", prefer="gemini"
+                prompt, user_id=user_id, course_id=str(meta["course_id"]), feature="v4_reader_ask", prefer=prefer
             )
         except Exception as exc:
             if exc.__class__.__name__ == "LLMBudgetExceededError":

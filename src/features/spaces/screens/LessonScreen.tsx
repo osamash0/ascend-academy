@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, FileWarning, ListChecks, Play, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, FileWarning, ListChecks, Play, Sparkles, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LaunchButton, gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
@@ -11,7 +11,7 @@ import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes'
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
-import { useReaderContent, useReaderLesson } from '../data/useReader';
+import { isLive, useReaderContent, useReaderLesson } from '../data/useReader';
 import { sectionsFromRows, spineConcepts } from '../components/reader/anchors';
 import { LessonDeck } from '../components/lesson/LessonDeck';
 import { IdeaExplorer, type IdeaEntry } from '../components/lesson/IdeaExplorer';
@@ -272,6 +272,16 @@ export default function LessonScreen() {
                 >
                   <ListChecks aria-hidden className="h-4 w-4" />
                   Practice · {lesson.practiceCount}
+                </Link>
+              )}
+              {/* A real lecture: a rehearsal written from its own slides. */}
+              {isLive(space.id, lesson.id) && (
+                <Link
+                  to={`/v4/space/${space.id}/rehearse?lectures=${lesson.id}`}
+                  className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-6 text-[14px] font-medium transition-colors hover:bg-white/[0.09]"
+                >
+                  <Target aria-hidden className="h-4 w-4" />
+                  Rehearse this lecture
                 </Link>
               )}
             </div>
