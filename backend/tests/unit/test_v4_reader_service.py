@@ -82,3 +82,14 @@ def test_a_format_made_of_block_names_gets_a_human_label():
     blocks = [{"type": "key", "md": "x"}, {"type": "compare", "columns": [{"title": "a", "points": ["p"]}, {"title": "b", "points": ["q"]}]}]
     assert validate_answer({"title": "t", "format": "key, compare, check", "blocks": blocks})["format"] == "Side by side"
     assert validate_answer({"title": "t", "format": "A table you can break", "blocks": blocks})["format"] == "A table you can break"
+
+
+def test_a_longer_deck_is_split_into_more_ideas_named_by_what_they_teach():
+    from backend.services.v4_reader_service import idea_count, ideas_prompt
+
+    assert idea_count(12) == 3
+    assert idea_count(82) == 9
+    assert idea_count(400) == 12
+    prompt = ideas_prompt("Normalization", 82, "1. Title")
+    assert "about 9 consecutive ideas (between 7 and 11)" in prompt
+    assert "Never a vague name" in prompt

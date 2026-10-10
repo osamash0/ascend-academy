@@ -42,7 +42,7 @@ SIGNED_REUSE = 6 * 3600
 #: Bump when the prompt or the block library changes, so stale answers age out.
 EXPLAIN_VERSION = "explain-v3"
 ASK_VERSION = "ask-v1"
-IDEAS_VERSION = "ideas-v1"
+IDEAS_VERSION = "ideas-v2"  # v2: count scales with the deck, names say what is taught
 CACHE_TTL = 60 * 60 * 24 * 60  # 60 days; keyed on content_revision anyway
 
 
@@ -260,6 +260,32 @@ def _ideas_to_concepts(ideas: list[_Idea], total: int, lecture_id: UUID) -> list
     return out
 
 
+def idea_count(total: int) -> int:
+    """About one idea per nine slides: fine enough to check after, coarse enough to be a topic."""
+    return max(3, min(12, round(total / 9)))
+
+
+def ideas_prompt(title: str, total: int, listing: str) -> str:
+    n = idea_count(total)
+    return f"""You are organising a university lecture deck into the ideas it teaches.
+
+Lecture: "{title}" ({total} slides). Slide titles, numbered:
+{listing}
+
+Group the deck into about {n} consecutive ideas (between {max(3, n - 2)} and {n + 2}),
+in teaching order. Each idea is what a student would study as one topic and be
+tested on as one topic, so it should rarely run past 14 slides.
+
+Name each idea by what it teaches, in at most 5 words — "Second normal form",
+"Attribute closure", "Lossless decomposition". Never a vague name: no
+"Overview", "Understanding …", "Introduction to …", "Advanced … concepts",
+"Fundamentals", no numbering. Every slide belongs to exactly one idea; give only
+where each idea starts.
+
+Answer with a JSON object only:
+{{"ideas": [{{"name": "...", "first_page": 1}}, ...]}}"""
+
+
 async def get_ideas(lecture_id: UUID, user_id: str) -> list[dict[str, Any]]:
     """The lecture's ideas: the concept graph's when it has some, else the model's grouping."""
     graph = await graph_concepts(lecture_id)
@@ -276,18 +302,7 @@ async def get_ideas(lecture_id: UUID, user_id: str) -> list[dict[str, Any]]:
     if total == 0:
         return []
     listing = "\n".join(f"{s.get('slide_number')}. {(s.get('title') or '').strip()[:90]}" for s in slides)
-    prompt = f"""You are organising a university lecture deck into the ideas it teaches.
-
-Lecture: "{meta['title']}" ({total} slides). Slide titles, numbered:
-{listing}
-
-Group the deck into 3 to 7 consecutive ideas, in teaching order. Each idea is a
-short noun phrase a student would recognise as a topic (max 5 words, no
-numbering, no "Introduction to"). Every slide belongs to exactly one idea; give
-only where each idea starts.
-
-Answer with a JSON object only:
-{{"ideas": [{{"name": "...", "first_page": 1}}, ...]}}"""
+    prompt = ideas_prompt(meta["title"], total, listing)
     try:
         # Gemini first: a course page groups its lectures back to back, which
         # empties groq's per-minute token budget by the third lecture.
