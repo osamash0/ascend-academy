@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, FileText, Upload } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { ListSkeleton, SpacesError } from '../components/states';
 import { useStudioHome } from '../data/useSpaces';
 import { STUDIO_CANVAS } from '../mocks/studio-canvas';
@@ -10,11 +12,12 @@ import '../studio/studio-surface.css';
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
-/** Studio's front door — spec §3.1. Calm, one primary action. */
+/** Studio's front door — spec §3.1, in the reader's language: black ground, one white pill. */
 export default function StudioHomeScreen() {
   const { state, recent } = useStudioHome();
   const [theme] = useStudioTheme();
   const navigate = useNavigate();
+  const [dragging, setDragging] = useState(false);
 
   /* Mock: any chosen file opens the sample canvas, and says so. */
   const open = () => {
@@ -24,59 +27,80 @@ export default function StudioHomeScreen() {
 
   return (
     <div className="studio-surface min-h-screen" data-theme={theme}>
-      <main className="mx-auto max-w-3xl px-4 py-10 md:px-6">
-        <Link
-          to="/v4/library"
-          className="mb-6 inline-flex min-h-6 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft aria-hidden className="h-4 w-4" /> Library
-        </Link>
-        <h1 className="text-3xl font-semibold tracking-tight">Studio</h1>
-        <p className="mt-2 max-w-[56ch] text-muted-foreground">
-          Open a Material to read it clean, check it against the original, and make study material from it.
-        </p>
+      <Link
+        to="/v4/library"
+        aria-label="Back to Library"
+        className="console-focusable fixed left-4 top-4 z-40 flex h-9 w-9 items-center justify-center rounded-full text-quiet transition-colors hover:bg-[rgb(var(--studio-chip))] hover:text-foreground"
+      >
+        <ChevronLeft aria-hidden className="h-5 w-5" />
+      </Link>
 
-        <label
-          onDragOver={(e) => e.preventDefault()}
+      <main className="mx-auto max-w-2xl px-4 pb-16 pt-24 md:px-6">
+        {/* The hero is also the drop target: a file dropped anywhere on it opens. */}
+        <section
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
           onDrop={(e) => {
             e.preventDefault();
+            setDragging(false);
             if (e.dataTransfer.files.length) open();
           }}
-          className="mt-8 flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center hover:border-primary/50"
+          className={cn(
+            'flex flex-col items-center rounded-3xl border border-dashed px-6 py-12 text-center transition-colors',
+            dragging ? 'border-[rgb(var(--text-faint))] bg-[rgb(var(--studio-chip))]' : 'border-transparent',
+          )}
         >
-          <Upload aria-hidden className="h-6 w-6 text-muted-foreground" />
-          <span className="font-medium">Open Material</span>
-          <span className="text-sm text-muted-foreground">PDF, PPTX or a photo — drop it here or choose a file</span>
-          <input
-            type="file"
-            accept=".pdf,.pptx,image/*"
-            aria-label="Open Material"
-            className="sr-only"
-            onChange={(e) => e.target.files?.length && open()}
-          />
-        </label>
+          <p className="mb-2 text-[12.5px] text-quiet">Library</p>
+          <h1 className="text-4xl font-bold tracking-[-0.02em] sm:text-[44px]">Studio</h1>
+          <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-quiet">
+            Open a Material to read it clean, check it against the original, and make study material from it.
+          </p>
 
-        <h2 className="mt-12 text-sm font-semibold">Continue where you left off</h2>
+          <label className="console-focusable mt-8 inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-foreground px-7 text-[14.5px] font-semibold text-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+            <Upload aria-hidden className="h-4 w-4" />
+            Open Material
+            <input
+              type="file"
+              accept=".pdf,.pptx,image/*"
+              aria-label="Open Material"
+              className="sr-only"
+              onChange={(e) => e.target.files?.length && open()}
+            />
+          </label>
+          <p className="mt-3 text-[12px] text-faint">PDF, PPTX or a photo — or drop it here</p>
+        </section>
+
+        <h2 className="mt-10 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+          Continue where you left off
+        </h2>
         <div className="mt-3">
           {state === 'loading' ? (
             <ListSkeleton />
           ) : state === 'error' ? (
             <SpacesError what="your recent work" />
           ) : recent.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Materials you open show up here.</p>
+            <p className="text-[14px] text-quiet">Materials you open show up here.</p>
           ) : (
-            <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
+            <ul className="divide-y divide-[rgb(var(--studio-hairline))] border-y border-[rgb(var(--studio-hairline))]">
               {recent.map((r) => (
                 <li key={r.id}>
                   <Link
                     to={`/v4/library/studio/c/${r.id}`}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-muted"
+                    className="console-focusable group flex min-h-14 items-center gap-3 rounded-md px-1 py-3 transition-colors"
                   >
-                    <FileText aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate font-medium">{r.title}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {[r.spaceName, formatDate(r.updatedAt)].filter(Boolean).join(' · ')}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] text-foreground">{r.title}</span>
+                      <span className="block truncate text-[12.5px] text-faint">
+                        {[r.spaceName, formatDate(r.updatedAt)].filter(Boolean).join(' · ')}
+                      </span>
                     </span>
+                    <ChevronRight
+                      aria-hidden
+                      className="h-4 w-4 shrink-0 text-faint transition-colors group-hover:text-foreground"
+                    />
                   </Link>
                 </li>
               ))}
@@ -84,10 +108,10 @@ export default function StudioHomeScreen() {
           )}
         </div>
 
-        <nav aria-label="Manage your work" className="mt-12 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
-          <Link to="/v4/library/uploads" className="hover:text-foreground">Manage uploads</Link>
-          <Link to="/v4/library/drafts" className="hover:text-foreground">Your drafts</Link>
-          <Link to="/v4/library/impact" className="hover:text-foreground">How your work landed</Link>
+        <nav aria-label="Manage your work" className="mt-12 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-quiet">
+          <Link to="/v4/library/uploads" className="console-focusable rounded-sm hover:text-foreground">Manage uploads</Link>
+          <Link to="/v4/library/drafts" className="console-focusable rounded-sm hover:text-foreground">Your drafts</Link>
+          <Link to="/v4/library/impact" className="console-focusable rounded-sm hover:text-foreground">How your work landed</Link>
         </nav>
       </main>
     </div>
