@@ -13,7 +13,7 @@ import { PageRail } from '../studio/components/PageRail';
 import { PagerPill } from '../studio/components/PagerPill';
 import { PeekSlot } from '../studio/components/Peek';
 import { includeSourceBlock } from '../studio/edit';
-import { groupByPage, pickAnchorPage, regionForBlock } from '../studio/geometry';
+import { groupByPage, pagesInView, pickAnchorPage, regionForBlock } from '../studio/geometry';
 import { FLIGHT_S } from '../studio/motion';
 import { useMorph } from '../studio/useMorph';
 import { usePageNav } from '../studio/usePageNav';
@@ -97,8 +97,10 @@ export default function StudioCanvasScreen() {
   /* Peek gets the right-hand gutter on wide screens — in Clean, where it can open. */
   const gutter = wide && !original;
 
-  const pageList = useMemo(() => groups.map((g) => g.page), [groups]);
-  const nav = usePageNav(pageList, morph.shown);
+  /* Only pages with a section in the view on screen are stops for the rail, the pill and the keys. */
+  const viewPages = useMemo(() => pagesInView(groups, pages, morph.shown), [groups, pages, morph.shown]);
+  const railGroups = useMemo(() => groups.filter((g) => viewPages.includes(g.page)), [groups, viewPages]);
+  const nav = usePageNav(viewPages, morph.shown);
   /* The hint stays until you've turned a page or switched faces once. */
   const [engaged, setEngaged] = useState(false);
   useEffect(() => {
@@ -243,7 +245,7 @@ export default function StudioCanvasScreen() {
 
       {/* The contents, down the left edge — wide screens only. */}
       <div className="fixed bottom-24 left-0 top-[112px] z-20 hidden w-60 overflow-y-auto overflow-x-hidden pl-8 pr-4 min-[1180px]:block">
-        <PageRail groups={groups} current={nav.current} onPage={nav.go} />
+        <PageRail groups={railGroups} current={nav.current} onPage={nav.go} />
       </div>
 
       <div className="min-[1180px]:pl-60">
@@ -302,10 +304,10 @@ export default function StudioCanvasScreen() {
         )}
       >
         <PagerPill
-          current={nav.current}
-          last={pageList.length ? pageList[pageList.length - 1] : null}
+          current={nav.counter}
+          last={nav.last}
           canBack={nav.index > 0}
-          canForward={nav.index >= 0 && nav.index < pageList.length - 1}
+          canForward={nav.index >= 0 && nav.index < viewPages.length - 1}
           hint={engaged ? null : material.sourceRemoved ? HINT_NO_ORIGINAL : HINT}
           onStep={nav.step}
         />

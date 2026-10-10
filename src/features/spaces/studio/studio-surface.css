@@ -4,10 +4,9 @@
  *
  * Both scopes redefine the shadcn HSL tokens, so anything written with
  * bg-background / text-foreground / border-border / bg-card flips for free,
- * plus the v4 quiet-text scale (text-quiet, text-faint) and three Studio
+ * plus the v4 quiet-text scale (text-quiet, text-faint) and the Studio
  * chrome tokens, written as `rgb(var(--studio-chip))` and friends:
- *   --studio-chip      the reader's bg-white/[0.07] pill ground
- *   --studio-panel     the Explain panel's white/[0.04] surface (opaque, for sheets)
+ *   --studio-chip      the reader's bg-white/[0.07] pill ground (and -hover)
  *   --studio-hairline  the reader's border-white/10
  */
 .studio-surface[data-theme='dark'] {

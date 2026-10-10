@@ -68,6 +68,18 @@ export function groupByPage(blocks: CanvasBlock[]): PageGroup[] {
   return groups;
 }
 
+const pageOf = (pages: SourcePage[], g: PageGroup) =>
+  pages.find((p) => p.materialId === g.materialId && p.page === g.page);
+
+/**
+ * The pages that have a section in `view`, in order. In Original a group
+ * shows its page only if the page exists (notes above page 1 have none, and
+ * stay clean); the canvas renders by the same rule.
+ */
+export function pagesInView(groups: PageGroup[], pages: SourcePage[], view: 'clean' | 'original'): number[] {
+  return groups.filter((g) => view === 'clean' || !!pageOf(pages, g)).map((g) => g.page);
+}
+
 export function unmappedSourceBlocks(page: SourcePage, blocks: CanvasBlock[]): SourceBlock[] {
   const mapped = new Set(
     blocks.flatMap((b) =>
