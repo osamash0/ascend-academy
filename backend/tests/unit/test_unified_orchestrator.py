@@ -306,10 +306,10 @@ def _patch_common(monkeypatch, run_status=RunStatus.QUEUED, lecture_id=None, pag
     import backend.services.localization_service as localization_service
     import backend.services.ai.orchestrator as ai_orchestrator
 
-    async def meta(slides, model, course_context_hint="", source_language="en"):
+    async def meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": ["Gradient Descent", "Loss Functions"]}
 
-    async def quiz(slides, title, model, source_language="en"):
+    async def quiz(slides, title, model, source_language="en", skeleton=None):
         return [{"question": "dq", "options": ["a", "b", "c", "d"], "correctAnswer": "a", "slideId": 1}]
 
     async def localize_lecture(lecture_id, ai_model):
@@ -769,7 +769,7 @@ async def test_course_context_hint_threaded_into_meta_and_per_slide_context(monk
 
     captured_hints = []
 
-    async def fake_meta(slides, model, course_context_hint="", source_language="en"):
+    async def fake_meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
         captured_hints.append(course_context_hint)
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": []}
 
@@ -814,7 +814,7 @@ async def test_course_context_hint_absent_without_course_id_is_byte_identical(mo
 
     captured_hints = []
 
-    async def fake_meta(slides, model, course_context_hint="", source_language="en"):
+    async def fake_meta(slides, model, course_context_hint="", source_language="en", skeleton=None):
         captured_hints.append(course_context_hint)
         return {"title": "DB Lecture", "summary": "Deck summary.", "keyTopics": []}
 

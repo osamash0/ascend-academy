@@ -38,15 +38,21 @@ def llm(monkeypatch):
     return box
 
 
+def _letters(i: int) -> str:
+    """Digits-as-letters so synthetic slides differ after normalize_line
+    (which folds digit runs and would mark numbered fixtures as boilerplate)."""
+    return "".join(chr(97 + int(d)) for d in str(i))
+
+
 # ── analyze_lecture_meta ──────────────────────────────────────────────────────
 
-async def test_analyze_lecture_meta_limits_to_first_15_slides(llm):
+async def test_analyze_lecture_meta_caps_prompt_at_15_slides(llm):
     llm["reply"] = json.dumps({"title": "X", "keyTopics": []})
-    slides = [f"slide {i} content text" for i in range(20)]
+    slides = [f"slide {_letters(i)} content text about topic {_letters(i * 7)}" for i in range(20)]
     await synthesis.analyze_lecture_meta(slides, "cerebras")
     prompt = llm["text_prompts"][0]
-    assert "[Slide 15]" in prompt
-    assert "[Slide 16]" not in prompt
+    assert prompt.count("[Slide ") == 15
+    assert "[Slide 1]" in prompt  # the title slide is always included
 
 
 async def test_analyze_lecture_meta_appends_course_hint_only_when_present(llm):
@@ -121,8 +127,8 @@ async def test_generate_quiz_skips_llm_when_no_rich_slides(llm):
 async def test_generate_quiz_returns_list_when_model_returns_array(llm):
     q = {"question": "Q?", "options": ["a", "b", "c", "d"], "correctAnswer": "a"}
     llm["reply"] = json.dumps([q])
-    rich = "x" * 60
-    out = await synthesis.generate_quiz_questions([rich], "Graphs", "cerebras")
+    rich = "Graphs consist of vertices and edges that model pairwise relations."
+    out = await synthesis.generate_quiz_questions(["Graphs", rich], "Graphs", "cerebras")  # slide 0 is the title
     assert out == [q]
     assert "Graphs" in llm["bulk_prompts"][0]
 
@@ -135,11 +141,10 @@ async def test_generate_quiz_non_list_response_returns_empty(llm):
 
 async def test_generate_quiz_caps_at_10_content_slides(llm):
     llm["reply"] = "[]"
-    slides = ["x" * 60 for _ in range(15)]
+    slides = [f"Fact {_letters(i)} states that indexes speed up lookups on large tables." for i in range(15)]
     await synthesis.generate_quiz_questions(slides, "T", "cerebras")
     prompt = llm["bulk_prompts"][0]
-    assert "[Slide 10]" in prompt
-    assert "[Slide 11]" not in prompt
+    assert prompt.count("[Slide ") == 10
 
 
 # ── generate_cross_lecture_questions ─────────────────────────────────────────
@@ -238,3 +243,35 @@ async def test_extract_syllabus_facts_exception_returns_empty(monkeypatch):
     monkeypatch.setattr(synthesis, "generate_text", _boom)
     out = await synthesis.extract_syllabus_facts("text", "cerebras")
     assert out == {}
+
+
+# ── whole-deck sampling + real slide numbers ─────────────────────────────────
+
+async def test_quiz_prompt_labels_slides_with_their_real_deck_numbers(llm):
+    xenon = "The xenon atom has many electrons and reacts rarely with other elements."
+    yttrium = "The yttrium metal is silvery and appears in rare earth mineral deposits."
+    slides = ["Title", "short", xenon, "tiny", yttrium]
+    llm["reply"] = "[]"
+    await synthesis.generate_quiz_questions(slides, "T", "groq")
+    prompt = llm["bulk_prompts"][0]
+    assert "[Slide 3]: The xenon" in prompt and "[Slide 5]: The yttrium" in prompt
+    assert "[Slide 1]: The xenon" not in prompt
+
+
+async def test_quiz_sees_late_slides_of_a_long_deck(llm):
+    tag = _letters
+    slides = ["Title"] + [f"Fact {tag(i)} states that indexes speed up lookups on large tables." for i in range(40)]
+    llm["reply"] = "[]"
+    await synthesis.generate_quiz_questions(slides, "T", "groq")
+    assert any(f"Fact {tag(i)} " in llm["bulk_prompts"][0] for i in range(30, 40))
+
+
+async def test_meta_sees_slides_beyond_fifteen(llm):
+    tag = _letters
+    slides = ["Title"] + [
+        f"1. Part {i}" if i % 10 == 0 else f"Note {tag(i)} explains how transactions keep data consistent."
+        for i in range(60)
+    ]
+    llm["reply"] = "{}"
+    await synthesis.analyze_lecture_meta(slides, "groq")
+    assert "Part 50" in llm["text_prompts"][0]

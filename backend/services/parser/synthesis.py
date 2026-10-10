@@ -31,6 +31,12 @@ from backend.services.ai.prompts import (
 )
 from backend.services.ai.quiz_validator import _normalize_answer_index
 from backend.services.ai.voice import with_voice
+from backend.services.parser.deck_plan import (
+    META_ROLES,
+    DeckSkeleton,
+    build_deck_skeleton,
+    select_slides,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +46,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 async def analyze_lecture_meta(
-    slides: List[str], ai_model: str, course_context_hint: str = "", source_language: str = "en"
+    slides: List[str],
+    ai_model: str,
+    course_context_hint: str = "",
+    source_language: str = "en",
+    skeleton: DeckSkeleton | None = None,
 ) -> Dict[str, Any]:
-    """One LLM call on the first 15 slides to extract lecture-level metadata.
+    """One LLM call on up to 15 slides spread across the whole deck (plus the
+    title slide) to extract lecture-level metadata.
 
     ``course_context_hint`` (Roadmap Phase 3.4, "new-upload awareness") is an
     optional short block of prior-lecture titles/concepts from the same
@@ -50,8 +61,12 @@ async def analyze_lecture_meta(
     with earlier lectures. Empty by default — the prompt is then BYTE-
     IDENTICAL to before this parameter existed (regression guard).
     """
+    skeleton = skeleton or build_deck_skeleton(slides)
+    picked = select_slides(skeleton, 15, META_ROLES, min_chars=1)
+    if skeleton.slides and 0 not in picked:
+        picked = [0] + picked[:14]
     combined_text = "\n\n".join(
-        f"[Slide {i + 1}]: {text[:400]}" for i, text in enumerate(slides[:15])
+        f"[Slide {i + 1}]: {skeleton.slides[i].text[:400]}" for i in picked
     )
     prompt = LECTURE_META_ANALYSIS_PROMPT.format(
         combined_text=combined_text,
@@ -91,14 +106,17 @@ async def generate_quiz_questions(
     lecture_title: str,
     ai_model: str,
     source_language: str = "en",
+    skeleton: DeckSkeleton | None = None,
 ) -> List[Dict[str, Any]]:
-    """Generate 5–8 deck-level MCQs from content-rich slides."""
-    content_slides = [s for s in slides if len(s) > 50][:10]
-    if not content_slides:
+    """Generate 5–8 deck-level MCQs from content-rich slides spread across
+    every section of the deck, labelled with their real slide numbers."""
+    skeleton = skeleton or build_deck_skeleton(slides)
+    picked = select_slides(skeleton, 10)
+    if not picked:
         return []
 
     slide_summary = "\n\n".join(
-        f"[Slide {i + 1}]: {text[:500]}" for i, text in enumerate(content_slides)
+        f"[Slide {i + 1}]: {skeleton.slides[i].text[:500]}" for i in picked
     )
     prompt = SYNTHESIS_DECK_QUIZ_PROMPT.format(
         lecture_title=lecture_title,

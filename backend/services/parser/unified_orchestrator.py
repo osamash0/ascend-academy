@@ -566,6 +566,8 @@ async def parse_pdf_unified(
         total = len(raw_slides)
         from backend.services.localization_service import detect_source_language
         source_language = detect_source_language("\n".join(raw_slides[:15]))
+        from backend.services.parser.deck_plan import build_deck_skeleton
+        skeleton = build_deck_skeleton(raw_slides)
         await emit("progress", {"current": total, "total": total, "message": f"Extracted {total} slides"})
 
         # ``on_demand`` (Skip AI): persist raw extracted slides with no LLM
@@ -622,7 +624,7 @@ async def parse_pdf_unified(
             try:
                 meta = await analyze_lecture_meta(
                     raw_slides, ai_model, course_context_hint=course_context_hint,
-                    source_language=source_language,
+                    source_language=source_language, skeleton=skeleton,
                 )
             except Exception as exc:
                 logger.warning("lecture meta failed (non-fatal): %s", exc)
@@ -852,7 +854,9 @@ async def parse_pdf_unified(
             from backend.services.parser.synthesis import generate_quiz_questions, _map_deck_quiz
             try:
                 deck_quiz = _map_deck_quiz(
-                    await generate_quiz_questions(raw_slides, lecture_title, ai_model, source_language)
+                    await generate_quiz_questions(
+                        raw_slides, lecture_title, ai_model, source_language, skeleton=skeleton,
+                    )
                 )
             except Exception as exc:
                 logger.warning("deck quiz failed (non-fatal): %s", exc)
