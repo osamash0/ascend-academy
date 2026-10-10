@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -159,3 +161,67 @@ export const stageCardHover = 'transition-colors hover:border-white/[0.16] hover
 /** The back link above a masthead. */
 export const backLink =
   'console-focusable -ml-2 inline-flex h-9 items-center gap-2 rounded-full px-2 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground';
+
+/**
+ * Up next — the one action a screen offers, as a thing rather than a button:
+ * the Lesson itself, lit in its Space's colour, with a single verb on it.
+ *
+ * Shared by Space and Home so "the next thing" looks the same wherever it is
+ * offered. It replaced a Continue button *and* a Continue bento cell that said
+ * the same thing twice (Abi, 2026-10-10). A link, never a navigate() handler:
+ * a Lesson target keeps cmd-click and open-in-new-tab.
+ */
+export function UpNext({
+  to,
+  number,
+  kicker,
+  title,
+  percent = 0,
+  accent,
+  verb,
+}: {
+  to: string;
+  number: number;
+  /** One quiet line above the title — context, or how far you are. */
+  kicker: string;
+  title: string;
+  percent?: number;
+  accent: string;
+  verb: string;
+}) {
+  return (
+    <Link
+      to={to}
+      aria-label={`${verb}: ${title}. ${kicker}`}
+      className="console-focusable group relative mx-auto flex max-w-2xl items-center gap-5 overflow-hidden rounded-3xl border p-4 pr-5 transition-colors hover:border-white/25 sm:p-5 sm:pr-6"
+      style={{
+        borderColor: `color-mix(in srgb, ${accent} 32%, transparent)`,
+        background: `linear-gradient(110deg, color-mix(in srgb, ${accent} 14%, transparent), color-mix(in srgb, ${accent} 3%, transparent) 70%)`,
+      }}
+    >
+      <span
+        aria-hidden
+        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-[26px] font-medium tabular-nums"
+        style={{ background: `color-mix(in srgb, ${accent} 22%, transparent)`, color: accent }}
+      >
+        {number}
+      </span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-[12.5px] text-quiet">{kicker}</span>
+        <span className="mt-0.5 block truncate text-[22px] font-medium tracking-[-0.02em]">{title}</span>
+        {percent > 0 && (
+          <span aria-hidden className="mt-2.5 block h-1 w-full max-w-[16rem] overflow-hidden rounded-full bg-white/10">
+            <span className="block h-full rounded-full" style={{ width: `${percent}%`, background: accent }} />
+          </span>
+        )}
+      </span>
+      <span
+        aria-hidden
+        className="hidden h-12 shrink-0 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-black transition-colors group-hover:bg-white/90 sm:inline-flex"
+      >
+        <Play aria-hidden className="h-4 w-4 fill-current" />
+        {verb}
+      </span>
+    </Link>
+  );
+}

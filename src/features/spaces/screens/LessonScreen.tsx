@@ -214,6 +214,7 @@ export default function LessonScreen() {
 
           {/* The masthead, centred over the deck. */}
           <div className="mx-auto mt-6 max-w-3xl text-center">
+            {/* No Space name: the back link right above already says it. */}
             <p className="text-[13px] tabular-nums text-quiet">
               Lesson {lesson.order}
               {pageCount > 0 && (
@@ -303,7 +304,6 @@ export default function LessonScreen() {
                 </div>
                 <p className="text-[12.5px] tabular-nums text-quiet">
                   {cleared} of {lesson.concepts.length} ideas cleared
-                  {lesson.contributionCount > 0 && ` · ${lesson.contributionCount} contributions`}
                 </p>
               </div>
             )}

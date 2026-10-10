@@ -69,10 +69,15 @@ describe('one source for the viewer’s standing', () => {
     ).toEqual([]);
   });
 
-  it('has Home read the same source the top bar does', () => {
+  it('keeps Home from stating a standing of its own', () => {
+    /*
+     * Home used to read the same source as the top bar, which kept the two
+     * agreeing — but it still said Rank twice on one screen. Since 2026-10-10
+     * ("one fact, once") the top bar is the only place Home shows it, so the
+     * strongest form of this rule is that Home holds no copy at all.
+     */
     const home = read('screens/HomeScreen.tsx');
-    expect(/viewerStanding\(\)/.test(home), 'Home no longer reads viewerStanding()').toBe(true);
-    expect(/standingFor\(/.test(home), 'Home derives its own thresholds again').toBe(true);
+    expect(/viewerStanding\(\)|standingFor\(|\bXP\b/.test(home), 'Home states a standing again').toBe(false);
   });
 
   it('agrees with itself: the label, the XP and the gap to the next rank', () => {

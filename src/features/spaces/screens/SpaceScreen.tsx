@@ -32,6 +32,7 @@ import {
   backLink,
   ghostPillSm,
   stageAccentFor,
+  UpNext,
   whitePillSm,
 } from '../components/stage';
 import { AddLessonDialog, ContributeDialog } from '../components/SpaceDialogs';
@@ -272,46 +273,17 @@ export default function SpaceScreen({
           thing twice (Abi, 2026-10-10: "Continue is duplicated").
         */}
         {nextLesson && (
-          <Link
-            to={`/v4/space/${space.id}/lesson/${nextLesson.id}`}
-            aria-label={`${space.viewerProgress > 0 ? 'Continue' : 'Start'}: Lesson ${nextLesson.order}, ${nextLesson.title}`}
-            className="console-focusable group relative mx-auto mt-12 flex max-w-2xl items-center gap-5 overflow-hidden rounded-3xl border p-4 pr-5 transition-colors hover:border-white/25 sm:p-5 sm:pr-6"
-            style={{
-              borderColor: `color-mix(in srgb, ${accent} 32%, transparent)`,
-              background: `linear-gradient(110deg, color-mix(in srgb, ${accent} 14%, transparent), color-mix(in srgb, ${accent} 3%, transparent) 70%)`,
-            }}
-          >
-            <span
-              aria-hidden
-              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-[26px] font-medium tabular-nums"
-              style={{ background: `color-mix(in srgb, ${accent} 22%, transparent)`, color: accent }}
-            >
-              {nextLesson.order}
-            </span>
-            <span className="min-w-0 flex-1 text-left">
-              <span className="block text-[12.5px] text-quiet">
-                {nextLesson.percentComplete > 0 ? `${nextLesson.percentComplete}% read` : 'Up next'}
-              </span>
-              <span className="mt-0.5 block truncate text-[22px] font-medium tracking-[-0.02em]">
-                {nextLesson.title}
-              </span>
-              {nextLesson.percentComplete > 0 && (
-                <span aria-hidden className="mt-2.5 block h-1 w-full max-w-[16rem] overflow-hidden rounded-full bg-white/10">
-                  <span
-                    className="block h-full rounded-full"
-                    style={{ width: `${nextLesson.percentComplete}%`, background: accent }}
-                  />
-                </span>
-              )}
-            </span>
-            <span
-              aria-hidden
-              className="hidden h-12 shrink-0 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-black transition-colors group-hover:bg-white/90 sm:inline-flex"
-            >
-              <Play aria-hidden className="h-4 w-4 fill-current" />
-              {space.viewerProgress > 0 ? 'Continue' : 'Start'}
-            </span>
-          </Link>
+          <div className="mt-12">
+            <UpNext
+              to={`/v4/space/${space.id}/lesson/${nextLesson.id}`}
+              number={nextLesson.order}
+              kicker={nextLesson.percentComplete > 0 ? `${nextLesson.percentComplete}% read` : 'Up next'}
+              title={nextLesson.title}
+              percent={nextLesson.percentComplete}
+              accent={accent}
+              verb={space.viewerProgress > 0 ? 'Continue' : 'Start'}
+            />
+          </div>
         )}
 
         {/* The path at a glance — each segment is its Lesson, and opens it. */}
