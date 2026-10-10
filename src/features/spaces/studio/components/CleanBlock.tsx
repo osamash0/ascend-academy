@@ -73,7 +73,7 @@ export function CleanBlock({
       className={cn(
         'group relative -mx-3 rounded-lg px-3 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
         active && 'bg-[hsl(var(--studio-mark)/0.14)]',
-        block.origin === 'written' && 'border-l-2 border-primary/40',
+        block.origin === 'written' && 'rounded-l-none border-l-2 border-primary/40',
       )}
     >
       {extracted &&
@@ -86,7 +86,7 @@ export function CleanBlock({
             type="button"
             onClick={() => onOpenPeek(block.id)}
             aria-label={`Show the original, page ${page}`}
-            className="absolute -left-14 top-1 min-h-6 w-11 rounded-full border border-border bg-card text-[11px] tabular-nums text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+            className="absolute -left-14 top-1 min-h-6 w-11 rounded-full border border-border bg-card text-[11px] tabular-nums text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:border-transparent [@media(hover:none)]:bg-transparent [@media(hover:none)]:text-muted-foreground/70 [@media(hover:none)]:opacity-100"
           >
             p.{page}
           </button>

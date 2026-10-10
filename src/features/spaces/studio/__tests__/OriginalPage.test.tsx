@@ -42,13 +42,14 @@ describe('OriginalPage', () => {
     expect(onRegion).toHaveBeenCalledWith('c-a');
   });
 
-  it('labels a missing figure instead of offering it', () => {
+  it('summarises missing figures once instead of labelling each', () => {
     const withFigure: SourcePage = {
       ...page,
       blocks: [...page.blocks, { id: 'g', page: 4, bbox: [0.5, 0.3, 0.9, 0.8], kind: 'figure', text: '', readingOrder: 2 }],
     };
     render(<OriginalPage page={withFigure} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
-    expect(screen.getByText('Figure not in your version').tagName).not.toBe('BUTTON');
+    expect(screen.getByText('1 figure not in your version').tagName).not.toBe('BUTTON');
+    expect(screen.queryByText('Figure not in your version')).toBeNull();
     expect(screen.getAllByRole('button', { name: 'Not in your version' })).toHaveLength(1);
   });
 
@@ -59,5 +60,16 @@ describe('OriginalPage', () => {
     expect(container.querySelector('[data-morph]')).toBeNull();
     rerender(<OriginalPage page={page} blocks={blocks} morph materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Back to: Functional dependencies' })).toHaveAttribute('data-morph', 'true');
+  });
+
+  it('pluralises the figure summary and omits it when none are missing', () => {
+    const fig = (id: string, y: number) => ({ id, page: 4, bbox: [0.5, y, 0.9, y + 0.1] as [number, number, number, number], kind: 'figure' as const, text: '', readingOrder: 2 });
+    const two: SourcePage = { ...page, blocks: [...page.blocks, fig('g1', 0.3), fig('g2', 0.5)] };
+    const { unmount } = render(<OriginalPage page={two} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
+    expect(screen.getByText('2 figures not in your version')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Not in your version' })).toHaveLength(1);
+    unmount();
+    render(<OriginalPage page={page} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
+    expect(screen.queryByText(/not in your version$/)).toBeNull();
   });
 });

@@ -38,6 +38,10 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
   const [offer, setOffer] = useState<string | null>(null);
   const mapped = blocks.filter((b): b is ExtractedBlock => b.origin === 'extracted');
   const missing = unmappedSourceBlocks(page, blocks);
+  // Figures can't be added as text in v1: a faint outline plus one page summary, no per-figure label.
+  const isFigure = (s: SourcePage['blocks'][number]) => s.kind === 'figure' || !s.text;
+  const figures = missing.filter(isFigure);
+  const texts = missing.filter((s) => !isFigure(s));
 
   return (
     <section data-view="original" data-page-anchor={page.page} aria-label={`Original page ${page.page}`}>
@@ -110,26 +114,32 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
           );
         })}
 
-        {missing.map((s) => (
+        {figures.length > 0 && (
+          <span className="absolute right-2 top-2 z-20 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground">
+            {figures.length} {figures.length === 1 ? 'figure' : 'figures'} not in your version
+          </span>
+        )}
+        {figures.map((s) => (
+          <div
+            key={s.id}
+            aria-hidden
+            style={boxStyle(s.bbox)}
+            className="pointer-events-none absolute rounded-[4px] border border-dashed border-muted-foreground/30"
+          />
+        ))}
+        {texts.map((s) => (
           <div
             key={s.id}
             style={boxStyle(s.bbox)}
             className="absolute rounded-[4px] border-2 border-dashed border-muted-foreground/60"
           >
-            {/* Figures can't be added as text in v1: they are labelled, not offered. */}
-            {s.kind === 'figure' || !s.text ? (
-              <span className="absolute -top-6 left-0 z-20 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground">
-                Figure not in your version
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => (offer === s.id ? onInclude(s.id) : setOffer(s.id))}
-                className="absolute -top-6 left-0 z-20 min-h-6 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                {offer === s.id ? 'Add to your version' : 'Not in your version'}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => (offer === s.id ? onInclude(s.id) : setOffer(s.id))}
+              className="absolute -top-6 left-0 z-20 min-h-6 whitespace-nowrap rounded-full border border-border bg-card px-2 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              {offer === s.id ? 'Add to your version' : 'Not in your version'}
+            </button>
           </div>
         ))}
 

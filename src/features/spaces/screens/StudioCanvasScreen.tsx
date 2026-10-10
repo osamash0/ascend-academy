@@ -198,7 +198,7 @@ export default function StudioCanvasScreen() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[90rem] gap-6 px-4 md:px-6 min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(0,46rem)_minmax(18rem,1fr)]">
+      <div className="mx-auto grid max-w-[90rem] gap-6 px-4 md:px-6 min-[1200px]:grid-cols-[minmax(0,0.6fr)_minmax(0,44rem)_minmax(24rem,1.4fr)]">
         <div className="hidden min-[1200px]:block" />
         <main ref={column} className="min-w-0 py-10 pl-14 md:pl-16">
           <LayoutGroup>

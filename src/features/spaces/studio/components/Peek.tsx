@@ -44,7 +44,7 @@ export function Peek({
       exit={{ opacity: 0, y: 6 }}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      className="rounded-2xl border border-border bg-card p-3 shadow-sm"
+      className="w-full rounded-2xl border border-border bg-card p-3 shadow-sm"
     >
       {sourceRemoved ? (
         <p className="p-3 text-sm text-muted-foreground">
