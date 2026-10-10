@@ -65,6 +65,8 @@ const MODE: Record<string, Mode> = {
    */
   'SpacesHubScreen.tsx': 'own-ground',
   'SpaceScreen.tsx': 'learn',
+  // A real course read as a journey through its lectures (live mode).
+  'CourseScreen.tsx': 'learn',
   'LessonScreen.tsx': 'learn',
   'ConceptScreen.tsx': 'learn',
   'LibraryScreen.tsx': 'learn',

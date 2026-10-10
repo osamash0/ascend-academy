@@ -7,7 +7,7 @@ and a lecture as its Lesson, straight from ``courses``/``lectures``/``slides``.
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.auth_middleware import _user_id, verify_token
@@ -96,3 +96,26 @@ async def reader_ask(
         user_id=uid,
         locale=await service.preferred_language(uid),
     )
+
+
+@router.get("/courses/{course_id}/map")
+@limiter.limit("30/minute")
+async def reader_course_map(request: Request, course_id: UUID, user: Any = Depends(verify_token)):
+    uid = _uid(user)
+    if not await service.can_view_course(course_id, uid):
+        raise HTTPException(status_code=404, detail="Course not found.")
+    return await service.course_map(course_id)
+
+
+@router.get("/courses/{course_id}/find")
+@limiter.limit("60/minute")
+async def reader_course_find(
+    request: Request,
+    course_id: UUID,
+    q: str = Query(min_length=2, max_length=120),
+    user: Any = Depends(verify_token),
+):
+    uid = _uid(user)
+    if not await service.can_view_course(course_id, uid):
+        raise HTTPException(status_code=404, detail="Course not found.")
+    return {"results": await service.find_in_course(course_id, q)}

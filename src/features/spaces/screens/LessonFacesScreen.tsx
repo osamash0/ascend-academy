@@ -94,6 +94,8 @@ export default function LessonFacesScreen() {
   const [params] = useSearchParams();
   const askedPage = Number(params.get('page')) || null;
   const askedView = params.get('view');
+  /* `&spot=words` — a search hit: light those words on the page once it is up. */
+  const askedSpot = params.get('spot');
 
   const sections = useMemo(
     () => (content.bundle ? sectionsFromRows(content.bundle.slides, content.concepts) : []),
@@ -107,7 +109,7 @@ export default function LessonFacesScreen() {
   );
   const studio = view !== 'slide';
   /* The words lit on the page — by Explain's parts, or by stepping the slide's points. */
-  const [spot, setSpot] = useState<string | null>(null);
+  const [spot, setSpot] = useState<string | null>(() => askedSpot?.slice(0, 120) || null);
   /* The point of the page the slide view is on; -1 is the whole page. */
   const [beat, setBeat] = useState(-1);
   const [vw, setVw] = useState(() => (typeof window === 'undefined' ? 1440 : window.innerWidth));

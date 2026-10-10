@@ -17,6 +17,7 @@ that fail are dropped rather than shown broken.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -125,16 +126,18 @@ def _storage_path(raw: str) -> str:
     return m.group(1) if m else raw
 
 
-async def signed_pdf_url(raw: Optional[str]) -> Optional[str]:
+async def signed_pdf_url(raw: Optional[str], bucket: str = PDF_BUCKET) -> Optional[str]:
+    """A signed URL for a stored file, shared by every reader for 6h (CDN-cacheable)."""
     if not raw:
         return None
-    path = _storage_path(raw)
-    key = f"v4reader:pdf:{path}"
+    m = re.search(rf"{re.escape(bucket)}/(.+)$", raw)
+    path = m.group(1) if m else raw
+    key = f"v4reader:{bucket}:{path}"
     cached = await get_cache(key)
     if isinstance(cached, dict) and cached.get("url"):
         return cached["url"]
     try:
-        signed = await run_sync(lambda: supabase_admin.storage.from_(PDF_BUCKET).create_signed_url(path, SIGNED_TTL))
+        signed = await run_sync(lambda: supabase_admin.storage.from_(bucket).create_signed_url(path, SIGNED_TTL))
         url = (signed.get("signedURL") or signed.get("signedUrl") or signed.get("signed_url")) if isinstance(signed, dict) else signed
     except Exception as exc:  # storage hiccup: the reader can still show the text
         logger.warning("v4 reader: signing %s failed: %s", path, exc)
@@ -286,7 +289,11 @@ only where each idea starts.
 Answer with a JSON object only:
 {{"ideas": [{{"name": "...", "first_page": 1}}, ...]}}"""
     try:
-        data = await _generate_json(prompt, user_id=user_id, course_id=str(meta["course_id"]), feature="v4_reader_ideas")
+        # Gemini first: a course page groups its lectures back to back, which
+        # empties groq's per-minute token budget by the third lecture.
+        data = await _generate_json(
+            prompt, user_id=user_id, course_id=str(meta["course_id"]), feature="v4_reader_ideas", prefer="gemini"
+        )
         ideas = TypeAdapter(list[_Idea]).validate_python((data or {}).get("ideas") if isinstance(data, dict) else data)
         concepts = _ideas_to_concepts(ideas, total, lecture_id)
     except Exception as exc:
@@ -721,3 +728,111 @@ async def ask_page(
         raise HTTPException(status_code=502, detail="Couldn't compose an answer to that just now.")
     await set_cache(key, answer, ttl_seconds=CACHE_TTL)
     return {**answer, "cached": False}
+
+
+# ─── the course: a journey, and a search across it ───────────────────────
+
+POSTER_BUCKET = "lecture-posters"
+
+
+async def course_map(course_id: UUID) -> dict[str, Any]:
+    """Each lecture with its poster and — where they are already known — its ideas.
+
+    Ideas are read from the cache only; a lecture whose ideas were never
+    grouped says so (`ideas: null`) and the page asks for them one by one.
+    Posters, not PDFs: a poster is a small WebP of page 1, a PDF is the whole
+    deck (the 2026-08 egress incident was exactly this).
+    """
+    course = await get_course(course_id)
+    async with await get_db_connection() as conn:
+        rows = await conn.fetch(
+            "SELECT id, poster_url, content_revision FROM lectures WHERE course_id = $1", course_id
+        )
+    extra = {str(r["id"]): r for r in rows}
+
+    async def station(lec: dict[str, Any]) -> dict[str, Any]:
+        row = extra.get(lec["id"])
+        if row is None:
+            return {**lec, "poster": None, "ideas": None}
+        graph, cached, poster = await asyncio.gather(
+            graph_concepts(UUID(lec["id"])),
+            get_cache(f"v4reader:{IDEAS_VERSION}:{lec['id']}:{row['content_revision']}"),
+            signed_pdf_url(row["poster_url"], POSTER_BUCKET),
+        )
+        ideas = graph or cached
+        return {
+            **lec,
+            "poster": poster,
+            "ideas": [{"name": i["name"], "first_page": min(i["slide_indices"]) + 1} for i in ideas]
+            if isinstance(ideas, list)
+            else None,
+        }
+
+    # Every lecture at once: ten sequential storage + cache round trips was ~10s.
+    lectures = await asyncio.gather(*(station(lec) for lec in course["lectures"]))
+    return {**course, "lectures": list(lectures)}
+
+
+def _tsquery(text: str, joiner: str) -> Optional[str]:
+    words = [w for w in re.findall(r"[\w+\-]+", text.lower()) if len(w) > 1][:8]
+    if not words:
+        return None
+    return f" {joiner} ".join(f"{re.sub(r'[^a-z0-9äöüß]', '', w) or w}:*" for w in words if re.sub(r'[^a-z0-9äöüß]', '', w))
+
+
+def _clean_snippet(text: str) -> str:
+    """One line, without the deck's running footer ("Slide 67", the author's name)."""
+    text = re.sub(r"\bSlide\s+\d+\b", " ", text)
+    # Bullet glyphs from the deck's symbol fonts land in the Unicode private-use area.
+    text = re.sub("[\ue000-\uf8ff\u25a0-\u25ff]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:220]
+
+
+async def find_in_course(course_id: UUID, query: str, limit: int = 8) -> list[dict[str, Any]]:
+    """Where a topic is taught: pages across every lecture of the course, best first.
+
+    Full-text search, titles weighted above body text, prefix matching, all
+    words first and any word when that finds too little. No model call.
+    """
+    results: list[dict[str, Any]] = []
+    async with await get_db_connection() as conn:
+        for joiner in ("&", "|"):
+            tsq = _tsquery(query, joiner)
+            if not tsq:
+                return []
+            rows = await conn.fetch(
+                """
+                WITH doc AS (
+                  SELECT s.lecture_id, s.slide_number, s.title, s.content_text, l.title AS lecture_title,
+                         setweight(to_tsvector('simple', coalesce(s.title, '')), 'A') ||
+                         setweight(to_tsvector('simple', coalesce(s.content_text, '')), 'C') AS v
+                  FROM slides s JOIN lectures l ON l.id = s.lecture_id
+                  WHERE l.course_id = $1 AND COALESCE(l.is_archived, false) = false
+                )
+                SELECT lecture_id, lecture_title, slide_number, title,
+                       ts_headline('simple', coalesce(content_text, ''), to_tsquery('simple', $2),
+                                   'MaxWords=18, MinWords=8, StartSel=«, StopSel=», MaxFragments=1') AS snippet,
+                       ts_rank(v, to_tsquery('simple', $2)) AS rank
+                FROM doc
+                WHERE v @@ to_tsquery('simple', $2)
+                ORDER BY rank DESC, slide_number
+                LIMIT $3
+                """,
+                course_id,
+                tsq,
+                limit,
+            )
+            results = [
+                {
+                    "lecture_id": str(r["lecture_id"]),
+                    "lecture_title": r["lecture_title"],
+                    "page": r["slide_number"],
+                    "title": r["title"],
+                    "snippet": _clean_snippet(r["snippet"] or ""),
+                }
+                for r in rows
+            ]
+            if len(results) >= 3:
+                break
+    return results

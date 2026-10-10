@@ -3,7 +3,15 @@ import type { LectureConcept, LocalizedLectureBundle } from '@/types/domain';
 import type { Lesson, LoadState, Space } from '../types';
 import type { ExplainAnswer } from '../components/reader/iui/spec';
 import { composeFromText, explainFor } from '../mocks/explain';
-import { dataMode, loadLiveRepository, type ReaderConcept, type ReaderCourse, type ReaderLecture } from './liveRepository';
+import {
+  dataMode,
+  loadLiveRepository,
+  type ReaderConcept,
+  type ReaderCourse,
+  type ReaderCourseMap,
+  type ReaderFind,
+  type ReaderLecture,
+} from './liveRepository';
 import { useLesson, useLessonContent, type LessonContentResult, type LessonResult } from './useSpaces';
 
 /**
@@ -302,4 +310,85 @@ export function useAsker(
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Ask timed out')), ASK_TIMEOUT_MS)),
     ]);
   };
+}
+
+/* ─── the course ──────────────────────────────────────────────────────── */
+
+export interface CourseResult {
+  state: LoadState;
+  course: ReaderCourseMap | null;
+}
+
+/**
+ * A course as a journey. Lectures whose ideas were never grouped are asked
+ * for one at a time, in order, and the map fills in as they arrive — the
+ * first visit draws the course; every later one is instant.
+ */
+export function useCourse(courseId: string | undefined): CourseResult {
+  const [result, setResult] = useState<CourseResult>({ state: 'loading', course: null });
+
+  useEffect(() => {
+    if (!courseId) return;
+    let alive = true;
+    setResult({ state: 'loading', course: null });
+    loadLiveRepository()
+      .then((repo) => repo.courseMap(courseId))
+      .then(async (course) => {
+        if (!alive) return;
+        setResult({ state: 'ready', course });
+        for (const lec of course.lectures) {
+          if (!alive) return;
+          if (lec.ideas !== null) continue;
+          const concepts = await getIdeas(lec.id).catch(() => [] as ReaderConcept[]);
+          if (!alive) return;
+          const ideas = concepts.map((c) => ({ name: c.name, first_page: Math.min(...c.slide_indices) + 1 }));
+          setResult((r) =>
+            r.course
+              ? {
+                  ...r,
+                  course: {
+                    ...r.course,
+                    lectures: r.course.lectures.map((l) => (l.id === lec.id ? { ...l, ideas } : l)),
+                  },
+                }
+              : r,
+          );
+        }
+      })
+      .catch((e) => {
+        if (!alive) return;
+        const s = statusOf(e);
+        setResult({ state: s === 404 || s === 403 ? 'empty' : 'error', course: null });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [courseId]);
+
+  return result;
+}
+
+/** Where a topic is taught across the course, as the reader types. */
+export function useFind(courseId: string | undefined, query: string): { busy: boolean; results: ReaderFind[] } {
+  const [state, setState] = useState<{ busy: boolean; results: ReaderFind[] }>({ busy: false, results: [] });
+  useEffect(() => {
+    const q = query.trim();
+    if (!courseId || q.length < 2) {
+      setState({ busy: false, results: [] });
+      return;
+    }
+    let alive = true;
+    setState((s) => ({ ...s, busy: true }));
+    const t = setTimeout(() => {
+      loadLiveRepository()
+        .then((repo) => repo.findInCourse(courseId, q))
+        .then((r) => alive && setState({ busy: false, results: r.results }))
+        .catch(() => alive && setState({ busy: false, results: [] }));
+    }, 220);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [courseId, query]);
+  return state;
 }

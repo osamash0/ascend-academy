@@ -1,5 +1,7 @@
 import { useParams } from 'react-router-dom';
 import SpaceScreen, { type SpaceTab } from './SpaceScreen';
+import CourseScreen from './CourseScreen';
+import { isLive } from '../data/useReader';
 
 const TABS: SpaceTab[] = ['overview', 'map', 'members'];
 
@@ -14,5 +16,7 @@ const TABS: SpaceTab[] = ['overview', 'map', 'members'];
 export default function SpaceRoute() {
   const { spaceId, tab } = useParams<{ spaceId: string; tab?: string }>();
   const active = TABS.includes(tab as SpaceTab) ? (tab as SpaceTab) : 'overview';
+  // A real course (live mode, a UUID) is read as a journey through its lectures.
+  if (spaceId && isLive(spaceId)) return <CourseScreen courseId={spaceId} />;
   return <SpaceScreen spaceId={spaceId} tab={active} />;
 }

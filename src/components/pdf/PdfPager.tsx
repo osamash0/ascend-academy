@@ -157,6 +157,20 @@ export function PdfPager({
         }
       >
         <div className="relative h-full w-full">
+          {/* While the file arrives: the page's own shape, breathing, and a word about it. */}
+          {numPages === 0 && (
+            <motion.div
+              aria-label="Opening the deck"
+              role="status"
+              initial={{ opacity: 0.25 }}
+              animate={{ opacity: [0.25, 0.5, 0.25] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute left-1/2 top-1/2 flex items-end justify-center rounded-xl bg-white/[0.08] pb-5 text-[12.5px] text-white"
+              style={{ width, height, marginLeft: -width / 2, marginTop: -height / 2 }}
+            >
+              Opening the deck…
+            </motion.div>
+          )}
           {shown.map((p) => {
             const offset = p - page;
             return (

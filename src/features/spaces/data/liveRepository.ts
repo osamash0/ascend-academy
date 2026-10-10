@@ -14,6 +14,24 @@ export interface ReaderCourse {
   lectures: { id: string; title: string; total_slides: number; order: number }[];
 }
 
+/** The course as a journey: each lecture with its poster and, where known, its ideas. */
+export interface ReaderCourseMap extends Omit<ReaderCourse, 'lectures'> {
+  lectures: (ReaderCourse['lectures'][number] & {
+    poster: string | null;
+    /** Null when the lecture's ideas have not been grouped yet. */
+    ideas: { name: string; first_page: number }[] | null;
+  })[];
+}
+
+/** A page where a topic is taught. `snippet` marks the matched words «like this». */
+export interface ReaderFind {
+  lecture_id: string;
+  lecture_title: string;
+  page: number;
+  title: string | null;
+  snippet: string;
+}
+
 /** One lecture's concept rows, in the endpoint's own shape. */
 export interface ReaderConcept {
   concept_id: string;
@@ -63,6 +81,9 @@ export function createLiveRepository(http: V4Transport) {
     readerIdeas: (id: string) => http.get<{ concepts: ReaderConcept[] }>(`${root}/reader/lectures/${idPath(id)}/ideas`),
     explainPage: (id: string, page: number) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/explain`, {}),
+    courseMap: (id: string) => http.get<ReaderCourseMap>(`${root}/reader/courses/${idPath(id)}/map`),
+    findInCourse: (id: string, q: string) =>
+      http.get<{ results: ReaderFind[] }>(`${root}/reader/courses/${idPath(id)}/find?q=${encodeURIComponent(q)}`),
     askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[]) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/ask`, {
         question,
