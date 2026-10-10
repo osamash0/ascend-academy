@@ -144,11 +144,17 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
       - run: pip install -r backend/requirements-dev.txt
-      - name: ruff (report-only — 180 pre-existing violations, not yet gated)
-        # TODO(P4-4 follow-up): fix or file the 180 pre-existing violations
-        # (53 E402, 49 E701, 35 E741, 32 F401, 8 F841, 2 F811, 1 E731 as of
-        # 2026-07-21) then flip this to blocking. Kept non-blocking for now so
-        # CI is informative without breaking on day one.
+      - name: ruff (blocking subset — undefined names, redefinitions, unused variables)
+        # Gated 2026-10-10. These three rules catch real bugs (a name that
+        # does not exist, an import shadowed by a second one, a result
+        # computed and dropped) and had 17 violations, all cleared in the
+        # commit that added this step.
+        run: ruff check backend/ --select F821,F811,F841
+      - name: ruff (report-only — full rule set, not yet gated)
+        # TODO(P4-4 follow-up): the full set was 180 violations on 2026-07-21
+        # and had grown to 231 by 2026-10-10 while report-only (214 after the
+        # subset above was cleared; mostly E402, E701, F401, E741). Widen the
+        # blocking step's --select one rule at a time as each is cleared.
         run: ruff check backend/ --statistics || true
       # Database/RLS tests are separately gated below: nightly, dispatch, or
       # a PR touching database-relevant paths. Keeping this fast suite free
@@ -359,6 +365,14 @@ jobs:
       # find it at /var/run/docker.sock. No extra setup needed.
       - run: pip install -r backend/requirements-dev.txt
       - name: Run DB / RLS tests
+        env:
+          # Execution floor (backend/tests/execution_floor.py). The db conftest
+          # `pytest.skip`s when testcontainers/Docker is missing, which used to
+          # leave this job green with zero tests run. The 2026-10-10 nightly
+          # passed 224 (4 skipped); 200 leaves room to delete a few tests but
+          # turns a skip-everything run red. Raise it as the suite grows; lower
+          # it only when tests are removed on purpose.
+          PYTEST_MIN_PASSED: "200"
         run: python -m pytest backend/tests/db -m db -v --tb=short
       - uses: actions/upload-artifact@v4
         if: failure()

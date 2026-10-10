@@ -5,7 +5,7 @@ Provider chain (rate-limit data: github.com/cheahjs/free-llm-api-resources):
 
   ID            Model                       Daily req   TPM      Notes
   ──────────────────────────────────────────────────────────────────────
-  cerebras      gpt-oss-120b                 14,400      60,000   PRIMARY (fast + high quality)
+  cerebras      gpt-oss-120b                 14,400      60,000   OUT OF CHAINS (402 billing, 2026-10-10)
   groq_fast     llama-3.1-8b-instant        14,400       6,000   Fast fallback
   gemma         gemma-3-27b-it              14,400      15,000   Google SDK
   mistral       mistral-small-latest        ~unlimited  500,000  Needs phone verify
@@ -20,7 +20,7 @@ Two chains:
   QUALITY_CHAIN — blueprints / planning (low volume, quality-first)
 
 Required env vars (add what you have; missing keys disable that provider gracefully):
-  CEREBRAS_API_KEY      https://cloud.cerebras.ai          ← PRIMARY
+  CEREBRAS_API_KEY      https://cloud.cerebras.ai          (unused while out of the chains)
   GROQ_API_KEY          https://console.groq.com
   GEMINI_API_KEY        https://aistudio.google.com/apikey
   OPENROUTER_API_KEY    https://openrouter.ai/keys
@@ -37,9 +37,13 @@ import datetime
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    # Runtime imports of LLMUsage stay function-local (see _call_google etc.).
+    from backend.services.ai.cost import LLMUsage
 
 logger = logging.getLogger(__name__)
 
@@ -53,17 +57,22 @@ def _init_env() -> None:
 _init_env()
 
 # ---------------------------------------------------------------------------
-# Backward-compat model-name constants (used by vision.py / ai_service.py)
+# Standalone model constants (not part of the failover chains)
 # ---------------------------------------------------------------------------
+# The chain providers' model ids live in PROVIDER_REGISTRY below, and the
+# GEMINI_MODEL / GROQ_MODEL / GROQ_FAST_MODEL / CEREBRAS_MODEL aliases are
+# derived from it right after. Only the two ids that have no registry entry
+# are defined here.
 OLLAMA_MODEL      = "llama3"
-GEMINI_MODEL      = "gemini-2.0-flash"
-GROQ_MODEL        = "llama-3.3-70b-versatile"
-GROQ_FAST_MODEL   = "llama-3.1-8b-instant"
-# llama-3.2-11b-vision-preview was decommissioned by Groq (Apr 2026).
-# meta-llama/llama-4-scout-17b-16e-instruct is the current free-tier vision
-# model on Groq with the same OpenAI-compatible chat-completions schema.
-GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
-CEREBRAS_MODEL    = "gpt-oss-120b"
+
+# Groq no longer serves ANY vision model — llama-3.2-11b-vision-preview was
+# decommissioned (Apr 2026) and its replacement
+# meta-llama/llama-4-scout-17b-16e-instruct now 404s too; Groq's current
+# catalogue is text-only, and the remaining models reject the multi-part
+# `content` array a vision request needs with a 400. Set GROQ_VISION_MODEL in
+# the environment to re-enable that leg if Groq ships vision again; while it
+# is None, vision.py does not offer groq as a vision provider at all.
+GROQ_VISION_MODEL = os.environ.get("GROQ_VISION_MODEL") or None
 
 _VISION_SLIDE_TYPES_METADATA = {"title_slide", "meta_slide"}
 
@@ -143,32 +152,63 @@ class ProviderConfig:
     tpm:         int      # tokens/minute   (0 = unknown)
     env_var:     str      # name of API-key env var
     base_url:    Optional[str]   # None → uses Google genai SDK
+    # Last date someone confirmed `model` is still served at this provider (a
+    # real call, not "it was in the docs"). Providers retire slugs without
+    # notice and the rotator just fails over, so a dead pin is otherwise
+    # invisible. tests/unit/test_provider_pin_freshness.py fails once this is
+    # older than PIN_MAX_AGE_DAYS — re-probe and bump it, or swap the slug.
+    verified_on: datetime.date
     uses_google_sdk: bool = False
+    # For a leg nobody CAN verify right now (no API key, account issue): why,
+    # and when that was last confirmed. Exempts verified_on from the age check,
+    # but expires after PIN_MAX_AGE_DAYS itself so the exemption gets
+    # re-confirmed rather than forgotten. Set both or neither.
+    unverifiable_reason: Optional[str] = None
+    unverifiable_noted_on: Optional[datetime.date] = None
+
+
+# How old a verified_on (or unverifiable_noted_on) may get before the unit
+# test goes red. Only legs a call can reach are checked — see the test.
+PIN_MAX_AGE_DAYS = 45
 
 
 # Order within this list is irrelevant; chains below define priority.
 PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
     p.id: p for p in [
         ProviderConfig(
-            # Cerebras GPT-OSS 120B — production model on Cerebras inference
-            # fabric (~3000 tok/s). Previously used Qwen-3-235B which was
-            # retired; gpt-oss-120b is the current production endpoint.
+            # Cerebras GPT-OSS 120B. REMOVED FROM BOTH CHAINS and from
+            # _USER_MODEL_TO_PROVIDER on 2026-10-10: the account answers
+            # 402 payment_required, and as the head of both chains every call
+            # paid a failed round-trip first. Kept registered so re-enabling is
+            # a re-probe plus putting "cerebras" back in the chains and the map.
             id="cerebras",
             model="gpt-oss-120b",
+            verified_on=datetime.date(2026, 6, 5),
             daily_limit=14_400, rpm=30, tpm=60_000,
             env_var="CEREBRAS_API_KEY",
             base_url="https://api.cerebras.ai/v1",
         ),
         ProviderConfig(
+            # `llama-3.1-8b-instant` was retired by Groq (verified 404, Sep
+            # 2026) along with every other llama slug. `openai/gpt-oss-20b` is
+            # the current small model on Groq's free tier and honors
+            # response_format=json_object.
             id="groq_fast",
-            model="llama-3.1-8b-instant",
+            model=os.environ.get("GROQ_FAST_MODEL") or "openai/gpt-oss-20b",
+            verified_on=datetime.date(2026, 10, 10),
             daily_limit=14_400, rpm=30, tpm=6_000,
             env_var="GROQ_API_KEY",
             base_url="https://api.groq.com/openai/v1",
         ),
         ProviderConfig(
+            # Google retires dated Gemini slugs aggressively — `gemini-2.0-flash-lite`
+            # 404s with "no longer available". The floating `-latest` alias
+            # tracks the current lite flash model, which is the whole point
+            # here: this leg is the cheap bulk workhorse, not a model we need
+            # pinned for reproducibility.
             id="gemma",
-            model="gemini-2.0-flash-lite",
+            model=os.environ.get("GEMMA_MODEL") or "gemini-flash-lite-latest",
+            verified_on=datetime.date(2026, 10, 10),
             daily_limit=14_400, rpm=30, tpm=15_000,
             env_var="GEMINI_API_KEY",
             base_url=None,
@@ -177,6 +217,9 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         ProviderConfig(
             id="mistral",
             model="mistral-small-latest",
+            verified_on=datetime.date(2026, 5, 2),
+            unverifiable_reason="no MISTRAL_API_KEY configured; leg is disabled at runtime while keyless",
+            unverifiable_noted_on=datetime.date(2026, 10, 10),
             daily_limit=0, rpm=60, tpm=500_000,
             env_var="MISTRAL_API_KEY",
             base_url="https://api.mistral.ai/v1",
@@ -192,7 +235,13 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             id="openrouter",
             # `or` not a get() default: .env.example ships the key blank, and an
             # empty string would otherwise be sent to the API as the model id.
-            model=os.environ.get("OPENROUTER_MODEL") or "openai/gpt-oss-20b:free",
+            # `openai/gpt-oss-20b:free` was itself withdrawn ("unavailable for
+            # free") — the third retirement on this leg, hence the env override.
+            # Nemotron Lightning is the current free slug that both answers and
+            # honors response_format=json_object; several other `:free` models
+            # (qwen3.8, glm-5.2) are listed but 429 immediately upstream.
+            model=os.environ.get("OPENROUTER_MODEL") or "nvidia/nemotron-3.5-lightning:free",
+            verified_on=datetime.date(2026, 10, 10),
             daily_limit=50, rpm=20, tpm=0,
             env_var="OPENROUTER_API_KEY",
             base_url="https://openrouter.ai/api/v1",
@@ -203,21 +252,37 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # the base URL at client-init time (see _make_cloudflare_client).
             id="cloudflare",
             model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+            verified_on=datetime.date(2026, 5, 2),
+            unverifiable_reason="no CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID configured; leg is disabled at runtime while keyless",
+            unverifiable_noted_on=datetime.date(2026, 10, 10),
             daily_limit=10_000, rpm=300, tpm=0,
             env_var="CLOUDFLARE_API_TOKEN",
             base_url="https://api.cloudflare.com/client/v4/accounts",
         ),
         ProviderConfig(
+            # `gemini-2.0-flash` 404s ("no longer available"). Prefer the
+            # floating alias over a pinned successor: pinned `gemini-3.5-flash`
+            # answered 503 "high demand" during the Sep 2026 audit, while
+            # `gemini-flash-latest` served fine.
             id="gemini",
-            model="gemini-2.0-flash",
+            model=os.environ.get("GEMINI_MODEL") or "gemini-flash-latest",
+            verified_on=datetime.date(2026, 10, 10),
             daily_limit=1_500, rpm=15, tpm=250_000,
             env_var="GEMINI_API_KEY",
             base_url=None,
             uses_google_sdk=True,
         ),
         ProviderConfig(
+            # Groq retired the whole llama-3.x line; `llama-3.3-70b-versatile`
+            # 404s. `openai/gpt-oss-120b` is the current large model on Groq's
+            # free tier. Note it is a reasoning model: it spends tokens on a
+            # `reasoning` field before `content`, so callers that cap
+            # max_tokens too low get an empty string back with
+            # finish_reason="length". We send no max_tokens (provider default),
+            # so this is safe here — but see prompts that set their own.
             id="groq",
-            model="llama-3.3-70b-versatile",
+            model=os.environ.get("GROQ_MODEL") or "openai/gpt-oss-120b",
+            verified_on=datetime.date(2026, 10, 10),
             daily_limit=1_000, rpm=30, tpm=12_000,
             env_var="GROQ_API_KEY",
             base_url="https://api.groq.com/openai/v1",
@@ -230,6 +295,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             # `or` rather than a get() default, so a key that is present but
             # blank in .env falls back instead of being sent to the API.
             model=os.environ.get("OPENAI_MODEL") or "gpt-4o-mini",
+            verified_on=datetime.date(2026, 10, 10),
             daily_limit=0, rpm=60, tpm=100000,
             env_var="OPENAI_API_KEY",
             base_url=os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1",
@@ -238,23 +304,40 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
 }
 
 # ---------------------------------------------------------------------------
+# Backward-compat model-name constants (used by vision.py and other callers)
+# ---------------------------------------------------------------------------
+# Derived from PROVIDER_REGISTRY above so there is exactly one place a model
+# id is chosen. These used to be separate literals and silently drifted out of
+# sync with the registry as providers retired models underneath them — a Sep
+# 2026 audit found GEMINI_MODEL and GROQ_MODEL still naming retired models.
+GEMINI_MODEL    = PROVIDER_REGISTRY["gemini"].model
+GROQ_MODEL      = PROVIDER_REGISTRY["groq"].model
+GROQ_FAST_MODEL = PROVIDER_REGISTRY["groq_fast"].model
+CEREBRAS_MODEL  = PROVIDER_REGISTRY["cerebras"].model
+
+
+# ---------------------------------------------------------------------------
 # Failover chains
 # ---------------------------------------------------------------------------
 
-# Bulk slide processing: highest daily capacity first; Groq 70B last (conserve quota)
-BULK_CHAIN:    List[str] = ["cerebras", "groq_fast", "cloudflare", "gemma", "mistral", "openrouter", "gemini", "groq", "openai"]
+# cerebras is out of both chains (402 billing, 2026-10-10) — see its registry entry.
 
-# Blueprint / planning / deck summaries: Cerebras (gpt-oss-120b) is now the
-# primary — it is both fast and high quality, and has the highest free-tier
-# daily quota of any provider in the registry. Groq 70B is held back as a
-# quality fallback after Cerebras and the deep-resilience providers.
-QUALITY_CHAIN: List[str] = ["cerebras", "groq", "openrouter", "cloudflare", "gemini", "mistral", "groq_fast", "gemma", "openai"]
+# Bulk slide processing: highest daily capacity first; Groq 70B last (conserve quota)
+BULK_CHAIN:    List[str] = ["groq_fast", "cloudflare", "gemma", "mistral", "openrouter", "gemini", "groq", "openai"]
+
+# Blueprint / planning / deck summaries: quality-first. Groq's gpt-oss-120b
+# leads now that Cerebras (same model, previously the head) is out.
+QUALITY_CHAIN: List[str] = ["groq", "openrouter", "cloudflare", "gemini", "mistral", "groq_fast", "gemma", "openai"]
 
 # Maps the user-facing ai_model string (sent from the frontend) to the
 # orchestrator's internal provider id. Values that don't map fall back to
 # the chain's natural head.
+#
+# "cerebras" is deliberately absent (2026-10-10): it is the app-wide default
+# ai_model, and _chain_with_preferred INSERTS a preferred provider even when it
+# is not in the chain — so mapping it would put the 402ing leg back at the
+# front of every call. Unmapped, "cerebras" now means "natural chain head".
 _USER_MODEL_TO_PROVIDER: Dict[str, str] = {
-    "cerebras":          "cerebras",
     "groq":              "groq",
     "groq_fast":         "groq_fast",
     "openrouter":        "openrouter",
@@ -400,7 +483,7 @@ for _cfg in PROVIDER_REGISTRY.values():
     elif _cfg.base_url:
         _clients[_cfg.id] = _make_openai_client(_cfg.env_var, _cfg.base_url)
 
-# Backward-compat module-level references (used by vision.py / ai_service.py)
+# Backward-compat module-level references (used by vision.py and other callers)
 try:
     from groq import Groq as _GroqSDK
     _g_key = os.environ.get("GROQ_API_KEY", "")
@@ -493,20 +576,47 @@ class ProviderRotator:
                 "⛔ Provider '%s' disabled for this process: %s", provider_id, reason
             )
 
+    def is_disabled(self, provider_id: str) -> bool:
+        """True if `provider_id` was permanently disabled this process.
+
+        Public counterpart to `available()` for callers whose provider ids are
+        not in PROVIDER_REGISTRY — chiefly the vision path, whose
+        "groq_vision"/"gemini_vision"/"openai_vision" ids are tracked here for
+        backoff but have no registry entry, so `available()` would report them
+        as unknown rather than answering the question asked.
+        """
+        with self._lock:
+            return provider_id in self._disabled
+
     def available(self, chain: List[str]) -> List[str]:
         """
         Returns the subset of `chain` that is currently usable, in order.
-        Skips providers whose daily limit is hit or are in a 429 backoff window.
-        Skips providers without a configured client (no API key), and providers
-        permanently disabled by `record_unavailable`.
-        Falls back to the rest of the chain if everything is technically
-        exhausted — but never to a permanently-disabled provider, which by
-        construction cannot succeed.
+
+        Two classes of gate, and the difference matters:
+
+        * HARD gates — unknown provider, permanently disabled by
+          `record_unavailable`, no configured client, or (for openai) the
+          fleet-wide daily cost ceiling. These describe calls that either
+          cannot succeed or must not be made. Nothing relaxes them.
+        * SOFT gates — daily request limit and 429 backoff windows. These are
+          local *estimates* that can be stale (another process may have reset,
+          a backoff may be over-cautious), so if every candidate is filtered
+          out by a soft gate we return the hard-eligible set anyway and let
+          the provider itself arbitrate.
+
+        Returning `[]` is a real answer meaning "every leg is disabled,
+        keyless, or over budget" — callers must treat it as such rather than
+        falling back to the raw chain, which would re-admit exactly the
+        providers the hard gates just excluded. That fallback is how the
+        openai cost ceiling used to be bypassable: once every other leg was
+        disabled, `ok` came back empty and the old `last_ditch` list handed
+        openai straight back, uncapped.
         """
         now = time.monotonic()
         with self._lock:
             self._reset_if_new_day()
             ok: List[str] = []
+            hard_eligible: List[str] = []
             skipped: List[str] = []
             for pid in chain:
                 cfg = PROVIDER_REGISTRY.get(pid)
@@ -527,6 +637,9 @@ class ProviderRotator:
                             f"openai=daily_cost_ceiling(${self._openai_daily_cost_usd:.4f}/${ceiling:.2f})"
                         )
                         continue
+                # Past every hard gate: this provider is callable in principle.
+                hard_eligible.append(pid)
+
                 limit = cfg.daily_limit
                 used  = self._counts.get(pid, 0)
                 if limit > 0 and used >= limit:
@@ -537,15 +650,15 @@ class ProviderRotator:
                     skipped.append(f"{pid}=backoff({remaining:.0f}s)")
                     continue
                 ok.append(pid)
-            last_ditch = [pid for pid in chain if pid not in self._disabled]
         if skipped:
             logger.info(
                 "Provider availability: ok=%s skipped=[%s]",
                 ok or "(none)", ", ".join(skipped),
             )
-        # If everything is exhausted, try the non-disabled providers anyway
-        # (a daily-limit or backoff estimate may be stale; a dead model is not).
-        return ok or last_ditch or chain
+        # Soft gates only: if they excluded everything, try the hard-eligible
+        # set anyway (a daily-limit or backoff estimate may be stale; a dead
+        # model, a missing key or a blown cost ceiling is not).
+        return ok or hard_eligible
 
     def remaining_headroom(self, chain: List[str]) -> int:
         """Sum of remaining daily quota across configured providers in `chain`.
@@ -824,7 +937,17 @@ def _generate_with_rotation(
     chain = _chain_with_preferred(chain, preferred)
     available = _rotator.available(chain)
     if not available:
-        available = chain   # last-ditch: try all
+        # `available()` already relaxes its soft gates (daily limit, backoff)
+        # before returning empty, so an empty list means every leg is
+        # permanently disabled, has no API key, or is over its cost ceiling.
+        # Retrying the raw chain here would re-admit precisely those — it was
+        # the second of two paths by which the openai daily cost ceiling could
+        # be bypassed. Fail loudly instead of billing past the cap.
+        raise RuntimeError(
+            f"No LLM provider available in chain {chain}: every candidate is "
+            f"disabled (dead model), missing an API key, or over its cost "
+            f"ceiling. Check provider model ids and credentials."
+        )
 
     last_exc: Optional[Exception] = None
 
@@ -847,7 +970,25 @@ def _generate_with_rotation(
             return result, pid, PROVIDER_REGISTRY[pid].model, usage
         except Exception as exc:
             msg = str(exc).lower()
-            is_rate_limit = any(k in msg for k in ("429", "rate limit", "quota", "too many requests", "rate_limit"))
+            # A 402 is a billing wall, not a throttle — no amount of waiting
+            # clears it. It must be checked BEFORE the rate-limit sniff:
+            # Cerebras' 402 body is
+            #   {'message': 'Payment required ...', 'param': 'quota',
+            #    'code': 'payment_required'}
+            # whose bare "quota" substring otherwise matches below, which
+            # demoted a permanent failure to a 90s backoff and left the head
+            # of both chains re-firing one doomed request per call forever.
+            is_payment_required = (
+                getattr(exc, "status_code", None) == 402
+                or "error code: 402" in msg
+                or "status 402" in msg
+                or "payment_required" in msg
+                or "payment required" in msg
+                or "insufficient_quota" in msg
+            )
+            is_rate_limit = not is_payment_required and any(
+                k in msg for k in ("429", "rate limit", "quota", "too many requests", "rate_limit")
+            )
             # A 404 from a chat-completions endpoint means the route or the
             # configured model id does not exist at that provider — never a
             # transient condition, so retrying it is pure waste. Key off the
@@ -865,7 +1006,15 @@ def _generate_with_rotation(
                 or "error code: 404" in msg
                 or "status 404" in msg
             )
-            if is_rate_limit:
+            if is_payment_required:
+                _rotator.record_unavailable(pid, "402 payment required (billing)")
+                last_exc = exc
+                logger.error(
+                    "💳 Provider '%s' requires payment — disabling for the rest "
+                    "of this process: %s",
+                    pid, exc,
+                )
+            elif is_rate_limit:
                 _rotator.record_rate_limit(pid)
                 last_exc = exc
                 logger.warning("⚠️  Provider '%s' rate-limited, trying next", pid)
@@ -1147,10 +1296,10 @@ async def generate_text(
     feature: Optional[str] = None,
 ) -> str:
     """
-    Quality chain: Cerebras → Groq 70B → OpenRouter → Cloudflare → Gemini → …
+    Quality chain: Groq gpt-oss-120b → OpenRouter → Cloudflare → Gemini → …
     Use for blueprints, planning, deck summaries.
     The user-selected ``ai_model`` is moved to the head of the chain when
-    it maps to a known provider (cerebras, groq, openrouter, cloudflare, gemini, ...).
+    it maps to a known provider (groq, openrouter, cloudflare, gemini, ...).
 
     Pass ``json_mode=True`` when the caller will run ``parse_json_response``
     on the reply (Foundation Roadmap P4-3) — this requests provider-native
@@ -1214,7 +1363,7 @@ async def generate_text_bulk(
     feature: Optional[str] = None,
 ) -> str:
     """
-    Bulk chain: Cerebras → Groq 8B → Cloudflare → Gemma → Mistral → OpenRouter → …
+    Bulk chain: Groq gpt-oss-20b → Cloudflare → Gemma → Mistral → OpenRouter → …
     Use for slide-by-slide processing to preserve the scarce Groq 70B quota.
     User-selected ``ai_model`` is honored at the head of the chain when known.
 

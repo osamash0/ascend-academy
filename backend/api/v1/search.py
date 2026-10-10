@@ -40,8 +40,9 @@ class AskRequest(BaseModel):
     # "llama3" used to be the default here, but it's a special-cased local
     # Ollama path (orchestrator.py's _call_provider), not a cloud provider key
     # in PROVIDER_REGISTRY - it fails wherever no local Ollama server is
-    # running, i.e. every real deployment. cerebras is QUALITY_CHAIN's head
-    # and confirmed reachable.
+    # running, i.e. every real deployment. "cerebras" is no longer a provider
+    # preference (out of the chains since 2026-10-10, 402 billing); it now
+    # resolves to the chain's natural head.
     ai_model: str = "cerebras"
 
 

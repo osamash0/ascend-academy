@@ -146,7 +146,7 @@ class TestDatabaseTransactions:
 
         # When the yielded block executes, raise PostgresError
         with pytest.raises(DomainError) as excinfo:
-            async with db_transaction() as conn:
+            async with db_transaction():
                 raise exc
 
         # Assert the exception is mapped properly to DomainError

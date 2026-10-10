@@ -54,11 +54,13 @@ services:
 
   # ── LLM gateway: REMOVED ───────────────────────────────────────────────────
   # The LiteLLM gateway container was deleted (2026-08-25). It had no live
-  # callers: `LITELLM_BASE_URL` was referenced only from `backend/_legacy/`
-  # (stage2_synthesize, stage3_generate, stage5_finalize), and the model
-  # aliases in litellm/config.yaml (stage-text, stage-vision, stage-outline,
-  # stage-deck) were likewise only used there. The removal of the last live
-  # caller is documented at backend/api/v1/courses.py:399-411.
+  # callers: `LITELLM_BASE_URL` was referenced only from the old staged
+  # pipeline, and the gateway's model aliases (stage-text, stage-vision,
+  # stage-outline, stage-deck) were likewise only used there.
+  #
+  # The dead remnants it left behind — `backend/_legacy/`, `litellm/config.yaml`
+  # and the `LITELLM_*` settings fields — were deleted on 2026-09-18; nothing
+  # in the repo references the gateway any more.
   #
   # The live path is backend/services/ai/orchestrator.py, which calls each
   # provider's API directly over HTTPS (Cerebras, Groq, Google, Mistral,

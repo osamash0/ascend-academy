@@ -5,16 +5,18 @@ import urllib.parse
 from typing import Any, Dict, List, Optional
 
 from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin
-from backend.services.ai_service import (
+from backend.services.ai.orchestrator import (
     generate_summary as _generate_summary,
     generate_quiz as _generate_quiz,
     generate_slide_title as _generate_slide_title,
     enhance_slide_content as _enhance_slide_content,
+)
+from backend.services.ai.analytics import (
     generate_analytics_insights as _generate_analytics_insights,
     generate_metric_feedback as _generate_metric_feedback,
-    generate_speech as _generate_speech,
-    analyze_slide_vision,
 )
+from backend.services.ai.audio import generate_speech as _generate_speech
+from backend.services.ai.vision import analyze_slide_vision
 from backend.services.content_filter import is_metadata_slide
 from backend.services.ai.analytics import generate_slide_recommendation
 from backend.services import analytics_service, analytics_cache

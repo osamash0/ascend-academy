@@ -11,7 +11,7 @@ from supabase import Client
 from backend.core.auth_middleware import verify_token, require_professor
 from backend.core.database import SUPABASE_URL, ANON_KEY, supabase_admin, create_client
 from backend.core.rate_limit import limiter
-from backend.services.ai_service import generate_mind_map
+from backend.services.ai.mind_map import generate_mind_map
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/mind-map", tags=["mind-map"])

@@ -301,7 +301,7 @@ async def lazy_deck_quiz_endpoint(
     user: Any = Depends(require_creator),
 ):
     from backend.services.layout_analyzer import PageLayout
-    from backend.services.ai_service import generate_deck_summary, generate_deck_quiz
+    from backend.services.ai.orchestrator import generate_deck_summary, generate_deck_quiz
 
     pdf_hash = (body.pdf_hash or "").strip()
     if not pdf_hash or len(pdf_hash) != 64: raise HTTPException(status_code=400, detail="invalid pdf_hash")
