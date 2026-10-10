@@ -15,6 +15,7 @@ import { markTrail } from '../data/trail';
 import { GlassPill } from '../components/reader/glass/GlassPill';
 import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
 import { useIdle } from '../components/reader/useIdle';
+import { ChapterStrip, chaptersOf } from '../components/reader/ChapterStrip';
 import { BreakNudge, BreakRoom, useReadingCare } from '../components/reader/ReadingCare';
 import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
@@ -433,6 +434,40 @@ export default function LessonFacesScreen() {
   const care = useReadingCare(pdfPage, ready);
   const quiet = useIdle(ready && view === 'slide' && !bench && !care.due && !care.resting, 2800);
 
+  /*
+   * Where the page actually is, so the chapter strip can sit on its top edge
+   * at exactly its width. Read from the slot's layout size (its transform is
+   * only the turn) and the stage it is centred in.
+   */
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [frame, setFrame] = useState<{ left: number; top: number; width: number } | null>(null);
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const read = () => {
+      const slot = stage.querySelector<HTMLElement>(`[data-pdf-page="${pdfPage}"]`);
+      if (!slot || !slot.offsetWidth) return;
+      const w = slot.offsetWidth;
+      const h = slot.offsetHeight;
+      const next = {
+        left: Math.round(stage.offsetLeft + (stage.clientWidth - w) / 2),
+        top: Math.round(stage.offsetTop + (stage.clientHeight - h) / 2),
+        width: Math.round(w),
+      };
+      setFrame((f) => (f && f.left === next.left && f.top === next.top && f.width === next.width ? f : next));
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(stage);
+    const mo = new MutationObserver(read);
+    /* A page painting in can change the slot's size; the turn's transform cannot. */
+    mo.observe(stage, { childList: true, subtree: true });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, [pdfPage, ready, numPages]);
+
   const asker = useAsker(spaceId, lessonId);
   /* The idea in view, wherever else the course teaches it. */
   const ideaName = anchor ? sections.find((x) => x.conceptId === anchor.conceptId)?.name ?? '' : '';
@@ -656,6 +691,10 @@ export default function LessonFacesScreen() {
     transition: { duration: quiet ? 0.9 : 0.2 },
   } as const;
   const night = prefs.night;
+  /* The ideas as a strip on the slide's top edge; it needs a band above the page. */
+  const chapters = chaptersOf(sections, numPages || Math.max(...sections.flatMap((x) => x.blocks.map((b) => b.page))));
+  const strip = chapters.length >= 2;
+  const stageTop = 88 + (strip ? 48 : 0);
   /* The stage's own width decides whether the masthead can sit centred beside the switch. */
   const narrowHead = vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980;
   const block = blockOf(pdfPage);
@@ -727,8 +766,12 @@ export default function LessonFacesScreen() {
         <div className={cn('min-w-0', !narrowHead && 'text-center')}>
           <p className="mb-1 truncate text-[12.5px] text-quiet">
             {space.name}
-            <span aria-hidden className="mx-2 text-faint">·</span>
-            {section.name}
+            {!strip && (
+              <>
+                <span aria-hidden className="mx-2 text-faint">·</span>
+                {section.name}
+              </>
+            )}
           </p>
           <h1 className="truncate text-[22px] font-medium leading-tight tracking-[-0.015em] text-foreground">
             {lesson.title}
@@ -808,15 +851,17 @@ export default function LessonFacesScreen() {
           <LessonToc sections={sections} conceptId={anchor.conceptId} page={pdfPage} onPage={goToPage} />
         </div>
       ) : (
-        <Spine
-          concepts={concepts}
-          currentId={anchor.conceptId}
-          right={docked ? panelWidth + 12 : 12}
-          onJump={(id) => {
-            const p = firstPageOf(id, sections);
-            if (p !== null) goToPage(p);
-          }}
-        />
+        !strip && (
+          <Spine
+            concepts={concepts}
+            currentId={anchor.conceptId}
+            right={docked ? panelWidth + 12 : 12}
+            onJump={(id) => {
+              const p = firstPageOf(id, sections);
+              if (p !== null) goToPage(p);
+            }}
+          />
+        )
       )}
       </motion.div>
 
@@ -825,9 +870,10 @@ export default function LessonFacesScreen() {
         and the panel leave. It refits when that space changes.
       */}
       <div
+        ref={stageRef}
         className={cn('absolute', night && '[&_[data-pdf-page]]:bg-[#141414] [&_[data-pdf-page]_canvas]:[filter:invert(0.9)_hue-rotate(180deg)]')}
         style={{
-          top: 88,
+          top: stageTop,
           bottom: stageBottom,
           left: showToc ? TOC_WIDTH : 0,
           right: docked ? panelWidth : 0,
@@ -847,6 +893,22 @@ export default function LessonFacesScreen() {
           className="absolute inset-0 overflow-hidden"
         />
       </div>
+
+      {/* The lecture's ideas, along the top edge of the page. */}
+      {strip && (
+        <motion.div
+          {...fade}
+          className="absolute z-20"
+          style={
+            frame
+              ? { left: frame.left, top: Math.max(84, frame.top - 46), width: frame.width }
+              : /* Before the page is measured: the stage's own width, inset like the sheet. */
+                { left: (showToc ? TOC_WIDTH : 0) + SHEET_PAD.side, right: (docked ? panelWidth : 0) + SHEET_PAD.side, top: stageTop - 46 }
+          }
+        >
+          <ChapterStrip chapters={chapters} page={pdfPage} onJump={goToPage} />
+        </motion.div>
+      )}
 
       {/*
         The slide's points, stepped by scrolling — the page's own explorer.
