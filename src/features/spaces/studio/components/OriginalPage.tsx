@@ -53,6 +53,9 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
 
   return (
     <section
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && offer) setOffer(null);
+      }}
       data-view="original"
       data-page-anchor={page.page}
       aria-label={`Source page ${page.page}`}
@@ -92,9 +95,10 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
               />
             ) : null;
           }
-          // z-10: a way back stays clickable above a missing block's dashed box
+          // z-10: a way back stays clickable above a missing figure's dashed box
           // (e.g. a callout drawn over a figure your version doesn't contain);
-          // the missing blocks' pills sit higher still, at z-20.
+          // a missing *text* block's outline is a control and sits higher still,
+          // at z-20, so a region that encloses it never swallows the click.
           // The ::before pads the hit area to 24×24 without changing the box
           // the paragraph flies to.
           return (
@@ -104,7 +108,10 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
               data-morph={morph ? 'true' : undefined}
               layoutId={morph ? `morph-${b.id}` : undefined}
               transition={flight(i)}
-              onClick={() => onRegion(b.id)}
+              onClick={() => {
+                setOffer(null);
+                onRegion(b.id);
+              }}
               aria-label={`${b.edited ? 'Back to (edited)' : 'Back to'}: ${firstWords(b.markdown)}`}
               style={boxStyle(box)}
               className="absolute z-10 rounded-[4px] outline-none before:absolute before:left-1/2 before:top-1/2 before:h-full before:min-h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-[hsl(var(--studio-mark)/0.18)] focus-visible:ring-2 focus-visible:ring-ring"
@@ -160,10 +167,14 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
             aria-label={`${offer === s.id ? 'Add to your version' : 'Not in your version'}: ${firstWords(s.text)}`}
             onClick={() => (offer === s.id ? onInclude(s.id) : setOffer(s.id))}
             style={boxStyle(s.bbox)}
-            className="absolute rounded-[4px] border-2 border-dashed border-black/35 outline-none transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-full before:min-h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-ring"
+            className="absolute z-20 rounded-[4px] border-2 border-dashed border-black/35 outline-none transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-full before:min-h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-ring"
           >
             {offer === s.id && (
-              <span aria-hidden className={cn(PILL, 'absolute -top-6 left-0 z-20 flex min-h-6 items-center')}>
+              <span
+                aria-hidden
+                // Near the top of the page there is no room above (the page clips): show it below instead.
+                className={cn(PILL, 'absolute left-0 flex min-h-6 items-center', s.bbox[1] < 0.06 ? 'top-full mt-1' : '-top-6')}
+              >
                 Add to your version
               </span>
             )}

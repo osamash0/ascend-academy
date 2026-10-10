@@ -250,9 +250,12 @@ export default function StudioCanvasScreen() {
     docRef.current = next;
     dropLayoutIds();
     setEdited(next);
-    setFreshId(id);
-    glowFor.current = id;
-    setGlowId(anchorId);
+    // Landed while Source is shown: it is simply there when you come back, no growth to replay.
+    if (shownRef.current === 'clean') {
+      setFreshId(id);
+      glowFor.current = id;
+      setGlowId(anchorId);
+    }
     setAnnounce(`Answer added under: ${anchorBlock ? firstWords(anchorBlock.markdown) : 'the end'}`);
   };
 

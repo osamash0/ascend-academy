@@ -91,4 +91,30 @@ describe('OriginalPage', () => {
     render(<OriginalPage page={page} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
     expect(screen.getByText('1 part not in your version')).toBeInTheDocument();
   });
+
+  it('puts a missing block\'s outline above a way-back region that encloses it, and resets the offer', () => {
+    // The region for c-a spans the whole top half; the missing line sits inside it, at the very top.
+    const inside: SourcePage = {
+      ...page,
+      blocks: [
+        { ...page.blocks[0], bbox: [0.05, 0.0, 0.95, 0.5] },
+        { id: 'm', page: 4, bbox: [0.1, 0.02, 0.5, 0.05], kind: 'paragraph', text: 'Inside line', readingOrder: 1 },
+      ],
+    };
+    const onRegion = vi.fn();
+    render(<OriginalPage page={inside} blocks={blocks} morph={false} materialName="N.pdf" onRegion={onRegion} onInclude={vi.fn()} />);
+    const region = screen.getByRole('button', { name: /^Back to/ });
+    const outline = screen.getByRole('button', { name: 'Not in your version: Inside line' });
+    expect(region).toHaveClass('z-10');
+    expect(outline).toHaveClass('z-20');
+    fireEvent.click(outline);
+    // Near the top edge the pill flips below the box, where the page doesn't clip it.
+    expect(screen.getByText('Add to your version')).toHaveClass('top-full');
+    fireEvent.keyDown(outline, { key: 'Escape' });
+    expect(screen.queryByText('Add to your version')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Not in your version: Inside line' }));
+    fireEvent.click(region);
+    expect(onRegion).toHaveBeenCalledWith('c-a');
+    expect(screen.queryByText('Add to your version')).toBeNull();
+  });
 });

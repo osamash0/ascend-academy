@@ -96,6 +96,20 @@ describe('asking on the canvas', () => {
     expect(container.querySelectorAll('[data-view="clean"] [data-morph]')).toHaveLength(0);
   });
 
+  it('an answer that lands while Source is shown is simply there on return', async () => {
+    const { container } = await mount();
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyUp(window, { key: 's' });
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    await ask('What is a functional dependency?');
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyUp(window, { key: 's' });
+    await act(async () => { vi.advanceTimersByTime(100); });
+    expect(order(container).some((id) => id?.startsWith('ans-'))).toBe(true);
+    expect(container.querySelector('[data-woven-words]')).toBeNull();
+    expect(container.querySelector('[data-glow]')).toBeNull();
+  });
+
   it('switching to Source mid-grow does not replay the growth on return', async () => {
     const { container } = await mount();
     await ask('What is a functional dependency?');

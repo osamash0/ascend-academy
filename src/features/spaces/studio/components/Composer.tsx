@@ -58,8 +58,8 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
     <div className="relative flex w-full max-w-[560px] flex-col items-center gap-2">
       <div
         className={cn(
-          'flex flex-col items-center gap-2 rounded-2xl px-3 py-2 transition-colors',
-          backed && 'bg-background/80 backdrop-blur-md',
+          'flex flex-col items-center gap-2 rounded-2xl transition-colors',
+          backed && 'bg-background/80 px-3 py-2 backdrop-blur-md',
         )}
       >
         <div role="status" aria-live="polite" className="flex flex-col items-center">
