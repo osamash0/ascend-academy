@@ -12,6 +12,7 @@ import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes'
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
+import { StageRow as Row } from '../components/stage';
 import { isLive, useReaderContent, useReaderLesson, useRehearsalHistory } from '../data/useReader';
 import { lightIdeas } from '../components/course/light';
 import { readTrail } from '../data/trail';
@@ -47,29 +48,6 @@ const CONCEPT_STATE: Record<Concept['progress'], { label: string; cls: string }>
   discovered: { label: 'Read', cls: 'border-white/15 bg-white/[0.05] text-quiet' },
   untouched: { label: 'Not yet', cls: 'border-white/10 bg-transparent text-faint' },
 };
-
-function Row({
-  title,
-  lede,
-  count,
-  children,
-}: {
-  title: string;
-  lede?: string;
-  count?: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mt-20">
-      <h2 className="text-[26px] font-medium tracking-[-0.02em]">
-        {title}
-        {count !== undefined && <span className="ml-2.5 text-quiet tabular-nums">{count}</span>}
-      </h2>
-      {lede && <p className="mt-1.5 max-w-[60ch] text-[15px] leading-relaxed text-quiet">{lede}</p>}
-      <div className="mt-6">{children}</div>
-    </section>
-  );
-}
 
 export default function LessonScreen() {
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();

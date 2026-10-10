@@ -17,6 +17,7 @@ import { askAcknowledgement, askModel, askSuggestions } from '../mocks/assistant
 import { useHome } from '../data/useSpaces';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
+import { Masthead, Skylight, StageRow, ghostPill, stageAccentFor } from '../components/stage';
 import { Scene, SURFACES } from '../components/Scene';
 import { JoinSpaceDialog, NewSpaceDialog } from '../components/SpaceDialogs';
 import { SpacesError, SpacesSkeleton } from '../components/states';
@@ -149,10 +150,16 @@ export default function HomeScreen() {
    */
   const [asked, setAsked] = useState<string | null>(null);
 
+  /* Home is lit by the one thing it points at: the next Lesson's colour. */
+  const accent = next ? stageAccentFor(next.lessonOrder) : null;
+
   const chrome = (body: React.ReactNode) => (
-    <Scene surface={SURFACES.home} status="progress" motionKey="home">
+    <Scene surface={SURFACES.home} status="progress" motionKey="home" accent={accent}>
       <SpacesTopBar active="home" viewer={viewer} />
-      {body}
+      <div className="relative">
+        <Skylight accent={accent} />
+        {body}
+      </div>
     </Scene>
   );
 
@@ -166,9 +173,9 @@ export default function HomeScreen() {
 
   if (kind === 'review' && next) {
     return chrome(
-      <div className="mx-auto max-w-3xl px-6 pb-24 pt-16 text-center lg:px-8">
-        <PartyPopper aria-hidden className="mx-auto mb-5 h-9 w-9 text-xp" />
-        <h1 className="text-3xl font-bold tracking-[-0.02em]">
+      <div className="relative mx-auto max-w-3xl px-6 pb-24 pt-20 text-center lg:px-8">
+        <PartyPopper aria-hidden className="mx-auto mb-6 h-9 w-9 text-xp" />
+        <h1 className="text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
           You are caught up, {viewer.name}
         </h1>
         <p className="mx-auto mt-3 max-w-[46ch] text-[15.5px] leading-[1.75] text-quiet">
@@ -196,7 +203,7 @@ export default function HomeScreen() {
           <button
             type="button"
             onClick={() => navigate('/v4/spaces')}
-            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium text-foreground transition-colors hover:bg-white/[0.08]"
+            className={ghostPill}
           >
             Find another Space
           </button>
@@ -207,8 +214,8 @@ export default function HomeScreen() {
 
   if (!next) {
     return chrome(
-      <div className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center">
-        <h1 className="mb-3 text-3xl font-bold tracking-[-0.02em]">
+      <div className="relative mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center">
+        <h1 className="mb-4 text-[44px] font-medium leading-[1.05] tracking-[-0.035em] sm:text-[56px]">
           {greeting()}, {viewer.name}
         </h1>
         <p className="mb-8 max-w-[46ch] text-[15.5px] leading-[1.75] text-quiet">
@@ -227,7 +234,7 @@ export default function HomeScreen() {
           <button
             type="button"
             onClick={() => setJoinOpen(true)}
-            className="console-focusable inline-flex h-12 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-6 text-[14px] font-medium text-foreground transition-colors hover:bg-white/[0.08]"
+            className={ghostPill}
           >
             Join with a code
           </button>
@@ -239,7 +246,7 @@ export default function HomeScreen() {
   }
 
   return chrome(
-    <div className="mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
+    <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
       {/*
         Luna asks, then gets out of the way.
 
@@ -264,33 +271,18 @@ export default function HomeScreen() {
         The only real lever is not rendering the animation, so the prop carries
         `useReducedMotion()`, which is the idiom `SpaceScreen` already uses.
       */}
-      <section
-        aria-labelledby="home-greeting"
-        className="flex flex-col items-center justify-center gap-4 pt-2 text-center sm:flex-row sm:items-center sm:gap-8 sm:text-left"
-      >
-        <div className="shrink-0">
-          <LunaAstronaut size="xl" phase="full" animated={!reduceMotion} />
-        </div>
+      <section aria-labelledby="home-greeting" className="flex flex-col items-center text-center">
+        <LunaAstronaut size="xl" phase="full" animated={!reduceMotion} />
         {/*
-          Two lines, each on its own plate rather than floating on the backdrop.
-
-          The backdrop behind Home is a gradient with drifting particles, and
-          §5.3 asks for contrast against what is *actually* behind the text —
-          which here changes pixel to pixel. A plate makes the answer constant
-          instead of "it depends where the particle is", which is the same
-          reason `LessonTile` puts a scrim under its title.
+          No plates any more. They existed because the browse ground glowed
+          and drifted behind the text; on the stage the ground is black, so
+          the contrast is constant without them.
         */}
-        <div className="min-w-0 space-y-1.5">
-          <p className="inline-block rounded-lg bg-surface-1/80 px-3 py-1.5 text-[15px] font-medium text-quiet backdrop-blur-sm">
-            {greeting()}, {viewer.name}
-          </p>
-          <h1
-            id="home-greeting"
-            className="block rounded-xl bg-surface-1/80 px-3.5 py-2 text-[30px] font-bold leading-tight tracking-[-0.02em] backdrop-blur-sm sm:text-[34px]"
-          >
-            What should we focus on?
-          </h1>
-        </div>
+        <Masthead
+          className="mt-4"
+          eyebrow={`${greeting()}, ${viewer.name}`}
+          title={<span id="home-greeting">What should we focus on?</span>}
+        />
       </section>
 
       {/*
@@ -300,7 +292,7 @@ export default function HomeScreen() {
         reply — see `mocks/assistant.ts`. Wiring later means replacing that one
         call, not rebuilding this.
       */}
-      <div className="mt-7">
+      <div className="mt-10">
         <AskBar
           placeholder="Ask about your Spaces, Lessons or practice…"
           suggestions={askSuggestions}
@@ -341,7 +333,8 @@ export default function HomeScreen() {
         handler, so a control that was never made a button in the first place
         walks straight past it. `openable.test.tsx` is the gate that does see it.
       */}
-      <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <StageRow title="Today" id="next-heading">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <BentoCell
           icon={Play}
           label={heroLabel(next.reason)}
@@ -388,21 +381,8 @@ export default function HomeScreen() {
           <p className="mt-2 text-[13px] text-quiet">Keep it going today</p>
         </BentoCell>
 
-        <BentoCell icon={TrendingUp} label="Rank">
-          <p className="text-[28px] font-semibold leading-none tabular-nums">
-            {standing.rank}
-            <span className="ml-1.5 text-[16px] text-quiet">{standing.xp} XP</span>
-          </p>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-secondary"
-              style={{ width: `${progress.pct}%` }}
-            />
-          </div>
-          <p className="mt-2 text-[12.5px] text-faint tabular-nums">
-            {progress.toNext} XP to the next rank
-          </p>
-        </BentoCell>
+        {/* No Rank cell: the top bar carries Rank and XP on every screen,
+            so a cell here said it twice (Abi, 2026-10-10). */}
 
         {dueForReview > 0 && firstDue && (
           <BentoCell
@@ -444,12 +424,10 @@ export default function HomeScreen() {
           </BentoCell>
         )}
       </div>
+      </StageRow>
 
       {recent.length > 0 && (
-        <section aria-labelledby="recent-heading" className="mt-10">
-          <h2 id="recent-heading" className="mb-4 text-[14px] font-medium text-quiet">
-            Recently viewed
-          </h2>
+        <StageRow id="recent-heading" title="Recently viewed">
           {/* A rail, like the Spaces rows — and Lesson-level, like everything
               else on Home. Excludes whatever "Continue" already offers. */}
           <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -491,21 +469,18 @@ export default function HomeScreen() {
               );
             })}
           </div>
-        </section>
+        </StageRow>
       )}
 
       {/* Everything else, still Lesson-level. Never a Space card. */}
       {feed.length > 0 && (
-        <section aria-labelledby="feed-heading" className="mt-10">
-          <h2 id="feed-heading" className="mb-3 text-[15px] font-semibold">
-            Also waiting
-          </h2>
+        <StageRow id="feed-heading" title="Also waiting" count={feed.length}>
           <ul className="space-y-2.5">
             {feed.map((item) => {
               const Icon = REASON_ICON[item.reason];
               return (
                 <li key={`${item.lessonId}-${item.reason}`}>
-                  <article className="group relative flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-5 py-4 transition-colors hover:bg-white/[0.05]">
+                  <article className="group relative flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 transition-colors hover:border-white/[0.16] hover:bg-white/[0.05]">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-quiet">
                       <Icon aria-hidden className="h-4 w-4" />
                     </span>
@@ -543,7 +518,7 @@ export default function HomeScreen() {
               );
             })}
           </ul>
-        </section>
+        </StageRow>
       )}
     </div>,
   );

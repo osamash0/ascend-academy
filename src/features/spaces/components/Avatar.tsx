@@ -16,10 +16,31 @@ import type { Person } from '../types';
  * renders exactly this in its ProfileChip, and this imports it by the same
  * path rather than building a second avatar system.
  *
- * `initials` is genuinely the last resort. It is never wrong, but it is also
- * never a face, and a wall of two-letter squares is what a member list looks
- * like when nobody has set anything up yet.
+ * **Everyone gets a Luna** (2026-10-10, Abi: "connect the owner avatar
+ * system"). Before, only the viewer had one, so an Owner byline, a member list
+ * and the community cards were walls of two-letter squares next to your own
+ * astronaut. A person who has not personalised theirs gets a suit and visor
+ * picked from their id — stable, so the same person is the same astronaut in
+ * every place, and never purple (the brand is monochrome).
+ *
+ * `initials` remains only for a nameless edge case; it is never a face.
  */
+
+/** Suits and visors a person can be given before they choose their own. */
+const SUITS = ['#FFF8E7', '#E6E9EE', '#D8F3E6', '#DCEFF7', '#FBE3D2', '#F3E9C9', '#F7DCE3'];
+const VISORS = ['#88B0B5', '#7FA7C9', '#9BB89A', '#C9A27F', '#8E9AAF'];
+
+const hash = (s: string) => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+};
+
+/** The Luna a person has until they personalise one. Same id, same astronaut. */
+export function lunaFor(id: string) {
+  const h = hash(id);
+  return { suitColor: SUITS[h % SUITS.length], visorTint: VISORS[Math.floor(h / SUITS.length) % VISORS.length] };
+}
 
 const SIZE = {
   xs: { box: 'h-5 w-5', text: 'text-[9px]', luna: 'xs' as const },
@@ -34,7 +55,7 @@ export interface AvatarProps {
   size?: keyof typeof SIZE;
   /** Luna personalisation, straight off the auth profile. */
   luna?: { suitColor?: string; visorTint?: string; patch?: string };
-  /** True for the signed-in viewer, who gets Luna rather than initials. */
+  /** True for the signed-in viewer, whose Luna is their own personalised one. */
   isViewer?: boolean;
   className?: string;
 }
@@ -63,14 +84,15 @@ export function Avatar({ person, size = 'md', luna, isViewer, className }: Avata
     );
   }
 
-  // 2. Luna, for whoever has personalised one. Today that is the viewer.
-  if (isViewer) {
+  // 2. Luna — the viewer's own, or the one this person was given.
+  if (person.name) {
+    const suit = isViewer ? luna : { ...lunaFor(person.id), ...luna };
     return (
       <span
         aria-hidden
         className={cn(
           s.box,
-          'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary to-secondary',
+          'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/[0.08] ring-1 ring-white/10',
           className,
         )}
       >
@@ -80,9 +102,9 @@ export function Avatar({ person, size = 'md', luna, isViewer, className }: Avata
           phase="full"
           showShadow={false}
           animated={false}
-          suitColor={luna?.suitColor}
-          visorTint={luna?.visorTint}
-          patchImage={luna?.patch}
+          suitColor={suit?.suitColor}
+          visorTint={suit?.visorTint}
+          patchImage={suit?.patch}
         />
       </span>
     );

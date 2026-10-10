@@ -52,8 +52,8 @@ export function BentoCell({
   children: React.ReactNode;
 }) {
   const shared = cn(
-    'group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 text-left transition-colors',
-    (to || onClick) && 'console-focusable hover:bg-white/[0.06]',
+    'group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 text-left transition-colors',
+    (to || onClick) && 'console-focusable hover:border-white/[0.16] hover:bg-white/[0.05]',
     className,
   );
 

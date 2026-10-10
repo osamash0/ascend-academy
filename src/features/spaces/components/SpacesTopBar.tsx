@@ -138,9 +138,9 @@ export function SpacesTopBar({
           type="button"
           onClick={() => go('home')}
           aria-label="Home"
-          className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-primary to-secondary shadow-glow-primary"
+          className="console-focusable flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-primary shadow-glow-primary"
         >
-          <Rocket aria-hidden className="h-6 w-6 text-white" />
+          <Rocket aria-hidden className="h-6 w-6 text-primary-foreground" />
         </Pressable>
 
         <button
