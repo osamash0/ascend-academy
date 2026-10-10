@@ -3,13 +3,16 @@ import { useCallback, useState } from 'react';
 export type StudioTheme = 'light' | 'dark';
 export const THEME_KEY = 'learnstation:studio-theme';
 
-/** Light by default (spec §3.3). A per-viewer convenience: storage may be blocked, and that is fine. */
+/**
+ * Dark by default — the reader's black ground (restyle, 2026-10-10); light is
+ * the toggle. A per-viewer convenience: storage may be blocked, and that is fine.
+ */
 export function useStudioTheme(): [StudioTheme, () => void] {
   const [theme, setTheme] = useState<StudioTheme>(() => {
     try {
-      return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+      return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
     } catch {
-      return 'light';
+      return 'dark';
     }
   });
   const toggle = useCallback(() => {

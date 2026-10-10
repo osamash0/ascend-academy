@@ -1,9 +1,32 @@
 /*
- * Studio is light by default (spec §3.3). v4 defines only dark tokens on
- * :root, so this scope redefines the shadcn HSL tokens: anything written with
- * bg-background / text-foreground / border-border / bg-card flips for free.
- * Dark Studio simply doesn't override, and inherits the v4 values.
+ * Studio wears the reader's ground: black, white text, quiet secondary text
+ * (restyle 2026-10-10). Dark is the default; light is the toggle.
+ *
+ * Both scopes redefine the shadcn HSL tokens, so anything written with
+ * bg-background / text-foreground / border-border / bg-card flips for free,
+ * plus the v4 quiet-text scale (text-quiet, text-faint) and three Studio
+ * chrome tokens, written as `rgb(var(--studio-chip))` and friends:
+ *   --studio-chip      the reader's bg-white/[0.07] pill ground
+ *   --studio-panel     the Explain panel's white/[0.04] surface (opaque, for sheets)
+ *   --studio-hairline  the reader's border-white/10
  */
+.studio-surface[data-theme='dark'] {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 97%;
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 97%;
+  --popover: 0 0% 6%;
+  --popover-foreground: 0 0% 97%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 66%;
+  --border: 0 0% 16%;
+  --input: 0 0% 16%;
+  --studio-chip: 255 255 255 / 0.07;
+  --studio-chip-hover: 255 255 255 / 0.12;
+  --studio-hairline: 255 255 255 / 0.1;
+  color-scheme: dark;
+}
+
 .studio-surface:not([data-theme='dark']) {
   --background: 60 14% 97%;
   --foreground: 160 12% 14%;
@@ -18,6 +41,12 @@
   --primary: 235 62% 52%;
   --primary-foreground: 0 0% 100%;
   --ring: 235 62% 52%;
+  /* The quiet scale is white-on-dark in v4; on paper it turns ink. */
+  --text-quiet: 31 40 36 / 0.78;
+  --text-faint: 31 40 36 / 0.64;
+  --studio-chip: 0 0 0 / 0.05;
+  --studio-chip-hover: 0 0 0 / 0.09;
+  --studio-hairline: 0 0 0 / 0.1;
   color-scheme: light;
 }
 
@@ -30,9 +59,11 @@
   color: hsl(var(--foreground));
 }
 
+/* Light-on-dark reading column: large, airy, never full white. */
 .studio-prose {
-  font-size: 17px;
-  line-height: 1.7;
+  font-size: 17.5px;
+  line-height: 1.75;
+  color: hsl(var(--foreground) / 0.9);
 }
 
 .studio-prose > :first-child {

@@ -176,37 +176,50 @@ export default function StudioCanvasScreen() {
 
   return (
     <div className="studio-surface min-h-screen" data-theme={theme}>
-      <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex max-w-[90rem] items-center gap-3 px-4 py-3 md:px-6">
+      {/* The reader's masthead: the way out, where you are, and which face you're reading. */}
+      <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-md">
+        <div className="relative flex min-h-[88px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-5">
           <Link
             to="/v4/library/studio"
             aria-label="Back to Studio"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="console-focusable order-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-[rgb(var(--studio-chip))] hover:text-foreground"
           >
             <ChevronLeft aria-hidden className="h-5 w-5" />
           </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-sm font-semibold">{material.filename}</h1>
-            <p className="truncate text-xs text-muted-foreground">{spaceName}</p>
+          <div className="order-3 w-full min-w-0 text-center lg:pointer-events-none lg:absolute lg:inset-x-[18rem] lg:top-1/2 lg:order-2 lg:w-auto lg:-translate-y-1/2">
+            <p className="mb-1 truncate text-[12.5px] text-quiet">
+              Studio
+              {spaceName && (
+                <>
+                  <span aria-hidden className="mx-2 text-faint">·</span>
+                  {spaceName}
+                </>
+              )}
+            </p>
+            <h1 className="truncate text-[20px] font-medium leading-tight tracking-[-0.015em] text-foreground sm:text-[22px]">
+              {material.filename}
+            </h1>
           </div>
-          {!material.sourceRemoved && (
-            <MorphSwitch
-              view={morph.view}
-              shown={morph.shown}
-              onPressStart={morph.pressStart}
-              onPressEnd={morph.pressEnd}
-              onPressCancel={morph.pressCancel}
-              onToggle={() => morph.setView(morph.view === 'clean' ? 'original' : 'clean')}
-            />
-          )}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            {theme === 'dark' ? <Sun aria-hidden className="h-4 w-4" /> : <Moon aria-hidden className="h-4 w-4" />}
-          </button>
+          <div className="order-2 ml-auto flex items-center gap-2 lg:order-3">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
+              className="console-focusable flex h-9 w-9 items-center justify-center rounded-full text-faint transition-colors hover:bg-[rgb(var(--studio-chip))] hover:text-foreground"
+            >
+              {theme === 'dark' ? <Sun aria-hidden className="h-4 w-4" /> : <Moon aria-hidden className="h-4 w-4" />}
+            </button>
+            {!material.sourceRemoved && (
+              <MorphSwitch
+                view={morph.view}
+                shown={morph.shown}
+                onPressStart={morph.pressStart}
+                onPressEnd={morph.pressEnd}
+                onPressCancel={morph.pressCancel}
+                onToggle={() => morph.setView(morph.view === 'clean' ? 'original' : 'clean')}
+              />
+            )}
+          </div>
         </div>
       </header>
 
