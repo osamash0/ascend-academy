@@ -66,6 +66,35 @@ async def upload_config_endpoint():
         "maxBatchFiles": settings.max_batch_files,
     }
 
+async def _assert_owns_course(course_id: str, user_id: Any) -> None:
+    """403 unless ``user_id`` owns ``course_id``.
+
+    Every upload route that accepts a ``course_id`` must call this before any
+    work is done. The lecture it creates is written over asyncpg, which
+    bypasses RLS, and nothing in the database ties ``lectures.course_id`` to
+    the course owner -- so this check is the only thing stopping a caller
+    from attaching a lecture to somebody else's course. ``require_creator``
+    admits students as well as professors, so "is a creator" is not enough.
+
+    Ownership is ``courses.professor_id`` regardless of role (see migration
+    20260713000000_creator_uploads.sql): a student who created a course owns
+    it exactly as a professor would. A course that does not exist gets the
+    same 403 as a foreign one, so the response does not reveal which ids
+    are real.
+    """
+    if not user_id:
+        raise HTTPException(status_code=403, detail="You do not own this course.")
+    res = await run_sync(
+        lambda: supabase_admin.table("courses").select("professor_id").eq("id", course_id).execute()
+    )
+    owner = res.data[0].get("professor_id") if res.data else None
+    # Compare as strings so a UUID object and its string form agree, but only
+    # after ruling out a missing owner: str(None) == str(None) would otherwise
+    # let an id-less caller "own" an ownerless row.
+    if owner is None or str(owner) != str(user_id):
+        raise HTTPException(status_code=403, detail="You do not own this course.")
+
+
 @router.post("/parse-pdf-stream")
 @limiter.limit("5/minute")
 async def parse_pdf_stream_endpoint(
@@ -88,6 +117,8 @@ async def parse_pdf_stream_endpoint(
         if db_roles and "student" in db_roles:
             meta_role = "student"
     visibility = "course" if course_id else ("private_student" if meta_role == "student" else "course")
+    if course_id:
+        await _assert_owns_course(course_id, user_id)
     if lecture_id:
         res = await run_sync(
             lambda: supabase_admin.table("lectures").select("professor_id").eq("id", lecture_id).execute()
@@ -506,11 +537,7 @@ async def upload_batch_endpoint(
         )
 
     if course_id:
-        res = await run_sync(
-            lambda: supabase_admin.table("courses").select("professor_id").eq("id", course_id).execute()
-        )
-        if not res.data or res.data[0].get("professor_id") != user_id:
-            raise HTTPException(status_code=403, detail="You do not own this course.")
+        await _assert_owns_course(course_id, user_id)
 
     # Backpressure: a batch enqueues up to one job per file. Reject the whole
     # batch up front when the queue is already saturated rather than piling
