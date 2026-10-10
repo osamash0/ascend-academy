@@ -43,3 +43,22 @@ def test_property_sampler_contract(pages, budget):
     assert set(picked) <= set(eligible)
     assert len(picked) == min(budget, len(eligible))
     assert select_slides(sk, budget=budget) == picked  # deterministic
+
+
+def test_small_budget_with_many_sections_does_not_crash():
+    sk = build_deck_skeleton(_deck(5, 4))
+    picked = select_slides(sk, budget=3)
+    assert len(picked) == 3
+    assert len({sk.slides[i].section for i in picked}) == 3
+
+
+@settings(max_examples=80)
+@given(st.integers(2, 8), st.integers(1, 6), st.integers(1, 7))
+def test_property_many_sections_small_budget(n_sections, per_section, budget):
+    sk = build_deck_skeleton(_deck(n_sections, per_section))
+    picked = select_slides(sk, budget=budget)
+    eligible = [s.index for s in sk.slides if s.role in QUIZ_ROLES and len(s.text) >= 50]
+    assert picked == sorted(set(picked))
+    assert set(picked) <= set(eligible)
+    assert len(picked) == min(budget, len(eligible))
+    assert select_slides(sk, budget=budget) == picked

@@ -164,6 +164,8 @@ META_ROLES = frozenset({SlideRole.TITLE, SlideRole.AGENDA, SlideRole.SECTION, Sl
 
 def _spread(items: list[int], k: int) -> list[int]:
     """k evenly spaced picks from items, always including the first."""
+    if k <= 0:
+        return []
     if k >= len(items):
         return list(items)
     step = len(items) / k
@@ -178,9 +180,11 @@ def select_slides(
 ) -> list[int]:
     """Pick up to ``budget`` slides spread across ALL sections.
 
-    Round-robin over sections hands each section an equal share. Leftover
-    budget goes to the sections with the most eligible slides. Inside a
-    section, picks are evenly spaced, not front-loaded."""
+    Round-robin over sections gives each section one slot per pass. When the
+    budget is smaller than the number of sections, the sections with the
+    most eligible slides get the slots first (ties by section index). Extra
+    budget also goes to the largest sections. Inside a section, picks are
+    evenly spaced, not front-loaded."""
     by_section: dict[int, list[int]] = {}
     for s in skeleton.slides:
         if s.role in roles and len(s.text) >= min_chars:
