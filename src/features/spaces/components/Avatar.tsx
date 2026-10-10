@@ -16,10 +16,35 @@ import type { Person } from '../types';
  * shows via `UserAvatar`. This namespace is sealed from auth and data, so it
  * takes the loadout as a prop instead of looking it up.
  *
- * `initials` is genuinely the last resort. It is never wrong, but it is also
- * never a face, and a wall of two-letter squares is what a member list looks
- * like when nobody has set anything up yet.
+ * **Everyone gets a Luna** (2026-10-10, Abi: "connect the owner avatar
+ * system"). Before, only the viewer had one, so an Owner byline, a member list
+ * and the community cards were walls of two-letter squares next to your own
+ * astronaut. A person who has not personalised theirs gets a suit and visor
+ * picked from their id — stable, so the same person is the same astronaut in
+ * every place, and never purple (the brand is monochrome).
+ *
+ * `initials` remains only for a nameless edge case; it is never a face.
  */
+
+/**
+ * Free catalog items a person can be given before they choose their own —
+ * never the purple-leaning ones (lavender, violet, mauve): the brand is
+ * monochrome. Ids from `features/avatar/catalog`.
+ */
+const SUITS = ['suit-moonlight', 'suit-mint', 'suit-blush', 'suit-tide'];
+const VISORS = ['visor-teal', 'visor-rose', 'visor-amber', 'visor-tide'];
+
+const hash = (s: string) => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+};
+
+/** The Luna a person has until they personalise one. Same id, same astronaut. */
+export function lunaFor(id: string): Partial<Loadout> {
+  const h = hash(id);
+  return { suit: SUITS[h % SUITS.length], visor: VISORS[Math.floor(h / SUITS.length) % VISORS.length] };
+}
 
 const SIZE = {
   xs: { box: 'h-5 w-5', text: 'text-[9px]', px: 20 },
@@ -34,7 +59,7 @@ export interface AvatarProps {
   size?: keyof typeof SIZE;
   /** The viewer's Luna loadout; defaults to Luna as she ships. */
   loadout?: Partial<Loadout>;
-  /** True for the signed-in viewer, who gets Luna rather than initials. */
+  /** True for the signed-in viewer, whose Luna is their own loadout. */
   isViewer?: boolean;
   className?: string;
 }
@@ -63,8 +88,9 @@ export function Avatar({ person, size = 'md', loadout, isViewer, className }: Av
     );
   }
 
-  // 2. Luna, for whoever has personalised one. Today that is the viewer.
-  if (isViewer) {
+  // 2. Luna — the viewer's own, or the one this person was given.
+  if (person.name) {
+    const lo = isViewer ? loadout : lunaFor(person.id);
     return (
       <span
         aria-hidden
@@ -78,7 +104,7 @@ export function Avatar({ person, size = 'md', loadout, isViewer, className }: Av
           variant="head"
           size={s.px}
           animated={false}
-          loadout={{ ...loadout, aura: 'aura-none', companion: 'companion-none' }}
+          loadout={{ ...lo, aura: 'aura-none', companion: 'companion-none' }}
           className="h-full w-full"
         />
       </span>

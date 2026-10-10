@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Plus, Settings2, Sparkles } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, MessageSquare, Play, Plus, Settings2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Pressable } from '../components/Pressable';
-import { LaunchButton, gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import type { Membership, Role, Space } from '../types';
 import { useSpace } from '../data/useSpaces';
@@ -15,7 +14,6 @@ import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { LessonRow } from '../components/LessonRow';
 import { SpaceMap } from '../components/SpaceMap';
-import { SpaceBento } from '../components/SpaceBento';
 import { ContributionCard } from '../components/ContributionCard';
 import {
   AuthorLine,
@@ -25,6 +23,17 @@ import {
 } from '../components/badges';
 import { Notice, SpacesError, SpacesSkeleton } from '../components/states';
 import { PRESS_SPRING } from '../components/Pressable';
+import {
+  Masthead,
+  Pool,
+  Sep,
+  Skylight,
+  StageRow,
+  backLink,
+  ghostPillSm,
+  stageAccentFor,
+  whitePillSm,
+} from '../components/stage';
 import { AddLessonDialog, ContributeDialog } from '../components/SpaceDialogs';
 
 /**
@@ -155,7 +164,12 @@ export default function SpaceScreen({
      * sent to, instead of the third tab of the Space you were already in.
      * Overview, Members and Map are one screen; only the panel is dark.
      */
-    <Scene surface={SURFACES.spaceOverview} status="progress" motionKey={spaceId}>
+    <Scene
+      surface={SURFACES.spaceOverview}
+      status="progress"
+      motionKey={spaceId}
+      accent={space ? stageAccentFor(space.name.length) : null}
+    >
       <SpacesTopBar active="spaces" viewer={viewer} />
       {body}
     </Scene>
@@ -169,6 +183,8 @@ export default function SpaceScreen({
   // In an Open Space every Member may publish Lessons into the path.
   const canAddLesson = isEditor || (space.mode === 'open' && space.viewerRole !== null);
   const SpaceIcon = topicIcon(space.name, space.id);
+  const accent = stageAccentFor(space.name.length);
+  const published = lessons.filter((l) => l.state === 'published');
 
   const nextIndex = lessons.findIndex((l) => l.id === nextLesson?.id);
   // Always include the Next Lesson: it is the primary action on this screen.
@@ -177,142 +193,188 @@ export default function SpaceScreen({
   const hiddenLessonCount = lessons.length - shownLessons.length;
 
   return chrome(
-    <div className="mx-auto max-w-4xl px-6 pb-24 pt-6 lg:px-8">
-      <Link
-        to="/v4/spaces"
-        className="console-focusable mb-6 -ml-2 inline-flex h-9 items-center gap-2 rounded-full px-2 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.05] hover:text-foreground"
-      >
+    <div className="relative">
+      {/* The stage's one light, in the colour of this Space's own cover —
+          the tile you picked on Spaces lights the room you walk into. */}
+      <Skylight accent={accent} />
+      <Pool accent={accent} className="top-[120px] h-[520px] opacity-60" />
+
+    <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-6 lg:px-8">
+      <Link to="/v4/spaces" className={backLink}>
         <ArrowLeft aria-hidden className="h-4 w-4" />
         Spaces
       </Link>
 
       {/*
         ── Header ──
-        Key art behind the title, one primary action, and everything else
-        folded into a single quiet meta line. The previous version had five
-        control chips of equal weight fighting each other — Continue, Star,
-        a members count and a community jump — on a screen Doc 2 puts in Learn
-        mode, which asks for "one primary action" and "minimal chrome".
-
-        The members chip is gone entirely: it duplicated the Members tab
-        sitting directly beneath it. Star stays, because starring is an action
-        you can only take here. The community jump stays because Doc 2 rule 3
-        requires it — but as a quiet link, not a coloured button.
+        The lecture overview's masthead, one level up: centred, one primary
+        action, everything else quiet. Star stays, because starring is an
+        action you can only take here. The community jump stays because Doc 2
+        rule 3 requires it — but as a quiet link, not a coloured button.
       */}
-      <header className="relative">
-        {/*
-          Shares its gradient with the Space's tile — `gradientFor(space.name
-          .length)`, a property of the Space rather than of where it sat in the
-          rail. Not a `layoutId` pair: see `SpaceTile` for why a shared element
-          cannot survive `mode="wait"`. Matching the colour still means the cut
-          lands on the same art you were just looking at.
-        */}
-        <motion.div
-          aria-hidden
-          className={cn(
-            'absolute -top-24 left-1/2 h-[320px] w-screen -translate-x-1/2 bg-gradient-to-br opacity-40',
-            gradientFor(space.name.length),
-          )}
-        />
-        <div
-          aria-hidden
-          className="absolute -top-24 left-1/2 h-[320px] w-screen -translate-x-1/2 bg-gradient-to-t from-[#070b14] via-[#070b14]/55 to-transparent"
-        />
-        <SpaceIcon
-          aria-hidden
-          className="pointer-events-none absolute right-4 -top-8 hidden h-36 w-36 text-white/[0.05] lg:block"
-        />
-
-        <div className="relative space-y-4">
-          <h1 className="text-4xl font-bold tracking-[-0.02em] sm:text-[44px]">{space.name}</h1>
-
-          {/* One line: who owns it, how it works, who can see it. */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[14px] text-quiet">
-            <AuthorLine person={space.owner} prefix="Owner" />
-            <span aria-hidden className="text-faint">·</span>
-            <ModeBadge mode={space.mode} />
-            <VisibilityBadge visibility={space.visibility} />
-            {space.state === 'archived' && (
-              <span className="rounded-full bg-white/[0.06] px-2.5 py-[3px] text-[11.5px] font-medium text-quiet">
-                Archived
-              </span>
-            )}
-          </div>
-
-          {/*
-            What "archived" costs you, said once, quietly. The badge above
-            names the state; this says what follows from it — read-only, and
-            no XP. `Notice` was built for exactly this and nothing had ever
-            mounted it.
-          */}
-          {space.state === 'archived' && (
-            <Notice className="mt-3">
-              This Space is read-only. Your progress is kept, and nothing here earns XP.
-            </Notice>
-          )}
-
-          {space.description && (
-            <p className="max-w-[62ch] text-[15.5px] leading-[1.75] text-quiet">
-              {space.description}
-            </p>
-          )}
-
-          {/* No classification here — you are already inside this Space.
-              It lives on the Discover card, where it helps you decide. */}
-
-          <div className="flex flex-wrap items-center gap-4 pt-2">
-            {nextLesson && (
-              <LaunchButton
-                label={space.viewerProgress > 0 ? 'Continue' : 'Start'}
-                onClick={() => navigate(`/v4/space/${space.id}/lesson/${nextLesson.id}`)}
-              />
-            )}
-            <StarButton spaceId={space.id} viewerOwns={owned} />
-
-            {/* Settings is a separate Studio screen, never a fourth tab. */}
-            {owned && (
-              <button
-                type="button"
-                onClick={() => navigate(`/v4/space/${space.id}/manage`)}
-                className="console-focusable inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3.5 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
-              >
-                <Settings2 aria-hidden className="h-3.5 w-3.5" />
-                Manage
-              </button>
-            )}
-
-            {/*
-              Doc 2 rule 3: the header carries the community count and jumps to
-              that section — the price of keeping community on the same scroll
-              as the path. A link, not a button competing with Continue.
-            */}
-            {allContributions.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setTab('overview');
-                  requestAnimationFrame(() =>
-                    communityRef.current?.scrollIntoView({
-                      behavior: reduceMotion ? 'auto' : 'smooth',
-                      block: 'start',
-                    }),
-                  );
-                }}
-                className="console-focusable inline-flex items-center gap-1.5 rounded-md py-1 text-[13.5px] text-quiet underline-offset-4 transition-colors hover:text-foreground hover:underline"
-              >
-                <MessageSquare aria-hidden className="h-3.5 w-3.5" />
-                {allContributions.length} from the community
-              </button>
-            )}
-          </div>
+      <header className="relative mt-6">
+        <div className="flex justify-center">
+          <span
+            aria-hidden
+            className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10"
+            style={{ background: `color-mix(in srgb, ${accent} 18%, transparent)` }}
+          >
+            <SpaceIcon aria-hidden className="h-6 w-6" style={{ color: accent }} />
+          </span>
         </div>
+
+        <Masthead
+          className="mt-6"
+          title={space.name}
+          lede={space.description}
+          meta={
+            <>
+              {/* The Owner is a person, not a label: their own astronaut,
+                  and a way to their profile. */}
+              <AuthorLine person={space.owner} prefix="Owner" linkToProfile />
+              <StarButton spaceId={space.id} viewerOwns={owned} />
+              {/* Settings is a separate Studio screen, never a fourth tab. */}
+              {owned && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/v4/space/${space.id}/manage`)}
+                  className={ghostPillSm}
+                >
+                  <Settings2 aria-hidden className="h-3.5 w-3.5" />
+                  Manage
+                </button>
+              )}
+              {space.state === 'archived' && (
+                <span className="rounded-full bg-white/[0.06] px-2.5 py-[3px] text-[11.5px] font-medium text-quiet">
+                  Archived
+                </span>
+              )}
+            </>
+          }
+        />
+
+        {/*
+          What "archived" costs you, said once, quietly. The badge above
+          names the state; this says what follows from it — read-only, and
+          no XP.
+        */}
+        {space.state === 'archived' && (
+          <Notice className="mx-auto mt-5 max-w-xl">
+            This Space is read-only. Your progress is kept, and nothing here earns XP.
+          </Notice>
+        )}
+
+        {/*
+          ── Up next ──
+          The one action on this screen, as a thing rather than a button: the
+          next Lesson itself, lit in the Space's colour. It replaced a
+          "Continue" button *and* a "Continue" bento cell that said the same
+          thing twice (Abi, 2026-10-10: "Continue is duplicated").
+        */}
+        {nextLesson && (
+          <Link
+            to={`/v4/space/${space.id}/lesson/${nextLesson.id}`}
+            aria-label={`${space.viewerProgress > 0 ? 'Continue' : 'Start'}: Lesson ${nextLesson.order}, ${nextLesson.title}`}
+            className="console-focusable group relative mx-auto mt-12 flex max-w-2xl items-center gap-5 overflow-hidden rounded-3xl border p-4 pr-5 transition-colors hover:border-white/25 sm:p-5 sm:pr-6"
+            style={{
+              borderColor: `color-mix(in srgb, ${accent} 32%, transparent)`,
+              background: `linear-gradient(110deg, color-mix(in srgb, ${accent} 14%, transparent), color-mix(in srgb, ${accent} 3%, transparent) 70%)`,
+            }}
+          >
+            <span
+              aria-hidden
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-[26px] font-medium tabular-nums"
+              style={{ background: `color-mix(in srgb, ${accent} 22%, transparent)`, color: accent }}
+            >
+              {nextLesson.order}
+            </span>
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block text-[12.5px] text-quiet">
+                {nextLesson.percentComplete > 0 ? `${nextLesson.percentComplete}% read` : 'Up next'}
+              </span>
+              <span className="mt-0.5 block truncate text-[22px] font-medium tracking-[-0.02em]">
+                {nextLesson.title}
+              </span>
+              {nextLesson.percentComplete > 0 && (
+                <span aria-hidden className="mt-2.5 block h-1 w-full max-w-[16rem] overflow-hidden rounded-full bg-white/10">
+                  <span
+                    className="block h-full rounded-full"
+                    style={{ width: `${nextLesson.percentComplete}%`, background: accent }}
+                  />
+                </span>
+              )}
+            </span>
+            <span
+              aria-hidden
+              className="hidden h-12 shrink-0 items-center gap-2 rounded-full bg-white px-6 text-[14px] font-semibold text-black transition-colors group-hover:bg-white/90 sm:inline-flex"
+            >
+              <Play aria-hidden className="h-4 w-4 fill-current" />
+              {space.viewerProgress > 0 ? 'Continue' : 'Start'}
+            </span>
+          </Link>
+        )}
+
+        {/* The path at a glance — each segment is its Lesson, and opens it. */}
+        {published.length > 0 && (
+          <div className="mt-6 flex flex-col items-center gap-2.5">
+            <ol className="flex flex-wrap justify-center gap-1">
+              {published.map((l) => (
+                <li key={l.id}>
+                  <Link
+                    to={`/v4/space/${space.id}/lesson/${l.id}`}
+                    aria-label={`Lesson ${l.order}, ${l.title}${l.progress === 'done' ? ', done' : ''}`}
+                    title={`${l.order}. ${l.title}`}
+                    className="console-focusable block py-1.5"
+                  >
+                    <span
+                      className={cn(
+                        'block h-1 w-8 rounded-full transition-colors hover:bg-white/40',
+                        l.progress === 'done' ? 'bg-success' : l.id !== nextLesson?.id && 'bg-white/[0.12]',
+                      )}
+                      style={l.id === nextLesson?.id ? { background: accent } : undefined}
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ol>
+            <p className="text-[12.5px] tabular-nums text-quiet">
+              {published.filter((l) => l.progress === 'done').length} of {published.length} done
+              {/*
+                Doc 2 rule 3: the header carries the community count and jumps to
+                that section — the price of keeping community on the same scroll
+                as the path. A link, not a button competing with Up next.
+              */}
+              {allContributions.length > 0 && (
+                <>
+                  <Sep />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTab('overview');
+                      requestAnimationFrame(() =>
+                        communityRef.current?.scrollIntoView({
+                          behavior: reduceMotion ? 'auto' : 'smooth',
+                          block: 'start',
+                        }),
+                      );
+                    }}
+                    className="console-focusable inline-flex items-center gap-1.5 rounded-md text-quiet underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                  >
+                    <MessageSquare aria-hidden className="h-3.5 w-3.5" />
+                    {allContributions.length} from the community
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
+        )}
       </header>
 
       {/* ── Tabs ── */}
       <div
         role="tablist"
         aria-label="Space"
-        className="mt-8 flex items-center gap-1 border-b border-white/[0.08]"
+        className="mt-16 flex items-center justify-center gap-1 border-b border-white/[0.08]"
       >
         {(['overview', 'map', 'members'] as SpaceTab[]).map((t) => (
           <button
@@ -337,7 +399,8 @@ export default function SpaceScreen({
               <motion.span
                 aria-hidden
                 layoutId="v4SpaceTab"
-                className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary"
+                className="absolute inset-x-3 -bottom-px h-0.5 rounded-full"
+                style={{ background: accent }}
                 transition={PRESS_SPRING}
               />
             )}
@@ -348,48 +411,26 @@ export default function SpaceScreen({
       {/* ── Overview: one scroll — at a glance, the path, then the community ── */}
       {tab === 'overview' && (
         <>
-          {/* PS5-style widget strip. A summary you can act from; the path
-              directly beneath is still the thing you work through. */}
-          <div className="mt-7">
-            <SpaceBento
-              space={space}
-              lessons={lessons}
-              nextLesson={nextLesson}
-              contributions={allContributions}
-              members={members}
-              onOpenMembers={() => setTab('members')}
-              onOpenMap={() => setTab('map')}
-              onOpenCommunity={() =>
-                communityRef.current?.scrollIntoView({
-                  behavior: reduceMotion ? 'auto' : 'smooth',
-                  block: 'start',
-                })
-              }
-            />
-          </div>
-
-          <section aria-labelledby="path-heading" className="mt-10">
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 id="path-heading" className="text-[14px] font-medium text-quiet">
-                The path · {lessons.length} {lessons.length === 1 ? 'Lesson' : 'Lessons'}
-              </h2>
-              {/* Create lives on the screen that owns the object. In an Open
-                  Space this is not Owner-only — every Member sees it. */}
-              {canAddLesson && space.state === 'active' && (
-                <Pressable
-                  type="button"
-                  onClick={() => setAddingLesson(true)}
-                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-slate-900"
-                >
+          <StageRow
+            id="path-heading"
+            title="The path"
+            count={lessons.length}
+            lede="In the order the Owner set. Clear them one by one."
+            action={
+              /* Create lives on the screen that owns the object. In an Open
+                 Space this is not Owner-only — every Member sees it. */
+              canAddLesson &&
+              space.state === 'active' && (
+                <Pressable type="button" onClick={() => setAddingLesson(true)} className={whitePillSm}>
                   <Plus aria-hidden className="h-4 w-4" />
                   Add Lesson
                 </Pressable>
-              )}
-            </div>
-
+              )
+            }
+          >
             {lessons.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/15 px-6 py-12 text-center">
-                <p className="mb-1.5 text-[15px] font-bold">No Lessons yet</p>
+                <p className="mb-1.5 text-[15px] font-semibold">No Lessons yet</p>
                 <p className="mx-auto mb-6 max-w-[46ch] text-[14px] leading-relaxed text-quiet">
                   {space.mode === 'open'
                     ? 'This Space is Open — anyone here can add the first one. Upload material and the Lesson builds itself.'
@@ -441,40 +482,29 @@ export default function SpaceScreen({
                 )}
               </>
             )}
-          </section>
+          </StageRow>
 
           {/* Separate container, never one merged list, ordering never interleaved. */}
-          <section
-            ref={communityRef}
-            aria-labelledby="community-heading"
-            className="mt-12 scroll-mt-6 border-t border-white/[0.08] pt-8"
-          >
-            <div className="mb-1.5 flex items-center justify-between gap-4">
-              <h2
-                id="community-heading"
-                className="text-[14px] font-medium text-origin-community"
-              >
-                From the community · {allContributions.length}
-              </h2>
-              {space.state === 'active' && space.viewerRole !== null && (
-                <button
-                  type="button"
-                  onClick={() => setContributing(true)}
-                  className="console-focusable inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-4 text-[13px] font-medium text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
-                >
+          <div ref={communityRef} className="scroll-mt-24">
+          <StageRow
+            id="community-heading"
+            title="From the community"
+            count={allContributions.length}
+            lede="Made by members of this Space. Sorted by what people found most useful."
+            action={
+              space.state === 'active' &&
+              space.viewerRole !== null && (
+                <button type="button" onClick={() => setContributing(true)} className={ghostPillSm}>
                   <Plus aria-hidden className="h-4 w-4" />
                   Contribute
                 </button>
-              )}
-            </div>
-            <p className="mb-5 text-[13px] text-faint">
-              Made by members of this Space. Sorted by what people found most useful.
-            </p>
-
+              )
+            }
+          >
             {allContributions.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/15 px-6 py-10 text-center">
                 <Sparkles aria-hidden className="mx-auto mb-3 h-5 w-5 text-quiet" />
-                <p className="mb-1.5 text-[15px] font-bold">Nothing from the community yet</p>
+                <p className="mb-1.5 text-[15px] font-semibold">Nothing from the community yet</p>
                 <p className="mx-auto max-w-[44ch] text-[14px] leading-relaxed text-quiet">
                   Summaries, worked examples, mnemonics — anything that helped you will
                   help the next person.
@@ -518,16 +548,24 @@ export default function SpaceScreen({
                 </AnimatePresence>
               </div>
             )}
-          </section>
+          </StageRow>
+          </div>
         </>
       )}
 
       {/* ── Members ── */}
       {tab === 'members' && (
-        <section className="mt-8">
-          <h2 className="mb-5 text-[14px] font-medium text-quiet">
-            {space.memberCount.toLocaleString()} {space.memberCount === 1 ? 'Member' : 'Members'}
+        <section className="mt-10">
+          <h2 className="mb-6 text-[26px] font-medium tracking-[-0.02em]">
+            Members
+            <span className="ml-2.5 tabular-nums text-quiet">{space.memberCount.toLocaleString()}</span>
           </h2>
+          {/* Who may publish and who can find it — reference facts, so they
+              live here rather than in the first look. */}
+          <div className="-mt-3 mb-6 flex flex-wrap items-center gap-2">
+            <ModeBadge mode={space.mode} />
+            <VisibilityBadge visibility={space.visibility} />
+          </div>
 
           {/*
             A Space you have not joined shows what is *inside* it — Lessons, so
@@ -593,6 +631,7 @@ export default function SpaceScreen({
         onOpenChange={setContributing}
         onAdded={() => setWriteTick((n) => n + 1)}
       />
+    </div>
     </div>,
   );
 }

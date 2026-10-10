@@ -69,12 +69,13 @@ const labelOf = (tag: string) =>
  * controls. Deliberately a list of *exact labels*: a new cell is opt-in, so
  * adding one and forgetting the handler fails here instead of shipping inert.
  *
- * Streak and Rank are the honest cases — neither names a Lesson, so there is
- * nothing for a click to open, and inventing a destination for them would be
- * deciding a question the design docs have left open.
+ * Streak is the honest case — it names no Lesson, so there is nothing for a
+ * click to open, and inventing a destination would be deciding a question the
+ * design docs have left open. (Rank was the other, until 2026-10-10: the cell
+ * was retired because the top bar already carries Rank on every screen.)
  */
 const READOUTS: Record<string, string[]> = {
-  'screens/HomeScreen.tsx': ['Streak', 'Rank'],
+  'screens/HomeScreen.tsx': ['Streak'],
   /*
    * Profile has no exemptions left, and the way they left is the point.
    *
@@ -117,9 +118,14 @@ describe('every screen with cells is swept, not just Home', () => {
    * into a description of a layout that has moved on.
    */
   it('finds them all', () => {
+    /*
+     * Home is the one bento left. Space, Library, Social and Profile lost
+     * theirs on 2026-10-10 because every cell repeated something already on
+     * the screen — "one fact, once". The sweep still finds cells wherever
+     * they come back.
+     */
     expect(SCREENS_WITH_CELLS).toContain('screens/HomeScreen.tsx');
-    expect(SCREENS_WITH_CELLS).toContain('screens/LibraryScreen.tsx');
-    expect(SCREENS_WITH_CELLS.length).toBeGreaterThanOrEqual(3);
+    expect(SCREENS_WITH_CELLS.length).toBeGreaterThanOrEqual(1);
   });
 
   it('gives every cell a destination, an action, or a named exemption', () => {
@@ -155,8 +161,8 @@ describe('a cell that names a Lesson opens it', () => {
   const cells = bentoCells(home);
 
   it('finds every cell on Home', () => {
-    // The hero, Streak, Rank, Due for review, New since you were here.
-    expect(cells.length).toBe(5);
+    // The hero, Streak, Due for review, New since you were here.
+    expect(cells.length).toBe(4);
   });
 
   it('gives each one a destination, or names it a readout', () => {
@@ -191,10 +197,10 @@ describe('a cell that names a Lesson opens it', () => {
     ).toBe(true);
   });
 
-  it('keeps Streak and Rank as readouts, so the set stays meaningful', () => {
+  it('keeps Streak as a readout, so the set stays meaningful', () => {
     // If these ever gain a destination the allowlist above is stale, and
     // "readout" has quietly stopped meaning anything.
-    for (const label of ['Streak', 'Rank']) {
+    for (const label of ['Streak']) {
       const cell = cells.find((tag) => labelOf(tag) === label);
       expect(cell, `Home lost its ${label} cell`).toBeDefined();
       expect(/\bto=|onClick=/.test(cell!), `${label} became a control — update READOUTS`).toBe(

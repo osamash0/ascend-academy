@@ -124,7 +124,7 @@ export function AskBar({
               moves belongs to Motion. `motion.test.tsx` caught this exact class
               on this exact button.
             */
-            className="console-focusable mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-white disabled:opacity-30"
+            className="console-focusable mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-primary-foreground disabled:opacity-30"
           >
             {busy ? (
               <Loader2 aria-hidden className="h-4 w-4 animate-spin" />

@@ -43,14 +43,19 @@ export type { Surface };
 export { useGround } from './ground';
 
 export const SURFACES = {
-  /** Choosing. Texture is atmosphere and costs nothing. */
-  home: 'browse',
+  /**
+   * Choosing. The Spaces hub keeps the console texture (Abi, 2026-10-10:
+   * "I like the spaces UI"); every other room moved onto the stage that
+   * day so the product reads as one place lit by its subject, not two
+   * grounds with a seam where the lecture overview begins.
+   */
   spaces: 'browse',
-  spaceOverview: 'browse',
-  spaceMembers: 'browse',
-  library: 'browse',
-  social: 'browse',
-  profile: 'browse',
+  home: 'stage',
+  spaceOverview: 'stage',
+  spaceMembers: 'stage',
+  library: 'stage',
+  social: 'stage',
+  profile: 'stage',
   /** Reading or seeing. Texture competes with the content. */
   lessonReader: 'focus',
   /**

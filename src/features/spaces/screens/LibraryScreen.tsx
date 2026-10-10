@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useMemo, useReducer, useState } from 'react';
 import {
   FileText,
   FolderInput,
@@ -21,7 +21,7 @@ import { NoteEditor } from '../components/NoteEditor';
 import { addNote, updateNote } from '../mocks/notes';
 import { myContributionById } from '../mocks/library';
 import { ReanchorDialog } from '../components/ReanchorDialog';
-import { BentoCell } from '../components/BentoCell';
+import { Masthead, Skylight, ghostPillSm } from '../components/stage';
 import { Scene, SURFACES } from '../components/Scene';
 import { EndorsedBadge } from '../components/badges';
 import { SpacesError, SpacesSkeleton } from '../components/states';
@@ -91,6 +91,8 @@ const formatWhen = (iso: string) => {
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
 
+const LIBRARY_ACCENT = null;
+
 export default function LibraryScreen() {
   /** Bodies edited this session, so the row shows the edit immediately. */
   const [noteBodies, setNoteBodies] = useState<Record<string, string>>({});
@@ -110,52 +112,8 @@ export default function LibraryScreen() {
    * pair is the dead `writeTick` that was just removed from this file.
    */
   const [, reread] = useReducer((n: number) => n + 1, 0);
-  const { state, items, notes, pending } = useLibrary();
+  const { state, items, pending } = useLibrary();
 
-  const latestNote = notes[0];
-
-  /*
-   * The cell previews a note that is also a row below, and until now it was the
-   * only cell here that did nothing when clicked. Three lines of a note, cut
-   * off mid-sentence, with the full editable copy 200px further down — people
-   * click the thing they are reading.
-   *
-   * `onClick` rather than `to`, per BentoCell's own rule: this happens on the
-   * screen and has no URL to point at. Notes are read *and written* in Library
-   * — they exist nowhere else — so there is nothing to navigate to.
-   *
-   * The filter reset is the part that is easy to miss: under "Uploads" the note
-   * is not rendered, so focusing it would silently do nothing and the cell
-   * would be a dead end again in three of the four filter states.
-   */
-  const [focusNote, setFocusNote] = useState<string | null>(null);
-
-  const openLatestNote = () => {
-    if (filter !== 'all' && filter !== 'note') setFilter('all');
-    setFocusNote(latestNote ? `item-lib-note-${latestNote.id}` : null);
-  };
-
-  /*
-   * An effect, not a `requestAnimationFrame` inside the handler.
-   *
-   * The rAF version looked right and did not work: React batches the state
-   * updates and commits the new list *after* the frame callback runs, so it
-   * looked for a row that did not exist yet, found nothing, and left focus on
-   * the page. Verified in the browser — the filter changed and the note
-   * appeared, and `activeElement` was still the document. An effect runs after
-   * the commit, which is the only point at which the row is there to focus.
-   */
-  useEffect(() => {
-    if (!focusNote) return;
-    const el = document.getElementById(focusNote);
-    el?.scrollIntoView({ block: 'center' });
-    el?.querySelector('button')?.focus();
-    setFocusNote(null);
-  }, [focusNote]);
-  const uploadCount = items.filter((i) => i.kind === 'material').length;
-  const contributions = items.filter((i) => i.kind === 'contribution');
-  const likesReceived = contributions.reduce((n, i) => n + (i.likeCount ?? 0), 0);
-  const endorsedCount = contributions.filter((i) => i.endorsed).length;
 
   const shown = useMemo(
     () => (filter === 'all' ? items : items.filter((i) => i.kind === filter)),
@@ -172,11 +130,15 @@ export default function LibraryScreen() {
   const emptyAlreadyOffersNote =
     shown.length === 0 && !composing && (filter === 'note' || filter === 'all');
 
-  // Library is a browse surface — you are choosing what to revisit.
+  // Library stands on the stage. It has no subject of its own, so its light
+  // is the brand's — neutral white — never a colour (monochrome brand).
   const chrome = (body: React.ReactNode) => (
-    <Scene surface={SURFACES.library} status="progress" motionKey="library">
+    <Scene surface={SURFACES.library} status="progress" motionKey="library" accent={LIBRARY_ACCENT}>
       <SpacesTopBar active="library" viewer={viewer} />
-      {body}
+      <div className="relative">
+        <Skylight accent={LIBRARY_ACCENT} />
+        {body}
+      </div>
     </Scene>
   );
 
@@ -184,13 +146,12 @@ export default function LibraryScreen() {
   if (state === 'error') return chrome(<SpacesError what="your Library" />);
 
   return chrome(
-    <div className="mx-auto max-w-5xl px-6 pb-24 pt-8 lg:px-8">
-      <header className="space-y-4">
-        <h1 className="text-4xl font-bold tracking-[-0.02em] sm:text-[44px]">Library</h1>
-        <p className="max-w-[58ch] text-[15.5px] leading-[1.75] text-quiet">
-          Everything you’ve made, across every Space — your notes, your uploads and the
-          work you’ve published.
-        </p>
+    <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-10 lg:px-8">
+      <header>
+        <Masthead
+          title="Library"
+          lede="Everything you’ve made — your notes, your uploads and the work you’ve published."
+        />
       </header>
 
       {/*
@@ -211,77 +172,30 @@ export default function LibraryScreen() {
         itself stays Learn — calm and browsable — and the dense work opens
         *from* here as its own screen.
       */}
-      <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {latestNote && (
-          <BentoCell
-            icon={NotebookPen}
-            label="Your latest note"
-            className="sm:col-span-2"
-            onClick={openLatestNote}
-          >
-            <p className="line-clamp-3 text-[14.5px] leading-relaxed text-foreground">
-              {latestNote.body}
-            </p>
-            <p className="mt-3 text-[12.5px] text-faint">
-              {noteContext(latestNote.lessonTitle, latestNote.spaceName)}
-            </p>
-          </BentoCell>
-        )}
-
-        <BentoCell icon={Upload} label="Manage uploads" to="/v4/library/uploads">
-          <p className="text-[28px] font-semibold leading-none tabular-nums">
-            {uploadCount}
-          </p>
-          <p
-            className={cn(
-              'mt-2 text-[13px]',
-              pending.length > 0 ? 'text-primary' : 'text-quiet',
-            )}
-          >
-            {pending.length > 0
-              ? `${pending.length} still being prepared`
-              : 'All ready'}
-          </p>
-        </BentoCell>
-
-        <BentoCell icon={FileText} label="Your drafts" to="/v4/library/drafts">
-          <p className="text-[28px] font-semibold leading-none tabular-nums">
-            {pending.length}
-          </p>
-          <p className="mt-2 text-[13px] text-quiet">Across every Space</p>
-        </BentoCell>
-
-        <BentoCell
-          icon={Sparkles}
-          label="How your work landed"
-          /*
-           * Spans whatever is left of the row. Four cells over four columns,
-           * and the first is two wide when there is a note: 2+1+1 fills row
-           * one exactly, leaving this alone on row two at half width. With no
-           * note the row is 1+1+2 and already balances.
-           */
-          className={cn('sm:col-span-2', latestNote && 'lg:col-span-4')}
-          /*
-           * Both sides of this merge fixed a different thing here: the trunk
-           * made the span follow the note (above), the Library session made
-           * the cell a real link. `to` rather than a `navigate()` handler so
-           * the cell keeps cmd-click, middle-click and open-in-new-tab.
-           */
-          to="/v4/library/impact"
-        >
-          <p className="text-[28px] font-semibold leading-none tabular-nums">
-            {likesReceived}
-            <span className="ml-2 text-[16px] text-quiet">
-              {likesReceived === 1 ? 'like' : 'likes'}
-            </span>
-          </p>
-          <p className="mt-2 text-[13px] text-quiet">
-            {endorsedCount > 0
-              ? `${endorsedCount} endorsed by an Owner`
-              : 'Across everything you have published'}
-          </p>
-        </BentoCell>
-      </div>
+      {/*
+        The doors into Studio, as doors. This was a bento whose cells repeated
+        the list beneath it — the latest note is the list's first row, the
+        upload count is the Uploads filter (Abi, 2026-10-10: one fact, once).
+        What only these said was *where the dense work opens*, so that is all
+        that is left; a dot marks the one with something waiting.
+      */}
+      <nav aria-label="Studio" className="mt-8 flex flex-wrap items-center justify-center gap-2">
+        <Link to="/v4/library/uploads" className={ghostPillSm}>
+          <Upload aria-hidden className="h-3.5 w-3.5" />
+          Uploads
+          {pending.length > 0 && (
+            <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-white" aria-label={`${pending.length} still being prepared`} />
+          )}
+        </Link>
+        <Link to="/v4/library/drafts" className={ghostPillSm}>
+          <FileText aria-hidden className="h-3.5 w-3.5" />
+          Drafts
+        </Link>
+        <Link to="/v4/library/impact" className={ghostPillSm}>
+          <Sparkles aria-hidden className="h-3.5 w-3.5" />
+          How your work landed
+        </Link>
+      </nav>
 
       {/*
         Filters, and the one action this screen owns.
@@ -296,7 +210,8 @@ export default function LibraryScreen() {
         pill as SpaceScreen's "Add Lesson"; the empty state keeps the larger
         `h-11` form, which is that screen's precedent too.
       */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+      <h2 className="mt-20 text-[26px] font-medium tracking-[-0.02em]">Everything you made</h2>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
       <div role="tablist" aria-label="Filter" className="flex flex-wrap items-center gap-1.5">
         {FILTERS.map((f) => {
           const count = f.key === 'all' ? items.length : items.filter((i) => i.kind === f.key).length;
@@ -357,14 +272,21 @@ export default function LibraryScreen() {
               {/* Doc 2 rule 5: everything here is a pointer into its Space —
                   except Notes, which are read *and written* in Library. */}
               {item.kind === 'note' ? (
-                <NoteEditor
-                  value={noteBodies[item.id] ?? item.body}
-                  onSave={(body) => {
-                    const id = item.id.replace(/^lib-note-/, '');
-                    updateNote(id, body);
-                    setNoteBodies((m) => ({ ...m, [item.id]: body }));
-                  }}
-                />
+                <div>
+                  <NoteEditor
+                    value={noteBodies[item.id] ?? item.body}
+                    onSave={(body) => {
+                      const id = item.id.replace(/^lib-note-/, '');
+                      updateNote(id, body);
+                      setNoteBodies((m) => ({ ...m, [item.id]: body }));
+                    }}
+                  />
+                  {/* Where it is filed — said here, on the note, now that the
+                      "latest note" cell that used to say it is gone. */}
+                  <p className="mt-1.5 px-1 text-[12.5px] text-faint">
+                    {noteContext(item.lessonTitle, item.spaceName ?? undefined)}
+                  </p>
+                </div>
               ) : (
                 <LibraryRow item={item} onReanchor={() => setReanchoring(item)} />
               )}
