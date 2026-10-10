@@ -21,18 +21,24 @@ import { useSummoned } from './useSummoned';
 
 interface Props {
   open: boolean;
-  /** "Functional dependency · Page 6" — where the layer is looking. */
+  /** "Functional dependency" — the idea the layer is looking at. */
   where: string;
+  /** The page of the Material it is at. */
+  page: number;
   onClose: () => void;
   children: ReactNode;
   /** Whether the layer is a panel beside the document, or covers it. */
   panel: boolean;
+  /** The panel's width beside the document. */
+  width?: number;
+  /** The landmark's name — which layer this is. */
+  label?: string;
 }
 
 /** The panel's width, and the distance the document steps aside by half. */
 export const STUDIO_WIDTH = 440;
 
-export function Studio({ open, where, onClose, children, panel }: Props) {
+export function Studio({ open, where, page, onClose, children, panel, width = STUDIO_WIDTH, label = 'Studio' }: Props) {
   const ref = useRef<HTMLElement>(null);
   useSummoned(open, onClose, ref, { takeFocus: false });
 
@@ -42,23 +48,32 @@ export function Studio({ open, where, onClose, children, panel }: Props) {
         <motion.aside
           ref={ref}
           tabIndex={-1}
-          aria-label="Studio"
+          aria-label={label}
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 24 }}
           transition={{ duration: timing.card }}
-          style={{ width: panel ? STUDIO_WIDTH : undefined }}
+          style={{ width: panel ? width : undefined }}
+          /*
+           * Opaque: the text is read on this layer, and slides showing through
+           * a translucent one put photographs behind every line. Over the
+           * document (below the panel width) it sits above the reader's exit,
+           * since its own close is the way back.
+           */
           className={cn(
-            'fixed inset-y-0 right-0 z-30 flex flex-col outline-none',
-            'border-l border-white/[0.07] bg-[#070b14]/88 backdrop-blur-md',
-            !panel && 'w-full',
+            'fixed inset-y-0 right-0 flex flex-col outline-none',
+            'border-l border-white/[0.08] bg-[#0b0b0c]',
+            panel ? 'z-30' : 'z-[42] w-full',
           )}
         >
-          <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] px-4">
-            <p className="min-w-0 flex-1 truncate text-[12.5px] text-quiet">{where}</p>
+          <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] pl-6 pr-3">
+            <p className="flex min-w-0 flex-1 items-baseline gap-2 text-[13px]">
+              <span className="truncate font-medium text-foreground">{where}</span>
+              <span className="shrink-0 tabular-nums text-faint">Page {page}</span>
+            </p>
             <button
               type="button"
-              aria-label="Close the studio"
+              aria-label={`Close ${label === 'Studio' ? 'the studio' : label}`}
               onClick={onClose}
               className="console-focusable flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.06] hover:text-foreground"
             >

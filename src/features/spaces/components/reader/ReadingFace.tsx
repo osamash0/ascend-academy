@@ -43,6 +43,8 @@ interface Props {
   scrollRef: RefObject<HTMLDivElement>;
   /** Classes for the article — the studio's column is narrower than a page's. */
   articleClassName?: string;
+  /** The studio's narrow column takes a smaller scale than a page-wide one. */
+  compact?: boolean;
 }
 
 /** "Functional Dependencies" and "Functional dependency" are the same heading. */
@@ -80,6 +82,7 @@ export function ReadingFace({
   footer,
   scrollRef,
   articleClassName = 'mx-auto max-w-2xl px-6 pb-[40vh] pt-[22vh]',
+  compact = false,
 }: Props) {
   const reduce = useReducedMotion();
   /* The last anchor this face itself reported, so being told it back is a no-op. */
@@ -163,16 +166,32 @@ export function ReadingFace({
           )}
         >
           <Block focused={focused} className="max-w-[52ch]">
-            <h1 className="text-[34px] font-bold leading-[1.15] tracking-[-0.02em] text-foreground">
+            <h1
+              className={cn(
+                'font-bold leading-[1.15] tracking-[-0.02em] text-foreground',
+                compact ? 'text-[26px]' : 'text-[34px]',
+              )}
+            >
               {title}
             </h1>
             {hint && <div className="mt-4">{hint}</div>}
           </Block>
 
           {sections.map((s) => (
-            <section key={s.conceptId} id={`section-${s.conceptId}`} className="mt-[4.9em] scroll-mt-24">
+            <section
+              key={s.conceptId}
+              id={`section-${s.conceptId}`}
+              className={cn('scroll-mt-24', compact ? 'mt-14' : 'mt-[4.9em]')}
+            >
               <Block focused={focused} className="max-w-[52ch]">
-                <h2 className="mb-[1.7em] text-[22px] font-semibold leading-[1.25] tracking-[-0.01em] text-foreground">
+                <h2
+                  className={cn(
+                    'font-semibold leading-[1.25] tracking-[-0.01em] text-foreground',
+                    compact
+                      ? 'mb-5 text-[13.5px] text-[color:var(--reader-accent,theme(colors.secondary.DEFAULT))]'
+                      : 'mb-[1.7em] text-[22px]',
+                  )}
+                >
                   {engaged ? (
                     /*
                      * The heading is the mark. Pressing an idea's name opens
@@ -221,7 +240,12 @@ export function ReadingFace({
                         under "Functional dependency" on every other page.
                       */}
                       {b.title && !sameHeading(b.title, s.name) && !sameHeading(b.title, title) && (
-                        <h3 className="mb-2 text-[18px] font-semibold leading-[1.4] text-foreground">
+                        <h3
+                          className={cn(
+                            'mb-2 font-semibold leading-[1.4] text-foreground',
+                            compact ? 'text-[16.5px]' : 'text-[18px]',
+                          )}
+                        >
                           {b.title}
                         </h3>
                       )}

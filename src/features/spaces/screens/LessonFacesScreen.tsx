@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { motion, useReducedMotion } from 'motion/react';
-import { ListChecks } from 'lucide-react';
-import { PdfScroll, sampleAccent, scrollToPdfPage } from '@/components/pdf';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { ChevronLeft, ChevronRight, ListChecks } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { PdfPager, sampleAccent } from '@/components/pdf';
 import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
 import { practiceForLesson } from '../mocks/practice';
 import { Scene, SURFACES } from '../components/Scene';
@@ -19,11 +20,15 @@ import { Companion } from '../components/reader/Companion';
 import { PracticePlane } from '../components/reader/PracticePlane';
 import { ReadingFace } from '../components/reader/ReadingFace';
 import { Spine } from '../components/reader/Spine';
-import { Studio, STUDIO_WIDTH } from '../components/reader/Studio';
-import { Room, RoomStill } from '../components/reader/Room';
+import { Studio } from '../components/reader/Studio';
+import { Spotlight } from '../components/reader/Spotlight';
+import { LessonToc } from '../components/reader/LessonToc';
+import { ExplainPanel } from '../components/reader/iui/ExplainPanel';
+import { beatsFromMarkdown } from '../components/reader/beats';
+import { explainFor } from '../mocks/explain';
 import { FoundLine, type Found } from '../components/reader/FoundLine';
 import { findRange } from '../components/reader/findText';
-import { anchorLine, anchorY, timing } from '../components/reader/Planes';
+import { anchorY, timing } from '../components/reader/Planes';
 import {
   anchorForPage,
   firstPageOf,
@@ -64,7 +69,20 @@ type CompanionState =
 /** The studio is a panel beside the document at this width; over it below. */
 const PANEL = '(min-width: 1024px)';
 /** The page never exceeds this. */
-const MAX_SHEET = 860;
+const MAX_SHEET = 1180;
+/** Breathing room around the page inside its stage. */
+const SHEET_PAD = { y: 16, side: 56 };
+/** The contents list shows at this width — beside the page alone, or beside page and panel. */
+const TOC_ALONE = 1180;
+const TOC_WITH_PANEL = 1640;
+const TOC_WIDTH = 260;
+
+type View = 'slide' | 'explain' | 'text';
+const VIEWS: { id: View; label: string }[] = [
+  { id: 'slide', label: 'Slide' },
+  { id: 'explain', label: 'Explain' },
+  { id: 'text', label: 'Text' },
+];
 
 export default function LessonFacesScreen() {
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
@@ -72,6 +90,10 @@ export default function LessonFacesScreen() {
   const content = useLessonContent(lessonId);
   const reduce = useReducedMotion();
   const panel = useMediaQuery(PANEL);
+  /* `?page=34&view=explain` — the Lesson overview's way in, at a page and a view. */
+  const [params] = useSearchParams();
+  const askedPage = Number(params.get('page')) || null;
+  const askedView = params.get('view');
 
   const sections = useMemo(
     () => (content.bundle ? sectionsFromRows(content.bundle.slides, content.concepts) : []),
@@ -80,7 +102,20 @@ export default function LessonFacesScreen() {
   const concepts = useMemo(() => spineConcepts(sections, lesson?.concepts ?? []), [sections, lesson]);
   const pages = useMemo(() => materialPagesFrom(sections), [sections]);
 
-  const [studio, setStudio] = useState(false);
+  const [view, setView] = useState<View>(() =>
+    askedView === 'explain' || askedView === 'text' ? askedView : 'slide',
+  );
+  const studio = view !== 'slide';
+  /* The words lit on the page — by Explain's parts, or by stepping the slide's points. */
+  const [spot, setSpot] = useState<string | null>(null);
+  /* The point of the page the slide view is on; -1 is the whole page. */
+  const [beat, setBeat] = useState(-1);
+  const [vw, setVw] = useState(() => (typeof window === 'undefined' ? 1440 : window.innerWidth));
+  useEffect(() => {
+    const on = () => setVw(window.innerWidth);
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [engaged, setEngaged] = useState(false);
   const [companion, setCompanion] = useState<CompanionState | null>(null);
@@ -93,51 +128,55 @@ export default function LessonFacesScreen() {
   const [accent, setAccent] = useState<string | null>(null);
   const [found, setFound] = useState<Found | null>(null);
   const foundNonce = useRef(0);
-  const [sheetWidth, setSheetWidth] = useState(MAX_SHEET);
+  const [box, setBox] = useState({ w: MAX_SHEET, h: 600 });
+  const [numPages, setNumPages] = useState(0);
+  /* The page in view. The document is a deck: one page, turned sideways. */
+  const [pdfPage, setPdfPage] = useState(1);
 
-  /* The room follows the page a beat late; stills are kept per page. */
-  const [roomPage, setRoomPage] = useState(1);
-  const stills = useRef(new Map<number, string>());
-  const [still, setStill] = useState<{ page: number; url: string } | null>(null);
-  const onStill = useCallback((page: number, url: string) => {
-    stills.current.set(page, url);
-    setStill((s) => (s && s.page === page ? s : { page, url }));
-  }, []);
-  useEffect(() => {
-    const url = stills.current.get(roomPage);
-    if (url) setStill({ page: roomPage, url });
-  }, [roomPage]);
 
   const pdfRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (anchor || sections.length === 0) return;
+    const asked = askedPage ? anchorForPage(askedPage, sections) : null;
+    if (asked) {
+      setAnchor(asked);
+      setPdfPage(asked.page);
+      return;
+    }
     setAnchor({ conceptId: sections[0].conceptId, page: sections[0].blocks[0].page });
-  }, [anchor, sections]);
+  }, [anchor, sections, askedPage]);
 
-  useEffect(() => {
-    if (!anchor) return;
-    const t = setTimeout(() => setRoomPage(anchor.page), 240);
-    return () => clearTimeout(t);
-  }, [anchor]);
 
-  /* The page fits the window; the window is measured, not assumed. */
+  const ready = Boolean(content.bundle && content.pdfUrl && anchor);
+  /*
+   * The page fits the window whole; the window is measured, not assumed.
+   * Where the studio docks as a panel, the page is sized for the room left
+   * beside it, so opening the studio moves the page and never covers it.
+   */
   useEffect(() => {
     const el = pdfRef.current;
     if (!el) return;
-    const read = () => setSheetWidth(Math.max(280, Math.min(MAX_SHEET, el.clientWidth - 48)));
+    const read = () =>
+      setBox({
+        w: Math.min(MAX_SHEET, el.clientWidth - SHEET_PAD.side * 2),
+        h: el.clientHeight - SHEET_PAD.y * 2,
+      });
     read();
     const ro = new ResizeObserver(read);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [content.bundle]);
+    /* `ready`: the pager mounts a render after the bundle, once there is an anchor. */
+  }, [ready]);
 
   /* Reset when the Lesson changes — React's documented way, during render. */
   const [readingId, setReadingId] = useState(lessonId);
   if (readingId !== lessonId) {
     setReadingId(lessonId);
-    setStudio(false);
+    setView('slide');
+    setSpot(null);
+    setBeat(-1);
     setAnchor(null);
     setEngaged(false);
     setCompanion(null);
@@ -146,17 +185,19 @@ export default function LessonFacesScreen() {
     setTurns([]);
     setAccent(null);
     setFound(null);
+    setPdfPage(1);
   }
 
   const engage = useCallback(() => setEngaged(true), []);
   const openStudio = useCallback(() => {
     engage();
     setBench(null);
-    setStudio(true);
+    setView('text');
   }, [engage]);
   const closeStudio = useCallback(() => {
-    setStudio(false);
+    setView('slide');
     setCompanion(null);
+    setSpot(null);
   }, []);
   /*
    * Escape peels one layer. The companion's own Escape closes the companion;
@@ -170,12 +211,16 @@ export default function LessonFacesScreen() {
       setCompanion(null);
       return;
     }
-    setStudio(false);
+    setView('slide');
+    setSpot(null);
   }, []);
 
-  /* The document's scroll is the anchor. */
+  /* The page in view is the anchor. */
   const onPdfPage = useCallback(
     (page: number) => {
+      setPdfPage(page);
+      setBeat(-1);
+      setSpot(null);
       const a = anchorForPage(page, sections);
       if (a) setAnchor(a);
     },
@@ -190,10 +235,62 @@ export default function LessonFacesScreen() {
       engage();
       setBench(null);
       setAnchor(a);
-      const el = pdfRef.current;
-      if (el) scrollToPdfPage(el, page, anchorLine, reduce ? 'auto' : 'smooth');
+      setPdfPage(page);
+      setBeat(-1);
     },
-    [sections, engage, reduce],
+    [sections, engage],
+  );
+  const turnPage = useCallback(
+    (by: number) => onPdfPage(Math.min(Math.max(1, pdfPage + by), numPages || 1)),
+    [onPdfPage, pdfPage, numPages],
+  );
+
+  const blockOf = useCallback(
+    (p: number) => sections.flatMap((s) => s.blocks).find((b) => b.page === p) ?? null,
+    [sections],
+  );
+  const beatsOf = useCallback(
+    (p: number) => {
+      const b = blockOf(p);
+      return b ? beatsFromMarkdown(b.markdown) : [];
+    },
+    [blockOf],
+  );
+
+  /*
+   * Down steps into the page, one point at a time, each lit on the slide;
+   * past the last point it turns to the next page. Up walks back the same
+   * way, arriving on the previous page at its last point.
+   */
+  const stepBeat = useCallback(
+    (by: 1 | -1) => {
+      const list = beatsOf(pdfPage);
+      if (by > 0) {
+        if (beat < list.length - 1) {
+          setBeat(beat + 1);
+          setSpot(list[beat + 1].text);
+        } else if (pdfPage < numPages) onPdfPage(pdfPage + 1);
+        return;
+      }
+      if (beat > -1) {
+        setBeat(beat - 1);
+        setSpot(beat - 1 >= 0 ? list[beat - 1].text : null);
+      } else if (pdfPage > 1) {
+        const before = beatsOf(pdfPage - 1);
+        onPdfPage(pdfPage - 1);
+        setBeat(before.length - 1);
+        setSpot(before.length ? before[before.length - 1].text : null);
+      }
+    },
+    [beatsOf, pdfPage, beat, numPages, onPdfPage],
+  );
+  const pickBeat = useCallback(
+    (i: number) => {
+      const list = beatsOf(pdfPage);
+      setBeat(i);
+      setSpot(i >= 0 ? list[i]?.text ?? null : null);
+    },
+    [beatsOf, pdfPage],
   );
 
   /*
@@ -202,12 +299,22 @@ export default function LessonFacesScreen() {
    * painting its text layer. Words outside the window are brought to the
    * anchor line first.
    */
-  const findOn = useCallback((where: 'pdf' | 'text', text: string) => {
+  const findOn = useCallback((where: 'pdf' | 'text', text: string, page?: number) => {
     const nonce = ++foundNonce.current;
     let tries = 0;
+    /* On the deck, only the page in view, and only once it has slid in. */
+    const settleUntil = where === 'pdf' ? performance.now() + 450 : 0;
     const tick = () => {
       if (foundNonce.current !== nonce) return;
-      const el = (where === 'pdf' ? pdfRef : textRef).current;
+      if (performance.now() < settleUntil) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      const root = (where === 'pdf' ? pdfRef : textRef).current;
+      const el =
+        where === 'pdf' && page !== undefined
+          ? root?.querySelector<HTMLElement>(`[data-pdf-page="${page}"]`) ?? null
+          : root;
       const range = el ? findRange(el, text) : null;
       if (!range) {
         if (++tries < 150) requestAnimationFrame(tick);
@@ -216,8 +323,8 @@ export default function LessonFacesScreen() {
       let rects = [...range.getClientRects()].filter((r) => r.width > 2 && r.height > 2);
       if (rects.length === 0) return;
       const first = rects[0];
-      if (el && (first.top < 80 || first.bottom > window.innerHeight - 80)) {
-        el.scrollBy({ top: first.top - anchorY(), behavior: 'auto' });
+      if (where === 'text' && root && (first.top < 80 || first.bottom > window.innerHeight - 80)) {
+        root.scrollBy({ top: first.top - anchorY(), behavior: 'auto' });
         rects = [...range.getClientRects()].filter((r) => r.width > 2 && r.height > 2);
       }
       setFound({ rects, nonce });
@@ -248,6 +355,27 @@ export default function LessonFacesScreen() {
     document.addEventListener('click', onClick);
     return () => document.removeEventListener('click', onClick);
   }, []);
+
+  /*
+   * Arrow keys and Page Up/Down turn the page. Not in a field, not inside
+   * the studio (its text scrolls with them), not while practising.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (bench || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target instanceof Element ? e.target : null;
+      if (el?.closest('input, textarea, [contenteditable="true"], [aria-label="Studio"]')) return;
+      const by =
+        e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 0;
+      const step = view === 'slide' ? (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0) : 0;
+      if (!by && !step) return;
+      e.preventDefault();
+      if (by) turnPage(by);
+      else stepBeat(step as 1 | -1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [bench, turnPage, stepBeat, view]);
 
   /* `\` toggles the studio. Not in a field, not while practising. */
   useEffect(() => {
@@ -296,6 +424,14 @@ export default function LessonFacesScreen() {
 
   const back = `/v4/space/${space.id}/lesson/${lesson.id}`;
 
+  /* Content is here and the anchor lands next render — not "nothing to read". */
+  if (content.bundle && content.pdfUrl && sections.length > 0 && !anchor)
+    return chrome(
+      <>
+        <ReaderExit to={back} />
+        <DetailSkeleton />
+      </>,
+    );
   if (!content.bundle || !content.pdfUrl || sections.length === 0 || !anchor)
     return chrome(
       <>
@@ -432,14 +568,25 @@ export default function LessonFacesScreen() {
   );
 
   const docked = studio && panel;
+  /* The panel's width beside the page: half-ish, never cramped, never vast. */
+  const panelWidth = Math.round(Math.min(680, Math.max(440, vw * 0.42)));
+  const showToc = vw >= (docked ? TOC_WITH_PANEL : TOC_ALONE);
+  /* The stage's own width decides whether the masthead can sit centred beside the switch. */
+  const narrowHead = vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980;
+  const block = blockOf(pdfPage);
+  const beats = beatsOf(pdfPage);
+  const answer = explainFor(lesson.id, pdfPage, {
+    title: block?.title ?? section.name,
+    markdown: block?.markdown ?? '',
+  });
+  /* The slide view keeps a band under the page for its points. */
+  const stageBottom = view === 'slide' && beats.length >= 2 ? 172 : 88;
 
   return chrome(
     <div
-      className="relative h-[100dvh] overflow-hidden"
+      className="relative h-[100dvh] overflow-hidden bg-black"
       style={accent ? ({ '--reader-accent': accent } as React.CSSProperties) : undefined}
     >
-      <Room still={still?.url ?? null} page={still?.page ?? roomPage} />
-      <RoomStill pdfUrl={content.pdfUrl} page={roomPage} onStill={onStill} />
       <FoundLine found={found} />
 
       {/* Words on the page. */}
@@ -468,8 +615,9 @@ export default function LessonFacesScreen() {
         also={{
           label: 'Show page',
           onPress: (text) => {
-            goToPage(pageOfSelection() ?? anchor.page);
-            findOn('pdf', text);
+            const p = pageOfSelection() ?? anchor.page;
+            goToPage(p);
+            findOn('pdf', text, p);
           },
         }}
         onAsk={(text) => {
@@ -485,65 +633,223 @@ export default function LessonFacesScreen() {
 
       <ReaderExit to={back} />
 
-      <Spine
-        concepts={concepts}
-        currentId={anchor.conceptId}
-        right={docked ? STUDIO_WIDTH + 12 : 12}
-        onJump={(id) => {
-          const p = firstPageOf(id, sections);
-          if (p !== null) goToPage(p);
-        }}
-      />
-
-      {/*
-        The document. It steps aside by half the studio's width when the
-        studio is a panel, so the pages stay uncovered — a transform, never a
-        change of width.
-      */}
-      <motion.div
-        initial={false}
-        animate={{ x: docked ? -STUDIO_WIDTH / 2 : 0 }}
-        transition={{ duration: reduce ? 0.2 : timing.card }}
-        className="absolute inset-0"
-      >
-        <PdfScroll
-          file={content.pdfUrl}
-          width={sheetWidth}
-          anchorLine={anchorLine}
-          onPage={onPdfPage}
-          onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
-          scrollRef={pdfRef}
-          className="h-full overflow-y-auto"
-        />
-      </motion.div>
-
-      {/*
-        The page line: where you are, and the way into the studio. The
-        Concept's name is the press; the page number is a readout.
-      */}
-      <div className="fixed bottom-4 left-4 z-30 flex items-center gap-2 text-[12.5px] tabular-nums text-quiet">
-        <span>Page {anchor.page}</span>
-        <span aria-hidden>·</span>
-        <button
-          type="button"
-          onClick={() => (studio ? closeStudio() : openStudio())}
-          aria-pressed={studio}
-          className="console-focusable rounded px-1 py-0.5 font-medium text-[color:var(--reader-accent,theme(colors.secondary.DEFAULT))] underline-offset-2 hover:underline"
-        >
-          {section.name}
-        </button>
-        {!engaged && (
-          <span className="ml-3 hidden text-faint sm:inline">
-            Select words on the page to ask about them, or to read them as text.
-          </span>
+      {/* The masthead: where you are, what this is, and how to look at it. */}
+      {/* Centred where there is room; beside the exit, clear of the switch, where there is not. */}
+      <header
+        className={cn(
+          'pointer-events-none absolute inset-x-0 top-0 z-20 flex h-[88px] items-center',
+          narrowHead ? 'justify-start pl-16 pr-[248px]' : 'justify-center px-20',
         )}
+        style={{ right: docked ? panelWidth : 0, left: showToc ? TOC_WIDTH : 0 }}
+      >
+        <div className={cn('min-w-0', !narrowHead && 'text-center')}>
+          <p className="mb-1 truncate text-[12.5px] text-quiet">
+            {space.name}
+            <span aria-hidden className="mx-2 text-faint">·</span>
+            {section.name}
+          </p>
+          <h1 className="truncate text-[22px] font-medium leading-tight tracking-[-0.015em] text-foreground">
+            {lesson.title}
+          </h1>
+        </div>
+      </header>
+
+      {/* How to look at the page: alone, explained, or as text. */}
+      <div
+        role="tablist"
+        aria-label="How to read this page"
+        className="absolute top-5 z-[41] flex rounded-full bg-white/[0.07] p-1"
+        style={{ right: docked ? panelWidth + 20 : 20 }}
+      >
+        {VIEWS.map((v) => {
+          const on = view === v.id;
+          return (
+            <button
+              key={v.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => {
+                engage();
+                setSpot(null);
+                setBeat(-1);
+                if (v.id !== 'text') setCompanion(null);
+                setView(v.id);
+              }}
+              className={cn(
+                'console-focusable relative h-8 rounded-full px-4 text-[13px] transition-colors',
+                on ? 'text-background' : 'text-quiet hover:text-foreground',
+              )}
+            >
+              {on && (
+                <motion.span
+                  layoutId="faces-view"
+                  transition={{ duration: reduce ? 0 : timing.card }}
+                  className="absolute inset-0 rounded-full bg-white"
+                />
+              )}
+              <span className="relative">{v.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {showToc ? (
+        <div className="absolute bottom-24 left-0 top-[120px] z-20 overflow-y-auto overflow-x-hidden pl-8 pr-4" style={{ width: TOC_WIDTH }}>
+          <LessonToc sections={sections} conceptId={anchor.conceptId} page={pdfPage} onPage={goToPage} />
+        </div>
+      ) : (
+        <Spine
+          concepts={concepts}
+          currentId={anchor.conceptId}
+          right={docked ? panelWidth + 12 : 12}
+          onJump={(id) => {
+            const p = firstPageOf(id, sections);
+            if (p !== null) goToPage(p);
+          }}
+        />
+      )}
+
+      {/*
+        The stage: the page, alone in the space the masthead, the contents
+        and the panel leave. It refits when that space changes.
+      */}
+      <div
+        className="absolute"
+        style={{
+          top: 88,
+          bottom: stageBottom,
+          left: showToc ? TOC_WIDTH : 0,
+          right: docked ? panelWidth : 0,
+        }}
+      >
+        <PdfPager
+          file={content.pdfUrl}
+          page={pdfPage}
+          onPageChange={onPdfPage}
+          onStep={view === 'slide' ? stepBeat : undefined}
+          maxWidth={box.w}
+          maxHeight={box.h}
+          onLoad={setNumPages}
+          onFirstRender={(canvas) => setAccent(sampleAccent(canvas))}
+          rootRef={pdfRef}
+          overlay={<Spotlight words={spot} />}
+          className="absolute inset-0 overflow-hidden"
+        />
+      </div>
+
+      {/* The slide's points, stepped by scrolling — the page's own explorer. */}
+      {view === 'slide' && beats.length >= 2 && (
+        <div
+          className="absolute z-20 flex flex-col items-center gap-3 px-6"
+          style={{ bottom: 84, height: 80, left: showToc ? TOC_WIDTH : 0, right: 0 }}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.p
+              key={`${pdfPage}-${beat}`}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: timing.mark }}
+              className="line-clamp-2 max-w-[68ch] text-center text-[15px] leading-[1.45] text-foreground"
+            >
+              {beat >= 0 ? beats[beat].text : `${beats.length} points on this page. Scroll to step through them.`}
+            </motion.p>
+          </AnimatePresence>
+          <div role="tablist" aria-label="Points on this page" className="flex max-w-full gap-1.5 overflow-x-auto [scrollbar-width:none]">
+            {[{ label: 'All', i: -1 }, ...beats.map((b, i) => ({ label: b.label, i }))].map((b) => {
+              const on = b.i === beat;
+              return (
+                <button
+                  key={b.i}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => pickBeat(b.i)}
+                  className={cn(
+                    'console-focusable relative h-8 shrink-0 rounded-full px-3.5 text-[12.5px] transition-colors',
+                    on ? 'text-foreground' : 'bg-white/[0.05] text-quiet hover:bg-white/[0.09] hover:text-foreground',
+                  )}
+                >
+                  {on && (
+                    <motion.span
+                      layoutId="faces-beat"
+                      transition={{ duration: reduce ? 0 : timing.card }}
+                      className="absolute inset-0 rounded-full bg-white/[0.16]"
+                    />
+                  )}
+                  <span className="relative">{b.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* The page line: where you are, and the turn. */}
+      <div
+        className="pointer-events-none absolute bottom-5 z-30 flex flex-col items-center gap-2 px-4"
+        style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
+      >
+        {!engaged && view === 'slide' && (
+          <p className="hidden text-[12px] text-faint sm:block">
+            Use ← → to turn pages. Select words to ask about them, or to read them as text.
+          </p>
+        )}
+        <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-white/[0.07] p-1 text-[12.5px]">
+          <button
+            type="button"
+            onClick={() => turnPage(-1)}
+            disabled={pdfPage <= 1}
+            aria-label="Previous page"
+            className="console-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+          >
+            <ChevronLeft aria-hidden className="h-4 w-4" />
+          </button>
+          <span className="min-w-[4.5rem] shrink-0 text-center tabular-nums text-quiet">
+            <span className="text-foreground">{pdfPage}</span>
+            {numPages > 0 && <span className="text-faint"> / {numPages}</span>}
+          </span>
+          <button
+            type="button"
+            onClick={() => turnPage(1)}
+            disabled={numPages > 0 && pdfPage >= numPages}
+            aria-label="Next page"
+            className="console-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+          >
+            <ChevronRight aria-hidden className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <Studio
-        open={studio && !bench}
-        where={`${section.name} · Page ${anchor.page}`}
+        open={view === 'explain' && !bench}
+        label="Explain"
+        where={section.name}
+        page={anchor.page}
         onClose={escapeStudio}
         panel={panel}
+        width={panelWidth}
+      >
+        <ExplainPanel
+          answerKey={`${lesson.id}-${pdfPage}`}
+          answer={answer}
+          page={pdfPage}
+          onSpot={setSpot}
+          onAsk={(q) => {
+            setQuote(q);
+            openTutor(q, pdfPage);
+          }}
+        />
+      </Studio>
+
+      <Studio
+        open={view === 'text' && !bench}
+        where={section.name}
+        page={anchor.page}
+        onClose={escapeStudio}
+        panel={panel}
+        width={panelWidth}
       >
         <ReadingFace
           title={lesson.title}
@@ -562,7 +868,8 @@ export default function LessonFacesScreen() {
           companion={companion ? { page: companion.page, node: companionNode } : null}
           footer={footer}
           scrollRef={textRef}
-          articleClassName="px-6 pb-[40vh] pt-8"
+          compact
+          articleClassName="pb-[40vh] pl-14 pr-7 pt-9 [&_li]:text-[16px] [&_ol]:text-[16px] [&_p]:text-[16px] [&_ul]:text-[16px] [&_p]:leading-[1.65]"
         />
       </Studio>
 

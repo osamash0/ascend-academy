@@ -12,10 +12,14 @@ import LessonFacesScreen from '../../screens/LessonFacesScreen';
 const jumps: number[] = [];
 vi.mock('@/components/pdf', () => ({
   PdfPage: ({ page }: { page: number }) => <div data-testid="sheet" data-page={page} />,
-  PdfScroll: ({ scrollRef }: { scrollRef: RefObject<HTMLDivElement> }) => (
-    <div ref={scrollRef} data-testid="document" />
-  ),
-  scrollToPdfPage: (_el: HTMLElement, page: number) => jumps.push(page),
+  PdfPager: ({ rootRef, page }: { rootRef: RefObject<HTMLDivElement>; page: number }) => {
+    jumps.push(page);
+    return (
+      <div ref={rootRef} data-testid="document">
+        Page {page}
+      </div>
+    );
+  },
   pdfPageId: (p: number) => `pdf-page-${p}`,
   sampleAccent: () => null,
 }));
@@ -34,7 +38,7 @@ const renderFaces = async (path = '/v4/space/s-dbs/lesson/l-s-dbs-4/faces') => {
   return utils;
 };
 
-const pageLine = () => screen.getByText(/^Page \d+$/);
+const pageLine = () => screen.getByTestId('document');
 const spineTick = (name: string) =>
   screen
     .getByRole('navigation', { name: 'Concepts in this Lesson' })
@@ -47,13 +51,14 @@ describe('the document, and nothing else', () => {
     expect(screen.getByRole('link', { name: 'Leave the reader' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Concepts in this Lesson' })).toBeInTheDocument();
     expect(pageLine()).toHaveTextContent('Page 1');
-    expect(screen.getByText('Select words on the page to ask about them, or to read them as text.')).toBeInTheDocument();
+    expect(screen.getByText('Use ← → to turn pages. Select words to ask about them, or to read them as text.')).toBeInTheDocument();
   });
 
-  it('has no studio, no tablist and no ask bar until asked', async () => {
+  it('has no studio, no tablist but the view switch, and no ask bar until asked', async () => {
     await renderFaces();
     expect(screen.queryByRole('complementary', { name: 'Studio' })).toBeNull();
-    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Explain' })).toBeNull();
+    expect(screen.getAllByRole('tablist').map((t) => t.getAttribute('aria-label'))).toEqual(['How to read this page']);
     expect(screen.queryByPlaceholderText('Ask about this Lesson')).toBeNull();
     expect(screen.queryByRole('button', { name: /Notes for/ })).toBeNull();
   });
@@ -81,16 +86,17 @@ describe('the document, and nothing else', () => {
 });
 
 describe('the studio is a layer above the document', () => {
-  it('opens from the Concept in the page line, at the current page, and closes on Escape', async () => {
+  it('opens from the Text view, at the current page, and closes on Escape', async () => {
     await renderFaces();
-    fireEvent.click(screen.getByRole('button', { name: 'Functional dependency', pressed: false }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Text' }));
     const studio = await screen.findByRole('complementary', { name: 'Studio' });
-    expect(within(studio).getByText('Functional dependency · Page 1')).toBeInTheDocument();
+    expect(within(studio).getAllByText('Functional dependency')[0]).toBeInTheDocument();
+    expect(within(studio).getByText('Page 1')).toBeInTheDocument();
     expect(within(studio).getByRole('region', { name: 'The text' })).toBeInTheDocument();
     // The marks are on inside the studio: it is the earned layer.
     expect(within(studio).getAllByRole('button', { name: /Notes for/ }).length).toBeGreaterThan(0);
     // The hint has done its job.
-    expect(screen.queryByText(/Select words on the page/)).toBeNull();
+    expect(screen.queryByText(/Select words to ask/)).toBeNull();
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Studio' })).toBeNull());
     // The document is still there underneath.
@@ -151,5 +157,26 @@ describe('a Lesson with nothing to read', () => {
     );
     expect(await screen.findByText('Nothing to read yet', {}, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to the Lesson' })).toBeInTheDocument();
+  });
+});
+
+describe('Explain answers the page as an interface', () => {
+  it('composes an answer for the page in view, beside the document', async () => {
+    await renderFaces();
+    fireEvent.click(screen.getByRole('tab', { name: 'Explain' }));
+    const panel = await screen.findByRole('complementary', { name: 'Explain' });
+    expect(within(panel).getByText('Page 1')).toBeInTheDocument();
+    expect(screen.getByTestId('document')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Explain' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('follows the document: a new page is a new answer', async () => {
+    await renderFaces();
+    fireEvent.click(screen.getByRole('tab', { name: 'Explain' }));
+    const panel = await screen.findByRole('complementary', { name: 'Explain' });
+    fireEvent.click(spineTick('1NF'));
+    await waitFor(() =>
+      expect(within(panel).getByText('A ladder: each rung forbids one more kind of redundancy')).toBeInTheDocument(),
+    );
   });
 });

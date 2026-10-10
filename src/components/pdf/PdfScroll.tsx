@@ -69,7 +69,7 @@ export function PdfScroll({
   className,
   padTop = 96,
   padBottom = 240,
-  gap = 24,
+  gap = 32,
 }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [aspect, setAspect] = useState(405 / 720);
@@ -153,7 +153,7 @@ export function PdfScroll({
               key={p}
               id={pdfPageId(p)}
               data-pdf-page={p}
-              className="mx-auto overflow-hidden rounded-2xl bg-white shadow-[0_32px_96px_-32px_rgba(255,255,255,0.10),0_24px_60px_rgba(0,0,0,0.45)]"
+              className="mx-auto overflow-hidden rounded-xl bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_2px_6px_rgba(0,0,0,0.3),0_28px_64px_-16px_rgba(0,0,0,0.65)]"
               style={{ width, height: Math.round(width * aspect), marginBottom: gap }}
             >
               {near.has(p) && (
