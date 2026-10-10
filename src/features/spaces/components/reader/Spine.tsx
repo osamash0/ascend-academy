@@ -14,6 +14,9 @@ import { timing } from './Planes';
  * it is not the way to move: scrolling is. It is not progress either. Which
  * ideas are cleared is a readout of what the engine already knows, shown as
  * a filled tick; nothing here changes it.
+ *
+ * Open, the names sit on a pane of their own. They used to fan out straight
+ * over the slide, grey on white, and could not be read where they landed.
  */
 
 interface Props {
@@ -40,7 +43,14 @@ export function Spine({ concepts, currentId, onJump, right = 12 }: Props) {
       style={{ right }}
       className="fixed top-1/2 z-30 -translate-y-1/2"
     >
-      <ol className="flex flex-col items-end gap-0.5">
+      <motion.span
+        aria-hidden
+        initial={false}
+        animate={{ opacity: open ? 1 : 0 }}
+        transition={{ duration: timing.mark }}
+        className="pointer-events-none absolute -inset-y-2 -left-2 -right-2 rounded-2xl border border-white/[0.08] bg-[#0b0b0c]/90 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+      />
+      <ol className="relative flex flex-col items-end gap-0.5">
         {concepts.map((c) => {
           const current = c.id === currentId;
           return (
@@ -50,20 +60,26 @@ export function Spine({ concepts, currentId, onJump, right = 12 }: Props) {
                 onClick={() => onJump(c.id)}
                 aria-current={current ? 'location' : undefined}
                 aria-label={c.name}
-                className="console-focusable flex h-7 items-center justify-end gap-3 rounded-md px-2 transition-colors hover:bg-white/[0.05]"
+                className={cn(
+                  'console-focusable flex h-7 items-center justify-end gap-3 rounded-lg px-2 transition-colors',
+                  open && 'hover:bg-white/[0.07]',
+                )}
               >
-                <motion.span
-                  initial={false}
-                  animate={{ opacity: open ? 1 : 0, x: open ? 0 : 6 }}
-                  transition={{ duration: timing.mark }}
-                  aria-hidden
-                  className={cn(
-                    'whitespace-nowrap text-[12.5px] tabular-nums',
-                    current ? 'text-foreground' : 'text-quiet',
-                  )}
-                >
-                  {c.name}
-                </motion.span>
+                {/* Only while open: hidden names must not catch the pointer over the slide. */}
+                {open && (
+                  <motion.span
+                    initial={{ opacity: 0, x: 6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: timing.mark }}
+                    aria-hidden
+                    className={cn(
+                      'max-w-[280px] truncate text-[12.5px] tabular-nums',
+                      current ? 'text-foreground' : 'text-quiet',
+                    )}
+                  >
+                    {c.name}
+                  </motion.span>
+                )}
                 <span
                   aria-hidden
                   className={cn(

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ChevronLeft, ChevronRight, ListChecks } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListChecks, Moon, PanelLeftClose, PanelLeftOpen, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfPager, sampleAccent } from '@/components/pdf';
 import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
@@ -13,6 +13,9 @@ import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { isLive, useAsker, useExplain, useReaderContent, useReaderLesson, useRelated } from '../data/useReader';
 import { markTrail } from '../data/trail';
 import { GlassPill } from '../components/reader/glass/GlassPill';
+import { readPrefs, writePrefs, type ReaderPrefs } from '../data/readerPrefs';
+import { useIdle } from '../components/reader/useIdle';
+import { BreakNudge, BreakRoom, useReadingCare } from '../components/reader/ReadingCare';
 import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
@@ -413,6 +416,23 @@ export default function LessonFacesScreen() {
     return () => window.removeEventListener('keydown', onKey);
   }, [studio, bench, openStudio, closeStudio]);
 
+  /* Settings that belong to this viewer: night paper, pinned contents, the hint seen. */
+  const [prefs, setPrefs] = useState<ReaderPrefs>(readPrefs);
+  const setPref = useCallback((patch: Partial<ReaderPrefs>) => setPrefs(writePrefs(patch)), []);
+  /* The hint is for a first visit: the first page turned, it has done its work. */
+  const firstPage = useRef(pdfPage);
+  useEffect(() => {
+    if (!prefs.hinted && pdfPage !== firstPage.current) setPref({ hinted: true });
+  }, [pdfPage, prefs.hinted, setPref]);
+
+  /*
+   * A long session is mostly looking at one page. On the plain slide, once
+   * nothing has moved for a few seconds, everything but the page fades away;
+   * the first touch brings it all back. A hairline of progress stays.
+   */
+  const care = useReadingCare(pdfPage, ready);
+  const quiet = useIdle(ready && view === 'slide' && !bench && !care.due && !care.resting, 2800);
+
   const asker = useAsker(spaceId, lessonId);
   /* The idea in view, wherever else the course teaches it. */
   const ideaName = anchor ? sections.find((x) => x.conceptId === anchor.conceptId)?.name ?? '' : '';
@@ -626,13 +646,24 @@ export default function LessonFacesScreen() {
   const docked = studio && panel;
   /* The panel's width beside the page: half-ish, never cramped, never vast. */
   const panelWidth = Math.round(Math.min(680, Math.max(440, vw * 0.42)));
-  const showToc = vw >= (docked ? TOC_WITH_PANEL : TOC_ALONE);
+  /* The full contents only when pinned; otherwise the spine's hairline index. */
+  const showToc = prefs.tocPinned && vw >= (docked ? TOC_WITH_PANEL : TOC_ALONE);
+  const canPin = vw >= (docked ? TOC_WITH_PANEL : TOC_ALONE);
+  /* Chrome fades as one; it comes back faster than it goes. */
+  const fade = {
+    initial: false,
+    animate: { opacity: quiet ? 0 : 1 },
+    transition: { duration: quiet ? 0.9 : 0.2 },
+  } as const;
+  const night = prefs.night;
   /* The stage's own width decides whether the masthead can sit centred beside the switch. */
   const narrowHead = vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980;
   const block = blockOf(pdfPage);
   const beats = beatsOf(pdfPage);
   /* The slide view keeps a band under the page for its points. */
-  const stageBottom = view === 'slide' && beats.length >= 2 ? 172 : 88;
+  /* The first-visit hint takes a line of its own under the points. */
+  const hintShown = !prefs.hinted && !engaged && view === 'slide';
+  const stageBottom = (view === 'slide' && beats.length >= 2 ? 128 : 88) + (hintShown ? 22 : 0);
 
   return chrome(
     <div
@@ -679,11 +710,14 @@ export default function LessonFacesScreen() {
         }}
       />
 
-      <ReaderExit to={back} />
+      <motion.div {...fade}>
+        <ReaderExit to={back} />
+      </motion.div>
 
       {/* The masthead: where you are, what this is, and how to look at it. */}
       {/* Centred where there is room; beside the exit, clear of the switch, where there is not. */}
-      <header
+      <motion.header
+        {...fade}
         className={cn(
           'pointer-events-none absolute inset-x-0 top-0 z-20 flex h-[88px] items-center',
           narrowHead ? 'justify-start pl-16 pr-[248px]' : 'justify-center px-20',
@@ -700,14 +734,39 @@ export default function LessonFacesScreen() {
             {lesson.title}
           </h1>
         </div>
-      </header>
+      </motion.header>
 
       {/* How to look at the page: alone, explained, or as text. */}
+      <motion.div {...fade} className="absolute top-5 z-[41] flex items-center gap-2" style={{ right: docked ? panelWidth + 20 : 20 }}>
+      {/* The page's own settings: the contents kept open, and night paper. */}
+      <div className="flex rounded-full bg-white/[0.07] p-1">
+        {canPin && (
+          <button
+            type="button"
+            onClick={() => setPref({ tocPinned: !prefs.tocPinned })}
+            aria-pressed={prefs.tocPinned}
+            aria-label={prefs.tocPinned ? 'Hide the contents' : 'Keep the contents open'}
+            title={prefs.tocPinned ? 'Hide the contents' : 'Keep the contents open'}
+            className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
+          >
+            {prefs.tocPinned ? <PanelLeftClose aria-hidden className="h-4 w-4" /> : <PanelLeftOpen aria-hidden className="h-4 w-4" />}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setPref({ night: !night })}
+          aria-pressed={night}
+          aria-label={night ? 'Light paper' : 'Night paper'}
+          title={night ? 'Light paper' : 'Night paper — dark slides for long sessions'}
+          className="console-focusable flex h-8 w-8 items-center justify-center rounded-full text-quiet transition-colors hover:bg-white/[0.08] hover:text-foreground"
+        >
+          {night ? <Sun aria-hidden className="h-4 w-4" /> : <Moon aria-hidden className="h-4 w-4" />}
+        </button>
+      </div>
       <div
         role="tablist"
         aria-label="How to read this page"
-        className="absolute top-5 z-[41] flex rounded-full bg-white/[0.07] p-1"
-        style={{ right: docked ? panelWidth + 20 : 20 }}
+        className="flex rounded-full bg-white/[0.07] p-1"
       >
         {VIEWS.map((v) => {
           const on = view === v.id;
@@ -741,7 +800,9 @@ export default function LessonFacesScreen() {
           );
         })}
       </div>
+      </motion.div>
 
+      <motion.div {...fade}>
       {showToc ? (
         <div className="absolute bottom-24 left-0 top-[120px] z-20 overflow-y-auto overflow-x-hidden pl-8 pr-4" style={{ width: TOC_WIDTH }}>
           <LessonToc sections={sections} conceptId={anchor.conceptId} page={pdfPage} onPage={goToPage} />
@@ -757,13 +818,14 @@ export default function LessonFacesScreen() {
           }}
         />
       )}
+      </motion.div>
 
       {/*
         The stage: the page, alone in the space the masthead, the contents
         and the panel leave. It refits when that space changes.
       */}
       <div
-        className="absolute"
+        className={cn('absolute', night && '[&_[data-pdf-page]]:bg-[#141414] [&_[data-pdf-page]_canvas]:[filter:invert(0.9)_hue-rotate(180deg)]')}
         style={{
           top: 88,
           bottom: stageBottom,
@@ -786,65 +848,53 @@ export default function LessonFacesScreen() {
         />
       </div>
 
-      {/* The slide's points, stepped by scrolling — the page's own explorer. */}
+      {/*
+        The slide's points, stepped by scrolling — the page's own explorer.
+        At rest it is a row of dots, one per point; pointing at it gives the
+        names, and the words of a point show only while you are on it.
+      */}
       {view === 'slide' && beats.length >= 2 && (
         <div
-          className="absolute z-20 flex flex-col items-center gap-3 px-6"
-          style={{ bottom: 84, height: 80, left: showToc ? TOC_WIDTH : 0, right: 0 }}
+          className="pointer-events-none absolute z-20 flex flex-col items-center justify-end gap-2 px-6"
+          style={{ bottom: hintShown ? 88 : 66, height: 64, left: showToc ? TOC_WIDTH : 0, right: 0 }}
         >
           <AnimatePresence mode="wait" initial={false}>
-            <motion.p
-              key={`${pdfPage}-${beat}`}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: timing.mark }}
-              className="line-clamp-2 max-w-[68ch] text-center text-[15px] leading-[1.45] text-foreground"
-            >
-              {beat >= 0 ? beats[beat].text : `${beats.length} points on this page. Scroll to step through them.`}
-            </motion.p>
+            {beat >= 0 && (
+              <motion.p
+                key={`${pdfPage}-${beat}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: timing.mark }}
+                className="line-clamp-1 max-w-[68ch] text-center text-[14.5px] leading-[1.45] text-foreground"
+              >
+                {beats[beat].text}
+              </motion.p>
+            )}
           </AnimatePresence>
-          <div role="tablist" aria-label="Points on this page" className="flex max-w-full gap-1.5 overflow-x-auto [scrollbar-width:none]">
-            {[{ label: 'All', i: -1 }, ...beats.map((b, i) => ({ label: b.label, i }))].map((b) => {
-              const on = b.i === beat;
-              return (
-                <button
-                  key={b.i}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => pickBeat(b.i)}
-                  className={cn(
-                    'console-focusable relative h-8 shrink-0 rounded-full px-3.5 text-[12.5px] transition-colors',
-                    on ? 'text-foreground' : 'bg-white/[0.05] text-quiet hover:bg-white/[0.09] hover:text-foreground',
-                  )}
-                >
-                  {on && (
-                    <motion.span
-                      layoutId="faces-beat"
-                      transition={{ duration: reduce ? 0 : timing.card }}
-                      className="absolute inset-0 rounded-full bg-white/[0.16]"
-                    />
-                  )}
-                  <span className="relative">{b.label}</span>
-                </button>
-              );
-            })}
-          </div>
+          <motion.div {...fade} className="pointer-events-auto">
+            <PointDots beats={beats} beat={beat} onPick={pickBeat} />
+          </motion.div>
         </div>
       )}
 
       {/* The page line: where you are, and the turn. */}
-      <div
+      <motion.div
+        {...fade}
         className="pointer-events-none absolute bottom-5 z-30 flex flex-col items-center gap-2 px-4"
         style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
       >
-        {!engaged && view === 'slide' && (
+        {hintShown && (
           <p className="hidden text-[12px] text-faint sm:block">
-            Use ← → to turn pages. Select words to ask about them, or to read them as text.
+            ← → turns the page{beats.length >= 2 ? ', scrolling steps through its points' : ''}. Select words to ask about them.
           </p>
         )}
-        <GlassPill sourceRef={pdfRef} watch={pdfPage} className="pointer-events-auto text-[12.5px]">
+        <GlassPill
+          sourceRef={pdfRef}
+          watch={`${pdfPage}-${night}`}
+          paperFilter={night ? 'invert(0.9) hue-rotate(180deg)' : undefined}
+          className="pointer-events-auto text-[12.5px]"
+        >
           <button
             type="button"
             onClick={() => turnPage(-1)}
@@ -868,7 +918,30 @@ export default function LessonFacesScreen() {
             <ChevronRight aria-hidden className="h-4 w-4" />
           </button>
         </GlassPill>
-      </div>
+      </motion.div>
+
+      {/* Where you are in the deck, as a hairline that stays when everything else has gone. */}
+      {numPages > 0 && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-0 z-30 h-[2px] bg-white/[0.05]"
+          style={{ left: showToc ? TOC_WIDTH : 0, right: docked ? panelWidth : 0 }}
+        >
+          <motion.div
+            className="h-full origin-left"
+            style={{ background: 'var(--reader-accent, hsl(var(--secondary)))', opacity: 0.75 }}
+            initial={false}
+            animate={{ scaleX: pdfPage / numPages }}
+            transition={{ duration: reduce ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
+          />
+        </div>
+      )}
+
+      <BreakNudge
+        care={care}
+        checkHref={isLive(space.id, lesson.id) ? `/v4/space/${space.id}/rehearse?lectures=${lesson.id}` : undefined}
+      />
+      <BreakRoom care={care} page={pdfPage} />
 
       <Studio
         open={view === 'explain' && !bench}
@@ -947,5 +1020,68 @@ export default function LessonFacesScreen() {
 
       {pagerShowing && <LessonPager spaceId={space.id} prev={prev} next={next} keys={false} />}
     </div>,
+  );
+}
+
+/**
+ * A page's points as dots. Pointing at the row (or tabbing into it) opens
+ * it into named chips; "All" is the whole page again.
+ */
+function PointDots({
+  beats,
+  beat,
+  onPick,
+}: {
+  beats: { label: string }[];
+  beat: number;
+  onPick: (i: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const items = [{ label: 'All', i: -1 }, ...beats.map((b, i) => ({ label: b.label, i }))];
+  return (
+    <div
+      role="tablist"
+      aria-label="Points on this page"
+      onPointerEnter={() => setOpen(true)}
+      onPointerLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+      }}
+      className="flex max-w-[90vw] items-center gap-0.5 overflow-x-auto rounded-full px-1 [scrollbar-width:none]"
+    >
+      {items.map((b) => {
+        const on = b.i === beat;
+        return (
+          <button
+            key={b.i}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            aria-label={b.label}
+            title={open ? undefined : b.label}
+            onClick={() => onPick(b.i)}
+            className={cn(
+              'console-focusable flex h-8 shrink-0 items-center justify-center rounded-full transition-colors',
+              open ? 'px-3 text-[12.5px]' : 'w-6',
+              open && (on ? 'bg-white/[0.16] text-foreground' : 'text-quiet hover:bg-white/[0.08] hover:text-foreground'),
+            )}
+          >
+            {open ? (
+              <span aria-hidden>{b.label}</span>
+            ) : (
+              <span
+                aria-hidden
+                className={cn(
+                  'block rounded-full',
+                  b.i < 0 ? 'h-1.5 w-3' : 'h-1.5 w-1.5',
+                  on ? 'bg-[color:var(--reader-accent,theme(colors.secondary.DEFAULT))]' : 'bg-white/[0.28]',
+                )}
+              />
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }

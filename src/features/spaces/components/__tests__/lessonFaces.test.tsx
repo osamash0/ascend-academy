@@ -51,7 +51,7 @@ describe('the document, and nothing else', () => {
     expect(screen.getByRole('link', { name: 'Leave the reader' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Concepts in this Lesson' })).toBeInTheDocument();
     expect(pageLine()).toHaveTextContent('Page 1');
-    expect(screen.getByText('Use ← → to turn pages. Select words to ask about them, or to read them as text.')).toBeInTheDocument();
+    expect(screen.getByText(/← → turns the page/)).toBeInTheDocument();
   });
 
   it('has no studio, no tablist but the view switch, and no ask bar until asked', async () => {

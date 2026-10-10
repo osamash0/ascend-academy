@@ -22,6 +22,8 @@ interface Props {
   sourceRef: RefObject<HTMLElement | null>;
   /** Anything that means the picture underneath changed (the page). */
   watch: unknown;
+  /** A CSS filter the slides are drawn with (night paper), so the glass bends what you see. */
+  paperFilter?: string;
   className?: string;
   children: ReactNode;
 }
@@ -88,7 +90,11 @@ function glassSupported(): boolean {
   return typeof WebGL2RenderingContext !== 'undefined';
 }
 
-export function GlassPill({ sourceRef, watch, className, children }: Props) {
+export function GlassPill({ sourceRef, watch, paperFilter, className, children }: Props) {
+  const filterRef = useRef(paperFilter);
+  useEffect(() => {
+    filterRef.current = paperFilter;
+  }, [paperFilter]);
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [live, setLive] = useState(glassSupported);
@@ -152,11 +158,13 @@ export function GlassPill({ sourceRef, watch, className, children }: Props) {
         });
       });
       const ops = backdropOps(area, slots);
+      b2d.filter = filterRef.current ?? 'none';
       ops.forEach((op) => {
         b2d.globalAlpha = op.alpha;
         b2d.drawImage(slots[op.index].canvas, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
       });
 
+      b2d.filter = 'none';
       try {
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, back);
