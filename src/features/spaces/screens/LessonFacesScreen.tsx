@@ -10,7 +10,8 @@ import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
-import { useAsker, useExplain, useReaderContent, useReaderLesson, useRelated } from '../data/useReader';
+import { isLive, useAsker, useExplain, useReaderContent, useReaderLesson, useRelated } from '../data/useReader';
+import { markTrail } from '../data/trail';
 import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
@@ -138,6 +139,12 @@ export default function LessonFacesScreen() {
 
   const pdfRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+
+  /* Leave a mark where you are, so the course can offer to pick up here. */
+  useEffect(() => {
+    if (!spaceId || !lessonId || !numPages || !isLive(spaceId)) return;
+    markTrail(lessonId, { page: pdfPage, pages: numPages, course: spaceId });
+  }, [spaceId, lessonId, pdfPage, numPages]);
 
   useEffect(() => {
     if (anchor || sections.length === 0) return;

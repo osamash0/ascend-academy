@@ -7,6 +7,8 @@ import { Scene, SURFACES } from '../components/Scene';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
 import { useCourse, useFind, useRehearsalHistory } from '../data/useReader';
+import { latestInCourse, readTrail } from '../data/trail';
+import { ideaAt, lightIdeas, type Light } from '../components/course/light';
 import { viewer } from '../mocks/people';
 
 /**
@@ -22,6 +24,11 @@ import { viewer } from '../mocks/people';
  * Read live (`useCourse`); the ideas of lectures nobody has opened yet are
  * grouped one by one as the page sits there, so the map draws itself once
  * and is instant after.
+ *
+ * The map remembers you. Each lecture's marker is a ring of how far you have
+ * read it (this browser's trail), the lecture you were last in is offered
+ * back at the top, and each idea is lit only once a rehearsal has tested you
+ * on it — right lights it, wrong marks it to revisit, untested stays dark.
  */
 
 const SUGGESTIONS = ['functional dependency', 'two phase locking', 'B+ tree', 'join'];
@@ -32,6 +39,9 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
   const found = useFind(courseId, query);
   const { history } = useRehearsalHistory(courseId);
   const reduce = useReducedMotion();
+  /* Read once: the trail only changes while you are in the reader. */
+  const [trail] = useState(readTrail);
+  const [resume] = useState(() => latestInCourse(courseId));
 
   const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.course} status="progress" motionKey={courseId}>
@@ -50,6 +60,15 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
     `${lessonHref(id)}/faces?page=${page}${spot ? `&spot=${encodeURIComponent(spot)}` : ''}`;
   /* The words the search matched, as the page has them — what the reader lights. */
   const litWords = (snippet: string) => /«([^»]+)»/.exec(snippet)?.[1];
+
+  const marks = history?.marks ?? [];
+  const lights = new Map(course.lectures.map((l) => [l.id, l.ideas ? lightIdeas(l.id, l.ideas, marks) : []]));
+  const allIdeas = course.lectures.reduce((n, l) => n + (l.ideas?.length ?? 0), 0);
+  const litCount = [...lights.values()].flat().filter((x) => x === 'lit').length;
+  const weakCount = [...lights.values()].flat().filter((x) => x === 'weak').length;
+
+  const resumeLecture = resume ? course.lectures.find((l) => l.id === resume.lectureId) : undefined;
+  const resumeIdea = resume && resumeLecture?.ideas ? resumeLecture.ideas[ideaAt(resumeLecture.ideas, resume.page)] : undefined;
 
   return chrome(
     <div className="relative pb-36">
@@ -96,6 +115,54 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
             </div>
           )}
         </div>
+
+        {/* Pick up where you left off. */}
+        {resume && resumeLecture && (
+          <motion.div
+            initial={reduce ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.1 }}
+            className="mx-auto mt-12 max-w-2xl"
+          >
+            <Link
+              to={readHref(resumeLecture.id, resume.page)}
+              className="console-focusable group relative flex items-center gap-5 overflow-hidden rounded-3xl border border-white/[0.09] bg-[#0b0b0c] p-3 pr-5 transition-colors hover:border-white/[0.18]"
+            >
+              <span className="relative block w-[132px] shrink-0 overflow-hidden rounded-2xl bg-white/[0.04] sm:w-[168px]">
+                {resumeLecture.poster ? (
+                  <img src={resumeLecture.poster} alt="" className="aspect-video w-full object-cover" />
+                ) : (
+                  <span className="block aspect-video" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12.5px] text-quiet">Pick up where you left off</span>
+                <span className="mt-0.5 block truncate text-[17px] font-medium text-foreground">{resumeLecture.title}</span>
+                <span className="mt-0.5 block truncate text-[13px] tabular-nums text-quiet">
+                  Page {resume.page} of {resume.pages}
+                  {resumeIdea && (
+                    <>
+                      <span aria-hidden className="mx-1.5 text-faint">·</span>
+                      {resumeIdea.name}
+                    </>
+                  )}
+                </span>
+                <span aria-hidden className="mt-3 block h-[3px] overflow-hidden rounded-full bg-white/[0.08]">
+                  <motion.span
+                    className="block h-full origin-left rounded-full bg-white"
+                    initial={reduce ? false : { scaleX: 0 }}
+                    animate={{ scaleX: resume.page / resume.pages }}
+                    transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                </span>
+              </span>
+              <span className="hidden h-10 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[13.5px] font-medium text-background sm:inline-flex">
+                Continue
+                <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          </motion.div>
+        )}
 
         {/* Where was that taught? */}
         <div className="relative mx-auto mt-12 max-w-2xl">
@@ -160,7 +227,22 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
         </div>
 
         {/* The journey. */}
-        <ol aria-label="Lectures" className="relative mt-20">
+        <div className="mt-20 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          <div>
+            <h2 className="text-[26px] font-medium tracking-[-0.02em]">The course, lit by what you know</h2>
+            <p className="mt-1 text-[13.5px] text-quiet">
+              {marks.length === 0
+                ? 'Every idea starts dark. A rehearsal lights the ones you get right.'
+                : `${litCount} of ${allIdeas} ideas lit${weakCount ? ` · ${weakCount} to revisit` : ''}`}
+            </p>
+          </div>
+          <ul aria-label="Legend" className="flex items-center gap-4 text-[12.5px] text-quiet">
+            <li className="flex items-center gap-1.5"><IdeaDot light="lit" />Tested, right</li>
+            <li className="flex items-center gap-1.5"><IdeaDot light="weak" />To revisit</li>
+            <li className="flex items-center gap-1.5"><IdeaDot light="dark" />Not tested yet</li>
+          </ul>
+        </div>
+        <ol aria-label="Lectures" className="relative mt-10">
           <span aria-hidden className="absolute bottom-6 left-[19px] top-6 w-px bg-gradient-to-b from-white/[0.18] via-white/[0.08] to-transparent" />
           {course.lectures.map((l, i) => (
             <motion.li
@@ -171,9 +253,7 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
               transition={{ duration: reduce ? 0 : 0.3 }}
               className="relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-5 pb-12"
             >
-              <span className="relative z-[1] flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.12] bg-black text-[13px] tabular-nums text-foreground">
-                {l.order}
-              </span>
+              <ReadRing order={l.order} read={trail[l.id] ? trail[l.id].page / trail[l.id].pages : 0} reduce={Boolean(reduce)} />
               <div className="grid gap-5 sm:grid-cols-[220px_minmax(0,1fr)]">
                 <Link
                   to={lessonHref(l.id)}
@@ -206,16 +286,26 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
                             style={{ width: w }}
                           />
                         ))
-                      : l.ideas.map((idea) => (
+                      : l.ideas.map((idea, k) => {
+                          const light = lights.get(l.id)?.[k] ?? 'dark';
+                          return (
                           <Link
                             key={`${idea.first_page}-${idea.name}`}
                             to={readHref(l.id, idea.first_page)}
-                            className="console-focusable inline-flex h-7 items-center gap-1.5 rounded-full bg-white/[0.05] px-3 text-[12.5px] text-quiet transition-colors hover:bg-white/[0.1] hover:text-foreground"
+                            aria-label={`${idea.name}, page ${idea.first_page}${light === 'lit' ? ', tested right' : light === 'weak' ? ', to revisit' : ''}`}
+                            className={cn(
+                              'console-focusable inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] transition-colors',
+                              light === 'lit' && 'bg-success/[0.1] text-foreground hover:bg-success/[0.16]',
+                              light === 'weak' && 'bg-destructive/[0.1] text-foreground hover:bg-destructive/[0.16]',
+                              light === 'dark' && 'bg-white/[0.04] text-quiet hover:bg-white/[0.09] hover:text-foreground',
+                            )}
                           >
+                            <IdeaDot light={light} />
                             {idea.name}
                             <span className="tabular-nums text-faint">p{idea.first_page}</span>
                           </Link>
-                        ))}
+                          );
+                        })}
                   </div>
                   <Link
                     to={readHref(l.id, 1)}
@@ -234,6 +324,50 @@ export default function CourseScreen({ courseId }: { courseId: string }) {
         </ol>
       </div>
     </div>,
+  );
+}
+
+/** An idea's light: a lit dot glows, a dark one is only an outline. */
+function IdeaDot({ light }: { light: Light }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'h-1.5 w-1.5 shrink-0 rounded-full',
+        light === 'lit' && 'bg-success shadow-[0_0_8px_hsl(var(--success))]',
+        light === 'weak' && 'bg-destructive shadow-[0_0_8px_hsl(var(--destructive))]',
+        light === 'dark' && 'border border-white/[0.3]',
+      )}
+    />
+  );
+}
+
+/** A lecture's marker on the line, ringed by how far you have read it. */
+function ReadRing({ order, read, reduce }: { order: number; read: number; reduce: boolean }) {
+  const R = 18;
+  return (
+    <span className="relative z-[1] flex h-10 w-10 items-center justify-center rounded-full bg-black text-[13px] tabular-nums text-foreground">
+      <svg aria-hidden viewBox="0 0 40 40" className="absolute inset-0 h-10 w-10 -rotate-90">
+        <circle cx="20" cy="20" r={R} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
+        {read > 0 && (
+          <motion.circle
+            cx="20"
+            cy="20"
+            r={R}
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            initial={reduce ? false : { pathLength: 0 }}
+            whileInView={{ pathLength: read }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          />
+        )}
+      </svg>
+      {order}
+      {read > 0 && <span className="sr-only">, {Math.round(read * 100)}% read</span>}
+    </span>
   );
 }
 

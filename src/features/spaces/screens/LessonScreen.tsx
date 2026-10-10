@@ -12,6 +12,7 @@ import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
 import { isLive, useReaderContent, useReaderLesson } from '../data/useReader';
+import { readTrail } from '../data/trail';
 import { sectionsFromRows, spineConcepts } from '../components/reader/anchors';
 import { LessonDeck } from '../components/lesson/LessonDeck';
 import { IdeaExplorer, type IdeaEntry } from '../components/lesson/IdeaExplorer';
@@ -90,6 +91,8 @@ export default function LessonScreen() {
   const [noteTick, setNoteTick] = useState(0);
   const content = useReaderContent(spaceId, lessonId);
   const [accent, setAccent] = useState<string | null>(null);
+  /* Where you stopped in this deck, if you have read it here before (a real course only). */
+  const mark = useMemo(() => (lessonId ? readTrail()[lessonId] : undefined), [lessonId]);
 
   const contributions = useMemo(
     () =>
@@ -175,13 +178,20 @@ export default function LessonScreen() {
 
   const start = () =>
     pdfUrl && sections.length
-      ? navigate(readerAt(lesson.percentComplete > 0 ? resumePage : 1))
+      ? navigate(readerAt(mark && mark.page > 1 ? mark.page : lesson.percentComplete > 0 ? resumePage : 1))
       : lesson.passages?.length
         ? navigate(`/v4/space/${space.id}/lesson/${lesson.id}/read`)
         : firstConcept
           ? navigate(`/v4/space/${space.id}/concept/${firstConcept.id}`)
           : navigate(`/v4/space/${space.id}/lesson/${lesson.id}/practice`);
-  const startLabel = done ? 'Review' : lesson.percentComplete > 0 ? 'Continue' : 'Start reading';
+  const startLabel =
+    mark && mark.page > 1 && pdfUrl
+      ? `Continue at page ${mark.page}`
+      : done
+        ? 'Review'
+        : lesson.percentComplete > 0
+          ? 'Continue'
+          : 'Start reading';
 
   return chrome(
     <div

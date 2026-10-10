@@ -72,6 +72,8 @@ export interface RehearsalHistory {
   attempts: { id: string; title: string; score: number; total: number; created_at: string }[];
   weak: WeakIdea[];
   steady_count: number;
+  /** Every tested idea's latest result, by the page it was asked about. */
+  marks?: { lecture_id: string; page: number; correct: boolean }[];
 }
 
 /** A page where a topic is taught. `snippet` marks the matched words «like this». */

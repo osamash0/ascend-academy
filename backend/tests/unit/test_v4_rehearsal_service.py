@@ -35,3 +35,41 @@ def test_closure_must_grow_and_bcnf_must_discriminate():
 def test_a_question_must_point_at_a_real_page_of_a_chosen_lecture():
     q = {**BASE, "kind": "order", "items": ["a", "b", "c"]}
     assert kinds(q, {**q, "page": 99}, {**q, "lecture_id": "7142693a-dd83-4bb5-8716-83d30b1dcc7a"}) == ["order"]
+
+
+def test_history_marks_each_idea_by_its_latest_answer(monkeypatch):
+    import asyncio
+    import datetime
+    import uuid
+
+    import backend.services.v4_rehearsal_service as svc
+
+    now = datetime.datetime(2026, 10, 10, tzinfo=datetime.timezone.utc)
+    newest = [{"lecture_id": LEC, "page": 30, "idea": "Closure", "kind": "closure", "correct": True}]
+    older = [
+        {"lecture_id": LEC, "page": 30, "idea": "closure ", "kind": "closure", "correct": False},
+        {"lecture_id": LEC, "page": 50, "idea": "BCNF", "kind": "bcnf", "correct": False},
+    ]
+    attempts = [
+        {"id": uuid.uuid4(), "title": "t", "score": 1, "total": 1, "results": newest, "created_at": now},
+        {"id": uuid.uuid4(), "title": "t", "score": 0, "total": 2, "results": older, "created_at": now},
+    ]
+
+    class Conn:
+        async def fetch(self, sql, *args):
+            return attempts if "v4_rehearsal_attempts" in sql else [{"id": LEC, "title": "Normalization"}]
+
+    class Ctx:
+        async def __aenter__(self):
+            return Conn()
+
+        async def __aexit__(self, *exc):
+            return False
+
+    async def connect():
+        return Ctx()
+
+    monkeypatch.setattr(svc, "get_db_connection", connect)
+    h = asyncio.run(svc.history(uuid.uuid4(), str(uuid.uuid4())))
+    assert sorted((m["page"], m["correct"]) for m in h["marks"]) == [(30, True), (50, False)]
+    assert [w["idea"] for w in h["weak"]] == ["BCNF"]
