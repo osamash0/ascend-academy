@@ -63,6 +63,10 @@ CREATE TABLE IF NOT EXISTS storage.buckets (
     id          text PRIMARY KEY,
     name        text NOT NULL,
     public      boolean DEFAULT false,
+    -- Present on real Supabase buckets; migrations set them (e.g. the avatars
+    -- bucket hardening in 20261010010000), so the stub must carry them too.
+    file_size_limit    bigint,
+    allowed_mime_types text[],
     created_at  timestamptz DEFAULT now()
 );
 

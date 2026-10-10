@@ -1,0 +1,149 @@
+{
+  "title": "Suit Locker",
+  "subtitle": "Every piece of gear is earned by learning. Nothing here is for sale.",
+  "slots": {
+    "suit": "Suit",
+    "visor": "Visor",
+    "gear": "Helmet",
+    "patch": "Patch",
+    "companion": "Companion",
+    "aura": "Aura",
+    "backdrop": "Scene"
+  },
+  "rarity": {
+    "common": "Common",
+    "rare": "Rare",
+    "epic": "Epic",
+    "legendary": "Legendary"
+  },
+  "hint": {
+    "rank": "Reach {{tier}} · {{current}} / {{target}} XP",
+    "level": "Reach level {{level}}",
+    "streak": "Keep a {{days}}-day streak",
+    "badge": "Earn the “{{badge}}” badge"
+  },
+  "mood": {
+    "curious": "Curious",
+    "bright": "Bright",
+    "blazing": "Blazing",
+    "waiting": "Waiting",
+    "focused": "Focused",
+    "celebrating": "Celebrating",
+    "thinking": "Thinking"
+  },
+  "actions": {
+    "surprise": "Surprise me",
+    "save": "Suit up",
+    "saving": "Saving…",
+    "saved": "Wearing it",
+    "savedToast": "Luna's suited up.",
+    "saveFailed": "Couldn't save Luna's outfit. Try again in a moment."
+  },
+  "next": {
+    "title": "Next on your ascent"
+  },
+  "toast": {
+    "title": "Luna found something for you",
+    "titleMany": "Luna found {{count}} new things for you",
+    "action": "Try it on"
+  },
+  "menu": "Customize Luna",
+  "items": {
+    "suit-moonlight": "Moonlight",
+    "suit-lavender": "Lavender",
+    "suit-mint": "Mint",
+    "suit-coral": "Coral",
+    "suit-midnight": "Midnight",
+    "suit-solar": "Solar Flare",
+    "suit-nebula": "Nebula Weave",
+    "suit-aurora": "Aurora",
+    "suit-gilded": "Gilded",
+    "visor-teal": "Teal",
+    "visor-violet": "Violet",
+    "visor-rose": "Rose",
+    "visor-cyan": "Cyan",
+    "visor-gold": "Gold",
+    "visor-prism": "Prism",
+    "gear-none": "Bare helmet",
+    "gear-antenna": "Comms antenna",
+    "gear-bulb": "Bright idea",
+    "gear-headphones": "Focus headphones",
+    "gear-mortarboard": "Mortarboard",
+    "gear-flame": "Flame crest",
+    "gear-laurel": "Laurel wreath",
+    "gear-halo": "Orbit halo",
+    "gear-starcrown": "Star crown",
+    "patch-star": "Star",
+    "patch-moon": "Crescent",
+    "patch-book": "Open book",
+    "patch-flame": "Ember",
+    "patch-bolt": "Lightning",
+    "patch-check": "Perfect",
+    "patch-question": "Curious",
+    "patch-heart": "Heart",
+    "patch-target": "Bullseye",
+    "patch-trophy": "Trophy",
+    "companion-none": "Flying solo",
+    "companion-comet": "Comet",
+    "companion-byte": "Byte",
+    "companion-spark": "Spark",
+    "companion-minimoon": "Mini moon",
+    "companion-owl": "Night owl",
+    "aura-none": "None",
+    "aura-stardust": "Stardust",
+    "aura-rings": "Planet rings",
+    "aura-ember": "Rising embers",
+    "aura-nebula": "Nebula",
+    "aura-supernova": "Supernova",
+    "backdrop-deepspace": "Deep space",
+    "backdrop-lunar": "Lunar base",
+    "backdrop-aurora": "Aurora night",
+    "backdrop-observatory": "Observatory",
+    "backdrop-galaxy": "Galactic core",
+    "suit-blush": "Blush",
+    "suit-tide": "Tidal",
+    "visor-amber": "Starlight",
+    "visor-mauve": "Mauve",
+    "visor-tide": "Tidal"
+  },
+  "stage": {
+    "alt": "Your Luna",
+    "tryOn": "Trying on"
+  },
+  "voice": {
+    "curious": "Hi, I'm Luna. Shall we explore your first lesson together?",
+    "bright": "You were here recently. I can feel it — I'm glowing.",
+    "blazing": "A whole week, every single day. Look at us shine!",
+    "waiting": "I kept the light on for you. Ready when you are.",
+    "focused": "Shh — deep work. I'll keep watch.",
+    "celebrating": "Oh, I love it. Thank you!",
+    "tryOn": "Ooh, I like this one. Let's earn it together.",
+    "thinking": "Hmm, let me think about that…"
+  },
+  "memory": {
+    "free": "Yours from day one.",
+    "rank": "Earned the day you became {{tier}}.",
+    "level": "Earned when you reached level {{level}}.",
+    "streak": "Earned with a {{days}}-day streak.",
+    "badge": "Earned with “{{badge}}”.",
+    "badgeOn": "Earned with “{{badge}}” · {{date}}"
+  },
+  "face": {
+    "title": "How people see you",
+    "body": "In leaderboards, friend lists and Spaces. Your Luna keeps her outfit either way.",
+    "luna": "Your Luna",
+    "lunaHint": "Dressed in the gear you've earned",
+    "photo": "Your photo",
+    "upload": "Upload a photo",
+    "photoHint": "JPG, PNG or WebP. Location data is removed.",
+    "replace": "Tap to replace",
+    "uploaded": "Photo updated.",
+    "backToLuna": "Luna's back. Your photo was deleted.",
+    "errors": {
+      "type": "That file type isn't supported. Try a JPG, PNG or WebP.",
+      "size": "That image is over 15 MB. Try a smaller one.",
+      "decode": "Couldn't read that image. Try a JPG or PNG.",
+      "upload": "Couldn't save your photo. Try again in a moment."
+    }
+  }
+}

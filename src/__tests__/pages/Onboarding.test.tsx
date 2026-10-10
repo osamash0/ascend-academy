@@ -158,11 +158,12 @@ describe('Onboarding', () => {
         expect.objectContaining({
           full_name: 'Alice',
           display_name: 'Alice',
-          avatar_url: expect.any(String),
           luna_suit_color: '#E8E4F0',
           luna_visor_tint: '#6B5B95',
         }),
       );
+      // Regression: onboarding used to save a DiceBear robot as the photo.
+      expect(updateSpy.mock.calls.find((c: unknown[]) => (c[0] as { full_name?: string })?.full_name === 'Alice')?.[0]).not.toHaveProperty('avatar_url');
       expect(setAcademicProfileMock).toHaveBeenCalledWith({ universityId: 'uni1', facultyId: 'fac1', programId: 'prog1', currentSemester: 1 });
       expect(confirmCatalogCoursesMock).toHaveBeenCalledWith([{ catalogCourseId: 'cat1', status: 'planned' }]);
       expect(enrollInCourseMock).toHaveBeenCalledWith('c1');
