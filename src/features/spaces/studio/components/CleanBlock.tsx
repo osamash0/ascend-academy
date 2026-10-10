@@ -63,6 +63,7 @@ export const CleanBlock = memo(function CleanBlock({
       data-gist={gist ? 'true' : undefined}
       data-morph={flies ? 'true' : undefined}
       data-flash={flash ? 'true' : undefined}
+      data-glow={glow ? 'true' : undefined}
       tabIndex={sourced ? 0 : undefined}
       onPointerEnter={(e) => sourced && onPointerEnter(block.id, e.pointerType)}
       // Touch fires pointerleave after every tap; only a mouse really leaves.

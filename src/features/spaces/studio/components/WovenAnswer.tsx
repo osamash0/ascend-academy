@@ -5,7 +5,7 @@ import { Markdown } from './Markdown';
 import {
   COLLAPSE_S, FLIGHT_EASE, GROW_S, RULE_S, WORD_BUDGET_S, WORD_LIMIT, WORD_S, WORD_STAGGER_S,
 } from '../motion';
-import { plainText } from '../text';
+import { firstWords, plainText } from '../text';
 import { useKeepPlace } from '../useKeepPlace';
 import type { GeneratedBlock } from '../types';
 
@@ -78,6 +78,11 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // No longer fresh mid-grow (you left Learn and came straight back): simply there.
+  useEffect(() => {
+    if (!fresh && !settled) setSettled(true);
+  }, [fresh, settled]);
+
   useEffect(() => {
     if (!leaving) return;
     const t = setTimeout(() => onRemoveRef.current(block.id), (reduce ? 0.15 : COLLAPSE_S) * 1000);
@@ -141,25 +146,31 @@ export function WovenAnswer({ block, fresh, onSettled, onRemove, onOpenPeek }: P
 
         {block.citations.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {block.citations.map((c, i) => (
-              c.blockId ? (
+            {block.citations.map((c, i) => {
+              // Two citations on one page must not read the same: the quote names each one.
+              const full = c.quote ? `${c.label} — ${c.quote}` : undefined;
+              const shown = c.quote ? `${c.label} · ${firstWords(c.quote, 3)}` : c.label;
+              return c.blockId ? (
                 <button
                   key={i}
                   type="button"
+                  aria-label={full}
+                  title={full}
                   onClick={() => c.blockId && onOpenPeek?.(c.blockId)}
                   className="console-focusable min-h-6 rounded-full bg-[rgb(var(--studio-chip))] px-2.5 text-[11.5px] tabular-nums text-quiet transition-colors hover:bg-[rgb(var(--studio-chip-hover))] hover:text-foreground"
                 >
-                  {c.label}
+                  {shown}
                 </button>
               ) : (
                 <span
                   key={i}
+                  title={full}
                   className="inline-flex min-h-6 items-center rounded-full bg-[rgb(var(--studio-chip))] px-2.5 text-[11.5px] tabular-nums text-quiet"
                 >
-                  {c.label}
+                  {shown}
                 </span>
-              )
-            ))}
+              );
+            })}
           </div>
         )}
 

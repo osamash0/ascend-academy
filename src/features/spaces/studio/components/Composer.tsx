@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { inDialog, isTyping } from '../keys';
 
 export type ComposerNotice =
@@ -50,41 +51,50 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
     if (fromInput) setValue('');
   };
   const chips = (showSuggestions || notice?.kind === 'unknown') && !answering;
+  /* A notice or the suggestions sit over the page: give them a soft ground so no words show through. */
+  const backed = !!notice || chips;
 
   return (
     <div className="relative flex w-full max-w-[560px] flex-col items-center gap-2">
-      <div role="status" aria-live="polite" className="flex flex-col items-center">
-      <AnimatePresence initial={false} mode="popLayout">
-        {notice?.kind === 'unknown' ? (
-          <motion.p key="unknown" {...fade} className="pointer-events-auto text-center text-[12.5px] text-quiet">
-            In this preview I can answer a few questions about Normalization — try one of these:
-          </motion.p>
-        ) : notice?.kind === 'removed' ? (
-          <motion.div key="removed" {...fade} className="pointer-events-auto flex items-center gap-2 text-[12.5px] text-quiet">
-            Answer removed
-            <button type="button" onClick={notice.onUndo} className={chip}>Undo</button>
-          </motion.div>
-        ) : notice?.kind === 'below' ? (
-          <motion.button key="below" type="button" {...fade} onClick={notice.onJump} className={chip}>
-            Added below ↓
-          </motion.button>
-        ) : hint ? (
-          <motion.p key="hint" {...fade} className="pointer-events-auto hidden text-center text-[12px] text-quiet sm:block">
-            {hint}
-          </motion.p>
-        ) : null}
-      </AnimatePresence>
-      </div>
-
-      <AnimatePresence initial={false}>
-        {chips && (
-          <motion.div key="chips" {...fade} className="flex flex-wrap justify-center gap-1.5">
-            {suggestions.map((s) => (
-              <button key={s} type="button" onClick={() => send(s)} className={chip}>{s}</button>
-            ))}
-          </motion.div>
+      <div
+        className={cn(
+          'flex flex-col items-center gap-2 rounded-2xl px-3 py-2 transition-colors',
+          backed && 'bg-background/80 backdrop-blur-md',
         )}
-      </AnimatePresence>
+      >
+        <div role="status" aria-live="polite" className="flex flex-col items-center">
+        <AnimatePresence initial={false} mode="popLayout">
+          {notice?.kind === 'unknown' ? (
+            <motion.p key="unknown" {...fade} className="pointer-events-auto text-center text-[12.5px] text-quiet">
+              In this preview I can answer a few questions about Normalization — try one of these:
+            </motion.p>
+          ) : notice?.kind === 'removed' ? (
+            <motion.div key="removed" {...fade} className="pointer-events-auto flex items-center gap-2 text-[12.5px] text-quiet">
+              Answer removed
+              <button type="button" onClick={notice.onUndo} className={chip}>Undo</button>
+            </motion.div>
+          ) : notice?.kind === 'below' ? (
+            <motion.button key="below" type="button" {...fade} onClick={notice.onJump} className={chip}>
+              Added below ↓
+            </motion.button>
+          ) : hint ? (
+            <motion.p key="hint" {...fade} className="pointer-events-auto hidden text-center text-[12px] text-quiet sm:block">
+              {hint}
+            </motion.p>
+          ) : null}
+        </AnimatePresence>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {chips && (
+            <motion.div key="chips" {...fade} className="flex flex-wrap justify-center gap-1.5">
+              {suggestions.map((s) => (
+                <button key={s} type="button" onClick={() => send(s)} className={chip}>{s}</button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       <form
         onSubmit={(e) => {

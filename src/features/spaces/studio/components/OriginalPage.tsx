@@ -129,10 +129,20 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
           );
         })}
 
-        {figures.length > 0 && (
-          <span className={cn(PILL, 'pointer-events-none absolute right-2 top-2 z-20 py-0.5')}>
-            {figures.length} {figures.length === 1 ? 'figure' : 'figures'} not in your version
-          </span>
+        {/* What got lost, said once per page — never a label on every running header and footer. */}
+        {(figures.length > 0 || texts.length > 0) && (
+          <div className="pointer-events-none absolute right-2 top-2 z-20 flex flex-col items-end gap-1">
+            {texts.length > 0 && (
+              <span className={cn(PILL, 'py-0.5')}>
+                {texts.length} {texts.length === 1 ? 'part' : 'parts'} not in your version
+              </span>
+            )}
+            {figures.length > 0 && (
+              <span className={cn(PILL, 'py-0.5')}>
+                {figures.length} {figures.length === 1 ? 'figure' : 'figures'} not in your version
+              </span>
+            )}
+          </div>
         )}
         {figures.map((s) => (
           <div
@@ -142,21 +152,22 @@ export function OriginalPage({ page, blocks, morph, materialName, onRegion, onIn
             className="pointer-events-none absolute rounded-[4px] border border-dashed border-black/20"
           />
         ))}
+        {/* The dashed outline is the control: a first click offers, a second adds. */}
         {texts.map((s) => (
-          <div
+          <button
             key={s.id}
+            type="button"
+            aria-label={`${offer === s.id ? 'Add to your version' : 'Not in your version'}: ${firstWords(s.text)}`}
+            onClick={() => (offer === s.id ? onInclude(s.id) : setOffer(s.id))}
             style={boxStyle(s.bbox)}
-            className="absolute rounded-[4px] border-2 border-dashed border-black/35"
+            className="absolute rounded-[4px] border-2 border-dashed border-black/35 outline-none transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-full before:min-h-6 before:w-full before:min-w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <button
-              type="button"
-              aria-label={`${offer === s.id ? 'Add to your version' : 'Not in your version'}: ${firstWords(s.text)}`}
-              onClick={() => (offer === s.id ? onInclude(s.id) : setOffer(s.id))}
-              className={cn(PILL, 'absolute -top-6 left-0 z-20 min-h-6 hover:bg-black/85')}
-            >
-              {offer === s.id ? 'Add to your version' : 'Not in your version'}
-            </button>
-          </div>
+            {offer === s.id && (
+              <span aria-hidden className={cn(PILL, 'absolute -top-6 left-0 z-20 flex min-h-6 items-center')}>
+                Add to your version
+              </span>
+            )}
+          </button>
         ))}
 
         {page.geometry === 'page' && mapped[0] && (

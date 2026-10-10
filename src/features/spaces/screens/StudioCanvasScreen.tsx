@@ -58,6 +58,8 @@ export default function StudioCanvasScreen() {
   const [flashId, setFlashId] = useState<string | null>(null);
   const [morphPage, setMorphPage] = useState<number | null>(null);
   const [flying, setFlying] = useState(false);
+  const shownFlying = useRef(false);
+  shownFlying.current = flying;
   const anchor = useRef<{ page: number; top: number } | null>(null);
   const backTimer = useRef<ReturnType<typeof setTimeout>>();
   /** The view on screen right now, readable from inside the switch. */
@@ -201,6 +203,14 @@ export default function StudioCanvasScreen() {
     if (el.isConnected && (document.activeElement === document.body || document.activeElement === null)) el.focus();
   }, [answering]);
 
+  /**
+   * The last flight's page keeps its layoutIds (so a flash on it isn't cut short by a remount);
+   * they go in the same commit as an answer arriving or leaving, or its paragraphs would glide.
+   */
+  const dropLayoutIds = useCallback(() => {
+    if (!shownFlying.current) setMorphPage(null);
+  }, []);
+
   const onAsk = async (question: string) => {
     if (!docRef.current) return;
     setAsked(true);
@@ -238,6 +248,7 @@ export default function StudioCanvasScreen() {
     const anchorBlock = base.blocks.find((b) => b.id === anchorId);
     const next = insertAnswer(base, block);
     docRef.current = next;
+    dropLayoutIds();
     setEdited(next);
     setFreshId(id);
     glowFor.current = id;
@@ -245,13 +256,22 @@ export default function StudioCanvasScreen() {
     setAnnounce(`Answer added under: ${anchorBlock ? firstWords(anchorBlock.markdown) : 'the end'}`);
   };
 
+  /* Leaving Learn ends any growth: on the way back the answer is simply there. */
+  useEffect(() => {
+    if (!original) return;
+    setFreshId(null);
+    glowFor.current = null;
+    setGlowId(null);
+  }, [original]);
+
   /* "Added below ↓": the fresh answer landed off-screen. */
   useEffect(() => {
     if (!freshId) return;
     const el = document.querySelector<HTMLElement>(`[data-block-id="${freshId}"]`);
     if (!el) return;
-    const r = el.getBoundingClientRect();
-    if (r.height === 0 || r.top <= window.innerHeight) return;
+    // A growing answer starts 0 px tall but its top is real; only skip when there is no layout at all.
+    if (el.getClientRects().length === 0) return;
+    if (el.getBoundingClientRect().top <= window.innerHeight) return;
     showNotice({
       kind: 'below',
       onJump: () => {
@@ -284,8 +304,14 @@ export default function StudioCanvasScreen() {
       const { doc: next, removed } = removeBlock(base, id);
       if (!removed) return;
       docRef.current = next;
+      dropLayoutIds();
       setEdited(next);
       setFreshId((f) => (f === id ? null : f));
+      // Removed before it settled: it never will, so its anchor stops glowing here.
+      if (glowFor.current === id) {
+        glowFor.current = null;
+        setGlowId(null);
+      }
       showNotice({
         kind: 'removed',
         onUndo: () => {
@@ -293,13 +319,14 @@ export default function StudioCanvasScreen() {
           if (now) {
             const back = restoreBlock(now, removed);
             docRef.current = back;
+            dropLayoutIds();
             setEdited(back);
           }
           showNotice(null);
         },
       });
     },
-    [showNotice],
+    [showNotice, dropLayoutIds],
   );
   const { open: openPeek } = peek;
   const onOpenPeekSource = useCallback(

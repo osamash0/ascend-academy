@@ -70,6 +70,25 @@ describe('OriginalPage', () => {
     expect(screen.getAllByRole('button', { name: /^Not in your version: / })).toHaveLength(1);
     unmount();
     render(<OriginalPage page={page} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
-    expect(screen.queryByText(/not in your version$/)).toBeNull();
+    expect(screen.queryByText(/figures? not in your version$/)).toBeNull();
+  });
+
+  it('summarises missing text once and makes the outline itself the control', () => {
+    const header = { id: 'h', page: 4, bbox: [0.1, 0.02, 0.5, 0.05] as [number, number, number, number], kind: 'paragraph' as const, text: 'Running header', readingOrder: 2 };
+    const two: SourcePage = { ...page, blocks: [...page.blocks, header] };
+    const onInclude = vi.fn();
+    const { unmount } = render(<OriginalPage page={two} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={onInclude} />);
+    expect(screen.getByText('2 parts not in your version')).toBeInTheDocument();
+    // No pill per block: the outlines carry the names, nothing is printed until you click one.
+    expect(screen.queryByText('Not in your version')).toBeNull();
+    expect(screen.queryByText('Add to your version')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Not in your version: Running header' }));
+    expect(screen.getAllByText('Add to your version')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Not in your version: footer' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add to your version: Running header' }));
+    expect(onInclude).toHaveBeenCalledWith('h');
+    unmount();
+    render(<OriginalPage page={page} blocks={blocks} morph={false} materialName="N.pdf" onRegion={vi.fn()} onInclude={vi.fn()} />);
+    expect(screen.getByText('1 part not in your version')).toBeInTheDocument();
   });
 });
