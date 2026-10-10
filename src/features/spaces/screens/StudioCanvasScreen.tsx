@@ -1,26 +1,36 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { LayoutGroup } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { useCanvas } from '../data/useSpaces';
 import { CanvasPage } from '../studio/components/CanvasPage';
 import { FullPageDialog } from '../studio/components/FullPageDialog';
+import { MorphSwitch } from '../studio/components/MorphSwitch';
 import { PeekSlot } from '../studio/components/Peek';
-import { groupByPage, regionForBlock } from '../studio/geometry';
+import { includeSourceBlock } from '../studio/edit';
+import { groupByPage, pickAnchorPage, regionForBlock } from '../studio/geometry';
+import { FLIGHT_S } from '../studio/motion';
+import { useMorph } from '../studio/useMorph';
 import { usePeek } from '../studio/usePeek';
 import { useReadingLine } from '../studio/useReadingLine';
 import { useStudioTheme } from '../studio/useStudioTheme';
 import { useWide } from '../studio/useWide';
 import type { Region } from '../studio/geometry';
-import type { CanvasDoc } from '../studio/types';
+import type { CanvasDoc, SourcePage } from '../studio/types';
 import '../studio/studio-surface.css';
 
-/** The Studio canvas — spec §3.2. The Material owns the screen; Peek lives in the gutter. */
+/**
+ * The Studio canvas — spec §3.2, §4. The Material owns the screen; Peek lives in the gutter.
+ *
+ * The screen owns every piece of cross-cutting state (the view, the anchor
+ * page, the open Peek, your edits) so nothing is lost when a panel unmounts.
+ */
 export default function StudioCanvasScreen() {
   const { canvasId } = useParams<{ canvasId: string }>();
   const { state, canvas, pages, material, spaceName } = useCanvas(canvasId);
   const [theme, toggleTheme] = useStudioTheme();
-  const [edited] = useState<CanvasDoc | null>(null);
+  const [edited, setEdited] = useState<CanvasDoc | null>(null);
   const doc = edited ?? canvas;
   const groups = useMemo(() => (doc ? groupByPage(doc.blocks) : []), [doc]);
 
@@ -29,19 +39,77 @@ export default function StudioCanvasScreen() {
   const column = useRef<HTMLElement>(null);
   /** A snapshot, so the dialog outlives the Peek that opened it. */
   const [fullRegion, setFullRegion] = useState<Region | null>(null);
+  const { close: closePeek } = peek;
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const [morphPage, setMorphPage] = useState<number | null>(null);
+  const [flying, setFlying] = useState(false);
+  const anchor = useRef<{ page: number; top: number } | null>(null);
+  const backTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  /** Runs right before the view changes: remember where you are, close Peek. */
+  const beforeSwitch = useCallback(() => {
+    const rects = Array.from(document.querySelectorAll<HTMLElement>('[data-page-anchor]')).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { page: Number(el.dataset.pageAnchor), top: r.top, bottom: r.bottom };
+    });
+    const page = pickAnchorPage(rects, window.innerHeight);
+    anchor.current = page === null ? null : { page, top: rects.find((r) => r.page === page)!.top };
+    setMorphPage(page);
+    setFlying(true);
+    closePeek();
+  }, [closePeek]);
+  const morph = useMorph({ onBeforeChange: beforeSwitch });
+
+  /* Keep your place: the anchor page's top stays where it was. */
+  useLayoutEffect(() => {
+    const a = anchor.current;
+    if (!a) return;
+    const el = document.querySelector<HTMLElement>(`[data-view="${morph.shown}"][data-page-anchor="${a.page}"]`);
+    if (el) window.scrollBy(0, el.getBoundingClientRect().top - a.top);
+    anchor.current = null;
+  }, [morph.shown]);
+
+  useEffect(() => {
+    if (!flying) return;
+    const t = setTimeout(() => setFlying(false), FLIGHT_S * 1000 + 300);
+    return () => clearTimeout(t);
+  }, [flying, morph.shown]);
+  useEffect(() => {
+    if (!flashId) return;
+    const t = setTimeout(() => setFlashId(null), 1200);
+    return () => clearTimeout(t);
+  }, [flashId]);
+  useEffect(() => () => clearTimeout(backTimer.current), []);
+
   const peekOpen = peek.state.status === 'open';
   const pinned = peek.state.status === 'open' && peek.state.pinned;
   const region = doc && peek.state.status === 'open' ? regionForBlock(doc.blocks, pages, peek.state.blockId) : null;
 
-  useReadingLine(pinned, column, peek.follow);
+  useReadingLine(pinned && morph.shown === 'clean', column, peek.follow);
   useEffect(() => {
     if (!peekOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !fullRegion) peek.close();
+      if (e.key !== 'Escape' || fullRegion) return;
+      // React re-renders between Radix's capture listener and ours, so the
+      // state guard alone can't stop one Esc closing both dialog and Peek.
+      if ((e.target as Element | null)?.closest?.('[role="dialog"]')) return;
+      closePeek();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [peekOpen, fullRegion, peek.close]);
+  }, [peekOpen, fullRegion, closePeek]);
+
+  const backToBlock = (blockId: string) => {
+    morph.setView('clean');
+    clearTimeout(backTimer.current);
+    backTimer.current = setTimeout(() => {
+      document.querySelector(`[data-block-id="${blockId}"]`)?.scrollIntoView?.({ block: 'center' });
+      setFlashId(blockId);
+    }, FLIGHT_S * 1000 + 50);
+  };
+  const include = (page: SourcePage, sourceBlockId: string) => {
+    if (doc) setEdited(includeSourceBlock(doc, page, sourceBlockId));
+  };
 
   const frame = (children: React.ReactNode) => (
     <div className="studio-surface min-h-screen" data-theme={theme}>
@@ -84,6 +152,16 @@ export default function StudioCanvasScreen() {
             <h1 className="truncate text-sm font-semibold">{material.filename}</h1>
             <p className="truncate text-xs text-muted-foreground">{spaceName}</p>
           </div>
+          {!material.sourceRemoved && (
+            <MorphSwitch
+              view={morph.view}
+              shown={morph.shown}
+              onPressStart={morph.pressStart}
+              onPressEnd={morph.pressEnd}
+              onPressCancel={morph.pressCancel}
+              onToggle={() => morph.setView(morph.view === 'clean' ? 'original' : 'clean')}
+            />
+          )}
           <button
             type="button"
             onClick={toggleTheme}
@@ -98,17 +176,25 @@ export default function StudioCanvasScreen() {
       <div className="mx-auto grid max-w-[90rem] gap-6 px-4 md:px-6 min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(0,46rem)_minmax(18rem,1fr)]">
         <div className="hidden min-[1200px]:block" />
         <main ref={column} className="min-w-0 py-10 pl-14 md:pl-16">
-          <CanvasPage
-            groups={groups}
-            pages={pages}
-            activeBlockId={peek.state.status === 'open' ? peek.state.blockId : null}
-            flashBlockId={null}
-            sourceRemoved={material.sourceRemoved}
-            onBlockPointerEnter={peek.hoverBlock}
-            onBlockPointerLeave={peek.leaveBlock}
-            onOpenPeek={peek.open}
-            onClosePeek={peek.close}
-          />
+          <LayoutGroup>
+            <CanvasPage
+              groups={groups}
+              pages={pages}
+              view={morph.shown}
+              morphPage={morphPage}
+              flying={flying}
+              activeBlockId={peek.state.status === 'open' ? peek.state.blockId : null}
+              flashBlockId={flashId}
+              sourceRemoved={material.sourceRemoved}
+              materialName={material.filename}
+              onBlockPointerEnter={peek.hoverBlock}
+              onBlockPointerLeave={peek.leaveBlock}
+              onOpenPeek={peek.open}
+              onClosePeek={peek.close}
+              onRegion={backToBlock}
+              onInclude={include}
+            />
+          </LayoutGroup>
         </main>
         <div className="hidden min-[1200px]:block">
           <div className="sticky top-24 py-10">{wide && peekPanel}</div>

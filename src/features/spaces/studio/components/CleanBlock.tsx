@@ -1,12 +1,17 @@
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
-import { FLASH_FRAMES } from '../motion';
+import { FLASH_FRAMES, FLIGHT_EASE, FLIGHT_S, STAGGER_S, TEXT_FADE_S } from '../motion';
 import type { CanvasBlock } from '../types';
 
 interface Props {
   block: CanvasBlock;
   page: number;
+  /** Position within its page, for the reverse stagger on the way back. */
+  index: number;
+  count: number;
+  /** True on the anchor page right after a switch: the text fades in after landing. */
+  flying: boolean;
   lowConfidence: boolean;
   active: boolean;
   flash: boolean;
@@ -27,7 +32,7 @@ interface Props {
  * hover or focus to keep the margin quiet.
  */
 export function CleanBlock({
-  block, page, lowConfidence, active, flash, markerDisabled,
+  block, page, index, count, flying, lowConfidence, active, flash, markerDisabled,
   onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
 }: Props) {
   const extracted = block.origin === 'extracted';
@@ -47,8 +52,12 @@ export function CleanBlock({
           onClosePeek();
         }
       }}
+      layoutId={extracted ? `morph-${block.id}` : undefined}
       animate={flash ? { backgroundColor: FLASH_FRAMES } : undefined}
-      transition={{ backgroundColor: { duration: 1.2, times: [0, 0.6, 1] } }}
+      transition={{
+        layout: { duration: FLIGHT_S, ease: FLIGHT_EASE, delay: (count - 1 - index) * STAGGER_S },
+        backgroundColor: { duration: 1.2, times: [0, 0.6, 1] },
+      }}
       className={cn(
         'group relative -mx-3 rounded-lg px-3 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
         active && 'bg-[hsl(var(--studio-mark)/0.14)]',
@@ -70,11 +79,17 @@ export function CleanBlock({
             p.{page}
           </button>
         ))}
-      <Markdown
-        className={cn(lowConfidence && 'underline decoration-dotted decoration-muted-foreground underline-offset-4')}
+      <motion.div
+        initial={extracted && flying ? { opacity: 0 } : false}
+        animate={{ opacity: 1 }}
+        transition={{ delay: FLIGHT_S * 0.6, duration: TEXT_FADE_S }}
       >
-        {block.markdown}
-      </Markdown>
+        <Markdown
+          className={cn(lowConfidence && 'underline decoration-dotted decoration-muted-foreground underline-offset-4')}
+        >
+          {block.markdown}
+        </Markdown>
+      </motion.div>
     </motion.div>
   );
 }
