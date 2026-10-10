@@ -880,7 +880,7 @@ async def _stage_planning(
 
     # Honor the caller-selected provider as preferred head of the failover
     # chain. The orchestrator already handles provider rotation
-    # (cerebras → openrouter → cloudflare → groq → …) when the preferred
+    # (see QUALITY_CHAIN / BULK_CHAIN) when the preferred
     # provider is unavailable or rate-limited.
     plan_model = ai_model
 
@@ -934,7 +934,7 @@ async def _stage_finalize_deck(
     yield {"type": "phase", "phase": "finalize"}
     try:
         # Use the caller's selected provider; orchestrator failover handles
-        # cerebras → openrouter → cloudflare → groq → … if it's unavailable.
+        # through the chain if it's unavailable.
         final_model = ai_model
 
         if blueprint and blueprint.get("overall_summary"):

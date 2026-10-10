@@ -5,7 +5,7 @@ Provider chain (rate-limit data: github.com/cheahjs/free-llm-api-resources):
 
   ID            Model                       Daily req   TPM      Notes
   ──────────────────────────────────────────────────────────────────────
-  cerebras      gpt-oss-120b                 14,400      60,000   PRIMARY (fast + high quality)
+  cerebras      gpt-oss-120b                 14,400      60,000   OUT OF CHAINS (402 billing, 2026-10-10)
   groq_fast     llama-3.1-8b-instant        14,400       6,000   Fast fallback
   gemma         gemma-3-27b-it              14,400      15,000   Google SDK
   mistral       mistral-small-latest        ~unlimited  500,000  Needs phone verify
@@ -20,7 +20,7 @@ Two chains:
   QUALITY_CHAIN — blueprints / planning (low volume, quality-first)
 
 Required env vars (add what you have; missing keys disable that provider gracefully):
-  CEREBRAS_API_KEY      https://cloud.cerebras.ai          ← PRIMARY
+  CEREBRAS_API_KEY      https://cloud.cerebras.ai          (unused while out of the chains)
   GROQ_API_KEY          https://console.groq.com
   GEMINI_API_KEY        https://aistudio.google.com/apikey
   OPENROUTER_API_KEY    https://openrouter.ai/keys
@@ -159,9 +159,16 @@ class ProviderConfig:
     # older than PIN_MAX_AGE_DAYS — re-probe and bump it, or swap the slug.
     verified_on: datetime.date
     uses_google_sdk: bool = False
+    # For a leg nobody CAN verify right now (no API key, account issue): why,
+    # and when that was last confirmed. Exempts verified_on from the age check,
+    # but expires after PIN_MAX_AGE_DAYS itself so the exemption gets
+    # re-confirmed rather than forgotten. Set both or neither.
+    unverifiable_reason: Optional[str] = None
+    unverifiable_noted_on: Optional[datetime.date] = None
 
 
-# How old a verified_on may get before the unit test goes red.
+# How old a verified_on (or unverifiable_noted_on) may get before the unit
+# test goes red. Only legs a call can reach are checked — see the test.
 PIN_MAX_AGE_DAYS = 45
 
 
@@ -169,9 +176,11 @@ PIN_MAX_AGE_DAYS = 45
 PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
     p.id: p for p in [
         ProviderConfig(
-            # Cerebras GPT-OSS 120B — production model on Cerebras inference
-            # fabric (~3000 tok/s). Previously used Qwen-3-235B which was
-            # retired; gpt-oss-120b is the current production endpoint.
+            # Cerebras GPT-OSS 120B. REMOVED FROM BOTH CHAINS and from
+            # _USER_MODEL_TO_PROVIDER on 2026-10-10: the account answers
+            # 402 payment_required, and as the head of both chains every call
+            # paid a failed round-trip first. Kept registered so re-enabling is
+            # a re-probe plus putting "cerebras" back in the chains and the map.
             id="cerebras",
             model="gpt-oss-120b",
             verified_on=datetime.date(2026, 6, 5),
@@ -209,6 +218,8 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             id="mistral",
             model="mistral-small-latest",
             verified_on=datetime.date(2026, 5, 2),
+            unverifiable_reason="no MISTRAL_API_KEY configured; leg is disabled at runtime while keyless",
+            unverifiable_noted_on=datetime.date(2026, 10, 10),
             daily_limit=0, rpm=60, tpm=500_000,
             env_var="MISTRAL_API_KEY",
             base_url="https://api.mistral.ai/v1",
@@ -242,6 +253,8 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
             id="cloudflare",
             model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
             verified_on=datetime.date(2026, 5, 2),
+            unverifiable_reason="no CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID configured; leg is disabled at runtime while keyless",
+            unverifiable_noted_on=datetime.date(2026, 10, 10),
             daily_limit=10_000, rpm=300, tpm=0,
             env_var="CLOUDFLARE_API_TOKEN",
             base_url="https://api.cloudflare.com/client/v4/accounts",
@@ -307,20 +320,24 @@ CEREBRAS_MODEL  = PROVIDER_REGISTRY["cerebras"].model
 # Failover chains
 # ---------------------------------------------------------------------------
 
-# Bulk slide processing: highest daily capacity first; Groq 70B last (conserve quota)
-BULK_CHAIN:    List[str] = ["cerebras", "groq_fast", "cloudflare", "gemma", "mistral", "openrouter", "gemini", "groq", "openai"]
+# cerebras is out of both chains (402 billing, 2026-10-10) — see its registry entry.
 
-# Blueprint / planning / deck summaries: Cerebras (gpt-oss-120b) is now the
-# primary — it is both fast and high quality, and has the highest free-tier
-# daily quota of any provider in the registry. Groq 70B is held back as a
-# quality fallback after Cerebras and the deep-resilience providers.
-QUALITY_CHAIN: List[str] = ["cerebras", "groq", "openrouter", "cloudflare", "gemini", "mistral", "groq_fast", "gemma", "openai"]
+# Bulk slide processing: highest daily capacity first; Groq 70B last (conserve quota)
+BULK_CHAIN:    List[str] = ["groq_fast", "cloudflare", "gemma", "mistral", "openrouter", "gemini", "groq", "openai"]
+
+# Blueprint / planning / deck summaries: quality-first. Groq's gpt-oss-120b
+# leads now that Cerebras (same model, previously the head) is out.
+QUALITY_CHAIN: List[str] = ["groq", "openrouter", "cloudflare", "gemini", "mistral", "groq_fast", "gemma", "openai"]
 
 # Maps the user-facing ai_model string (sent from the frontend) to the
 # orchestrator's internal provider id. Values that don't map fall back to
 # the chain's natural head.
+#
+# "cerebras" is deliberately absent (2026-10-10): it is the app-wide default
+# ai_model, and _chain_with_preferred INSERTS a preferred provider even when it
+# is not in the chain — so mapping it would put the 402ing leg back at the
+# front of every call. Unmapped, "cerebras" now means "natural chain head".
 _USER_MODEL_TO_PROVIDER: Dict[str, str] = {
-    "cerebras":          "cerebras",
     "groq":              "groq",
     "groq_fast":         "groq_fast",
     "openrouter":        "openrouter",
@@ -1279,10 +1296,10 @@ async def generate_text(
     feature: Optional[str] = None,
 ) -> str:
     """
-    Quality chain: Cerebras → Groq 70B → OpenRouter → Cloudflare → Gemini → …
+    Quality chain: Groq gpt-oss-120b → OpenRouter → Cloudflare → Gemini → …
     Use for blueprints, planning, deck summaries.
     The user-selected ``ai_model`` is moved to the head of the chain when
-    it maps to a known provider (cerebras, groq, openrouter, cloudflare, gemini, ...).
+    it maps to a known provider (groq, openrouter, cloudflare, gemini, ...).
 
     Pass ``json_mode=True`` when the caller will run ``parse_json_response``
     on the reply (Foundation Roadmap P4-3) — this requests provider-native
@@ -1346,7 +1363,7 @@ async def generate_text_bulk(
     feature: Optional[str] = None,
 ) -> str:
     """
-    Bulk chain: Cerebras → Groq 8B → Cloudflare → Gemma → Mistral → OpenRouter → …
+    Bulk chain: Groq gpt-oss-20b → Cloudflare → Gemma → Mistral → OpenRouter → …
     Use for slide-by-slide processing to preserve the scarce Groq 70B quota.
     User-selected ``ai_model`` is honored at the head of the chain when known.
 

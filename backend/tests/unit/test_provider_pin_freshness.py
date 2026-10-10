@@ -54,8 +54,24 @@ def _stale(pins: dict[str, tuple[str, datetime.date]]) -> list[str]:
     return out
 
 
+def _reachable_provider_ids() -> set[str]:
+    # A leg a call can reach: in a failover chain, or promotable to the front
+    # by a user's ai_model (_chain_with_preferred inserts mapped providers even
+    # when they are not in the chain). Anything else is inert config.
+    return (
+        set(orch.BULK_CHAIN)
+        | set(orch.QUALITY_CHAIN)
+        | set(orch._USER_MODEL_TO_PROVIDER.values())
+    )
+
+
 def test_registry_pins_are_fresh():
-    pins = {pid: (cfg.model, cfg.verified_on) for pid, cfg in orch.PROVIDER_REGISTRY.items()}
+    reachable = _reachable_provider_ids()
+    pins = {
+        pid: (cfg.model, cfg.verified_on)
+        for pid, cfg in orch.PROVIDER_REGISTRY.items()
+        if pid in reachable and cfg.unverifiable_reason is None
+    }
     stale = _stale(pins)
     assert not stale, (
         f"{len(stale)} provider pin(s) older than {orch.PIN_MAX_AGE_DAYS} days:\n"
@@ -63,6 +79,38 @@ def test_registry_pins_are_fresh():
         + "\n"
         + HOW_TO_REVERIFY
     )
+
+
+def test_unverifiable_exemptions_are_complete_and_current():
+    today = _today()
+    problems = []
+    for pid, cfg in sorted(orch.PROVIDER_REGISTRY.items()):
+        reason, noted = cfg.unverifiable_reason, cfg.unverifiable_noted_on
+        if (reason is None) != (noted is None):
+            problems.append(f"  {pid}: set both unverifiable_reason and unverifiable_noted_on, or neither")
+        elif noted is not None:
+            if not reason.strip():
+                problems.append(f"  {pid}: unverifiable_reason is blank")
+            age = (today - noted).days
+            if age > orch.PIN_MAX_AGE_DAYS:
+                problems.append(
+                    f"  {pid}: marked unverifiable on {noted} ({age} days ago): {reason}"
+                )
+    assert not problems, (
+        "Unverifiable-leg exemptions need attention. Re-check whether each leg "
+        "can now be verified (key added? account fixed?). If yes, probe it and "
+        "clear both fields; if it is still unverifiable, confirm that and bump "
+        "unverifiable_noted_on.\n" + "\n".join(problems)
+    )
+
+
+def test_cerebras_stays_out_of_reach():
+    # Dropped 2026-10-10 (402 payment_required). "cerebras" is the app-wide
+    # default ai_model, so re-adding it to _USER_MODEL_TO_PROVIDER alone would
+    # put it back at the head of every call. Re-enable deliberately: probe it,
+    # set verified_on, then update this test.
+    assert "cerebras" not in _reachable_provider_ids()
+    assert orch._resolve_preferred("cerebras") is None
 
 
 def test_direct_model_pins_are_fresh():
@@ -86,5 +134,10 @@ def test_chain_aliases_come_from_the_registry():
 def test_no_pin_is_dated_in_the_future():
     today = _today()
     dates = [cfg.verified_on for cfg in orch.PROVIDER_REGISTRY.values()]
+    dates += [
+        cfg.unverifiable_noted_on
+        for cfg in orch.PROVIDER_REGISTRY.values()
+        if cfg.unverifiable_noted_on is not None
+    ]
     dates += [d for _, d in DIRECT_MODEL_PINS.values()]
     assert all(d <= today for d in dates), "verified_on is in the future — typo?"
