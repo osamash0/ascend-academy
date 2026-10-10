@@ -22,7 +22,10 @@ import type { ExplainAnswer } from './spec';
 interface Props {
   /** Identifies the answer — a page — so it composes once. */
   answerKey: string;
-  answer: ExplainAnswer;
+  /** Null while the answer is being written. */
+  answer: ExplainAnswer | null;
+  /** The model could not answer; this one is composed from the page's own text. */
+  fallback?: boolean;
   page: number;
   onSpot: (words: string | null) => void;
   /** A follow-up pressed: handed to the tutor. */
@@ -32,18 +35,19 @@ interface Props {
 /** How long one block takes to "arrive". */
 const BLOCK_MS = 520;
 
-export function ExplainPanel({ answerKey, answer, page, onSpot, onAsk }: Props) {
+export function ExplainPanel({ answerKey, answer, fallback = false, page, onSpot, onAsk }: Props) {
   const reduce = useReducedMotion();
   const seen = useRef(new Set<string>());
   const first = !seen.current.has(answerKey);
-  const [shown, setShown] = useState(first && !reduce ? 0 : answer.blocks.length);
+  const count = answer?.blocks.length ?? 0;
+  const [shown, setShown] = useState(first && !reduce ? 0 : count);
   const scroller = useRef<HTMLDivElement>(null);
 
   /* A new page: start composing, unless this page has been composed before. */
   const [keyNow, setKeyNow] = useState(answerKey);
   if (keyNow !== answerKey) {
     setKeyNow(answerKey);
-    setShown(seen.current.has(answerKey) || reduce ? answer.blocks.length : 0);
+    setShown(seen.current.has(answerKey) || reduce ? count : 0);
   }
 
   useEffect(() => {
@@ -52,21 +56,22 @@ export function ExplainPanel({ answerKey, answer, page, onSpot, onAsk }: Props) 
   }, [answerKey, onSpot]);
 
   useEffect(() => {
-    if (shown >= answer.blocks.length) {
+    if (!answer) return;
+    if (shown >= count) {
       seen.current.add(answerKey);
       return;
     }
     const t = setTimeout(() => setShown((n) => n + 1), shown === 0 ? 380 : BLOCK_MS);
     return () => clearTimeout(t);
-  }, [shown, answer.blocks.length, answerKey]);
+  }, [shown, count, answer, answerKey]);
 
-  const composing = shown < answer.blocks.length;
+  const composing = !answer || shown < count;
 
   return (
     <div ref={scroller} className="h-full overflow-y-auto">
       <div className="px-6 pb-24 pt-7">
         <motion.div
-          key={answerKey}
+          key={`${answerKey}-${answer ? 'a' : 'w'}`}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: timing.card }}
@@ -75,13 +80,22 @@ export function ExplainPanel({ answerKey, answer, page, onSpot, onAsk }: Props) 
             <Sparkles aria-hidden className="h-3.5 w-3.5" style={{ color: 'var(--reader-accent,hsl(var(--secondary)))' }} />
             Page {page}
             <span aria-hidden className="text-faint">·</span>
-            {answer.format}
+            {answer ? answer.format : 'Composing an answer for this page…'}
           </p>
-          <h2 className="mb-6 text-[24px] font-medium leading-[1.2] tracking-[-0.015em] text-foreground">{answer.title}</h2>
+          {answer ? (
+            <h2 className="mb-6 text-[24px] font-medium leading-[1.2] tracking-[-0.015em] text-foreground">{answer.title}</h2>
+          ) : (
+            <Shimmer className="mb-8 mt-3 h-[24px] w-4/5" />
+          )}
+          {fallback && (
+            <p className="-mt-3 mb-6 text-[12.5px] text-quiet">
+              Explain couldn’t reach the model just now, so this is built from the page’s own text.
+            </p>
+          )}
         </motion.div>
 
         <div className="space-y-5" aria-live="polite" aria-busy={composing}>
-          {answer.blocks.slice(0, shown).map((b, i) => (
+          {(answer?.blocks ?? []).slice(0, shown).map((b, i) => (
             <motion.div
               key={`${answerKey}-${i}`}
               initial={first && !reduce ? { opacity: 0, y: 12 } : false}
@@ -109,7 +123,7 @@ export function ExplainPanel({ answerKey, answer, page, onSpot, onAsk }: Props) 
           </AnimatePresence>
         </div>
 
-        {!composing && answer.next && answer.next.length > 0 && (
+        {!composing && answer?.next && answer.next.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

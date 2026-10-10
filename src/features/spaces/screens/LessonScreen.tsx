@@ -5,15 +5,13 @@ import { cn } from '@/lib/utils';
 import { LaunchButton, gradientFor } from '@/components/console';
 import { topicIcon } from '@/lib/topicIcon';
 import type { Concept, Lesson, Space } from '../types';
-import { spaceById } from '../mocks/spaces';
-import { adjacentLessons, visibleLesson } from '../mocks/lessons';
 import { contributionsForLesson } from '../mocks/contributions';
 import { visibleContributions } from '../mocks/engagement';
 import { addNote, deleteNote, notesForLesson, updateNote } from '../mocks/notes';
 import { viewer } from '../mocks/people';
 import { SpacesTopBar } from '../components/SpacesTopBar';
 import { Scene, SURFACES } from '../components/Scene';
-import { useLessonContent, useScreenState } from '../data/useSpaces';
+import { useReaderContent, useReaderLesson } from '../data/useReader';
 import { sectionsFromRows, spineConcepts } from '../components/reader/anchors';
 import { LessonDeck } from '../components/lesson/LessonDeck';
 import { IdeaExplorer, type IdeaEntry } from '../components/lesson/IdeaExplorer';
@@ -71,16 +69,17 @@ function Row({
 }
 
 export default function LessonScreen() {
-  const screenState = useScreenState();
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
   const navigate = useNavigate();
-  const space: Space | undefined = spaceId ? spaceById(spaceId) : undefined;
-  // Rule 1 runs through `visibleLesson`, not a raw lookup: a Member asking for
-  // a draft by URL must get "not found", not the draft.
-  const lesson: Lesson | undefined = useMemo(
-    () => (space && lessonId ? visibleLesson(space, lessonId) : undefined),
-    [space, lessonId],
-  );
+  /*
+   * Demo ids read the mocks, a real course and lecture read the backend — the
+   * same hooks the reader uses, so moving between the two costs nothing.
+   * Rule 1 runs inside them (`visibleLesson`): a Member asking for a draft by
+   * URL gets "not found", not the draft.
+   */
+  const reader = useReaderLesson(spaceId, lessonId);
+  const space: Space | undefined = reader.space ?? undefined;
+  const lesson: Lesson | undefined = reader.lesson ?? undefined;
 
   /*
    * One tick for every write on this screen. The note store and the moderation
@@ -89,7 +88,7 @@ export default function LessonScreen() {
    * belong here, which the card cannot re-filter for itself.
    */
   const [noteTick, setNoteTick] = useState(0);
-  const content = useLessonContent(lessonId);
+  const content = useReaderContent(spaceId, lessonId);
   const [accent, setAccent] = useState<string | null>(null);
 
   const contributions = useMemo(
@@ -106,10 +105,7 @@ export default function LessonScreen() {
     [lessonId, noteTick],
   );
   /** Published neighbours only — the pager never steps into a draft. */
-  const { prev, next } = useMemo(
-    () => (spaceId && lessonId ? adjacentLessons(spaceId, lessonId) : { prev: null, next: null }),
-    [spaceId, lessonId],
-  );
+  const { prev, next } = reader;
 
   const chrome = (body: React.ReactNode, gradientIndex = 0) => (
     <Scene
@@ -126,8 +122,8 @@ export default function LessonScreen() {
   // Not found, not a failure — a bad id must not claim the connection dropped.
   // All four states, on every screen. `?mock=loading|error` used to be a
   // no-op here, so these two had never been seen.
-  if (screenState === 'loading') return chrome(<DetailSkeleton />);
-  if (screenState === 'error') return chrome(<SpacesError what="this Lesson" />);
+  if (reader.state === 'loading') return chrome(<DetailSkeleton />);
+  if (reader.state === 'error') return chrome(<SpacesError what="this Lesson" />);
 
   if (!space || !lesson)
     return chrome(

@@ -10,7 +10,7 @@ import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
-import { useLesson, useLessonContent } from '../data/useSpaces';
+import { useExplain, useReaderContent, useReaderLesson } from '../data/useReader';
 import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
@@ -25,7 +25,6 @@ import { Spotlight } from '../components/reader/Spotlight';
 import { LessonToc } from '../components/reader/LessonToc';
 import { ExplainPanel } from '../components/reader/iui/ExplainPanel';
 import { beatsFromMarkdown } from '../components/reader/beats';
-import { explainFor } from '../mocks/explain';
 import { FoundLine, type Found } from '../components/reader/FoundLine';
 import { findRange } from '../components/reader/findText';
 import { anchorY, timing } from '../components/reader/Planes';
@@ -58,8 +57,9 @@ import {
  * document to them and lights them on the page. The Concept's name in the
  * page line at the bottom opens the layer too, and `\` toggles it.
  *
- * Reading changes no progress. Data comes through `useLesson` and
- * `useLessonContent`, whose return types are the endpoints' own.
+ * Reading changes no progress. Data comes through `useReaderLesson` and
+ * `useReaderContent` — the mocks for demo ids, the backend for a real course
+ * and lecture — whose return types are the endpoints' own.
  */
 
 type CompanionState =
@@ -86,8 +86,8 @@ const VIEWS: { id: View; label: string }[] = [
 
 export default function LessonFacesScreen() {
   const { spaceId, lessonId } = useParams<{ spaceId: string; lessonId: string }>();
-  const { state, space, lesson, prev, next } = useLesson(spaceId, lessonId);
-  const content = useLessonContent(lessonId);
+  const { state, space, lesson, prev, next } = useReaderLesson(spaceId, lessonId);
+  const content = useReaderContent(spaceId, lessonId);
   const reduce = useReducedMotion();
   const panel = useMediaQuery(PANEL);
   /* `?page=34&view=explain` — the Lesson overview's way in, at a page and a view. */
@@ -131,7 +131,7 @@ export default function LessonFacesScreen() {
   const [box, setBox] = useState({ w: MAX_SHEET, h: 600 });
   const [numPages, setNumPages] = useState(0);
   /* The page in view. The document is a deck: one page, turned sideways. */
-  const [pdfPage, setPdfPage] = useState(1);
+  const [pdfPage, setPdfPage] = useState(() => askedPage ?? 1);
 
 
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -148,6 +148,18 @@ export default function LessonFacesScreen() {
     setAnchor({ conceptId: sections[0].conceptId, page: sections[0].blocks[0].page });
   }, [anchor, sections, askedPage]);
 
+
+  /*
+   * The ideas can arrive after the pages (a live deck is one section until
+   * they are grouped), so the anchor is re-placed under the section its page
+   * now belongs to.
+   */
+  useEffect(() => {
+    if (!anchor || sections.length === 0) return;
+    if (sections.some((sec) => sec.conceptId === anchor.conceptId && sec.blocks.some((b) => b.page === anchor.page))) return;
+    const again = anchorForPage(anchor.page, sections);
+    if (again) setAnchor(again);
+  }, [sections, anchor]);
 
   const ready = Boolean(content.bundle && content.pdfUrl && anchor);
   /*
@@ -391,6 +403,16 @@ export default function LessonFacesScreen() {
     return () => window.removeEventListener('keydown', onKey);
   }, [studio, bench, openStudio, closeStudio]);
 
+  /* Explain is asked only while it is the view: turning pages costs nothing. */
+  const explainBlock = blockOf(pdfPage);
+  const explained = useExplain(
+    spaceId,
+    lessonId,
+    pdfPage,
+    { title: explainBlock?.title ?? lesson?.title ?? '', markdown: explainBlock?.markdown ?? '' },
+    view === 'explain',
+  );
+
   const chrome = (body: React.ReactNode) => (
     <Scene surface={SURFACES.lessonFaces} motionKey={`faces-${lessonId}`}>
       {body}
@@ -453,8 +475,8 @@ export default function LessonFacesScreen() {
 
   const myNotes = noteTick >= 0 ? notesForLesson(lesson.id) : [];
   const section = sections.find((s) => s.conceptId === anchor.conceptId) ?? sections[0];
-  const lastSection = sections[sections.length - 1];
-  const pagerShowing = !bench && !studio && anchor.conceptId === lastSection.conceptId;
+  /* At the end of the deck, the way on to the next Lesson. */
+  const pagerShowing = !bench && !studio && numPages > 0 && pdfPage === numPages;
 
   const landable = (c: TutorCitation) =>
     (c.conceptId !== undefined && sections.some((s) => s.conceptId === c.conceptId)) ||
@@ -575,10 +597,6 @@ export default function LessonFacesScreen() {
   const narrowHead = vw - (docked ? panelWidth : 0) - (showToc ? TOC_WIDTH : 0) < 980;
   const block = blockOf(pdfPage);
   const beats = beatsOf(pdfPage);
-  const answer = explainFor(lesson.id, pdfPage, {
-    title: block?.title ?? section.name,
-    markdown: block?.markdown ?? '',
-  });
   /* The slide view keeps a band under the page for its points. */
   const stageBottom = view === 'slide' && beats.length >= 2 ? 172 : 88;
 
@@ -833,7 +851,8 @@ export default function LessonFacesScreen() {
       >
         <ExplainPanel
           answerKey={`${lesson.id}-${pdfPage}`}
-          answer={answer}
+          answer={explained.answer}
+          fallback={explained.fallback}
           page={pdfPage}
           onSpot={setSpot}
           onAsk={(q) => {
@@ -880,7 +899,7 @@ export default function LessonFacesScreen() {
         onClose={closeBench}
       />
 
-      {pagerShowing && <LessonPager spaceId={space.id} prev={prev} next={next} />}
+      {pagerShowing && <LessonPager spaceId={space.id} prev={prev} next={next} keys={false} />}
     </div>,
   );
 }

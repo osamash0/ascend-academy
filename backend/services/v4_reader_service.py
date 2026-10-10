@@ -1,0 +1,538 @@
+"""The v4 reader, on real lectures.
+
+Three reads and one generation, for the Lesson reader in `src/features/spaces`:
+
+- a course as the reader's Space: its lectures in order;
+- a lecture as the reader's Lesson: localized slides, its ideas, a signed PDF;
+- a lecture's ideas, when the concept graph has none: grouped by the model
+  from the slide titles, cached per content revision;
+- **Explain**: one page answered as an interface — a JSON document of blocks
+  from a fixed library (see `src/features/spaces/components/reader/iui/spec.ts`)
+  — validated here against the same shapes, cached per page and revision.
+
+Access mirrors `localized_content`: the caller must be able to view the
+lecture (owner, student owner, enrolled, or assigned). Model output is never
+trusted as is: every answer is parsed, validated block by block, and blocks
+that fail are dropped rather than shown broken.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import re
+from typing import Annotated, Any, Literal, Optional, Union
+from uuid import UUID
+
+from fastapi import HTTPException
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError
+
+from backend.core.database import get_db_connection, run_sync, supabase_admin
+from backend.services.cache import get_cache, set_cache
+from backend.services.localization_service import get_lecture_content_for_locale
+
+logger = logging.getLogger(__name__)
+
+PDF_BUCKET = "lecture-pdfs"
+#: The token lives 8h; reuse it for 6h so every reader shares one URL and the
+#: storage CDN can cache the file (per-view signing defeated it — the 2026-08
+#: egress incident).
+SIGNED_TTL = 8 * 3600
+SIGNED_REUSE = 6 * 3600
+#: Bump when the prompt or the block library changes, so stale answers age out.
+EXPLAIN_VERSION = "explain-v2"
+IDEAS_VERSION = "ideas-v1"
+CACHE_TTL = 60 * 60 * 24 * 60  # 60 days; keyed on content_revision anyway
+
+
+# ─── access ──────────────────────────────────────────────────────────────
+
+
+async def can_view_lecture(lecture_id: UUID, user_id: str) -> bool:
+    from backend.api.v1.localized_content import _can_view_lecture
+
+    return await _can_view_lecture(lecture_id, user_id)
+
+
+async def can_view_course(course_id: UUID, user_id: str) -> bool:
+    async with await get_db_connection() as conn:
+        return bool(
+            await conn.fetchval(
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM courses c WHERE c.id = $1 AND (
+                    c.professor_id = $2::uuid
+                    OR EXISTS (SELECT 1 FROM course_enrollments ce
+                               WHERE ce.course_id = c.id AND ce.user_id = $2::uuid)
+                    OR EXISTS (SELECT 1 FROM lectures l
+                               WHERE l.course_id = c.id AND l.student_owner_id = $2::uuid)
+                  )
+                )
+                """,
+                course_id,
+                user_id,
+            )
+        )
+
+
+async def preferred_language(user_id: str) -> str:
+    from backend.api.v1.localized_content import _preferred_language
+
+    return await _preferred_language(user_id)
+
+
+# ─── course ──────────────────────────────────────────────────────────────
+
+
+async def get_course(course_id: UUID) -> dict[str, Any]:
+    async with await get_db_connection() as conn:
+        course = await conn.fetchrow(
+            "SELECT id, title, description, color, professor_id FROM courses WHERE id = $1", course_id
+        )
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found.")
+        lectures = await conn.fetch(
+            """
+            SELECT l.id, l.title, l.total_slides, l.created_at
+            FROM lectures l
+            WHERE l.course_id = $1 AND COALESCE(l.is_archived, false) = false
+            ORDER BY l.created_at ASC
+            """,
+            course_id,
+        )
+        professor = await conn.fetchval(
+            "SELECT COALESCE(full_name, display_name) FROM profiles WHERE user_id = $1",
+            course["professor_id"],
+        ) if course["professor_id"] else None
+    return {
+        "id": str(course["id"]),
+        "title": course["title"],
+        "description": course["description"],
+        "color": course["color"],
+        "author": professor,
+        "lectures": [
+            {"id": str(r["id"]), "title": r["title"], "total_slides": r["total_slides"] or 0, "order": i + 1}
+            for i, r in enumerate(lectures)
+        ],
+    }
+
+
+# ─── lecture ─────────────────────────────────────────────────────────────
+
+
+def _storage_path(raw: str) -> str:
+    m = re.search(r"lecture-pdfs/(.+)$", raw)
+    return m.group(1) if m else raw
+
+
+async def signed_pdf_url(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+    path = _storage_path(raw)
+    key = f"v4reader:pdf:{path}"
+    cached = await get_cache(key)
+    if isinstance(cached, dict) and cached.get("url"):
+        return cached["url"]
+    try:
+        signed = await run_sync(lambda: supabase_admin.storage.from_(PDF_BUCKET).create_signed_url(path, SIGNED_TTL))
+        url = (signed.get("signedURL") or signed.get("signedUrl") or signed.get("signed_url")) if isinstance(signed, dict) else signed
+    except Exception as exc:  # storage hiccup: the reader can still show the text
+        logger.warning("v4 reader: signing %s failed: %s", path, exc)
+        return None
+    if url:
+        await set_cache(key, {"url": url}, ttl_seconds=SIGNED_REUSE)
+    return url
+
+
+async def _lecture_row(lecture_id: UUID) -> dict[str, Any]:
+    async with await get_db_connection() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT l.id, l.title, l.description, l.total_slides, l.created_at, l.pdf_url, l.poster_url,
+                   l.course_id, l.is_archived, l.source_language, l.content_revision
+            FROM lectures l WHERE l.id = $1
+            """,
+            lecture_id,
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="Lecture not found.")
+    return dict(row)
+
+
+async def graph_concepts(lecture_id: UUID) -> list[dict[str, Any]]:
+    """The concept graph's view of a lecture, in `LectureConcept` shape. Often empty."""
+    try:
+        from backend.services.concept_graph import concepts_for_lecture
+
+        return list(await concepts_for_lecture(str(lecture_id)) or [])
+    except Exception as exc:
+        logger.info("v4 reader: concept graph unavailable for %s: %s", lecture_id, exc)
+        return []
+
+
+async def get_lecture(lecture_id: UUID, locale: str) -> dict[str, Any]:
+    meta = await _lecture_row(lecture_id)
+    content, served = await get_lecture_content_for_locale(lecture_id, locale)
+    if content is None:
+        raise HTTPException(status_code=409, detail="This lecture is still being prepared.")
+    localized = content.get("lecture") or {}
+    slides = content.get("slides") or []
+    lecture = {
+        "id": str(meta["id"]),
+        "title": localized.get("title") or meta["title"],
+        "description": localized.get("description") or meta["description"],
+        "total_slides": meta["total_slides"],
+        "created_at": meta["created_at"].isoformat(),
+        "pdf_url": meta["pdf_url"],
+        "poster_url": meta["poster_url"],
+        "course_id": str(meta["course_id"]) if meta["course_id"] else None,
+        "is_archived": meta["is_archived"],
+        "source_language": meta["source_language"],
+        "content_revision": meta["content_revision"],
+    }
+    return {
+        "bundle": {
+            "locale": served,
+            "requested_locale": locale,
+            "is_original_language": served != locale,
+            "lecture": lecture,
+            "slides": [
+                {
+                    "id": str(s.get("id")),
+                    "slide_number": s.get("slide_number"),
+                    "title": s.get("title"),
+                    "content_text": s.get("content_text"),
+                    "summary": s.get("summary"),
+                }
+                for s in slides
+            ],
+            "questions": [],
+        },
+        "concepts": await graph_concepts(lecture_id),
+        "pdf_signed_url": await signed_pdf_url(meta["pdf_url"]),
+    }
+
+
+# ─── model calls ─────────────────────────────────────────────────────────
+
+
+async def _generate_json(prompt: str, *, user_id: str, course_id: Optional[str], feature: str) -> Any:
+    from backend.services.ai.orchestrator import generate_text, parse_json_response
+
+    raw = await generate_text(prompt, json_mode=True, user_id=user_id, course_id=course_id, feature=feature)
+    return parse_json_response(raw)
+
+
+# ─── ideas ───────────────────────────────────────────────────────────────
+
+
+class _Idea(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    first_page: int = Field(ge=1)
+
+
+def _ideas_to_concepts(ideas: list[_Idea], total: int, lecture_id: UUID) -> list[dict[str, Any]]:
+    """Ordered ideas with a first page each → contiguous `LectureConcept` ranges."""
+    ideas = sorted({i.first_page: i for i in ideas if i.first_page <= total}.values(), key=lambda i: i.first_page)
+    if not ideas:
+        return []
+    if ideas[0].first_page != 1:
+        ideas[0] = _Idea(name=ideas[0].name, first_page=1)
+    out = []
+    for n, idea in enumerate(ideas):
+        end = ideas[n + 1].first_page - 1 if n + 1 < len(ideas) else total
+        out.append(
+            {
+                "concept_id": f"idea-{lecture_id}-{n + 1}",
+                "name": idea.name,
+                "weight": round((end - idea.first_page + 1) / total, 3),
+                "slide_indices": list(range(idea.first_page - 1, end)),
+            }
+        )
+    return out
+
+
+async def get_ideas(lecture_id: UUID, user_id: str) -> list[dict[str, Any]]:
+    """The lecture's ideas: the concept graph's when it has some, else the model's grouping."""
+    graph = await graph_concepts(lecture_id)
+    if graph:
+        return graph
+    meta = await _lecture_row(lecture_id)
+    key = f"v4reader:{IDEAS_VERSION}:{lecture_id}:{meta['content_revision']}"
+    cached = await get_cache(key)
+    if isinstance(cached, list):
+        return cached
+    content, _ = await get_lecture_content_for_locale(lecture_id, meta["source_language"] or "en")
+    slides = (content or {}).get("slides") or []
+    total = len(slides)
+    if total == 0:
+        return []
+    listing = "\n".join(f"{s.get('slide_number')}. {(s.get('title') or '').strip()[:90]}" for s in slides)
+    prompt = f"""You are organising a university lecture deck into the ideas it teaches.
+
+Lecture: "{meta['title']}" ({total} slides). Slide titles, numbered:
+{listing}
+
+Group the deck into 3 to 7 consecutive ideas, in teaching order. Each idea is a
+short noun phrase a student would recognise as a topic (max 5 words, no
+numbering, no "Introduction to"). Every slide belongs to exactly one idea; give
+only where each idea starts.
+
+Answer with a JSON object only:
+{{"ideas": [{{"name": "...", "first_page": 1}}, ...]}}"""
+    try:
+        data = await _generate_json(prompt, user_id=user_id, course_id=str(meta["course_id"]), feature="v4_reader_ideas")
+        ideas = TypeAdapter(list[_Idea]).validate_python((data or {}).get("ideas") if isinstance(data, dict) else data)
+        concepts = _ideas_to_concepts(ideas, total, lecture_id)
+    except Exception as exc:
+        logger.warning("v4 reader: idea grouping failed for %s: %s", lecture_id, exc)
+        return []
+    if concepts:
+        await set_cache(key, concepts, ttl_seconds=CACHE_TTL)
+    return concepts
+
+
+# ─── Explain ─────────────────────────────────────────────────────────────
+# Mirrors `spec.ts`. Kept strict: an answer is shown only in shapes the panel
+# knows how to draw.
+
+
+class FD(BaseModel):
+    lhs: list[str] = Field(min_length=1, max_length=6)
+    rhs: list[str] = Field(min_length=1, max_length=6)
+
+
+class Relation(BaseModel):
+    name: str = Field(max_length=40)
+    attrs: list[str] = Field(min_length=2, max_length=10)
+
+
+class TextBlock(BaseModel):
+    type: Literal["text"]
+    md: str = Field(max_length=1500)
+
+
+class KeyBlock(BaseModel):
+    type: Literal["key"]
+    md: str = Field(max_length=400)
+
+
+class Part(BaseModel):
+    id: str = Field(max_length=40)
+    label: str = Field(max_length=32)
+    body: str = Field(max_length=700)
+    spot: Optional[str] = Field(default=None, max_length=120)
+
+
+class ExploreBlock(BaseModel):
+    type: Literal["explore"]
+    title: str = Field(max_length=80)
+    intro: str = Field(max_length=300)
+    parts: list[Part] = Field(min_length=2, max_length=8)
+    flow: bool = False
+
+
+class Column(BaseModel):
+    title: str = Field(max_length=60)
+    tone: Optional[Literal["a", "b"]] = None
+    points: list[str] = Field(min_length=1, max_length=6)
+
+
+class CompareBlock(BaseModel):
+    type: Literal["compare"]
+    columns: list[Column] = Field(min_length=2, max_length=3)
+    note: Optional[str] = Field(default=None, max_length=300)
+
+
+class FdTableBlock(BaseModel):
+    type: Literal["fdTable"]
+    title: str = Field(max_length=80)
+    columns: list[str] = Field(min_length=2, max_length=6)
+    rows: list[list[str]] = Field(min_length=2, max_length=8)
+    fd: FD
+    prompt: str = Field(max_length=300)
+
+
+class ClosureBlock(BaseModel):
+    type: Literal["closure"]
+    title: str = Field(max_length=80)
+    attrs: list[str] = Field(min_length=2, max_length=8)
+    fds: list[FD] = Field(min_length=1, max_length=8)
+    start: list[str] = Field(min_length=1, max_length=8)
+
+
+class BcnfBlock(BaseModel):
+    type: Literal["bcnf"]
+    title: str = Field(max_length=80)
+    relation: Relation
+    fds: list[FD] = Field(min_length=1, max_length=6)
+
+
+class Option(BaseModel):
+    text: str = Field(max_length=160)
+    correct: Optional[bool] = None
+    why: str = Field(max_length=400)
+
+
+class CheckBlock(BaseModel):
+    type: Literal["check"]
+    question: str = Field(max_length=300)
+    options: list[Option] = Field(min_length=2, max_length=4)
+
+
+class Step(BaseModel):
+    label: str = Field(max_length=40)
+    body: str = Field(max_length=400)
+
+
+class StepsBlock(BaseModel):
+    type: Literal["steps"]
+    title: str = Field(max_length=80)
+    steps: list[Step] = Field(min_length=2, max_length=7)
+
+
+Block = Annotated[
+    Union[TextBlock, KeyBlock, ExploreBlock, CompareBlock, FdTableBlock, ClosureBlock, BcnfBlock, CheckBlock, StepsBlock],
+    Field(discriminator="type"),
+]
+_block = TypeAdapter(Block)
+
+
+def _coherent(block: BaseModel) -> bool:
+    """Checks a schema cannot express: the tools must be computable as given."""
+    if isinstance(block, FdTableBlock):
+        cols = set(block.columns)
+        return all(len(r) == len(block.columns) for r in block.rows) and set(block.fd.lhs + block.fd.rhs) <= cols
+    if isinstance(block, ClosureBlock):
+        attrs = set(block.attrs)
+        return set(block.start) <= attrs and all(set(f.lhs + f.rhs) <= attrs for f in block.fds)
+    if isinstance(block, BcnfBlock):
+        attrs = set(block.relation.attrs)
+        return all(set(f.lhs + f.rhs) <= attrs for f in block.fds)
+    if isinstance(block, CheckBlock):
+        return sum(1 for o in block.options if o.correct) == 1
+    return True
+
+
+def validate_answer(data: Any) -> Optional[dict[str, Any]]:
+    """Keep the blocks that parse and make sense; None if nothing usable is left."""
+    if not isinstance(data, dict):
+        return None
+    blocks = []
+    for raw in data.get("blocks") or []:
+        try:
+            b = _block.validate_python(raw)
+        except ValidationError:
+            continue
+        if _coherent(b):
+            blocks.append(b.model_dump(exclude_none=True))
+    title = str(data.get("title") or "").strip()[:120]
+    if not blocks or not title:
+        return None
+    nxt = [str(q).strip()[:80] for q in (data.get("next") or []) if str(q).strip()][:3]
+    return {
+        "title": title,
+        "format": str(data.get("format") or "Explained").strip()[:40],
+        "blocks": blocks[:6],
+        "next": nxt,
+    }
+
+
+EXPLAIN_PROMPT = """You are Learnstation's tutor. A student is on one slide of a university lecture
+and asked you to explain it. Answer as a small interface, not an essay: choose
+the blocks that make THIS slide easiest to understand. A comparison works best
+side by side; a process as steps; a slide that is a diagram or list as parts to
+explore; a definition you can test as a tool.
+
+Rules:
+- Use 3 to 5 blocks. Open with the block that does the most work (usually an
+  interactive one), and end with a "check" whenever the slide teaches something
+  a student could get wrong.
+- Never just restate the slide. Add the intuition, a concrete example with real
+  values, or the mistake students make.
+- "title" states the insight in plain words — NOT the slide's own title.
+  Good: "A → B is a promise about every row the table will ever hold".
+- "format" names your choice in 2-4 plain words, e.g. "A table you can break",
+  "Side by side", "Parts to explore", "Step by step", "A calculator".
+
+Course: {course}
+Lecture: {lecture}
+Slide {page} of {total}. Title: {title}
+Slide text:
+\"\"\"
+{text}
+\"\"\"
+Neighbouring slide titles: {neighbours}
+
+Write in {language}. Be correct; never invent facts the slide does not support.
+
+Block library (use the exact field names):
+- {{"type":"text","md":"markdown, 1-3 short paragraphs"}}
+- {{"type":"key","md":"the one sentence that matters most"}}
+- {{"type":"explore","title":"...","intro":"one line","flow":false,"parts":[{{"id":"a","label":"2-3 words","body":"1-3 sentences","spot":"exact words copied from the slide text that this part is about"}}]}}
+   (use flow:true when the parts are an ordered process)
+- {{"type":"compare","columns":[{{"title":"...","tone":"a","points":["..."]}},{{"title":"...","tone":"b","points":["..."]}}],"note":"optional"}}
+- {{"type":"steps","title":"...","steps":[{{"label":"2-3 words","body":"..."}}]}}
+- {{"type":"check","question":"...","options":[{{"text":"...","correct":true,"why":"..."}},{{"text":"...","why":"..."}}]}}  (exactly one correct)
+Database-theory tools. These are REQUIRED when the slide's topic matches, and
+must not be used otherwise:
+- slide defines, uses or gives examples of functional dependencies (A → B) → include an fdTable
+- slide is about attribute closure, the closure (A+) algorithm or the membership problem → include a closure
+- slide is about BCNF, its algorithm, or decomposing a relation → include a bcnf
+Give them concrete, correct content: real attribute names from the slide's
+example when it has one, otherwise a small believable one (e.g. Movie(title,
+year, length, studio)).
+- {{"type":"fdTable","title":"Try it","columns":["A","B","C"],"rows":[["..","..",".."]],"fd":{{"lhs":["A"],"rhs":["B"]}},"prompt":"what to try"}}  (functional dependencies; 3-6 rows of concrete values)
+- {{"type":"closure","title":"Compute a closure","attrs":["A","B","C","D"],"fds":[{{"lhs":["A"],"rhs":["B"]}}],"start":["A"]}}  (attribute closure)
+- {{"type":"bcnf","title":"Decompose step by step","relation":{{"name":"R","attrs":["..."]}},"fds":[{{"lhs":["..."],"rhs":["..."]}}]}}  (BCNF decomposition)
+
+Answer with ONE JSON object only:
+{{"title":"a plain-language headline for this slide, max 12 words","format":"2-4 words naming the format you chose","blocks":[...],"next":["up to 2 follow-up questions"]}}"""
+
+
+async def explain_page(lecture_id: UUID, page: int, *, user_id: str, locale: str) -> dict[str, Any]:
+    meta = await _lecture_row(lecture_id)
+    key = f"v4reader:{EXPLAIN_VERSION}:{lecture_id}:{meta['content_revision']}:{locale}:{page}"
+    cached = await get_cache(key)
+    if isinstance(cached, dict) and cached.get("blocks"):
+        return {**cached, "cached": True}
+
+    content, served = await get_lecture_content_for_locale(lecture_id, locale)
+    slides = (content or {}).get("slides") or []
+    by_no = {s.get("slide_number"): s for s in slides}
+    slide = by_no.get(page)
+    if not slide:
+        raise HTTPException(status_code=404, detail="No such page.")
+    course_title = ""
+    if meta["course_id"]:
+        async with await get_db_connection() as conn:
+            course_title = await conn.fetchval("SELECT title FROM courses WHERE id = $1", meta["course_id"]) or ""
+    neighbours = ", ".join(
+        f'{n}: "{(by_no[n].get("title") or "").strip()[:60]}"' for n in (page - 2, page - 1, page + 1, page + 2) if n in by_no
+    )
+    prompt = EXPLAIN_PROMPT.format(
+        course=course_title,
+        lecture=meta["title"],
+        page=page,
+        total=len(slides),
+        title=(slide.get("title") or "").strip(),
+        text=((slide.get("content_text") or slide.get("summary") or "").strip())[:3500],
+        neighbours=neighbours or "none",
+        language="German" if served == "de" else "English",
+    )
+
+    answer = None
+    for attempt in range(2):
+        try:
+            data = await _generate_json(prompt, user_id=user_id, course_id=str(meta["course_id"]), feature="v4_reader_explain")
+        except Exception as exc:
+            logger.warning("v4 reader: explain call failed (%s p%s, try %s): %s", lecture_id, page, attempt + 1, exc)
+            if exc.__class__.__name__ == "LLMBudgetExceededError":
+                raise HTTPException(status_code=429, detail="You have reached this month's AI allowance.")
+            continue
+        answer = validate_answer(data)
+        if answer:
+            break
+    if not answer:
+        raise HTTPException(status_code=502, detail="Explain could not compose an answer for this page.")
+    await set_cache(key, answer, ttl_seconds=CACHE_TTL)
+    return {**answer, "cached": False}
