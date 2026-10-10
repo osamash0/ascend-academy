@@ -52,6 +52,18 @@ os.environ.setdefault("FEATURE_GLOBAL_SEARCH", "1")
 # DATABASE_URL.
 os.environ["DATABASE_URL"] = "postgresql://guard:guard@db.invalid:5432/unit_tests"
 
+# Same reasoning for the provider keys not faked above. backend/core/database.py
+# calls a bare load_dotenv(), which walks UP from the file — from a git worktree
+# under .claude/worktrees/ that reaches the main checkout's real .env. Its keys
+# then built real clients locally while CI (no .env) had none, so a test could
+# pass on a laptop and fail in CI. load_dotenv never overrides a variable that
+# is already set, so assigning "" here makes every run see the CI picture.
+for _provider_key in (
+    "CEREBRAS_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY",
+    "MISTRAL_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
+):
+    os.environ[_provider_key] = ""
+
 # Make repo root importable as `backend.*`
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
