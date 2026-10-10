@@ -5,28 +5,32 @@ import { LayoutGroup } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ListSkeleton, NotFound, SpacesError } from '../components/states';
+import { useAsk } from '../data/useAsk';
 import { useCanvas } from '../data/useSpaces';
 import { CanvasPage } from '../studio/components/CanvasPage';
+import { Composer } from '../studio/components/Composer';
+import type { ComposerNotice } from '../studio/components/Composer';
 import { FullPageDialog } from '../studio/components/FullPageDialog';
 import { MorphSwitch } from '../studio/components/MorphSwitch';
 import { PageRail } from '../studio/components/PageRail';
 import { PagerPill } from '../studio/components/PagerPill';
 import { PeekSlot } from '../studio/components/Peek';
-import { hasSource, includeSourceBlock } from '../studio/edit';
+import { hasSource, includeSourceBlock, insertAnswer, removeBlock, resolveAnchor, restoreBlock } from '../studio/edit';
 import { groupByPage, pagesInView, pickAnchorPage, regionForBlock } from '../studio/geometry';
 import { FLIGHT_S } from '../studio/motion';
 import { useMorph } from '../studio/useMorph';
 import { usePageNav } from '../studio/usePageNav';
 import { usePeek } from '../studio/usePeek';
-import { useReadingLine } from '../studio/useReadingLine';
+import { blockAtReadingLine, useReadingLine } from '../studio/useReadingLine';
 import { useStudioTheme } from '../studio/useStudioTheme';
 import { useWide } from '../studio/useWide';
 import type { Region } from '../studio/geometry';
-import type { CanvasDoc, SourcePage } from '../studio/types';
+import { firstWords } from '../studio/text';
+import type { CanvasDoc, GeneratedBlock, SourcePage } from '../studio/types';
 import '../studio/studio-surface.css';
 
-const HINT = 'Use ← → to move between pages. Rest on a paragraph to see the source, or press S.';
-const HINT_NO_ORIGINAL = 'Use ← → to move between pages.';
+const HINT = 'Rest on a paragraph to see the source, press S, or ask below.';
+const HINT_NO_ORIGINAL = 'Use ← → to move between pages, or ask below.';
 
 /**
  * The Studio canvas — spec §3.2, §4. The Material owns the screen; Peek lives in the gutter.
@@ -40,6 +44,9 @@ export default function StudioCanvasScreen() {
   const [theme, toggleTheme] = useStudioTheme();
   const [edited, setEdited] = useState<CanvasDoc | null>(null);
   const doc = edited ?? canvas;
+  /** The doc as of the last render, for code that runs after an await. */
+  const docRef = useRef(doc);
+  docRef.current = doc;
   const groups = useMemo(() => (doc ? groupByPage(doc.blocks) : []), [doc]);
 
   const peek = usePeek();
@@ -160,6 +167,149 @@ export default function StudioCanvasScreen() {
       setFlashId(blockId);
     }, FLIGHT_S * 1000 + 50);
   };
+  /* ── Living Learn: asking on the canvas (spec §4) ── */
+  const { ask, answering, suggestions } = useAsk();
+  const [asked, setAsked] = useState(false);
+  const [freshId, setFreshId] = useState<string | null>(null);
+  const [glowId, setGlowId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<ComposerNotice | null>(null);
+  /** Only "Answer added under: …"; the Composer announces its own notices. */
+  const [announce, setAnnounce] = useState('');
+  const noticeTimer = useRef<ReturnType<typeof setTimeout>>();
+  const showNotice = useCallback((n: ComposerNotice | null, ms = 6000) => {
+    clearTimeout(noticeTimer.current);
+    setNotice(n);
+    if (n) noticeTimer.current = setTimeout(() => setNotice(null), ms);
+  }, []);
+  const askSeq = useRef(0);
+  /** The answer whose anchor is glowing: only its settling ends the glow. */
+  const glowFor = useRef<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      clearTimeout(noticeTimer.current);
+    };
+  }, []);
+  /** The composer input, if you asked from it: it is disabled while answering, so focus goes back after. */
+  const refocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (answering || !refocus.current) return;
+    const el = refocus.current;
+    refocus.current = null;
+    if (el.isConnected && (document.activeElement === document.body || document.activeElement === null)) el.focus();
+  }, [answering]);
+
+  const onAsk = async (question: string) => {
+    if (!docRef.current) return;
+    setAsked(true);
+    setEngaged(true);
+    showNotice(null);
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement && active.closest('form')) refocus.current = active;
+    const selectionBlock =
+      (window.getSelection()?.anchorNode?.parentElement?.closest('[data-block-id]') as HTMLElement | null)?.dataset
+        .blockId ?? null;
+    const result = await ask(question);
+    if (!mounted.current || result.kind === 'busy') return;
+    if (result.kind === 'unknown') {
+      showNotice({ kind: 'unknown' }, 10000);
+      return;
+    }
+    // Computed outside any state updater: StrictMode runs updaters twice.
+    const base = docRef.current;
+    if (!base) return;
+    const anchorId =
+      resolveAnchor(base.blocks, {
+        selection: selectionBlock,
+        cited: result.answer.anchorId,
+        readingLine: blockAtReadingLine(column.current),
+      }) ?? base.blocks[base.blocks.length - 1].id;
+    const id = `ans-${++askSeq.current}`;
+    const block: GeneratedBlock = {
+      id,
+      origin: 'generated',
+      markdown: result.answer.markdown,
+      citations: result.answer.citations,
+      askedAs: question,
+      anchorId,
+    };
+    const anchorBlock = base.blocks.find((b) => b.id === anchorId);
+    const next = insertAnswer(base, block);
+    docRef.current = next;
+    setEdited(next);
+    setFreshId(id);
+    glowFor.current = id;
+    setGlowId(anchorId);
+    setAnnounce(`Answer added under: ${anchorBlock ? firstWords(anchorBlock.markdown) : 'the end'}`);
+  };
+
+  /* "Added below ↓": the fresh answer landed off-screen. */
+  useEffect(() => {
+    if (!freshId) return;
+    const el = document.querySelector<HTMLElement>(`[data-block-id="${freshId}"]`);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.height === 0 || r.top <= window.innerHeight) return;
+    showNotice({
+      kind: 'below',
+      onJump: () => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showNotice(null);
+      },
+    });
+    if (typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        setNotice((n) => (n?.kind === 'below' ? null : n));
+        io.disconnect();
+      }
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [freshId, showNotice]);
+
+  const onAnswerSettled = useCallback((id: string) => {
+    setFreshId((f) => (f === id ? null : f));
+    if (glowFor.current === id) {
+      glowFor.current = null;
+      setGlowId(null);
+    }
+  }, []);
+  const onRemoveAnswer = useCallback(
+    (id: string) => {
+      const base = docRef.current;
+      if (!base) return;
+      const { doc: next, removed } = removeBlock(base, id);
+      if (!removed) return;
+      docRef.current = next;
+      setEdited(next);
+      setFreshId((f) => (f === id ? null : f));
+      showNotice({
+        kind: 'removed',
+        onUndo: () => {
+          const now = docRef.current;
+          if (now) {
+            const back = restoreBlock(now, removed);
+            docRef.current = back;
+            setEdited(back);
+          }
+          showNotice(null);
+        },
+      });
+    },
+    [showNotice],
+  );
+  const { open: openPeek } = peek;
+  const onOpenPeekSource = useCallback(
+    (sourceId: string) => {
+      const covering = docRef.current?.blocks.find((b) => hasSource(b) && b.source.blockIds.includes(sourceId));
+      if (covering) openPeek(covering.id);
+    },
+    [openPeek],
+  );
+
   const include = (page: SourcePage, sourceBlockId: string) => {
     setEdited((prev) => {
       const base = prev ?? canvas;
@@ -253,8 +403,9 @@ export default function StudioCanvasScreen() {
           <main
             ref={column}
             className={cn(
-              // pb-56 clears the scrim and the pill: the last page scrolls fully into the open.
-              'mx-auto w-full min-w-0 pb-56 pt-6',
+              // pb-72 clears the scrim and the composer (with its chips): the last page scrolls fully into the open.
+              // No scroll anchoring: an answer growing above you must not drag the page (spec §4.4).
+              'mx-auto w-full min-w-0 pb-72 pt-6 [overflow-anchor:none]',
               original ? 'max-w-[58rem]' : 'max-w-[44rem] pl-14 md:pl-16',
             )}
           >
@@ -275,6 +426,11 @@ export default function StudioCanvasScreen() {
                 onClosePeek={peek.close}
                 onRegion={backToBlock}
                 onInclude={include}
+                freshId={freshId}
+                glowId={glowId}
+                onAnswerSettled={onAnswerSettled}
+                onRemoveAnswer={onRemoveAnswer}
+                onOpenPeekSource={onOpenPeekSource}
               />
             </LayoutGroup>
           </main>
@@ -288,30 +444,44 @@ export default function StudioCanvasScreen() {
 
       {/*
         The bottom scrim: the page fades into the ground under the page line,
-        so the hint and the pill never sit on top of words. Full width, and
+        so the composer never sits on top of words. Full width, and
         it never takes a click.
       */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 bg-gradient-to-t from-background via-background/85 to-transparent"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-48 bg-gradient-to-t from-background via-background/85 to-transparent"
       />
 
-      {/* The page line: where you are, and the turn. */}
+      {/* Ask, with the page line tucked in at its end. */}
       <div
         className={cn(
           'pointer-events-none fixed inset-x-0 bottom-5 z-20 flex justify-center px-4 min-[1180px]:left-60',
           gutter && 'right-[29.5rem]',
         )}
       >
-        <PagerPill
-          current={nav.counter}
-          last={nav.last}
-          canBack={nav.index > 0}
-          canForward={nav.index >= 0 && nav.index < viewPages.length - 1}
+        <Composer
+          answering={answering}
+          suggestions={suggestions}
+          showSuggestions={!asked}
+          notice={notice}
           hint={engaged ? null : material.sourceRemoved ? HINT_NO_ORIGINAL : HINT}
-          onStep={nav.step}
+          onAsk={onAsk}
+          pager={
+            <PagerPill
+              embedded
+              current={nav.counter}
+              last={nav.last}
+              canBack={nav.index > 0}
+              canForward={nav.index >= 0 && nav.index < viewPages.length - 1}
+              hint={null}
+              onStep={nav.step}
+            />
+          }
         />
       </div>
+      <p role="status" aria-live="polite" aria-label="Canvas updates" className="sr-only">
+        {announce}
+      </p>
 
       {!wide && <div className="fixed inset-x-3 bottom-3 z-30 max-h-[45vh] overflow-auto">{peekPanel}</div>}
       {fullRegion && (

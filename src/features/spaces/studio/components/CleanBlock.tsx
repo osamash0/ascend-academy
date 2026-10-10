@@ -1,8 +1,10 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Markdown } from './Markdown';
-import { FLASH_FRAMES, FLIGHT_EASE, FLIGHT_S, STAGGER_S, TEXT_FADE_S } from '../motion';
+import {
+  FLASH_FRAMES, FLIGHT_EASE, FLIGHT_S, GLOW_FADE_S, GLOW_OFF, GLOW_ON, STAGGER_S, TEXT_FADE_S,
+} from '../motion';
 import { hasSource } from '../edit';
 import type { CanvasBlock } from '../types';
 
@@ -44,13 +46,16 @@ interface Props {
  * hover or focus to keep the margin quiet.
  */
 export const CleanBlock = memo(function CleanBlock({
-  block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled,
+  block, page, index, count, morph, flying, lowConfidence, active, flash, markerDisabled, glow = false,
   onPointerEnter, onPointerLeave, onOpenPeek, onClosePeek,
 }: Props) {
   const sourced = hasSource(block);
   const gist = block.origin === 'summary' && block.gist;
   const reduce = useReducedMotion();
   const flies = sourced && morph;
+  /* Once glowed, the glow fades out instead of vanishing; before that, no inline box styles at all. */
+  const [glowed, setGlowed] = useState(false);
+  if (glow && !glowed) setGlowed(true);
   return (
     <motion.div
       data-block-id={block.id}
@@ -72,10 +77,26 @@ export const CleanBlock = memo(function CleanBlock({
         }
       }}
       layoutId={flies ? `morph-${block.id}` : undefined}
-      animate={flash ? { backgroundColor: FLASH_FRAMES } : undefined}
+      animate={
+        flash
+          ? { backgroundColor: FLASH_FRAMES }
+          : reduce
+            ? undefined
+            : glow
+              ? { boxShadow: `0 0 0 8px ${GLOW_ON}`, backgroundColor: GLOW_ON }
+              : glowed
+                ? {
+                    boxShadow: `0 0 0 8px ${GLOW_OFF}`,
+                    backgroundColor: GLOW_OFF,
+                    // Hand the box back to the classes (the active tint, the focus ring) once faded.
+                    transitionEnd: { boxShadow: '', backgroundColor: '' },
+                  }
+                : undefined
+      }
       transition={{
         layout: { duration: FLIGHT_S, ease: FLIGHT_EASE, delay: (count - 1 - index) * STAGGER_S },
-        backgroundColor: { duration: 1.2, times: [0, 0.6, 1] },
+        backgroundColor: flash ? { duration: 1.2, times: [0, 0.6, 1] } : { duration: glow ? 0.3 : GLOW_FADE_S },
+        boxShadow: { duration: glow ? 0.3 : GLOW_FADE_S },
       }}
       className={cn(
         'group relative -mx-3 rounded-lg px-3 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',

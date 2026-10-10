@@ -34,3 +34,15 @@ export function useReadingLine(
     };
   }, [enabled, column, onBlock]);
 }
+
+/** The block under the reading line right now, once (Living Learn spec §4.2, last fallback). */
+export function blockAtReadingLine(column: HTMLElement | null): string | null {
+  if (typeof document.elementsFromPoint !== 'function') return null;
+  const r = column?.getBoundingClientRect();
+  const x = r ? r.left + r.width / 2 : window.innerWidth / 2;
+  for (const el of document.elementsFromPoint(x, window.innerHeight * READING_LINE)) {
+    const block = (el as HTMLElement).closest?.('[data-block-id]:not([data-woven])') as HTMLElement | null;
+    if (block?.dataset.blockId) return block.dataset.blockId;
+  }
+  return null;
+}

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { CleanBlock } from './CleanBlock';
 import { OriginalPage } from './OriginalPage';
 import { PageDivider } from './PageDivider';
+import { WovenAnswer } from './WovenAnswer';
 import { hasSource } from '../edit';
 import { minConfidence } from '../geometry';
 import type { PageGroup } from '../geometry';
@@ -26,6 +27,13 @@ interface Props {
   onClosePeek(): void;
   onRegion(blockId: string): void;
   onInclude(page: SourcePage, sourceBlockId: string): void;
+  /** Living Learn: the answer that just arrived (it grows in), and the paragraph it grew under (it glows). */
+  freshId: string | null;
+  glowId: string | null;
+  onAnswerSettled(id: string): void;
+  onRemoveAnswer(id: string): void;
+  /** A citation chip names a *source* block; the screen finds the paragraph that covers it. */
+  onOpenPeekSource(sourceBlockId: string): void;
 }
 
 /**
@@ -89,25 +97,37 @@ export function CanvasPage(p: Props) {
                 >
                   <PageDivider page={g.page} />
                   <div className="space-y-2">
-                    {g.blocks.map((b, i) => (
-                      <CleanBlock
-                        key={`${b.id}:${morph}`}
-                        block={b}
-                        page={g.page}
-                        index={i}
-                        count={g.blocks.length}
-                        morph={morph}
-                        flying={p.flying && morph}
-                        lowConfidence={lowConfidence.has(b.id)}
-                        active={p.activeBlockId === b.id}
-                        flash={p.flashBlockId === b.id}
-                        markerDisabled={p.sourceRemoved}
-                        onPointerEnter={p.onBlockPointerEnter}
-                        onPointerLeave={p.onBlockPointerLeave}
-                        onOpenPeek={p.onOpenPeek}
-                        onClosePeek={p.onClosePeek}
-                      />
-                    ))}
+                    {g.blocks.map((b, i) =>
+                      b.origin === 'generated' ? (
+                        <WovenAnswer
+                          key={b.id}
+                          block={b}
+                          fresh={p.freshId === b.id}
+                          onSettled={p.onAnswerSettled}
+                          onRemove={p.onRemoveAnswer}
+                          onOpenPeek={p.onOpenPeekSource}
+                        />
+                      ) : (
+                        <CleanBlock
+                          key={`${b.id}:${morph}`}
+                          block={b}
+                          page={g.page}
+                          index={i}
+                          count={g.blocks.length}
+                          morph={morph}
+                          flying={p.flying && morph}
+                          lowConfidence={lowConfidence.has(b.id)}
+                          active={p.activeBlockId === b.id}
+                          flash={p.flashBlockId === b.id}
+                          glow={p.glowId === b.id}
+                          markerDisabled={p.sourceRemoved}
+                          onPointerEnter={p.onBlockPointerEnter}
+                          onPointerLeave={p.onBlockPointerLeave}
+                          onOpenPeek={p.onOpenPeek}
+                          onClosePeek={p.onClosePeek}
+                        />
+                      ),
+                    )}
                   </div>
                 </motion.section>
               )}
