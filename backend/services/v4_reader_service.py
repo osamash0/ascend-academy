@@ -39,7 +39,8 @@ PDF_BUCKET = "lecture-pdfs"
 SIGNED_TTL = 8 * 3600
 SIGNED_REUSE = 6 * 3600
 #: Bump when the prompt or the block library changes, so stale answers age out.
-EXPLAIN_VERSION = "explain-v2"
+EXPLAIN_VERSION = "explain-v3"
+ASK_VERSION = "ask-v1"
 IDEAS_VERSION = "ideas-v1"
 CACHE_TTL = 60 * 60 * 24 * 60  # 60 days; keyed on content_revision anyway
 
@@ -215,10 +216,15 @@ async def get_lecture(lecture_id: UUID, locale: str) -> dict[str, Any]:
 # ─── model calls ─────────────────────────────────────────────────────────
 
 
-async def _generate_json(prompt: str, *, user_id: str, course_id: Optional[str], feature: str) -> Any:
+async def _generate_json(
+    prompt: str, *, user_id: str, course_id: Optional[str], feature: str, prefer: str = "cerebras"
+) -> Any:
+    """One model call through the quality chain; `prefer` moves a provider to its head."""
     from backend.services.ai.orchestrator import generate_text, parse_json_response
 
-    raw = await generate_text(prompt, json_mode=True, user_id=user_id, course_id=course_id, feature=feature)
+    raw = await generate_text(
+        prompt, prefer, json_mode=True, user_id=user_id, course_id=course_id, feature=feature
+    )
     return parse_json_response(raw)
 
 
@@ -390,10 +396,42 @@ class StepsBlock(BaseModel):
     steps: list[Step] = Field(min_length=2, max_length=7)
 
 
+class SandboxBlock(BaseModel):
+    """A small app the model writes, run in an isolated iframe on the client.
+
+    The isolation is the client's (sandbox without same-origin, a CSP with no
+    network, a validated message bridge). `_coherent` adds a static screen so
+    an app that reaches for the network, storage or its parent is dropped
+    rather than merely blocked.
+    """
+
+    type: Literal["sandbox"]
+    title: str = Field(max_length=80)
+    caption: Optional[str] = Field(default=None, max_length=220)
+    height: int = Field(default=380, ge=160, le=720)
+    html: str = Field(max_length=14000)
+    css: str = Field(default="", max_length=9000)
+    js: str = Field(default="", max_length=20000)
+
+
 Block = Annotated[
-    Union[TextBlock, KeyBlock, ExploreBlock, CompareBlock, FdTableBlock, ClosureBlock, BcnfBlock, CheckBlock, StepsBlock],
+    Union[
+        TextBlock, KeyBlock, ExploreBlock, CompareBlock, FdTableBlock, ClosureBlock, BcnfBlock,
+        CheckBlock, StepsBlock, SandboxBlock,
+    ],
     Field(discriminator="type"),
 ]
+
+#: What a generated app may never reach for. The iframe could not use most of
+#: these anyway; an app that tries is a wrong answer, not a blocked one.
+_SANDBOX_FORBIDDEN = re.compile(
+    r"\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource|importScripts|\bimport\s*\(|sendBeacon"
+    r"|<\s*script[^>]*\bsrc\b|<\s*link\b|<\s*iframe\b|<\s*(object|embed|base|meta)\b"
+    r"|\b(window|self|globalThis)\s*\.\s*(top|parent|opener)\b|\btop\s*\.\s*location"
+    r"|\bparent\s*\.\s*(postMessage|location|document)"
+    r"|document\s*\.\s*cookie|localStorage|sessionStorage|indexedDB|\beval\s*\(|new\s+Function\s*\(|https?://",
+    re.IGNORECASE,
+)
 _block = TypeAdapter(Block)
 
 
@@ -410,6 +448,8 @@ def _coherent(block: BaseModel) -> bool:
         return all(set(f.lhs + f.rhs) <= attrs for f in block.fds)
     if isinstance(block, CheckBlock):
         return sum(1 for o in block.options if o.correct) == 1
+    if isinstance(block, SandboxBlock):
+        return bool(block.html.strip()) and not _SANDBOX_FORBIDDEN.search(block.html + block.css + block.js)
     return True
 
 
@@ -418,13 +458,20 @@ def validate_answer(data: Any) -> Optional[dict[str, Any]]:
     if not isinstance(data, dict):
         return None
     blocks = []
+    sandboxes = 0
     for raw in data.get("blocks") or []:
         try:
             b = _block.validate_python(raw)
         except ValidationError:
             continue
-        if _coherent(b):
-            blocks.append(b.model_dump(exclude_none=True))
+        if not _coherent(b):
+            continue
+        if isinstance(b, SandboxBlock):
+            # One generated app per answer: it is the answer's centre, not decoration.
+            if sandboxes:
+                continue
+            sandboxes += 1
+        blocks.append(b.model_dump(exclude_none=True))
     title = str(data.get("title") or "").strip()[:120]
     if not blocks or not title:
         return None
@@ -435,6 +482,26 @@ def validate_answer(data: Any) -> Optional[dict[str, Any]]:
         "blocks": blocks[:6],
         "next": nxt,
     }
+
+
+SANDBOX_SPEC = """- {{"type":"sandbox","title":"...","caption":"one line on what to try","height":380,"html":"...","css":"...","js":"..."}}
+   A small interactive app YOU write, for when no block above can show the idea:
+   simulations, animations, data structures you can operate (a B+-tree you
+   insert keys into, a transaction schedule that flags conflicts, a relational-
+   algebra expression evaluated on a tiny table, a query plan whose join order
+   you can change). Rules for it:
+   * vanilla HTML/CSS/JS only; no libraries, no network, no URLs or external
+     images; draw with inline SVG or <canvas>. "html" is the body's inner HTML,
+     "js" runs after it (never put <script> tags in html).
+   * it MUST be genuinely interactive (controls that change state) and its
+     logic MUST be correct; start from a meaningful example taken from the slide.
+   * the page is pre-styled dark: use the CSS variables --bg --card --line
+     --text --quiet --accent --good --bad and the classes .card .row .btn
+     .btn.primary .chip .chip.on .mono .muted; inputs, selects and ranges are
+     already styled. Keep its own css short.
+   * call LS.ask("question") from a button to let the student ask a follow-up
+     about what they see (e.g. "Why did inserting 17 split the leaf?").
+   * keep it under 250 lines; "height" is its natural height in px (160-720)."""
 
 
 EXPLAIN_PROMPT = """You are Learnstation's tutor. A student is on one slide of a university lecture
@@ -484,6 +551,10 @@ year, length, studio)).
 - {{"type":"fdTable","title":"Try it","columns":["A","B","C"],"rows":[["..","..",".."]],"fd":{{"lhs":["A"],"rhs":["B"]}},"prompt":"what to try"}}  (functional dependencies; 3-6 rows of concrete values)
 - {{"type":"closure","title":"Compute a closure","attrs":["A","B","C","D"],"fds":[{{"lhs":["A"],"rhs":["B"]}}],"start":["A"]}}  (attribute closure)
 - {{"type":"bcnf","title":"Decompose step by step","relation":{{"name":"R","attrs":["..."]}},"fds":[{{"lhs":["..."],"rhs":["..."]}}]}}  (BCNF decomposition)
+At most one generated app, and only when the slide shows a process or a
+structure none of the blocks above can (index structures, transactions,
+query plans, relational algebra):
+""" + SANDBOX_SPEC + """
 
 Answer with ONE JSON object only:
 {{"title":"a plain-language headline for this slide, max 12 words","format":"2-4 words naming the format you chose","blocks":[...],"next":["up to 2 follow-up questions"]}}"""
@@ -534,5 +605,119 @@ async def explain_page(lecture_id: UUID, page: int, *, user_id: str, locale: str
             break
     if not answer:
         raise HTTPException(status_code=502, detail="Explain could not compose an answer for this page.")
+    await set_cache(key, answer, ttl_seconds=CACHE_TTL)
+    return {**answer, "cached": False}
+
+
+# ─── Ask: any question about the page, answered as an interface ──────────
+
+ASK_PROMPT = """You are Learnstation's tutor, inside a lecture reader. A student is on one
+slide and asked a question. Answer it as a small interface. Decide first what
+helps most:
+- a direct, short answer → one "text" (or "key") block, nothing else;
+- understanding a concept → explore / steps / compare, plus a check;
+- a database-theory exercise → the matching tool (fdTable, closure, bcnf);
+- seeing a process or structure work → one generated app ("sandbox").
+Do not pad: 1 to 4 blocks. Never restate the question.
+
+Course: {course}
+Lecture: {lecture}
+Slide {page} of {total}. Title: {title}
+Slide text:
+\"\"\"
+{text}
+\"\"\"
+Earlier in this conversation (newest last): {thread}
+
+The student asks: "{question}"
+
+Write in {language}. Be correct; say so plainly if the slide or lecture does
+not cover something.
+
+Block library (exact field names):
+- {{"type":"text","md":"markdown"}}
+- {{"type":"key","md":"the one sentence that matters"}}
+- {{"type":"explore","title":"...","intro":"one line","flow":false,"parts":[{{"id":"a","label":"2-3 words","body":"1-3 sentences","spot":"exact words from the slide text, if any"}}]}}
+- {{"type":"compare","columns":[{{"title":"...","tone":"a","points":["..."]}},{{"title":"...","tone":"b","points":["..."]}}],"note":"optional"}}
+- {{"type":"steps","title":"...","steps":[{{"label":"2-3 words","body":"..."}}]}}
+- {{"type":"check","question":"...","options":[{{"text":"...","correct":true,"why":"..."}},{{"text":"...","why":"..."}}]}}  (exactly one correct)
+- {{"type":"fdTable","title":"Try it","columns":["A","B","C"],"rows":[["..","..",".."]],"fd":{{"lhs":["A"],"rhs":["B"]}},"prompt":"what to try"}}
+- {{"type":"closure","title":"Compute a closure","attrs":["A","B","C","D"],"fds":[{{"lhs":["A"],"rhs":["B"]}}],"start":["A"]}}
+- {{"type":"bcnf","title":"Decompose step by step","relation":{{"name":"R","attrs":["..."]}},"fds":[{{"lhs":["..."],"rhs":["..."]}}]}}
+""" + SANDBOX_SPEC + """
+
+Answer with ONE JSON object only:
+{{"title":"the answer's headline in plain words, max 12 words","format":"2-4 words naming the form you chose","blocks":[...],"next":["up to 2 natural follow-up questions"]}}"""
+
+
+def _norm_question(q: str) -> str:
+    return re.sub(r"\s+", " ", q.strip().lower())[:400]
+
+
+async def ask_page(
+    lecture_id: UUID,
+    page: int,
+    question: str,
+    thread: list[dict[str, str]],
+    *,
+    user_id: str,
+    locale: str,
+) -> dict[str, Any]:
+    import hashlib
+
+    meta = await _lecture_row(lecture_id)
+    thread = [
+        {"q": str(t.get("question", ""))[:300], "a": str(t.get("title", ""))[:120]}
+        for t in thread[-4:]
+        if t.get("question")
+    ]
+    digest = hashlib.sha256(
+        json.dumps([_norm_question(question), thread], ensure_ascii=False).encode()
+    ).hexdigest()[:24]
+    key = f"v4reader:{ASK_VERSION}:{lecture_id}:{meta['content_revision']}:{locale}:{page}:{digest}"
+    cached = await get_cache(key)
+    if isinstance(cached, dict) and cached.get("blocks"):
+        return {**cached, "cached": True}
+
+    content, served = await get_lecture_content_for_locale(lecture_id, locale)
+    slides = (content or {}).get("slides") or []
+    slide = next((s for s in slides if s.get("slide_number") == page), None)
+    if not slide:
+        raise HTTPException(status_code=404, detail="No such page.")
+    course_title = ""
+    if meta["course_id"]:
+        async with await get_db_connection() as conn:
+            course_title = await conn.fetchval("SELECT title FROM courses WHERE id = $1", meta["course_id"]) or ""
+    prompt = ASK_PROMPT.format(
+        course=course_title,
+        lecture=meta["title"],
+        page=page,
+        total=len(slides),
+        title=(slide.get("title") or "").strip(),
+        text=((slide.get("content_text") or slide.get("summary") or "").strip())[:3500],
+        thread="; ".join(f'Q: "{t["q"]}" → answered: "{t["a"]}"' for t in thread) or "nothing yet",
+        question=question.strip()[:400].replace('"', "'"),
+        language="German" if served == "de" else "English",
+    )
+
+    # One attempt: the chain already fails over between providers, and a
+    # second full attempt only doubles the wait. Gemini Flash leads here — it
+    # writes long, code-heavy answers fast and has the headroom for them.
+    answer = None
+    for attempt in range(1):
+        try:
+            data = await _generate_json(
+                prompt, user_id=user_id, course_id=str(meta["course_id"]), feature="v4_reader_ask", prefer="gemini"
+            )
+        except Exception as exc:
+            if exc.__class__.__name__ == "LLMBudgetExceededError":
+                raise HTTPException(status_code=429, detail="You have reached this month's AI allowance.")
+            logger.warning("v4 reader: ask failed (%s p%s, try %s): %s", lecture_id, page, attempt + 1, exc)
+            continue
+        answer = validate_answer(data)
+        if answer:
+            break
+    if not answer:
+        raise HTTPException(status_code=502, detail="Couldn't compose an answer to that just now.")
     await set_cache(key, answer, ttl_seconds=CACHE_TTL)
     return {**answer, "cached": False}

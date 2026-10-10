@@ -275,3 +275,31 @@ export function useExplain(
   if (!live) return { state: 'ready', answer: explainFor(lessonId ?? '', page, source), fallback: false };
   return result;
 }
+
+const ASK_TIMEOUT_MS = 150_000;
+
+/** One earlier exchange, as the model is reminded of it. */
+export interface AskTurn {
+  question: string;
+  title: string;
+}
+
+/**
+ * Asking about a page, answered as an interface — live lectures only.
+ * Null in demo mode, where a question goes to the tutor as before.
+ */
+export function useAsker(
+  spaceId: string | undefined,
+  lessonId: string | undefined,
+): ((page: number, question: string, thread: AskTurn[]) => Promise<ExplainAnswer>) | null {
+  const live = isLive(spaceId, lessonId);
+  if (!live || !lessonId) return null;
+  return async (page, question, thread) => {
+    const repo = await loadLiveRepository();
+    /* Past this, an answer is not coming: say so and offer to try again. */
+    return Promise.race([
+      repo.askPage(lessonId, page, question, thread),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Ask timed out')), ASK_TIMEOUT_MS)),
+    ]);
+  };
+}

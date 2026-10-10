@@ -10,7 +10,7 @@ import { Scene, SURFACES } from '../components/Scene';
 import { LessonPager } from '../components/LessonPager';
 import { NoteEditor } from '../components/NoteEditor';
 import { DetailSkeleton, NotFound, SpacesError } from '../components/states';
-import { useExplain, useReaderContent, useReaderLesson } from '../data/useReader';
+import { useAsker, useExplain, useReaderContent, useReaderLesson } from '../data/useReader';
 import { useMediaQuery } from '../data/useMediaQuery';
 import { ReaderExit } from '../components/reader/ReaderHeader';
 import { SelectionAsk } from '../components/reader/SelectionAsk';
@@ -403,6 +403,7 @@ export default function LessonFacesScreen() {
     return () => window.removeEventListener('keydown', onKey);
   }, [studio, bench, openStudio, closeStudio]);
 
+  const asker = useAsker(spaceId, lessonId);
   /* Explain is asked only while it is the view: turning pages costs nothing. */
   const explainBlock = blockOf(pdfPage);
   const explained = useExplain(
@@ -853,6 +854,7 @@ export default function LessonFacesScreen() {
           answerKey={`${lesson.id}-${pdfPage}`}
           answer={explained.answer}
           fallback={explained.fallback}
+          ask={asker ? (q, thread) => asker(pdfPage, q, thread) : null}
           page={pdfPage}
           onSpot={setSpot}
           onAsk={(q) => {

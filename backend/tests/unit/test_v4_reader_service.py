@@ -54,3 +54,25 @@ def test_ideas_become_contiguous_ranges_starting_at_page_one():
 def test_storage_path_accepts_both_stored_forms():
     assert _storage_path("lectures/u/03 DBS Normalization.pdf") == "lectures/u/03 DBS Normalization.pdf"
     assert _storage_path("https://x.supabase.co/storage/v1/object/public/lecture-pdfs/lectures/u/f.pdf") == "lectures/u/f.pdf"
+
+
+SANDBOX = {"type": "sandbox", "title": "B+-tree", "html": "<div id=t></div>", "css": "", "js": "document.getElementById('t').textContent='ok'"}
+
+
+def test_a_generated_app_is_kept_once_per_answer():
+    answer = validate_answer({"title": "t", "blocks": [SANDBOX, SANDBOX, {"type": "text", "md": "x"}]})
+    assert [b["type"] for b in answer["blocks"]] == ["sandbox", "text"]
+
+
+def test_a_generated_app_that_reaches_out_is_dropped():
+    for js in [
+        "fetch('/api/x')",
+        "new XMLHttpRequest()",
+        "window.parent.document.body",
+        "document.cookie",
+        "localStorage.getItem('k')",
+        "eval('1')",
+        "img.src='https://evil.example/x'",
+    ]:
+        assert validate_answer({"title": "t", "blocks": [dict(SANDBOX, js=js)]}) is None, js
+    assert validate_answer({"title": "t", "blocks": [dict(SANDBOX, html='<script src="x.js"></script>')]}) is None

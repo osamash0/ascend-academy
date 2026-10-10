@@ -63,6 +63,11 @@ export function createLiveRepository(http: V4Transport) {
     readerIdeas: (id: string) => http.get<{ concepts: ReaderConcept[] }>(`${root}/reader/lectures/${idPath(id)}/ideas`),
     explainPage: (id: string, page: number) =>
       http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/explain`, {}),
+    askPage: (id: string, page: number, question: string, thread: { question: string; title: string }[]) =>
+      http.post<ExplainAnswer & { cached: boolean }>(`${root}/reader/lectures/${idPath(id)}/pages/${page}/ask`, {
+        question,
+        thread,
+      }),
   };
 }
 

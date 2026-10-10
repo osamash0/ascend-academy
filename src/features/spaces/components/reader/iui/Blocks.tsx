@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { timing } from '../Planes';
 import { bcnfSteps, closureSteps, fdText, violations, type FD, type Relation } from './fd';
 import type { ExplainBlock } from './spec';
+import { SandboxBlock } from './Sandbox';
 
 /**
  * The library Explain answers are built from.
@@ -18,6 +19,32 @@ import type { ExplainBlock } from './spec';
  */
 
 const ACCENT = 'var(--reader-accent,hsl(var(--secondary)))';
+
+/**
+ * Inline emphasis for the short strings blocks carry — a quiz option, a
+ * comparison point. Models write `**bold**` and `code` there as naturally as
+ * in prose; a full markdown pass would add paragraphs these places cannot hold.
+ */
+export function Inline({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith('**') && p.endsWith('**') ? (
+          <strong key={i} className="font-semibold text-foreground">
+            {p.slice(2, -2)}
+          </strong>
+        ) : p.startsWith('`') && p.endsWith('`') ? (
+          <code key={i} className="rounded bg-white/[0.07] px-1 font-mono text-[0.9em]">
+            {p.slice(1, -1)}
+          </code>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
+  );
+}
 
 /** A choice among a few: the quiet pill row every block shares. */
 function Pills<T extends string>({
@@ -192,7 +219,9 @@ function Compare({ block }: { block: Extract<ExplainBlock, { type: 'compare' }> 
               {c.points.map((p) => (
                 <li key={p} className="flex gap-2 text-[13.5px] leading-[1.5] text-quiet">
                   <span aria-hidden className="mt-[0.6em] h-1 w-1 shrink-0 rounded-full bg-current" />
-                  <span>{p}</span>
+                  <span>
+                    <Inline text={p} />
+                  </span>
                 </li>
               ))}
             </ul>
@@ -607,7 +636,9 @@ function CheckBlock({ block }: { block: Extract<ExplainBlock, { type: 'check' }>
   return (
     <Card>
       <CardTitle>Check yourself</CardTitle>
-      <p className="mb-3 text-[15px] leading-[1.5] text-foreground">{block.question}</p>
+      <p className="mb-3 text-[15px] leading-[1.5] text-foreground">
+        <Inline text={block.question} />
+      </p>
       <div className="space-y-1.5">
         {block.options.map((o, i) => {
           const chosen = picked === i;
@@ -641,7 +672,7 @@ function CheckBlock({ block }: { block: Extract<ExplainBlock, { type: 'check' }>
                   ) : (
                     <X aria-hidden className="h-4 w-4 text-destructive" />
                   ))}
-                {o.text}
+                <Inline text={o.text} />
               </span>
               <AnimatePresence initial={false}>
                 {reveal && (
@@ -652,7 +683,7 @@ function CheckBlock({ block }: { block: Extract<ExplainBlock, { type: 'check' }>
                     transition={{ duration: timing.mark }}
                     className="mt-1 block text-[13px] leading-[1.5] text-quiet"
                   >
-                    {o.why}
+                    <Inline text={o.why} />
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -710,7 +741,16 @@ function Steps({ block }: { block: Extract<ExplainBlock, { type: 'steps' }> }) {
 
 /* ---------------------------------------------------------------- render */
 
-export function BlockView({ block, onSpot }: { block: ExplainBlock; onSpot: (words: string | null) => void }) {
+export function BlockView({
+  block,
+  onSpot,
+  onAsk,
+}: {
+  block: ExplainBlock;
+  onSpot: (words: string | null) => void;
+  /** A follow-up asked from inside a block (a generated app's `LS.ask`). */
+  onAsk?: (question: string) => void;
+}) {
   switch (block.type) {
     case 'text':
       return <TextBlock md={block.md} />;
@@ -730,5 +770,7 @@ export function BlockView({ block, onSpot }: { block: ExplainBlock; onSpot: (wor
       return <CheckBlock block={block} />;
     case 'steps':
       return <Steps block={block} />;
+    case 'sandbox':
+      return <SandboxBlock block={{ ...block, css: block.css ?? '', js: block.js ?? '' }} onAsk={onAsk} />;
   }
 }

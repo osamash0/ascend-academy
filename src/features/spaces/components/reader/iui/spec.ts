@@ -44,7 +44,12 @@ export type ExplainBlock =
   /** A question with an answer the reader commits to before seeing it. */
   | { type: 'check'; question: string; options: { text: string; correct?: boolean; why: string }[] }
   /** Numbered steps, walked one at a time. */
-  | { type: 'steps'; title: string; steps: { label: string; body: string }[] };
+  | { type: 'steps'; title: string; steps: { label: string; body: string }[] }
+  /**
+   * A small app the model wrote, for what no block above can show — a B+-tree
+   * to insert into, a schedule to run. Runs isolated (`Sandbox.tsx`).
+   */
+  | { type: 'sandbox'; title: string; caption?: string; height?: number; html: string; css: string; js: string };
 
 export interface ExplainAnswer {
   /** The answer's headline — what this page is about, said plainly. */
