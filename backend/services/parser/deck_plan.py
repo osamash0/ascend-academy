@@ -156,3 +156,46 @@ def build_deck_skeleton(pages: list[str]) -> DeckSkeleton:
         for i in range(len(pages))
     )
     return DeckSkeleton(boilerplate=boilerplate, slides=slides, sections=sections)
+
+
+QUIZ_ROLES = frozenset({SlideRole.CONTENT, SlideRole.SUMMARY, SlideRole.EXERCISE})
+META_ROLES = frozenset({SlideRole.TITLE, SlideRole.AGENDA, SlideRole.SECTION, SlideRole.SUMMARY, SlideRole.CONTENT})
+
+
+def _spread(items: list[int], k: int) -> list[int]:
+    """k evenly spaced picks from items, always including the first."""
+    if k >= len(items):
+        return list(items)
+    step = len(items) / k
+    return [items[int(j * step)] for j in range(k)]
+
+
+def select_slides(
+    skeleton: DeckSkeleton,
+    budget: int,
+    roles: frozenset[SlideRole] = QUIZ_ROLES,
+    min_chars: int = 50,
+) -> list[int]:
+    """Pick up to ``budget`` slides spread across ALL sections.
+
+    Round-robin over sections hands each section an equal share. Leftover
+    budget goes to the sections with the most eligible slides. Inside a
+    section, picks are evenly spaced, not front-loaded."""
+    by_section: dict[int, list[int]] = {}
+    for s in skeleton.slides:
+        if s.role in roles and len(s.text) >= min_chars:
+            by_section.setdefault(s.section, []).append(s.index)
+    if budget <= 0 or not by_section:
+        return []
+    quota = {sec: 0 for sec in by_section}
+    remaining = budget
+    while remaining > 0:
+        progressed = False
+        for sec in sorted(by_section, key=lambda k: (-len(by_section[k]), k)):
+            if remaining and quota[sec] < len(by_section[sec]):
+                quota[sec] += 1
+                remaining -= 1
+                progressed = True
+        if not progressed:
+            break
+    return sorted(i for sec, idxs in by_section.items() for i in _spread(idxs, quota[sec]))
