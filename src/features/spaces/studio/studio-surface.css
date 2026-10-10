@@ -91,3 +91,10 @@
   color: hsl(var(--foreground));
   font-size: 18px;
 }
+
+/* An answer you asked for reads in full foreground, a touch smaller than the summary. */
+.studio-woven-text,
+.studio-woven-text.studio-prose {
+  font-size: 16px;
+  color: hsl(var(--foreground));
+}

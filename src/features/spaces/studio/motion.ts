@@ -6,3 +6,18 @@ export const GLIDE_S = 0.25;
 export const TEXT_FADE_S = 0.24;
 /** Amber in rgba because Motion cannot interpolate `var()`. Matches --studio-mark. */
 export const FLASH_FRAMES = ['rgba(239,159,39,0.28)', 'rgba(239,159,39,0.28)', 'rgba(239,159,39,0)'];
+
+/** Living Learn: an answer grows into the page (spec §4.3). */
+export const GROW_S = 0.7;
+export const RULE_S = 0.9;
+export const WORD_S = 0.55;
+export const WORD_STAGGER_S = 0.055;
+/** No answer takes longer than this to start its last word. */
+export const WORD_BUDGET_S = 1.6;
+/** After this many words, the rest settle sentence by sentence. */
+export const WORD_LIMIT = 40;
+export const COLLAPSE_S = 0.4;
+export const GLOW_FADE_S = 0.8;
+/** Teal in rgba because Motion cannot interpolate `var()`. Matches --studio-woven (dark). */
+export const GLOW_ON = 'rgba(159,211,199,0.06)';
+export const GLOW_OFF = 'rgba(159,211,199,0)';
