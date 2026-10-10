@@ -18,26 +18,26 @@ const turn =
 /** The reader's page line: where you are, and the turn. A quiet hint above it until you've turned once. */
 export function PagerPill({ current, last, canBack, canForward, hint, onStep, embedded }: Props) {
   const group = (
-      <div
-        role="group"
-        aria-label="Page"
-        className={
-          embedded
-            ? 'pointer-events-auto flex items-center gap-1 text-[12.5px]'
-            : 'pointer-events-auto flex items-center gap-1 rounded-full bg-[rgb(var(--studio-chip))] p-1 text-[12.5px] backdrop-blur-md'
-        }
-      >
-        <button type="button" onClick={() => onStep(-1)} disabled={!canBack} aria-label="Previous page" className={turn}>
-          <ChevronLeft aria-hidden className="h-4 w-4" />
-        </button>
-        <span className="min-w-[4.5rem] shrink-0 text-center tabular-nums text-quiet">
-          <span className="text-foreground">{current ?? '–'}</span>
-          {last !== null && <span className="text-faint"> / {last}</span>}
-        </span>
-        <button type="button" onClick={() => onStep(1)} disabled={!canForward} aria-label="Next page" className={turn}>
-          <ChevronRight aria-hidden className="h-4 w-4" />
-        </button>
-      </div>
+    <div
+      role="group"
+      aria-label="Page"
+      className={
+        embedded
+          ? 'pointer-events-auto flex items-center gap-1 text-[12.5px]'
+          : 'pointer-events-auto flex items-center gap-1 rounded-full bg-[rgb(var(--studio-chip))] p-1 text-[12.5px] backdrop-blur-md'
+      }
+    >
+      <button type="button" onClick={() => onStep(-1)} disabled={!canBack} aria-label="Previous page" className={turn}>
+        <ChevronLeft aria-hidden className="h-4 w-4" />
+      </button>
+      <span className="min-w-[4.5rem] shrink-0 text-center tabular-nums text-quiet">
+        <span className="text-foreground">{current ?? '–'}</span>
+        {last !== null && <span className="text-faint"> / {last}</span>}
+      </span>
+      <button type="button" onClick={() => onStep(1)} disabled={!canForward} aria-label="Next page" className={turn}>
+        <ChevronRight aria-hidden className="h-4 w-4" />
+      </button>
+    </div>
   );
   if (embedded) return group;
   return (

@@ -64,4 +64,24 @@ describe('Composer', () => {
     render(<Composer {...base} />);
     expect(screen.getByText('2 / 12')).toBeInTheDocument();
   });
+  it('a chip does not clear a draft in progress', () => {
+    const onAsk = vi.fn();
+    render(<Composer {...base} onAsk={onAsk} />);
+    const box = screen.getByRole('textbox');
+    fireEvent.change(box, { target: { value: 'my draft' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Why does repeated data cause problems?' }));
+    expect(onAsk).toHaveBeenCalledWith('Why does repeated data cause problems?');
+    expect(box).toHaveValue('my draft');
+  });
+  it('/ inside a dialog does not focus it', () => {
+    render(<><div role="dialog"><button>in dialog</button></div><Composer {...base} /></>);
+    const inside = screen.getByRole('button', { name: 'in dialog' });
+    inside.focus();
+    fireEvent.keyDown(inside, { key: '/' });
+    expect(screen.getByRole('textbox')).not.toHaveFocus();
+  });
+  it('announces notices politely', () => {
+    render(<Composer {...base} />);
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
+  });
 });

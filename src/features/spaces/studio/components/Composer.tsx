@@ -43,17 +43,18 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const send = (q: string) => {
+  const send = (q: string, fromInput = false) => {
     const question = q.trim();
     if (!question || answering) return;
     onAsk(question);
-    setValue('');
+    if (fromInput) setValue('');
   };
   const chips = (showSuggestions || notice?.kind === 'unknown') && !answering;
 
   return (
-    <div className="flex w-full max-w-[560px] flex-col items-center gap-2">
-      <AnimatePresence initial={false}>
+    <div className="relative flex w-full max-w-[560px] flex-col items-center gap-2">
+      <div role="status" aria-live="polite" className="flex flex-col items-center">
+      <AnimatePresence initial={false} mode="popLayout">
         {notice?.kind === 'unknown' ? (
           <motion.p key="unknown" {...fade} className="pointer-events-auto text-center text-[12.5px] text-quiet">
             In this preview I can answer a few questions about Normalization — try one of these:
@@ -73,6 +74,7 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
           </motion.p>
         ) : null}
       </AnimatePresence>
+      </div>
 
       <AnimatePresence initial={false}>
         {chips && (
@@ -87,7 +89,7 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          send(value);
+          send(value, true);
         }}
         className="pointer-events-auto flex w-full items-center gap-1 rounded-full border border-[rgb(var(--studio-hairline))] bg-[rgb(var(--studio-chip))] p-1 pl-4 backdrop-blur-md"
       >
@@ -103,7 +105,6 @@ export function Composer({ answering, suggestions, showSuggestions, notice, hint
         <button
           type="submit"
           disabled={answering}
-          aria-label={answering ? 'Answering…' : 'Ask'}
           className="console-focusable flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-foreground px-3.5 text-[13px] font-semibold text-background disabled:opacity-60"
         >
           {answering ? 'Answering…' : <><ArrowUp aria-hidden className="h-3.5 w-3.5" />Ask</>}
