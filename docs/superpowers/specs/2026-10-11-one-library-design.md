@@ -223,3 +223,15 @@ Unchanged: five destinations, Notes written in Library, Publish as the only visi
   - 1440 and phone
   - bring in → develop → open (zoom-through) → read two pages → back (the life line updated) → Share to Database Systems (Contribution) → the cover shows teal
   - Select → Remove → Undo
+
+## 11. As built (2026-10-11)
+
+| Section | As built |
+|---|---|
+| §6 store API | `bumpAnswers` was removed. The store keeps a **per-item canvas overlay** (answers you asked and removed), and `progress.answers`, the cover count and Your words all read it. Each sample item has its own overlay, so items never share answers. `share()` acts only on ready, private items and returns `boolean`. `bringIn` sets `broughtIn`, and only those items develop. |
+| §5.2 cover menu | One `ShareActions` component serves the page and the cover menu: **Share** when the item is private, **Publish** and **Take back…** when it is a draft, **Open in {Space}** and **Take back…** when it is shared. **Rename** is deferred. |
+| §5.3 develop | The develop sequence runs at screen level and is not tied to a visible cover. Bringing in a file while a filter would hide it switches to Everything and clears search. |
+| §5.4 open and Back | The zoom-through and the page fade-in are built. Back returns focus to the cover you opened. **The reverse zoom is deferred.** |
+| §5.5 page | `#b-<id>` deep links scroll to the block and focus it. Without a hash, the page restores the last page you read. Share is disabled until the item is ready ("It can be shared once it's ready."). |
+| §5.8 Select | It sits in a `role="group"` labelled "Selection". Share to… shares only ready, private items and names the rest ("still being prepared", "already in a Space"). The selection follows the covers currently shown. While Select is open, toasts sit above the bar. |
+| Deferred | Recall feeding `setRecall` (Learn, deeper Parts 2–3), `progress.notes` following the note store, and syncing shelf share state back to Lessons in the mock Spaces. |
