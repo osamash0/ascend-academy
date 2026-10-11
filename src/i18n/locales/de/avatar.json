@@ -8,7 +8,8 @@
     "patch": "Abzeichen",
     "companion": "Begleiter",
     "aura": "Aura",
-    "backdrop": "Szene"
+    "backdrop": "Szene",
+    "outfit": "Heimat-Look"
   },
   "rarity": {
     "common": "Gewöhnlich",
@@ -104,7 +105,25 @@
     "suit-tide": "Gezeiten",
     "visor-amber": "Sternenlicht",
     "visor-mauve": "Malve",
-    "visor-tide": "Gezeiten"
+    "visor-tide": "Gezeiten",
+    "outfit-none": "Raumanzug",
+    "outfit-gulf": "Golf · Thawb & Ghutra",
+    "outfit-levant": "Levante · Kufiya",
+    "outfit-turkiye": "Türkei · Yelek & Şalvar",
+    "outfit-texas": "Texas · Cowboy",
+    "outfit-lederhosen": "Bayern · Lederhose",
+    "outfit-dirndl": "Bayern · Dirndl",
+    "outfit-scotland": "Schottland · Kilt",
+    "outfit-japan": "Japan · Yukata",
+    "outfit-india": "Indien · Kurta",
+    "outfit-westafrica": "Westafrika · Dashiki",
+    "outfit-cosy": "Gemütlich",
+    "outfit-reader": "Leseratte",
+    "outfit-football": "Fußball",
+    "outfit-basketball": "Basketball",
+    "outfit-gym": "Fitness",
+    "outfit-gamer": "Gamer",
+    "outfit-graduation": "Abschluss"
   },
   "stage": {
     "alt": "Deine Luna",
@@ -145,5 +164,34 @@
       "decode": "Das Bild konnte nicht gelesen werden. Versuch JPG oder PNG.",
       "upload": "Dein Foto konnte nicht gespeichert werden. Versuch es gleich nochmal."
     }
+  },
+  "outfitNote": "Dein Heimat-Look ist an. Das hier siehst du, wenn Luna ihren Raumanzug trägt.",
+  "outfitGroups": {
+    "home": "Woher du kommst",
+    "style": "Was dich begeistert"
+  },
+  "card": {
+    "licence": "Lernführerschein",
+    "crew": "Crew-Ausweis",
+    "academy": "Raumfahrtakademie",
+    "surname": "Name",
+    "given": "Vornamen",
+    "issued": "Ausgestellt",
+    "valid": "Gültig bis",
+    "forever": "∞ Neugier",
+    "institution": "Ausstellende Stelle",
+    "number": "Karten-Nr.",
+    "class": "Klasse",
+    "endorsements": "Vermerke",
+    "name": "Name",
+    "rank": "Rang",
+    "level": "Level",
+    "station": "Heimatstation",
+    "since": "Crew seit",
+    "verified": "Verifizierte Hochschule",
+    "title": "Dein Ausweis",
+    "hint": "Wähl unten dein Foto, und dein Crew-Ausweis wird zum Lernführerschein.",
+    "edit": "Im Anzugspind bearbeiten",
+    "mine": "Mein Ausweis"
   }
 }

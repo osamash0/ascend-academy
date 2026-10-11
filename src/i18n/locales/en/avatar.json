@@ -8,7 +8,8 @@
     "patch": "Patch",
     "companion": "Companion",
     "aura": "Aura",
-    "backdrop": "Scene"
+    "backdrop": "Scene",
+    "outfit": "Home look"
   },
   "rarity": {
     "common": "Common",
@@ -104,7 +105,25 @@
     "suit-tide": "Tidal",
     "visor-amber": "Starlight",
     "visor-mauve": "Mauve",
-    "visor-tide": "Tidal"
+    "visor-tide": "Tidal",
+    "outfit-none": "Space suit",
+    "outfit-gulf": "Gulf · thobe & ghutra",
+    "outfit-levant": "Levant · keffiyeh",
+    "outfit-turkiye": "Türkiye · yelek & şalvar",
+    "outfit-texas": "Texas · cowboy",
+    "outfit-lederhosen": "Bavaria · Lederhosen",
+    "outfit-dirndl": "Bavaria · Dirndl",
+    "outfit-scotland": "Scotland · kilt",
+    "outfit-japan": "Japan · yukata",
+    "outfit-india": "India · kurta",
+    "outfit-westafrica": "West Africa · dashiki",
+    "outfit-cosy": "Cosy",
+    "outfit-reader": "Reader",
+    "outfit-football": "Football",
+    "outfit-basketball": "Basketball",
+    "outfit-gym": "Gym",
+    "outfit-gamer": "Gamer",
+    "outfit-graduation": "Graduation"
   },
   "stage": {
     "alt": "Your Luna",
@@ -145,5 +164,34 @@
       "decode": "Couldn't read that image. Try a JPG or PNG.",
       "upload": "Couldn't save your photo. Try again in a moment."
     }
+  },
+  "outfitNote": "Your home look is on. This shows when Luna wears her space suit.",
+  "outfitGroups": {
+    "home": "Where you're from",
+    "style": "What you're into"
+  },
+  "card": {
+    "licence": "Learner Licence",
+    "crew": "Crew ID",
+    "academy": "Space Academy",
+    "surname": "Surname",
+    "given": "Given names",
+    "issued": "Issued",
+    "valid": "Valid until",
+    "forever": "∞ curiosity",
+    "institution": "Issued by",
+    "number": "Card no.",
+    "class": "Class",
+    "endorsements": "Endorsements",
+    "name": "Name",
+    "rank": "Rank",
+    "level": "Level",
+    "station": "Home station",
+    "since": "Crew since",
+    "verified": "Verified university",
+    "title": "Your ID",
+    "hint": "Choose your photo below and your Crew ID becomes a Learner Licence.",
+    "edit": "Edit in Suit Locker",
+    "mine": "My ID"
   }
 }

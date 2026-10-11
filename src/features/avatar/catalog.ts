@@ -16,7 +16,27 @@ import type { AvatarItem, Loadout, Slot } from './types';
 
 const free = { kind: 'free' } as const;
 
+/** The single milestone that opens every home look. */
+export const HOME_LOOK_UNLOCK = { kind: 'badge', key: 'First Steps' } as const;
+
 export const CATALOG: readonly AvatarItem[] = [
+  // ── Home look ───────────────────────────────────────────────────────────
+  // Luna takes her helmet off and dresses like home. Every HOME look shares
+  // ONE unlock (finishing your first lecture): earned, but never ranking one
+  // culture above another. The space suit stays the free default.
+  { id: 'outfit-none', slot: 'outfit', unlock: free, rarity: 'common' },
+  ...(['gulf', 'levant', 'turkiye', 'texas', 'lederhosen', 'dirndl', 'scotland', 'japan', 'india', 'westafrica'] as const).map(
+    (look): AvatarItem => ({ id: `outfit-${look}`, slot: 'outfit', unlock: HOME_LOOK_UNLOCK, rarity: 'rare', group: 'home' }),
+  ),
+  // Style looks — what you're into. Each opens with an achievement that fits it.
+  { id: 'outfit-cosy', slot: 'outfit', unlock: free, rarity: 'common', group: 'style' },
+  { id: 'outfit-reader', slot: 'outfit', unlock: { kind: 'badge', key: 'Bookworm' }, rarity: 'rare', group: 'style' },
+  { id: 'outfit-football', slot: 'outfit', unlock: { kind: 'badge', key: 'On Fire' }, rarity: 'rare', group: 'style' },
+  { id: 'outfit-basketball', slot: 'outfit', unlock: { kind: 'badge', key: 'Sharpshooter' }, rarity: 'epic', group: 'style' },
+  { id: 'outfit-gym', slot: 'outfit', unlock: { kind: 'streak', days: 7 }, rarity: 'rare', group: 'style' },
+  { id: 'outfit-gamer', slot: 'outfit', unlock: { kind: 'level', level: 10 }, rarity: 'epic', group: 'style' },
+  { id: 'outfit-graduation', slot: 'outfit', unlock: { kind: 'badge', key: 'Course Conqueror' }, rarity: 'epic', group: 'style' },
+
   // ── Suit ────────────────────────────────────────────────────────────────
   { id: 'suit-moonlight', slot: 'suit', unlock: free, rarity: 'common', color: '#FFF8E7' },
   { id: 'suit-lavender', slot: 'suit', unlock: free, rarity: 'common', color: '#E8E4F0' },
@@ -102,6 +122,7 @@ export function itemsForSlot(slot: Slot): AvatarItem[] {
 
 /** Luna as she ships: the signature moonlight suit, teal visor, a star patch. */
 export const DEFAULT_LOADOUT: Loadout = {
+  outfit: 'outfit-none',
   suit: 'suit-moonlight',
   visor: 'visor-teal',
   gear: 'gear-none',

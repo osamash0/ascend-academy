@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { SuitLocker } from '@/features/avatar/SuitLocker';
 import { FacePicker } from '@/features/avatar/FacePicker';
+import { MyIdCard } from '@/features/avatar/MyIdCard';
 import { useLoadout } from '@/features/avatar/useAvatar';
 import type { Loadout } from '@/features/avatar/types';
 
@@ -35,7 +36,17 @@ export default function AvatarStudio() {
         <h1 className="text-3xl font-black text-white">{t('title')}</h1>
         <p className="mt-1 text-sm text-white/60">{t('subtitle')}</p>
       </header>
-      {ready && <FacePicker loadout={loadout} />}
+      {ready && (
+        // Your ID and how people see you, side by side: switching to a photo
+        // visibly turns the Crew ID into a Learner Licence.
+        <div className="mb-8 grid items-center gap-6 lg:grid-cols-[minmax(0,420px)_1fr]">
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">{t('card.title')}</p>
+            <MyIdCard />
+          </div>
+          <FacePicker loadout={loadout} />
+        </div>
+      )}
       {ready ? (
         // Mounted only once loaded, so the locker's draft starts from what's saved.
         <SuitLocker progress={progress} initial={loadout} onSave={onSave} saving={saving} badgeDates={badgeDates} />

@@ -66,7 +66,7 @@ export function FacePicker({ loadout }: { loadout: Loadout }) {
     );
 
   return (
-    <section aria-labelledby="face-title" className="mb-8 rounded-[24px] border border-white/10 bg-white/[0.02] p-4">
+    <section aria-labelledby="face-title" className="rounded-[24px] border border-white/10 bg-white/[0.02] p-4">
       <p id="face-title" className="text-sm font-semibold text-white">{t('face.title')}</p>
       <p className="mb-3 text-xs text-white/55">{t('face.body')}</p>
       <div className="grid gap-3 sm:grid-cols-2">

@@ -100,6 +100,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT ALL ON TABLES TO service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated, service_role;
+-- Supabase also grants EXECUTE on every new public function DIRECTLY to anon
+-- (not via PUBLIC), so a migration's `REVOKE ... FROM PUBLIC` leaves anon able
+-- to call it. Without this line the suite can't see that gap: "anon is
+-- denied" tests passed here while prod still let anon in (found 2026-10-11).
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
 
 -- `pdf_parse_cache` and `slide_embeddings` used to be "out-of-band cache
 -- tables" stubbed manually right here, because their CREATE TABLE lived only
