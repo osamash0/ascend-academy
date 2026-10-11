@@ -230,3 +230,16 @@ drop-risk probe (`backend/eval/data/grounding_probe.py`) at the unchanged
 its numbers by hand. Rerun the tool instead.
 
 Tests: `pytest backend/tests/unit/test_deck_lab_metrics.py backend/tests/unit/test_deck_lab_probe.py backend/tests/unit/test_deck_lab_cli.py backend/tests/unit/test_grounding_probe_set.py`
+
+### Semantic grounding (Arc 8, opt-in)
+
+`--grounding-semantic` fits a cosine threshold on the Arc 4 calibration pairs
+(`backend/eval/data/grounding_calibration.py`) and scores the pre-registered
+probe once at it (`backend/eval/semantic_grounding_eval.py`). Vectors come
+from `backend/eval/data/grounding_embeddings.json` (keyed by sha256, no text).
+A cache miss exits 2 unless `DECK_LAB_ALLOW_EMBEDDING_API=1`. That sends slide
+text to Google's embedding API with your GEMINI_API_KEY (unmetered; no llm_calls rows).
+Fetched vectors are saved before calibration runs. A complete probe whose lexical
+column does not reproduce Arc 6 (false-drop 14/16, false-keep 0/16) raises
+`LexicalBaselineMismatch` instead of producing a decision.
+Tests: `pytest backend/tests/unit/test_semantic_grounding_eval.py backend/tests/unit/test_deck_lab_semantic.py`

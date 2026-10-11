@@ -216,3 +216,48 @@ async def test_run_refuses_a_cache_fitted_for_another_model(lab):
             await sge.run_semantic_grounding(deck_dir, cache, allow_api=False)
     finally:
         sge.EMBEDDING_MODEL_ID = "fake@2"
+
+
+def _probe_with_lexical(drops, keeps, n=16):
+    para = [sge.SemanticOutcome(PROBE[0], PARAPHRASED, "p", 0.0, 0.5, "ok", i >= drops, True, True) for i in range(n)]
+    hall = [sge.SemanticOutcome(PROBE[0], HALLUCINATED, "h", 0.0, 0.1, "ok", i < keeps, False, False) for i in range(n)]
+    return sge.SemanticProbeResult(0.5, tuple(para + hall), ())
+
+
+def test_lexical_baseline_constants_are_arc6s():
+    assert (sge.ARC6_LEXICAL_FALSE_DROPS, sge.ARC6_LEXICAL_FALSE_KEEPS) == (14, 0)
+
+
+def test_lexical_baseline_passes_when_it_reproduces_arc6():
+    sge.check_lexical_baseline(_probe_with_lexical(14, 0))
+
+
+@pytest.mark.parametrize("drops,keeps", [(13, 0), (15, 0), (14, 1)])
+def test_lexical_baseline_mismatch_raises_naming_observed_and_expected(drops, keeps):
+    with pytest.raises(sge.LexicalBaselineMismatch, match=rf"false-drop {drops}/16.*false-keep {keeps}/16.*14/16.*0/16"):
+        sge.check_lexical_baseline(_probe_with_lexical(drops, keeps))
+
+
+def test_lexical_baseline_skips_a_partial_probe():
+    sge.check_lexical_baseline(_probe_with_lexical(1, 1, n=2))  # decide() already fails it as incomplete
+
+
+async def test_run_refuses_a_decision_when_the_lexical_column_drifts(lab, monkeypatch):
+    deck_dir, cache, _ = lab
+    monkeypatch.setattr(sge, "EXPECTED_PROBE_ANSWERS", 4)  # the 2-pair fixture counts as a full probe
+    with pytest.raises(sge.LexicalBaselineMismatch):
+        await sge.run_semantic_grounding(deck_dir, cache, allow_api=True)
+    assert cache.exists()  # paid vectors survive the refusal
+
+
+async def test_cache_is_saved_before_calibration_so_a_later_failure_loses_nothing(lab, monkeypatch):
+    deck_dir, cache, live = lab
+
+    async def boom(*a, **k):
+        raise RuntimeError("calibrate failed")
+
+    monkeypatch.setattr(sge, "calibrate", boom)
+    with pytest.raises(RuntimeError, match="calibrate failed"):
+        await sge.run_semantic_grounding(deck_dir, cache, allow_api=True)
+    assert len(live.calls) == 1 and cache.exists()
+    assert EmbeddingCache.load(cache, "fake@2", sge.EMBEDDING_DIMS).vectors

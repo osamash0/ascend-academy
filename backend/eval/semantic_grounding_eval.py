@@ -40,6 +40,13 @@ MAX_FALSE_DROPS = 2          # of 16 paraphrased answers
 MAX_FALSE_KEEPS = 1          # of 16 hallucinated answers
 MAX_CALIBRATION_ERRORS = 2   # of the scored calibration answers
 EXPECTED_PROBE_ANSWERS = 2 * len(PROBE_PAIRS)  # 32
+# Sanity stop (pre-registration step 6): the lexical column must reproduce Arc 6.
+ARC6_LEXICAL_FALSE_DROPS = 14  # of 16 paraphrased answers
+ARC6_LEXICAL_FALSE_KEEPS = 0   # of 16 hallucinated answers
+
+
+class LexicalBaselineMismatch(RuntimeError):
+    """The lexical column no longer reproduces Arc 6: the pipeline has a bug, so no gate decision is made."""
 
 
 @dataclass(frozen=True)
@@ -220,6 +227,20 @@ def decide(cal: Calibration, probe: SemanticProbeResult,
     return Decision(not failures, tuple(failures), cal.model)
 
 
+def check_lexical_baseline(probe: SemanticProbeResult, expected_answers: int | None = None) -> None:
+    """Raise unless a complete probe's lexical column equals Arc 6's. A partial
+    probe is not comparable (decide() fails it as incomplete)."""
+    expected = EXPECTED_PROBE_ANSWERS if expected_answers is None else expected_answers
+    if len(probe.outcomes) != expected:
+        return
+    r = probe.rates("lexical")
+    if (r.false_drops, r.false_keeps) != (ARC6_LEXICAL_FALSE_DROPS, ARC6_LEXICAL_FALSE_KEEPS):
+        raise LexicalBaselineMismatch(
+            f"lexical column is false-drop {r.false_drops}/{r.paraphrased}, false-keep "
+            f"{r.false_keeps}/{r.hallucinated}; Arc 6 expects false-drop {ARC6_LEXICAL_FALSE_DROPS}/{r.paraphrased}, "
+            f"false-keep {ARC6_LEXICAL_FALSE_KEEPS}/{r.hallucinated}. Refusing a gate decision: the pipeline has a bug.")
+
+
 async def _live_fetch(texts: Sequence[str]) -> list[list[float]]:
     """Google's embedding API, unmetered (an eval must not write llm_calls rows
     into whatever database the shell's .env names), <= EMBED_BATCH_MAX per request."""
@@ -252,9 +273,10 @@ async def run_semantic_grounding(deck_dir: Path, cache_path: Path, allow_api: bo
     texts += [t for *_, q, sk in pr_items for t in semantic_texts(q, sk)]
     unique = list(dict.fromkeys(texts))
     await embed(unique)  # one prefetch: every miss goes out together
+    if cache.fetched:
+        cache.save()  # paid vectors hit the disk before anything can fail
     calibration = await calibrate(cal_items, embed, EMBEDDING_MODEL_ID)  # calibration decks only
     probe = await run_semantic_probe(pr_items, embed, calibration.threshold, missing_probe)  # once, at that threshold
-    if cache.fetched:
-        cache.save()
+    check_lexical_baseline(probe)  # before any decision is built
     return SemanticRun(calibration, probe, decide(calibration, probe), (), cache.fetched,
                        len(unique) - cache.fetched, cache_path, EMBEDDING_MODEL_ID)
