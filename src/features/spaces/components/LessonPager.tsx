@@ -29,6 +29,12 @@ interface Props {
   prev: Lesson | null;
   next: Lesson | null;
   /**
+   * Whether ← → walk the path. Off where the arrows already mean something
+   * else on screen — the deck reader turns pages with them (ruling F6: one
+   * key, one meaning).
+   */
+  keys?: boolean;
+  /**
    * A panel is occupying the right 384px of the window, so span the rest.
    *
    * The reader's companion rail, today. It is a prop rather than something
@@ -102,7 +108,7 @@ function PagerCard({
   );
 }
 
-export function LessonPager({ spaceId, prev, next, companionOpen = false }: Props) {
+export function LessonPager({ spaceId, prev, next, companionOpen = false, keys = true }: Props) {
   const navigate = useNavigate();
 
   /**
@@ -127,6 +133,7 @@ export function LessonPager({ spaceId, prev, next, companionOpen = false }: Prop
    * field, or a complementary landmark is a context this component is not in.
    */
   useEffect(() => {
+    if (!keys) return;
     const onKey = (e: KeyboardEvent) => {
       /*
        * `instanceof Element`, not a cast. A `keydown` dispatched at `document`
@@ -151,7 +158,7 @@ export function LessonPager({ spaceId, prev, next, companionOpen = false }: Prop
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [prev, next, spaceId, navigate]);
+  }, [prev, next, spaceId, navigate, keys]);
 
   // Nothing either side — a one-Lesson Space has no path to walk.
   if (!prev && !next) return null;

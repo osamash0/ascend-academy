@@ -38,12 +38,8 @@ export async function fetchStudentMastery(userId: string): Promise<StudentMaster
   };
 }
 
-export interface LectureConcept {
-  concept_id: string;
-  name: string;
-  weight: number;
-  slide_indices: number[];
-}
+import type { LectureConcept } from '@/types/domain';
+export type { LectureConcept } from '@/types/domain';
 
 export async function fetchLectureConcepts(lectureId: string): Promise<LectureConcept[]> {
   const env = await apiClient.get<{ data?: LectureConcept[] }>(`/api/v1/concepts/lecture/${lectureId}`);

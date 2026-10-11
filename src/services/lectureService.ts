@@ -4,25 +4,11 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { apiClient } from '@/lib/apiClient';
-import type { Lecture, Slide, QuizQuestion } from '@/types/domain';
+import type { Lecture, Slide, QuizQuestion, LocalizedLectureBundle } from '@/types/domain';
 import type { SlideData } from '@/types/lectureUpload';
 import { toSlug } from '@/lib/utils';
 
-export interface LocalizedLectureBundle {
-  /** Language of the returned content — NOT necessarily the one requested. */
-  locale: 'en' | 'de';
-  /** The reader's preferred language, echoed back for comparison. */
-  requestedLocale: 'en' | 'de';
-  /**
-   * True when no translation exists for the reader's language and the deck is
-   * being served in its original one. The UI must say so rather than let a
-   * student assume their preference was honoured.
-   */
-  isOriginalLanguage: boolean;
-  lecture: Lecture;
-  slides: Slide[];
-  questions: QuizQuestion[];
-}
+export type { LocalizedLectureBundle } from '@/types/domain';
 
 /**
  * Returns one atomic, locale-resolved study snapshot. The server derives the

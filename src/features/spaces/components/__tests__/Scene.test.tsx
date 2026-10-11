@@ -73,11 +73,22 @@ describe('Scene', () => {
     expect(blackout, 'no blackout layer — the focus ground is not being applied').not.toBeNull();
   });
 
-  it('classifies every known screen as exactly browse or focus', () => {
+  it('gives a stage one black ground, and tells the chrome which ground it is', () => {
+    const { container } = render(
+      <Scene surface={SURFACES.lessonOverview} accent="#ff0000">
+        <Probe />
+      </Scene>,
+    );
+    expect(container.querySelector('[aria-hidden].fixed.inset-0.bg-black')).not.toBeNull();
+    const wrapper = container.querySelector('[data-testid="probe"]')?.parentElement as HTMLElement;
+    expect(wrapper.style.getPropertyValue('--stage-accent')).toBe('#ff0000');
+  });
+
+  it('classifies every known screen as exactly browse, focus or stage', () => {
     // Stops a new screen being added without a deliberate decision about
     // whether the cosmic theme is spent on it.
     for (const [screen, surface] of Object.entries(SURFACES)) {
-      expect(['browse', 'focus'], `${screen} has no surface`).toContain(surface);
+      expect(['browse', 'focus', 'stage'], `${screen} has no surface`).toContain(surface);
     }
     // The map must never drift back to a textured ground: "darkness is the
     // content" is unbuildable on a gradient.

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { LectureConcept, LocalizedLectureBundle } from '@/types/domain';
 import type { Contribution, Lesson, LibraryItem, LoadState, Membership, Note, Space } from '../types';
 import {
   archivedSpaces,
@@ -8,7 +9,13 @@ import {
   joinedByViewer,
   spaceById,
 } from '../mocks/spaces';
-import { lessonsForSpace, publishedLessonsForSpace } from '../mocks/lessons';
+import {
+  adjacentLessons,
+  lessonsForSpace,
+  publishedLessonsForSpace,
+  visibleLesson,
+} from '../mocks/lessons';
+import { lessonContent } from '../mocks/content';
 import {
   contributionsForLesson,
   contributionsForSpace,
@@ -263,4 +270,65 @@ export function useHome(): HomeResult {
     // so Home and Profile could disagree about the same run and both look right.
     streakDays: ready ? currentRun() : 0,
   };
+}
+
+/* ── One Lesson, and what it is made of ───────────────────────── */
+
+export interface LessonResult {
+  state: LoadState;
+  space: Space | null;
+  /** Rule 1 applied: a Member never receives an unpublished Lesson here. */
+  lesson: Lesson | null;
+  /** The published neighbours in the path, for the pager. */
+  prev: Lesson | null;
+  next: Lesson | null;
+}
+
+/**
+ * One Lesson as the viewer may see it.
+ *
+ * `ReaderScreen` reaches into `mocks/lessons.ts` for this directly; the
+ * two-faced reader goes through here instead, so the day these bodies call the
+ * backend the screen does not change.
+ */
+export function useLesson(spaceId: string | undefined, lessonId: string | undefined): LessonResult {
+  const scenario = useScenario();
+  const state = useSettled(scenario);
+  const space = spaceId ? spaceById(spaceId) ?? null : null;
+  const lesson = space && lessonId ? visibleLesson(space, lessonId) ?? null : null;
+  if (state !== 'ready') return { state, space: null, lesson: null, prev: null, next: null };
+  const { prev, next } = space && lesson ? adjacentLessons(space.id, lesson.id) : { prev: null, next: null };
+  return { state, space, lesson, prev: prev ?? null, next: next ?? null };
+}
+
+export interface LessonContentResult {
+  state: LoadState;
+  /** `GET /api/v1/localized-content/lectures/{id}`, as `fetchLocalizedLectureBundle` returns it. */
+  bundle: LocalizedLectureBundle | null;
+  /** `GET /api/v1/concepts/lecture/{id}`, as `fetchLectureConcepts` returns it. */
+  concepts: LectureConcept[];
+  /** What `resolvePdfUrl(bundle.lecture.pdf_url)` returns. Null = no file. */
+  pdfUrl: string | null;
+}
+
+/**
+ * What a Lesson is made of: its pages, its Concepts, its file.
+ *
+ * The result is the two endpoint responses in their own types plus the signed
+ * URL for the file, which is exactly what the live body will return:
+ *
+ *   const bundle = await fetchLocalizedLectureBundle(lessonId);
+ *   const concepts = await fetchLectureConcepts(lessonId);
+ *   const pdfUrl = await resolvePdfUrl(bundle.lecture.pdf_url);
+ *
+ * Today the body reads `mocks/content.ts`. `state === 'empty'` is a Lesson
+ * with nothing to read yet, which is not a failure and is not rendered as one.
+ */
+export function useLessonContent(lessonId: string | undefined): LessonContentResult {
+  const scenario = useScenario();
+  const state = useSettled(scenario);
+  const content = lessonId ? lessonContent(lessonId) : null;
+  if (state !== 'ready') return { state, bundle: null, concepts: [], pdfUrl: null };
+  if (!content) return { state: 'empty', bundle: null, concepts: [], pdfUrl: null };
+  return { state, bundle: content.bundle, concepts: content.concepts, pdfUrl: content.pdfUrl };
 }

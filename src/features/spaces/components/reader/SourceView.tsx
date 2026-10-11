@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Concept, MaterialPage } from '../../types';
@@ -47,9 +48,19 @@ interface Props {
    * dead end this view was built to remove, reintroduced one line lower.
    */
   onJumpToPassage?: (conceptId: string) => void;
+  /**
+   * The page itself, when there is a file to draw it from.
+   *
+   * The text card below was what a Material looked like before the reader
+   * could open the file; with a rendered page in hand, the card would be a
+   * paraphrase sitting where the source should be. The pager and the sync
+   * line are what this view is really for, and they do not care what the
+   * sheet is made of.
+   */
+  sheet?: ReactNode;
 }
 
-export function SourceView({ pages, concepts, page, onPageChange, onJumpToPassage }: Props) {
+export function SourceView({ pages, concepts, page, onPageChange, onJumpToPassage, sheet }: Props) {
   /*
    * Clamped rather than trusted. The page number arrives from a citation, a
    * pager and a Lesson change, and the first two can outlive the third — a
@@ -63,6 +74,7 @@ export function SourceView({ pages, concepts, page, onPageChange, onJumpToPassag
 
   return (
     <>
+      {sheet ?? (
       <div
         className={cn(
           'mx-auto flex min-h-[340px] w-full max-w-[760px] flex-col rounded-2xl',
@@ -82,6 +94,7 @@ export function SourceView({ pages, concepts, page, onPageChange, onJumpToPassag
         {/* The number printed on the page itself, where a page number goes. */}
         <p className="mt-auto pt-10 text-[11px] text-slate-400">Page {current.page}</p>
       </div>
+      )}
 
       <div className="mt-6 flex items-center justify-center gap-5">
         <button

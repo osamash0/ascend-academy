@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { MobileNavSpacer } from './MobileNav';
+import { GroundContext, type Surface } from './ground';
 import { DepthScene } from '@/components/console';
 import type { ConsoleStatus } from '@/components/console';
 
@@ -29,8 +30,17 @@ import type { ConsoleStatus } from '@/components/console';
  * Consequence for Doc 2: rule 10 needs amending from "the theme is spent here
  * and nowhere else" to something like "the map is themed *structurally*;
  * browse surfaces are textured; focus surfaces are plain."
+ *
+ * STAGE surfaces (2026-10-10) are the real-course reader's rooms — the course
+ * journey, a lecture's overview, the rehearsal. They are pure black, the same
+ * black as the deck reader, *including behind the top bar*. Before this they
+ * sat on `browse` with a black band drawn from the content down, so the bar
+ * kept the console's teal wash above a black page: two grounds with a seam
+ * at the bar's edge. On a stage the only colour is the lecture's own
+ * (`accent`), and the bar reads the ground from here rather than being told.
  */
-export type Surface = 'browse' | 'focus';
+export type { Surface };
+export { useGround } from './ground';
 
 export const SURFACES = {
   /** Choosing. Texture is atmosphere and costs nothing. */
@@ -43,8 +53,19 @@ export const SURFACES = {
   profile: 'browse',
   /** Reading or seeing. Texture competes with the content. */
   lessonReader: 'focus',
+  /**
+   * The two-faced reader keeps the room. Its ground is the *other face*,
+   * blurred, and that reads as a place only with the console's atmosphere
+   * under it — plain black made it a void with a page floating in it
+   * (Abi, 2026-09-18: "make it not on focus mode").
+   */
+  lessonFaces: 'browse',
   practice: 'focus',
   map: 'focus',
+  /** The real-course reader's rooms: one black, top bar included. */
+  course: 'stage',
+  lessonOverview: 'stage',
+  rehearsal: 'stage',
 } as const satisfies Record<string, Surface>;
 
 interface SceneProps {
@@ -52,8 +73,17 @@ interface SceneProps {
   status?: ConsoleStatus;
   gradientIndex?: number;
   motionKey?: string;
+  /** A stage's one colour — the lecture's — exposed as `--stage-accent`. */
+  accent?: string | null;
+  /**
+   * The screen mounts no tab bar (the reader), so it reserves no room for
+   * one. The spacer made the full-height reader 68px taller than a phone's
+   * window, and pressing a control near the bottom scrolled the whole page.
+   */
+  bare?: boolean;
   children: ReactNode;
 }
+
 
 /**
  * Picks the right ground for the screen. Every v4 screen renders through this
@@ -75,8 +105,9 @@ interface SceneProps {
  * preserves — so it still reads as a deliberate change for someone who has
  * asked for less motion, without anything moving.
  */
-export function Scene({ surface, status, gradientIndex, motionKey, children }: SceneProps) {
+export function Scene({ surface, status, gradientIndex, motionKey, accent, bare, children }: SceneProps) {
   const plain = surface === 'focus';
+  const stage = surface === 'stage';
 
   /*
    * reducedMotion="user" disables transform and layout animations while
@@ -98,8 +129,19 @@ export function Scene({ surface, status, gradientIndex, motionKey, children }: S
           animate={{ opacity: plain ? 1 : 0 }}
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         />
-        <div className="relative" style={{ zIndex: 1 }}>
-          {children}
+        <motion.div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 bg-black"
+          style={{ zIndex: 0 }}
+          initial={false}
+          animate={{ opacity: stage ? 1 : 0 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        />
+        <div
+          className="relative"
+          style={{ zIndex: 1, ...(accent ? { '--stage-accent': accent } : {}) } as CSSProperties}
+        >
+          <GroundContext.Provider value={surface}>{children}</GroundContext.Provider>
           {/*
             Room for the fixed bottom bar — on the surfaces that have one.
             
@@ -110,7 +152,7 @@ export function Scene({ surface, status, gradientIndex, motionKey, children }: S
             phone for a bar that was not there. The condition is the surface,
             which is the same thing that decides whether the bar exists.
           */}
-          {surface === 'browse' && <MobileNavSpacer />}
+          {surface !== 'focus' && !bare && <MobileNavSpacer />}
         </div>
       </DepthScene>
   );

@@ -76,6 +76,15 @@ interface Props {
    * resolution matches nothing and falls on the floor.
    */
   mintTurnId: () => number;
+  /**
+   * Can this citation be followed here?
+   *
+   * The default answers from the Lesson fixture — a passage for a Concept, a
+   * page in `material.pages`. A reader built on the bundle endpoint knows the
+   * real pages and the real Concepts, and passes its own answer; the chip
+   * rule is unchanged, only who answers it.
+   */
+  landable?: (c: TutorCitation) => boolean;
 }
 
 /**
@@ -103,6 +112,7 @@ export function TutorPanel({
   turns,
   onTurnsChange,
   mintTurnId,
+  landable: landableProp,
 }: Props) {
   const [draft, setDraft] = useState('');
 
@@ -168,10 +178,12 @@ export function TutorPanel({
    * a control that answers "nowhere" is a control that should not have looked
    * like one.
    */
-  const landable = (c: TutorCitation) =>
-    (c.conceptId !== undefined && (lesson.passages ?? []).some((p) => p.conceptId === c.conceptId)) ||
-    (c.materialPage !== undefined &&
-      (lesson.material?.pages ?? []).some((p) => p.page === c.materialPage));
+  const landable =
+    landableProp ??
+    ((c: TutorCitation) =>
+      (c.conceptId !== undefined && (lesson.passages ?? []).some((p) => p.conceptId === c.conceptId)) ||
+      (c.materialPage !== undefined &&
+        (lesson.material?.pages ?? []).some((p) => p.page === c.materialPage)));
 
   const follow = (c: TutorCitation) => {
     if (c.conceptId !== undefined) onCiteConcept(c.conceptId);

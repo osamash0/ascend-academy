@@ -120,6 +120,7 @@ const V4Practice = lazy(() => import("./features/spaces/screens/PracticeScreen")
 const V4Settings = lazy(() => import("./features/spaces/screens/SettingsScreen"));
 const V4Person = lazy(() => import("./features/spaces/screens/PersonScreen"));
 const V4Reader = lazy(() => import("./features/spaces/screens/ReaderScreen"));
+const V4LessonFaces = lazy(() => import("./features/spaces/screens/LessonFacesScreen"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const FriendsHub = lazy(() => import("./features/social/pages/FriendsHub"));
 const SocialProfile = lazy(() => import("./features/social/pages/SocialProfile"));
@@ -327,6 +328,8 @@ function AppRoutes() {
             <Route path="/v4/space/:spaceId/lesson/:lessonId/practice" element={<V4Practice />} />
             {/* The reader — a focus surface, like practice. */}
             <Route path="/v4/space/:spaceId/lesson/:lessonId/read" element={<V4Reader />} />
+            {/* The same Lesson with two faces — beside the reader so the two can be compared. */}
+            <Route path="/v4/space/:spaceId/lesson/:lessonId/faces" element={<V4LessonFaces />} />
             <Route path="/v4/space/:spaceId/lesson/:lessonId" element={<V4Lesson />} />
             <Route path="/v4/space/:spaceId/concept/:conceptId" element={<V4Concept />} />
           </Route>

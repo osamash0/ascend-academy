@@ -21,7 +21,8 @@ export default defineConfig(({ mode }) => ({
     // "Failed to load courses/assignments" — a JSON.parse on '<!doctype').
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8000",
+        // Overridable so two checkouts can each run their own backend.
+        target: process.env.VITE_PROXY_TARGET || "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },

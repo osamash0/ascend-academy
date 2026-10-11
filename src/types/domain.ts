@@ -76,6 +76,21 @@ export interface Lecture {
   content_revision?: number;
 }
 
+/**
+ * One Concept as `GET /api/v1/concepts/lecture/{id}` returns it.
+ *
+ * `slide_indices` are 0-based positions into the lecture's slides — the
+ * concept graph and the embeddings both count from 0, while `Slide.slide_number`
+ * counts from 1. Lives here rather than in `conceptsService` so a component can
+ * import the shape without importing the fetch.
+ */
+export interface LectureConcept {
+  concept_id: string;
+  name: string;
+  weight: number;
+  slide_indices: number[];
+}
+
 export interface Slide {
   id: string;
   slide_number: number;
@@ -124,6 +139,30 @@ export interface QuizQuestion {
  * Slides absent from the map are implicitly `unvisited`.
  */
 export type SlideState = 'visited' | 'skipped' | 'current';
+
+/**
+ * What `GET /api/v1/localized-content/lectures/{id}` returns, after
+ * `lectureService.fetchLocalizedLectureBundle` has normalised it.
+ *
+ * Lives here, not in the service, for the same reason `LectureConcept` does:
+ * it is the wire shape a reading surface is built against, and importing it
+ * must not drag the fetch (and its Supabase client) along.
+ */
+export interface LocalizedLectureBundle {
+  /** Language of the returned content — NOT necessarily the one requested. */
+  locale: 'en' | 'de';
+  /** The reader's preferred language, echoed back for comparison. */
+  requestedLocale: 'en' | 'de';
+  /**
+   * True when no translation exists for the reader's language and the deck is
+   * being served in its original one. The UI must say so rather than let a
+   * student assume their preference was honoured.
+   */
+  isOriginalLanguage: boolean;
+  lecture: Lecture;
+  slides: Slide[];
+  questions: QuizQuestion[];
+}
 
 export interface StudentProgress {
   lecture_id: string;

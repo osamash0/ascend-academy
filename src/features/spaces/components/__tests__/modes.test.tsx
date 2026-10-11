@@ -65,6 +65,10 @@ const MODE: Record<string, Mode> = {
    */
   'SpacesHubScreen.tsx': 'own-ground',
   'SpaceScreen.tsx': 'learn',
+  // A real course read as a journey through its lectures (live mode).
+  'CourseScreen.tsx': 'learn',
+  // Exam rehearsal on a real course: a focus surface, like practice.
+  'RehearsalScreen.tsx': 'learn',
   'LessonScreen.tsx': 'learn',
   'ConceptScreen.tsx': 'learn',
   'LibraryScreen.tsx': 'learn',
@@ -78,6 +82,7 @@ const MODE: Record<string, Mode> = {
   // Learn in a *focus* surface: Scene, no top bar, one thing at a time.
   'PracticeScreen.tsx': 'learn',
   'ReaderScreen.tsx': 'learn',
+  'LessonFacesScreen.tsx': 'learn',
   'LibraryStudioScreen.tsx': 'studio',
   'SpaceManageScreen.tsx': 'studio',
   'SettingsScreen.tsx': 'studio',

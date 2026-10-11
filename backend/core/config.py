@@ -113,6 +113,8 @@ class Settings(BaseSettings):
     # 20260710040000_student_uploads.sql (lectures.visibility/student_owner_id,
     # upload_quotas). Set FEATURE_STUDENT_UPLOADS=1 to enable.
     feature_student_uploads: bool = Field(alias="FEATURE_STUDENT_UPLOADS", default=False)
+    # The v4 Lesson reader on real courses/lectures. Needs no v4 schema.
+    feature_v4_reader: bool = Field(alias="FEATURE_V4_READER", default=False)
     # Monthly cap on private uploads per student; quota is the monetization seam.
     student_upload_monthly_limit: int = Field(alias="STUDENT_UPLOAD_MONTHLY_LIMIT", default=5)
 
