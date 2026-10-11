@@ -555,8 +555,11 @@ function DataPrivacySettings({ user, signOut, navigate }: { user: { id: string }
             // reported success — leaving auth.users, storage objects and every
             // other table behind while telling the user their account was gone.
             // A failure here has to surface as a failure.
-            await apiClient.post('/api/auth/delete-account', {});
+            const result = await apiClient.post<{ files?: string }>('/api/auth/delete-account', {});
 
+            if (result?.files === 'finishing') {
+                toast({ title: 'Your account is deleted. Your files are being removed.' });
+            }
             await signOut();
             navigate('/');
             toast({ title: t('settings:data.deleteSuccess'), description: t('settings:data.deleteSuccessDescription') });

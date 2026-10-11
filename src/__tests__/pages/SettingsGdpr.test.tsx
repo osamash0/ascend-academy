@@ -124,6 +124,25 @@ describe("Settings — GDPR account erasure", () => {
     await waitFor(() => expect(signOut).toHaveBeenCalled());
   });
 
+  it("tells the user their files are still being removed when the server defers them", async () => {
+    apiPostMock.mockResolvedValue({ message: "Account deleted.", files: "finishing" });
+    const signOut = vi.fn().mockResolvedValue(undefined);
+
+    renderDataPane(signOut);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /delete my account/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /yes, delete everything/i }),
+    );
+
+    await waitFor(() => expect(signOut).toHaveBeenCalled());
+    expect(toastFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Your account is deleted. Your files are being removed.",
+      }),
+    );
+  });
+
   it("does NOT delete rows client-side or sign out when the server delete fails", async () => {
     apiPostMock.mockRejectedValue(new Error("502 Bad Gateway"));
     const signOut = vi.fn().mockResolvedValue(undefined);
