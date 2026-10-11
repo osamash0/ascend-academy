@@ -19,6 +19,7 @@ import { SocialProvider } from "@/features/social/store";
 import { ConfettiCanvas } from "@/components/ConfettiCanvas";
 import { GamificationProvider } from "@/lib/gamification/GamificationProvider";
 import { MotionRoot } from "@/features/spaces/components/MotionRoot";
+import { CanvasRedirect as LibraryCanvasRedirect, To as LibraryTo } from "@/features/spaces/studio/LibraryRedirects";
 
 function LanguagePreferenceBootstrap({ children }: { children: ReactNode }) {
   useLanguagePreference();
@@ -105,7 +106,6 @@ const V4Lesson = lazy(() => import("./features/spaces/screens/LessonScreen"));
 const V4Concept = lazy(() => import("./features/spaces/screens/ConceptScreen"));
 const V4SpaceManage = lazy(() => import("./features/spaces/screens/SpaceManageScreen"));
 const V4LibraryStudio = lazy(() => import("./features/spaces/screens/LibraryStudioScreen"));
-const V4StudioHome = lazy(() => import("./features/spaces/screens/StudioHomeScreen"));
 const V4StudioCanvas = lazy(() => import("./features/spaces/screens/StudioCanvasScreen"));
 const V4Social = lazy(() => import("./features/spaces/screens/SocialScreen"));
 const V4Profile = lazy(() => import("./features/spaces/screens/ProfileScreen"));
@@ -305,8 +305,13 @@ function AppRoutes() {
             <Route path="/v4/library" element={<V4Library />} />
             {/* Studio screens hang off Library; Library itself stays Learn. */}
             {/* The Studio canvas (spec 2026-10-10). Declared before :view so "studio" is not read as a list view. */}
-            <Route path="/v4/library/studio" element={<V4StudioHome />} />
-            <Route path="/v4/library/studio/c/:canvasId" element={<V4StudioCanvas />} />
+            <Route path="/v4/library/m/:materialId" element={<V4StudioCanvas />} />
+            {/* The old Studio and list-view paths still land somewhere real. */}
+            <Route path="/v4/library/studio" element={<LibraryTo to="/v4/library" />} />
+            <Route path="/v4/library/studio/c/:canvasId" element={<LibraryCanvasRedirect />} />
+            <Route path="/v4/library/uploads" element={<LibraryTo to="/v4/library?f=reading&select=1" />} />
+            <Route path="/v4/library/drafts" element={<LibraryTo to="/v4/library?f=shared&select=1" />} />
+            <Route path="/v4/library/impact" element={<LibraryTo to="/v4/library?f=shared" />} />
             <Route path="/v4/library/:view" element={<V4LibraryStudio />} />
             <Route path="/v4/home" element={<V4Home />} />
             <Route path="/v4/social" element={<V4Social />} />

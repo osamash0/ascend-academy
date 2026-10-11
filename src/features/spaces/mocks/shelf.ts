@@ -10,27 +10,36 @@ import { locateLesson } from './lessons';
 const NORM_COVER = '/v4-mock/studio/normalization-p1.webp';
 const ZERO = { pagesRead: 0, recallKnew: 0, recallTotal: 0, answers: 0, notes: 0 };
 
+const MATERIAL_PREFIX = 'lib-mat-';
+
+/** Uploads are Materials in Library, named `lib-mat-<lessonId>`; the id carries the Lesson. */
 const uploads = (): ShelfItem[] =>
-  itemsOfKind('material').map((m) => {
-    const spaceId = m.spaceId ?? '';
-    const lessonId = (m.href ?? '').split('/').pop() ?? '';
-    const state = locateLesson(lessonId)?.lesson.state;
-    return {
-      id: m.id,
-      filename: m.title,
-      pageCount: 1,
-      cover: '',
-      stage: m.pending && state === 'processing' ? 'developing' : 'ready',
-      share:
-        state === 'published'
-          ? { kind: 'shared', spaceId, as: 'lesson', likes: 0, endorsed: false, cleared: 0 }
-          : { kind: 'draft', spaceId, as: 'lesson' },
-      opens: { kind: 'lesson', spaceId, lessonId },
-      progress: { ...ZERO },
-      lastOpenedAt: null,
-      lastPage: null,
-      addedAt: m.updatedAt,
-    } satisfies ShelfItem;
+  itemsOfKind('material').flatMap((m): ShelfItem[] => {
+    if (!m.id.startsWith(MATERIAL_PREFIX)) return [];
+    const lessonId = m.id.slice(MATERIAL_PREFIX.length);
+    const found = locateLesson(lessonId);
+    // No Lesson to open, or one that was archived: it is not on the shelf.
+    if (!found || found.lesson.state === 'archived') return [];
+    const { lesson, spaceId } = found;
+    const state = lesson.state;
+    return [
+      {
+        id: m.id,
+        filename: m.title,
+        pageCount: 1,
+        cover: '',
+        stage: m.pending && state === 'processing' ? 'developing' : 'ready',
+        share:
+          state === 'published'
+            ? { kind: 'shared', spaceId, as: 'lesson', likes: 0, endorsed: false, cleared: 0 }
+            : { kind: 'draft', spaceId, as: 'lesson' },
+        opens: { kind: 'lesson', spaceId, lessonId },
+        progress: { ...ZERO },
+        lastOpenedAt: null,
+        lastPage: null,
+        addedAt: m.updatedAt,
+      },
+    ];
   });
 
 const seed = (): ShelfItem[] => [
@@ -87,8 +96,16 @@ const set = (next: ShelfItem[]) => {
   items = next;
   emit();
 };
-const patch = (id: string, fn: (i: ShelfItem) => ShelfItem) =>
-  set(items.map((i) => (i.id === id ? fn(i) : i)));
+/** A change that changes nothing — unknown id, or `fn` returning the same item — emits nothing. */
+const patch = (id: string, fn: (i: ShelfItem) => ShelfItem) => {
+  const at = items.findIndex((i) => i.id === id);
+  if (at < 0) return;
+  const next = fn(items[at]);
+  if (next === items[at]) return;
+  const out = [...items];
+  out[at] = next;
+  set(out);
+};
 
 export const getItems = (): ShelfItem[] => items;
 
@@ -125,23 +142,23 @@ export const settleDeveloping = (id: string, ok: boolean): void =>
   patch(id, (i) => (i.stage === 'developing' ? { ...i, stage: ok ? 'ready' : 'failed' } : i));
 
 export const markRead = (id: string, page: number): void =>
-  patch(id, (i) => ({
-    ...i,
-    lastPage: page,
-    progress: { ...i.progress, pagesRead: Math.min(i.pageCount, Math.max(i.progress.pagesRead, page)) },
-  }));
+  patch(id, (i) => {
+    const pagesRead = Math.min(i.pageCount, Math.max(i.progress.pagesRead, page));
+    if (i.lastPage === page && i.progress.pagesRead === pagesRead) return i;
+    return { ...i, lastPage: page, progress: { ...i.progress, pagesRead } };
+  });
 
 export const bumpAnswers = (id: string, delta: number): void =>
-  patch(id, (i) => ({
-    ...i,
-    progress: { ...i.progress, answers: Math.max(0, i.progress.answers + delta) },
-  }));
+  patch(id, (i) => {
+    const answers = Math.max(0, i.progress.answers + delta);
+    return answers === i.progress.answers ? i : { ...i, progress: { ...i.progress, answers } };
+  });
 
 export const setRecall = (id: string, knew: number, total: number): void =>
   patch(id, (i) => ({ ...i, progress: { ...i.progress, recallKnew: knew, recallTotal: total } }));
 
 export const touch = (id: string, now: string = new Date().toISOString()): void =>
-  patch(id, (i) => ({ ...i, lastOpenedAt: now }));
+  patch(id, (i) => (i.lastOpenedAt === now ? i : { ...i, lastOpenedAt: now }));
 
 export const share = (id: string, spaceId: string, role: Role, mode: Mode): void => {
   const o = shareOutcome(role, mode);

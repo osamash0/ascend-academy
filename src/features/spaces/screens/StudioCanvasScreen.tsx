@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { LayoutGroup, useReducedMotion } from 'motion/react';
 import { ChevronLeft, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import { ListSkeleton, NotFound, SpacesError } from '../components/states';
 import { useAsk } from '../data/useAsk';
 import { nextSuggestions } from '../mocks/studio-answers';
 import { useCanvas } from '../data/useSpaces';
+import { shelfActions, useShelfItem } from '../data/useShelf';
 import { CanvasPage } from '../studio/components/CanvasPage';
 import { Composer } from '../studio/components/Composer';
 import type { ComposerNotice } from '../studio/components/Composer';
@@ -40,8 +41,12 @@ const HINT_NO_ORIGINAL = 'Use ← → to move between pages, or ask below.';
  * page, the open Peek, your edits) so nothing is lost when a panel unmounts.
  */
 export default function StudioCanvasScreen() {
-  const { canvasId } = useParams<{ canvasId: string }>();
-  const { state, canvas, pages, material, spaceName } = useCanvas(canvasId);
+  const { materialId } = useParams<{ materialId: string }>();
+  const { state: shelfState, item } = useShelfItem(materialId);
+  const canvasId = item?.opens.kind === 'canvas' ? item.opens.canvasId : undefined;
+  const { state: canvasState, canvas, pages, material, spaceName } = useCanvas(canvasId);
+  const state = shelfState !== 'ready' ? shelfState : item?.opens.kind === 'lesson' ? 'ready' : canvasState;
+  const itemId = item?.id;
   const [theme, toggleTheme] = useStudioTheme();
   const [edited, setEdited] = useState<CanvasDoc | null>(null);
   const doc = edited ?? canvas;
@@ -116,6 +121,20 @@ export default function StudioCanvasScreen() {
   useEffect(() => {
     if (nav.index > 0 || original) setEngaged(true);
   }, [nav.index, original]);
+
+  /* Progress flows back to the shelf: opening, turning to a page, answers. */
+  useEffect(() => {
+    if (itemId) shelfActions.touch(itemId);
+  }, [itemId]);
+  const lastReported = useRef<number | null>(null);
+  const currentPage = nav.current;
+  useEffect(() => {
+    if (!itemId || currentPage === null) return;
+    // The page you arrive on is not a turn: the shelf already knows where you were.
+    const first = lastReported.current === null;
+    lastReported.current = currentPage;
+    if (!first) shelfActions.markRead(itemId, currentPage);
+  }, [itemId, currentPage]);
 
   /* Keep your place: the anchor page's top stays where it was. */
   useLayoutEffect(() => {
@@ -300,6 +319,7 @@ export default function StudioCanvasScreen() {
     docRef.current = next;
     dropLayoutIds();
     setEdited(next);
+    if (itemId) shelfActions.bumpAnswers(itemId, 1);
     // Landed while Source is shown: it is simply there when you come back, no growth to replay.
     if (shownRef.current === 'clean') {
       setFreshId(id);
@@ -364,6 +384,7 @@ export default function StudioCanvasScreen() {
       docRef.current = next;
       dropLayoutIds();
       setEdited(next);
+      if (itemId) shelfActions.bumpAnswers(itemId, -1);
       setFreshId((f) => (f === id ? null : f));
       // Removed before it settled: it never will, so its anchor stops glowing here.
       if (glowFor.current === id) {
@@ -380,12 +401,13 @@ export default function StudioCanvasScreen() {
             focusAfterRestore.current = removed.block.id;
             dropLayoutIds();
             setEdited(back);
+            if (itemId) shelfActions.bumpAnswers(itemId, 1);
           }
           showNotice(null);
         },
       });
     },
-    [showNotice, dropLayoutIds],
+    [showNotice, dropLayoutIds, itemId],
   );
   const { open: openPeek } = peek;
   const onOpenPeekSource = useCallback(
@@ -410,8 +432,10 @@ export default function StudioCanvasScreen() {
   );
   if (state === 'loading') return frame(<ListSkeleton />);
   if (state === 'error') return frame(<SpacesError what="this Material" />);
-  if (!doc || !material)
-    return frame(<NotFound what="Material" backTo="/v4/library/studio" backLabel="Back to Studio" />);
+  if (item?.opens.kind === 'lesson')
+    return <Navigate replace to={`/v4/space/${item.opens.spaceId}/lesson/${item.opens.lessonId}`} />;
+  if (!item || !doc || !material)
+    return frame(<NotFound what="Material" backTo="/v4/library" backLabel="Back to Library" />);
 
   const peekPanel = (
     <PeekSlot
@@ -436,15 +460,15 @@ export default function StudioCanvasScreen() {
       <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-md">
         <div className="relative flex min-h-[88px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-5">
           <Link
-            to="/v4/library/studio"
-            aria-label="Back to Studio"
+            to="/v4/library"
+            aria-label="Back to Library"
             className="console-focusable order-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-quiet transition-colors hover:bg-[rgb(var(--studio-chip))] hover:text-foreground"
           >
             <ChevronLeft aria-hidden className="h-5 w-5" />
           </Link>
           <div className="order-3 w-full min-w-0 text-center lg:pointer-events-none lg:absolute lg:inset-x-[18rem] lg:top-1/2 lg:order-2 lg:w-auto lg:-translate-y-1/2">
             <p className="mb-1 truncate text-[12.5px] text-quiet">
-              Library · Studio
+              Library
               {spaceName && (
                 <>
                   <span aria-hidden className="mx-2 text-faint">·</span>
@@ -453,8 +477,9 @@ export default function StudioCanvasScreen() {
               )}
             </p>
             <h1 className="truncate text-[20px] font-medium leading-tight tracking-[-0.015em] text-foreground sm:text-[22px]">
-              {material.filename}
+              {item.filename}
             </h1>
+            {item.sample && <p className="mt-1 truncate text-[12.5px] text-faint">Sample pages in this preview</p>}
           </div>
           <div className="order-2 ml-auto flex items-center gap-2 lg:order-3">
             <button

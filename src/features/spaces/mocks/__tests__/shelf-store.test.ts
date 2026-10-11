@@ -76,3 +76,58 @@ describe('mutations', () => {
     expect(fn).toHaveBeenCalledTimes(5);
   });
 });
+
+describe('uploads on the shelf', () => {
+  const load = async (change: (r: ReturnType<typeof import('../lessons').locateLesson>) => unknown) => {
+    vi.resetModules();
+    vi.doMock('../lessons', async (orig) => {
+      const m = await orig<typeof import('../lessons')>();
+      return { ...m, locateLesson: (id: string) => change(m.locateLesson(id)) };
+    });
+    return import('../shelf');
+  };
+  const uploadsOf = (s: typeof store) => s.getItems().filter((i) => i.opens.kind === 'lesson');
+
+  it('carries the real Lesson and Space in opens', () => {
+    const ups = uploadsOf(store);
+    expect(ups.length).toBeGreaterThan(0);
+    for (const i of ups) {
+      expect(i.id.endsWith(i.opens.kind === 'lesson' ? i.opens.lessonId : '?')).toBe(true);
+      if (i.share.kind !== 'private') expect(i.share.spaceId).not.toBe('');
+    }
+  });
+  it('leaves an archived Lesson off the shelf', async () => {
+    const s = await load((r) => r && { ...r, lesson: { ...r.lesson, state: 'archived' } });
+    expect(uploadsOf(s)).toEqual([]);
+  });
+  it('keeps a needs-review Lesson as a draft', async () => {
+    const s = await load((r) => r && { ...r, lesson: { ...r.lesson, state: 'needs-review' } });
+    expect(uploadsOf(s).length).toBeGreaterThan(0);
+    for (const i of uploadsOf(s)) expect(i.share.kind).toBe('draft');
+  });
+  it('skips an upload whose Lesson cannot be found', async () => {
+    const s = await load(() => undefined);
+    expect(uploadsOf(s)).toEqual([]);
+  });
+});
+
+describe('a change that changes nothing', () => {
+  it('does not emit or reallocate', () => {
+    const fn = vi.fn();
+    const off = store.subscribe(fn);
+    const before = store.getItems();
+    store.touch('nope');
+    store.markRead('nope', 3);
+    store.bumpAnswers('nope', 1);
+    store.markRead('m-norm', 6); // already there: lastPage 6, pagesRead 6
+    store.bumpAnswers('m-norm', 0);
+    store.settleDeveloping('m-norm', true); // not developing
+    store.touch('m-norm', '2026-10-11T08:00:00Z'); // already that
+    expect(fn).not.toHaveBeenCalled();
+    expect(store.getItems()).toBe(before);
+    store.markRead('m-norm', 7);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(store.getItems()).not.toBe(before);
+    off();
+  });
+});

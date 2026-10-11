@@ -29,9 +29,9 @@ afterEach(() => {
 
 const mount = async () => {
   const utils = render(
-    <MemoryRouter initialEntries={['/v4/library/studio/c/c-norm']}>
+    <MemoryRouter initialEntries={['/v4/library/m/m-norm']}>
       <Routes>
-        <Route path="/v4/library/studio/c/:canvasId" element={<StudioCanvasScreen />} />
+        <Route path="/v4/library/m/:materialId" element={<StudioCanvasScreen />} />
       </Routes>
     </MemoryRouter>,
   );
