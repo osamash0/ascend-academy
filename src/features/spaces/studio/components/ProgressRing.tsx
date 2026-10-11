@@ -13,7 +13,7 @@ export function ProgressRing({
   label: string;
 }) {
   const reduce = useReducedMotion();
-  if (total === 0) return <></>;
+  if (total === 0) return null;
   const complete = knew === total;
   const r = 7;
   const c = 2 * Math.PI * r;

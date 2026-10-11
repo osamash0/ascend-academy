@@ -1,8 +1,8 @@
-import { memo, type ReactNode } from 'react';
+import { createContext, memo, useContext, type ReactNode } from 'react';
 import { Streamdown, defaultRehypePlugins } from 'streamdown';
 import { cn } from '@/lib/utils';
 import { RecallTerm } from './RecallTerm';
-import { termKey, termsIn, type TermState } from '../recall';
+import { isPlainTerm, termKey, type TermState } from '../recall';
 
 /**
  * Streamdown's defaults include rehype-raw, which parses raw HTML out of the
@@ -29,12 +29,73 @@ export interface MarkdownRecall {
   onMark(key: string, t: 'knew' | 'notYet'): void;
 }
 
-const textOf = (n: ReactNode): string =>
+interface HNode {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: Record<string, unknown>;
+  children?: HNode[];
+  position?: { start?: { offset?: number } };
+}
+
+const hastText = (n: HNode): string =>
+  n.type === 'text' ? (n.value ?? '') : (n.children ?? []).map(hastText).join('');
+
+/**
+ * Stamps each recall term with its index, counted over the whole tree in
+ * reading order. A term is a `**bold**` span of plain text (the same rule as
+ * `termsIn`); other bold stays ordinary bold.
+ */
+function rehypeTermIndex() {
+  return (tree: HNode, file: { value?: unknown }) => {
+    const source = typeof file.value === 'string' ? file.value : '';
+    let i = 0;
+    const walk = (n: HNode) => {
+      if (n.type === 'element' && n.tagName === 'strong') {
+        const kids = n.children ?? [];
+        const at = n.position?.start?.offset;
+        const asterisks = at === undefined || source.slice(at, at + 2) === '**';
+        if (asterisks && kids.every((k) => k.type === 'text') && isPlainTerm(hastText(n))) {
+          n.properties = { ...n.properties, dataTermIndex: i++ };
+        }
+        return;
+      }
+      n.children?.forEach(walk);
+    };
+    walk(tree);
+  };
+}
+
+/** Held in context so term components stay mounted while their state changes. */
+const RecallContext = createContext<MarkdownRecall | null>(null);
+
+function RecallStrong(props: { children?: ReactNode; [k: string]: unknown }) {
+  const recall = useContext(RecallContext);
+  const idx = props['data-term-index'];
+  if (!recall || typeof idx !== 'number') return <strong>{props.children}</strong>;
+  const key = termKey(recall.blockId, idx);
+  return (
+    <RecallTerm
+      text={hastTextOf(props.children)}
+      state={recall.get(key)}
+      page={recall.page}
+      onReveal={() => recall.onReveal(key)}
+      onMark={(t) => recall.onMark(key, t)}
+    />
+  );
+}
+
+const hastTextOf = (n: ReactNode): string =>
   typeof n === 'string' || typeof n === 'number'
     ? String(n)
     : Array.isArray(n)
-      ? n.map(textOf).join('')
+      ? n.map(hastTextOf).join('')
       : '';
+
+const RECALL_COMPONENTS = { strong: RecallStrong };
+const RECALL_REHYPE = [...REHYPE_PLUGINS, rehypeTermIndex];
+/** One block: term indexes run across the whole text, not per Streamdown block. */
+const ONE_BLOCK = (md: string) => [md];
 
 export const Markdown = memo(function Markdown({
   children,
@@ -46,45 +107,16 @@ export const Markdown = memo(function Markdown({
   /** Key terms (**term**) render as RecallTerms, keyed `blockId:n` in reading order. */
   recall?: MarkdownRecall;
 }) {
-  let components;
-  if (recall) {
-    // The n-th occurrence of a text maps to the index of that occurrence among all terms.
-    const order = termsIn(children);
-    const seen = new Map<string, number>();
-    components = {
-      strong: ({ children: c }: { children?: ReactNode }) => {
-        const text = textOf(c);
-        const nth = seen.get(text) ?? 0;
-        seen.set(text, nth + 1);
-        let idx = -1;
-        for (let i = 0, k = 0; i < order.length; i++) {
-          if (order[i] === text && k++ === nth) {
-            idx = i;
-            break;
-          }
-        }
-        if (idx < 0) return <strong>{c}</strong>;
-        const key = termKey(recall.blockId, idx);
-        return (
-          <RecallTerm
-            text={text}
-            state={recall.get(key)}
-            page={recall.page}
-            onReveal={() => recall.onReveal(key)}
-            onMark={(t) => recall.onMark(key, t)}
-          />
-        );
-      },
-    };
-  }
-  return (
+  const stream = (
     <Streamdown
       className={cn('studio-prose', className)}
-      rehypePlugins={REHYPE_PLUGINS}
+      rehypePlugins={recall ? RECALL_REHYPE : REHYPE_PLUGINS}
       disallowedElements={NO_ELEMENTS}
-      components={components}
+      components={recall ? RECALL_COMPONENTS : undefined}
+      parseMarkdownIntoBlocksFn={recall ? ONE_BLOCK : undefined}
     >
       {children}
     </Streamdown>
   );
+  return recall ? <RecallContext.Provider value={recall}>{stream}</RecallContext.Provider> : stream;
 });

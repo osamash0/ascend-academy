@@ -9,9 +9,27 @@ export interface RecallState {
 
 export const termKey = (blockId: string, index: number) => `${blockId}:${index}`;
 
-/** The **term** texts of a summary, in order. */
+const CH = String.raw`[^*\\`+"`"+String.raw`_\[\]<>&]`;
+const EDGE = String.raw`[^*\s\\`+"`"+String.raw`_\[\]<>&]`;
+const BODY = `${EDGE}(?:(?:(?!\\n[ \\t]*\\n)${CH})*${EDGE})?`;
+const TERM_SCAN = new RegExp(String.raw`\*\*(${BODY})\*\*`, 'g');
+const TERM_WHOLE = new RegExp(`^${EDGE}(?:${CH}*${EDGE})?$`);
+/** Whether rendered bold text is a recall term (the renderer and termsIn share this rule). */
+export const isPlainTerm = (text: string) => TERM_WHOLE.test(text);
+
+/**
+ * The key terms of a summary, in order: exactly the `**term**` spans the
+ * renderer turns into RecallTerms. Code spans and fences are not terms, bold
+ * may wrap a line, and a term is plain text (bold holding other markup stays
+ * ordinary bold, and so does the renderer: see Markdown's rehype stamp).
+ */
 export function termsIn(markdown: string): string[] {
-  return Array.from(markdown.matchAll(/\*\*(.+?)\*\*/g), (m) => m[1]);
+  const text = markdown
+    .replace(/^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:\n {0,3}\1[`~]*[ \t]*(?=\n|$)|$)/gm, ' ')
+    .replace(/(`+)[\s\S]*?\1/g, ' ');
+  const out: string[] = [];
+  for (const m of text.matchAll(TERM_SCAN)) out.push(m[1].replace(/\s*\n\s*/g, ' '));
+  return out;
 }
 
 export const stateOf = (s: RecallState, key: string): TermState => s.terms[key] ?? 'blank';
